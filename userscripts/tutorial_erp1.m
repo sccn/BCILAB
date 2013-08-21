@@ -134,7 +134,7 @@ approaches.waveletssvm = {'DataflowSimplified' 'SignalProcessing',{'EpochExtract
 
 % using LARS (sparse least-angle (logistic) regression) on a wavelet decomposition of independent components of the data
 approaches.larsica_wavelets = {'DataflowSimplified' 'SignalProcessing',{'Resampling',100,'EpochExtraction',[0 0.8],'WaveletTransform','on','ICA',{'Variant','beamica','TransformData',true}}, ...
-    'Prediction',{'MachineLearning',{'Learner',{'logreg',{'variant','lars'}}}}};
+    'Prediction',{'MachineLearning',{'Learner',{'logreg','variant','lars'}}}};
 % again wavelets, but this time group-sparse logistic regression (takes ~50 minutes!!!)
 approaches.waveletsglr = {'DataflowSimplified' 'SignalProcessing',{'Resampling',100,'EpochExtraction',[0 0.8],'WaveletTransform','on'}, ...
     'Prediction',{'MachineLearning',{'Learner',{'dal',2.^(10:-0.125:1),'scaling','std','regularizer','glc','shape',[64 NaN]}}}};
