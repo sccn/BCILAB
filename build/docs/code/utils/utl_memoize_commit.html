@@ -1,0 +1,241 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_memoize_commit</title>
+  <meta name="keywords" content="utl_memoize_commit">
+  <meta name="description" content="Commit an object to a memory location.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_memoize_commit.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_memoize_commit
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Commit an object to a memory location.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function utl_memoize_commit(obj,id,inputbytes) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Commit an object to a memory location.
+ utl_memoize_commit(Object,Location,InputBytes)
+
+ In:
+   Object   : the object to be memoized; required to have a .tracking.expression field, which
+              uniquely identifies the object if a .tracking.computation_time field is present, the
+              disk cache location may vary accordingly (as specified in env_startup)
+             
+   Location : Memory location; expected to originate from a prior call to utl_memoize_lookup, which
+              returns it as a result (attached to the memoize action).
+
+   InputBytes : size of the input to the calculation that produced the object; used to determine
+               whether caching is beneficial or not
+
+ See also:
+   <a href="utl_memoize_lookup.html" class="code" title="function [action,result] = utl_memoize_lookup(exp,memo_ctrl,ctx)">utl_memoize_lookup</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-05-23</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_memoize_lookup.html" class="code" title="function [action,result] = utl_memoize_lookup(exp,memo_ctrl,ctx)">utl_memoize_lookup</a>	Check for memoizability and/or availability of the given expression.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function utl_memoize_commit(obj,id,inputbytes)</a>
+0002 <span class="comment">% Commit an object to a memory location.</span>
+0003 <span class="comment">% utl_memoize_commit(Object,Location,InputBytes)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Object   : the object to be memoized; required to have a .tracking.expression field, which</span>
+0007 <span class="comment">%              uniquely identifies the object if a .tracking.computation_time field is present, the</span>
+0008 <span class="comment">%              disk cache location may vary accordingly (as specified in env_startup)</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">%   Location : Memory location; expected to originate from a prior call to utl_memoize_lookup, which</span>
+0011 <span class="comment">%              returns it as a result (attached to the memoize action).</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">%   InputBytes : size of the input to the calculation that produced the object; used to determine</span>
+0014 <span class="comment">%               whether caching is beneficial or not</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">% See also:</span>
+0017 <span class="comment">%   utl_memoize_lookup</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0020 <span class="comment">%                                2010-05-23</span>
+0021 
+0022 <span class="keyword">global</span> tracking;
+0023 objinfo = whos(<span class="string">'obj'</span>);
+0024 <span class="keyword">if</span> id(1) == <span class="string">'.'</span>
+0025     <span class="comment">% in-memory memoization</span>
+0026     id = id(2:end);
+0027     <span class="comment">% here, we are subject to a quota. delete least-recently used items until there is enough capacity to fit the object</span>
+0028     <span class="keyword">if</span> ~isfield(tracking,<span class="string">'cache'</span>)
+0029         tracking.cache = struct(); <span class="keyword">end</span>
+0030     <span class="keyword">if</span> ~isfield(tracking.cache,<span class="string">'sizes'</span>)
+0031         tracking.cache.sizes = struct(); <span class="keyword">end</span>
+0032     <span class="keyword">if</span> ~isfield(tracking.cache,<span class="string">'times'</span>)
+0033         tracking.cache.times = struct(); <span class="keyword">end</span>
+0034     <span class="keyword">while</span> 1
+0035         <span class="keyword">if</span> ~isempty(fieldnames(tracking.cache.sizes))
+0036             cache_size = sum(cell2mat(struct2cell(tracking.cache.sizes)));
+0037         <span class="keyword">else</span>
+0038             cache_size = 0;
+0039         <span class="keyword">end</span>
+0040         <span class="keyword">if</span> cache_size + objinfo.bytes &lt; tracking.cache.capacity
+0041             <span class="comment">% the object fits into the cache: store and break</span>
+0042             [tracking.cache.data.(id),tracking.cache.sizes.(id),tracking.cache.times.(id)] = deal(obj,objinfo.bytes,cputime);
+0043             <span class="keyword">break</span>;
+0044         <span class="keyword">end</span>
+0045         <span class="comment">% object does not fit: try to delete the least-recently used object from cache, if any</span>
+0046         <span class="keyword">if</span> isempty(fieldnames(tracking.cache.times))
+0047             <span class="keyword">break</span>; <span class="keyword">end</span>
+0048         <span class="keyword">try</span>
+0049             [tmp,I] = sort(cell2mat(struct2cell(tracking.cache.times))); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0050             fn = fieldnames(tracking.cache.times); fn = fn{I(1)};
+0051             [tracking.cache.data,tracking.cache.times,tracking.cache.sizes] = deal(rmfield(tracking.cache.data,fn),rmfield(tracking.cache.times,fn),rmfield(tracking.cache.sizes,fn));
+0052         <span class="keyword">catch</span>
+0053         <span class="keyword">end</span>
+0054     <span class="keyword">end</span>
+0055 <span class="keyword">elseif</span> id(1) == filesep
+0056     <span class="comment">% on-disk memoization</span>
+0057     <span class="keyword">try</span>
+0058         <span class="comment">% get the time thresholds for the cache locations &amp; sort them</span>
+0059         [times,I] = sort(cellfun(@(c)c.time,struct2cell(tracking.cache.disk_paths)),<span class="string">'descend'</span>);
+0060         tags = fieldnames(tracking.cache.disk_paths);
+0061         tags = tags(I);
+0062         domain_idx  = [];
+0063         <span class="keyword">if</span> isfield(obj{1}.tracking,<span class="string">'computation_time'</span>)
+0064             <span class="keyword">for</span> i=1:length(times)
+0065                 <span class="keyword">if</span> obj{1}.tracking.computation_time &gt;= times(i)
+0066                     <span class="comment">% required computation time threshold for this domain exceeded (i.e. the domain applies):</span>
+0067                     <span class="comment">% take the appropriate dir to store results</span>
+0068                     domain_idx = i;
+0069                     <span class="keyword">break</span>;
+0070                 <span class="keyword">end</span>
+0071             <span class="keyword">end</span>
+0072             <span class="keyword">if</span> isempty(domain_idx)
+0073                 <span class="comment">% no domain applied: skip this location</span>
+0074                 <span class="keyword">return</span>; <span class="keyword">end</span>
+0075         <span class="keyword">else</span>
+0076             <span class="comment">% take the last (fastest-computation) domain if the computation time is not available for some reason</span>
+0077             domain_idx = length(tags);
+0078         <span class="keyword">end</span>
+0079         <span class="comment">% get the location where we want to store</span>
+0080         location = tracking.cache.disk_paths.(tags{domain_idx});
+0081         
+0082         <span class="comment">% test if it makes sense to cache this data set, depending on computation time and disk speeds</span>
+0083         <span class="keyword">try</span>
+0084             write_speed = regress([location.writestats.time]',[location.writestats.size]');
+0085             read_speed = regress([location.readstats.time]',[location.readstats.size]');
+0086             write_time_estimate = objinfo.bytes * write_speed;
+0087             read_time_estimate = objinfo.bytes * read_speed;
+0088             input_read_time_estimate = inputbytes * read_speed;
+0089             time_without_caching = (input_read_time_estimate + obj{1}.tracking.computation_time) * tracking.cache.reuses;
+0090             time_with_caching = write_time_estimate + read_time_estimate * tracking.cache.reuses;
+0091             <span class="comment">% if we don't make it at least 2x faster, we skip the caching</span>
+0092             <span class="keyword">if</span> time_without_caching &lt; time_with_caching * 2
+0093                 <span class="keyword">return</span>; <span class="keyword">end</span>                
+0094         <span class="keyword">catch</span>,<span class="keyword">end</span>
+0095         
+0096         <span class="comment">% check if we exceed the quota and have to delete old data (only supported starting with MATLAB 2007b)</span>
+0097         <span class="keyword">try</span> 
+0098             free_space = location.space_checker.getFreeSpace;
+0099             <span class="comment">% we use this to determine whether disk space can be queried for this location (it's 0 if not)</span>
+0100             total_space = location.space_checker.getTotalSpace; 
+0101             <span class="keyword">if</span> ~total_space
+0102                 disp_once([<span class="string">'Note: the disk space on '</span> location.dir <span class="string">' cannot be queried; disabling capacity constraint for the cache.'</span>]); <span class="keyword">end</span>
+0103             <span class="keyword">if</span> total_space ~= 0 &amp;&amp; (free_space - objinfo.bytes &lt; location.free)
+0104                 <span class="comment">% get an updated view of the files in the cache</span>
+0105                 <span class="keyword">if</span> ~isfield(location,<span class="string">'snapshot'</span>)
+0106                     location.snapshot = struct(); <span class="keyword">end</span>
+0107                 <span class="comment">% define a function to retain only directories/files whoes name doesn't begin with a '.'</span>
+0108                 properize = @(dirlist) dirlist(cellfun(@(d)d(1)~=<span class="string">'.'</span>,{dirlist.name}));
+0109                 <span class="comment">% find all cache branches (the two-digit subdirectories); this call is cached by the OS</span>
+0110                 curdirs = properize(dir(location.dir));
+0111                 <span class="comment">% update our records for those branches that we don't have yet or whose timestamps are obsolete</span>
+0112                 dirnames = cellfun(@(n)[<span class="string">'dir'</span> n],{curdirs.name},<span class="string">'UniformOutput'</span>,false);
+0113                 <span class="keyword">for</span> d = 1:length(curdirs)
+0114                     fname = dirnames{d};
+0115                     <span class="keyword">if</span> ~isfield(location.snapshot,fname) || location.snapshot.(fname).datenum ~= curdirs(d).datenum
+0116                         location.snapshot.(fname) = curdirs(d);
+0117                         <span class="comment">% get the list of all contained files</span>
+0118                         files = properize(dir([location.dir filesep curdirs(d).name]));
+0119                         <span class="comment">% and make them full path names...</span>
+0120                         <span class="keyword">for</span> f=1:length(files)                            
+0121                             files(f).path = [location.dir filesep curdirs(d).name filesep files(f).name]; <span class="keyword">end</span>
+0122                         location.snapshot.(fname).files = files;
+0123                         <span class="comment">% if the directory has no files, delete it...</span>
+0124                         <span class="keyword">if</span> isempty(files)
+0125                             <span class="keyword">try</span> rmdir([location.dir filesep curdirs(d).name]); <span class="keyword">catch</span>,<span class="keyword">end</span>
+0126                         <span class="keyword">end</span>
+0127                     <span class="keyword">end</span>
+0128                 <span class="keyword">end</span>
+0129                 location.snapshot = rmfield(location.snapshot,setdiff(fieldnames(location.snapshot),dirnames));                
+0130                 <span class="comment">% get a flat list of all files</span>
+0131                 allfiles = [];
+0132                 <span class="keyword">for</span> fn = dirnames
+0133                     files = location.snapshot.(fn{1}).files;
+0134                     <span class="keyword">if</span> ~isempty(files)
+0135                         <span class="keyword">if</span> isempty(allfiles)
+0136                             allfiles = files;
+0137                         <span class="keyword">else</span>
+0138                             allfiles(end+1:end+length(files)) = files; 
+0139                         <span class="keyword">end</span>
+0140                     <span class="keyword">end</span>
+0141                 <span class="keyword">end</span>
+0142                 <span class="comment">% sort them according to date</span>
+0143                 [x,newest_to_oldest] = sort([allfiles.datenum],<span class="string">'descend'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0144                 <span class="comment">% delete old files as long as ours doesn't yet fit into memory</span>
+0145                 <span class="keyword">while</span> location.space_checker.getFreeSpace - objinfo.bytes &lt; location.free
+0146                     <span class="comment">% if none, return (then, our current data set does not fit into the cache)</span>
+0147                     <span class="keyword">if</span> isempty(newest_to_oldest)
+0148                         <span class="keyword">return</span>; <span class="keyword">end</span>
+0149                     <span class="comment">% delete the oldest one</span>
+0150                     <span class="keyword">try</span> delete(allfiles(newest_to_oldest(end)).path); <span class="keyword">catch</span>,<span class="keyword">end</span>
+0151                     newest_to_oldest = newest_to_oldest(1:end-1);
+0152                 <span class="keyword">end</span>
+0153             <span class="keyword">end</span>
+0154         <span class="keyword">catch</span>,<span class="keyword">end</span>
+0155         
+0156         <span class="comment">% create directories</span>
+0157         filepath = [location.dir id];
+0158         io_mkdirs(filepath,{<span class="string">'+w'</span>,<span class="string">'a'</span>});
+0159         t0 = tic;
+0160         <span class="comment">% save</span>
+0161         <span class="keyword">if</span> objinfo.bytes &gt;= (2000*1024*1024)
+0162             save(filepath,<span class="string">'obj'</span>,<span class="string">'-v7.3'</span>);
+0163         <span class="keyword">else</span>
+0164             save(filepath,<span class="string">'obj'</span>);
+0165         <span class="keyword">end</span>
+0166         <span class="comment">% make writable</span>
+0167         warning off MATLAB:FILEATTRIB:SyntaxWarning
+0168         fileattrib(filepath,<span class="string">'+w'</span>,<span class="string">'a'</span>);
+0169         <span class="comment">% record some statistics on the write speed to this location...</span>
+0170         location.writestats(end+1) = struct(<span class="string">'size'</span>,{objinfo.bytes},<span class="string">'time'</span>,{toc(t0)});
+0171         <span class="comment">% write back the updated location record</span>
+0172         tracking.cache.disk_paths.(tags{domain_idx}) = location;
+0173     <span class="keyword">catch</span>, <span class="keyword">end</span>
+0174 <span class="keyword">else</span>
+0175     error(<span class="string">'unknown memoization location specified.'</span>);
+0176 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

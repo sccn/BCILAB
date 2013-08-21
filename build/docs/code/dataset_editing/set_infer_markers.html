@@ -1,0 +1,315 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of set_infer_markers</title>
+  <meta name="keywords" content="set_infer_markers">
+  <meta name="description" content="Infers markers from an event channel, if possible.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">dataset_editing</a> &gt; set_infer_markers.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/dataset_editing&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>set_infer_markers
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Infers markers from an event channel, if possible.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function signal = set_infer_markers(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Infers markers from an event channel, if possible.
+ Signal = set_infer_markers(Signal)
+
+ If the data set has one (or more) channels with relatively few unique values, and relatively few
+ off-median values (or plateaus thereof), markers are being generated to encode whenever such a
+ channel changes its value. By default, the detected event channels are being removed from the
+ data. 
+
+ This funciton is automatically called by io_loadset if no markers are present in the given 
+ set. io_loadset has a parameter ('markerchannel') which can be utilized to customize the settings 
+ below (as a cell array of arguments to set_infer_markers).
+
+ In:
+   Signal                    : continuous EEGLAB data set from which an interval should be selected
+
+   MaxEvents                 : a channel is only considered for event generation if it would produce
+                               at most this many distinct events (default: 25000)
+
+   MaxTypes                  : a channel is only considered for event generation if it would produce
+                               at most this many distinct event types (default 300)
+
+   IncludeLabel              : when to include the channel label into the generated event types; 
+                               can be 'always', 'multiplechans', 'never' (default: 'multiplechans')
+
+   AllPositive               : whether all events must have positive offsets from the baseline 
+                               (median) value (default: true)
+
+   EncodePlateaus            : Whether the trigger channel may contain (non-baseline) plateaus, to 
+                               be encoded in event duration. (default: true)
+
+   StrictInteger             : only consider channels that would produce integer event types 
+                               (otherwise: round to integer) (default: true)
+
+   RelativeBaselineThreshold : Relative baseline threshold. If the event types would be larger than
+                               this threshold, they will be re-coded to be relative to the smallest
+                               event type in the channel. (default: 10000)
+
+   OmitBaselineThreshold     : Baseline omission threshold. If the baseline event takes up more than
+                               this fraction of the data, it will not be encoded as events.
+                               (default: 0.8)
+
+   RemoveEventChannels       : Whether to remove channels that have been identified as event
+                               channels (default: true)
+
+ Out:
+   Signal    : data set restricted to the selected range
+
+ Examples:
+   % for a data set with one or more trigger channels, fill in contents of the .event field
+   % and remove the trigger channel(s); do nothing if the data set does not contain trigger channels
+   eeg = set_infer_markers(eeg)
+
+   % fill in contents of the .event field from trigger channels, and do not remove these channels
+   eeg = set_infer_markers('Signal',eeg,'RemoveEventChannels',false)
+
+   % if an event channel is not being detected because it produces more than the default MaxEvents 
+   % number of events, use a larger cutoff value
+   eeg = set_infer_markers('Signal',eeg,'MaxEvents',30000)
+   
+   % if an event channel is not being detected because it produces more than the default MaxTypes
+   % number of distinct event types, use a larger cutoff value
+   eeg = set_infer_markers('Signal',eeg,'MaxTypes',1000)
+
+   % for event channels that have values that far from zero (say, 30000+), the values are by default
+   % made relative to to the baseline value (most frequent or smallest value, depending on the 
+   % EncodePlateaus setting) -- if this is not intended, override the cutoff with a larger value
+   eeg = set_infer_markers('Signal',eeg,'RelativeBaselineThreshold',Inf)
+
+   % if a trigger channel contains many subsequent events of the same type (i.e. plateaus), by 
+   % default only one event is generated with the appropriate duration; if instead an event should 
+   % be generated for each sample, override that default (and possibly increase MaxEvents)
+   eeg = set_infer_markers('Signal',eeg,'EncodePlateaus',false,'MaxEvents',Inf)
+   
+ See also:
+   io_loadset
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-01-26</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = set_infer_markers(varargin)</a>
+0002 <span class="comment">% Infers markers from an event channel, if possible.</span>
+0003 <span class="comment">% Signal = set_infer_markers(Signal)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% If the data set has one (or more) channels with relatively few unique values, and relatively few</span>
+0006 <span class="comment">% off-median values (or plateaus thereof), markers are being generated to encode whenever such a</span>
+0007 <span class="comment">% channel changes its value. By default, the detected event channels are being removed from the</span>
+0008 <span class="comment">% data.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% This funciton is automatically called by io_loadset if no markers are present in the given</span>
+0011 <span class="comment">% set. io_loadset has a parameter ('markerchannel') which can be utilized to customize the settings</span>
+0012 <span class="comment">% below (as a cell array of arguments to set_infer_markers).</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">% In:</span>
+0015 <span class="comment">%   Signal                    : continuous EEGLAB data set from which an interval should be selected</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">%   MaxEvents                 : a channel is only considered for event generation if it would produce</span>
+0018 <span class="comment">%                               at most this many distinct events (default: 25000)</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%   MaxTypes                  : a channel is only considered for event generation if it would produce</span>
+0021 <span class="comment">%                               at most this many distinct event types (default 300)</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%   IncludeLabel              : when to include the channel label into the generated event types;</span>
+0024 <span class="comment">%                               can be 'always', 'multiplechans', 'never' (default: 'multiplechans')</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">%   AllPositive               : whether all events must have positive offsets from the baseline</span>
+0027 <span class="comment">%                               (median) value (default: true)</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">%   EncodePlateaus            : Whether the trigger channel may contain (non-baseline) plateaus, to</span>
+0030 <span class="comment">%                               be encoded in event duration. (default: true)</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%   StrictInteger             : only consider channels that would produce integer event types</span>
+0033 <span class="comment">%                               (otherwise: round to integer) (default: true)</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%   RelativeBaselineThreshold : Relative baseline threshold. If the event types would be larger than</span>
+0036 <span class="comment">%                               this threshold, they will be re-coded to be relative to the smallest</span>
+0037 <span class="comment">%                               event type in the channel. (default: 10000)</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%   OmitBaselineThreshold     : Baseline omission threshold. If the baseline event takes up more than</span>
+0040 <span class="comment">%                               this fraction of the data, it will not be encoded as events.</span>
+0041 <span class="comment">%                               (default: 0.8)</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%   RemoveEventChannels       : Whether to remove channels that have been identified as event</span>
+0044 <span class="comment">%                               channels (default: true)</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">% Out:</span>
+0047 <span class="comment">%   Signal    : data set restricted to the selected range</span>
+0048 <span class="comment">%</span>
+0049 <span class="comment">% Examples:</span>
+0050 <span class="comment">%   % for a data set with one or more trigger channels, fill in contents of the .event field</span>
+0051 <span class="comment">%   % and remove the trigger channel(s); do nothing if the data set does not contain trigger channels</span>
+0052 <span class="comment">%   eeg = set_infer_markers(eeg)</span>
+0053 <span class="comment">%</span>
+0054 <span class="comment">%   % fill in contents of the .event field from trigger channels, and do not remove these channels</span>
+0055 <span class="comment">%   eeg = set_infer_markers('Signal',eeg,'RemoveEventChannels',false)</span>
+0056 <span class="comment">%</span>
+0057 <span class="comment">%   % if an event channel is not being detected because it produces more than the default MaxEvents</span>
+0058 <span class="comment">%   % number of events, use a larger cutoff value</span>
+0059 <span class="comment">%   eeg = set_infer_markers('Signal',eeg,'MaxEvents',30000)</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">%   % if an event channel is not being detected because it produces more than the default MaxTypes</span>
+0062 <span class="comment">%   % number of distinct event types, use a larger cutoff value</span>
+0063 <span class="comment">%   eeg = set_infer_markers('Signal',eeg,'MaxTypes',1000)</span>
+0064 <span class="comment">%</span>
+0065 <span class="comment">%   % for event channels that have values that far from zero (say, 30000+), the values are by default</span>
+0066 <span class="comment">%   % made relative to to the baseline value (most frequent or smallest value, depending on the</span>
+0067 <span class="comment">%   % EncodePlateaus setting) -- if this is not intended, override the cutoff with a larger value</span>
+0068 <span class="comment">%   eeg = set_infer_markers('Signal',eeg,'RelativeBaselineThreshold',Inf)</span>
+0069 <span class="comment">%</span>
+0070 <span class="comment">%   % if a trigger channel contains many subsequent events of the same type (i.e. plateaus), by</span>
+0071 <span class="comment">%   % default only one event is generated with the appropriate duration; if instead an event should</span>
+0072 <span class="comment">%   % be generated for each sample, override that default (and possibly increase MaxEvents)</span>
+0073 <span class="comment">%   eeg = set_infer_markers('Signal',eeg,'EncodePlateaus',false,'MaxEvents',Inf)</span>
+0074 <span class="comment">%</span>
+0075 <span class="comment">% See also:</span>
+0076 <span class="comment">%   io_loadset</span>
+0077 <span class="comment">%</span>
+0078 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0079 <span class="comment">%                                2010-01-26</span>
+0080 
+0081 declare_properties(<span class="string">'independent_channels'</span>,false,<span class="string">'independent_trials'</span>,false);
+0082 
+0083 arg_define(varargin, <span class="keyword">...</span>
+0084     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0085     arg({<span class="string">'force_processing'</span>,<span class="string">'ForceProcessing'</span>},false,[], <span class="string">'Force marker processing. Scan for marker channels even if a data set already has events.'</span>), <span class="keyword">...</span>
+0086     arg({<span class="string">'max_events'</span>,<span class="string">'MaxEvents'</span>},30000,[], <span class="string">'Number of events allowed. If a channel would produce more than this many events, it is not considered an event channel.'</span>), <span class="keyword">...</span>
+0087     arg({<span class="string">'max_event_fraction'</span>,<span class="string">'MaxEventFraction'</span>},0.3,[], <span class="string">'Maximum fraction of events. If a channel would produce more events than this fraction of its total number of samples, the channel is not considered an event channel.'</span>), <span class="keyword">...</span>
+0088     arg({<span class="string">'max_types'</span>,<span class="string">'MaxTypes'</span>},300,[], <span class="string">'Number of eventtypes allowed. If a channel would produce more than this many event types, it is not considered an event channel.'</span>), <span class="keyword">...</span>
+0089     arg({<span class="string">'include_label'</span>,<span class="string">'IncludeLabel'</span>},<span class="string">'multiplechans'</span>,{<span class="string">'always'</span>,<span class="string">'multiplechans'</span>,<span class="string">'never'</span>},<span class="string">'Integrate channel labels. When to integrate channel labels into the event types - by default. only when there are multiple event channels.'</span>), <span class="keyword">...</span>
+0090     arg({<span class="string">'all_positive'</span>,<span class="string">'AllPositive'</span>},true,[],<span class="string">'Events must be positive. Only if all event types produced by a channel would correspond to positive numbers, the channel is considered an event channel.'</span>), <span class="keyword">...</span>
+0091     arg({<span class="string">'encode_plateaus'</span>,<span class="string">'EncodePlateaus'</span>},true,[],<span class="string">'Plateaus encoded. The trigger channel may contain (non-baseline) plateaus, to be encoded in event duration.'</span>), <span class="keyword">...</span>
+0092     arg({<span class="string">'strict_integer'</span>,<span class="string">'StrictInteger'</span>},true,[],<span class="string">'Strictly integer. Only allow channels that have integer event types (otherwise: round to integers).'</span>), <span class="keyword">...</span>
+0093     arg({<span class="string">'relative_baseline_thresh'</span>,<span class="string">'RelativeBaselineThreshold'</span>},10000,[],<span class="string">'Relative baseline threshold. If the event types would be larger than this threshold, they will be re-coded to be relative to the smallest event type in the channel.'</span>), <span class="keyword">...</span>
+0094     arg({<span class="string">'omit_baseline_thresh'</span>,<span class="string">'OmitBaselineThreshold'</span>},0.8,[],<span class="string">'Baseline omission threshold. If the baseline event takes up more than this fraction of the data, it will not be encoded as events.'</span>), <span class="keyword">...</span>
+0095     arg({<span class="string">'remove_eventchns'</span>,<span class="string">'RemoveEventChannels'</span>},true,[],<span class="string">'Remove event channels. Whether to remove those channels that have been identified as event channels.'</span>));
+0096 
+0097 <span class="comment">% obtain the chanlocs</span>
+0098 <span class="keyword">if</span> isfield(signal,{<span class="string">'head'</span>,<span class="string">'parts'</span>})
+0099     signal = exp_eval(signal); <span class="keyword">end</span>
+0100 
+0101 <span class="comment">% figure out which are the event channels</span>
+0102 fprintf(<span class="string">'Scanning potential marker channel '</span>);
+0103 <span class="keyword">for</span> k=1:signal.nbchan <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0104     fprintf(<span class="string">'%i '</span>,k);
+0105     X = signal.data(k,:);
+0106     X(isnan(X)) = 0;
+0107     <span class="comment">% do a few vectorized computations for speed...</span>
+0108     numtypes(k) = length(unique(X));
+0109     <span class="keyword">if</span> numtypes(k) &lt;= max_types
+0110         <span class="keyword">if</span> encode_plateaus
+0111             <span class="comment">% in the plateaus case, the baseline is 0 or the smallest value</span>
+0112             baseline(k) = min(X);
+0113             <span class="keyword">if</span> baseline(k) &lt; relative_baseline_thresh &amp;&amp; baseline(k) &gt; 0
+0114                 baseline(k) = 0; <span class="keyword">end</span>
+0115             <span class="comment">% whether baseline periods are encoded as events depends on the fraction of time in the</span>
+0116             <span class="comment">% data set</span>
+0117             omit_baseline(k) = mean(X == baseline(k)) &gt; omit_baseline_thresh;
+0118             eventmask = ([1; diff(X(:))] ~= 0);
+0119             <span class="keyword">if</span> omit_baseline(k)
+0120                 eventmask = eventmask &amp; (X(:) ~= baseline(k)); <span class="keyword">end</span>
+0121             numevents(k) = nnz(eventmask);
+0122         <span class="keyword">else</span>
+0123             <span class="comment">% without plateaus, the baseline type is the mode</span>
+0124             baseline(k) = mode(X);
+0125             numevents(k) = nnz(X - baseline(k));
+0126             omit_baseline(k) = true;
+0127         <span class="keyword">end</span>
+0128     <span class="keyword">else</span>
+0129         <span class="comment">% channel will not be considered</span>
+0130         baseline(k) = 0;
+0131         omit_baseline(k) = true;
+0132         numevents(k) = 0;
+0133     <span class="keyword">end</span>
+0134     allpositive(k) = all(X &gt;= baseline(k));
+0135     allinteger(k) = all(abs(X-round(X)) &lt;= eps(X));
+0136 <span class="keyword">end</span>
+0137 fprintf(<span class="string">'\n'</span>);
+0138 
+0139 <span class="comment">% find the mask of event channels</span>
+0140 eventchans = (numtypes &lt;= max_types) &amp; (numevents &lt;= max_events) &amp; (numevents &lt;= signal.pnts*max_event_fraction) &amp; (~all_positive | allpositive) &amp; (~strict_integer | allinteger);
+0141     
+0142 <span class="comment">% determine whether to include labels</span>
+0143 include_label = hlp_rewrite(include_label,<span class="string">'always'</span>,true,<span class="string">'never'</span>,false,<span class="string">'multiplechans'</span>,nnz(eventchans) &gt; 1);
+0144 
+0145 <span class="comment">% initialize events</span>
+0146 <span class="keyword">if</span> ~isfield(signal,<span class="string">'event'</span>) || isempty(signal.event)
+0147     signal.event = struct(<span class="string">'latency'</span>,{},<span class="string">'duration'</span>,{},<span class="string">'type'</span>,{}); <span class="keyword">end</span>
+0148 
+0149 <span class="comment">% generate events</span>
+0150 <span class="keyword">for</span> k = find(eventchans)
+0151     <span class="keyword">try</span>
+0152         <span class="comment">% find event codes per sample</span>
+0153         X = round(signal.data(k,:) - baseline(k));
+0154         X(isnan(X)) = 0;
+0155         <span class="comment">% do a run-length encode into events</span>
+0156         lat = find([1; diff(X(:))] ~= 0);
+0157         <span class="comment">% optionally mask out baseline events</span>
+0158         <span class="keyword">if</span> omit_baseline(k)
+0159             mask = X(lat) ~= 0;
+0160         <span class="keyword">else</span>
+0161             mask = true(1,length(lat));
+0162         <span class="keyword">end</span>
+0163         <span class="comment">% get values, duration, and latency as cell arrays</span>
+0164         dur = num2cell(diff([lat; numel(X)+1]));
+0165         val = cellfun(@num2str,num2cell(X(lat(mask)),1),<span class="string">'UniformOutput'</span>,false);
+0166         <span class="keyword">if</span> include_label
+0167             val = cellfun(@(n) [signal.chanlocs(k).labels <span class="string">'_'</span> n],val,<span class="string">'UniformOutput'</span>,false); <span class="keyword">end</span>
+0168         lat = num2cell(lat(mask));
+0169         dur = dur(mask);
+0170         <span class="keyword">if</span> ~isempty(lat)
+0171             <span class="comment">% make space</span>
+0172             signal.event(end+length(lat)).latency = [];
+0173             <span class="comment">% insert new content</span>
+0174             [signal.event(end-length(lat)+1:end).latency] = lat{:};
+0175             [signal.event(end-length(lat)+1:end).duration] = dur{:};
+0176             [signal.event(end-length(lat)+1:end).type] = val{:};
+0177         <span class="keyword">else</span>
+0178             <span class="comment">% the channel is not actually an event channel (but a flatline)</span>
+0179             eventchans(k) = false;
+0180         <span class="keyword">end</span>
+0181     <span class="keyword">catch</span> e
+0182         disp([<span class="string">'Could not process channel '</span> num2str(k)]);
+0183         env_handleerror(e);
+0184     <span class="keyword">end</span>
+0185 <span class="keyword">end</span>
+0186 
+0187 <span class="comment">% sort events</span>
+0188 signal.event = signal.event(hlp_getresult(2,@sort,[signal.event.latency]));
+0189 
+0190 <span class="comment">% remove event channels</span>
+0191 signal = pop_select(signal,<span class="string">'channel'</span>,find(~eventchans));</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

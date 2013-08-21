@@ -1,0 +1,329 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_searchmodel</title>
+  <meta name="keywords" content="utl_searchmodel">
+  <meta name="description" content="Find the best predictive model out of a parameterized set, via cross-validation.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_searchmodel.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_searchmodel
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Find the best predictive model out of a parameterized set, via cross-validation.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [model,stats] = utl_searchmodel(data, varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Find the best predictive model out of a parameterized set, via cross-validation.
+ [Model,Stats] = utl_searchmodel(Data, Arguments...)
+
+ When a predictive model is learned from some data, several of its key parameters can usually be 
+ efficiently optimized given the data (namely, if their solutions are available in closed form, or 
+ if they can be found by solving a well-behaved optimization problem). Some parameters, however,
+ usually remain, which can not be optimized by the given learning function. If their optimal values
+ are unknown but assumed to lie in a small set of possibilities, a general-purpose approach to find 
+ them as well, is exhaustive search over all possibilities, coupled with a cross-validation to 
+ assess the predictive performance for each possibility on the available data. 
+
+ This function performs this task, and can jointly optimize all unknown parameters of a learning
+ function. It requires a data set and (because a cross-validation is implicitly performed) all
+ parameters that would be required to apply utl_crossval to the given data. The function whose
+ parameters shall be optimized is the 'trainer' (i.e., model learning) function. For any of its
+ parameters which has multiple possibilities (over which to optimize), these possibilities can be
+ specified using the same syntax as in the grid searching function utl_gridsearch (where the 
+ default here is to specify them via search() clauses).
+
+ In:
+   Data :   some data that can be partitioned using index sets
+
+   Arguments : mandatory arguments:
+               'trainer': training function; receives a partition of the data (as produced by 
+                          the partitioner), some further arguments (as specified in args), and
+                          returns a model (of any kind)
+
+               'tester' : testing function; receives a model (as produced by the trainer) and a 
+                          partition of the data (as produced by the partitioner), and returns a
+                          prediction for every index of the input data, in a format allowed by
+                          ml_predict
+
+               'args': arguments to the training function, cell array (default: empty)
+                       specified as in utl_gridsearch (format controlled via argform)
+
+               optional arguments (same as in utl_crossval, listed below for convenience)
+               'scheme': cross-validation scheme, can be one of the following: (default: 10)
+                 * 0: skip CV, return NaN and empty statistics
+                 * k: k-fold randomized CV (or, if 0&lt;k&lt;1, k-holdhout CV)
+                 * [r k]: r-time repartitioned k-fold randomized CV (or, if 0&lt;k&lt;1, 
+                   k-holdout CV (with k a fraction))
+                 * 'loo': leave-one-out CV
+                 * {'chron', k} or {'block', k}: k-fold chronological/blockwise CV
+                 * {'chron', k, m} or {'block', k, m}: k-fold chronological/blockwise CV with 
+                   m indices margin width (between training and test set)
+
+               'partitioner': partitioning function for the data, receives three parameters: 
+                              (data, index vector, packed trainer args OR model)
+                               * if the index vector is empty, should return the highest index 
+                                 in the data
+                               * otherwise, it should return data subindexed by the index vector
+                              default: provides support for cell arrays, numeric arrays, struct 
+                                       arrays and {Data,Target} cell arrays
+                              note: the third parameter is for convenience and may optionally be 
+                                    taken into account; trainer args are passed packed into a cell
+                                    array for both index set generation and computation of the
+                                    training partition(s), and the model is passed for the
+                                    computation of testing partitions
+
+               'target': a function to derive the target variable from a partition of the data (as 
+                         produced by the partitioner), for evaluation; the allowed format is
+                         anything that may be output by ml_predict default: provides support for
+                         {Data,Target} cell arrays
+
+               'metric': metric to be employed, applied both in each fold and the aggregated data 
+                         over all folds
+                          * function handle: a custom, user-supplied loss function; receives target 
+                            data in the first argument and prediction data in the second argument;
+                            each can be in any format that can be produced by ml_predict (but can
+                            be expected to be mutually consistent). shall return a real number
+                            indicating the summary metric over all data, and optionally additional
+                            statistics in a struct
+                          * string: use ml_calcloss, with 'metric' determining the loss type
+                          * default: use 'mcr','mse','nll','kld', depending on supplied target &amp; 
+                            prediction data formats
+
+               'argform': format of the argument ranges, either 'direct' or 'clauses'
+                          (default: 'clauses')
+                           'direct': search ranges are directly specified as arrays
+                           'clauses': search ranges are specified using the search() clause
+
+               'forcestats': enforce a cross-validation to obtain stats, even when no search is 
+                             necessary (default: 0)
+
+               further arguments (same as in par_beginschedule, listed below for convenience)
+               'engine_gs': the parallelization engine to be used for the grid search
+                            (default: 'local')
+
+               'engine_ncv': the parallelization engine to be used for the nested cross-validation
+                             (default: 'global')
+
+               'pool'     : node pool to be used for parallelization, when using the BLS scheduler
+                            (default: 'global')
+
+               'policy'   : scheduling policy to be used, when using the BLS scheduler
+                            (default: 'global')
+
+ Out:
+   Model : the best model, as determined through cross-validation and and grid search 
+           w.r.t. to a measure of the overall performance of the trainer/tester combination
+
+   Stats : additional statistics over all tested argument combinations, as produced by the metric
+
+ See also:
+   <a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(data, varargin)">utl_crossval</a>, <a href="utl_gridsearch.html" class="code" title="function [minidx, inputs, outputs] = utl_gridsearch(arg1, varargin)">utl_gridsearch</a>, <a href="utl_nested_crossval.html" class="code" title="function [measure,stats] = utl_nested_crossval(data, varargin)">utl_nested_crossval</a>
+
+ Example:
+   % assuming a feature matrix called trials and a label vector called targets, sized as:
+   %  trials: [NxF] array of training instances
+   %  targets: [Nx1] array of labels
+
+   % find the best-performing SVM classifier on the data (here: ignoring the kernel scale parameter)
+   [model,stats] = utl_searchmodel({trials,targets}, 'args',{{'svm' search(2.^(-5:2:15))}})
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-04-22</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(data, varargin)">utl_crossval</a>	Run a generic cross-validation over indexable data.</li><li><a href="utl_gridsearch.html" class="code" title="function [minidx, inputs, outputs] = utl_gridsearch(arg1, varargin)">utl_gridsearch</a>	Exhaustive search over multiple possible arguments to a function.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_nested_crossval.html" class="code" title="function [measure,stats] = utl_nested_crossval(data, varargin)">utl_nested_crossval</a>	Run a generic nested cross-validation over indexable data.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [model,stats] = utl_searchmodel(data, varargin)</a>
+0002 <span class="comment">% Find the best predictive model out of a parameterized set, via cross-validation.</span>
+0003 <span class="comment">% [Model,Stats] = utl_searchmodel(Data, Arguments...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% When a predictive model is learned from some data, several of its key parameters can usually be</span>
+0006 <span class="comment">% efficiently optimized given the data (namely, if their solutions are available in closed form, or</span>
+0007 <span class="comment">% if they can be found by solving a well-behaved optimization problem). Some parameters, however,</span>
+0008 <span class="comment">% usually remain, which can not be optimized by the given learning function. If their optimal values</span>
+0009 <span class="comment">% are unknown but assumed to lie in a small set of possibilities, a general-purpose approach to find</span>
+0010 <span class="comment">% them as well, is exhaustive search over all possibilities, coupled with a cross-validation to</span>
+0011 <span class="comment">% assess the predictive performance for each possibility on the available data.</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">% This function performs this task, and can jointly optimize all unknown parameters of a learning</span>
+0014 <span class="comment">% function. It requires a data set and (because a cross-validation is implicitly performed) all</span>
+0015 <span class="comment">% parameters that would be required to apply utl_crossval to the given data. The function whose</span>
+0016 <span class="comment">% parameters shall be optimized is the 'trainer' (i.e., model learning) function. For any of its</span>
+0017 <span class="comment">% parameters which has multiple possibilities (over which to optimize), these possibilities can be</span>
+0018 <span class="comment">% specified using the same syntax as in the grid searching function utl_gridsearch (where the</span>
+0019 <span class="comment">% default here is to specify them via search() clauses).</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">% In:</span>
+0022 <span class="comment">%   Data :   some data that can be partitioned using index sets</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   Arguments : mandatory arguments:</span>
+0025 <span class="comment">%               'trainer': training function; receives a partition of the data (as produced by</span>
+0026 <span class="comment">%                          the partitioner), some further arguments (as specified in args), and</span>
+0027 <span class="comment">%                          returns a model (of any kind)</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">%               'tester' : testing function; receives a model (as produced by the trainer) and a</span>
+0030 <span class="comment">%                          partition of the data (as produced by the partitioner), and returns a</span>
+0031 <span class="comment">%                          prediction for every index of the input data, in a format allowed by</span>
+0032 <span class="comment">%                          ml_predict</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">%               'args': arguments to the training function, cell array (default: empty)</span>
+0035 <span class="comment">%                       specified as in utl_gridsearch (format controlled via argform)</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%               optional arguments (same as in utl_crossval, listed below for convenience)</span>
+0038 <span class="comment">%               'scheme': cross-validation scheme, can be one of the following: (default: 10)</span>
+0039 <span class="comment">%                 * 0: skip CV, return NaN and empty statistics</span>
+0040 <span class="comment">%                 * k: k-fold randomized CV (or, if 0&lt;k&lt;1, k-holdhout CV)</span>
+0041 <span class="comment">%                 * [r k]: r-time repartitioned k-fold randomized CV (or, if 0&lt;k&lt;1,</span>
+0042 <span class="comment">%                   k-holdout CV (with k a fraction))</span>
+0043 <span class="comment">%                 * 'loo': leave-one-out CV</span>
+0044 <span class="comment">%                 * {'chron', k} or {'block', k}: k-fold chronological/blockwise CV</span>
+0045 <span class="comment">%                 * {'chron', k, m} or {'block', k, m}: k-fold chronological/blockwise CV with</span>
+0046 <span class="comment">%                   m indices margin width (between training and test set)</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">%               'partitioner': partitioning function for the data, receives three parameters:</span>
+0049 <span class="comment">%                              (data, index vector, packed trainer args OR model)</span>
+0050 <span class="comment">%                               * if the index vector is empty, should return the highest index</span>
+0051 <span class="comment">%                                 in the data</span>
+0052 <span class="comment">%                               * otherwise, it should return data subindexed by the index vector</span>
+0053 <span class="comment">%                              default: provides support for cell arrays, numeric arrays, struct</span>
+0054 <span class="comment">%                                       arrays and {Data,Target} cell arrays</span>
+0055 <span class="comment">%                              note: the third parameter is for convenience and may optionally be</span>
+0056 <span class="comment">%                                    taken into account; trainer args are passed packed into a cell</span>
+0057 <span class="comment">%                                    array for both index set generation and computation of the</span>
+0058 <span class="comment">%                                    training partition(s), and the model is passed for the</span>
+0059 <span class="comment">%                                    computation of testing partitions</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">%               'target': a function to derive the target variable from a partition of the data (as</span>
+0062 <span class="comment">%                         produced by the partitioner), for evaluation; the allowed format is</span>
+0063 <span class="comment">%                         anything that may be output by ml_predict default: provides support for</span>
+0064 <span class="comment">%                         {Data,Target} cell arrays</span>
+0065 <span class="comment">%</span>
+0066 <span class="comment">%               'metric': metric to be employed, applied both in each fold and the aggregated data</span>
+0067 <span class="comment">%                         over all folds</span>
+0068 <span class="comment">%                          * function handle: a custom, user-supplied loss function; receives target</span>
+0069 <span class="comment">%                            data in the first argument and prediction data in the second argument;</span>
+0070 <span class="comment">%                            each can be in any format that can be produced by ml_predict (but can</span>
+0071 <span class="comment">%                            be expected to be mutually consistent). shall return a real number</span>
+0072 <span class="comment">%                            indicating the summary metric over all data, and optionally additional</span>
+0073 <span class="comment">%                            statistics in a struct</span>
+0074 <span class="comment">%                          * string: use ml_calcloss, with 'metric' determining the loss type</span>
+0075 <span class="comment">%                          * default: use 'mcr','mse','nll','kld', depending on supplied target &amp;</span>
+0076 <span class="comment">%                            prediction data formats</span>
+0077 <span class="comment">%</span>
+0078 <span class="comment">%               'argform': format of the argument ranges, either 'direct' or 'clauses'</span>
+0079 <span class="comment">%                          (default: 'clauses')</span>
+0080 <span class="comment">%                           'direct': search ranges are directly specified as arrays</span>
+0081 <span class="comment">%                           'clauses': search ranges are specified using the search() clause</span>
+0082 <span class="comment">%</span>
+0083 <span class="comment">%               'forcestats': enforce a cross-validation to obtain stats, even when no search is</span>
+0084 <span class="comment">%                             necessary (default: 0)</span>
+0085 <span class="comment">%</span>
+0086 <span class="comment">%               further arguments (same as in par_beginschedule, listed below for convenience)</span>
+0087 <span class="comment">%               'engine_gs': the parallelization engine to be used for the grid search</span>
+0088 <span class="comment">%                            (default: 'local')</span>
+0089 <span class="comment">%</span>
+0090 <span class="comment">%               'engine_ncv': the parallelization engine to be used for the nested cross-validation</span>
+0091 <span class="comment">%                             (default: 'global')</span>
+0092 <span class="comment">%</span>
+0093 <span class="comment">%               'pool'     : node pool to be used for parallelization, when using the BLS scheduler</span>
+0094 <span class="comment">%                            (default: 'global')</span>
+0095 <span class="comment">%</span>
+0096 <span class="comment">%               'policy'   : scheduling policy to be used, when using the BLS scheduler</span>
+0097 <span class="comment">%                            (default: 'global')</span>
+0098 <span class="comment">%</span>
+0099 <span class="comment">% Out:</span>
+0100 <span class="comment">%   Model : the best model, as determined through cross-validation and and grid search</span>
+0101 <span class="comment">%           w.r.t. to a measure of the overall performance of the trainer/tester combination</span>
+0102 <span class="comment">%</span>
+0103 <span class="comment">%   Stats : additional statistics over all tested argument combinations, as produced by the metric</span>
+0104 <span class="comment">%</span>
+0105 <span class="comment">% See also:</span>
+0106 <span class="comment">%   utl_crossval, utl_gridsearch, utl_nested_crossval</span>
+0107 <span class="comment">%</span>
+0108 <span class="comment">% Example:</span>
+0109 <span class="comment">%   % assuming a feature matrix called trials and a label vector called targets, sized as:</span>
+0110 <span class="comment">%   %  trials: [NxF] array of training instances</span>
+0111 <span class="comment">%   %  targets: [Nx1] array of labels</span>
+0112 <span class="comment">%</span>
+0113 <span class="comment">%   % find the best-performing SVM classifier on the data (here: ignoring the kernel scale parameter)</span>
+0114 <span class="comment">%   [model,stats] = utl_searchmodel({trials,targets}, 'args',{{'svm' search(2.^(-5:2:15))}})</span>
+0115 <span class="comment">%</span>
+0116 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0117 <span class="comment">%                                2010-04-22</span>
+0118 
+0119 <span class="comment">% get options struct, and impose documented defaults (any further arguments</span>
+0120 <span class="comment">% have no defaults)</span>
+0121 opts = hlp_varargin2struct(varargin, <span class="keyword">...</span>
+0122     <span class="keyword">...</span><span class="comment"> % arguments for the model search process</span>
+0123     <span class="string">'trainer'</span>,@ml_train, <span class="keyword">...</span><span class="comment">    % the default training function</span>
+0124     <span class="string">'forcestats'</span>,0, <span class="keyword">...</span><span class="comment">         % whether a cross-validation should always be done</span>
+0125     <span class="keyword">...</span><span class="comment"> % arguments that control the inner cross-validation</span>
+0126     <span class="string">'engine_ncv'</span>,<span class="string">'global'</span>, <span class="keyword">...</span><span class="comment">  % the engine_ncv argument will be used as the engine_cv argument of utl_crossval</span>
+0127     <span class="keyword">...</span><span class="comment"> % arguents that control the grid search</span>
+0128     <span class="string">'engine_gs'</span>,<span class="string">'global'</span>, <span class="keyword">...</span><span class="comment">   % the grid searching engine</span>
+0129     <span class="string">'argform'</span>,<span class="string">'clauses'</span>, <span class="keyword">...</span><span class="comment">    % by default we use the 'clauses' grid search format</span>
+0130     <span class="string">'args'</span>,{});
+0131     
+0132 <span class="comment">% if there are parameters to be searched...</span>
+0133 <span class="keyword">if</span> opts.forcestats || is_needing_search(opts.argform,opts.args)
+0134     
+0135     <span class="comment">% set up the appropriate options struct that will be used for the nested</span>
+0136     <span class="comment">% cross-validation; in particular, all our options are forwarded to it,</span>
+0137     <span class="comment">% but the engine_gs parameter is peeled off...</span>
+0138     nestedcv_ctrl = rmfield(opts,<span class="string">'engine_gs'</span>);
+0139     <span class="comment">% ... and the value for engine_cv (whether present or not) is substituted by the value of engine_ncv</span>
+0140     nestedcv_ctrl.engine_cv = opts.engine_ncv;
+0141 
+0142     <span class="comment">% set up the objective function that will be used for the grid search,</span>
+0143     <span class="comment">% which is utl_crossval, using the control options defined above</span>
+0144     <span class="comment">% The objective function's free parameters are passed down into</span>
+0145     <span class="comment">% the cross-validation as its 'args' parameter, which is the arguments</span>
+0146     <span class="comment">% that are forwarded by it to the 'trainer' function</span>
+0147     objective_function = @(varargin) <a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(data, varargin)">utl_crossval</a>(data,nestedcv_ctrl,<span class="string">'args'</span>,varargin);
+0148     
+0149     <span class="comment">% set up the appropriate options struct for utl_gridsearch; in particular,</span>
+0150     <span class="comment">% the parallelization &amp; clauses behavior of or the gridsearch is determined according to the opts...</span>
+0151     gridsearch_ctrl = hlp_struct2varargin(opts,<span class="string">'restrict'</span>,{<span class="string">'argform'</span>,<span class="string">'pool'</span>,<span class="string">'policy'</span>,<span class="string">'engine_gs'</span>});
+0152     <span class="comment">% ... and the objective function ('func') is the one defined above</span>
+0153     gridsearch_ctrl = [gridsearch_ctrl {<span class="string">'func'</span>,objective_function}];
+0154     
+0155     <span class="comment">% now execute the grid search over every specified combination in opts.args</span>
+0156     [stats.bestidx,stats.inputs,stats.outputs] = <a href="utl_gridsearch.html" class="code" title="function [minidx, inputs, outputs] = utl_gridsearch(arg1, varargin)">utl_gridsearch</a>(gridsearch_ctrl, opts.args{:});
+0157     
+0158 <span class="keyword">else</span>
+0159     
+0160     <span class="comment">% otherwise produce dummy stats if neither necessary nor forced</span>
+0161     stats = struct(<span class="string">'bestidx'</span>,1, <span class="string">'inputs'</span>,{{opts.args}}, <span class="string">'outputs'</span>,{{NaN,struct()}});
+0162     
+0163 <span class="keyword">end</span>
+0164 
+0165 <span class="comment">% using the best args, send the complete data through the training function &amp; compute a model on it</span>
+0166 bestargs = stats.inputs{stats.bestidx};
+0167 model = opts.trainer(data,bestargs{:});</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

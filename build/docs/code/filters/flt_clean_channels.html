@@ -1,0 +1,270 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_clean_channels</title>
+  <meta name="keywords" content="flt_clean_channels">
+  <meta name="description" content="Remove channels with abnormal data from a continuous data set.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_clean_channels.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_clean_channels
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Remove channels with abnormal data from a continuous data set.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function signal = flt_clean_channels(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Remove channels with abnormal data from a continuous data set.
+ Signal = flt_clean_channels(Signal,MinCorrelation,IgnoredQuantile,WindowLength,MaxBrokenTime,Rereferenced)
+
+ This is an automated artifact rejection function which ensures that the data contains no channels
+ that record only noise for extended periods of time. If channels with control signals are
+ contained in the data these are usually also removed. The criterion is based on correlation: if a
+ channel is decorrelated from all others (pairwise correlation &lt; a given threshold), excluding a
+ given fraction of most correlated channels -- and if this holds on for a sufficiently long fraction 
+ of the data set -- then the channel is removed.
+
+ In:
+   Signal          : Continuous data set, assumed to be appropriately high-passed (e.g. &gt;0.5Hz or
+                     with a 0.5Hz - 2.0Hz transition band).
+
+   MinCorrelation  : Minimum correlation between a channel and any other channel (in a short period 
+                     of time) below which the channel is considered abnormal for that time period.
+                     Reasonable range: 0.4 (very lax) to 0.6 (quite aggressive). (default: 0.5). 
+                     
+
+   The following are &quot;detail&quot; parameters that usually do not have to be tuned. If you can't get
+   the function to do what you want, you might consider adapting these to your data.
+   
+   IgnoredQuantile : Fraction of channels that need to have at least the given MinCorrelation value
+                     w.r.t. the channel under consideration. This allows to deal with channels or
+                     small groups of channels that measure the same noise source, e.g. if they are
+                     shorted. If many channels can be disconnected during an experiment and you
+                     have strong noise in the room, you might increase this fraction, but consider
+                     that this a) requires you to decrease the MinCorrelation appropriately and b)
+                     can make the correlation measure more brittle. Reasonable range: 0.05 (rather
+                     lax) to 0.2 (very tolerant re disconnected/shorted channels).The default is
+                     0.1.
+
+   WindowLength    : Length of the windows (in seconds) for which correlation is computed; ideally
+                     short enough to reasonably capture periods of global artifacts (which are
+                     ignored), but not shorter (for statistical reasons). (default: 2)
+ 
+   MaxBrokenTime : Maximum time (either in seconds or as fraction of the recording) during which a 
+                   retained channel may be broken. Reasonable range: 0.1 (very aggressive) to 0.6
+                   (very lax). (default: 0.4)
+
+   Rereferenced    : Whether the measures should be computed on re-referenced data. This can improve 
+                     performance in environments with extreme EM noise, but will decrease robustness 
+                     against individual channels with extreme excursions. (default: false)
+
+   LineNoiseAware : Whether the operation should be performed in a line-noise aware manner. If enabled,
+                    the correlation measure will not be affected by the presence or absence of line 
+                    noise. (default: true).
+
+    ProtectChannels : list of channel names (cell array) that should be protected from removal. 
+                     (default: {})
+
+ Out:
+   Signal : data set with bad channels removed
+
+ Examples:
+   % use with defaults
+   eeg = flt_clean_channels(eeg);
+
+   % override the MinimumCorrelation and the IgnoredQuantile defaults
+   eeg = flt_clean_channels(eeg,0.7,0.15);
+
+   % override the MinimumCorrelation and the MaxIgnoredTime, using name-value pairs
+   eeg = flt_clean_channels('Signal',eeg,'MinimumCorrelation',0.7, 'MaxBrokenTime',0.15);
+
+   % override the MinimumCorrelation and the MaxIgnoredTime, using name-value pairs 
+   % in their short forms
+   eeg = flt_clean_channels('signal',eeg,'min_corr',0.7, 'max_broken_time',0.15);
+
+ See also:
+   <a href="flt_clean_windows.html" class="code" title="function [signal,sample_mask] = flt_clean_windows(varargin)">flt_clean_windows</a>, <a href="flt_clean_settings.html" class="code" title="function signal = flt_clean_settings(varargin)">flt_clean_settings</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-07-06</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="flt_clean_settings.html" class="code" title="function signal = flt_clean_settings(varargin)">flt_clean_settings</a>	Clean EEG data according to a particular cleaning setting.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = flt_clean_channels(varargin)</a>
+0002 <span class="comment">% Remove channels with abnormal data from a continuous data set.</span>
+0003 <span class="comment">% Signal = flt_clean_channels(Signal,MinCorrelation,IgnoredQuantile,WindowLength,MaxBrokenTime,Rereferenced)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This is an automated artifact rejection function which ensures that the data contains no channels</span>
+0006 <span class="comment">% that record only noise for extended periods of time. If channels with control signals are</span>
+0007 <span class="comment">% contained in the data these are usually also removed. The criterion is based on correlation: if a</span>
+0008 <span class="comment">% channel is decorrelated from all others (pairwise correlation &lt; a given threshold), excluding a</span>
+0009 <span class="comment">% given fraction of most correlated channels -- and if this holds on for a sufficiently long fraction</span>
+0010 <span class="comment">% of the data set -- then the channel is removed.</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">% In:</span>
+0013 <span class="comment">%   Signal          : Continuous data set, assumed to be appropriately high-passed (e.g. &gt;0.5Hz or</span>
+0014 <span class="comment">%                     with a 0.5Hz - 2.0Hz transition band).</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%   MinCorrelation  : Minimum correlation between a channel and any other channel (in a short period</span>
+0017 <span class="comment">%                     of time) below which the channel is considered abnormal for that time period.</span>
+0018 <span class="comment">%                     Reasonable range: 0.4 (very lax) to 0.6 (quite aggressive). (default: 0.5).</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   The following are &quot;detail&quot; parameters that usually do not have to be tuned. If you can't get</span>
+0022 <span class="comment">%   the function to do what you want, you might consider adapting these to your data.</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   IgnoredQuantile : Fraction of channels that need to have at least the given MinCorrelation value</span>
+0025 <span class="comment">%                     w.r.t. the channel under consideration. This allows to deal with channels or</span>
+0026 <span class="comment">%                     small groups of channels that measure the same noise source, e.g. if they are</span>
+0027 <span class="comment">%                     shorted. If many channels can be disconnected during an experiment and you</span>
+0028 <span class="comment">%                     have strong noise in the room, you might increase this fraction, but consider</span>
+0029 <span class="comment">%                     that this a) requires you to decrease the MinCorrelation appropriately and b)</span>
+0030 <span class="comment">%                     can make the correlation measure more brittle. Reasonable range: 0.05 (rather</span>
+0031 <span class="comment">%                     lax) to 0.2 (very tolerant re disconnected/shorted channels).The default is</span>
+0032 <span class="comment">%                     0.1.</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">%   WindowLength    : Length of the windows (in seconds) for which correlation is computed; ideally</span>
+0035 <span class="comment">%                     short enough to reasonably capture periods of global artifacts (which are</span>
+0036 <span class="comment">%                     ignored), but not shorter (for statistical reasons). (default: 2)</span>
+0037 <span class="comment">%</span>
+0038 <span class="comment">%   MaxBrokenTime : Maximum time (either in seconds or as fraction of the recording) during which a</span>
+0039 <span class="comment">%                   retained channel may be broken. Reasonable range: 0.1 (very aggressive) to 0.6</span>
+0040 <span class="comment">%                   (very lax). (default: 0.4)</span>
+0041 <span class="comment">%</span>
+0042 <span class="comment">%   Rereferenced    : Whether the measures should be computed on re-referenced data. This can improve</span>
+0043 <span class="comment">%                     performance in environments with extreme EM noise, but will decrease robustness</span>
+0044 <span class="comment">%                     against individual channels with extreme excursions. (default: false)</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">%   LineNoiseAware : Whether the operation should be performed in a line-noise aware manner. If enabled,</span>
+0047 <span class="comment">%                    the correlation measure will not be affected by the presence or absence of line</span>
+0048 <span class="comment">%                    noise. (default: true).</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">%    ProtectChannels : list of channel names (cell array) that should be protected from removal.</span>
+0051 <span class="comment">%                     (default: {})</span>
+0052 <span class="comment">%</span>
+0053 <span class="comment">% Out:</span>
+0054 <span class="comment">%   Signal : data set with bad channels removed</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">% Examples:</span>
+0057 <span class="comment">%   % use with defaults</span>
+0058 <span class="comment">%   eeg = flt_clean_channels(eeg);</span>
+0059 <span class="comment">%</span>
+0060 <span class="comment">%   % override the MinimumCorrelation and the IgnoredQuantile defaults</span>
+0061 <span class="comment">%   eeg = flt_clean_channels(eeg,0.7,0.15);</span>
+0062 <span class="comment">%</span>
+0063 <span class="comment">%   % override the MinimumCorrelation and the MaxIgnoredTime, using name-value pairs</span>
+0064 <span class="comment">%   eeg = flt_clean_channels('Signal',eeg,'MinimumCorrelation',0.7, 'MaxBrokenTime',0.15);</span>
+0065 <span class="comment">%</span>
+0066 <span class="comment">%   % override the MinimumCorrelation and the MaxIgnoredTime, using name-value pairs</span>
+0067 <span class="comment">%   % in their short forms</span>
+0068 <span class="comment">%   eeg = flt_clean_channels('signal',eeg,'min_corr',0.7, 'max_broken_time',0.15);</span>
+0069 <span class="comment">%</span>
+0070 <span class="comment">% See also:</span>
+0071 <span class="comment">%   flt_clean_windows, flt_clean_settings</span>
+0072 <span class="comment">%</span>
+0073 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0074 <span class="comment">%                                2010-07-06</span>
+0075 
+0076 <span class="comment">% flt_clean_channels_version&lt;0.8.2&gt; -- for the cache</span>
+0077 
+0078 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>;
+0079 
+0080 declare_properties(<span class="string">'name'</span>,<span class="string">'ChannelCleaning'</span>, <span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,false);
+0081 
+0082 arg_define(varargin, <span class="keyword">...</span>
+0083     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0084     arg({<span class="string">'min_corr'</span>,<span class="string">'MinimumCorrelation'</span>}, 0.5, [0 1], <span class="string">'Minimum correlation between channels. If the measure falls below this threshold in some time window, the window is considered abnormal.'</span>), <span class="keyword">...</span>
+0085     arg({<span class="string">'ignored_quantile'</span>,<span class="string">'IgnoredQuantile'</span>}, 0.1, [0 1], <span class="string">'Quantile of highest correlations ignored. Upper quantile of the correlation values that may be arbitrarily high without affecting the outcome - avoids problems with shorted channels.'</span>), <span class="keyword">...</span>
+0086     arg({<span class="string">'window_len'</span>,<span class="string">'WindowLength'</span>}, 2, [], <span class="string">'Window length to compute correlations. Length of the windows (in seconds) for which correlation is computed; ideally short enough to reasonably capture periods of global artifacts (which are ignored), but not shorter (for statistica reasons).'</span>), <span class="keyword">...</span>
+0087     arg({<span class="string">'max_broken_time'</span>,<span class="string">'MaxBrokenTime'</span>,<span class="string">'ignored_time'</span>,<span class="string">'MaxIgnoredTime'</span>}, 0.4, [], <span class="string">'Maximum duration/fraction of broken data to tolerate. Maximum time (either in seconds or as fraction of the recording) during which a retained channel may be broken. Reasonable range: 0.1 (very aggressive) to 0.6 (very lax).'</span>), <span class="keyword">...</span>
+0088     arg_deprecated({<span class="string">'rereferenced'</span>,<span class="string">'Rereferenced'</span>},false,[],<span class="string">'Run calculations on re-referenced data. This can improve performance in environments with extreme EM noise, but will decrease robustness against individual channels with extreme excursions.'</span>), <span class="keyword">...</span>
+0089     arg({<span class="string">'linenoise_aware'</span>,<span class="string">'LineNoiseAware'</span>},true,[],<span class="string">'Line-noise aware processing. Whether the operation should be performed in a line-noise aware manner. If enabled, the correlation measure will not be affected by the presence or absence of line noise.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0090     arg({<span class="string">'protect_channels'</span>,<span class="string">'ProtectChannels'</span>},[],[],<span class="string">'Channels to protect from removal. This protects the channels with the given names from being removed.'</span>,<span class="string">'type'</span>,<span class="string">'cellstr'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0091     arg_norep(<span class="string">'removed_channels_mask'</span>,unassigned)); 
+0092 
+0093 <span class="comment">% flag channels</span>
+0094 <span class="keyword">if</span> ~exist(<span class="string">'removed_channels_mask'</span>,<span class="string">'var'</span>)
+0095     <span class="keyword">if</span> max_broken_time &gt; 0 &amp;&amp; max_broken_time &lt; 1  <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0096         max_broken_time = size(signal.data,2)*max_broken_time;
+0097     <span class="keyword">else</span>
+0098         max_broken_time = signal.srate*max_broken_time;
+0099     <span class="keyword">end</span>
+0100     
+0101     [C,S] = size(signal.data);
+0102     window_len = window_len*signal.srate;
+0103     wnd = 0:window_len-1;
+0104     offsets = round(1:window_len:S-window_len);
+0105     W = length(offsets);    
+0106     retained = 1:(C-ceil(C*ignored_quantile));
+0107         
+0108     <span class="comment">% optionally ignore both 50 and 60 Hz spectral components...</span>
+0109     <span class="keyword">if</span> linenoise_aware &amp;&amp; signal.srate &gt; 110
+0110         <span class="keyword">if</span> signal.srate &lt;= 130
+0111             B = design_fir(500,[2*[0 45 50 55]/signal.srate 1],[1 1 0 1 1]);
+0112         <span class="keyword">else</span>
+0113             B = design_fir(500,[2*[0 45 50 55 60 65]/signal.srate 1],[1 1 0 1 0 1 1]);
+0114         <span class="keyword">end</span>
+0115         <span class="keyword">for</span> c=signal.nbchan:-1:1
+0116             X(:,c) = filtfilt_fast(B,1,signal.data(c,:)'); <span class="keyword">end</span>
+0117     <span class="keyword">else</span>
+0118         X = signal.data';
+0119     <span class="keyword">end</span>
+0120 
+0121     <span class="comment">% optionally subtract common reference from data</span>
+0122     <span class="keyword">if</span> rereferenced
+0123         X = bsxfun(@minus,X,mean(X,2)); <span class="keyword">end</span>
+0124     
+0125     <span class="comment">% for each window, flag channels with too low correlation to any other channel (outside the</span>
+0126     <span class="comment">% ignored quantile)</span>
+0127     flagged = zeros(C,W);
+0128     <span class="keyword">for</span> o=1:W
+0129         sortcc = sort(abs(corrcoef(X(offsets(o)+wnd,:))));
+0130         flagged(:,o) = all(sortcc(retained,:) &lt; min_corr);
+0131     <span class="keyword">end</span>
+0132     
+0133     <span class="comment">% mark all channels for removal which have more flagged samples than the maximum number of</span>
+0134     <span class="comment">% ignored samples</span>
+0135     removed_channel_mask = sum(flagged,2)*window_len &gt; max_broken_time;
+0136     
+0137     <span class="comment">% remove the channels in the protect list</span>
+0138     <span class="keyword">if</span> ~isempty(protect_channels)
+0139         removed_channel_mask(set_chanid(signal,protect_channels)) = true; <span class="keyword">end</span>    
+0140 <span class="keyword">end</span>
+0141 
+0142 <span class="comment">% annotate the data with what was removed (for visualization)</span>
+0143 <span class="keyword">if</span> ~isfield(signal.etc,<span class="string">'clean_channel_mask'</span>)
+0144     signal.etc.clean_channel_mask = true(1,signal.nbchan); <span class="keyword">end</span>
+0145 signal.etc.clean_channel_mask(signal.etc.clean_channel_mask) = ~removed_channel_mask;
+0146 
+0147 <span class="comment">% execute</span>
+0148 <span class="keyword">if</span> any(removed_channel_mask)
+0149     signal = pop_select(signal,<span class="string">'nochannel'</span>,find(removed_channel_mask)); <span class="keyword">end</span>
+0150 
+0151 exp_endfun(<span class="string">'append_online'</span>,{<span class="string">'removed_channel_mask'</span>,removed_channel_mask});</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

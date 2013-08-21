@@ -1,0 +1,327 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of onl_filtered</title>
+  <meta name="keywords" content="onl_filtered">
+  <meta name="description" content="Obtain processed data from a filter pipeline online.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">online_analysis</a> &gt; onl_filtered.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/online_analysis&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>onl_filtered
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Obtain processed data from a filter pipeline online.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [chunk,pipeline] = onl_filtered(pipeline,desired_length,suppress_output,set_online_scope) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Obtain processed data from a filter pipeline online.
+
+ This function returns a chunk of most recent filtered output from a filter pipeline.
+ 
+ A filter pipeline is a recursive data structure (like a tree) whose nodes are the filter stages and 
+ whose edges represent the output of one stage going into the input of another stage. The leaf
+ nodes refer to raw online streams (structs in the workspace) and are queried via onl_peek, all other
+ nodes are evaluated by calling the filter function on its input data (recursively).
+
+ In:
+   Pipeline : previous filter pipeline struct
+
+   DesiredLength : number of samples to get (or 0 to get all new samples)
+
+   SuppressOutput : suppress console output (default: true)
+
+   SetOnlineScope : set the regular online-processing scope (can be turned off if that scope is
+                    already set for some reason) (default: true)
+
+ Out:
+   Chunk : EEGLAB dataset struct representing the desired data chunk
+           Can be shorter than desired length if not enough data is available yet
+
+   Pipeline : updated filter pipeline struct
+
+
+ Example:
+   % load calibration set
+   raw = io_loadset('calib.set')
+
+   % apply a series of filter to it (the processed set now has a filter expression and initial state)
+   processed = exp_eval(flt_iir(flt_resample(raw,128),[0.5 1],'highpass'));
+
+   % start streaming some data
+   run_readdataset('mystream','action.set');
+   % and put a pipeline on top of it that replicates the processing applied to processed and continues it on new data
+   pip = onl_newpipeline(processed,{'mystream'});
+
+   while 1
+      % generate a 200-sample view into the processed stream
+      [EEG,pip] = onl_filtered(pip,200);
+   end
+
+ See also:
+   <a href="onl_newpipeline.html" class="code" title="function pipeline = onl_newpipeline(filterapp, streams, needed_channels)">onl_newpipeline</a>, <a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>, <a href="onl_append.html" class="code" title="function onl_append(name, chunk, stamp)">onl_append</a>, <a href="onl_peek.html" class="code" title="function chunk = onl_peek(streamname,samples_to_get,unit,channels_to_get)">onl_peek</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2012-05-13</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="onl_peek.html" class="code" title="function chunk = onl_peek(streamname,samples_to_get,unit,channels_to_get)">onl_peek</a>	Peek into an online stream (generates an EEG-set like view into it).</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_output)">onl_predict</a>	Query a predictor given the current contents of the stream(s) referenced by it.</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function [chunk,p] = update_pipeline(p,desired_length)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [chunk,pipeline] = onl_filtered(pipeline,desired_length,suppress_output,set_online_scope)</a>
+0002 <span class="comment">% Obtain processed data from a filter pipeline online.</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% This function returns a chunk of most recent filtered output from a filter pipeline.</span>
+0005 <span class="comment">%</span>
+0006 <span class="comment">% A filter pipeline is a recursive data structure (like a tree) whose nodes are the filter stages and</span>
+0007 <span class="comment">% whose edges represent the output of one stage going into the input of another stage. The leaf</span>
+0008 <span class="comment">% nodes refer to raw online streams (structs in the workspace) and are queried via onl_peek, all other</span>
+0009 <span class="comment">% nodes are evaluated by calling the filter function on its input data (recursively).</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">% In:</span>
+0012 <span class="comment">%   Pipeline : previous filter pipeline struct</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%   DesiredLength : number of samples to get (or 0 to get all new samples)</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%   SuppressOutput : suppress console output (default: true)</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   SetOnlineScope : set the regular online-processing scope (can be turned off if that scope is</span>
+0019 <span class="comment">%                    already set for some reason) (default: true)</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">% Out:</span>
+0022 <span class="comment">%   Chunk : EEGLAB dataset struct representing the desired data chunk</span>
+0023 <span class="comment">%           Can be shorter than desired length if not enough data is available yet</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%   Pipeline : updated filter pipeline struct</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">% Example:</span>
+0029 <span class="comment">%   % load calibration set</span>
+0030 <span class="comment">%   raw = io_loadset('calib.set')</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%   % apply a series of filter to it (the processed set now has a filter expression and initial state)</span>
+0033 <span class="comment">%   processed = exp_eval(flt_iir(flt_resample(raw,128),[0.5 1],'highpass'));</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%   % start streaming some data</span>
+0036 <span class="comment">%   run_readdataset('mystream','action.set');</span>
+0037 <span class="comment">%   % and put a pipeline on top of it that replicates the processing applied to processed and continues it on new data</span>
+0038 <span class="comment">%   pip = onl_newpipeline(processed,{'mystream'});</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">%   while 1</span>
+0041 <span class="comment">%      % generate a 200-sample view into the processed stream</span>
+0042 <span class="comment">%      [EEG,pip] = onl_filtered(pip,200);</span>
+0043 <span class="comment">%   end</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">% See also:</span>
+0046 <span class="comment">%   onl_newpipeline, onl_newstream, onl_append, onl_peek</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0049 <span class="comment">%                                2012-05-13</span>
+0050 
+0051 <span class="comment">% check inputs</span>
+0052 <span class="keyword">if</span> nargin &lt; 4
+0053     set_online_scope = true;
+0054     <span class="keyword">if</span> nargin &lt; 1
+0055         error(<span class="string">'You need to pass a pipeline structure.'</span>); <span class="keyword">end</span>
+0056     <span class="keyword">if</span> nargin &lt; 2
+0057         error(<span class="string">'You need to pass the length of the view that should be generated, in samples.'</span>); <span class="keyword">end</span>
+0058     <span class="keyword">if</span> nargin &lt; 3
+0059         suppress_output = true; <span class="keyword">end</span>
+0060 <span class="keyword">end</span>
+0061 
+0062 
+0063 <span class="comment">% run update_pipeline() with appropriate options</span>
+0064 <span class="keyword">if</span> ~suppress_output
+0065     <span class="keyword">if</span> ~set_online_scope
+0066         [chunk,pipeline] = <a href="#_sub1" class="code" title="subfunction [chunk,p] = update_pipeline(p,desired_length)">update_pipeline</a>(pipeline,desired_length); 
+0067     <span class="keyword">else</span>
+0068         [chunk,pipeline] = hlp_scope({<span class="string">'disable_expressions'</span>,1,<span class="string">'is_online'</span>,1},@<a href="#_sub1" class="code" title="subfunction [chunk,p] = update_pipeline(p,desired_length)">update_pipeline</a>,pipeline,desired_length); 
+0069     <span class="keyword">end</span>
+0070 <span class="keyword">else</span>
+0071     <span class="keyword">if</span> ~set_online_scope
+0072         [console_output,chunk,pipeline] = evalc(<span class="string">'update_pipeline(pipeline,desired_length)'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0073     <span class="keyword">else</span>
+0074         [console_output,chunk,pipeline] = evalc(<span class="string">'hlp_scope({''disable_expressions'',1,''is_online'',1},@update_pipeline,pipeline,desired_length)'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0075     <span class="keyword">end</span>
+0076 <span class="keyword">end</span>
+0077 
+0078 
+0079 <a name="_sub1" href="#_subfunctions" class="code">function [chunk,p] = update_pipeline(p,desired_length)</a>
+0080 <span class="comment">% Upate the given filter pipeline and get a chunk most recent output of desired length</span>
+0081 <span class="comment">% [Chunk,Pipeline] = update_pipeline(Pipeline,DesiredLength)</span>
+0082 <span class="comment">%</span>
+0083 <span class="comment">% A pipeline is a recursive data structure (like a tree) whose nodes are the filter stages and</span>
+0084 <span class="comment">% whose edges represent the output of one stage going into the input of another stage. The leaf</span>
+0085 <span class="comment">% nodes refer to raw data streams (structs in the workspace) and are queried via onl_peek, all other</span>
+0086 <span class="comment">% nodes are evaluated by calling the filter function on its input data (recursively).</span>
+0087 <span class="comment">%</span>
+0088 <span class="comment">% At each node we store the filter function (.head) and its arguments (.parts), some of which may be</span>
+0089 <span class="comment">% dependent filter pipelines themselves, plus some miscellaneous book-keeping data, like a buffer of</span>
+0090 <span class="comment">% outputs from the last update (.buffer), the previous filter state (.state), and some meta-data</span>
+0091 <span class="comment">% that characterizes the behavior of the node (.israw, .subrequests, .pipeline_indices).</span>
+0092 <span class="comment">%</span>
+0093 <span class="comment">% In:</span>
+0094 <span class="comment">%   Pipeline : previous filter pipeline struct</span>
+0095 <span class="comment">%</span>
+0096 <span class="comment">%   DesiredLength : amount of most recent filtered data to get (or 0 to get all updated data)</span>
+0097 <span class="comment">%</span>
+0098 <span class="comment">% Out:</span>
+0099 <span class="comment">%   Chunk : EEGLAB dataset struct representing the desired data chunk</span>
+0100 <span class="comment">%           Can be shorter than desired length if not enough data is available yet</span>
+0101 <span class="comment">%</span>
+0102 <span class="comment">%   Pipeline : updated filter pipeline struct</span>
+0103 
+0104 <span class="comment">% first create potentially missing fields in the pipeline struct</span>
+0105 <span class="keyword">if</span> ~isfield(p,<span class="string">'israw'</span>)
+0106     
+0107     <span class="comment">% the .israw field encodes whether this stage represents the output of a raw data stream</span>
+0108     p.israw = strcmp(char(p.head),<span class="string">'rawdata'</span>);
+0109     
+0110     <span class="comment">% the .buffer field contains an EEGLAB-style dataset struct where we buffer the output signal</span>
+0111     p.buffer = struct(<span class="string">'data'</span>,{[]}, <span class="string">'smax'</span>,{0});
+0112 
+0113     <span class="keyword">if</span> ~p.israw
+0114         <span class="comment">% the .pipeline_indices field stores which of the input arguments are pipelines (that we need to</span>
+0115         <span class="comment">% update recursively)</span>
+0116         p.pipeline_indices = find(cellfun(@(x)all(isfield(x,{<span class="string">'head'</span>,<span class="string">'parts'</span>})),p.parts));
+0117         
+0118         <span class="comment">% the .stateful field says whether the filter function returns state</span>
+0119         <span class="keyword">if</span> ~isfield(p,<span class="string">'stateful'</span>)
+0120             p.stateful = p.israw || is_stateful(p.head); <span class="keyword">end</span>
+0121         
+0122         <span class="comment">% the .state field contains the previous state of the filter function</span>
+0123         <span class="keyword">if</span> p.stateful &amp;&amp; ~isfield(p,<span class="string">'state'</span>)
+0124             p.state = []; <span class="keyword">end</span>
+0125         
+0126         <span class="comment">% the .subrequests field describes how much data is requested by this stage from each of its</span>
+0127         <span class="comment">% input pipeline stages (this depends on DesiredLength, which we needs to remain constant)</span>
+0128         <span class="keyword">if</span> ~isfield(p,<span class="string">'subrequests'</span>)
+0129             p.subrequests = nan(1,length(p.pipeline_indices));
+0130         <span class="keyword">elseif</span> length(p.subrequests) ~= length(p.pipeline_indices)
+0131             warn_once(<span class="string">'BCILAB:onl_predict:inconsistent_pipeline'</span>,<span class="string">'A filter pipeline node was encountered with a .subrequests field that does not match its sub-pipelines.'</span>);
+0132             p.subrequests = nan(1,length(p.pipeline_indices));
+0133         <span class="keyword">end</span>
+0134         
+0135         <span class="comment">% fill in any undetermined request lengths: if we are stateful, we will request 0, which means</span>
+0136         <span class="comment">% &quot;all new data&quot;, and if we are stateless, we request the amount of data that is being requested</span>
+0137         <span class="comment">% from us (assuming that this pipeline stage is not a rate-changing stateless (i.e. epoch-based)</span>
+0138         <span class="comment">% filter). For any such filter to work, subrequests must have already been initialized properly</span>
+0139         <span class="comment">% in utl_add_online.</span>
+0140         p.subrequests(isnan(p.subrequests)) = desired_length * ~p.stateful;
+0141     <span class="keyword">end</span>
+0142 <span class="keyword">end</span>
+0143 
+0144 <span class="comment">% get the desired data</span>
+0145 <span class="keyword">if</span> ~p.israw
+0146     <span class="comment">% reading from a regular filter stage</span>
+0147 
+0148     <span class="comment">% update the inputs to the current stage (recursively)</span>
+0149     inputs = p.parts;
+0150     <span class="keyword">for</span> n = 1:length(p.pipeline_indices)
+0151         k = p.pipeline_indices(n);
+0152         <span class="comment">% update input pipelines and replace the corresponding input signals by their buffers</span>
+0153         [inputs{k},p.parts{k}] = <a href="#_sub1" class="code" title="subfunction [chunk,p] = update_pipeline(p,desired_length)">update_pipeline</a>(p.parts{k},p.subrequests(n));
+0154     <span class="keyword">end</span>
+0155 
+0156     <span class="comment">% get a chunk of output by applying the filter for this pipeline stage to the inputs</span>
+0157     <span class="keyword">if</span> p.stateful
+0158         <span class="comment">% call stateful filter function (appending previous state, retrieving new state)</span>
+0159         [chunk,p.state] = p.head(inputs{:}, <span class="string">'state'</span>,p.state);
+0160         <span class="comment">% increment .smax with what we got (p.head might change the sampling rate)</span>
+0161         chunk.smax = p.buffer.smax + size(chunk.data,2);
+0162     <span class="keyword">else</span>
+0163         <span class="comment">% call stateless filter function on the input arguments</span>
+0164         chunk = p.head(inputs{:});
+0165         <span class="comment">% the closest to an .smax in a stateless filter is the .smax of its inputs (we assume that it</span>
+0166         <span class="comment">% does not change the rate)</span>
+0167         chunk.smax = inputs{p.pipeline_indices(1)}.smax;
+0168     <span class="keyword">end</span>
+0169     
+0170     <span class="keyword">if</span> desired_length ~= 0
+0171         <span class="comment">% if any other amount of data than the most recent chunk was requested</span>
+0172         <span class="comment">% as output, concatenate with previous p.buffer contents and trim to desired size</span>
+0173 
+0174         <span class="comment">% for each time-series field in the chunk...</span>
+0175         <span class="keyword">for</span> fld = utl_timeseries_fields(chunk)
+0176             field = fld{1};
+0177             
+0178             <span class="comment">% make sure that we have the requested field in the previous buffer to avoid special cases below</span>
+0179             <span class="keyword">if</span> ~isfield(p.buffer,field)
+0180                 p.buffer.(field) = []; <span class="keyword">end</span>
+0181 
+0182             <span class="comment">% if some other amount of data than what's in the chunk was requested</span>
+0183             <span class="keyword">if</span> desired_length ~= size(chunk.(field),2)
+0184                 <span class="keyword">if</span> size(chunk.(field),2) &lt; desired_length
+0185                     <span class="comment">% stateful filters must concatenate the newly-produced outputs with the</span>
+0186                     <span class="comment">% data that they already have in the buffer from previous invocations</span>
+0187                     <span class="keyword">if</span> p.israw || p.stateful
+0188                         <span class="keyword">if</span> size(p.buffer.(field),2) == desired_length
+0189                             <span class="comment">% we can do an in-place update without reallocations</span>
+0190                             <span class="comment">% Note: if you get an error here, a filter (p.head) likely had returned different</span>
+0191                             <span class="comment">%       numbers of channels across invocations.</span>
+0192                             chunk.(field) = [p.buffer.(field)(:,size(chunk.(field),2)+1:end) chunk.(field)];
+0193                         <span class="keyword">else</span>
+0194                             <span class="comment">% append new samples &amp; cut excess data</span>
+0195                             <span class="comment">% Note: if you get an error here, a filter (p.head) likely had returned different</span>
+0196                             <span class="comment">%       numbers of channels across invocations.</span>
+0197                             chunk.(field) = [p.buffer.(field) chunk.(field)];
+0198                             <span class="keyword">if</span> size(chunk.(field),2) &gt; desired_length
+0199                                 chunk.(field) = chunk.(field)(:,end-desired_length+1:end); <span class="keyword">end</span>
+0200                         <span class="keyword">end</span>
+0201                     <span class="keyword">end</span>
+0202                 <span class="keyword">else</span>
+0203                     <span class="comment">% if the chunk is longer than what's requested cut the excess data</span>
+0204                     chunk.(field) = chunk.(field)(:,end-desired_length+1:end);
+0205                 <span class="keyword">end</span>
+0206             <span class="keyword">end</span>        
+0207         <span class="keyword">end</span>
+0208     <span class="keyword">end</span>
+0209     
+0210     <span class="comment">% ensure consistency of time-related meta-data</span>
+0211     chunk.pnts = size(chunk.data,2);
+0212     <span class="keyword">try</span>
+0213         chunk.xmin = chunk.xmax - (chunk.pnts-1)/chunk.srate;
+0214     <span class="keyword">catch</span>
+0215         <span class="keyword">if</span> ~isfield(chunk,<span class="string">'xmin'</span>)
+0216             chunk.xmin = 0; <span class="keyword">end</span>
+0217         chunk.xmax = chunk.xmin + (chunk.pnts-1)/chunk.srate;
+0218     <span class="keyword">end</span>
+0219 <span class="keyword">else</span>
+0220     <span class="comment">% read from a raw stream: p.parts of the stage holds {stream_name,channel_range)</span>
+0221     <span class="keyword">if</span> desired_length ~= 0
+0222         <span class="comment">% get the requested number of samples</span>
+0223         chunk = <a href="onl_peek.html" class="code" title="function chunk = onl_peek(streamname,samples_to_get,unit,channels_to_get)">onl_peek</a>(p.parts{1},desired_length,<span class="string">'samples'</span>,p.parts{2});
+0224     <span class="keyword">else</span>
+0225         <span class="comment">% get the most recent samples since our buffer's smax</span>
+0226         chunk = <a href="onl_peek.html" class="code" title="function chunk = onl_peek(streamname,samples_to_get,unit,channels_to_get)">onl_peek</a>(p.parts{1},p.buffer.smax,<span class="string">'index'</span>,p.parts{2});
+0227     <span class="keyword">end</span>
+0228 <span class="keyword">end</span>
+0229 
+0230 <span class="comment">% replace old buffer</span>
+0231 p.buffer = chunk;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

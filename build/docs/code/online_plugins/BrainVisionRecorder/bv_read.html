@@ -1,0 +1,203 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of bv_read</title>
+  <meta name="keywords" content="bv_read">
+  <meta name="description" content="BV_READ  Reads BrainVision data over existing TCP socket.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="#">online_plugins</a> &gt; <a href="index.html">BrainVisionRecorder</a> &gt; bv_read.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/online_plugins/BrainVisionRecorder&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>bv_read
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>BV_READ  Reads BrainVision data over existing TCP socket.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function data = bv_read(h) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> BV_READ  Reads BrainVision data over existing TCP socket.
+     DATA = BV_READ(H)
+     In:
+     h : handle to a BrainVision connection (previously opened via bv_open)
+     Out:
+     data : a block of new data, [#Channels x #Samples]</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+<li><a href="bv_close.html" class="code" title="function bv_close(h)">bv_close</a>	BV_CLOSE  Closes a TCP connection to BrainVision Recorder</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+<li><a href="run_readbrainvision.html" class="code" title="function run_readbrainvision(varargin)">run_readbrainvision</a>	RUN_READBRAINVISION  Receives real-time data from BrainVision Recorder</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function hdr = ReadHeader(con)</a></li><li><a href="#_sub2" class="code">function [datahdr, data, markers] = ReadDataMessage(con, hdr, channelCount)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <span class="comment">% BV_READ  Reads BrainVision data over existing TCP socket.</span>
+0002 <span class="comment">%     DATA = BV_READ(H)</span>
+0003 <span class="comment">%     In:</span>
+0004 <span class="comment">%     h : handle to a BrainVision connection (previously opened via bv_open)</span>
+0005 <span class="comment">%     Out:</span>
+0006 <span class="comment">%     data : a block of new data, [#Channels x #Samples]</span>
+0007 
+0008 <span class="comment">% Author: Hal Greenwald, The MITRE Corporation, 29-NOV-2011</span>
+0009 <span class="comment">% This software incorporates portions of the BrainVision Recorder RDA Client.  Used with permission of Brain Products GmbH.</span>
+0010    
+0011 <span class="comment">% This program is free software: you can redistribute it and/or modify</span>
+0012 <span class="comment">% it under the terms of the GNU General Public License as published by</span>
+0013 <span class="comment">% the Free Software Foundation, either version 3 of the License, or</span>
+0014 <span class="comment">% (at your option) any later version.</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">% This program is distributed in the hope that it will be useful,</span>
+0017 <span class="comment">% but WITHOUT ANY WARRANTY; without even the implied warranty of</span>
+0018 <span class="comment">% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the</span>
+0019 <span class="comment">% GNU General Public License for more details.</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">% You should have received a copy of the GNU General Public License</span>
+0022 <span class="comment">% along with this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</span>
+0023 
+0024 <a name="_sub0" href="#_subfunctions" class="code">function data = bv_read(h)</a>
+0025 data = [];
+0026 <span class="keyword">if</span> (~h.initialized)
+0027     <span class="keyword">return</span>;
+0028 <span class="keyword">end</span>
+0029 
+0030 header_size = 24;
+0031 <span class="keyword">try</span>
+0032     <span class="comment">% check for existing data in socket buffer</span>
+0033     tryheader = pnet(h.handle, <span class="string">'read'</span>, header_size, <span class="string">'byte'</span>, <span class="string">'network'</span>, <span class="string">'view'</span>, <span class="string">'noblock'</span>);
+0034     <span class="keyword">while</span> ~isempty(tryheader)
+0035         
+0036         <span class="comment">% Read header of RDA message</span>
+0037         hdr = <a href="#_sub1" class="code" title="subfunction hdr = ReadHeader(con)">ReadHeader</a>(h.handle);
+0038         
+0039         <span class="comment">% Perform some action depending on the type of the data package</span>
+0040         <span class="keyword">switch</span> hdr.type
+0041             <span class="keyword">case</span> 1       <span class="comment">% Start message</span>
+0042                 <span class="comment">% Reset block counter to check overflows</span>
+0043                 h.lastBlock = -1;
+0044                 pnet(h.handle, <span class="string">'read'</span>, hdr.size - header_size);
+0045                 
+0046             <span class="keyword">case</span> 4       <span class="comment">% 32Bit Data block</span>
+0047                 <span class="comment">% Read data and markers from message</span>
+0048                 [datahdr, eegdata, markers] = <a href="#_sub2" class="code" title="subfunction [datahdr, data, markers] = ReadDataMessage(con, hdr, channelCount)">ReadDataMessage</a>(h.handle, hdr, h.channelCount);
+0049                 data = cat(2, data, eegdata);
+0050                 
+0051                 <span class="comment">% check tcpip buffer overflow</span>
+0052                 <span class="keyword">if</span> h.lastBlock ~= -1 &amp;&amp; datahdr.block &gt; h.lastBlock + 1
+0053                     disp([<span class="string">'******* Overflow with '</span> int2str(datahdr.block - h.lastBlock) <span class="string">' blocks ******'</span>]);
+0054                 <span class="keyword">end</span>
+0055                 h.lastBlock = datahdr.block;
+0056                 
+0057                 <span class="comment">% Edit the following lines to process marker information</span>
+0058 <span class="comment">%                 for m = 1:datahdr.markerCount</span>
+0059 <span class="comment">%                     disp(markers(m));</span>
+0060 <span class="comment">%                 end</span>
+0061                 
+0062             <span class="keyword">case</span> 3       <span class="comment">% Stop message</span>
+0063                 disp(<span class="string">'Received STOP signal from Recorder'</span>);
+0064                 pnet(h.handle, <span class="string">'read'</span>, hdr.size - header_size);
+0065                 <a href="bv_close.html" class="code" title="function bv_close(h)">bv_close</a>(h);
+0066                 h.initialized = false;
+0067                 data = [];
+0068                                                 
+0069             <span class="keyword">otherwise</span>    <span class="comment">% ignore all unknown types, but read the package from buffer</span>
+0070                 pnet(h.handle, <span class="string">'read'</span>, hdr.size - header_size);
+0071         <span class="keyword">end</span>
+0072         <span class="keyword">if</span> h.initialized
+0073             tryheader = pnet(h.handle, <span class="string">'read'</span>, header_size, <span class="string">'byte'</span>, <span class="string">'network'</span>, <span class="string">'view'</span>, <span class="string">'noblock'</span>);
+0074         <span class="keyword">else</span>
+0075             tryheader = [];
+0076         <span class="keyword">end</span>
+0077     <span class="keyword">end</span>
+0078 <span class="keyword">catch</span> er
+0079     disp(er.message);
+0080 <span class="keyword">end</span>
+0081 
+0082 <span class="keyword">if</span> ~isempty(data)
+0083     <span class="comment">% scale the data to uV (consistent with the pop_loadbv plugin)</span>
+0084     data = bsxfun(@times,data,h.resolutions');
+0085 <span class="keyword">end</span>
+0086 
+0087 <span class="comment">%% ***********************************************************************</span>
+0088 <span class="comment">% Read the message header</span>
+0089 <a name="_sub1" href="#_subfunctions" class="code">function hdr = ReadHeader(con)</a>
+0090 <span class="comment">% con    tcpip connection object</span>
+0091 
+0092 <span class="comment">% define a struct for the header</span>
+0093 hdr = struct(<span class="string">'uid'</span>,[],<span class="string">'size'</span>,[],<span class="string">'type'</span>,[]);
+0094 
+0095 <span class="comment">% read id, size and type of the message</span>
+0096 <span class="comment">% swapbytes is important for correct byte order of MATLAB variables</span>
+0097 hdr.uid = pnet(con,<span class="string">'read'</span>, 16);
+0098 hdr.size = swapbytes(pnet(con,<span class="string">'read'</span>, 1, <span class="string">'uint32'</span>, <span class="string">'network'</span>));
+0099 hdr.type = swapbytes(pnet(con,<span class="string">'read'</span>, 1, <span class="string">'uint32'</span>, <span class="string">'network'</span>));
+0100 
+0101 
+0102 <span class="comment">%% ***********************************************************************</span>
+0103 <span class="comment">% Read a data message</span>
+0104 <a name="_sub2" href="#_subfunctions" class="code">function [datahdr, data, markers] = ReadDataMessage(con, hdr, channelCount)</a>
+0105 <span class="comment">% con       tcpip connection object</span>
+0106 <span class="comment">% hdr       message header</span>
+0107 <span class="comment">% datahdr   data header with information on datalength and number of markers</span>
+0108 <span class="comment">% data      data as one dimensional arry</span>
+0109 <span class="comment">% markers   markers as array of marker structs</span>
+0110 
+0111 <span class="comment">% Define data header struct and read data header</span>
+0112 datahdr = struct(<span class="string">'block'</span>,[],<span class="string">'points'</span>,[],<span class="string">'markerCount'</span>,[]);
+0113 
+0114 datahdr.block = swapbytes(pnet(con,<span class="string">'read'</span>, 1, <span class="string">'uint32'</span>, <span class="string">'network'</span>));
+0115 datahdr.points = swapbytes(pnet(con,<span class="string">'read'</span>, 1, <span class="string">'uint32'</span>, <span class="string">'network'</span>));
+0116 datahdr.markerCount = swapbytes(pnet(con,<span class="string">'read'</span>, 1, <span class="string">'uint32'</span>, <span class="string">'network'</span>));
+0117 
+0118 <span class="comment">% Read data in float format</span>
+0119 data = swapbytes(pnet(con,<span class="string">'read'</span>, channelCount * datahdr.points, <span class="string">'single'</span>, <span class="string">'network'</span>));
+0120 data = reshape(data,channelCount,datahdr.points);
+0121 
+0122 <span class="comment">% Define markers struct and read markers</span>
+0123 markers = struct(<span class="string">'size'</span>,[],<span class="string">'position'</span>,[],<span class="string">'points'</span>,[],<span class="string">'channel'</span>,[],<span class="string">'type'</span>,[],<span class="string">'description'</span>,[]);
+0124 <span class="keyword">for</span> m = 1:datahdr.markerCount
+0125     marker = struct(<span class="string">'size'</span>,[],<span class="string">'position'</span>,[],<span class="string">'points'</span>,[],<span class="string">'channel'</span>,[],<span class="string">'type'</span>,[],<span class="string">'description'</span>,[]);
+0126     
+0127     <span class="comment">% Read integer information of markers</span>
+0128     marker.size = swapbytes(pnet(con,<span class="string">'read'</span>, 1, <span class="string">'uint32'</span>, <span class="string">'network'</span>));
+0129     marker.position = swapbytes(pnet(con,<span class="string">'read'</span>, 1, <span class="string">'uint32'</span>, <span class="string">'network'</span>));
+0130     marker.points = swapbytes(pnet(con,<span class="string">'read'</span>, 1, <span class="string">'uint32'</span>, <span class="string">'network'</span>));
+0131     marker.channel = swapbytes(pnet(con,<span class="string">'read'</span>, 1, <span class="string">'int32'</span>, <span class="string">'network'</span>));
+0132     
+0133     <span class="comment">% type and description of markers are zero-terminated char arrays</span>
+0134     <span class="comment">% of unknown length</span>
+0135     c = pnet(con,<span class="string">'read'</span>, 1);
+0136     <span class="keyword">while</span> c ~= 0
+0137         marker.type = [marker.type c];
+0138         c = pnet(con,<span class="string">'read'</span>, 1);
+0139     <span class="keyword">end</span>
+0140     
+0141     c = pnet(con,<span class="string">'read'</span>, 1);
+0142     <span class="keyword">while</span> c ~= 0
+0143         marker.description = [marker.description c];
+0144         c = pnet(con,<span class="string">'read'</span>, 1);
+0145     <span class="keyword">end</span>
+0146     
+0147     <span class="comment">% Add marker to array</span>
+0148     markers(m) = marker;
+0149 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

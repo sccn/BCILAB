@@ -1,0 +1,605 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_crossval</title>
+  <meta name="keywords" content="utl_crossval">
+  <meta name="description" content="Run a generic cross-validation over indexable data.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_crossval.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_crossval
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Run a generic cross-validation over indexable data.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [measure,stats] = utl_crossval(data, varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Run a generic cross-validation over indexable data.
+ [Measure, Stats] = utl_crossval(Data, Arguments...)
+
+ Cross-validation [1] is a data resampling technique in which per each iteration (or &quot;fold&quot;), a
+ model is formed given a subset of the data (called the training set), and then its quality is
+ tested on the remaining portion of the data (called the test set). Most applications of
+ cross-validation ensure that each observation (or trial) in the data is used for testing in at
+ least one fold. The most common version is k-fold cross-validation, where the data is split into k
+ parts, and throughout k iterations of the algorithm, each of the parts is chosen as the test set
+ exactly once, while the remaining k-1 parts are used jointly to train the model that shall be
+ tested. Thus, each part of the data is used in k-1 training sets.
+
+ The partitions of the data are traditionally chosen in a randomized fashion, under the assumption
+ that each trial is identically and independently distributed w.r.t. the others. This assumption
+ is wrong in time-series data (i.e. in almost all BCI cases). For this reason, the recommended 
+ cross-validation scheme in BCILAB is &quot;chronological&quot; (a.k.a. &quot;block-wise&quot;) cross-validation, where
+ the trials within the test set are taken from a compact interval of the underyling time series.
+ 
+ In addition, it is recommended to exclude trials that are close to any of the test set trials 
+ from use in the respective training set (these excluded trials are called safety margins).
+
+ The utl_crossval function is primarily used for testing predictive models, i.e., models which are
+ learned to be able to estimate some &quot;target&quot; value for each data trial. Thus, the quality of a
+ model given some test data is primarily assessed by letting it predict target values for each test
+ trial, and comparing the outcomes with the known values for the given set of test trials.
+
+ The data to be cross-validated can be in a variety of formats (as long as utl_crossval can
+ determine how to partition it), and a custom partitioning function can be supplied for completely
+ free-form data (such as EEGLAB data sets, which are handled by utl_dataset_partitioner). Aside
+ from the data, usually two functions need to be passed - one to learn a model from some data
+ portion (the 'trainer'), and one to test the learned model on some data portion (the 'tester'), by
+ making predictions. Further customization options include choice of the comparison metric (or 
+ 'loss' function), choice of the function which extracts known target values from the data (as the 
+ ground truth used in the comparison), as well as cluster parallelization options.
+
+ In:
+   Data : some data that can be partitioned using index sets, such as, for example,
+          {X,y} with X being the [NxF] training data and y being the [Nx1] labels 
+          (N=#trials, F=#features)
+
+   Arguments : optional name-value pairs specifying the arguments:
+               'trainer': training function; receives a partition of the data (as produced by 
+                          the specified partitioner), possibly some further arguments as
+                          specified in args, and returns a model (of any kind) (default:
+                          @ml_train; natively supports the {X,y} data format)
+
+               'tester' : testing function; receives a partition of the data (as produced by 
+                          the partitioner) and a model (as produced by the trainer), and
+                          returns a prediction for every index of the input data, in one of the
+                          formats that can be produced by ml_predict (default: @ml_predict)
+
+               'scheme': cross-validation scheme, can be one of the following formats (default: 10)
+                * 0: skip CV, return NaN and empty statistics
+                * k: k-fold randomized CV (or, if 0&lt;k&lt;1, k-holdhout CV)
+                * [r k]: r times repartitioned k-fold randomized CV (or, if 0&lt;k&lt;1, k-holdout CV 
+                         (with k a fraction))
+                * [r k m]: r times repartitioned k-fold randomized CV (or, if 0&lt;k&lt;1, k-holdout CV 
+                           (with k a fraction)) with m indices margin width (between training and
+                           test set)
+                * 'loo': leave-one-out CV
+                * {'chron', k} or {'block', k}: k-fold chronological/blockwise CV
+                * {'chron', k, m} or {'block', k, m}: k-fold chronological/blockwise CV with m 
+                                                      indices margin width (between training and 
+                                                      test set)
+                * 'trainerr': This is the training-set error, i.e. it is a measure of the 
+                              separability of the data (not of the generalization ability of the 
+                              classifier); it is usually an error to report this number in a paper
+
+               'partitioner': partitioning function for the data, receives two parameters: 
+                              (data, index vector)
+                              * if the index vector is empty, should return the highest index in 
+                                the data OR a cell array of {training-partition,test-partition}
+                                for each fold (in the latter case, the partitioner fully controls
+                                the cross-validation scheme); for each fold, these two outputs
+                                will be fed into the partitioner as second argument to generate the 
+                                training set and the test set, respectively
+                              * otherwise, it should return data subindexed by the index vector
+                              default: provides support for cell arrays, numeric arrays, struct
+                                       arrays and {Data,Target} cell arrays 
+
+               'target': a function to derive the target variable from a partition of the data 
+                         (as produced by the partitioner), for evaluation; the allowed format is
+                         anything that may be output by ml_predict default: provides support for
+                         {Data,Target} cell arrays
+
+               'metric': metric to be employed, applied both to results of each fold and results 
+                         aggregated over all folds
+                         * function handle: a custom, user-supplied loss function; receives target 
+                           data in the first argument and prediction data in the second argument;
+                           each can be in any format that can be produced by ml_predict (but can be
+                           expected to be mutually consistent). shall return a real number
+                           indicating the summary metric over all data, and optionally additional
+                           statistics in a struct
+                         * string: use ml_calcloss, with 'metric' determining the loss type
+                         * default/empty: use 'mcr','mse','nll','kld' depending on supplied target 
+                           and prediction data formats, via ml_calcloss
+
+               'args': optional arguments to the training function, packed in a cell array 
+                       (default: empty)
+                       note: if using the default trainer/tester combination, args must at least 
+                             specify the learning function to be used, e.g. {'lda'} for linear
+                             discriminant analysis (see ml_train* functions for options)
+
+               'repeatable': whether the randomization procedure shall give repeatable results 
+                             (default: 1); different numbers (aside from 0) give different
+                             repeatable runs, i.e. the value determines the randseed
+
+               'engine_cv': parallelization engine to use (default: 'global'); see par_beginsschedule
+                   
+               'pool'  : worker pool to use (default: 'global'); see par_beginsschedule
+
+               'policy': scheduling policy to use (default: 'global'); see par_beginschedule
+
+ Out:
+   Measure : a measure of the overall performance of the trainer/tester combination, w.r.t. to the 
+             target variable returned by the target function computed by the metric
+
+   Stats   : additional statistics, as produced by the metric
+
+ Example:
+   % assuming a feature matrix called trials and a label vector called targets, sized as:
+   %  trials: [NxF] array of training instances
+   %  targets: [Nx1] array of labels
+
+   % cross-validate using (shrinkage) linear discriminant analysis
+   [loss,stats] = utl_nested_crossval({trials,targets}, 'args',{'lda'})  
+
+   % cross-validate using hierarchical kernel learning with a specific kernel
+   [loss,stats] = utl_nested_crossval({trials,targets}, 'args',{{'hkl' 'kernel' 'hermite'}})  
+
+ Configuration Examples:
+   A simple training function would be:
+     @ml_train, with args being {'lda'} -- for this case, the data X (size NxF) and labels y 
+                                           (size Nx1) should be supplied as {X,y} to utl_crossval
+
+   A simple prediction function would be:
+     @ml_predict
+
+   A simple partitioner for epoched EEG data sets would be:
+     function result = my_partitioner(data,indices,misc)
+     if isempty(indices)
+         result = data.trials;
+     else
+         result = pop_select(data,'trial',indices);
+     end
+
+   A simple mean-square error loss metric would be:
+     my_metric = @(target,predicted) mean((target-predicted).^2);
+
+   A simple target extraction function for epoched EEG data sets would be (assuming that there is 
+   an epoch-associated target value):
+     my_target = @(data) [data.epoch.target];
+
+ References:
+   [1] Richard O. Duda, Peter E. Hart, David G. Stork, &quot;Pattern Classification&quot; 
+       Wiley Interscience, 2000
+
+ See also:
+   <a href="utl_evaluate_fold.html" class="code" title="function result = utl_evaluate_fold(opts,data,inds)">utl_evaluate_fold</a>, bci_train, <a href="utl_searchmodel.html" class="code" title="function [model,stats] = utl_searchmodel(data, varargin)">utl_searchmodel</a>, <a href="utl_nested_crossval.html" class="code" title="function [measure,stats] = utl_nested_crossval(data, varargin)">utl_nested_crossval</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-04-07</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_aggregate_results.html" class="code" title="function res = utl_aggregate_results(varargin)">utl_aggregate_results</a>	Internal. Aggregate the given results (in any format allowed for ml_predict) into a single array.</li><li><a href="utl_default_partitioner.html" class="code" title="function res = utl_default_partitioner(data,inds,varargin)">utl_default_partitioner</a>	The default partitioner for generic data (used in cross-validations).</li><li><a href="utl_default_predict.html" class="code" title="function y = utl_default_predict(X,M)">utl_default_predict</a>	default prediction function, internal to utl_crossval, wraps ml_predict.</li><li><a href="utl_default_target.html" class="code" title="function t = utl_default_target(data)">utl_default_target</a>	The default target extraction function for cross-validation.</li><li><a href="utl_evaluate_fold.html" class="code" title="function result = utl_evaluate_fold(opts,data,inds)">utl_evaluate_fold</a>	Internal to utl_crossval; Learns on a training set and tests on a test set.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_nested_crossval.html" class="code" title="function [measure,stats] = utl_nested_crossval(data, varargin)">utl_nested_crossval</a>	Run a generic nested cross-validation over indexable data.</li><li><a href="utl_searchmodel.html" class="code" title="function [model,stats] = utl_searchmodel(data, varargin)">utl_searchmodel</a>	Find the best predictive model out of a parameterized set, via cross-validation.</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function inds = make_indices(S,N,repeatable)</a></li><li><a href="#_sub2" class="code">function result = has_stats(metric)</a></li><li><a href="#_sub3" class="code">function [result,stats] = add_stats(result)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [measure,stats] = utl_crossval(data, varargin)</a>
+0002 <span class="comment">% Run a generic cross-validation over indexable data.</span>
+0003 <span class="comment">% [Measure, Stats] = utl_crossval(Data, Arguments...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Cross-validation [1] is a data resampling technique in which per each iteration (or &quot;fold&quot;), a</span>
+0006 <span class="comment">% model is formed given a subset of the data (called the training set), and then its quality is</span>
+0007 <span class="comment">% tested on the remaining portion of the data (called the test set). Most applications of</span>
+0008 <span class="comment">% cross-validation ensure that each observation (or trial) in the data is used for testing in at</span>
+0009 <span class="comment">% least one fold. The most common version is k-fold cross-validation, where the data is split into k</span>
+0010 <span class="comment">% parts, and throughout k iterations of the algorithm, each of the parts is chosen as the test set</span>
+0011 <span class="comment">% exactly once, while the remaining k-1 parts are used jointly to train the model that shall be</span>
+0012 <span class="comment">% tested. Thus, each part of the data is used in k-1 training sets.</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">% The partitions of the data are traditionally chosen in a randomized fashion, under the assumption</span>
+0015 <span class="comment">% that each trial is identically and independently distributed w.r.t. the others. This assumption</span>
+0016 <span class="comment">% is wrong in time-series data (i.e. in almost all BCI cases). For this reason, the recommended</span>
+0017 <span class="comment">% cross-validation scheme in BCILAB is &quot;chronological&quot; (a.k.a. &quot;block-wise&quot;) cross-validation, where</span>
+0018 <span class="comment">% the trials within the test set are taken from a compact interval of the underyling time series.</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% In addition, it is recommended to exclude trials that are close to any of the test set trials</span>
+0021 <span class="comment">% from use in the respective training set (these excluded trials are called safety margins).</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">% The utl_crossval function is primarily used for testing predictive models, i.e., models which are</span>
+0024 <span class="comment">% learned to be able to estimate some &quot;target&quot; value for each data trial. Thus, the quality of a</span>
+0025 <span class="comment">% model given some test data is primarily assessed by letting it predict target values for each test</span>
+0026 <span class="comment">% trial, and comparing the outcomes with the known values for the given set of test trials.</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">% The data to be cross-validated can be in a variety of formats (as long as utl_crossval can</span>
+0029 <span class="comment">% determine how to partition it), and a custom partitioning function can be supplied for completely</span>
+0030 <span class="comment">% free-form data (such as EEGLAB data sets, which are handled by utl_dataset_partitioner). Aside</span>
+0031 <span class="comment">% from the data, usually two functions need to be passed - one to learn a model from some data</span>
+0032 <span class="comment">% portion (the 'trainer'), and one to test the learned model on some data portion (the 'tester'), by</span>
+0033 <span class="comment">% making predictions. Further customization options include choice of the comparison metric (or</span>
+0034 <span class="comment">% 'loss' function), choice of the function which extracts known target values from the data (as the</span>
+0035 <span class="comment">% ground truth used in the comparison), as well as cluster parallelization options.</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">% In:</span>
+0038 <span class="comment">%   Data : some data that can be partitioned using index sets, such as, for example,</span>
+0039 <span class="comment">%          {X,y} with X being the [NxF] training data and y being the [Nx1] labels</span>
+0040 <span class="comment">%          (N=#trials, F=#features)</span>
+0041 <span class="comment">%</span>
+0042 <span class="comment">%   Arguments : optional name-value pairs specifying the arguments:</span>
+0043 <span class="comment">%               'trainer': training function; receives a partition of the data (as produced by</span>
+0044 <span class="comment">%                          the specified partitioner), possibly some further arguments as</span>
+0045 <span class="comment">%                          specified in args, and returns a model (of any kind) (default:</span>
+0046 <span class="comment">%                          @ml_train; natively supports the {X,y} data format)</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">%               'tester' : testing function; receives a partition of the data (as produced by</span>
+0049 <span class="comment">%                          the partitioner) and a model (as produced by the trainer), and</span>
+0050 <span class="comment">%                          returns a prediction for every index of the input data, in one of the</span>
+0051 <span class="comment">%                          formats that can be produced by ml_predict (default: @ml_predict)</span>
+0052 <span class="comment">%</span>
+0053 <span class="comment">%               'scheme': cross-validation scheme, can be one of the following formats (default: 10)</span>
+0054 <span class="comment">%                * 0: skip CV, return NaN and empty statistics</span>
+0055 <span class="comment">%                * k: k-fold randomized CV (or, if 0&lt;k&lt;1, k-holdhout CV)</span>
+0056 <span class="comment">%                * [r k]: r times repartitioned k-fold randomized CV (or, if 0&lt;k&lt;1, k-holdout CV</span>
+0057 <span class="comment">%                         (with k a fraction))</span>
+0058 <span class="comment">%                * [r k m]: r times repartitioned k-fold randomized CV (or, if 0&lt;k&lt;1, k-holdout CV</span>
+0059 <span class="comment">%                           (with k a fraction)) with m indices margin width (between training and</span>
+0060 <span class="comment">%                           test set)</span>
+0061 <span class="comment">%                * 'loo': leave-one-out CV</span>
+0062 <span class="comment">%                * {'chron', k} or {'block', k}: k-fold chronological/blockwise CV</span>
+0063 <span class="comment">%                * {'chron', k, m} or {'block', k, m}: k-fold chronological/blockwise CV with m</span>
+0064 <span class="comment">%                                                      indices margin width (between training and</span>
+0065 <span class="comment">%                                                      test set)</span>
+0066 <span class="comment">%                * 'trainerr': This is the training-set error, i.e. it is a measure of the</span>
+0067 <span class="comment">%                              separability of the data (not of the generalization ability of the</span>
+0068 <span class="comment">%                              classifier); it is usually an error to report this number in a paper</span>
+0069 <span class="comment">%</span>
+0070 <span class="comment">%               'partitioner': partitioning function for the data, receives two parameters:</span>
+0071 <span class="comment">%                              (data, index vector)</span>
+0072 <span class="comment">%                              * if the index vector is empty, should return the highest index in</span>
+0073 <span class="comment">%                                the data OR a cell array of {training-partition,test-partition}</span>
+0074 <span class="comment">%                                for each fold (in the latter case, the partitioner fully controls</span>
+0075 <span class="comment">%                                the cross-validation scheme); for each fold, these two outputs</span>
+0076 <span class="comment">%                                will be fed into the partitioner as second argument to generate the</span>
+0077 <span class="comment">%                                training set and the test set, respectively</span>
+0078 <span class="comment">%                              * otherwise, it should return data subindexed by the index vector</span>
+0079 <span class="comment">%                              default: provides support for cell arrays, numeric arrays, struct</span>
+0080 <span class="comment">%                                       arrays and {Data,Target} cell arrays</span>
+0081 <span class="comment">%</span>
+0082 <span class="comment">%               'target': a function to derive the target variable from a partition of the data</span>
+0083 <span class="comment">%                         (as produced by the partitioner), for evaluation; the allowed format is</span>
+0084 <span class="comment">%                         anything that may be output by ml_predict default: provides support for</span>
+0085 <span class="comment">%                         {Data,Target} cell arrays</span>
+0086 <span class="comment">%</span>
+0087 <span class="comment">%               'metric': metric to be employed, applied both to results of each fold and results</span>
+0088 <span class="comment">%                         aggregated over all folds</span>
+0089 <span class="comment">%                         * function handle: a custom, user-supplied loss function; receives target</span>
+0090 <span class="comment">%                           data in the first argument and prediction data in the second argument;</span>
+0091 <span class="comment">%                           each can be in any format that can be produced by ml_predict (but can be</span>
+0092 <span class="comment">%                           expected to be mutually consistent). shall return a real number</span>
+0093 <span class="comment">%                           indicating the summary metric over all data, and optionally additional</span>
+0094 <span class="comment">%                           statistics in a struct</span>
+0095 <span class="comment">%                         * string: use ml_calcloss, with 'metric' determining the loss type</span>
+0096 <span class="comment">%                         * default/empty: use 'mcr','mse','nll','kld' depending on supplied target</span>
+0097 <span class="comment">%                           and prediction data formats, via ml_calcloss</span>
+0098 <span class="comment">%</span>
+0099 <span class="comment">%               'args': optional arguments to the training function, packed in a cell array</span>
+0100 <span class="comment">%                       (default: empty)</span>
+0101 <span class="comment">%                       note: if using the default trainer/tester combination, args must at least</span>
+0102 <span class="comment">%                             specify the learning function to be used, e.g. {'lda'} for linear</span>
+0103 <span class="comment">%                             discriminant analysis (see ml_train* functions for options)</span>
+0104 <span class="comment">%</span>
+0105 <span class="comment">%               'repeatable': whether the randomization procedure shall give repeatable results</span>
+0106 <span class="comment">%                             (default: 1); different numbers (aside from 0) give different</span>
+0107 <span class="comment">%                             repeatable runs, i.e. the value determines the randseed</span>
+0108 <span class="comment">%</span>
+0109 <span class="comment">%               'engine_cv': parallelization engine to use (default: 'global'); see par_beginsschedule</span>
+0110 <span class="comment">%</span>
+0111 <span class="comment">%               'pool'  : worker pool to use (default: 'global'); see par_beginsschedule</span>
+0112 <span class="comment">%</span>
+0113 <span class="comment">%               'policy': scheduling policy to use (default: 'global'); see par_beginschedule</span>
+0114 <span class="comment">%</span>
+0115 <span class="comment">% Out:</span>
+0116 <span class="comment">%   Measure : a measure of the overall performance of the trainer/tester combination, w.r.t. to the</span>
+0117 <span class="comment">%             target variable returned by the target function computed by the metric</span>
+0118 <span class="comment">%</span>
+0119 <span class="comment">%   Stats   : additional statistics, as produced by the metric</span>
+0120 <span class="comment">%</span>
+0121 <span class="comment">% Example:</span>
+0122 <span class="comment">%   % assuming a feature matrix called trials and a label vector called targets, sized as:</span>
+0123 <span class="comment">%   %  trials: [NxF] array of training instances</span>
+0124 <span class="comment">%   %  targets: [Nx1] array of labels</span>
+0125 <span class="comment">%</span>
+0126 <span class="comment">%   % cross-validate using (shrinkage) linear discriminant analysis</span>
+0127 <span class="comment">%   [loss,stats] = utl_nested_crossval({trials,targets}, 'args',{'lda'})</span>
+0128 <span class="comment">%</span>
+0129 <span class="comment">%   % cross-validate using hierarchical kernel learning with a specific kernel</span>
+0130 <span class="comment">%   [loss,stats] = utl_nested_crossval({trials,targets}, 'args',{{'hkl' 'kernel' 'hermite'}})</span>
+0131 <span class="comment">%</span>
+0132 <span class="comment">% Configuration Examples:</span>
+0133 <span class="comment">%   A simple training function would be:</span>
+0134 <span class="comment">%     @ml_train, with args being {'lda'} -- for this case, the data X (size NxF) and labels y</span>
+0135 <span class="comment">%                                           (size Nx1) should be supplied as {X,y} to utl_crossval</span>
+0136 <span class="comment">%</span>
+0137 <span class="comment">%   A simple prediction function would be:</span>
+0138 <span class="comment">%     @ml_predict</span>
+0139 <span class="comment">%</span>
+0140 <span class="comment">%   A simple partitioner for epoched EEG data sets would be:</span>
+0141 <span class="comment">%     function result = my_partitioner(data,indices,misc)</span>
+0142 <span class="comment">%     if isempty(indices)</span>
+0143 <span class="comment">%         result = data.trials;</span>
+0144 <span class="comment">%     else</span>
+0145 <span class="comment">%         result = pop_select(data,'trial',indices);</span>
+0146 <span class="comment">%     end</span>
+0147 <span class="comment">%</span>
+0148 <span class="comment">%   A simple mean-square error loss metric would be:</span>
+0149 <span class="comment">%     my_metric = @(target,predicted) mean((target-predicted).^2);</span>
+0150 <span class="comment">%</span>
+0151 <span class="comment">%   A simple target extraction function for epoched EEG data sets would be (assuming that there is</span>
+0152 <span class="comment">%   an epoch-associated target value):</span>
+0153 <span class="comment">%     my_target = @(data) [data.epoch.target];</span>
+0154 <span class="comment">%</span>
+0155 <span class="comment">% References:</span>
+0156 <span class="comment">%   [1] Richard O. Duda, Peter E. Hart, David G. Stork, &quot;Pattern Classification&quot;</span>
+0157 <span class="comment">%       Wiley Interscience, 2000</span>
+0158 <span class="comment">%</span>
+0159 <span class="comment">% See also:</span>
+0160 <span class="comment">%   utl_evaluate_fold, bci_train, utl_searchmodel, utl_nested_crossval</span>
+0161 <span class="comment">%</span>
+0162 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0163 <span class="comment">%                                2010-04-07</span>
+0164 
+0165 <span class="comment">% read arguments</span>
+0166 opts = hlp_varargin2struct(varargin, <span class="keyword">...</span>
+0167     <span class="string">'scheme'</span>,10, <span class="keyword">...</span>
+0168     <span class="string">'partitioner'</span>,@<a href="utl_default_partitioner.html" class="code" title="function res = utl_default_partitioner(data,inds,varargin)">utl_default_partitioner</a>,  <span class="keyword">...</span>
+0169     <span class="string">'target'</span>,@<a href="utl_default_target.html" class="code" title="function t = utl_default_target(data)">utl_default_target</a>, <span class="keyword">...</span>
+0170     <span class="string">'metric'</span>,@(T,P) ml_calcloss([],T,P),  <span class="keyword">...</span>
+0171     <span class="string">'trainer'</span>,@ml_train,  <span class="keyword">...</span>
+0172     <span class="string">'tester'</span>,@<a href="utl_default_predict.html" class="code" title="function y = utl_default_predict(X,M)">utl_default_predict</a>,  <span class="keyword">...</span>
+0173     <span class="string">'args'</span>,{}, <span class="keyword">...</span>
+0174     <span class="string">'repeatable'</span>,1,  <span class="keyword">...</span>
+0175     <span class="string">'engine_cv'</span>,<span class="string">'global'</span>, <span class="keyword">...</span>
+0176     <span class="string">'pool'</span>,<span class="string">'global'</span>, <span class="keyword">...</span>
+0177     <span class="string">'policy'</span>,<span class="string">'global'</span>);
+0178 
+0179 <span class="comment">% string arguments are considered to be variants of the default metric</span>
+0180 <span class="keyword">if</span> isempty(opts.metric) || ischar(opts.metric) || (iscell(opts.metric) &amp;&amp; all(cellfun(@ischar,opts.metric)))
+0181     opts.metric = @(T,P)ml_calcloss(opts.metric,T,P); <span class="keyword">end</span>
+0182 <span class="keyword">if</span> ~<a href="#_sub2" class="code" title="subfunction result = has_stats(metric)">has_stats</a>(opts.metric)
+0183     opts.metric = @(T,P)<a href="#_sub3" class="code" title="subfunction [result,stats] = add_stats(result)">add_stats</a>(opts.metric(T,P)); <span class="keyword">end</span>
+0184 
+0185 <span class="comment">% derive indices from CV scheme &amp; N</span>
+0186 inds = <a href="#_sub1" class="code" title="subfunction inds = make_indices(S,N,repeatable)">make_indices</a>(opts.scheme,opts.partitioner(data,[]),opts.repeatable);
+0187 
+0188 <span class="keyword">if</span> isempty(inds)
+0189     measure = NaN;
+0190     stats = struct();
+0191 <span class="keyword">else</span>
+0192     
+0193     time0 = tic;
+0194  
+0195     <span class="comment">% generate tasks for each fold</span>
+0196     <span class="keyword">for</span> p = 1:length(inds)
+0197         tasks{p} = {@<a href="utl_evaluate_fold.html" class="code" title="function result = utl_evaluate_fold(opts,data,inds)">utl_evaluate_fold</a>,opts,data,inds{p}}; <span class="keyword">end</span>
+0198 
+0199     <span class="comment">% schedule the tasks</span>
+0200     results = par_schedule(tasks, <span class="string">'engine'</span>,opts.engine_cv, <span class="string">'pool'</span>,opts.pool, <span class="string">'policy'</span>,opts.policy);
+0201     
+0202     <span class="comment">% collect results</span>
+0203     <span class="keyword">for</span> p=1:length(inds)
+0204         <span class="comment">% collect results</span>
+0205         targets{p} = results{p}{1};
+0206         predictions{p} = results{p}{2};
+0207     <span class="keyword">end</span>
+0208         
+0209     <span class="comment">% compute aggregate metric</span>
+0210     [dummy,stats] = opts.metric(<a href="utl_aggregate_results.html" class="code" title="function res = utl_aggregate_results(varargin)">utl_aggregate_results</a>(targets{:}),<a href="utl_aggregate_results.html" class="code" title="function res = utl_aggregate_results(varargin)">utl_aggregate_results</a>(predictions{:})); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0211 
+0212     <span class="comment">% add per-fold metric</span>
+0213     <span class="keyword">for</span> p=1:length(targets)
+0214         stats.per_fold(p) = hlp_getresult(2,opts.metric,targets{p},predictions{p}); <span class="keyword">end</span>
+0215     
+0216     <span class="comment">% calculate basic cross-validation statistics</span>
+0217     tmp = [stats.per_fold.(stats.measure)];
+0218     stats.(stats.measure) = mean(tmp);
+0219     stats.([stats.measure <span class="string">'_mu'</span>]) = mean(tmp);
+0220     stats.([stats.measure <span class="string">'_std'</span>]) = std(tmp);
+0221     stats.([stats.measure <span class="string">'_med'</span>]) = median(tmp);
+0222     stats.([stats.measure <span class="string">'_mad'</span>]) =  mad(tmp,1);
+0223     measure = mean(tmp);
+0224     
+0225     <span class="comment">% also add the original targets &amp; predictions</span>
+0226     <span class="keyword">for</span> p=1:length(targets)
+0227         stats.per_fold(p).targ = targets{p};
+0228         stats.per_fold(p).pred = predictions{p};
+0229     <span class="keyword">end</span>
+0230 
+0231     <span class="comment">% add original index sets</span>
+0232     <span class="keyword">if</span> all(cellfun(@(inds) length(inds{1}) &lt; 10000 &amp;&amp; length(inds{2}) &lt; 10000,inds))
+0233         <span class="keyword">for</span> p=1:length(targets)
+0234             stats.per_fold(p).indices = inds{p}; <span class="keyword">end</span>
+0235     <span class="keyword">end</span>                
+0236     
+0237     <span class="comment">% add additional stats</span>
+0238     stats.time = toc(time0);
+0239     
+0240 <span class="keyword">end</span>
+0241 <span class="keyword">end</span>
+0242 
+0243 
+0244 
+0245 <a name="_sub1" href="#_subfunctions" class="code">function inds = make_indices(S,N,repeatable)</a>
+0246 <span class="comment">% Inds = make_indices(Scheme,Index-Cardinality)</span>
+0247 <span class="comment">% make cross-validation indices for each fold, from the scheme and the index set cardinality</span>
+0248 
+0249 <span class="keyword">if</span> iscell(N) &amp;&amp; all(cellfun(<span class="string">'isclass'</span>,N,<span class="string">'cell'</span>)) &amp;&amp; all(cellfun(<span class="string">'prodofsize'</span>,N)&gt;=2)
+0250     <span class="comment">% the partitioner returned the index sets already; pass them through</span>
+0251     inds = N;
+0252 <span class="keyword">else</span>
+0253     <span class="keyword">if</span> strcmp(S,<span class="string">'trainerr'</span>)
+0254         <span class="comment">% special case: index set for computing the training-set error</span>
+0255         inds = {{1:N,1:N}};
+0256     <span class="keyword">else</span>
+0257         <span class="comment">% regular case: proper cross-validation</span>
+0258         
+0259         <span class="comment">% set parameter defaults</span>
+0260         k = 10;                     <span class="comment">% foldness or fraction of holdout data</span>
+0261         repeats = 1;                <span class="comment">% # of monte carlo repartitions</span>
+0262         randomized = 1;             <span class="comment">% randomized indices or not</span>
+0263         margin = 0;                 <span class="comment">% width of the index margin between training and evaluation sets</span>
+0264         subblocks = 1;              <span class="comment">% number of sub-blocks within which to cross-validate</span>
+0265         
+0266         <span class="comment">% parse scheme grammar</span>
+0267         <span class="keyword">if</span> isnumeric(S) &amp;&amp; length(S) == 3
+0268             <span class="comment">% &quot;[repeats, folds, margin]&quot; format</span>
+0269             repeats = S(1);
+0270             k = S(2);
+0271             margin = S(3);
+0272         <span class="keyword">elseif</span> isnumeric(S) &amp;&amp; length(S) == 2
+0273             <span class="comment">% &quot;[repeats, folds]&quot; format</span>
+0274             repeats = S(1);
+0275             k = S(2);
+0276         <span class="keyword">elseif</span> iscell(S) &amp;&amp; ~isempty(S) &amp;&amp; ischar(S{1}) &amp;&amp; <span class="keyword">...</span>
+0277                 (strcmp(<span class="string">'chron'</span>,S{1}) || strcmp(<span class="string">'block'</span>,S{1}))
+0278             <span class="comment">% &quot;{'chron', k, m}&quot; format</span>
+0279             randomized = 0;
+0280             <span class="keyword">if</span> length(S) &gt; 1 &amp;&amp; isscalar(S{2})
+0281                 k = S{2}; <span class="keyword">end</span>
+0282             <span class="keyword">if</span> length(S) &gt; 2 &amp;&amp; isscalar(S{3})
+0283                 margin = S{3}; <span class="keyword">end</span>
+0284         <span class="keyword">elseif</span> iscell(S) &amp;&amp; ~isempty(S) &amp;&amp; ischar(S{1}) &amp;&amp; <span class="keyword">...</span>
+0285                 (strcmp(<span class="string">'subchron'</span>,S{1}) || strcmp(<span class="string">'subblock'</span>,S{1}))
+0286             <span class="comment">% &quot;{'subchron', b, k, m}&quot; format</span>
+0287             randomized = 0;
+0288             <span class="keyword">if</span> length(S) &gt; 1 &amp;&amp; isscalar(S{2})
+0289                 subblocks = S{2}; <span class="keyword">end</span>
+0290             <span class="keyword">if</span> length(S) &gt; 2 &amp;&amp; isscalar(S{3})
+0291                 k = S{3}; <span class="keyword">end</span>
+0292             <span class="keyword">if</span> length(S) &gt; 3 &amp;&amp; isscalar(S{4})
+0293                 margin = S{4}; <span class="keyword">end</span>
+0294         <span class="keyword">elseif</span> isscalar(S)
+0295             <span class="comment">% &quot;k&quot; format</span>
+0296             k = S;
+0297         <span class="keyword">elseif</span> ischar(S) &amp;&amp; strcmp(S,<span class="string">'loo'</span>)
+0298             <span class="comment">% &quot;'loo'&quot; format</span>
+0299             k = N;
+0300         <span class="keyword">elseif</span> iscell(S) &amp;&amp; all(cellfun(<span class="string">'isclass'</span>,S,<span class="string">'cell'</span>)) &amp;&amp; all(cellfun(<span class="string">'prodofsize'</span>,S)&gt;=2)
+0301             <span class="comment">% direct specification</span>
+0302             inds = S; 
+0303             <span class="keyword">return</span>;
+0304         <span class="keyword">else</span>
+0305             error(<span class="string">'unknown cross-validation scheme format'</span>);
+0306         <span class="keyword">end</span>
+0307         
+0308         <span class="comment">% check for skipped CV</span>
+0309         inds = {};
+0310         <span class="keyword">if</span> k &lt;= 0
+0311             <span class="keyword">return</span>; <span class="keyword">end</span>
+0312         
+0313         <span class="keyword">if</span> randomized &amp;&amp; repeatable
+0314             <span class="keyword">if</span> hlp_matlab_version &lt; 707
+0315                 <span class="comment">% save &amp; override RNG state</span>
+0316                 randstate = rand(<span class="string">'state'</span>); <span class="comment">%#ok&lt;*RAND&gt;</span>
+0317                 rand(<span class="string">'state'</span>,5182+repeatable); <span class="comment">%#ok&lt;RAND&gt;</span>
+0318             <span class="keyword">else</span>
+0319                 <span class="comment">% create a legacy-compatible RandStream</span>
+0320                 randstream = RandStream(<span class="string">'swb2712'</span>,<span class="string">'Seed'</span>,5182+repeatable);
+0321             <span class="keyword">end</span>
+0322         <span class="keyword">end</span>
+0323         
+0324         <span class="comment">% generate evaluation index sets from the parameters</span>
+0325         <span class="keyword">try</span>
+0326             <span class="keyword">if</span> subblocks == 1
+0327                 perm = 1:N;
+0328             <span class="keyword">else</span>
+0329                 Nblock = N + subblocks-mod(N,subblocks);
+0330                 perm = reshape(1:Nblock,[],subblocks)';
+0331                 perm = round(perm(:)*N/Nblock);
+0332             <span class="keyword">end</span>
+0333             
+0334             <span class="keyword">for</span> r=1:repeats
+0335                 <span class="keyword">if</span> randomized
+0336                     <span class="keyword">if</span> hlp_matlab_version &lt; 707
+0337                         perm = randperm(N);
+0338                     <span class="keyword">else</span>
+0339                         perm = randstream.randperm(N);
+0340                     <span class="keyword">end</span>
+0341                 <span class="keyword">end</span>
+0342                 <span class="keyword">if</span> k &lt; 1
+0343                     <span class="comment">% p-holdout</span>
+0344                     inds{end+1} = {sort(perm(1+(0:(round(N*k)-1))))};
+0345                 <span class="keyword">else</span>
+0346                     <span class="comment">% k-fold</span>
+0347                     <span class="keyword">for</span> i=0:k-1
+0348                         inds{end+1} = sort(perm(1+floor(i*N/k) : min(N,floor((i+1)*N/k)))); <span class="keyword">end</span>
+0349                 <span class="keyword">end</span>
+0350             <span class="keyword">end</span>
+0351         <span class="keyword">catch</span> err
+0352             <span class="comment">% % this error is thrown only after the subsequent delicate RNG state restoration</span>
+0353             indexgen_error = err;
+0354         <span class="keyword">end</span>
+0355         
+0356         <span class="keyword">if</span> randomized &amp;&amp; repeatable &amp;&amp; hlp_matlab_version &lt; 707
+0357             <span class="comment">% restore saved RNG state</span>
+0358             rand(<span class="string">'state'</span>,randstate); <span class="comment">%#ok&lt;RAND&gt;</span>
+0359         <span class="keyword">end</span>
+0360         
+0361         <span class="keyword">if</span> exist(<span class="string">'indexgen_error'</span>,<span class="string">'var'</span>)
+0362             rethrow(indexgen_error); <span class="keyword">end</span> <span class="comment">% throw the error that happened during previous index set creation</span>
+0363         
+0364         <span class="comment">% add complementary training index sets</span>
+0365         <span class="keyword">for</span> i=1:length(inds)
+0366             tmpinds = true(1,N);
+0367             tmpinds(inds{i}) = 0;
+0368             <span class="keyword">for</span> j=1:margin
+0369                 tmpinds(max(1,inds{i}-j)) = 0;
+0370                 tmpinds(min(N,inds{i}+j)) = 0;
+0371             <span class="keyword">end</span>
+0372             inds{i} = {find(tmpinds),inds{i}};
+0373         <span class="keyword">end</span>
+0374     <span class="keyword">end</span>
+0375 <span class="keyword">end</span>
+0376 <span class="keyword">end</span>
+0377 
+0378 
+0379 <span class="comment">% test whether the given metric supplies stats or not</span>
+0380 <a name="_sub2" href="#_subfunctions" class="code">function result = has_stats(metric)</a>
+0381 <span class="keyword">try</span> 
+0382     [x,y] = metric([],[]);  <span class="comment">%#ok&lt;NASGU,ASGLU&gt;</span>
+0383     result = true;
+0384 <span class="keyword">catch</span> e
+0385     result = ~any(strcmp(e.identifier,{<span class="string">'MATLAB:TooManyOutputs'</span>,<span class="string">'MATLAB:maxlhs'</span>,<span class="string">'MATLAB:unassignedOutputs'</span>}));
+0386 <span class="keyword">end</span>
+0387 <span class="keyword">end</span>
+0388 
+0389 
+0390 
+0391 <span class="comment">% add stats to the result of some metric</span>
+0392 <a name="_sub3" href="#_subfunctions" class="code">function [result,stats] = add_stats(result)</a>
+0393 stats.value = result;
+0394 <span class="keyword">end</span>
+0395</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

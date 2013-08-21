@@ -1,0 +1,117 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_kernelize</title>
+  <meta name="keywords" content="utl_kernelize">
+  <meta name="description" content="Transform some data into a kernel space, given some basis vectors.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_kernelize.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_kernelize
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Transform some data into a kernel space, given some basis vectors.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function D = utl_kernelize(X,V,type,scaling,lam) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Transform some data into a kernel space, given some basis vectors.
+ Out-Data = utl_kernelize(In-Data,Basis,Kernel-Type,Scaling,Lambda)
+
+ In:
+   In-Data     : input vectors, [NxD], N=#vectors, D=#features
+   Basis       : basis vectors in the same space as the input data, [MxD], M=#basis vectors, D=#features
+   Kernel-Type : type of kernel to apply:
+                  'linear': no kernel
+                  'rbf': gaussian/radial basis function kernel
+                  'poly': polynomial kernel, degree selected by Lambda
+                  'laplace': laplacian kernel
+                  'cauchy': Cauchy kernel
+   Scaling     : scaling of the kernel
+   Lambda      : additional kernel parameter
+
+ Out:
+   Out-Data    : data in kernel space
+
+ Examples:
+   % map the data into a radial basis function kernel space, using a kernel scale (gamma) of 0.1
+    basis = trials;
+    trials = utl_kernelize(trials,basis,'rbf',0.1);    
+
+                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                               2010-04-06</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function D = utl_kernelize(X,V,type,scaling,lam)</a>
+0002 <span class="comment">% Transform some data into a kernel space, given some basis vectors.</span>
+0003 <span class="comment">% Out-Data = utl_kernelize(In-Data,Basis,Kernel-Type,Scaling,Lambda)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   In-Data     : input vectors, [NxD], N=#vectors, D=#features</span>
+0007 <span class="comment">%   Basis       : basis vectors in the same space as the input data, [MxD], M=#basis vectors, D=#features</span>
+0008 <span class="comment">%   Kernel-Type : type of kernel to apply:</span>
+0009 <span class="comment">%                  'linear': no kernel</span>
+0010 <span class="comment">%                  'rbf': gaussian/radial basis function kernel</span>
+0011 <span class="comment">%                  'poly': polynomial kernel, degree selected by Lambda</span>
+0012 <span class="comment">%                  'laplace': laplacian kernel</span>
+0013 <span class="comment">%                  'cauchy': Cauchy kernel</span>
+0014 <span class="comment">%   Scaling     : scaling of the kernel</span>
+0015 <span class="comment">%   Lambda      : additional kernel parameter</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">% Out:</span>
+0018 <span class="comment">%   Out-Data    : data in kernel space</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% Examples:</span>
+0021 <span class="comment">%   % map the data into a radial basis function kernel space, using a kernel scale (gamma) of 0.1</span>
+0022 <span class="comment">%    basis = trials;</span>
+0023 <span class="comment">%    trials = utl_kernelize(trials,basis,'rbf',0.1);</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0026 <span class="comment">%                               2010-04-06</span>
+0027 
+0028 X = X/scaling;
+0029 <span class="keyword">if</span> strcmp(type,<span class="string">'linear'</span>)
+0030     D = X;
+0031 <span class="keyword">else</span>
+0032     V = V/scaling;
+0033     dist_squared = @(A,B) repmat(sum(A.^2,2),1,size(B,1)) + repmat(sum(B.^2,2)',size(A,1),1) - 2*(A*B');
+0034     <span class="keyword">switch</span> type
+0035         <span class="keyword">case</span> <span class="string">'rbf'</span>
+0036             D = exp(-dist_squared(X,V));
+0037         <span class="keyword">case</span> <span class="string">'poly'</span>
+0038             D = (X*V' + 1).^lam;
+0039         <span class="keyword">case</span> <span class="string">'laplace'</span>
+0040             D = exp(-sqrt(dist_squared(X,V)));
+0041         <span class="keyword">case</span> <span class="string">'cauchy'</span>
+0042             D = 1./(1+dist_squared(X,V));
+0043         <span class="keyword">otherwise</span>
+0044             error(<span class="string">'unknown kernel type'</span>);
+0045     <span class="keyword">end</span>
+0046 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

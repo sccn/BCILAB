@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of env_doc</title>
+  <meta name="keywords" content="env_doc">
+  <meta name="description" content="Replacement for the 'doc' command (also works in deployed mode).">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">environment</a> &gt; env_doc.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/environment&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>env_doc
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Replacement for the 'doc' command (also works in deployed mode).</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function env_doc(topic) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Replacement for the 'doc' command (also works in deployed mode).
+ env_doc(Topic)
+
+ In:
+   Topic : topic to display documentation for (name of a function, directory on path, or function 
+           handle itself)
+
+                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                               2012-04-06</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>	Translates platform-independent directories into a system-specific directories.</li><li><a href="env_web.html" class="code" title="function env_web(url)">env_web</a>	Replacement for the 'web' command that also works in deployed mode.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function env_doc(topic)</a>
+0002 <span class="comment">% Replacement for the 'doc' command (also works in deployed mode).</span>
+0003 <span class="comment">% env_doc(Topic)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Topic : topic to display documentation for (name of a function, directory on path, or function</span>
+0007 <span class="comment">%           handle itself)</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0010 <span class="comment">%                               2012-04-06</span>
+0011 
+0012 <span class="keyword">if</span> isa(topic,<span class="string">'function_handle'</span>)
+0013     as_string = char(topic);
+0014     <span class="keyword">try</span>
+0015         <span class="keyword">if</span> as_string(1) == <span class="string">'@'</span>
+0016             <span class="comment">% if this is a class member function, use the class name as topic</span>
+0017             fn = functions(topic);
+0018             tmp = struct2cell(fn.workspace{1});
+0019             topic = class(tmp{1});
+0020         <span class="keyword">else</span>
+0021             <span class="comment">% otherwise use the string form of the function as topic</span>
+0022             topic = as_string;
+0023         <span class="keyword">end</span>
+0024     <span class="keyword">catch</span>
+0025         disp(<span class="string">'Cannot deduce help topic for the given function handle.'</span>);
+0026         <span class="keyword">return</span>;
+0027     <span class="keyword">end</span>
+0028 <span class="keyword">end</span>
+0029 
+0030 <span class="keyword">if</span> ~isdeployed
+0031     doc(topic);
+0032 <span class="keyword">else</span>
+0033     <span class="keyword">try</span>
+0034         <span class="comment">% check if this is a file</span>
+0035         filepath = utl_whichfile(topic);
+0036         docpath = strrep(strrep(filepath,<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'bcilab:/'</span>),<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'bcilab:/build/docs/'</span>)),<span class="string">'.m'</span>,<span class="string">'.html'</span>);
+0037         <a href="env_web.html" class="code" title="function env_web(url)">env_web</a>(docpath);
+0038     <span class="keyword">catch</span>
+0039         <span class="keyword">try</span>
+0040             <span class="comment">% treat it as a directory relative to BCILAB's root (e.g. code/arguments)</span>
+0041             docpath = <a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>([<span class="string">'bcilab:/build/docs/'</span> topic <span class="string">'/index.html'</span>]);
+0042             <a href="env_web.html" class="code" title="function env_web(url)">env_web</a>(docpath);
+0043         <span class="keyword">catch</span>
+0044             disp([<span class="string">'Could not retrieve documentation for &quot;'</span> topic <span class="string">'&quot;.'</span>]);
+0045         <span class="keyword">end</span>
+0046     <span class="keyword">end</span>
+0047 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

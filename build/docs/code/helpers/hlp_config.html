@@ -1,0 +1,418 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of hlp_config</title>
+  <meta name="keywords" content="hlp_config">
+  <meta name="description" content="helper function to process human-readable config scripts.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">helpers</a> &gt; hlp_config.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>hlp_config
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>helper function to process human-readable config scripts.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function result = hlp_config(configname, operation, varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> helper function to process human-readable config scripts.
+ Result = hlp_config(FileName,Operation,VariableName,Value,NVPs...)
+
+ Config scripts consist of assignments of the form name = value; to set configuration options. In
+ addition, there may be any type of comments, conditional control flow, etc - e.g., setting certain 
+ values on some platforms and others on others. This function allows to get or set the value 
+ assigned to a variable in the place of the script where it is actually assigned on the current 
+ platform. Note that the respective variable has to be already in the config file for this function 
+ to work.
+
+ In:
+   FileName : name of the configuration file to process
+
+   Operation : operation to perform on the config file
+               'get' : get the currently defined value of a given variable
+               'set' : replace the current defintion of a given variable
+
+   VariableName : name of the variable to be affected (must be a MATLAB identifier)
+
+   Value : the new value to be assigned, if the operation is 'set', as a string
+           note that most data structures can be converted into a string via hlp_tostring
+
+   NVPs... : list of further name-value pairs, where each name denotes a config variables and the subsequent
+             value is the string expression that should be written into the config file. It is 
+             generally a good idea to use hlp_tostring() to turn a data structure into such a string
+             representation.
+
+ Out:
+   Result : the current value of the variable of interest, when using the 'get'
+            operation
+
+ Notes:
+   There can be multiple successive variable name / value pairs for the set mode.
+   If an error occurs during a set operation, any changes will be rolled back.
+ 
+ Examples:
+   % read out the value of the 'data' config variable from a config file
+   data = hlp_config('/home/christian/myconfig.m','get','data')
+
+   % override the values of the 'files' and 'capacity' config variables in the given config script
+   hlp_config('/home/christian/myconfig.m', 'set', 'files',myfiles, 'capacity',1000)
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-11-19</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="hlp_matlab_version.html" class="code" title="function v = hlp_matlab_version()">hlp_matlab_version</a>	Get the MATLAB version in a numeric format that can be compared with <, >, etc.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function res = get_value(filename__,varname__)</a></li><li><a href="#_sub2" class="code">function backup_name = set_value(filename,varname,newvalue,makebackup)</a></li><li><a href="#_sub3" class="code">function [res,wspace] = run_protected(code__,varname__)</a></li><li><a href="#_sub4" class="code">function strs = strsplit(str, delim)</a></li><li><a href="#_sub5" class="code">function movefile(src,dst)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function result = hlp_config(configname, operation, varargin)</a>
+0002 <span class="comment">% helper function to process human-readable config scripts.</span>
+0003 <span class="comment">% Result = hlp_config(FileName,Operation,VariableName,Value,NVPs...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Config scripts consist of assignments of the form name = value; to set configuration options. In</span>
+0006 <span class="comment">% addition, there may be any type of comments, conditional control flow, etc - e.g., setting certain</span>
+0007 <span class="comment">% values on some platforms and others on others. This function allows to get or set the value</span>
+0008 <span class="comment">% assigned to a variable in the place of the script where it is actually assigned on the current</span>
+0009 <span class="comment">% platform. Note that the respective variable has to be already in the config file for this function</span>
+0010 <span class="comment">% to work.</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">% In:</span>
+0013 <span class="comment">%   FileName : name of the configuration file to process</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%   Operation : operation to perform on the config file</span>
+0016 <span class="comment">%               'get' : get the currently defined value of a given variable</span>
+0017 <span class="comment">%               'set' : replace the current defintion of a given variable</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">%   VariableName : name of the variable to be affected (must be a MATLAB identifier)</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   Value : the new value to be assigned, if the operation is 'set', as a string</span>
+0022 <span class="comment">%           note that most data structures can be converted into a string via hlp_tostring</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   NVPs... : list of further name-value pairs, where each name denotes a config variables and the subsequent</span>
+0025 <span class="comment">%             value is the string expression that should be written into the config file. It is</span>
+0026 <span class="comment">%             generally a good idea to use hlp_tostring() to turn a data structure into such a string</span>
+0027 <span class="comment">%             representation.</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">% Out:</span>
+0030 <span class="comment">%   Result : the current value of the variable of interest, when using the 'get'</span>
+0031 <span class="comment">%            operation</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">% Notes:</span>
+0034 <span class="comment">%   There can be multiple successive variable name / value pairs for the set mode.</span>
+0035 <span class="comment">%   If an error occurs during a set operation, any changes will be rolled back.</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">% Examples:</span>
+0038 <span class="comment">%   % read out the value of the 'data' config variable from a config file</span>
+0039 <span class="comment">%   data = hlp_config('/home/christian/myconfig.m','get','data')</span>
+0040 <span class="comment">%</span>
+0041 <span class="comment">%   % override the values of the 'files' and 'capacity' config variables in the given config script</span>
+0042 <span class="comment">%   hlp_config('/home/christian/myconfig.m', 'set', 'files',myfiles, 'capacity',1000)</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0045 <span class="comment">%                                2010-11-19</span>
+0046 
+0047 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0048 <span class="comment">%</span>
+0049 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0050 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0051 <span class="comment">% License, or (at your option) any later version.</span>
+0052 <span class="comment">%</span>
+0053 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0054 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0055 <span class="comment">% General Public License for more details.</span>
+0056 <span class="comment">%</span>
+0057 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0058 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0059 <span class="comment">% USA</span>
+0060 
+0061 <span class="keyword">if</span> ~exist(configname,<span class="string">'file'</span>)
+0062     error(<span class="string">'hlp_config:file_not_found'</span>,<span class="string">'The specified config file was not found.'</span>); <span class="keyword">end</span>
+0063 
+0064 <span class="keyword">switch</span> operation
+0065     <span class="keyword">case</span> <span class="string">'get'</span>
+0066         varname = varargin{1};
+0067         <span class="keyword">if</span> ~isvarname(varname)
+0068             error(<span class="string">'hlp_config:bad_varname'</span>,<span class="string">'The variable name must be a valid MATLAB identifier.'</span>); <span class="keyword">end</span>
+0069         <span class="comment">% get the currently defined value of a variable...</span>
+0070         result = <a href="#_sub1" class="code" title="subfunction res = get_value(filename__,varname__)">get_value</a>(configname,varname);
+0071     <span class="keyword">case</span> <span class="string">'set'</span>
+0072         backupfile = [];
+0073         <span class="keyword">try</span>
+0074             <span class="comment">% apply first assignment</span>
+0075             backupfile = <a href="#_sub2" class="code" title="subfunction backup_name = set_value(filename,varname,newvalue,makebackup)">set_value</a>(configname,varargin{1},varargin{2},true);
+0076             <span class="keyword">for</span> k = 4:2:length(varargin)
+0077                 <span class="comment">% apply all other assignments</span>
+0078                 <a href="#_sub2" class="code" title="subfunction backup_name = set_value(filename,varname,newvalue,makebackup)">set_value</a>(configname,varargin{k-1},varargin{k},false); <span class="keyword">end</span>
+0079         <span class="keyword">catch</span> e
+0080             <span class="comment">% got an error; roll back changes if necessary</span>
+0081             <span class="keyword">if</span> ~isempty(backupfile)
+0082                 <span class="keyword">try</span>
+0083                     <a href="#_sub5" class="code" title="subfunction movefile(src,dst)">movefile</a>(backupfile,configname); 
+0084                 <span class="keyword">catch</span>
+0085                     disp([<span class="string">'Could not roll back changes. You can manually revert changes by replacing '</span> configname <span class="string">' by '</span> backupfile <span class="string">'.'</span>]);
+0086                 <span class="keyword">end</span>
+0087             <span class="keyword">end</span>
+0088             rethrow(e);
+0089         <span class="keyword">end</span>
+0090     <span class="keyword">otherwise</span>
+0091         error(<span class="string">'hlp_config:unsupported_option'</span>,<span class="string">'Unsupported config operation.'</span>);
+0092 <span class="keyword">end</span>
+0093 
+0094 
+0095 <span class="comment">% run the given config script and obtain the current value of the given variable...</span>
+0096 <a name="_sub1" href="#_subfunctions" class="code">function res = get_value(filename__,varname__)</a>
+0097 <span class="keyword">try</span>
+0098     run_script(filename__);
+0099 <span class="keyword">catch</span> e
+0100     error(<span class="string">'hlp_config:erroneous_file'</span>,[<span class="string">'The config file is erroneous; Error message: '</span> e.message]);
+0101 <span class="keyword">end</span>
+0102 <span class="keyword">if</span> ~exist(varname__,<span class="string">'var'</span>)
+0103     error(<span class="string">'hlp_config:var_not_found'</span>,<span class="string">'The variable is not being defined in the config file.'</span>); <span class="keyword">end</span>
+0104 res = eval(varname__);
+0105 
+0106 
+0107 <a name="_sub2" href="#_subfunctions" class="code">function backup_name = set_value(filename,varname,newvalue,makebackup)</a>
+0108 backup_name = [];
+0109 <span class="keyword">if</span> ~exist(filename,<span class="string">'file'</span>)
+0110     error(<span class="string">'hlp_config:file_not_found'</span>,<span class="string">'The config file was not found.'</span>); <span class="keyword">end</span>
+0111 <span class="keyword">if</span> ~isvarname(varname)
+0112     error(<span class="string">'hlp_config:incorrect_value'</span>,<span class="string">'The variable name must be a valid MATLAB identifier.'</span>); <span class="keyword">end</span>
+0113 <span class="keyword">if</span> ~ischar(newvalue)
+0114     error(<span class="string">'hlp_config:incorrect_value'</span>,<span class="string">'The value to be assigned must be given as a string.'</span>); <span class="keyword">end</span>
+0115 <span class="keyword">try</span>
+0116     <span class="comment">% read the config file contents</span>
+0117     contents = {};
+0118     f = fopen(filename,<span class="string">'r'</span>);
+0119     <span class="keyword">while</span> 1
+0120         l = fgetl(f);
+0121         <span class="keyword">if</span> ~ischar(l)
+0122             <span class="keyword">break</span>; <span class="keyword">end</span>
+0123         contents{end+1} = [l 10];
+0124     <span class="keyword">end</span>
+0125     fclose(f);
+0126     <span class="comment">% turn it into one str</span>
+0127     contents = [contents{:}];
+0128 <span class="keyword">catch</span> e
+0129     <span class="keyword">try</span> fclose(f); <span class="keyword">catch</span>,<span class="keyword">end</span>
+0130     error(<span class="string">'hlp_config:cannot_read_config'</span>,[<span class="string">'Cannot read the config file; Error message: '</span> e.message]);
+0131 <span class="keyword">end</span>
+0132 
+0133 <span class="comment">% now check if the file is actually writable</span>
+0134 <span class="keyword">try</span>
+0135     f = fopen(filename,<span class="string">'r+'</span>);
+0136     <span class="keyword">if</span> f ~= -1
+0137         fclose(f);
+0138     <span class="keyword">else</span>
+0139         error(<span class="string">'hlp_config:permissions_error'</span>,<span class="string">'Could not update the config file %s. Please check file permissions and try again.'</span>,filename);
+0140     <span class="keyword">end</span>
+0141 <span class="keyword">catch</span>
+0142     error(<span class="string">'hlp_config:permissions_error'</span>,<span class="string">'Could not update the config file %s. Please check file permissions and try again.'</span>,filename);
+0143 <span class="keyword">end</span>
+0144 
+0145 <span class="comment">% temporarily replace stray semicolons by a special character and contract ellipses,</span>
+0146 <span class="comment">% so that the subsequent assignment regex matching will not get derailed)</span>
+0147 evalstr = contents;
+0148 comment_flag = false;
+0149 string_flag = false;
+0150 bracket_level = 0;
+0151 ellipsis_flag = false;
+0152 substitute = false(1,length(evalstr)); <span class="comment">% this mask indicates where we have to subsitute reversibly by special characters</span>
+0153 spaceout = false(1,length(evalstr));   <span class="comment">% this mask indicates where we can substitute irreversibly by whitespace characters...</span>
+0154 <span class="keyword">for</span> k=1:length(evalstr)
+0155     <span class="keyword">if</span> ellipsis_flag
+0156         <span class="comment">% everything that follows an ellipsis will be spaced out (including the subsequent newline that resets it)</span>
+0157         spaceout(k) = true; <span class="keyword">end</span>    
+0158     <span class="keyword">switch</span> evalstr(k)
+0159         <span class="keyword">case</span> <span class="string">';'</span> <span class="comment">% semicolon</span>
+0160             <span class="comment">% in strs, brackets or comments: indicate need for substitution</span>
+0161             <span class="keyword">if</span> string_flag || bracket_level&gt;0 || comment_flag
+0162                 substitute(k) = true; <span class="keyword">end</span>
+0163         <span class="keyword">case</span> <span class="string">''''</span> <span class="comment">% quotes</span>
+0164             <span class="comment">% flip str flag, unless in comment</span>
+0165             <span class="keyword">if</span> ~comment_flag
+0166                 string_flag = ~string_flag; <span class="keyword">end</span>
+0167         <span class="keyword">case</span> 10 <span class="comment">% newline</span>
+0168             <span class="comment">% reset bracket level, unless in ellipsis</span>
+0169             <span class="keyword">if</span> ~ellipsis_flag
+0170                 bracket_level = 0; <span class="keyword">end</span>
+0171             <span class="comment">% reset comment flag, str flag and ellipsis flag</span>
+0172             comment_flag = false;
+0173             string_flag = false;
+0174             ellipsis_flag = false;
+0175         <span class="keyword">case</span> {<span class="string">'['</span>,<span class="string">'{'</span>} <span class="comment">% opening array bracket</span>
+0176             <span class="comment">% if not in str nor comment, increase bracket level</span>
+0177             <span class="keyword">if</span> ~string_flag &amp;&amp; ~comment_flag
+0178                 bracket_level = bracket_level+1; <span class="keyword">end</span>
+0179         <span class="keyword">case</span> {<span class="string">']'</span>,<span class="string">'}'</span>} <span class="comment">% closing array bracket</span>
+0180             <span class="comment">% if not in str nor comment, decrease bracket level</span>
+0181             <span class="keyword">if</span> ~string_flag &amp;&amp; ~comment_flag
+0182                 bracket_level = bracket_level-1; <span class="keyword">end</span>
+0183         <span class="keyword">case</span> <span class="string">'%'</span> <span class="comment">% comment character</span>
+0184             <span class="comment">% if not in str, switch on comment flag</span>
+0185             <span class="keyword">if</span> ~string_flag
+0186                 comment_flag = true; <span class="keyword">end</span>
+0187         <span class="keyword">case</span> <span class="string">'.'</span> <span class="comment">% potential ellipsis character</span>
+0188             <span class="comment">% if not in comment nor in str, turn on ellipsis and comment</span>
+0189             <span class="keyword">if</span> ~string_flag &amp;&amp; ~comment_flag &amp;&amp; k&gt;2 &amp;&amp; strcmp(evalstr(k-2:k),<span class="string">'...'</span>)
+0190                 ellipsis_flag = true;
+0191                 comment_flag = true;
+0192                 <span class="comment">% we want to replace the ellipsis and everything that follows up to and including the next newline</span>
+0193                 spaceout(k-2:k) = true;
+0194             <span class="keyword">end</span>
+0195     <span class="keyword">end</span>
+0196 <span class="keyword">end</span>
+0197 <span class="comment">% replace the characters that need to be substituted (by the bell character)</span>
+0198 evalstr(substitute) = 7;
+0199 evalstr(spaceout) = <span class="string">' '</span>;
+0200 <span class="comment">% replace all assignments of the form &quot;varname = *;&quot; by &quot;varname{end+1} = num;&quot;</span>
+0201 [starts,ends] = regexp(evalstr,[varname <span class="string">'\s*=[^;\n]*;'</span>]);
+0202 <span class="keyword">for</span> k=length(starts):-1:1
+0203     evalstr = [evalstr(1:starts(k)-1) varname <span class="string">'{end+1} = struct(''assignment'','</span> num2str(k) <span class="string">');'</span> evalstr(ends(k)+1:end)]; <span class="keyword">end</span>
+0204 <span class="comment">% add initial assignment</span>
+0205 evalstr = [sprintf(<span class="string">'%s = {};\n'</span>,varname) evalstr];
+0206 <span class="comment">% back-substitute the special character by semicolons</span>
+0207 evalstr(evalstr==7) = <span class="string">';'</span>;
+0208 
+0209 <span class="comment">% evaluate contents and get the matching assignment id's</span>
+0210 ids = <a href="#_sub3" class="code" title="subfunction [res,wspace] = run_protected(code__,varname__)">run_protected</a>(evalstr,varname);
+0211 
+0212 <span class="comment">% check validity of the updated value, and of the updated config file</span>
+0213 <span class="keyword">try</span>
+0214     <span class="comment">% check if the value str can in fact be evaluated</span>
+0215     newvalue_eval = eval(newvalue);
+0216 <span class="keyword">catch</span>
+0217     error(<span class="string">'hlp_config:incorrect_value'</span>,<span class="string">'The value &quot;%s&quot; (to be assigned to variable &quot;%s&quot;) cannot be evaluated properly. Note that, for example, string values need to be quoted.'</span>,newvalue,varname);
+0218 <span class="keyword">end</span>
+0219 <span class="comment">% evaluate the original config script and record the full variable assignment</span>
+0220 [dummy,wspace_old] = <a href="#_sub3" class="code" title="subfunction [res,wspace] = run_protected(code__,varname__)">run_protected</a>(contents); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0221 <span class="comment">% splice the new value into the config file contents, for the last assignment in ids</span>
+0222 id = ids{end}.assignment;
+0223 contents = [contents(1:starts(id)-1) varname <span class="string">' = '</span> newvalue <span class="string">';'</span> contents(ends(id)+1:end)];
+0224 <span class="comment">% evaluate the new config script and record the full variable assignment</span>
+0225 [dummy,wspace_new] = <a href="#_sub3" class="code" title="subfunction [res,wspace] = run_protected(code__,varname__)">run_protected</a>(contents); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0226 <span class="comment">% make sure that the only thing that has changed is the assignment to the variable of interest</span>
+0227 wspace_old.(varname) = newvalue_eval;
+0228 <span class="keyword">if</span> ~isequalwithequalnans(wspace_old,wspace_new)
+0229     error(<span class="string">'hlp_config:update_failed'</span>,<span class="string">'The config file can not be properly updated.'</span>); <span class="keyword">end</span>
+0230 
+0231 <span class="comment">% apparently, everything went well, except for the following possibilities</span>
+0232 <span class="comment">%  * the newly assigned value makes no sense (--&gt; usage error)</span>
+0233 <span class="comment">%  * the settings were changed for unanticipated platforms (--&gt; this needs to be documented properly)</span>
+0234 <span class="keyword">if</span> makebackup
+0235     <span class="keyword">try</span>
+0236         <span class="comment">% make a backup of the original config file using a fresh name (.bak00X)</span>
+0237         [p,n,x] = fileparts(filename);
+0238         files = dir([p filesep n <span class="string">'*.bak*'</span>]);
+0239         backup_numbers = cellfun(@(n)str2num(n(end-2:end)),{files.name},<span class="string">'UniformOutput'</span>,false);
+0240         backup_numbers = [backup_numbers{:}];
+0241         <span class="keyword">if</span> ~isempty(backup_numbers)
+0242             new_number = 1 + max(backup_numbers);
+0243         <span class="keyword">else</span>
+0244             new_number = 1;
+0245         <span class="keyword">end</span>
+0246         backup_name = [p filesep n <span class="string">'.bak'</span> sprintf(<span class="string">'%03i'</span>,new_number)];
+0247         copyfile(filename,backup_name);
+0248         <span class="comment">% set read permissions</span>
+0249         warning off MATLAB:FILEATTRIB:SyntaxWarning
+0250         fileattrib(backup_name,<span class="string">'+w'</span>,<span class="string">'a'</span>);
+0251     <span class="keyword">catch</span>
+0252         error(<span class="string">'hlp_config:permissions_error'</span>,<span class="string">'Could not create a backup of the original config file %s. Please check file permissions and try again.'</span>,filename);
+0253     <span class="keyword">end</span>
+0254 <span class="keyword">end</span>
+0255     
+0256 <span class="comment">% split the contents into lines again</span>
+0257 contents = <a href="#_sub4" class="code" title="subfunction strs = strsplit(str, delim)">strsplit</a>(contents,10);
+0258 <span class="keyword">try</span>
+0259     <span class="comment">% re-create the file, line by line</span>
+0260     f = fopen(filename,<span class="string">'w+'</span>);
+0261     <span class="keyword">for</span> k=1:length(contents)
+0262         fwrite(f,contents{k});
+0263         fprintf(f,<span class="string">'\n'</span>);
+0264     <span class="keyword">end</span>
+0265     fclose(f);
+0266     <span class="comment">% set file attributes</span>
+0267     warning off MATLAB:FILEATTRIB:SyntaxWarning
+0268     fileattrib(filename,<span class="string">'+w'</span>,<span class="string">'a'</span>);
+0269 <span class="keyword">catch</span>
+0270     <span class="keyword">try</span> fclose(f); <span class="keyword">catch</span>,<span class="keyword">end</span>
+0271     error(<span class="string">'hlp_config:permissions_error'</span>,<span class="string">'Could not override the config file %s. Please check file permissions and try again.'</span>,filename);
+0272 <span class="keyword">end</span>
+0273 
+0274 
+0275 
+0276 <span class="comment">% run the given config script and obtain the current value of the given variable...</span>
+0277 <a name="_sub3" href="#_subfunctions" class="code">function [res,wspace] = run_protected(code__,varname__)</a>
+0278 <span class="keyword">try</span>
+0279     eval(code__);
+0280     <span class="comment">% collect all variables into a workspace struct</span>
+0281     infos = whos();
+0282     <span class="keyword">for</span> n = {infos.name}
+0283         <span class="keyword">if</span> ~any(strcmp(n{1},{<span class="string">'code__'</span>,<span class="string">'varname__'</span>}))
+0284             wspace.(n{1}) = eval(n{1}); <span class="keyword">end</span>
+0285     <span class="keyword">end</span>
+0286     <span class="keyword">if</span> exist(<span class="string">'varname__'</span>,<span class="string">'var'</span>)
+0287         <span class="comment">% if a specific variable was to be inspected...</span>
+0288         res = eval(varname__);
+0289         <span class="keyword">if</span> ~iscell(res) || length(res) &lt; 1 || ~all(cellfun(<span class="string">'isclass'</span>,res,<span class="string">'struct'</span>)) || ~all(cellfun(@(x)isfield(x,<span class="string">'assignment'</span>),res))
+0290             error(<span class="string">'Not all assignments to the variable were correctly identified.'</span>); <span class="keyword">end</span>
+0291     <span class="keyword">else</span>
+0292         res = [];
+0293     <span class="keyword">end</span>
+0294 <span class="keyword">catch</span> e
+0295     error(<span class="string">'hlp_config:update_error'</span>,[<span class="string">'The config file could not be parsed (probably it is ill-formed); Debug message: '</span> e.message]);
+0296 <span class="keyword">end</span>
+0297 
+0298 
+0299 
+0300 <span class="comment">% split a string without fusing delimiters (unlike hlp_split)</span>
+0301 <a name="_sub4" href="#_subfunctions" class="code">function strs = strsplit(str, delim)</a>
+0302 idx = strfind(str, delim);
+0303 strs = cell(numel(idx)+1, 1);
+0304 idx = [0 idx numel(str)+1];
+0305 <span class="keyword">for</span> k = 2:numel(idx)
+0306     strs{k-1} = str(idx(k-1)+1:idx(k)-1); <span class="keyword">end</span>
+0307 
+0308 
+0309 
+0310 <span class="comment">% for old MATLABs that can't properly move files...</span>
+0311 <a name="_sub5" href="#_subfunctions" class="code">function movefile(src,dst)</a>
+0312 <span class="keyword">try</span>
+0313     builtin(<span class="string">'movefile'</span>,src,dst);    
+0314 <span class="keyword">catch</span> e
+0315     <span class="keyword">if</span> any([src dst]==<span class="string">'$'</span>) &amp;&amp; <a href="hlp_matlab_version.html" class="code" title="function v = hlp_matlab_version()">hlp_matlab_version</a> &lt;= 705
+0316         <span class="keyword">if</span> ispc
+0317             [errcode,text] = system(sprintf(<span class="string">'move ''%s'' ''%s'''</span>,src,dst)); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0318         <span class="keyword">else</span>
+0319             [errcode,text] = system(sprintf(<span class="string">'mv ''%s'' ''%s'''</span>,src,dst)); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0320         <span class="keyword">end</span>
+0321         <span class="keyword">if</span> errcode
+0322             error(<span class="string">'Failed to move %s to %s.'</span>,src,dst); <span class="keyword">end</span>
+0323     <span class="keyword">else</span>
+0324         rethrow(e);
+0325     <span class="keyword">end</span>
+0326 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

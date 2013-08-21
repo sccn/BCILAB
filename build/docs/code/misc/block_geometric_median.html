@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of block_geometric_median</title>
+  <meta name="keywords" content="block_geometric_median">
+  <meta name="description" content="Calculate a blockwise geometric median (faster and less memory-intensive">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">misc</a> &gt; block_geometric_median.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/misc&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>block_geometric_median
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Calculate a blockwise geometric median (faster and less memory-intensive</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function y = block_geometric_median(X,blocksize,varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Calculate a blockwise geometric median (faster and less memory-intensive 
+ than the regular geom_median function).
+
+ This statistic is not robust to artifacts that persist over a duration that
+ is significantly shorter than the blocksize.
+
+ In:
+   X : the data (#observations x #variables)
+   blocksize : the number of successive samples over which a regular mean 
+               should be taken
+   tol : tolerance (default: 1.e-5)
+   y : initial value (default: median(X))
+   max_iter : max number of iterations (default: 500)
+
+ Out:
+   g : geometric median over X
+
+ Notes:
+   This function is noticably faster if the length of the data is divisible by the block size.
+   Uses the GPU if available.</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="geometric_median.html" class="code" title="function y = geometric_median(X,tol,y,max_iter)">geometric_median</a>	Calculate the geometric median for a set of observations (mean under a Laplacian noise distribution)</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="cov_blockgeom.html" class="code" title="function rcov = cov_blockgeom(X,blocksize)">cov_blockgeom</a>	like cov(), just robust (using the blockwise geometric median)</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function y = block_geometric_median(X,blocksize,varargin)</a>
+0002 <span class="comment">% Calculate a blockwise geometric median (faster and less memory-intensive</span>
+0003 <span class="comment">% than the regular geom_median function).</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This statistic is not robust to artifacts that persist over a duration that</span>
+0006 <span class="comment">% is significantly shorter than the blocksize.</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% In:</span>
+0009 <span class="comment">%   X : the data (#observations x #variables)</span>
+0010 <span class="comment">%   blocksize : the number of successive samples over which a regular mean</span>
+0011 <span class="comment">%               should be taken</span>
+0012 <span class="comment">%   tol : tolerance (default: 1.e-5)</span>
+0013 <span class="comment">%   y : initial value (default: median(X))</span>
+0014 <span class="comment">%   max_iter : max number of iterations (default: 500)</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">% Out:</span>
+0017 <span class="comment">%   g : geometric median over X</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">% Notes:</span>
+0020 <span class="comment">%   This function is noticably faster if the length of the data is divisible by the block size.</span>
+0021 <span class="comment">%   Uses the GPU if available.</span>
+0022 <span class="comment">%</span>
+0023 
+0024 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2013, christian@sccn.ucsd.edu</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0027 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0028 <span class="comment">% License, or (at your option) any later version.</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0031 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0032 <span class="comment">% General Public License for more details.</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0035 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0036 <span class="comment">% USA</span>
+0037 
+0038 <span class="keyword">if</span> nargin &lt; 2 || isempty(blocksize)
+0039     blocksize = 1; <span class="keyword">end</span>
+0040 
+0041 <span class="keyword">if</span> blocksize &gt; 1
+0042     [o,v] = size(X);       <span class="comment">% #observations &amp; #variables</span>
+0043     r = mod(o,blocksize);  <span class="comment">% #rest in last block</span>
+0044     b = (o-r)/blocksize;   <span class="comment">% #blocks</span>
+0045     <span class="keyword">if</span> r &gt; 0
+0046         X = [reshape(sum(reshape(X(1:(o-r),:),blocksize,b*v)),b,v); sum(X((o-r+1):<span class="keyword">end</span>,:))*(blocksize/r)];
+0047     <span class="keyword">else</span>
+0048         X = reshape(sum(reshape(X,blocksize,b*v)),b,v);
+0049     <span class="keyword">end</span>
+0050 <span class="keyword">end</span>
+0051 
+0052 <span class="keyword">try</span>
+0053     y = gather(<a href="geometric_median.html" class="code" title="function y = geometric_median(X,tol,y,max_iter)">geometric_median</a>(gpuArray(X),varargin{:}))/blocksize;
+0054 <span class="keyword">catch</span>
+0055     y = <a href="geometric_median.html" class="code" title="function y = geometric_median(X,tol,y,max_iter)">geometric_median</a>(X,varargin{:})/blocksize;
+0056 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_collection_closest</title>
+  <meta name="keywords" content="utl_collection_closest">
+  <meta name="description" content="find the best-matching data set(s) in a collection for a given identifier record">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_collection_closest.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_collection_closest
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>find the best-matching data set(s) in a collection for a given identifier record</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [closest,rest] = utl_collection_closest(collection,identifier,varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> find the best-matching data set(s) in a collection for a given identifier record
+
+ In:
+   Collection : data set collection
+
+   Identifier : an identifier record, containing meta-data
+
+ Out:
+   Result : the set in the collection whose meta-data best matches that of the identifier,
+            or multiple sets if their distance to the identifier is identical
+
+ See also:
+   bci_train
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-08-29</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [closest,rest] = utl_collection_closest(collection,identifier,varargin)</a>
+0002 <span class="comment">% find the best-matching data set(s) in a collection for a given identifier record</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% In:</span>
+0005 <span class="comment">%   Collection : data set collection</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">%   Identifier : an identifier record, containing meta-data</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% Out:</span>
+0010 <span class="comment">%   Result : the set in the collection whose meta-data best matches that of the identifier,</span>
+0011 <span class="comment">%            or multiple sets if their distance to the identifier is identical</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">% See also:</span>
+0014 <span class="comment">%   bci_train</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0017 <span class="comment">%                                2011-08-29</span>
+0018 
+0019 
+0020 <span class="keyword">if</span> ~isempty(identifier)
+0021     <span class="keyword">if</span> ~isscalar(identifier) || ~isstruct(identifier)
+0022         error(<span class="string">'The identifier should be a 1x1 struct'</span>); <span class="keyword">end</span>
+0023     
+0024     <span class="comment">% our default ordering hierarchy of dis-similarity (first is largest granularity, last is finest)</span>
+0025     scale_orders = {<span class="string">'subject'</span>,<span class="string">'day'</span>,<span class="string">'montage'</span>,<span class="string">'session'</span>,<span class="string">'recording'</span>};
+0026     
+0027     
+0028     <span class="comment">% first tag all collection items with a tracking index</span>
+0029     <span class="keyword">for</span> k=1:length(collection)
+0030         collection{k}.tracking_index = k; <span class="keyword">end</span>
+0031     original_collection = collection;
+0032     
+0033     
+0034     <span class="comment">% first go through each scale order and restrict the recordings appropriately</span>
+0035     <span class="keyword">for</span> s = 1:length(scale_orders)
+0036         id = scale_orders{s};
+0037         <span class="comment">% is the order present in the identifier?</span>
+0038         <span class="keyword">if</span> isfield(identifier,id)
+0039             present = find(cellfun(@(x)isfield(x,id),collection));
+0040             <span class="comment">% is it present in the collection?</span>
+0041             <span class="keyword">if</span> ~isempty(present)
+0042                 values = cellfun(@(x)x.(id),collection(present),<span class="string">'UniformOutput'</span>,false);
+0043                 <span class="keyword">if</span> iscellstr(values)
+0044                     <span class="comment">% if it's a string value, is there a perfect match?</span>
+0045                     perfect_matches = strcmp(values,identifier.(id));
+0046                     <span class="keyword">if</span> any(perfect_matches)
+0047                         <span class="comment">% then restrict the collection to that</span>
+0048                         collection = collection(present(perfect_matches));
+0049                     <span class="keyword">else</span>
+0050                         fprintf(<span class="string">'Note: no element in the collection matches the value &quot;%s&quot; of the identifier''s &quot;%s&quot; field.\n'</span>,identifier.(id),id);
+0051                     <span class="keyword">end</span>
+0052                 <span class="keyword">elseif</span> all(cellfun(@isnumeric,values))
+0053                     <span class="comment">% if it's a numeric value, retain those that are closest to the identifier</span>
+0054                     distance = abs(cellfun(@(x)x,values) - identifier.(id));
+0055                     retain = distance == min(distance);
+0056                     collection = collection(present(retain));
+0057                 <span class="keyword">else</span>
+0058                     <span class="comment">% otherwise use isequal_weak for perfect matches</span>
+0059                     perfect_matches = cellfun(@(x)isequal_weak(x,identifier.(id)),values);
+0060                     <span class="keyword">if</span> any(perfect_matches)
+0061                         <span class="comment">% then restrict the collection to that</span>
+0062                         collection = collection(present(perfect_matches));
+0063                     <span class="keyword">else</span>
+0064                         fprintf(<span class="string">'Note: no element in the collection matches the value &quot;%s&quot; of the identifier''s &quot;%s&quot; field.\n'</span>,hlp_tostring(identifier.(id)),id);
+0065                     <span class="keyword">end</span>
+0066                 <span class="keyword">end</span>
+0067             <span class="keyword">end</span>
+0068         <span class="keyword">end</span>
+0069     <span class="keyword">end</span>
+0070     
+0071     <span class="comment">% find remaining fields and values of the identifier</span>
+0072     rest_fields = setdiff(fieldnames(identifier),scale_orders);
+0073     
+0074     <span class="keyword">if</span> ~isempty(rest_fields)
+0075         rest_values = cellfun(@(id)identifier.(id),rest_fields,<span class="string">'UniformOutput'</span>,false);
+0076         
+0077         <span class="comment">% for each remaining non-numeric field in the identifier...</span>
+0078         numeric = cellfun(@isnumeric,rest_values);
+0079         <span class="keyword">for</span> f=find(~numeric)
+0080             id = rest_fields{f};
+0081             present = find(cellfun(@(x)isfield(x,id),collection));
+0082             <span class="comment">% is it present in the collection?</span>
+0083             <span class="keyword">if</span> ~isempty(present)
+0084                 values = cellfun(@(x)x.(id),collection(present),<span class="string">'UniformOutput'</span>,false);
+0085                 <span class="comment">% find perfect matches</span>
+0086                 <span class="keyword">if</span> iscellstr(values)
+0087                     perfect_matches = strcmp(values,identifier.(id));
+0088                 <span class="keyword">else</span>
+0089                     perfect_matches = cellfun(@(x)isequal_weak(x,identifier.(id)),values);
+0090                 <span class="keyword">end</span>
+0091                 <span class="keyword">if</span> any(perfect_matches)
+0092                     <span class="comment">% then restrict the collection to that</span>
+0093                     collection = collection(present(perfect_matches));
+0094                 <span class="keyword">else</span>
+0095                     fprintf(<span class="string">'Note: no element in the collection matches the value &quot;%s&quot; of the identifier''s &quot;%s&quot; field.\n'</span>,hlp_tostring(identifier.(id)),id);
+0096                 <span class="keyword">end</span>
+0097             <span class="keyword">end</span>
+0098         <span class="keyword">end</span>
+0099         
+0100         <span class="comment">% get rid of those numeric fields that are not present in the collection</span>
+0101         <span class="comment">% and get rid of collection fields that are lacking a numeric field that other items have</span>
+0102         retain_numeric = [];
+0103         <span class="keyword">for</span> f=find(numeric)
+0104             id = rest_fields{f};
+0105             present = find(cellfun(@(x)isfield(x,id),collection));
+0106             <span class="keyword">if</span> ~isempty(present)
+0107                 <span class="comment">% retain the numeric field</span>
+0108                 retain_numeric(end+1) = f;
+0109                 <span class="comment">% remove collection items that are lacking this field</span>
+0110                 collection = collection(present);
+0111             <span class="keyword">end</span>
+0112         <span class="keyword">end</span>
+0113         
+0114         <span class="comment">% concatenate the remaining numeric properties of the collection items</span>
+0115         <span class="keyword">if</span> ~isempty(retain_numeric)
+0116             collection_data = [];
+0117             identifier_data = [];
+0118             <span class="keyword">for</span> f=retain_numeric
+0119                 id = rest_fields{f};
+0120                 values = cellfun(@(x)x.(id)(:),collection);
+0121                 collection_data = [collection_data; values];
+0122                 identifier_data = [identifier_data; identifier.(id)(:)];
+0123             <span class="keyword">end</span>
+0124             
+0125             <span class="comment">% compute euclidean distances</span>
+0126             distances = sum(sqr(bsxfun(@minus,collection_data,identifier_data)));
+0127             retain = distances == min(distances);
+0128             collection = collection(retain);
+0129         <span class="keyword">end</span>
+0130     <span class="keyword">end</span>
+0131     
+0132     <span class="comment">% finish the set of closest matches</span>
+0133     closest = collection;
+0134     closest_indices = cellfun(@(x)x.tracking_index,closest);
+0135     <span class="keyword">for</span> k=1:length(closest)
+0136         closest{k} = rmfield(closest{k},<span class="string">'tracking_index'</span>); <span class="keyword">end</span>
+0137     
+0138     <span class="comment">% finish the set of remaining sets</span>
+0139     not_closest = cellfun(@(x)~ismember(x.tracking_index,closest_indices),original_collection);
+0140     rest = original_collection(not_closest);
+0141     <span class="keyword">for</span> k=1:length(rest)
+0142         rest{k} = rmfield(rest{k},<span class="string">'tracking_index'</span>); <span class="keyword">end</span>
+0143     
+0144 <span class="keyword">else</span>
+0145     closest = collection;
+0146     rest = {};
+0147 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,545 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of io_loadset</title>
+  <meta name="keywords" content="io_loadset">
+  <meta name="description" content="Load/import a data set from disk, across all formats supported by EEGLAB.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">io</a> &gt; io_loadset.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/io&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>io_loadset
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Load/import a data set from disk, across all formats supported by EEGLAB.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function res = io_loadset(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Load/import a data set from disk, across all formats supported by EEGLAB.
+ Set = io_loadset(Filename, Options...)
+
+ This function is used to import continuous/raw data for processing with BCILAB. Generally, the 
+ data can be loaded in reduced form (e.g., to conserve memory or to exclude misc channels), and 
+ a variety of file formats support special options. These and all other options can be passed as
+ name-value pairs following the file name. 
+
+ Some additional support exists for extraction of trigger channels (which has default settings, but
+ which may have to be customized if the trigger channel format is unusual), as well as for tagging
+ data with meta-information (for possible use in study- level processing).
+
+ In:
+   Filename      :   name of the file; platform-independent path preferred.
+
+   Options...    :   --- parameters for data reductions at load time ---
+                     'channels'    : channel index subset to be loaded (memory-efficient for .vhdr,
+                                     .eeg, .bdf (if BioSig works), .ctf, .ds)
+                     'samplerange' : sample range to be read; [first_sample last_sample]
+                                     (memory-efficient for .vhdr, .raw (EGI), .cnt (Neuroscan, EEProbe))
+                     'timerange'   : time range to be read, in seconds; [begin_time end_time]
+                                     (memory-efficient for .cnt (Neuroscan, EEProbe), .bdf, .ctf, .ds)
+                     'types'       : type(s) of channels to retain; either a string or cell array
+                                     of strings (e.g., 'EEG')
+                     'subsampled'  : sub-sample the data to the given rate at load time; note -- 
+                                     this is not the same as having a resample filter in the
+                                     processing pipeline: the filter is more general (e.g., will
+                                     apply properly during online processing while this operation
+                                     changes the data before the bcilab pipeline sees it) (default: [])
+
+                     --- parameters for dataset annotation ---
+                     'setname'     : initial data set name (default: '')
+                     'subject'     : initial subject identifier (default: '')
+                     'group'       : initial group identifier (default: '')
+                     'condition'   : initial condition identifier (default: '')
+                     'session'     : initial session number (default: [])
+                     'comments'    : initial data set comments (default: '')
+
+                     --- parameters for post-processing ---
+                     'markerchannel' : if a marker channel is present, allows to customize settings 
+                                       for how events shall be derived from it. This is a cell
+                                       array of parameters to set_infer_markers(), ideally name-value 
+                                       pairs.
+
+                     --- format-specific importing parameters ---
+                    .sna: 'gain', see pop_snapread
+                    .cnt: 'keystroke','memmapfile','scale','dataformat','blockread', 'triggerfile' see pop_loadcnt/readcnt
+                    .eeg: 'range_trials','range_typeeeg','range_response','format', see pop_loadeeg
+                    .ctf: 'trials', see pop_readctf/ctf_read
+                    .ds: 'trials', see pop_ctf_read
+                    .dat: 'mergeposition','concatruns','maxevents', see BCI2000import
+                    .bdf: see pop_biosig/pop_readbdf
+                    .raw: 'samplerate' : the sampling rate of the data
+                    .xdf: 'streamname','streamtype','effective_rate','exclude_markerstreams'; see eeg_load_xdf
+
+ Out:
+   Set :   data set in EEGLAB format
+
+ Notes:
+   Note that the output of this function is not the data set itself but rather a &quot;proxy&quot; (or handle)
+   to it, which will be resolved by the toolbox into the corresponding EEGLAB set at the moment when 
+   it is needed. This is for efficiency (because most of the time, the raw data is not further needed
+   after the required pre-processed versions of it have been computed once and cached). You can 
+   manually resolve it into the actual data by calling mydata = exp_eval(mydata).
+
+ Examples:
+   % load a given data set (here: BrainProducts format)
+   raw = io_loadset('/data/projects/test.vhdr')
+
+   % as before, but using a platform-independent file path (recommended)
+   % this assumes that BCILAB's data path has been initialized to /data/projects in the startup
+   % configuration (e.g. via the line: data = '/data/projects';)
+   raw = io_loadset('data:/test.vhdr')
+
+   % like before, but this time restrict the channel range to the first 32
+   raw = io_loadset('data:/test.vhdr','channels',1:32)
+
+   % customize how the marker channel in the data should be identified or parsed
+   % (for example, some recordings may have more events than the default cutoff for what is
+   % considered a marker channel; here, this cutoff is raised to 50000)
+   raw  io_loadset('/data/sets/myrecording.bdf','markerchannel',{'MaxEvents',50000})
+
+ See also:
+   pop_loadset, pop_loadbv, pop_readegi, pop_read_erpss, pop_fileio,
+   pop_snapread, pop_loadcnt, pop_loadeep, pop_loadeeg, pop_readbdf,
+   pop_biosig, pop_loadbva, pop_ctf_read, BCI2000import,
+   set_infer_markers, set_infer_chanlocs
+
+                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                           2010-03-28</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function res = io_loadset(varargin)</a>
+0002 <span class="comment">% Load/import a data set from disk, across all formats supported by EEGLAB.</span>
+0003 <span class="comment">% Set = io_loadset(Filename, Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This function is used to import continuous/raw data for processing with BCILAB. Generally, the</span>
+0006 <span class="comment">% data can be loaded in reduced form (e.g., to conserve memory or to exclude misc channels), and</span>
+0007 <span class="comment">% a variety of file formats support special options. These and all other options can be passed as</span>
+0008 <span class="comment">% name-value pairs following the file name.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% Some additional support exists for extraction of trigger channels (which has default settings, but</span>
+0011 <span class="comment">% which may have to be customized if the trigger channel format is unusual), as well as for tagging</span>
+0012 <span class="comment">% data with meta-information (for possible use in study- level processing).</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">% In:</span>
+0015 <span class="comment">%   Filename      :   name of the file; platform-independent path preferred.</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">%   Options...    :   --- parameters for data reductions at load time ---</span>
+0018 <span class="comment">%                     'channels'    : channel index subset to be loaded (memory-efficient for .vhdr,</span>
+0019 <span class="comment">%                                     .eeg, .bdf (if BioSig works), .ctf, .ds)</span>
+0020 <span class="comment">%                     'samplerange' : sample range to be read; [first_sample last_sample]</span>
+0021 <span class="comment">%                                     (memory-efficient for .vhdr, .raw (EGI), .cnt (Neuroscan, EEProbe))</span>
+0022 <span class="comment">%                     'timerange'   : time range to be read, in seconds; [begin_time end_time]</span>
+0023 <span class="comment">%                                     (memory-efficient for .cnt (Neuroscan, EEProbe), .bdf, .ctf, .ds)</span>
+0024 <span class="comment">%                     'types'       : type(s) of channels to retain; either a string or cell array</span>
+0025 <span class="comment">%                                     of strings (e.g., 'EEG')</span>
+0026 <span class="comment">%                     'subsampled'  : sub-sample the data to the given rate at load time; note --</span>
+0027 <span class="comment">%                                     this is not the same as having a resample filter in the</span>
+0028 <span class="comment">%                                     processing pipeline: the filter is more general (e.g., will</span>
+0029 <span class="comment">%                                     apply properly during online processing while this operation</span>
+0030 <span class="comment">%                                     changes the data before the bcilab pipeline sees it) (default: [])</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%                     --- parameters for dataset annotation ---</span>
+0033 <span class="comment">%                     'setname'     : initial data set name (default: '')</span>
+0034 <span class="comment">%                     'subject'     : initial subject identifier (default: '')</span>
+0035 <span class="comment">%                     'group'       : initial group identifier (default: '')</span>
+0036 <span class="comment">%                     'condition'   : initial condition identifier (default: '')</span>
+0037 <span class="comment">%                     'session'     : initial session number (default: [])</span>
+0038 <span class="comment">%                     'comments'    : initial data set comments (default: '')</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">%                     --- parameters for post-processing ---</span>
+0041 <span class="comment">%                     'markerchannel' : if a marker channel is present, allows to customize settings</span>
+0042 <span class="comment">%                                       for how events shall be derived from it. This is a cell</span>
+0043 <span class="comment">%                                       array of parameters to set_infer_markers(), ideally name-value</span>
+0044 <span class="comment">%                                       pairs.</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">%                     --- format-specific importing parameters ---</span>
+0047 <span class="comment">%                    .sna: 'gain', see pop_snapread</span>
+0048 <span class="comment">%                    .cnt: 'keystroke','memmapfile','scale','dataformat','blockread', 'triggerfile' see pop_loadcnt/readcnt</span>
+0049 <span class="comment">%                    .eeg: 'range_trials','range_typeeeg','range_response','format', see pop_loadeeg</span>
+0050 <span class="comment">%                    .ctf: 'trials', see pop_readctf/ctf_read</span>
+0051 <span class="comment">%                    .ds: 'trials', see pop_ctf_read</span>
+0052 <span class="comment">%                    .dat: 'mergeposition','concatruns','maxevents', see BCI2000import</span>
+0053 <span class="comment">%                    .bdf: see pop_biosig/pop_readbdf</span>
+0054 <span class="comment">%                    .raw: 'samplerate' : the sampling rate of the data</span>
+0055 <span class="comment">%                    .xdf: 'streamname','streamtype','effective_rate','exclude_markerstreams'; see eeg_load_xdf</span>
+0056 <span class="comment">%</span>
+0057 <span class="comment">% Out:</span>
+0058 <span class="comment">%   Set :   data set in EEGLAB format</span>
+0059 <span class="comment">%</span>
+0060 <span class="comment">% Notes:</span>
+0061 <span class="comment">%   Note that the output of this function is not the data set itself but rather a &quot;proxy&quot; (or handle)</span>
+0062 <span class="comment">%   to it, which will be resolved by the toolbox into the corresponding EEGLAB set at the moment when</span>
+0063 <span class="comment">%   it is needed. This is for efficiency (because most of the time, the raw data is not further needed</span>
+0064 <span class="comment">%   after the required pre-processed versions of it have been computed once and cached). You can</span>
+0065 <span class="comment">%   manually resolve it into the actual data by calling mydata = exp_eval(mydata).</span>
+0066 <span class="comment">%</span>
+0067 <span class="comment">% Examples:</span>
+0068 <span class="comment">%   % load a given data set (here: BrainProducts format)</span>
+0069 <span class="comment">%   raw = io_loadset('/data/projects/test.vhdr')</span>
+0070 <span class="comment">%</span>
+0071 <span class="comment">%   % as before, but using a platform-independent file path (recommended)</span>
+0072 <span class="comment">%   % this assumes that BCILAB's data path has been initialized to /data/projects in the startup</span>
+0073 <span class="comment">%   % configuration (e.g. via the line: data = '/data/projects';)</span>
+0074 <span class="comment">%   raw = io_loadset('data:/test.vhdr')</span>
+0075 <span class="comment">%</span>
+0076 <span class="comment">%   % like before, but this time restrict the channel range to the first 32</span>
+0077 <span class="comment">%   raw = io_loadset('data:/test.vhdr','channels',1:32)</span>
+0078 <span class="comment">%</span>
+0079 <span class="comment">%   % customize how the marker channel in the data should be identified or parsed</span>
+0080 <span class="comment">%   % (for example, some recordings may have more events than the default cutoff for what is</span>
+0081 <span class="comment">%   % considered a marker channel; here, this cutoff is raised to 50000)</span>
+0082 <span class="comment">%   raw  io_loadset('/data/sets/myrecording.bdf','markerchannel',{'MaxEvents',50000})</span>
+0083 <span class="comment">%</span>
+0084 <span class="comment">% See also:</span>
+0085 <span class="comment">%   pop_loadset, pop_loadbv, pop_readegi, pop_read_erpss, pop_fileio,</span>
+0086 <span class="comment">%   pop_snapread, pop_loadcnt, pop_loadeep, pop_loadeeg, pop_readbdf,</span>
+0087 <span class="comment">%   pop_biosig, pop_loadbva, pop_ctf_read, BCI2000import,</span>
+0088 <span class="comment">%   set_infer_markers, set_infer_chanlocs</span>
+0089 <span class="comment">%</span>
+0090 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0091 <span class="comment">%                           2010-03-28</span>
+0092 
+0093 <span class="comment">% io_loadset_version&lt;1.0&gt; -- for the cache</span>
+0094 
+0095 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0096 
+0097 <span class="comment">% read options</span>
+0098 allopts = arg_define([0 1],varargin,<span class="keyword">...</span>
+0099     arg_norep({<span class="string">'filename'</span>,<span class="string">'Filename'</span>},mandatory,[],<span class="string">'File name to load. Any format that is recognized by EEGLAB should be supported.'</span>), <span class="keyword">...</span>
+0100     <span class="keyword">...</span><span class="comment"> % data reductions</span>
+0101     arg({<span class="string">'channels'</span>,<span class="string">'ChannelSubset'</span>,<span class="string">'chans'</span>},[],[],<span class="string">'Channel index subset. Restrict the loaded channels to a subset.'</span>), <span class="keyword">...</span>
+0102     arg({<span class="string">'samplerange'</span>,<span class="string">'SampleRange'</span>,<span class="string">'srange'</span>},[],[],<span class="string">'Sample range. Restrict the loaded data to a sub-range, in samples.'</span>), <span class="keyword">...</span>
+0103     arg({<span class="string">'timerange'</span>,<span class="string">'TimeRange'</span>,<span class="string">'trange'</span>},[],[],<span class="string">'Time range. Restrict the loaded data to a sub-range, in seconds.'</span>), <span class="keyword">...</span>
+0104     arg({<span class="string">'types'</span>,<span class="string">'ChannelTypes'</span>,<span class="string">'type'</span>},[],[],<span class="string">'Channel type subset. Restrict the loaded channels to those with matching types; should be a cell-array of strings.'</span>,<span class="string">'type'</span>,<span class="string">'cellstr'</span>), <span class="keyword">...</span>
+0105     arg({<span class="string">'casttodouble'</span>,<span class="string">'CastToDouble'</span>},true,[],<span class="string">'Cast data to double-precision. Takes up more space but helps with filters that are not working properly when a single-precision time series is passed in.'</span>), <span class="keyword">...</span>
+0106     arg({<span class="string">'subsampled'</span>,<span class="string">'Subsampled'</span>},[],[],<span class="string">'Sub-sample the data at load time. This is not the same as having a resample filter in the processing pipeline: the filter is more general (e.g., will apply properly during online processing while this operation changes the data before the bcilab processing pipeline or the data curation script sees it).'</span>), <span class="keyword">...</span>
+0107     <span class="keyword">...</span><span class="comment"> % marker channel handling</span>
+0108     arg_sub({<span class="string">'markerchannel'</span>,<span class="string">'MarkerChannel'</span>},{},@set_infer_markers,<span class="string">'Marker channel processing. Optional parameters to control the marker channel processing function.'</span>), <span class="keyword">...</span>
+0109     <span class="keyword">...</span><span class="comment"> % chanlocs handling</span>
+0110     arg({<span class="string">'infer_chanlocs'</span>,<span class="string">'InferChanlocs'</span>},true,[],<span class="string">'Infer channel locations if necessary. This will look up locations from standard tables if missing and attempt to deduce the channel types.'</span>), <span class="keyword">...</span>
+0111     <span class="keyword">...</span><span class="comment"> % added annotations</span>
+0112     arg({<span class="string">'setname'</span>,<span class="string">'DatasetName'</span>},<span class="string">''</span>,[],<span class="string">'Data set name. This is meta-information of potential use in study-level processing.'</span>), <span class="keyword">...</span>
+0113     arg({<span class="string">'subject'</span>,<span class="string">'SubjectIdentifier'</span>},<span class="string">''</span>,[],<span class="string">'Subject identifier. This is meta-information of potential use in study-level processing.'</span>), <span class="keyword">...</span>
+0114     arg({<span class="string">'group'</span>,<span class="string">'GroupIdentifier'</span>},<span class="string">''</span>,[],<span class="string">'Group identifier. This is meta-information of potential use in study-level processing.'</span>), <span class="keyword">...</span>
+0115     arg({<span class="string">'condition'</span>,<span class="string">'ConditionIdentifier'</span>},<span class="string">''</span>,[],<span class="string">'Condition identifier. This is meta-information of potential use in study-level processing.'</span>), <span class="keyword">...</span>
+0116     arg({<span class="string">'session'</span>,<span class="string">'SessionIdentifier'</span>},<span class="string">''</span>,[],<span class="string">'Session identifier. This is meta-information of potential use in study-level processing.'</span>), <span class="keyword">...</span>
+0117     arg({<span class="string">'comments'</span>,<span class="string">'DataComments'</span>},<span class="string">''</span>,[],<span class="string">'Data comments. This is meta-information.'</span>), <span class="keyword">...</span>
+0118     <span class="keyword">...</span><span class="comment"> % misc arguments (neither displayed nor assigned by default)</span>
+0119     arg_norep(<span class="string">'gain'</span>,unassigned), arg_norep(<span class="string">'keystroke'</span>,unassigned), arg_norep(<span class="string">'memmapfile'</span>,unassigned), arg_norep(<span class="string">'scale'</span>,unassigned), arg_norep(<span class="string">'dataformat'</span>,unassigned), <span class="keyword">...</span>
+0120     arg_norep(<span class="string">'blockread'</span>,unassigned), arg_norep(<span class="string">'triggerfile'</span>,unassigned), arg_norep(<span class="string">'range_trials'</span>,unassigned), arg_norep(<span class="string">'range_typeeeg'</span>,unassigned), arg_norep(<span class="string">'range_response'</span>,unassigned), <span class="keyword">...</span>
+0121     arg_norep(<span class="string">'format'</span>,unassigned), arg_norep(<span class="string">'trials'</span>,unassigned), arg_norep(<span class="string">'mergeposition'</span>,unassigned), arg_norep(<span class="string">'concatruns'</span>,unassigned), arg_norep(<span class="string">'maxevents'</span>,unassigned), <span class="keyword">...</span>
+0122     arg_norep(<span class="string">'samplerate'</span>,unassigned), arg_norep(<span class="string">'blockrange'</span>,unassigned),arg_norep(<span class="string">'ref'</span>,unassigned),arg_norep(<span class="string">'rmeventchan'</span>,unassigned), <span class="keyword">...</span>
+0123     arg_deprecated(<span class="string">'nofixups'</span>,false,[],<span class="string">'This parameter has been retired.'</span>));
+0124 
+0125 opts = rmfield(allopts,{<span class="string">'filename'</span>,<span class="string">'types'</span>,<span class="string">'casttodouble'</span>,<span class="string">'setname'</span>,<span class="string">'subject'</span>,<span class="string">'group'</span>,<span class="string">'condition'</span>,<span class="string">'session'</span>,<span class="string">'comments'</span>,<span class="string">'markerchannel'</span>,<span class="string">'subsampled'</span>,<span class="string">'infer_chanlocs'</span>,<span class="string">'arg_direct'</span>,<span class="string">'nofixups'</span>});
+0126 filename = env_translatepath(allopts.filename);
+0127 [base,name,ext] = fileparts(filename);
+0128 
+0129 <span class="comment">% test if the file actually exists</span>
+0130 <span class="keyword">if</span> ~exist(filename,<span class="string">'file'</span>)
+0131     error([<span class="string">'The file '</span> filename <span class="string">' does not exist.'</span>]); <span class="keyword">end</span>
+0132 
+0133 <span class="comment">% ... and whether it can be opened</span>
+0134 <span class="keyword">try</span>
+0135     f=fopen(filename,<span class="string">'r'</span>);
+0136     fclose(f);
+0137 <span class="keyword">catch</span>
+0138     error([<span class="string">'The file '</span> filename <span class="string">' could not be opened; please check your file permissions.'</span>]);
+0139 <span class="keyword">end</span>
+0140 
+0141 <span class="comment">% sanity check</span>
+0142 <span class="keyword">if</span> ~isempty(opts.samplerange) &amp;&amp; ~isempty(opts.timerange)
+0143     error(<span class="string">'Please do not specify both a sample subset and time subset.'</span>); <span class="keyword">end</span>
+0144 
+0145 <span class="comment">% bitrate test function (for some formats)</span>
+0146 wrong_bitrate = @(eeg) mad(mean(eeg.data(:,1:2:end),2)./mean(eeg.data(:,2:2:end),2)) &gt; 0.5;
+0147 
+0148 disp([<span class="string">'io_loadset(): loading '</span> filename <span class="string">'...'</span>]);
+0149 <span class="keyword">try</span>
+0150     <span class="comment">% if the extension is supported, dispatch to the specific loader / importer</span>
+0151     <span class="keyword">switch</span> lower(ext)
+0152         <span class="keyword">case</span> <span class="string">'.set'</span>
+0153             <span class="comment">% EEGLAB data set</span>
+0154             args = hlp_struct2varargin(opts,<span class="string">'suppress'</span>,{<span class="string">'channels'</span>,<span class="string">'samplerange'</span>,<span class="string">'timerange'</span>});
+0155             res = pop_loadset(<span class="string">'filepath'</span>,[base filesep], <span class="string">'filename'</span>, [name ext], args{:});
+0156             <span class="keyword">if</span> ~isfield(res,<span class="string">'tracking'</span>) || ~isfield(res.tracking,<span class="string">'online_expression'</span>)
+0157                 <span class="comment">% it comes fresh from EEGLAB</span>
+0158                 disp(<span class="string">'The loaded EEGLAB set is lacking an online expression; assuming it contains unfiltered data.'</span>)
+0159                 disp(<span class="string">'If it contains filtered data, however, BCI models derived from it will likely not be online-capable.'</span>);
+0160             <span class="keyword">else</span>
+0161                 <span class="comment">% it came out of a curation script in BCILAB: check the fingerprint before we sign it off as freshly loaded</span>
+0162                 <span class="keyword">if</span> ~isfield(res.tracking,<span class="string">'fingerprint'</span>) || hlp_fingerprint(rmfield(res,<span class="string">'tracking'</span>)) ~= res.tracking.fingerprint
+0163                     disp(<span class="string">'The loaded data set has been edited manually; forgetting its old tracking information.'</span>);
+0164                     res = rmfield(res,<span class="string">'tracking'</span>);
+0165                 <span class="keyword">end</span>
+0166             <span class="keyword">end</span>
+0167         <span class="keyword">case</span> <span class="string">'.vhdr'</span>
+0168             <span class="comment">% BrainProducts Vision Recorder file</span>
+0169             res = pop_loadbv([base filesep],[name ext],opts.samplerange,opts.channels);
+0170             opts.channels = [];
+0171             opts.samplerange = [];
+0172             <span class="comment">% remove non-standard event fields</span>
+0173             res.event = rmfield(res.event,intersect({<span class="string">'code'</span>,<span class="string">'bvtime'</span>,<span class="string">'channel'</span>},fieldnames(res.event)));
+0174         <span class="keyword">case</span> <span class="string">'.raw'</span>
+0175             <span class="keyword">try</span>
+0176                 <span class="comment">% EGI continuous raw data</span>
+0177                 res = pop_readegi(filename,opts.samplerange);
+0178                 opts.samplerange = [];
+0179             <span class="keyword">catch</span>
+0180                 <span class="keyword">try</span>
+0181                     disp(<span class="string">'EGI .raw importer failed; falling back to ERPSS .raw importer.'</span>);
+0182                     <span class="keyword">if</span> ~isfield(opts,<span class="string">'samplerate'</span>)
+0183                         disp(<span class="string">'ERPSS .raw formats can only be loaded if you explicitly pass a ''samplerate'' parameter.'</span>); <span class="keyword">end</span>
+0184                     <span class="comment">% ... or ERPSS raw</span>
+0185                     res = pop_read_erpss(filename,opts.samplerate);
+0186                 <span class="keyword">catch</span>
+0187                     disp(<span class="string">'ERPSS .cnt importer failed; falling back to FileIO Yokogawa importer.'</span>);
+0188                     <span class="comment">% .. or Yokogawa (and possibly other formats...)</span>
+0189                     args = hlp_struct2varargin(opts,<span class="string">'suppress'</span>,{<span class="string">'channels'</span>,<span class="string">'timerange'</span>,<span class="string">'samplerange'</span>});
+0190                     res = pop_fileio(filename,args{:});
+0191                 <span class="keyword">end</span>
+0192             <span class="keyword">end</span>
+0193         <span class="keyword">case</span> <span class="string">'.sna'</span>
+0194             <span class="comment">% Snapmaster SNA</span>
+0195             args = hlp_struct2varargin(opts,<span class="string">'restrict'</span>,{<span class="string">'gain'</span>});
+0196             res = pop_snapread(filename,args{:});
+0197         <span class="keyword">case</span> <span class="string">'.cnt'</span>
+0198             <span class="comment">% Neuroscan CNT</span>
+0199             <span class="keyword">try</span>
+0200                 args = hlp_struct2varargin(opts,<span class="string">'suppress'</span>,{<span class="string">'channels'</span>,<span class="string">'samplerange'</span>,<span class="string">'timerange'</span>});
+0201                 <span class="keyword">if</span> ~isempty(opts.samplerange)
+0202                     args = [args {<span class="string">'sample1'</span>,opts.samplerange(1),<span class="string">'ldnsamples'</span>,opts.samplerange(2)-opts.samplerange(1)+1}]; <span class="keyword">end</span>
+0203                 <span class="keyword">if</span> ~isempty(opts.timerange)
+0204                     args = [args {<span class="string">'t1'</span>,opts.timerange(1),<span class="string">'lddur'</span>,opts.timerange(2)-opts.timerange(1)}]; <span class="keyword">end</span>
+0205                 res = pop_loadcnt(filename, args{:});
+0206                 <span class="comment">% check if it should have been 32 bits...</span>
+0207                 <span class="keyword">if</span> wrong_bitrate(res) &amp;&amp; ~isfield(opts,<span class="string">'dataformat'</span>)
+0208                     disp(<span class="string">'The data is likely 32 bits; re-loading.'</span>);
+0209                     res = pop_loadcnt(filename, args{:}, <span class="string">'dataformat'</span>,<span class="string">'int32'</span>);
+0210                 <span class="keyword">end</span>
+0211                 opts.samplerange = [];
+0212                 opts.timerange = [];
+0213             <span class="keyword">catch</span>
+0214                 disp(<span class="string">'Neuroscan importer failed; falling back to ANT EEProbe importer.'</span>);
+0215                 <span class="comment">% ... or ANT EEProbe CNT</span>
+0216                 args = hlp_struct2varargin(opts,<span class="string">'restrict'</span>,{<span class="string">'triggerfile'</span>});
+0217                 <span class="keyword">if</span> ~isempty(opts.samplerange)
+0218                     args = [args {<span class="string">'sample1'</span>,opts.samplerange(1),<span class="string">'sample2'</span>,opts.samplerange(2)}]; <span class="keyword">end</span>
+0219                 <span class="keyword">if</span> ~isempty(opts.timerange)
+0220                     args = [args {<span class="string">'time1'</span>,opts.timerange(1),<span class="string">'time2'</span>,opts.timerange(2)}]; <span class="keyword">end</span>
+0221                 res = pop_loadeep(filename,args{:});
+0222                 opts.samplerange = [];
+0223                 opts.timerange = [];
+0224             <span class="keyword">end</span>
+0225         <span class="keyword">case</span> <span class="string">'.avr'</span>
+0226             <span class="comment">% ANT EEProbe average file</span>
+0227             <span class="keyword">try</span>
+0228                 res = pop_loadeep_avg(filename);
+0229             <span class="keyword">catch</span>
+0230                 <span class="comment">% .. or Megis / BESA; via FileIO</span>
+0231                 args = hlp_struct2varargin(opts,<span class="string">'suppress'</span>,{<span class="string">'channels'</span>,<span class="string">'timerange'</span>,<span class="string">'samplerange'</span>});
+0232                 res = pop_fileio(filename,args{:});
+0233             <span class="keyword">end</span>
+0234         <span class="keyword">case</span> <span class="string">'.eeg'</span>
+0235             <span class="comment">% Neuroscan EEG</span>
+0236             <span class="keyword">try</span>
+0237                 optseeg = hlp_varargin2struct(opts,<span class="string">'range_trials'</span>,[],<span class="string">'range_typeeeg'</span>,[],<span class="string">'range_response'</span>,[],<span class="string">'format'</span>,<span class="string">'short'</span>);
+0238                 res = pop_loadeeg([name ext],[base filesep],opts.channels,optseeg.range_trials,optseeg.range_typeeg,optseeg.range_response,optseeg.format);
+0239                 <span class="keyword">if</span> wrong_bitrate(res) &amp;&amp; ~isfield(opts,<span class="string">'format'</span>)
+0240                     disp(<span class="string">'The data is likely 32 bits; re-loading.'</span>);
+0241                     res = pop_loadeeg([name ext],[base filesep],opts.channels,optseeg.range_trials,optseeg.range_typeeg,optseeg.range_response,<span class="string">'int32'</span>);
+0242                 <span class="keyword">end</span>
+0243                 opts.channels = [];
+0244             <span class="keyword">catch</span>
+0245                 <span class="comment">% ... or ANT / BrainProducts file; via FileIO</span>
+0246                 args = hlp_struct2varargin(opts,<span class="string">'suppress'</span>,{<span class="string">'channels'</span>,<span class="string">'timerange'</span>,<span class="string">'samplerange'</span>});
+0247                 res = pop_fileio(filename,args{:});
+0248             <span class="keyword">end</span>
+0249         <span class="keyword">case</span> {<span class="string">'.bdf'</span>,<span class="string">'.edf'</span>}
+0250             <span class="comment">% BioSEMI BDF/EDF</span>
+0251             <span class="keyword">try</span>
+0252                 <span class="keyword">if</span> isempty(opts.timerange) 
+0253                     opts = rmfield(opts,<span class="string">'timerange'</span>); <span class="keyword">end</span>
+0254                 args = hlp_struct2varargin(opts,<span class="string">'suppress'</span>,{<span class="string">'channels'</span>,<span class="string">'samplerange'</span>}, <span class="string">'rewrite'</span>,{<span class="string">'timerange'</span>,<span class="string">'range'</span>});
+0255                 res = pop_readbdf(filename,args{:});
+0256                 opts.timerange = [];
+0257             <span class="keyword">catch</span>
+0258                 <span class="comment">% backup variant</span>
+0259                 disp(<span class="string">'EEGLAB importer failed; falling back to Biosig.'</span>);
+0260                 args = hlp_struct2varargin(opts,<span class="string">'suppress'</span>,{<span class="string">'samplerange'</span>}, <span class="string">'rewrite'</span>,{<span class="string">'timerange'</span>,<span class="string">'blockrange'</span>});
+0261                 res = pop_biosig(filename,args{:});
+0262                 opts.timerange = [];
+0263                 opts.channels = [];
+0264             <span class="keyword">end</span>
+0265         <span class="keyword">case</span> <span class="string">'.gdf'</span>
+0266             <span class="comment">% General Data Format (.gdf)</span>
+0267             args = hlp_struct2varargin(opts,<span class="string">'suppress'</span>,{<span class="string">'samplerange'</span>}, <span class="string">'rewrite'</span>,{<span class="string">'timerange'</span>,<span class="string">'blockrange'</span>});
+0268             res = pop_biosig(filename,args{:});
+0269             opts.timerange = [];
+0270             opts.channels = [];
+0271         <span class="keyword">case</span> <span class="string">'.mat'</span>
+0272             <span class="comment">% BrainVision Analyzer Matlab file or BCI competition file</span>
+0273             <span class="keyword">try</span>
+0274                 res = pop_loadbva(filename);
+0275                 disp(<span class="string">'Imported .mat file as a BrainVision Analyzer file.'</span>);
+0276             <span class="keyword">catch</span>
+0277                 <span class="comment">% backup</span>
+0278                 res = load(filename);
+0279                 <span class="comment">% check if this is a BCI competition file</span>
+0280                 <span class="keyword">if</span> all(isfield(res,{<span class="string">'cnt'</span>,<span class="string">'nfo'</span>}))
+0281                     disp(<span class="string">'Parsing .mat file as a BCI competition MATLAB file.'</span>);
+0282                     <span class="keyword">if</span> isfield(res,<span class="string">'mrk'</span>)
+0283                         <span class="comment">% assemble a proper data set from the loaded pieces</span>
+0284                         evtypes = cellfun(@num2str,num2cell(res.mrk.y),<span class="string">'UniformOutput'</span>,false);
+0285                         res = exp_eval(set_new(<span class="string">'data'</span>,single(res.cnt'),<span class="string">'srate'</span>,res.nfo.fs,<span class="string">'event'</span>,struct(<span class="string">'type'</span>,evtypes,<span class="string">'latency'</span>,num2cell(res.mrk.pos)),<span class="string">'chanlocs'</span>,res.nfo.clab));
+0286                     <span class="keyword">else</span>
+0287                         res = exp_eval(set_new(<span class="string">'data'</span>,single(res.cnt'),<span class="string">'srate'</span>,res.nfo.fs,<span class="string">'chanlocs'</span>,res.nfo.clab));
+0288                     <span class="keyword">end</span>
+0289                 <span class="keyword">end</span>
+0290             <span class="keyword">end</span>
+0291         <span class="keyword">case</span> <span class="string">'.ds'</span>
+0292             <span class="comment">% CTF folder</span>
+0293             optsctf = hlp_varargin2struct(opts,<span class="string">'trials'</span>,[]);
+0294             res = pop_ctf_read(filename,opts.channels,opts.timerange,optsctf.trials);
+0295             opts.channels = [];
+0296             opts.timerange = [];
+0297         <span class="keyword">case</span> <span class="string">'.rdf'</span>
+0298             <span class="comment">% ERPSS data</span>
+0299             res = pop_read_erpss(filename);
+0300         <span class="keyword">case</span> <span class="string">'.asc'</span>
+0301             <span class="comment">% INStep ASC</span>
+0302             res = pop_loadascinstep(filename);
+0303         <span class="keyword">case</span> <span class="string">'.m4d'</span>
+0304             <span class="comment">% 4D pdf file</span>
+0305             res = pop_read4d(filename);
+0306         <span class="keyword">case</span> <span class="string">'.dat'</span>
+0307             <span class="comment">% BCI2000 file (by default with all runs concatenated)</span>
+0308             optsdat = hlp_varargin2struct(opts,{<span class="string">'mergeposition'</span>,<span class="string">'MergePosition'</span>,<span class="string">'merge_position'</span>},true, <span class="keyword">...</span>
+0309                 {<span class="string">'concatruns'</span>,<span class="string">'ConcatRuns'</span>,<span class="string">'concat_runs'</span>},true, {<span class="string">'maxevents'</span>,<span class="string">'MaxEvents'</span>,<span class="string">'max_events'</span>},3000);
+0310             res = BCI2000import(filename,false,optsdat.mergeposition,optsdat.concatruns,optsdat.maxevents);
+0311         <span class="keyword">case</span> <span class="string">'.xdf'</span>
+0312             <span class="comment">% XDF files</span>
+0313             args = hlp_struct2varargin(opts);
+0314             res = eeg_load_xdf(filename,args{:});
+0315         <span class="keyword">otherwise</span>
+0316             error(<span class="string">'This file format has no known handler in BCILAB.'</span>);
+0317     <span class="keyword">end</span>
+0318 <span class="keyword">catch</span> specific_error
+0319     <span class="comment">% the specific importers failed, fall back to the generic ones</span>
+0320     <span class="keyword">try</span>
+0321         warning off FieldTrip:unknown_filetype
+0322         <span class="comment">% try File-IO</span>
+0323         args = hlp_struct2varargin(opts,<span class="string">'suppress'</span>,{<span class="string">'channels'</span>,<span class="string">'timerange'</span>,<span class="string">'samplerange'</span>});
+0324         res = pop_fileio(filename,args{:});
+0325     <span class="keyword">catch</span> fileio_error
+0326         <span class="keyword">try</span>
+0327             <span class="comment">% try BioSig</span>
+0328             args = hlp_struct2varargin(opts,<span class="string">'suppress'</span>,{<span class="string">'channels'</span>,<span class="string">'samplerange'</span>,<span class="string">'timerange'</span>});
+0329             res = pop_biosig(filename,args{:});
+0330         <span class="keyword">catch</span> biosig_error
+0331             disp(<span class="string">'All possibly applicable importers for this file format failed.'</span>);
+0332             disp(<span class="string">'A list of error messages from the respectively tried loaders follows:'</span>);
+0333             disp(<span class="string">'    Error report of the format-specific loader:'</span>);
+0334             env_handleerror(specific_error,6);
+0335             disp(<span class="string">'    Error report of the generic FileIO loader:'</span>);
+0336             env_handleerror(fileio_error,6);
+0337             disp(<span class="string">'    Error report of the generic BioSig loader:'</span>);
+0338             env_handleerror(biosig_error,6);
+0339             fprintf(<span class="string">'\n'</span>);
+0340             error(<span class="string">'BCILAB:io_loadset:cannot_load'</span>,<span class="string">'Cannot load your data; please check for additional loader plugins at www.sccn.ucsd.edu/eeglab/plugins/.'</span>);
+0341         <span class="keyword">end</span>
+0342     <span class="keyword">end</span>
+0343 <span class="keyword">end</span>
+0344 
+0345 <span class="keyword">if</span> allopts.casttodouble
+0346     res.data = double(res.data);<span class="keyword">end</span>
+0347 
+0348 <span class="comment">% if no markers present, automatically infer them</span>
+0349 <span class="keyword">if</span> isempty(res.event) || allopts.markerchannel.force_processing
+0350     res = set_infer_markers(<span class="string">'signal'</span>,res,allopts.markerchannel); <span class="keyword">end</span>
+0351 
+0352 <span class="comment">% infer chanlocs fields (e.g. coordinates)</span>
+0353 <span class="keyword">if</span> allopts.infer_chanlocs
+0354     res = set_infer_chanlocs(res); <span class="keyword">end</span>
+0355 
+0356 <span class="comment">% convert numeric event types to string</span>
+0357 <span class="keyword">if</span> isfield(res.event,<span class="string">'type'</span>) 
+0358     numeric_mask = cellfun(@isnumeric,{res.event.type});
+0359     <span class="keyword">if</span> any(numeric_mask)
+0360         disp(<span class="string">'Converting all numeric event types to strings.'</span>);
+0361         <span class="keyword">for</span> k=find(numeric_mask)
+0362             res.event(k).type = num2str(res.event(k).type); <span class="keyword">end</span>
+0363     <span class="keyword">end</span>
+0364 <span class="keyword">end</span>
+0365 
+0366 <span class="comment">% retain only channels with the selected type</span>
+0367 <span class="keyword">if</span> ~isempty(allopts.types)    
+0368     <span class="keyword">if</span> ischar(allopts.types)
+0369         allopts.types = {allopts.types}; <span class="keyword">end</span>
+0370     matches = false;
+0371     <span class="keyword">for</span> t=1:length(allopts.types)
+0372         matches = matches | strcmp({res.chanlocs.type},allopts.types{t}); <span class="keyword">end</span>
+0373     res = pop_select(res,<span class="string">'channel'</span>,find(matches));
+0374 <span class="keyword">end</span>
+0375 
+0376 <span class="comment">% add data set meta-data</span>
+0377 res.setname = allopts.setname;
+0378 res.filename = [name ext];
+0379 res.filepath = base;
+0380 res.subject = allopts.subject;
+0381 res.group = allopts.group;
+0382 res.condition = allopts.condition;
+0383 res.comments = allopts.comments;
+0384 
+0385 <span class="comment">% and reduce the data post-hoc if not already done so in the loader</span>
+0386 <span class="keyword">if</span> ~isempty(opts.channels)
+0387     res = pop_select(res,<span class="string">'channel'</span>,set_chanid(res,opts.channels),<span class="string">'sorttrial'</span>,<span class="string">'off'</span>); <span class="keyword">end</span>
+0388 <span class="keyword">if</span> ~isempty(opts.samplerange)
+0389     res = pop_select(res,<span class="string">'point'</span>,opts.samplerange); <span class="keyword">end</span>
+0390 <span class="keyword">if</span> ~isempty(opts.timerange)
+0391     res = pop_select(res,<span class="string">'time'</span>,opts.timerange); <span class="keyword">end</span>
+0392 <span class="keyword">if</span> ~isempty(allopts.subsampled)
+0393     res = pop_resample(res,allopts.subsampled); <span class="keyword">end</span>
+0394 
+0395 
+0396 <span class="keyword">if</span> length(unique({res.chanlocs.labels})) ~= length(res.chanlocs)
+0397     warning(<span class="string">'bcilab:io_loadset:duplicate_channels'</span>,<span class="string">'Multiple of your channels have the same label; this will likely give you errors during processing.'</span>); <span class="keyword">end</span>
+0398 
+0399 <span class="comment">% for faster processing further into the pipeline</span>
+0400 res.tracking.timeseries_fields = {};
+0401 
+0402 <span class="comment">% add tracking information (note: the @rawdata expression indicates that this stage produces raw data...)</span>
+0403 <span class="keyword">if</span> isfield(res,<span class="string">'tracking'</span>) &amp;&amp; isfield(res.tracking,<span class="string">'online_expression'</span>)
+0404     <span class="comment">% if the data set has already an online expression (e.g. processed data from a .set file), use that</span>
+0405     exp_endfun(<span class="string">'set_online'</span>,res.tracking.online_expression)
+0406 <span class="keyword">else</span>
+0407     <span class="comment">% otherwise we treat this stage as producing raw data</span>
+0408     exp_endfun(<span class="string">'set_online'</span>,struct(<span class="string">'head'</span>,@rawdata,<span class="string">'parts'</span>,{{{res.chanlocs.labels},unique({res.chanlocs.type})}}));
+0409 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,1367 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_ica</title>
+  <meta name="keywords" content="flt_ica">
+  <meta name="description" content="Annotate the Signal with a spatial decomposition into independent components (using ICA)">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_ica.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_ica
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Annotate the Signal with a spatial decomposition into independent components (using ICA)</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [signal,state] = flt_ica(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Annotate the Signal with a spatial decomposition into independent components (using ICA)
+ [Signal,State] = flt_ica(Signal, Variant, CleaningLevel, TransformData, OutputCleanedData, ResumePrevious)
+
+ The IC-decomposed signal [1] can be considered to have &quot;better&quot; channels than the raw sensor
+ signal, for several reasons:
+  * The components are less correlated than the raw channels, which allows for easier-to-handle
+    statistical assumptions in higher levels (e.g. using diagonal covariance matrices).
+  * The relevant information can be assumed to be localized in only a small subset of the
+    components, where the majority of components will carry less relevant data; this allows for the
+    assumption of (channel-wise) sparsity in the derived features (e.g. using l1-regularized
+    classifiers and/or feature extractors).
+  * The components have a higher degree of semantic meaning than channels (which needs to be
+    computed, though), such as the presence of eye artifacts, muscle artifacts, brain activity,
+    etc.
+  * A fraction of components can be localized in the brain using dipole fitting, beamforming,
+    sparse bayesian learning, and other methods, which gives access to semantics that can be
+    derived/computed from the component's location in the brain (e.g., postcentral gyrus -&gt; high
+    chance of touch-related brain activity, etc.).
+
+ In:
+   Signal     : a continuous data set
+
+   Variant    : type of ICA model to run (default: 'amica'), possible values are:
+                'amica' : AMICA [2] is currently the best-of-breed ICA method and generally
+                          preferred. (default) It uses a flexible model of source signal densities
+                          (generalized gaussian scale mixtures) which allow it to obtain better
+                          solutions for EEG data (in terms of statistical independence) than the
+                          other available methods; furthermore, multiple models can be learned,
+                          which allow it to capture non-stationarities in a principled manner. If
+                          available, a binary implementation is used. Options: help runamica
+                'infomax' : (extended) Infomax [3] is the second-best approach to ICA for EEG data,
+                            and may be faster than the MATLAB implementation of AMICA, or possibly
+                            easier to handle. If available, a binary implementation is used.
+                            Options: help runica
+                'beamica' : essentially Infomax in its default setting, but offers the option of 
+                            constraining solutions with the help of beamforming. The fastest ICA 
+                            implementation in the toolbox (especially when run on a fast GPU).
+                'fastica' : FastICA [4] is a relatively simple ICA implementation, which is
+                            converges relatively quickly, though at the expense of solution
+                            quality. In many cases it can not attain results as good as extended
+                            Infomax or AMICA, but for repeated computations (e.g. inside a
+                            cross-validation) it can be a reasonable choice due to its speed.
+                            Options: help fastica
+                'rica' : (overcomplete) Reconstruction ICA [7] is a novel fast ICA approach that allows
+                         to learn arbitrarily over-complete decompositions.
+                'kernelica' : KernelICA [5] has a similarly flexible model of source densities as
+                              AMICA, using a kernel approach, but requires massive computation
+                              time, so KernelICA can realistically at best be used on small data
+                              sets. Options: help kernel_ica_options
+                'sphere' : just the spering matrix (second-order)
+                'robust_spere' : the robust sphering matrix (estimated under super-Gaussian noise)
+                others, if in path: 'jader','jadeop','jade_td_p','MatlabshibbsR','tica','erica',
+                                    'simbec','unica','amuse','fobi','evd','evd24','sons','sobi',
+                                    'ng_ol','acsobiro','acrsobibpf','pearson_ica','egld_ica','eeA',
+                                    'tfbss','icaML','icaMS'.
+
+                Note: each of these variants has its own set of sub-parameters, which can be
+                specified by passing Variant as a cell array, e.g., {'amica', 'num_models',3, 'max_iter',1000}
+
+                For a full list of these parameters, review either the argument specification below
+                or the review/edit approach panel (under ICA)
+
+   DataCleaning : Parameters for data cleaning prior to running an EEG; this is a cell array of 
+                  parameters for the function flt_clean_settings. In the simplest case, it is just
+                  a setting string (e.g. 'seated', 'noisy', 'walking', 'running')
+
+   TransformData : whether to place the decomposition result in the actual channel data instead of
+                   in an additional annotation field of the output data set (.icaact). (default: false)
+
+   OutputCleanedData : whether to output the cleaned version of the data instead of the original
+                       version of the data; by default, the cleaned data is only used to compute a
+                       better decomposition, while the (decomposed) original data is what is returned
+                       (default: false)
+
+   ResumePrevious : whether to try to resume from a previous computation (on the same data), if
+                    applicable (default: true)
+
+   State      : state, for online updates (default: [])
+
+ Out:
+   Signal : continuous data set annotated with an ICA decomposition, and optionally with data
+            transformed into IC activations
+
+ Notes:
+   Only the first two arguments can be specified without passing them by name.
+
+ Examples:
+   % annotate the data set with an ICA decomposition, using default settings
+   eeg = flt_ica(eeg)
+
+   % do an ICA decomposition using Infomax
+   eeg = flt_ica(eeg, 'infomax')
+
+   % do an ICA decomposition using Infomax and transform the actual channel data (so that
+   % channel-based methods end up operating on components)
+   eeg = flt_ica(eeg, 'infomax', 'TransformData',true)
+
+   % do an ICA decomposition using Infomax and pass a specific cleaning level
+   eeg = flt_ica(eeg, 'infomax', 'CleaningLevel','hardcore')
+
+   % do an ICA decomposition using Infomax, pass a specific cleaning level, and override some
+   parameters to infomax
+   eeg = flt_ica(eeg, {'infomax' 'MaxIterations',300}, 'CleaningLevel','hardcore')
+
+   % as before, but pass all arguments by name (recommended to avoid confusion)
+   eeg = flt_ica('Signal',eeg, 'Variant',{'infomax' 'MaxIterations',300}, 'CleaningLevel','hardcore')
+
+   % do an ICA decomposition using amica and specify some of its parameters (and use a custom cleaning level)
+   eeg = flt_ica('Signal',eeg, 'Variant',{'amica', 'NumModels',3, 'MaxIterations',1000}, 'CleaningLevel','hardcore')
+
+   % run an AMICA and don't try to use the cluster (i.e., run locally)
+   eeg = flt_ica('Signal',eeg, 'Variant',{'amica', 'UseGridEngine','off'})
+
+   % do a multi-model amica decomposition using 3 models using 16 slots on the cluster, and do some
+   % moderate artifact handling
+   eeg = flt_ica('Signal',eeg, 'Variant',{'amica', 'NumModels',3, 'NumProcessors',16}, 'CleaningLevel','strong')
+
+   % do a quick-and-dirty FastICA
+   eeg = flt_ica(eeg, {'fastica', 'MaxIterations',100})
+
+   % do a super-slow Kernel ICA on highly cleaned data
+   eeg = flt_ica(eeg,'kernelica','CleaningLevel','ultrahardcore')
+
+
+ References:
+   [1] Makeig S., Bell A.J., Jung T-P. and Sejnowski T.J. 1995. &quot;Independent Component Analysis of Electroencephalographic Data&quot;
+       in Mozer M. et al (eds) Advances in Neural Information Processing Systems 8, MIT press
+   [2] J. A. Palmer, S. Makeig, K. Kreutz-Delgado, and B. D. Rao, &quot;Newton Method for the ICA Mixture Model&quot;.
+       In Proceedings of the 33rd IEEE International Conference on Acoustics and Signal Processing (ICASSP 2008), Las Vegas, NV, pp. 1805-1808, 2008.
+   [3] Bell, A. J., and Sejnowski, T. J. &quot;An information-maximization approach to blind separation and blind deconvolution.&quot;
+       Neural Comput. 7, 6 (1995), 1129?1159.
+   [4] A. Hyvaerinen. &quot;Fast and Robust Fixed-Point Algorithms for Independent Component Analysis.&quot;
+       IEEE Transactions on Neural Networks 10(3):626-634, 1999.
+   [5] Francis R. Bach, Michael I. Jordan. &quot;Kernel Independent Component Analysis&quot;,
+       Journal of Machine Learning Research, 3, 1-48, 2002
+   [6] H. Shen, S. Jegelka and A. Gretton. &quot;Fast Kernel ICA using an approximate Newton method.&quot;
+       AISTATS 2007.
+   [7] Q.V. Le, A. Karpenko, J. Ngiam, A.Y. Ng. &quot;ICA with Reconstruction Cost for Efficient Overcomplete Feature Learning.&quot;
+       NIPS 2011
+
+ See also:
+   runica, runamica11, fastica, kernel_ica_options, <a href="flt_clean_channels.html" class="code" title="function signal = flt_clean_channels(varargin)">flt_clean_channels</a>, <a href="flt_clean_windows.html" class="code" title="function [signal,sample_mask] = flt_clean_windows(varargin)">flt_clean_windows</a>, flt_clean_peaks
+
+ TODO:
+   Add robust and CUDA ICA's.
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-04-17</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="flt_clean_settings.html" class="code" title="function signal = flt_clean_settings(varargin)">flt_clean_settings</a>	Clean EEG data according to a particular cleaning setting.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function [job,result,t0,iter_times,maxiters,lastlines,job_started,early_finish] = schedule_amica(X,scheduler,amica_version,logfile,varargin)</a></li><li><a href="#_sub2" class="code">function r = amica_native(pre,variant)</a></li><li><a href="#_sub3" class="code">function delete_job(id,scheduler,outdir)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal,state] = flt_ica(varargin)</a>
+0002 <span class="comment">% Annotate the Signal with a spatial decomposition into independent components (using ICA)</span>
+0003 <span class="comment">% [Signal,State] = flt_ica(Signal, Variant, CleaningLevel, TransformData, OutputCleanedData, ResumePrevious)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% The IC-decomposed signal [1] can be considered to have &quot;better&quot; channels than the raw sensor</span>
+0006 <span class="comment">% signal, for several reasons:</span>
+0007 <span class="comment">%  * The components are less correlated than the raw channels, which allows for easier-to-handle</span>
+0008 <span class="comment">%    statistical assumptions in higher levels (e.g. using diagonal covariance matrices).</span>
+0009 <span class="comment">%  * The relevant information can be assumed to be localized in only a small subset of the</span>
+0010 <span class="comment">%    components, where the majority of components will carry less relevant data; this allows for the</span>
+0011 <span class="comment">%    assumption of (channel-wise) sparsity in the derived features (e.g. using l1-regularized</span>
+0012 <span class="comment">%    classifiers and/or feature extractors).</span>
+0013 <span class="comment">%  * The components have a higher degree of semantic meaning than channels (which needs to be</span>
+0014 <span class="comment">%    computed, though), such as the presence of eye artifacts, muscle artifacts, brain activity,</span>
+0015 <span class="comment">%    etc.</span>
+0016 <span class="comment">%  * A fraction of components can be localized in the brain using dipole fitting, beamforming,</span>
+0017 <span class="comment">%    sparse bayesian learning, and other methods, which gives access to semantics that can be</span>
+0018 <span class="comment">%    derived/computed from the component's location in the brain (e.g., postcentral gyrus -&gt; high</span>
+0019 <span class="comment">%    chance of touch-related brain activity, etc.).</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">% In:</span>
+0022 <span class="comment">%   Signal     : a continuous data set</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   Variant    : type of ICA model to run (default: 'amica'), possible values are:</span>
+0025 <span class="comment">%                'amica' : AMICA [2] is currently the best-of-breed ICA method and generally</span>
+0026 <span class="comment">%                          preferred. (default) It uses a flexible model of source signal densities</span>
+0027 <span class="comment">%                          (generalized gaussian scale mixtures) which allow it to obtain better</span>
+0028 <span class="comment">%                          solutions for EEG data (in terms of statistical independence) than the</span>
+0029 <span class="comment">%                          other available methods; furthermore, multiple models can be learned,</span>
+0030 <span class="comment">%                          which allow it to capture non-stationarities in a principled manner. If</span>
+0031 <span class="comment">%                          available, a binary implementation is used. Options: help runamica</span>
+0032 <span class="comment">%                'infomax' : (extended) Infomax [3] is the second-best approach to ICA for EEG data,</span>
+0033 <span class="comment">%                            and may be faster than the MATLAB implementation of AMICA, or possibly</span>
+0034 <span class="comment">%                            easier to handle. If available, a binary implementation is used.</span>
+0035 <span class="comment">%                            Options: help runica</span>
+0036 <span class="comment">%                'beamica' : essentially Infomax in its default setting, but offers the option of</span>
+0037 <span class="comment">%                            constraining solutions with the help of beamforming. The fastest ICA</span>
+0038 <span class="comment">%                            implementation in the toolbox (especially when run on a fast GPU).</span>
+0039 <span class="comment">%                'fastica' : FastICA [4] is a relatively simple ICA implementation, which is</span>
+0040 <span class="comment">%                            converges relatively quickly, though at the expense of solution</span>
+0041 <span class="comment">%                            quality. In many cases it can not attain results as good as extended</span>
+0042 <span class="comment">%                            Infomax or AMICA, but for repeated computations (e.g. inside a</span>
+0043 <span class="comment">%                            cross-validation) it can be a reasonable choice due to its speed.</span>
+0044 <span class="comment">%                            Options: help fastica</span>
+0045 <span class="comment">%                'rica' : (overcomplete) Reconstruction ICA [7] is a novel fast ICA approach that allows</span>
+0046 <span class="comment">%                         to learn arbitrarily over-complete decompositions.</span>
+0047 <span class="comment">%                'kernelica' : KernelICA [5] has a similarly flexible model of source densities as</span>
+0048 <span class="comment">%                              AMICA, using a kernel approach, but requires massive computation</span>
+0049 <span class="comment">%                              time, so KernelICA can realistically at best be used on small data</span>
+0050 <span class="comment">%                              sets. Options: help kernel_ica_options</span>
+0051 <span class="comment">%                'sphere' : just the spering matrix (second-order)</span>
+0052 <span class="comment">%                'robust_spere' : the robust sphering matrix (estimated under super-Gaussian noise)</span>
+0053 <span class="comment">%                others, if in path: 'jader','jadeop','jade_td_p','MatlabshibbsR','tica','erica',</span>
+0054 <span class="comment">%                                    'simbec','unica','amuse','fobi','evd','evd24','sons','sobi',</span>
+0055 <span class="comment">%                                    'ng_ol','acsobiro','acrsobibpf','pearson_ica','egld_ica','eeA',</span>
+0056 <span class="comment">%                                    'tfbss','icaML','icaMS'.</span>
+0057 <span class="comment">%</span>
+0058 <span class="comment">%                Note: each of these variants has its own set of sub-parameters, which can be</span>
+0059 <span class="comment">%                specified by passing Variant as a cell array, e.g., {'amica', 'num_models',3, 'max_iter',1000}</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">%                For a full list of these parameters, review either the argument specification below</span>
+0062 <span class="comment">%                or the review/edit approach panel (under ICA)</span>
+0063 <span class="comment">%</span>
+0064 <span class="comment">%   DataCleaning : Parameters for data cleaning prior to running an EEG; this is a cell array of</span>
+0065 <span class="comment">%                  parameters for the function flt_clean_settings. In the simplest case, it is just</span>
+0066 <span class="comment">%                  a setting string (e.g. 'seated', 'noisy', 'walking', 'running')</span>
+0067 <span class="comment">%</span>
+0068 <span class="comment">%   TransformData : whether to place the decomposition result in the actual channel data instead of</span>
+0069 <span class="comment">%                   in an additional annotation field of the output data set (.icaact). (default: false)</span>
+0070 <span class="comment">%</span>
+0071 <span class="comment">%   OutputCleanedData : whether to output the cleaned version of the data instead of the original</span>
+0072 <span class="comment">%                       version of the data; by default, the cleaned data is only used to compute a</span>
+0073 <span class="comment">%                       better decomposition, while the (decomposed) original data is what is returned</span>
+0074 <span class="comment">%                       (default: false)</span>
+0075 <span class="comment">%</span>
+0076 <span class="comment">%   ResumePrevious : whether to try to resume from a previous computation (on the same data), if</span>
+0077 <span class="comment">%                    applicable (default: true)</span>
+0078 <span class="comment">%</span>
+0079 <span class="comment">%   State      : state, for online updates (default: [])</span>
+0080 <span class="comment">%</span>
+0081 <span class="comment">% Out:</span>
+0082 <span class="comment">%   Signal : continuous data set annotated with an ICA decomposition, and optionally with data</span>
+0083 <span class="comment">%            transformed into IC activations</span>
+0084 <span class="comment">%</span>
+0085 <span class="comment">% Notes:</span>
+0086 <span class="comment">%   Only the first two arguments can be specified without passing them by name.</span>
+0087 <span class="comment">%</span>
+0088 <span class="comment">% Examples:</span>
+0089 <span class="comment">%   % annotate the data set with an ICA decomposition, using default settings</span>
+0090 <span class="comment">%   eeg = flt_ica(eeg)</span>
+0091 <span class="comment">%</span>
+0092 <span class="comment">%   % do an ICA decomposition using Infomax</span>
+0093 <span class="comment">%   eeg = flt_ica(eeg, 'infomax')</span>
+0094 <span class="comment">%</span>
+0095 <span class="comment">%   % do an ICA decomposition using Infomax and transform the actual channel data (so that</span>
+0096 <span class="comment">%   % channel-based methods end up operating on components)</span>
+0097 <span class="comment">%   eeg = flt_ica(eeg, 'infomax', 'TransformData',true)</span>
+0098 <span class="comment">%</span>
+0099 <span class="comment">%   % do an ICA decomposition using Infomax and pass a specific cleaning level</span>
+0100 <span class="comment">%   eeg = flt_ica(eeg, 'infomax', 'CleaningLevel','hardcore')</span>
+0101 <span class="comment">%</span>
+0102 <span class="comment">%   % do an ICA decomposition using Infomax, pass a specific cleaning level, and override some</span>
+0103 <span class="comment">%   parameters to infomax</span>
+0104 <span class="comment">%   eeg = flt_ica(eeg, {'infomax' 'MaxIterations',300}, 'CleaningLevel','hardcore')</span>
+0105 <span class="comment">%</span>
+0106 <span class="comment">%   % as before, but pass all arguments by name (recommended to avoid confusion)</span>
+0107 <span class="comment">%   eeg = flt_ica('Signal',eeg, 'Variant',{'infomax' 'MaxIterations',300}, 'CleaningLevel','hardcore')</span>
+0108 <span class="comment">%</span>
+0109 <span class="comment">%   % do an ICA decomposition using amica and specify some of its parameters (and use a custom cleaning level)</span>
+0110 <span class="comment">%   eeg = flt_ica('Signal',eeg, 'Variant',{'amica', 'NumModels',3, 'MaxIterations',1000}, 'CleaningLevel','hardcore')</span>
+0111 <span class="comment">%</span>
+0112 <span class="comment">%   % run an AMICA and don't try to use the cluster (i.e., run locally)</span>
+0113 <span class="comment">%   eeg = flt_ica('Signal',eeg, 'Variant',{'amica', 'UseGridEngine','off'})</span>
+0114 <span class="comment">%</span>
+0115 <span class="comment">%   % do a multi-model amica decomposition using 3 models using 16 slots on the cluster, and do some</span>
+0116 <span class="comment">%   % moderate artifact handling</span>
+0117 <span class="comment">%   eeg = flt_ica('Signal',eeg, 'Variant',{'amica', 'NumModels',3, 'NumProcessors',16}, 'CleaningLevel','strong')</span>
+0118 <span class="comment">%</span>
+0119 <span class="comment">%   % do a quick-and-dirty FastICA</span>
+0120 <span class="comment">%   eeg = flt_ica(eeg, {'fastica', 'MaxIterations',100})</span>
+0121 <span class="comment">%</span>
+0122 <span class="comment">%   % do a super-slow Kernel ICA on highly cleaned data</span>
+0123 <span class="comment">%   eeg = flt_ica(eeg,'kernelica','CleaningLevel','ultrahardcore')</span>
+0124 <span class="comment">%</span>
+0125 <span class="comment">%</span>
+0126 <span class="comment">% References:</span>
+0127 <span class="comment">%   [1] Makeig S., Bell A.J., Jung T-P. and Sejnowski T.J. 1995. &quot;Independent Component Analysis of Electroencephalographic Data&quot;</span>
+0128 <span class="comment">%       in Mozer M. et al (eds) Advances in Neural Information Processing Systems 8, MIT press</span>
+0129 <span class="comment">%   [2] J. A. Palmer, S. Makeig, K. Kreutz-Delgado, and B. D. Rao, &quot;Newton Method for the ICA Mixture Model&quot;.</span>
+0130 <span class="comment">%       In Proceedings of the 33rd IEEE International Conference on Acoustics and Signal Processing (ICASSP 2008), Las Vegas, NV, pp. 1805-1808, 2008.</span>
+0131 <span class="comment">%   [3] Bell, A. J., and Sejnowski, T. J. &quot;An information-maximization approach to blind separation and blind deconvolution.&quot;</span>
+0132 <span class="comment">%       Neural Comput. 7, 6 (1995), 1129?1159.</span>
+0133 <span class="comment">%   [4] A. Hyvaerinen. &quot;Fast and Robust Fixed-Point Algorithms for Independent Component Analysis.&quot;</span>
+0134 <span class="comment">%       IEEE Transactions on Neural Networks 10(3):626-634, 1999.</span>
+0135 <span class="comment">%   [5] Francis R. Bach, Michael I. Jordan. &quot;Kernel Independent Component Analysis&quot;,</span>
+0136 <span class="comment">%       Journal of Machine Learning Research, 3, 1-48, 2002</span>
+0137 <span class="comment">%   [6] H. Shen, S. Jegelka and A. Gretton. &quot;Fast Kernel ICA using an approximate Newton method.&quot;</span>
+0138 <span class="comment">%       AISTATS 2007.</span>
+0139 <span class="comment">%   [7] Q.V. Le, A. Karpenko, J. Ngiam, A.Y. Ng. &quot;ICA with Reconstruction Cost for Efficient Overcomplete Feature Learning.&quot;</span>
+0140 <span class="comment">%       NIPS 2011</span>
+0141 <span class="comment">%</span>
+0142 <span class="comment">% See also:</span>
+0143 <span class="comment">%   runica, runamica11, fastica, kernel_ica_options, flt_clean_channels, flt_clean_windows, flt_clean_peaks</span>
+0144 <span class="comment">%</span>
+0145 <span class="comment">% TODO:</span>
+0146 <span class="comment">%   Add robust and CUDA ICA's.</span>
+0147 <span class="comment">%</span>
+0148 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0149 <span class="comment">%                                2010-04-17</span>
+0150 
+0151 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0152 
+0153 <span class="comment">% has its own highpass filter, sometimes applied on re-referenced data</span>
+0154 declare_properties(<span class="string">'name'</span>,<span class="string">'ICA'</span>, <span class="string">'precedes'</span>,{<span class="string">'flt_fir'</span>,<span class="string">'flt_iir'</span>}, <span class="string">'follows'</span>,<span class="string">'flt_reref'</span>, <span class="string">'independent_trials'</span>,false, <span class="string">'independent_channels'</span>,false);
+0155 
+0156 arg_define([0 2],varargin, <span class="keyword">...</span>
+0157     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0158     arg_subswitch({<span class="string">'variant'</span>,<span class="string">'Variant'</span>},<span class="string">'infomax'</span>,{ <span class="keyword">...</span>
+0159     <span class="string">'noica'</span>, {}, <span class="keyword">...</span><span class="comment">  % noICA is a testing variant with no arguments</span>
+0160     <span class="string">'amica'</span>, { <span class="keyword">...</span>
+0161         arg({<span class="string">'amica_version'</span>,<span class="string">'AmicaVersion'</span>,<span class="string">'version'</span>},<span class="string">'stable11'</span>,{<span class="string">'devel'</span>,<span class="string">'stable11'</span>,<span class="string">'stable12'</span>,<span class="string">'stable'</span>,<span class="string">'matlab'</span>},<span class="string">'Amica version to use. The stable12 is cross-platform, stable11 has been tested extensively on the SCCN cluster, and the matlab version should run everywhere.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0162         arg({<span class="string">'max_iter'</span>,<span class="string">'MaxIterations'</span>},uint32(2500),[],<span class="string">'Maximum number of iterations to perform.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0163         arg({<span class="string">'num_models'</span>,<span class="string">'NumModels'</span>},uint32(1),[],<span class="string">'Number of models to learn. Per model, approx. 100,000 data points are needed at 100 channels.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0164         arg({<span class="string">'num_mix_comps'</span>,<span class="string">'NumMixtureComponents'</span>},uint32(3),[],<span class="string">'Number of mixture components to learn. This is per source.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0165         arg({<span class="string">'pdftype'</span>,<span class="string">'TypeOfPDF'</span>},<span class="string">'GeneralizedGaussian'</span>,{<span class="string">'GeneralizedGaussian'</span>,<span class="string">'ExtendedInfomax'</span>,<span class="string">'Gaussian'</span>,<span class="string">'Logistic'</span>},<span class="string">'Probability density type for source model.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0166         arg({<span class="string">'share_comps'</span>,<span class="string">'ShareComponents'</span>},false,[],<span class="string">'Flag to share components when num_models &gt; 1.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0167         <span class="keyword">...</span>
+0168         arg({<span class="string">'max_threads'</span>,<span class="string">'MaxThreads'</span>},[],[],<span class="string">'Number of threads per node. If this is too high, churn kicks in (especially between users on a shared cluster).'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0169         arg({<span class="string">'useqsub'</span>,<span class="string">'UseGridEngine'</span>,<span class="string">'qsub'</span>},fastif(isdeployed,<span class="string">'off'</span>,<span class="string">'on'</span>),{<span class="string">'on'</span>,<span class="string">'off'</span>},<span class="string">'Use Sun Grid Engine cluster. Assumes qsub; the alternative is to run locally.'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0170         arg({<span class="string">'use_queue'</span>,<span class="string">'UseQueue'</span>},{<span class="string">'q3:32'</span>,<span class="string">'q4:32'</span>,<span class="string">'q5:32'</span>,<span class="string">'q6:32'</span>,<span class="string">'q7:32'</span>,<span class="string">'q8:32'</span>,<span class="string">'q9:32'</span>,<span class="string">'q10:32'</span>,<span class="string">'qa1:64'</span>,<span class="string">'qa2:64'</span>,<span class="string">'qa3:64'</span>,<span class="string">'qa4:64'</span>},[],<span class="string">'Grid Engine queue to use. If this is a cell array of queue names (of the form name:xx, where xx is the number of processors required to be available), a free queue will be identified automatically (and the respective number of available processors will be used as numprocs). flt_ica will wait and print a notification if no queue is available.'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0171         arg({<span class="string">'use_pe'</span>,<span class="string">'ParallelEnvironment'</span>},<span class="string">'autodetect'</span>,{<span class="string">'autodetect'</span>,<span class="string">'mpich'</span>,<span class="string">'orte'</span>,<span class="string">'make'</span>},<span class="string">'Parallel environment to use. Only recognized by the ''stable11'' and ''stable12'' versions.'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0172         arg({<span class="string">'numprocs'</span>,<span class="string">'NumProcessors'</span>,<span class="string">'num_procs'</span>},uint32(32),[],<span class="string">'Number or processors to use. If use_queue was used with auto-detection, the # of slots in the queue will be used as numprocs.'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0173         arg({<span class="string">'poll_interval'</span>,<span class="string">'PollInterval'</span>},10,[],<span class="string">'Check Amica status every n secs. Used to monitor Amica''s progress, if running on a cluster.'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0174         arg({<span class="string">'max_start_waiting'</span>,<span class="string">'MaxStartWaiting'</span>},600,[],<span class="string">'Maximum wait time until Amica reschedule. If running on a cluster, maximum waiting time (if job not launched) until it is assumed that the AMICA job could not be scheduled, in seconds.'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0175         arg({<span class="string">'max_init_waiting'</span>,<span class="string">'MaxInitWaiting'</span>},2000,[],<span class="string">'Maximum wait time until Amica reschedule. If running on a cluster, maximum waiting time (if computation not initialized) until it is assumed that the AMICA job does not make progress (e.g., due to a straggler), in seconds.'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0176         arg({<span class="string">'reduce_factor'</span>,<span class="string">'ReductionFactor'</span>},0.75,[],<span class="string">'Processor reduction per restart. If running on a cluster, factor by which the number of processors is reduced when the maximum waiting time is exceeded.'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0177         arg({<span class="string">'scheduler'</span>,<span class="string">'Scheduler'</span>},<span class="string">'computing'</span>,[],<span class="string">'Name of grid scheduler/master. If running on a cluster, name of the Sun Grid Engine master (the ICA runner may need to ssh into this).'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0178         arg({<span class="string">'max_restarts'</span>,<span class="string">'MaxRestarts'</span>},20,[],<span class="string">'Maximum number of restarts. If amica has been restarted more than this many times (due to optimistic scheduling or NaN outputs), fall back to the MATLAB implementation.'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0179         arg({<span class="string">'fallback_reduce'</span>,<span class="string">'FallbackReductionFactor'</span>},0.5,[],<span class="string">'Iteration reduction after fallback. If falling back, reduce maximum number of iterations by this factor (for time reasons).'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0180         arg({<span class="string">'measure_window'</span>,<span class="string">'ThroughputMeasurementWindow'</span>},5*60,[],<span class="string">'Throughput Measurement Window. Amica computational throughput is measured within this past window (in seconds) to determine whether a re-schedule can significantly improve the expected running time.'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0181         arg({<span class="string">'benefit_threshold'</span>,<span class="string">'SpeedupRestartThreshold'</span>},3,[],<span class="string">'Minimum speedup to justify a restart. If the expected speedup due to a restart is at least this high, restart the computation.'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0182         arg({<span class="string">'native_threshold'</span>,<span class="string">'NativeFallbackThreshold'</span>},10,[],<span class="string">'Minimum speedup to justify a fallback. If the expected speedup due to a restart is at least this high, but we have already re-started MaxRestarts times, we fall back to a local MATLAB-based computation.'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0183         arg({<span class="string">'flaky_cluster'</span>,<span class="string">'HaveFlakyCluster'</span>},true,[],<span class="string">'Cluster is flaky. If this is true, computation never falls back to local computation and just retries to schedule or jobs until they eventually get through.'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0184         arg({<span class="string">'reuse_margin'</span>,<span class="string">'DirectoryReuseSafetyMargin'</span>},5,[],<span class="string">'Safety margin for directory reuse. When selecting a directory to write results to, make sure that it has not been updated with (incomplete) results within the last n minutes.'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0185         arg({<span class="string">'min_numprocs_fraction'</span>,<span class="string">'MinimumNumProcsFraction'</span>},0.33,[],<span class="string">'Minimum fraction of NumProcessors. If amica gives NaN''s, this is sometimes due to the number of processors chosen - so we use a random # of processors between this fraction and your original number if it crashes, until it eventually works.'</span>,<span class="string">'cat'</span>,<span class="string">'Compute Resources'</span>), <span class="keyword">...</span>
+0186         <span class="keyword">...</span>
+0187         arg({<span class="string">'lrate'</span>,<span class="string">'LRate'</span>},0.1,[],<span class="string">'Initial learning rate for natural gradient. Extended Infomax only.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0188         arg({<span class="string">'lratefact'</span>,<span class="string">'LRateFactor'</span>},0.5,[],<span class="string">'Learning rate reduction. Multiplicative factor by which to decrease learning rate (extended Infomax only).'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0189         arg({<span class="string">'minlrate'</span>,<span class="string">'MinLRate'</span>},1e-8,[],<span class="string">'Minimum learning rate. If lower, convergence is assumed; extended Infomax only.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0190         arg({<span class="string">'rholrate'</span>,<span class="string">'ShapeLRate'</span>},0.05,[],<span class="string">'Initial learning rate for shape parameters. Only for generalized Gaussian mode.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0191         arg({<span class="string">'rholratefact'</span>,<span class="string">'ShapeLRateFactor'</span>},0.5,[],<span class="string">'Shape learning rate reduction. Multiplicative factor by which to decrease the shape learning rate. Generalized Gaussian only.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0192         arg({<span class="string">'rho0'</span>,<span class="string">'InitialShape'</span>},1.5,[],<span class="string">'Initial shape parameter value. Generalized Gaussian only.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0193         arg({<span class="string">'minrho'</span>,<span class="string">'MinShape'</span>},1.0,[],<span class="string">'Minimum shape parameter value. Generalized Gaussian only.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0194         arg({<span class="string">'maxrho'</span>,<span class="string">'MaxShape'</span>},2.0,[],<span class="string">'Maximum shape parameter value. Generalized Gaussian only.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0195         arg({<span class="string">'do_newton'</span>,<span class="string">'DoNewton'</span>},true,[],<span class="string">'Use the Newton method.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0196         arg({<span class="string">'newt_start'</span>,<span class="string">'NewtonStartIter'</span>},uint32(50),[],<span class="string">'Iterations without Newton method. Only after this many iterations, the Newton method is used.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0197         arg({<span class="string">'newtrate'</span>,<span class="string">'NewtonRate'</span>},1.0,[],<span class="string">'Learning rate for Newton iterations.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0198         arg({<span class="string">'newt_ramp'</span>,<span class="string">'NewtonRampUp'</span>},uint32(10),[],<span class="string">'Iterations to ramp up Newton method.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0199         arg({<span class="string">'comp_thresh'</span>,<span class="string">'ComponentThreshold'</span>},0.98,[],<span class="string">'Correlation Threshold to share components.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0200         arg({<span class="string">'share_start'</span>,<span class="string">'ShareStartIter'</span>},100,[],<span class="string">'Iteration to start component sharing.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0201         arg({<span class="string">'share_int'</span>,<span class="string">'ShareInterval'</span>},100,[],<span class="string">'Iterations between component sharing checks.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0202         <span class="keyword">...</span>
+0203         arg({<span class="string">'outdir'</span>,<span class="string">'OutputDirectory'</span>},[],[],<span class="string">'Output directory. Results of the computation are written there (empty: to BCILAB''s temp directory).'</span>,<span class="string">'cat'</span>,<span class="string">'File IO'</span>), <span class="keyword">...</span>
+0204         arg({<span class="string">'load_final'</span>,<span class="string">'LoadFinalModels'</span>},true,[],<span class="string">'Load final models. If the output directory contains a final model, try to load it.'</span>,<span class="string">'cat'</span>,<span class="string">'File IO'</span>), <span class="keyword">...</span>
+0205         arg({<span class="string">'writestep'</span>,<span class="string">'WriteInterval'</span>},uint32(10),[],<span class="string">'Iterations between output writes.'</span>,<span class="string">'cat'</span>,<span class="string">'File IO'</span>), <span class="keyword">...</span>
+0206         arg({<span class="string">'write_nd'</span>,<span class="string">'WriteHistory'</span>},true,[],<span class="string">'Write component update magnitudes. Per iteration.'</span>,<span class="string">'cat'</span>,<span class="string">'File IO'</span>), <span class="keyword">...</span>
+0207         arg({<span class="string">'write_LLt'</span>,<span class="string">'WriteLoglikes'</span>},true,[],<span class="string">'Write model log-likelihoods. Per time point.'</span>,<span class="string">'cat'</span>,<span class="string">'File IO'</span>), <span class="keyword">...</span>
+0208         arg({<span class="string">'indir'</span>,<span class="string">'InputDirectory'</span>},<span class="string">''</span>,[],<span class="string">'Directory of initial model, if any. Optional input directory from which to load the initial model (during AMICA runtime, models are stored in directories).'</span>,<span class="string">'cat'</span>,<span class="string">'File IO'</span>,<span class="string">'type'</span>,<span class="string">'char'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0209         arg({<span class="string">'load_param'</span>,<span class="string">'ReadParams'</span>},false,[],<span class="string">'Read parameters from input directory.'</span>,<span class="string">'cat'</span>,<span class="string">'File IO'</span>), <span class="keyword">...</span>
+0210         arg({<span class="string">'load_rej'</span>,<span class="string">'ReadRejections'</span>},false,[],<span class="string">'Read rejection info from input directory. This is for the Amica-internal rejection.'</span>,<span class="string">'cat'</span>,<span class="string">'File IO'</span>), <span class="keyword">...</span>
+0211         arg({<span class="string">'load_comp_list'</span>,<span class="string">'ReadCompList'</span>},false,[],<span class="string">'Read component assigments.'</span>,<span class="string">'cat'</span>,<span class="string">'File IO'</span>), <span class="keyword">...</span>
+0212         <span class="keyword">...</span>
+0213         arg({<span class="string">'do_reject'</span>,<span class="string">'DoReject'</span>},false,[],<span class="string">'Do online time-point rejection.'</span>,<span class="string">'cat'</span>,<span class="string">'Artifact Handling'</span>), <span class="keyword">...</span>
+0214         arg({<span class="string">'numrej'</span>,<span class="string">'RejectCycles'</span>},uint32(3),[],<span class="string">'Number of rejections to perform in total.'</span>,<span class="string">'cat'</span>,<span class="string">'Artifact Handling'</span>), <span class="keyword">...</span>
+0215         arg({<span class="string">'rejsig'</span>,<span class="string">'RejectSigma'</span>},3,[],<span class="string">'Likelihood threshold for rejection (stddev). This is the number of standard deviations of likelihood below which to reject data.'</span>,<span class="string">'cat'</span>,<span class="string">'Artifact Handling'</span>), <span class="keyword">...</span>
+0216         arg({<span class="string">'rejstart'</span>,<span class="string">'RejectStart'</span>},uint32(2),[],<span class="string">'Iteration at which to start rejection.'</span>,<span class="string">'cat'</span>,<span class="string">'Artifact Handling'</span>), <span class="keyword">...</span>
+0217         arg({<span class="string">'rejint'</span>,<span class="string">'RejectInterval'</span>},uint32(3),[],<span class="string">'Iterations between successive rejections.'</span>,<span class="string">'cat'</span>,<span class="string">'Artifact Handling'</span>), <span class="keyword">...</span>
+0218         arg({<span class="string">'kurt_start'</span>,<span class="string">'KurtosisStart'</span>},uint32(3),[],<span class="string">'Iterations without kurtosis calculations. This is for Extended Infomax only.'</span>,<span class="string">'cat'</span>,<span class="string">'Artifact Handling'</span>), <span class="keyword">...</span>
+0219         arg({<span class="string">'num_kurt'</span>,<span class="string">'KurtosisCycles'</span>},uint32(5),[],<span class="string">'Number of kurtosis calcs to perform. This is for Extended Infomax only.'</span>,<span class="string">'cat'</span>,<span class="string">'Artifact Handling'</span>), <span class="keyword">...</span>
+0220         arg({<span class="string">'kurt_int'</span>,<span class="string">'KurtosisInterval'</span>},uint32(1),[],<span class="string">'Iterations between successive kurtosis calculations. This is for Extended Infomax only.'</span>,<span class="string">'cat'</span>,<span class="string">'Artifact Handling'</span>), <span class="keyword">...</span>
+0221         <span class="keyword">...</span>
+0222         arg({<span class="string">'update_A'</span>,<span class="string">'UpdateWeights'</span>},true,[],<span class="string">'Update the mixing matrix.'</span>,<span class="string">'cat'</span>,<span class="string">'Parameter Updates'</span>), <span class="keyword">...</span>
+0223         arg({<span class="string">'update_c'</span>,<span class="string">'UpdateCenters'</span>},true,[],<span class="string">'Update the model centers.'</span>,<span class="string">'cat'</span>,<span class="string">'Parameter Updates'</span>), <span class="keyword">...</span>
+0224         arg({<span class="string">'update_gamma'</span>,<span class="string">'UpdateProbabilities'</span>},true,[],<span class="string">'Update the model probabilities.'</span>,<span class="string">'cat'</span>,<span class="string">'Parameter Updates'</span>), <span class="keyword">...</span>
+0225         arg({<span class="string">'update_alpha'</span>,<span class="string">'UpdateProportions'</span>},true,[],<span class="string">'Update the source mixture proportions.'</span>,<span class="string">'cat'</span>,<span class="string">'Parameter Updates'</span>), <span class="keyword">...</span>
+0226         arg({<span class="string">'update_mu'</span>,<span class="string">'UpdateLocations'</span>},true,[],<span class="string">'Update the source mixture locations.'</span>,<span class="string">'cat'</span>,<span class="string">'Parameter Updates'</span>), <span class="keyword">...</span>
+0227         arg({<span class="string">'update_sbeta'</span>,<span class="string">'UpdateScales'</span>},true,[],<span class="string">'Update the source mixture scales.'</span>,<span class="string">'cat'</span>,<span class="string">'Parameter Updates'</span>), <span class="keyword">...</span>
+0228         arg({<span class="string">'do_rho'</span>,<span class="string">'UpdateShapes'</span>},true,[],<span class="string">'Update the shape parameters.'</span>,<span class="string">'cat'</span>,<span class="string">'Parameter Updates'</span>), <span class="keyword">...</span>
+0229         <span class="keyword">...</span>
+0230         arg({<span class="string">'decwindow'</span>,<span class="string">'DetectWindow'</span>},1,[],<span class="string">'Moving average window for likelihood check. Likelihood decrease is detected in this window (presumably over iterations - Jason?).'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0231         arg({<span class="string">'invsigmax'</span>,<span class="string">'MaxInverseSigma'</span>},100,[],<span class="string">'Maximum value of inverse scale parameters.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0232         arg({<span class="string">'invsigmin'</span>,<span class="string">'MinInverseSigma'</span>},1e-8,[],<span class="string">'Minimum value of inverse scale parameters.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0233         arg({<span class="string">'do_mean'</span>,<span class="string">'Centering'</span>},true,[],<span class="string">'Remove the mean from the data.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0234         arg({<span class="string">'do_sphere'</span>,<span class="string">'Sphering'</span>},true,[],<span class="string">'Sphere (whiten) the data.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0235         arg({<span class="string">'doPCA'</span>,<span class="string">'PCAReduction'</span>},true,[],<span class="string">'Do a PCA dimensionality reduction.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0236         arg({<span class="string">'pcakeep'</span>,<span class="string">'RetainPCAs'</span>},[],[],<span class="string">'Number of PCA components to keep. If PCA is enabled (if empty: #channels).'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>,<span class="string">'type'</span>,<span class="string">'uint32'</span>), <span class="keyword">...</span>
+0237         arg({<span class="string">'doscaling'</span>,<span class="string">'Rescale'</span>},true,[],<span class="string">'Rescale unmixing matrix to unit norm.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0238         arg({<span class="string">'scalestep'</span>,<span class="string">'ScaleInterval'</span>},uint32(1),[],<span class="string">'Iterations between unmixing matrix rescaling.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0239         arg({<span class="string">'block_size'</span>,<span class="string">'BlockSize'</span>},uint32(128),[],<span class="string">'Matrix block size for block multiplication.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0240         arg({<span class="string">'verbose'</span>,<span class="string">'Verbose'</span>},true,[],<span class="string">'Show progress updates.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>)}, <span class="keyword">...</span>
+0241     <span class="string">'infomax'</span>,{ <span class="keyword">...</span>
+0242         arg({<span class="string">'maxsteps'</span>,<span class="string">'MaxIterations'</span>},512,[],<span class="string">'Maximum number of ICA training steps.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0243         arg({<span class="string">'extended'</span>,<span class="string">'ExtendedInfomax'</span>},int32(3),[],<span class="string">'Perform Extended-ICA sign estimations for N training blocks. If N &gt; 0, automatically estimate the of sub-Gaussian sources. If N &lt; 0, fix number of sub-Gaussian comps to -N [faster than N&gt;0].'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0244         arg({<span class="string">'pca'</span>,<span class="string">'RetainPCAs'</span>},uint32(0),[],<span class="string">'Do a PCA dimensionality reduction. Value is the number of PCs to retain (0=off)'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0245         arg({<span class="string">'sphering'</span>,<span class="string">'Sphering'</span>},true,[],<span class="string">'Whether to sphere the data.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0246         <span class="keyword">...</span>
+0247         arg({<span class="string">'lrate'</span>,<span class="string">'LearningRate'</span>},[],[],<span class="string">'Initial ICA learning rate (&lt;&lt; 1). If empty, use a heuristic.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0248         arg({<span class="string">'anneal'</span>,<span class="string">'Annealing'</span>},[],[0 1],<span class="string">'Annealing constant, controls speed of convergence. If empty, use 0.90 for regular or 0.98 for extended Infomax.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0249         arg({<span class="string">'annealdeg'</span>,<span class="string">'AnnealChange'</span>},60,[],<span class="string">'Weight change threshold for annealing steps. In degrees.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0250         arg({<span class="string">'pstop'</span>,<span class="string">'MinWeightChange'</span>,<span class="string">'stop'</span>},0.000001,[],<span class="string">'Minimum weight change to signal convergence.'</span>,<span class="string">'cat'</span>,<span class="string">'Computation'</span>), <span class="keyword">...</span>
+0251         <span class="keyword">...</span>
+0252         arg({<span class="string">'pweights'</span>,<span class="string">'InitialWeights'</span>,<span class="string">'weights'</span>},[],[],<span class="string">'Initial weight matrix, if any. If empty, use eye()/spher().'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0253         arg({<span class="string">'pblock'</span>,<span class="string">'BlockSize'</span>,<span class="string">'block'</span>},[],[],<span class="string">'ICA block size (&lt;&lt; datalength). If empty, use a heuristic.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>,<span class="string">'type'</span>,<span class="string">'int32'</span>), <span class="keyword">...</span>
+0254         arg({<span class="string">'bias'</span>,<span class="string">'BiasAdjust'</span>},true,[],<span class="string">'Perform bias adjustment.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0255         arg({<span class="string">'momentum'</span>,<span class="string">'Momentum'</span>},0,[0 1],<span class="string">'Training momentum. Technique to prevent getting stuck in local minima.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0256         arg({<span class="string">'pposact'</span>,<span class="string">'PosActivations'</span>,<span class="string">'posact'</span>},false,[],<span class="string">'Make all component activations net-positive. Requires time and memory; posact() may be applied separately.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0257         arg({<span class="string">'verbose'</span>,<span class="string">'Verbose'</span>},true,[],<span class="string">'Show progress updates.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0258         arg({<span class="string">'logfile'</span>,<span class="string">'Logfile'</span>},<span class="string">''</span>,[],<span class="string">'Log file to save messages to. Messages will still be shown on screen.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>,<span class="string">'type'</span>,<span class="string">'char'</span>), <span class="keyword">...</span>
+0259         arg({<span class="string">'interupt'</span>,<span class="string">'InterruptBtn'</span>},false,[],<span class="string">'Show interupt button (slow).'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>)}, <span class="keyword">...</span>
+0260     <span class="string">'beamica'</span>, { <span class="keyword">...</span>
+0261         arg({<span class="string">'max_iter'</span>,<span class="string">'MaxIterations'</span>},750,[],<span class="string">'Maximum number of iterations.'</span>), <span class="keyword">...</span>
+0262         arg({<span class="string">'anchorlabels'</span>,<span class="string">'AnchorLabels'</span>},{}, {<span class="string">'Precentral_L'</span>, <span class="string">'Precentral_R'</span>, <span class="string">'Frontal_Sup_L'</span>, <span class="string">'Frontal_Sup_R'</span>, <span class="string">'Frontal_Sup_Orb_L'</span>, <span class="string">'Frontal_Sup_Orb_R'</span>, <span class="string">'Frontal_Mid_L'</span>, <span class="string">'Frontal_Mid_R'</span>, <span class="string">'Frontal_Mid_Orb_L'</span>, <span class="string">'Frontal_Mid_Orb_R'</span>, <span class="string">'Frontal_Inf_Oper_L'</span>, <span class="string">'Frontal_Inf_Oper_R'</span>, <span class="string">'Frontal_Inf_Tri_L'</span>, <span class="string">'Frontal_Inf_Tri_R'</span>, <span class="string">'Frontal_Inf_Orb_L'</span>, <span class="string">'Frontal_Inf_Orb_R'</span>, <span class="string">'Rolandic_Oper_L'</span>, <span class="string">'Rolandic_Oper_R'</span>, <span class="string">'Supp_Motor_Area_L'</span>, <span class="string">'Supp_Motor_Area_R'</span>, <span class="string">'Frontal_Sup_Medial_L'</span>, <span class="string">'Frontal_Sup_Medial_R'</span>, <span class="string">'Frontal_Med_Orb_L'</span>, <span class="string">'Frontal_Med_Orb_R'</span>, <span class="string">'Insula_L'</span>, <span class="string">'Insula_R'</span>, <span class="string">'Cingulum_Ant_L'</span>, <span class="string">'Cingulum_Ant_R'</span>, <span class="string">'Cingulum_Mid_L'</span>, <span class="string">'Cingulum_Mid_R'</span>, <span class="string">'Cingulum_Post_L'</span>, <span class="string">'Cingulum_Post_R'</span>, <span class="string">'Hippocampus_L'</span>, <span class="string">'Hippocampus_R'</span>, <span class="string">'ParaHippocampal_L'</span>, <span class="string">'ParaHippocampal_R'</span>, <span class="string">'Calcarine_L'</span>, <span class="string">'Calcarine_R'</span>, <span class="string">'Cuneus_L'</span>, <span class="string">'Cuneus_R'</span>, <span class="string">'Lingual_L'</span>, <span class="string">'Lingual_R'</span>, <span class="string">'Occipital_Sup_L'</span>, <span class="string">'Occipital_Sup_R'</span>, <span class="string">'Occipital_Mid_L'</span>, <span class="string">'Occipital_Mid_R'</span>, <span class="string">'Occipital_Inf_L'</span>, <span class="string">'Occipital_Inf_R'</span>, <span class="string">'Fusiform_L'</span>, <span class="string">'Fusiform_R'</span>, <span class="string">'Postcentral_L'</span>, <span class="string">'Postcentral_R'</span>, <span class="string">'Parietal_Sup_L'</span>, <span class="string">'Parietal_Sup_R'</span>, <span class="string">'Parietal_Inf_L'</span>, <span class="string">'Parietal_Inf_R'</span>, <span class="string">'SupraMarginal_L'</span>, <span class="string">'SupraMarginal_R'</span>, <span class="string">'Angular_L'</span>, <span class="string">'Angular_R'</span>, <span class="string">'Precuneus_L'</span>, <span class="string">'Precuneus_R'</span>, <span class="string">'Paracentral_Lobule_L'</span>, <span class="string">'Paracentral_Lobule_R'</span>, <span class="string">'Temporal_Sup_L'</span>, <span class="string">'Temporal_Sup_R'</span>, <span class="string">'Temporal_Pole_Sup_L'</span>, <span class="string">'Temporal_Pole_Sup_R'</span>, <span class="string">'Temporal_Mid_L'</span>, <span class="string">'Temporal_Mid_R'</span>, <span class="string">'Temporal_Pole_Mid_L'</span>, <span class="string">'Temporal_Pole_Mid_R'</span>, <span class="string">'Temporal_Inf_L'</span>, <span class="string">'Temporal_Inf_R'</span>, <span class="string">'Olfactory_L'</span>, <span class="string">'Olfactory_R'</span>, <span class="string">'Rectus_L'</span>, <span class="string">'Rectus_R'</span>, <span class="string">'Amygdala_L'</span>, <span class="string">'Amygdala_R'</span>, <span class="string">'Caudate_L'</span>, <span class="string">'Caudate_R'</span>, <span class="string">'Thalamus_L'</span>, <span class="string">'Thalamus_R'</span>, <span class="string">'Heschl_L'</span>, <span class="string">'Heschl_R'</span>}, <span class="keyword">...</span>
+0263             <span class="string">'Cortical anchor locations. List of locations to which components shall be constrained. The first k components are encouraged to lie close to the given locations, in the order of appearance. This is experimental and currently requires a) 10-20 locations and b) Guido Nolte''s source analysis toolbox (not included).'</span>,<span class="string">'experimental'</span>,true), <span class="keyword">...</span>
+0264         arg({<span class="string">'reference'</span>,<span class="string">'Reference'</span>},<span class="string">'nasion'</span>,{<span class="string">'nasion'</span>,<span class="string">'common_average'</span>},<span class="string">'Referencing scheme. Only needed if anchor locations are selected.'</span>,<span class="string">'experimental'</span>,true), <span class="keyword">...</span>
+0265         arg({<span class="string">'tradeoff'</span>,<span class="string">'BeamPenaltyStrength'</span>},0.5,[0 1],<span class="string">'Beamformer penalty strength. Larger values emphasize the beamformer constraint over the Infomax cost function.'</span>,<span class="string">'experimental'</span>,true), <span class="keyword">...</span>
+0266         arg({<span class="string">'lrate'</span>,<span class="string">'LearningRate'</span>},0.5,[0 1],<span class="string">'Learning rate. The maximum is 1.0, but lower rates (down to 0.1 or below) can be used to ensure stability.'</span>), <span class="keyword">...</span>
+0267         arg({<span class="string">'verbose'</span>,<span class="string">'VerboseOutput'</span>},true,[],<span class="string">'Show verbose output.'</span>), <span class="keyword">...</span>
+0268         arg({<span class="string">'usegpu'</span>,<span class="string">'TryUseGPU'</span>},true,[],<span class="string">'Try to use the GPU.'</span>), <span class="keyword">...</span>
+0269         arg({<span class="string">'convergence_check'</span>,<span class="string">'ConvergenceCheck'</span>},false,[],<span class="string">'Force convergence check if on GPU. This is slow on the GPU, but can help ensuring that the solution converges.'</span>)}, <span class="keyword">...</span>
+0270     <span class="string">'fastica'</span>, { <span class="keyword">...</span>
+0271         arg({<span class="string">'maxNumIterations'</span>,<span class="string">'MaxIterations'</span>},1000,[],<span class="string">'Maximum number of iterations.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0272         arg({<span class="string">'approach'</span>,<span class="string">'Approach'</span>},<span class="string">'symm'</span>,{<span class="string">'symm'</span>,<span class="string">'defl'</span>},<span class="string">'The decorrelation approach used. Can be symmetric, i.e. estimate all the independent component in parallel, or deflation, i.e. estimate independent component one-by-one like in projection pursuit.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0273         arg({<span class="string">'numOfIC'</span>,<span class="string">'NumICs'</span>},[],[],<span class="string">' Number of estimated independent components. Default equals the dimension of data.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>,<span class="string">'type'</span>,<span class="string">'uint32'</span>), <span class="keyword">...</span>
+0274         arg({<span class="string">'g'</span>,<span class="string">'Nonlinearity'</span>},<span class="string">'tanh'</span>,{<span class="string">'pow3'</span>,<span class="string">'tanh'</span>,<span class="string">'gauss'</span>,<span class="string">'skew'</span>},<span class="string">'Nonlinearity to use. Pow3 is g(u)=u^3, tanh is g(u)=tanh(a1*u), gauss is g(u)=u*exp(-a2*u^2/2), and skew is g(u)=u^2.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0275         arg({<span class="string">'finetune'</span>,<span class="string">'FineTuning'</span>},<span class="string">'tanh'</span>,{<span class="string">'off'</span>,<span class="string">'pow3'</span>,<span class="string">'tanh'</span>,<span class="string">'gauss'</span>,<span class="string">'skew'</span>},<span class="string">'Nonlinearity for fine-tuning. Pow3 is g(u)=u^3, tanh is g(u)=tanh(a1*u), gauss is g(u)=u*exp(-a2*u^2/2), and skew is g(u)=u^2.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0276         arg({<span class="string">'a1'</span>,<span class="string">'TanhParameter'</span>},1,[],<span class="string">'Parameter a1 for tanh nonlinearity.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0277         arg({<span class="string">'a2'</span>,<span class="string">'GaussParameter'</span>},1,[],<span class="string">'Parameter a2 for gauss nonlinearity.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0278         <span class="keyword">...</span>
+0279         arg({<span class="string">'stepsize'</span>,<span class="string">'StepSize'</span>,<span class="string">'mu'</span>},1,[],<span class="string">'Step size. If the value is other than 1, then the program will use the stabilized version of the algorithm (see also parameter &quot;Stabilization&quot;).'</span>,<span class="string">'cat'</span>,<span class="string">'Convergence'</span>), <span class="keyword">...</span>
+0280         arg({<span class="string">'stabilization'</span>,<span class="string">'Stabilization'</span>},false,[],<span class="string">'Use an adaptive step size. Serves to stabilize the convergence.'</span>,<span class="string">'cat'</span>,<span class="string">'Convergence'</span>), <span class="keyword">...</span>
+0281         arg({<span class="string">'epsilon'</span>,<span class="string">'Epsilon'</span>},0.001,[],<span class="string">'Stopping criterion.'</span>,<span class="string">'cat'</span>,<span class="string">'Convergence'</span>), <span class="keyword">...</span>
+0282         arg({<span class="string">'maxFinetune'</span>,<span class="string">'MaxFinetune'</span>},100,[],<span class="string">'Maximum number of iterations in fine-tuning.'</span>,<span class="string">'cat'</span>,<span class="string">'Convergence'</span>), <span class="keyword">...</span>
+0283         arg({<span class="string">'sampleSize'</span>,<span class="string">'SampleSize'</span>},1,[0 1],<span class="string">'Percentage of samples used per iteration. Samples are chosen randomly.'</span>,<span class="string">'cat'</span>,<span class="string">'Convergence'</span>), <span class="keyword">...</span>
+0284         arg({<span class="string">'initGuess'</span>,<span class="string">'InitialGuess'</span>},[],[],<span class="string">'Initial guess for A, if any. Default is random.'</span>,<span class="string">'cat'</span>,<span class="string">'Convergence'</span>), <span class="keyword">...</span>
+0285         <span class="keyword">...</span>
+0286         arg({<span class="string">'verbose'</span>,<span class="string">'Verbose'</span>},true,[],<span class="string">'Report progress of algorithm.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0287         arg({<span class="string">'displayMode'</span>,<span class="string">'DisplayMode'</span>},<span class="string">'off'</span>,{<span class="string">'signals'</span>,<span class="string">'basis'</span>,<span class="string">'filters'</span>,<span class="string">'off'</span>},<span class="string">'Plot running estimates of independent components.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0288         arg({<span class="string">'displayInterval'</span>,<span class="string">'DisplayInterval'</span>},1,[],<span class="string">'Number of iterations between plots.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0289         arg({<span class="string">'firstEig'</span>,<span class="string">'FirstEigenvalue'</span>},1,[],<span class="string">'Skip n largest components. This and &quot;LastEigvalue&quot; specify the range for eigenvalues that are retained, &quot;FirstEigenvalue&quot; is the index of largest eigenvalue to be retained.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0290         arg({<span class="string">'lastEig'</span>,<span class="string">'LastEigenvalue'</span>},[],[],<span class="string">'Skip n smallest components. This is the index of the last (smallest) eigenvalue to be retained. Default equals the dimension of data.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>)}, <span class="keyword">...</span><span class="comment">    </span>
+0291      <span class="string">'rica'</span>, { <span class="keyword">...</span>
+0292         arg({<span class="string">'numFeatures'</span>,<span class="string">'NumComponents'</span>},[],[],<span class="string">'Number of components to learn. Can be larger than the number of channels. If empty, use # channels.'</span>), <span class="keyword">...</span>
+0293         arg({<span class="string">'dict_criterion'</span>,<span class="string">'DictionaryCriterion'</span>},<span class="string">'reconstruction'</span>,{<span class="string">'reconstruction'</span>,<span class="string">'cortically_anchored'</span>},<span class="string">'Dictionary learning criterion. The cortically anchored mode allows to specify a cell array of anchor locations.'</span>), <span class="keyword">...</span>
+0294         arg({<span class="string">'lambda'</span>,<span class="string">'Lambda'</span>},0.05,[],<span class="string">'Sparsity/accuracy tradeoff. The lambda parameter in sparse dictionary learning.'</span>), <span class="keyword">...</span>
+0295         arg({<span class="string">'gamma'</span>,<span class="string">'Gamma'</span>},0.01,[],<span class="string">'Anchoring tradeoff. This is the tradeoff parameter associated with the anchor constraint term.'</span>), <span class="keyword">...</span>
+0296         arg({<span class="string">'theta'</span>,<span class="string">'Theta'</span>},1,[],<span class="string">'Reconstruction tradeoff. This is the tradeoff parameter associated with the reconstruction cost.'</span>), <span class="keyword">...</span>
+0297         arg({<span class="string">'anchors'</span>,<span class="string">'AnchorLocations'</span>},[],[],<span class="string">'Cortical anchor locations. Cell array of dipolar projection triplets, one cell per location that shall be anchored. The first k components are cortically constrained. The associated tuning parameter is Gamma.'</span>), <span class="keyword">...</span>
+0298         arg({<span class="string">'anchor_init'</span>,<span class="string">'AnchorInitialization'</span>},<span class="string">'from_subspace'</span>,{<span class="string">'from_subspace'</span>,<span class="string">'bestmatch'</span>,<span class="string">'perpendicular'</span>},<span class="string">'Anchor component initialization. When using from_subspace a random linear combination from the subspace will be used. When using bestmatch, the best-matching component in the initialization will be used.'</span>), <span class="keyword">...</span>
+0299         arg({<span class="string">'max_restarts'</span>,<span class="string">'MaxRestarts'</span>},20,[],<span class="string">'Maximum # of restarts. When weights blow up or etc.'</span>), <span class="keyword">...</span>
+0300         arg({<span class="string">'cov_blocksize'</span>,<span class="string">'CovarianceBlocksize'</span>},10,[],<span class="string">'Robust blocksize. Blocksize for robust estimation (currently only covariance).'</span>), <span class="keyword">...</span>
+0301         arg({<span class="string">'initialization'</span>,<span class="string">'Initialization'</span>},<span class="string">'radial'</span>,{<span class="string">'random'</span>,<span class="string">'radial'</span>},<span class="string">'Initialization. Either randomly or using radial (sphering) components.'</span>), <span class="keyword">...</span>
+0302         arg({<span class="string">'cov_rejection'</span>,<span class="string">'CovarianceRejection'</span>},5,[],<span class="string">'Covariance-based rejection. Rejects samples that are beyond this many std-devs from a robustly estimated data distribution.'</span>), <span class="keyword">...</span>
+0303         arg({<span class="string">'temporal_normalization'</span>,<span class="string">'TemporalNormalization'</span>},false,[],<span class="string">'Temporal normalization. Whether the data should also be normalized in time.'</span>), <span class="keyword">...</span>
+0304         arg({<span class="string">'random_init_scale'</span>,<span class="string">'RandomInitScale'</span>},0.1,[],<span class="string">'Initial randomness level. This is the fraction of random noise used to determine the initial solution (e.g., eye+n*randn().'</span>), <span class="keyword">...</span>
+0305         arg({<span class="string">'randseed'</span>,<span class="string">'RandomSeed'</span>},10,[],<span class="string">'Random seed. Use the same seed for reproducible results.'</span>), <span class="keyword">...</span>
+0306         arg({<span class="string">'epsilon'</span>,<span class="string">'Epsilon'</span>},1e-5,[],<span class="string">'Epsilon parameter in sparsity cost.'</span>), <span class="keyword">...</span>
+0307         arg({<span class="string">'topoplot'</span>,<span class="string">'ShowTopoplot'</span>},false,[],<span class="string">'Show topoplots per update. For tracking of convergence, etc.'</span>), <span class="keyword">...</span>
+0308         arg_nogui({<span class="string">'chan_labels'</span>,<span class="string">'ChannelLabels'</span>}), <span class="keyword">...</span>
+0309         arg_sub({<span class="string">'solverOptions'</span>,<span class="string">'SolverOptions'</span>},{}, { <span class="keyword">...</span>
+0310             arg({<span class="string">'MaxIter'</span>,<span class="string">'MaxIterations'</span>},75,[],<span class="string">'Maximum number of iterations.'</span>), <span class="keyword">...</span>
+0311             arg({<span class="string">'Method'</span>,<span class="string">'Optimizer'</span>},<span class="string">'Scaled Non-Linear Conjugate Gradient'</span>,{<span class="string">'Steepest Descent'</span>,<span class="string">'Cyclic Steepest Descent'</span>,<span class="string">'Barzilai and Borwein Gradient'</span>,<span class="string">'Non-Linear Conjugate Gradient'</span>,<span class="string">'Scaled Non-Linear Conjugate Gradient'</span>,<span class="string">'Preconditionined Non-Linear Conjugate Gradient'</span>,<span class="string">'Quasi-Newton with Limited-Memory BFGS Updating'</span>,<span class="string">'Hessian-Free Newton'</span>,<span class="string">'Preconditioned Hessian-Free Newton '</span>,<span class="string">'Quasi-Newton Hessian approximation'</span>,<span class="string">'Newton with Hessian update every k''th step'</span>},<span class="string">'Optimization method to use. Later methods use fewer step sizes but espectially the Newton-type methods are more expensive, and some advanced methods might be too brittle for ICA.'</span>), <span class="keyword">...</span>
+0312             arg({<span class="string">'MaxFunEvals'</span>,<span class="string">'MaxFunctionEvals'</span>},1000,[],<span class="string">'Maximum function evaluations. Maximum number of function evaluations allowed (including during line searches).'</span>), <span class="keyword">...</span>
+0313             arg({<span class="string">'Display'</span>,<span class="string">'VerbosityLevel'</span>},<span class="string">'iter'</span>,{<span class="string">'off'</span>,<span class="string">'final'</span>,<span class="string">'iter'</span>,<span class="string">'full'</span>,<span class="string">'excessive'</span>},<span class="string">'Verbosity level.'</span>), <span class="keyword">...</span>
+0314             arg({<span class="string">'optTol'</span>,<span class="string">'OptimalityTolerance'</span>},[],[],<span class="string">'First-order tolerance. Termination tolerance on the first-order optimality.'</span>), <span class="keyword">...</span>
+0315             arg({<span class="string">'progTol'</span>,<span class="string">'ProgressTolerance'</span>},[],[],<span class="string">'Progress tolerance. Termination tolerance on progress in terms of function/parameter changes.'</span>), <span class="keyword">...</span>
+0316             arg({<span class="string">'c1'</span>,<span class="string">'ArmijoParam'</span>},[],[],<span class="string">'Armijo parameter. Sufficient Decrease for Armijo condition.'</span>), <span class="keyword">...</span>
+0317             arg({<span class="string">'c2'</span>,<span class="string">'WolfeParam'</span>},[],[],<span class="string">'Wolfe parameter. Curvature Decrease for Wolfe conditions. If [], this defaults to 0.2 for CG methods and 0.9 otherwise.'</span>), <span class="keyword">...</span>
+0318             arg({<span class="string">'LS_init'</span>,<span class="string">'LineSearchInit'</span>},<span class="string">'Default'</span>,{<span class="string">'Default'</span>,<span class="string">'Always1'</span>,<span class="string">'AsPrevious'</span>,<span class="string">'QuadraticInterp'</span>,<span class="string">'TwicePrevious'</span>,<span class="string">'ScaledConj'</span>},<span class="string">'Line search initialization. The options are: Always try an initial step length of 1 (default for all except ''sd'' and ''cg''); Use a step similar to the previous step; Quadratic Initialization using previous function value and new; The minimum between 1 and twice the previous step length; The scaled conjugate gradient step length (may accelerate conjugate gradient methods, but requires a Hessian-vector product, default for ''scg'').'</span>), <span class="keyword">...</span>
+0319             arg({<span class="string">'LS_type'</span>,<span class="string">'LineSearchType'</span>},<span class="string">'Default'</span>,{<span class="string">'Default'</span>,<span class="string">'BacktrackingArmijo'</span>,<span class="string">'BracketingWolfe'</span>,<span class="string">'MatlabOptTB'</span>},<span class="string">'Line search type. The options are: A backtracking line-search based on the Armijo condition (default for ''bb''); A bracekting line-search based on the strong Wolfe conditions (default for all other methods); The line-search from the Matlab Optimization Toolbox (requires Matlab''s linesearch.m to be added to the path).'</span>), <span class="keyword">...</span>
+0320             arg({<span class="string">'LS_interp'</span>,<span class="string">'LineSearchInterpolation'</span>},<span class="string">'Default'</span>,{<span class="string">'Default'</span>,<span class="string">'DoubleOrBisect'</span>,<span class="string">'Cubic'</span>,<span class="string">'MixedQuadraticCubic'</span>},<span class="string">'Line search interpolation. For the Wolfe condition. The options are: Step Size Doubling and Bisection; Cubic interpolation/extrapolation using new function and gradient values; Mixed quadratic/cubic interpolation/extrapolation. MinFunc documents that Cubic is the default, while in practice it uses the Mixed mode.'</span>), <span class="keyword">...</span>
+0321             arg({<span class="string">'LS_multi'</span>,<span class="string">'LineSearchExtraPoints'</span>},<span class="string">'Default'</span>,{<span class="string">'Default'</span>,<span class="string">'SameOrder'</span>,<span class="string">'HigherOrder'</span>},<span class="string">'Line search extra-points rule. How to handle extra points during the line search. The options are: Keep the same polynomial order regardless, or use a higher order (cubic,quadratic,quintic) if sufficient points are present.'</span>), <span class="keyword">...</span>
+0322             arg({<span class="string">'useMex'</span>,<span class="string">'UseMex'</span>},true,[],<span class="string">'Use mex functions. Where applicable, use compiled mex files to speed things up (may not be available on every system).'</span>)},<span class="string">'Control options for the optimizer (minFunc).'</span>)}, <span class="keyword">...</span>
+0323      <span class="string">'dictica'</span>, @dictlearn, <span class="keyword">...</span>
+0324      <span class="string">'kernelica'</span>, { <span class="keyword">...</span>
+0325         arg({<span class="string">'contrastfun'</span>,<span class="string">'ContrastFunc'</span>,<span class="string">'contrast'</span>},<span class="string">'kcca'</span>,{<span class="string">'kcca'</span>,<span class="string">'kgv'</span>},<span class="string">'Contrast function. Either Kernel Canonical Correlation Analysis or Kernel Generalized Variance.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0326         arg({<span class="string">'contrasttype'</span>,<span class="string">'ContrastType'</span>},<span class="string">'full'</span>,{<span class="string">'full'</span>,<span class="string">'oneunit'</span>},<span class="string">'Type of the contrast function.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0327         arg({<span class="string">'polish'</span>,<span class="string">'Finetune'</span>},true,[],<span class="string">'Double the precision. Finish with a half sigma value (gives better estimates).'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0328         arg({<span class="string">'restarts'</span>,<span class="string">'NumRestarts'</span>},1,[],<span class="string">'Number of restarts.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0329         arg({<span class="string">'kernel'</span>,<span class="string">'KernelFunc'</span>},<span class="string">'gaussian'</span>,{<span class="string">'gaussian'</span>,<span class="string">'poly'</span>,<span class="string">'hermite'</span>},<span class="string">'Type of kernel for contrast function.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0330         <span class="keyword">...</span>
+0331         arg({<span class="string">'GaussianSigma'</span>},1,[],<span class="string">'Bandwidth parameter for the Gaussian kernel.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0332         arg({<span class="string">'r'</span>,<span class="string">'PolyR'</span>},1,[],<span class="string">'Parameter r for the polynomial kernel.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0333         arg({<span class="string">'s'</span>,<span class="string">'PolyS'</span>},1,[],<span class="string">'Parameter s for the polynomial kernel.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0334         arg({<span class="string">'d'</span>,<span class="string">'PolyDegree'</span>},3,[],<span class="string">'Degree of the polynomial kernel.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0335         arg({<span class="string">'p'</span>,<span class="string">'HermiteP'</span>},3,[],<span class="string">'Parameter p of the Hermite Kernel.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0336         arg({<span class="string">'HermiteSigma'</span>},2,[],<span class="string">'Parameter sigma of the Hermite Kernel.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0337         arg({<span class="string">'kap'</span>,<span class="string">'Kappa'</span>},0.01,[],<span class="string">'Regularization Parameter.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0338         arg({<span class="string">'dodisp'</span>,<span class="string">'Verbose'</span>,<span class="string">'disp'</span>},true,[],<span class="string">'Regularization Parameter.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>)}, <span class="keyword">...</span>
+0339     <span class="string">'fastkernelica'</span>, { <span class="keyword">...</span>
+0340         arg({<span class="string">'maxiter'</span>,<span class="string">'MaxIterations'</span>},20,[],<span class="string">'Maximum number of iterations.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0341         arg({<span class="string">'psigma'</span>,<span class="string">'KernelSize'</span>,<span class="string">'sigma'</span>},0.5,[],<span class="string">'Gaussian kernel size. One is a reasonable default; smaller values (e.g., 0.5) allow for higher precision, but can run into local minima.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0342         arg({<span class="string">'thresh'</span>,<span class="string">'ConvergenceThreshold'</span>},1e-7,[],<span class="string">'Convergence threshold. The algorithm terminates when the difference in subsequent values of the kernel independence measure is lower than this.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0343         arg({<span class="string">'restarts'</span>,<span class="string">'NumRestarts'</span>},10,[],<span class="string">'Number of restarts. Multiple restarts are necessary to find the global optimum, especially with small kernel sizes.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>)} <span class="keyword">...</span>
+0344     <span class="string">'sphere'</span> {}, <span class="keyword">...</span>
+0345     <span class="string">'robust_sphere'</span>, {}, <span class="keyword">...</span>
+0346     }, <span class="string">'ICA variant. AMICA is the highest quality (but slowest, except if run on a cluster), Infomax is second-highest quality, FastICA is fastest (but can fail to converge and gives poorer results), KernelICA is experimental.'</span>), <span class="keyword">...</span>
+0347     arg_sub({<span class="string">'data_cleaning'</span>,<span class="string">'DataCleaning'</span>,<span class="string">'CleaningLevel'</span>,<span class="string">'clean'</span>},{}, @<a href="flt_clean_settings.html" class="code" title="function signal = flt_clean_settings(varargin)">flt_clean_settings</a>,<span class="string">'Optional data cleaning prior to running an ICA. The computed ICA solution will be applied to the original uncleaned data.'</span>), <span class="keyword">...</span>
+0348     arg({<span class="string">'do_transform'</span>,<span class="string">'TransformData'</span>,<span class="string">'transform'</span>},false,[],<span class="string">'Transform the data rather than annotate. By default, ICA decompositions are added as annotations to the data set.'</span>),<span class="keyword">...</span>
+0349     arg({<span class="string">'clear_after_trans'</span>,<span class="string">'ClearAfterTransform'</span>},true,[],<span class="string">'Clear .icaweights after transform. This is so that later functions do not attempt to transform the already transformed data.'</span>),<span class="keyword">...</span>
+0350     arg({<span class="string">'do_calcact'</span>,<span class="string">'CalculateActivation'</span>},false,[],<span class="string">'Calculate component activations. If true, the .icaact field will be populated.'</span>),<span class="keyword">...</span>
+0351     arg({<span class="string">'cleaned_data'</span>,<span class="string">'OutputCleanedData'</span>},false,[],<span class="string">'Emit cleaned data. Whether the cleaned data, instead of the original data should be output (note: this is not applicable for online use, since most cleaning filters cannot be run online).'</span>),<span class="keyword">...</span>
+0352     arg({<span class="string">'doresume'</span>,<span class="string">'ResumePrevious'</span>,<span class="string">'resume'</span>},true,[],<span class="string">'Try to resume previous computations if possible.'</span>), <span class="keyword">...</span>
+0353     arg({<span class="string">'doforce'</span>,<span class="string">'ForceComputation'</span>,<span class="string">'force'</span>},false,[],<span class="string">'Force computation. Recompute ICA even if the input data set already has an attached ICA solution.'</span>), <span class="keyword">...</span>
+0354     arg({<span class="string">'dodebug'</span>,<span class="string">'DebugMode'</span>,<span class="string">'debug'</span>},false,[],<span class="string">'Debug mode. Stops and waits for user input in case of an exception.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0355     arg({<span class="string">'normalize_weights'</span>,<span class="string">'NormalizeWeights'</span>,<span class="string">'NormalizeWights'</span>},false,[],<span class="string">'Normalize weights.'</span>), <span class="keyword">...</span>
+0356     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>}));
+0357 
+0358 <span class="comment">% flt_ica_version&lt;1.2.8&gt; -- for the cache</span>
+0359 
+0360 <span class="keyword">if</span> ~isempty(state)
+0361     <span class="comment">% online case: annotate the data</span>
+0362     signal.icasphere = state.icasphere;
+0363     signal.icaweights = state.icaweights;
+0364     signal.icachansind = state.icachansind;
+0365     signal.icawinv = state.icawinv;
+0366     <span class="keyword">if</span> isfield(state,<span class="string">'amica'</span>)
+0367         signal.etc.amica = state.amica; <span class="keyword">end</span>
+0368 <span class="keyword">else</span>
+0369     logfile = env_translatepath(<span class="string">'home:/.bcilab/logs/ica_datalog.log'</span>);
+0370 
+0371     <span class="comment">% offline case: check if we actually need to compute an ICA solution (or if the signal already</span>
+0372     <span class="comment">% has one)</span>
+0373     <span class="keyword">if</span> doforce || ~(isfield(signal,<span class="string">'icaweights'</span>) &amp;&amp; ~isempty(signal.icaweights))
+0374         
+0375         <span class="comment">% first pre-process the data (using a sequence of non-causal data reductions)</span>
+0376         pre = signal;
+0377         [chns,pnts,trials] = size(pre.data);
+0378         
+0379         <span class="keyword">if</span> trials ~= 1
+0380             <span class="comment">% epoched dataset... reshape it</span>
+0381             pre.data = reshape(pre.data,chns,[],1);
+0382             [pre.chns,pre.pnts,pre.trials] = size(pre.data);
+0383             <span class="comment">% delete event &amp; epoch information (would not survive artifact rejection, anyway)</span>
+0384             pre.epochs = [];
+0385             pre.event = [];
+0386         <span class="keyword">end</span>
+0387         
+0388         <span class="comment">% clean the data</span>
+0389         pre = exp_eval(<a href="flt_clean_settings.html" class="code" title="function signal = flt_clean_settings(varargin)">flt_clean_settings</a>(data_cleaning,<span class="string">'signal'</span>,pre));
+0390                 
+0391         <span class="comment">% get the underlying chanlocs</span>
+0392         root_chanlocs = pre.chanlocs;
+0393         <span class="keyword">global</span> debug_chanlocs; debug_chanlocs = pre.chanlocs;
+0394         
+0395         <span class="comment">% run ICA on preprocessed data</span>
+0396         <span class="keyword">switch</span> variant.arg_selection <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0397             <span class="keyword">case</span> <span class="string">'noica'</span>
+0398                 <span class="comment">% this is just for testing - creates random weights</span>
+0399                 pre.icaweights = randn(length(pre.chanlocs));
+0400                 pre.icasphere = eye(size(pre.data,1));
+0401                 
+0402             <span class="keyword">case</span> <span class="string">'amica'</span>
+0403                 <span class="comment">% determine a unique identifier for this computation</span>
+0404                 variant_core = hlp_struct2varargin(variant,<span class="string">'restrict'</span>,{ <span class="keyword">...</span>
+0405                     <span class="string">'amica_version'</span>,<span class="string">'max_iter'</span>,<span class="string">'num_models'</span>,<span class="string">'num_mix_comps'</span>,<span class="string">'pdftype'</span>,<span class="string">'share_comps'</span>,<span class="string">'lrate'</span>,<span class="string">'lratefact'</span>,<span class="string">'minlrate'</span>,<span class="string">'rholrate'</span>,<span class="string">'rholratefact'</span>,<span class="string">'rho0'</span>,<span class="string">'minrho'</span>, <span class="keyword">...</span>
+0406                     <span class="string">'maxrho'</span>,<span class="string">'do_newton'</span>,<span class="string">'newt_start'</span>,<span class="string">'newtrate'</span>,<span class="string">'newt_ramp'</span>,<span class="string">'comp_thresh'</span>,<span class="string">'share_start'</span>,<span class="string">'share_int'</span>,<span class="string">'do_reject'</span>,<span class="string">'numrej'</span>,<span class="string">'rejsig'</span>,<span class="string">'rejstart'</span>,<span class="string">'rejint'</span>,<span class="string">'kurt_start'</span>, <span class="keyword">...</span>
+0407                     <span class="string">'num_kurt'</span>,<span class="string">'kurt_int'</span>,<span class="string">'update_A'</span>,<span class="string">'update_c'</span>,<span class="string">'update_gamma'</span>,<span class="string">'update_alpha'</span>,<span class="string">'update_mu'</span>,<span class="string">'update_sbeta'</span>,<span class="string">'do_rho'</span>,<span class="string">'decwindow'</span>,<span class="string">'invsigmax'</span>,<span class="string">'invsigmin'</span>,<span class="string">'do_mean'</span>, <span class="keyword">...</span>
+0408                     <span class="string">'do_sphere'</span>,<span class="string">'doPCA'</span>,<span class="string">'pcakeep'</span>,<span class="string">'doscaling'</span>,<span class="string">'scalestep'</span>,<span class="string">'block_size'</span>});
+0409                 tag = hlp_fingerprint({pre.tracking.expression,variant_core});
+0410                 
+0411                 <span class="comment">% set the output directory</span>
+0412                 <span class="keyword">if</span> isempty(variant.outdir)
+0413                     variant.outdir = env_translatepath([<span class="string">'temp:/amicaout-'</span> num2str(tag)]);
+0414                 <span class="keyword">else</span>
+0415                     <span class="comment">% sanitize output directory</span>
+0416                     variant.outdir = env_translatepath(variant.outdir);
+0417                     <span class="keyword">if</span> variant.outdir(end) ~= filesep
+0418                         variant.outdir = [variant.outdir filesep]; <span class="keyword">end</span>
+0419                 <span class="keyword">end</span>
+0420                 <span class="keyword">if</span> ~isempty(variant.indir)
+0421                     <span class="comment">% sanitize input directory</span>
+0422                     variant.indir = env_translatepath(variant.indir);
+0423                     <span class="keyword">if</span> variant.indir(end) ~= filesep
+0424                         variant.indir = [variant.indir filesep]; <span class="keyword">end</span>
+0425                 <span class="keyword">end</span>
+0426                 
+0427                 <span class="comment">% check if a final result for this problem is already there from a previous run</span>
+0428                 <span class="keyword">if</span> variant.load_final &amp;&amp; exist([variant.outdir filesep <span class="string">'out.txt'</span>],<span class="string">'file'</span>)
+0429                     <span class="keyword">try</span>
+0430                         disp(<span class="string">'Checking for previous solutions for this computation...'</span>);
+0431                         fileinfo = dir([variant.outdir filesep <span class="string">'out.txt'</span>]);
+0432                         time_difference = (now - fileinfo.datenum)*24*60;
+0433                         <span class="keyword">if</span> time_difference &lt; variant.reuse_margin
+0434                             <span class="comment">% if the result file is too fresh, we might run into a</span>
+0435                             <span class="comment">% conflict trying to write to a file that is still in use...</span>
+0436                             conflict_potential = true; <span class="keyword">end</span> <span class="comment">%#ok&lt;NASGU&gt;</span>
+0437                         
+0438                         <span class="comment">% cycle through all alternative storage locations for this tag</span>
+0439                         dirs = dir([variant.outdir <span class="string">'*'</span>]);
+0440                         k = 1;
+0441                         <span class="keyword">while</span> ~exist(<span class="string">'r'</span>,<span class="string">'var'</span>) &amp;&amp; k &lt;= length(dirs)
+0442                             curdir = env_translatepath([<span class="string">'temp:/'</span> dirs(k).name]);
+0443                             <span class="keyword">try</span>
+0444                                 <span class="comment">% an out.txt was written, check if it stems from a completed run</span>
+0445                                 t = fopen([curdir filesep <span class="string">'out.txt'</span>]);
+0446                                 <span class="keyword">while</span> ~exist(<span class="string">'r'</span>,<span class="string">'var'</span>)
+0447                                     line = fgetl(t);
+0448                                     <span class="keyword">if</span> ~ischar(line)
+0449                                         <span class="keyword">break</span>; <span class="keyword">end</span>
+0450                                     <span class="keyword">if</span> ~isempty(strfind(line,<span class="string">'done.'</span>))
+0451                                         <span class="comment">% found the 'done.' line - sanity-check the model</span>
+0452                                         <span class="keyword">switch</span> variant.amica_version
+0453                                             <span class="keyword">case</span> <span class="string">'stable12'</span>
+0454                                                 tmp = loadmodout12(curdir);
+0455                                             <span class="keyword">case</span> <span class="string">'stable11'</span>
+0456                                                 tmp = loadmodout11(curdir);
+0457                                             <span class="keyword">case</span> <span class="string">'devel'</span>
+0458                                                 tmp = loadmodout10(curdir);
+0459                                             <span class="keyword">case</span> <span class="string">'stable'</span>
+0460                                                 tmp = loadmodout(curdir);
+0461                                         <span class="keyword">end</span>
+0462                                         <span class="keyword">if</span> isfield(tmp,<span class="string">'W'</span>) &amp;&amp; size(tmp.W,3) == tmp.num_models
+0463                                             disp(<span class="string">'Found a previously successful Amica solution for the same problem.'</span>);
+0464                                             r = tmp;
+0465                                         <span class="keyword">end</span>
+0466                                     <span class="keyword">end</span>
+0467                                 <span class="keyword">end</span>
+0468                                 fclose(t);
+0469                             <span class="keyword">catch</span>
+0470                                 disp(<span class="string">'Found an out.txt file of a previous Amica solution, but failed to load the model.'</span>);
+0471                                 <span class="keyword">try</span>
+0472                                     fclose(t);
+0473                                 <span class="keyword">catch</span>,<span class="keyword">end</span>
+0474                             <span class="keyword">end</span>
+0475                             k = k+1;
+0476                         <span class="keyword">end</span>
+0477                     <span class="keyword">catch</span>
+0478                         disp(<span class="string">'Found directories with alternative solutions, but failed trying to read them.'</span>);
+0479                     <span class="keyword">end</span>
+0480                 <span class="keyword">end</span>
+0481                 
+0482                 <span class="comment">% if no previous solution is not already there, go ahead!</span>
+0483                 <span class="keyword">if</span> ~exist(<span class="string">'r'</span>,<span class="string">'var'</span>)
+0484                     
+0485                     <span class="keyword">if</span> exist(<span class="string">'conflict_potential'</span>,<span class="string">'var'</span>)
+0486                         <span class="comment">% if there is conflict potential, we preferably choose a different output directory</span>
+0487                         fprintf(<span class="string">'Target directory has results of a computation that was updated less than %i minutes ago; choosing a different output directory.\n'</span>,ceil(time_difference));
+0488                         variant.outdir = [variant.outdir <span class="string">'-alt'</span> num2str(mod(tic,100000))];
+0489                     <span class="keyword">end</span>
+0490                     <span class="comment">% translate pdftype into the form expected by amica</span>
+0491                     variant.pdftype = hlp_rewrite(variant.pdftype,<span class="string">'GeneralizedGaussian'</span>,0,<span class="string">'ExtendedInfomax'</span>,1,<span class="string">'Gaussian'</span>,2,<span class="string">'Logistic'</span>,3);
+0492                     <span class="comment">% translate the PE auto-detection</span>
+0493                     variant.use_pe = hlp_rewrite(variant.use_pe,<span class="string">'autodetect'</span>,<span class="string">''</span>);
+0494                     <span class="comment">% translate all booleans into doubles</span>
+0495                     <span class="keyword">for</span> fn=fieldnames(variant)'
+0496                         <span class="keyword">if</span> islogical(variant.(fn{1}))
+0497                             variant.(fn{1}) = double(variant.(fn{1})); <span class="keyword">end</span>
+0498                     <span class="keyword">end</span>
+0499                     <span class="comment">% check pcakeep</span>
+0500                     <span class="keyword">if</span> isempty(variant.pcakeep)
+0501                         variant.pcakeep = size(pre.data,1); <span class="keyword">end</span>
+0502                     
+0503                     <span class="comment">% keep track of this to generate random system configurations if amica fails with NaNs...</span>
+0504                     original_numprocs = variant.numprocs;
+0505                     
+0506                     <span class="comment">% adapt argument list for the different supported amica versions...</span>
+0507                     <span class="keyword">switch</span> variant.amica_version
+0508                         <span class="keyword">case</span> {<span class="string">'stable11'</span>,<span class="string">'stable12'</span>}
+0509                             suppress_args = {<span class="string">'scheduler'</span>,<span class="string">'do_mean'</span>,<span class="string">'do_sphere'</span>,<span class="string">'doPCA'</span>,<span class="string">'scalestep'</span>,<span class="string">'kurt_start'</span>,<span class="string">'num_kurt'</span>,<span class="string">'kurt_int'</span>,<span class="string">'load_comp_list'</span>,<span class="string">'block_size'</span>};
+0510                             rewrite_args = {};
+0511                             <span class="keyword">if</span> isempty(variant.max_threads)
+0512                                 variant.max_threads = uint32(999); <span class="keyword">end</span>
+0513                         <span class="keyword">case</span> <span class="string">'stable'</span>
+0514                             suppress_args = {<span class="string">'share_comps'</span>,<span class="string">'share_int'</span>,<span class="string">'share_start'</span>,<span class="string">'comp_thresh'</span>,<span class="string">'doPCA'</span>,<span class="string">'do_mean'</span>,<span class="string">'do_sphere'</span>,<span class="string">'kurt_int'</span>,<span class="string">'num_kurt'</span>,<span class="string">'kurt_start'</span>,<span class="string">'load_comp_list'</span>,<span class="string">'load_rej'</span>,<span class="string">'scalestep'</span>,<span class="string">'block_size'</span>,<span class="string">'use_queue'</span>,<span class="string">'use_pe'</span>};
+0515                             rewrite_args = {<span class="string">'update_A'</span>,<span class="string">'update_W'</span>};
+0516                             <span class="keyword">if</span> isempty(variant.max_threads)
+0517                                 variant.max_threads = uint32(4); <span class="keyword">end</span>
+0518                         <span class="keyword">case</span> <span class="string">'devel'</span>
+0519                             suppress_args = {<span class="string">'do_mean'</span>,<span class="string">'do_sphere'</span>,<span class="string">'doPCA'</span>,<span class="string">'scalestep'</span>,<span class="string">'kurt_start'</span>,<span class="string">'num_kurt'</span>,<span class="string">'kurt_int'</span>,<span class="string">'load_comp_list'</span>,<span class="string">'use_queue'</span>,<span class="string">'use_pe'</span>};
+0520                             rewrite_args = {};
+0521                             <span class="keyword">if</span> isempty(variant.max_threads)
+0522                                 variant.max_threads = uint32(4); <span class="keyword">end</span>
+0523                         <span class="keyword">case</span> <span class="string">'matlab'</span>
+0524                             suppress_args = {<span class="string">'scheduler'</span>};
+0525                             rewrite_args = {};
+0526                         <span class="keyword">otherwise</span>
+0527                             error(<span class="string">'Unsupported Amica version.'</span>)
+0528                     <span class="keyword">end</span>
+0529                     <span class="comment">% ...and apply a final set of argument transformations that hold across all version</span>
+0530                     arglist = hlp_struct2varargin(variant,<span class="string">'suppress'</span>,[{<span class="string">'arg_selection'</span>,<span class="string">'arg_direct'</span>,<span class="string">'poll_interval'</span>,<span class="string">'max_start_waiting'</span>,<span class="string">'max_init_waiting'</span>,<span class="string">'reduce_factor'</span>,<span class="string">'fallback_reduce'</span>,<span class="string">'verbose'</span>,<span class="string">'max_restarts'</span>,<span class="string">'amica_version'</span>,<span class="string">'measure_window'</span>,<span class="string">'benefit_threshold'</span>,<span class="string">'native_threshold'</span>,<span class="string">'load_final'</span>,<span class="string">'flaky_cluster'</span>,<span class="string">'reuse_margin'</span>,<span class="string">'min_numprocs_fraction'</span>},suppress_args],<span class="string">'rewrite'</span>,[{<span class="string">'useqsub'</span>,<span class="string">'qsub'</span>}, rewrite_args]);
+0531                     
+0532                     <span class="keyword">if</span> strcmp(variant.amica_version,<span class="string">'matlab'</span>)
+0533                         <span class="comment">% run native MATLAB version</span>
+0534                         disp(<span class="string">'Running native MATLAB implementation of AMICA'</span>);
+0535                         r = <a href="#_sub2" class="code" title="subfunction r = amica_native(pre,variant)">amica_native</a>(pre,variant);
+0536                     <span class="keyword">else</span>
+0537                         <span class="comment">% run fast binary version</span>
+0538                         disp([<span class="string">'AMICA output is in '</span> variant.outdir]);
+0539                         <span class="keyword">try</span>
+0540                             
+0541                             <span class="comment">% try to delete all files in this directory</span>
+0542                             <span class="keyword">if</span> ~(doresume &amp;&amp; variant.load_param)
+0543                                 <span class="keyword">try</span>
+0544                                     files = dir(variant.outdir);
+0545                                     <span class="keyword">for</span> f=1:length(files)
+0546                                         <span class="keyword">if</span> ~isdir(files{f}.name)
+0547                                             delete(files{f}.name); <span class="keyword">end</span>
+0548                                     <span class="keyword">end</span>
+0549                                 <span class="keyword">catch</span>, <span class="keyword">end</span>
+0550                             <span class="keyword">end</span>
+0551                             
+0552                             <span class="comment">% initiate...</span>
+0553                             <span class="keyword">if</span> strcmp(variant.useqsub,<span class="string">'off'</span>)
+0554                                 <span class="comment">% run locally (without using the cluster)</span>
+0555                                 <span class="keyword">switch</span> variant.amica_version
+0556                                     <span class="keyword">case</span> <span class="string">'stable12'</span>
+0557                                         r = runamica12(pre.data,[],arglist{:});
+0558                                     <span class="keyword">case</span> <span class="string">'stable11'</span>
+0559                                         r = runamica11(pre.data,[],arglist{:});
+0560                                     <span class="keyword">case</span> <span class="string">'devel'</span>
+0561                                         r = runamica10(pre.data,[],size(pre.data,1),size(pre.data,2), arglist{:});
+0562                                     <span class="keyword">case</span> <span class="string">'stable'</span>
+0563                                         r = runamica(pre.data,[],size(pre.data,1),size(pre.data,2), arglist{:});
+0564                                 <span class="keyword">end</span>
+0565                             <span class="keyword">else</span>
+0566                                 <span class="comment">% find out the median Amica running time from past history</span>
+0567                                 <span class="keyword">try</span>
+0568                                     standard_normtime = median(load(env_translatepath(<span class="string">'resources:/amica_runtimes.txt'</span>)));
+0569                                 <span class="keyword">catch</span>
+0570                                     disp(<span class="string">'No past Amica performance history available.'</span>);
+0571                                     standard_normtime = [];
+0572                                 <span class="keyword">end</span>
+0573                                 
+0574                                 <span class="comment">% schedule a run on the cluster</span>
+0575                                 [job,r,t0,iter_times,maxiters,lastlines,job_started,early_finish] = <a href="#_sub1" class="code" title="subfunction [job,result,t0,iter_times,maxiters,lastlines,job_started,early_finish] = schedule_amica(X,scheduler,amica_version,logfile,varargin)">schedule_amica</a>(pre.data,variant.scheduler,variant.amica_version,logfile,arglist{:});
+0576                                 
+0577                                 <span class="comment">% while not finished/terminated: monitor the computation...</span>
+0578                                 num_restarts = 0;
+0579                                 <span class="keyword">while</span> maxiters &lt; variant.max_iter &amp;&amp; ~early_finish
+0580                                     pause(variant.poll_interval);
+0581                                     
+0582                                     <span class="comment">% scan the output that amica has produced so far and derive a few</span>
+0583                                     <span class="comment">% variables</span>
+0584                                     <span class="keyword">try</span>
+0585                                         <span class="comment">% job is already started?</span>
+0586                                         <span class="keyword">if</span> ~job_started &amp;&amp; exist([variant.outdir filesep <span class="string">'out.txt'</span>],<span class="string">'file'</span>)
+0587                                             job_started = true; <span class="keyword">end</span>
+0588                                         
+0589                                         t = fopen([variant.outdir filesep <span class="string">'out.txt'</span>]);
+0590                                         curline = 0;
+0591                                         got_nan = false;
+0592                                         lastiters = maxiters;
+0593                                         <span class="keyword">while</span> 1
+0594                                             <span class="comment">% get next line; display</span>
+0595                                             line = fgetl(t);
+0596                                             <span class="keyword">if</span> ~ischar(line)
+0597                                                 <span class="keyword">break</span>; <span class="keyword">end</span>
+0598                                             curline = curline + 1;
+0599                                             <span class="keyword">if</span> curline &gt; lastlines
+0600                                                 disp(line); <span class="keyword">end</span>
+0601                                             
+0602                                             <span class="comment">% amica finished?</span>
+0603                                             <span class="keyword">if</span> ~isempty(strfind(line,<span class="string">'done.'</span>))
+0604                                                 <span class="keyword">if</span> maxiters &lt; variant.max_iter
+0605                                                     disp(<span class="string">'Amica finished early.'</span>); <span class="keyword">end</span>
+0606                                                 early_finish = true;
+0607                                             <span class="keyword">end</span>
+0608                                             
+0609                                             <span class="comment">% we got NaN's?</span>
+0610                                             <span class="keyword">if</span> ~isempty(strfind(line,<span class="string">'NaN'</span>))
+0611                                                 got_nan = true; <span class="keyword">end</span>
+0612                                             
+0613                                             <span class="keyword">try</span>
+0614                                                 strs = hlp_split(line,<span class="string">' '</span>);
+0615                                                 <span class="comment">% we got an iteration output?</span>
+0616                                                 <span class="keyword">if</span> strcmp(strs{1},<span class="string">'iter'</span>)
+0617                                                     <span class="comment">% remember the iteration number</span>
+0618                                                     <span class="keyword">if</span> 2 &lt;= length(strs)
+0619                                                         maxiters = str2num(strs{2}); <span class="keyword">end</span>
+0620                                                     <span class="keyword">try</span>
+0621                                                         <span class="comment">% ... and collect samples of the iteration times</span>
+0622                                                         idx = find(strcmp(strs,<span class="string">'s,'</span>),1)-1;
+0623                                                         <span class="keyword">if</span> ~isempty(idx) &amp;&amp; idx &lt;= length(strs)
+0624                                                             iter_times(curline) = str2num(strs{idx}); <span class="keyword">end</span>
+0625                                                     <span class="keyword">catch</span>,<span class="keyword">end</span>
+0626                                                 <span class="keyword">end</span>
+0627                                             <span class="keyword">catch</span>,<span class="keyword">end</span>
+0628                                         <span class="keyword">end</span>
+0629                                         
+0630                                         <span class="keyword">if</span> lastiters == 0
+0631                                             <span class="comment">% measure the time it took to start the computation</span>
+0632                                             <span class="comment">% (for statistics &amp; decision-making...)</span>
+0633                                             startup_time = toc(t0) - sum(iter_times); <span class="keyword">end</span>
+0634                                         
+0635                                         lastlines = curline;
+0636                                         fclose(t);
+0637                                     <span class="keyword">catch</span>
+0638                                         <span class="keyword">try</span>
+0639                                             fclose(t);
+0640                                         <span class="keyword">catch</span>,<span class="keyword">end</span>
+0641                                     <span class="keyword">end</span>
+0642                                     
+0643                                     <span class="comment">% check if amica is running so slowly that we need to restart it</span>
+0644                                     <span class="keyword">if</span> ~isempty(iter_times) &amp;&amp; ~isempty(standard_normtime) &amp;&amp; ~(any(strcmp(variant.amica_version,{<span class="string">'stable11'</span>,<span class="string">'stable12'</span>})) &amp;&amp; ~isempty(variant.use_queue))
+0645                                         <span class="comment">% estimate computational complexity for the current configuration</span>
+0646                                         [C,S] = size(pre.data);
+0647                                         M = variant.num_models;
+0648                                         K = variant.num_mix_comps;
+0649                                         P = variant.numprocs;
+0650                                         config_complexity = ((M*(C*C*S + K*C*S + C*S*S))/P);
+0651                                         
+0652                                         <span class="comment">% compute complexity-normalized runtime per iteration</span>
+0653                                         iter_normtime = iter_times / config_complexity;
+0654                                         
+0655                                         <span class="comment">% measure the average computational throughput in the past measurement window</span>
+0656                                         cutoff = find(cumsum(iter_times(end:-1:1)) &gt; variant.measure_window,1);
+0657                                         <span class="keyword">if</span> ~isempty(cutoff)
+0658                                             mean_normtime = mean(iter_normtime(end-cutoff+1:end));
+0659                                             <span class="comment">% compute expected runtime with the current compute throughput</span>
+0660                                             expected_runtime = startup_time + sum(iter_times) + (mean_normtime * config_complexity * (variant.max_iter - maxiters));
+0661                                             <span class="comment">% compute expected runtime with the mean compute throughput</span>
+0662                                             standard_runtime = startup_time + (standard_normtime * config_complexity * variant.max_iter);
+0663                                             
+0664                                             <span class="comment">% is it better to reschedule?</span>
+0665                                             <span class="keyword">if</span> expected_runtime / standard_runtime &gt; variant.benefit_threshold &amp;&amp; num_restarts &lt; variant.max_restarts
+0666                                                 disp(<span class="string">'Computation on the cluster is very slow; re-starting to get a better node allocation'</span>);
+0667                                                 <span class="keyword">if</span> length(job) &gt;= 2
+0668                                                     <span class="keyword">if</span> isa(job{2},<span class="string">'onCleanup'</span>)
+0669                                                         <span class="comment">% clearing the job will implicitly lead to its deletion</span>
+0670                                                         clear job;
+0671                                                     <span class="keyword">else</span> isa(job{2},<span class="string">'function_handle'</span>)
+0672                                                         <span class="comment">% old MATLAB version: we invoke the function in job{2} to delete it explicitly</span>
+0673                                                         job{2}();
+0674                                                     <span class="keyword">end</span>
+0675                                                 <span class="keyword">else</span>
+0676                                                     disp(<span class="string">'couldn''t delete the previous jobs; please delete them manually.'</span>);
+0677                                                 <span class="keyword">end</span>
+0678                                                 variant.benefit_threshold = variant.benefit_threshold + 1;
+0679                                                 <span class="comment">% restart computation...</span>
+0680                                                 num_restarts = num_restarts + 1;
+0681                                                 [job,r,t0,iter_times,maxiters,lastlines,job_started,early_finish] = <a href="#_sub1" class="code" title="subfunction [job,result,t0,iter_times,maxiters,lastlines,job_started,early_finish] = schedule_amica(X,scheduler,amica_version,logfile,varargin)">schedule_amica</a>(pre.data,variant.scheduler,variant.amica_version,logfile,arglist{:},<span class="string">'numprocs'</span>,variant.numprocs);
+0682                                                 pause(startup_time);
+0683                                             <span class="keyword">elseif</span> expected_runtime / standard_runtime &gt; variant.native_threshold &amp;&amp; num_restarts &gt;= variant.max_restarts
+0684                                                 <span class="keyword">if</span> variant.flaky_cluster
+0685                                                     disp(<span class="string">'The cluster is apparently overloaded; not doing any further restarts from now on.'</span>);
+0686                                                 <span class="keyword">else</span>
+0687                                                     disp(<span class="string">'Computation on the cluster is extremely slow; reverting to native MATLAB computatation on local machine.'</span>);
+0688                                                     <span class="comment">% fall back to native Amica implementation...</span>
+0689                                                     error(<span class="string">'fall back'</span>);
+0690                                                 <span class="keyword">end</span>
+0691                                             <span class="keyword">end</span>
+0692                                         <span class="keyword">end</span>
+0693                                     <span class="keyword">end</span>
+0694                                     
+0695                                     <span class="comment">% check if amica is starting to produce NaN values</span>
+0696                                     <span class="keyword">if</span> got_nan
+0697                                         <span class="comment">% sometimes AMICA gives NaN outputs; need to restart in this case</span>
+0698                                         disp(<span class="string">'Got NaN outputs; trying to restart the job...'</span>);
+0699                                         <span class="keyword">if</span> length(job) &gt;= 2
+0700                                             <span class="keyword">if</span> isa(job{2},<span class="string">'onCleanup'</span>)
+0701                                                 <span class="comment">% clearing the job will implicitly lead to its deletion</span>
+0702                                                 clear job;
+0703                                             <span class="keyword">else</span> isa(job{2},<span class="string">'function_handle'</span>)
+0704                                                 <span class="comment">% old MATLAB version: we invoke the function in job{2} to delete it explicitly</span>
+0705                                                 job{2}();
+0706                                             <span class="keyword">end</span>
+0707                                         <span class="keyword">else</span>
+0708                                             disp(<span class="string">'couldn''t delete the previous jobs; please delete them manually.'</span>);
+0709                                         <span class="keyword">end</span>
+0710                                         <span class="keyword">if</span> num_restarts &gt; variant.max_restarts &amp;&amp; ~variant.flaky_cluster
+0711                                             disp(<span class="string">'Amica consistently gives NaN outputs; falling back to MATLAB implementation.'</span>)
+0712                                             error(<span class="string">'fall back'</span>);
+0713                                         <span class="keyword">else</span>
+0714                                             <span class="keyword">if</span> strcmp(variant.amica_version,<span class="string">'stable11'</span>)
+0715                                                 disp(<span class="string">'Choosing a random number of processors.'</span>);
+0716                                                 <span class="keyword">if</span> ~exist(<span class="string">'numprocs_tried'</span>,<span class="string">'var'</span>)
+0717                                                     numprocs_tried = []; <span class="keyword">end</span>
+0718                                                 <span class="keyword">while</span> true
+0719                                                     variant.numprocs = floor(original_numprocs*variant.min_numprocs_fraction + original_numprocs*(1-variant.min_numprocs_fraction)*rand);
+0720                                                     <span class="keyword">if</span> ~any(variant.numprocs == numprocs_tried)
+0721                                                         numprocs_tried(end+1) = variant.numprocs;
+0722                                                         <span class="keyword">break</span>;
+0723                                                     <span class="keyword">elseif</span> length(numprocs_tried) &gt;= (original_numprocs*(1-variant.min_numprocs_fraction))-1
+0724                                                         disp(<span class="string">'Tried all possible system configurations; giving up and running locally...'</span>);
+0725                                                         error(<span class="string">'fall back'</span>);
+0726                                                     <span class="keyword">end</span>
+0727                                                 <span class="keyword">end</span>
+0728                                             <span class="keyword">end</span>
+0729                                             
+0730                                             <span class="comment">% re-start the job</span>
+0731                                             num_restarts = num_restarts + 1;
+0732                                             [job,r,t0,iter_times,maxiters,lastlines,job_started,early_finish] = <a href="#_sub1" class="code" title="subfunction [job,result,t0,iter_times,maxiters,lastlines,job_started,early_finish] = schedule_amica(X,scheduler,amica_version,logfile,varargin)">schedule_amica</a>(pre.data,variant.scheduler,variant.amica_version,logfile,arglist{:},<span class="string">'numprocs'</span>,variant.numprocs);
+0733                                             exist([variant.outdir filesep <span class="string">'out.txt'</span>],<span class="string">'file'</span>)
+0734                                         <span class="keyword">end</span>
+0735                                     <span class="keyword">end</span>
+0736                                     
+0737                                     <span class="comment">% check if starting the job takes suspiciously long (indicating</span>
+0738                                     <span class="comment">% that the job size exceeds the cluster quota)</span>
+0739                                     <span class="keyword">if</span> (~job_started &amp;&amp; toc(t0) &gt; variant.max_start_waiting) || (maxiters == 0 &amp;&amp; toc(t0) &gt; variant.max_init_waiting)
+0740                                         <span class="comment">% in this case, we reduce that and delete the job</span>
+0741                                         <span class="keyword">if</span> ~job_started
+0742                                             disp(<span class="string">'Apparently, the AMICA jobs didn''t get scheduled; restarting with '</span>);
+0743                                         <span class="keyword">else</span>
+0744                                             disp(<span class="string">'Apparently, the AMICA computation didn''t init properly; restarting with '</span>);
+0745                                         <span class="keyword">end</span>
+0746                                         variant.numprocs = ceil(variant.numprocs*variant.reduce_factor);
+0747                                         disp([<span class="string">'N = '</span> num2str(variant.numprocs)]);
+0748                                         <span class="keyword">if</span> length(job) &gt;= 2
+0749                                             <span class="keyword">if</span> isa(job{2},<span class="string">'onCleanup'</span>)
+0750                                                 <span class="comment">% clearing the job will implicitly lead to its deletion</span>
+0751                                                 clear job;
+0752                                             <span class="keyword">else</span> isa(job{2},<span class="string">'function_handle'</span>)
+0753                                                 <span class="comment">% old MATLAB version: we invoke the function in job{2} to delete it explicitly</span>
+0754                                                 job{2}();
+0755                                             <span class="keyword">end</span>
+0756                                         <span class="keyword">else</span>
+0757                                             disp(<span class="string">'couldn''t delete the previous jobs; please delete them manually.'</span>);
+0758                                         <span class="keyword">end</span>
+0759                                         
+0760                                         <span class="keyword">if</span> variant.numprocs &lt;= 4 &amp;&amp; ~variant.flaky_cluster
+0761                                             disp(<span class="string">'Could not acquire cluster resource; falling back to local computation. Note NaN checks cannot be performed in this mode.'</span>);
+0762                                             
+0763                                             <span class="comment">% try it locally...</span>
+0764                                             <span class="keyword">switch</span> variant.amica_version
+0765                                                 <span class="keyword">case</span> <span class="string">'devel'</span>
+0766                                                     r = runamica10(pre.data,[],size(pre.data,1),size(pre.data,2), arglist{:},<span class="string">'numprocs'</span>,variant.numprocs,<span class="string">'qsub'</span>,<span class="string">'off'</span>);
+0767                                                 <span class="keyword">case</span> <span class="string">'stable'</span>
+0768                                                     r = runamica(pre.data,[],size(pre.data,1),size(pre.data,2), arglist{:},<span class="string">'numprocs'</span>,variant.numprocs,<span class="string">'qsub'</span>,<span class="string">'off'</span>);
+0769                                                 <span class="keyword">case</span> <span class="string">'stable11'</span>
+0770                                                     r = runamica11(pre.data,[],arglist{:},<span class="string">'numprocs'</span>,variant.numprocs,<span class="string">'qsub'</span>,<span class="string">'off'</span>);
+0771                                                 <span class="keyword">case</span> <span class="string">'stable12'</span>
+0772                                                     r = runamica12(pre.data,[],arglist{:},<span class="string">'numprocs'</span>,variant.numprocs,<span class="string">'qsub'</span>,<span class="string">'off'</span>);
+0773                                             <span class="keyword">end</span>
+0774                                             
+0775                                             <span class="comment">% ... and leave the while loop with a valid r</span>
+0776                                             <span class="keyword">break</span>;
+0777                                         <span class="keyword">else</span>
+0778                                             <span class="comment">% re-start the job...</span>
+0779                                             [job,r,t0,iter_times,maxiters,lastlines,job_started,early_finish] = <a href="#_sub1" class="code" title="subfunction [job,result,t0,iter_times,maxiters,lastlines,job_started,early_finish] = schedule_amica(X,scheduler,amica_version,logfile,varargin)">schedule_amica</a>(pre.data,variant.scheduler,variant.amica_version,logfile,arglist{:},<span class="string">'numprocs'</span>,variant.numprocs);
+0780                                         <span class="keyword">end</span>
+0781                                     <span class="keyword">end</span>
+0782                                 <span class="keyword">end</span>
+0783                                 
+0784                                 <span class="comment">% done runnning on the cluster - load the results</span>
+0785                                 <span class="keyword">if</span> ~isfield(r,<span class="string">'W'</span>)
+0786                                     <span class="keyword">switch</span> variant.amica_version
+0787                                         <span class="keyword">case</span> <span class="string">'stable12'</span>
+0788                                             r = loadmodout12(variant.outdir);
+0789                                         <span class="keyword">case</span> <span class="string">'stable11'</span>
+0790                                             r = loadmodout11(variant.outdir);
+0791                                         <span class="keyword">case</span> <span class="string">'devel'</span>
+0792                                             r = loadmodout10(variant.outdir);
+0793                                         <span class="keyword">case</span> <span class="string">'stable'</span>
+0794                                             r = loadmodout(variant.outdir);
+0795                                     <span class="keyword">end</span>
+0796                                 <span class="keyword">end</span>
+0797                                 
+0798                                 <span class="comment">% append the iteration time samples to the current list of amica runtimes...</span>
+0799                                 <span class="keyword">try</span>
+0800                                     f = fopen(env_translatepath(<span class="string">'resources:/amica_runtimes.txt'</span>),<span class="string">'a+'</span>);
+0801                                     fprintf(f,<span class="string">' %d'</span>,iter_normtime);
+0802                                     fclose(f);
+0803                                 <span class="keyword">catch</span>
+0804                                     <span class="keyword">try</span>
+0805                                         fclose(f);
+0806                                     <span class="keyword">catch</span>,<span class="keyword">end</span>
+0807                                 <span class="keyword">end</span>
+0808                             <span class="keyword">end</span>
+0809                             
+0810                             <span class="comment">% check if the result data is broken, such that we need to fall back</span>
+0811                             <span class="comment">% to a native MATLAB implementation</span>
+0812                             <span class="keyword">if</span> isempty(r)
+0813                                 error(<span class="string">'fall back'</span>); <span class="keyword">end</span>
+0814                             <span class="keyword">if</span> ~isfield(r,<span class="string">'S'</span>)
+0815                                 error(<span class="string">'fall back'</span>); <span class="keyword">end</span>
+0816                         <span class="keyword">catch</span> e
+0817                             <span class="comment">% run the pure MATLAB variant</span>
+0818                             disp([<span class="string">'note: runamica failed to run; reason: '</span> e.message]);
+0819                             disp(<span class="string">'      falling back to MATLAB variant; available parameters: '</span>);
+0820                             disp(<span class="string">'      num_models, num_mix_comps, do_mean/do_sphere, do_newton'</span>);
+0821                             variant.max_iter = ceil(variant.max_iter * variant.fallback_reduce);
+0822                             <span class="keyword">try</span>
+0823                                 r = <a href="#_sub2" class="code" title="subfunction r = amica_native(pre,variant)">amica_native</a>(pre,variant);
+0824                             <span class="keyword">catch</span> e
+0825                                 disp(<span class="string">'Native MATLAB implementation of amica ran into an error. Giving up now.'</span>);
+0826                                 rethrow(e);
+0827                             <span class="keyword">end</span>
+0828                         <span class="keyword">end</span>
+0829                     <span class="keyword">end</span>
+0830                     quicklog(logfile,<span class="string">'=== success; outdir=%s ==='</span>,variant.outdir);
+0831                 <span class="keyword">end</span>
+0832                 
+0833                 <span class="comment">% translate properties from r (the result) to pre (the data set)</span>
+0834                 pre.icasphere  = r.S;
+0835                 <span class="keyword">if</span> size(r.W,3) &gt; 1
+0836                     <span class="comment">% we have multiple models...</span>
+0837                     <span class="comment">% take the most likely model as weights and sphere</span>
+0838                     [x,bestmod] = max(r.mod_prob); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0839                     pre.icaweights = r.W(:,:,bestmod);
+0840                     <span class="comment">% but retain all the rest in .etc.amica</span>
+0841                     <span class="keyword">if</span> exist(<span class="string">'mask'</span>,<span class="string">'var'</span>)
+0842                         r.sample_mask = mask; <span class="keyword">end</span>
+0843                 <span class="keyword">else</span>
+0844                     pre.icaweights = r.W;
+0845                 <span class="keyword">end</span>
+0846                 signal.etc.amica = r;                
+0847             <span class="keyword">case</span> <span class="string">'infomax'</span>
+0848                 <span class="comment">% translate all booleans into 'on'/'off'</span>
+0849                 variant = structfun(@(p) fastif(islogical(p),fastif(p,<span class="string">'on'</span>,<span class="string">'off'</span>),p),variant,<span class="string">'UniformOutput'</span>,false);
+0850                 arglist = hlp_struct2varargin(variant,<span class="string">'suppress'</span>,{<span class="string">'arg_selection'</span>,<span class="string">'arg_direct'</span>},<span class="string">'rewrite'</span>,{<span class="string">'pstop'</span>,<span class="string">'stop'</span>,<span class="string">'pweights'</span>,<span class="string">'weights'</span>,<span class="string">'pblock'</span>,<span class="string">'block'</span>,<span class="string">'pposact'</span>,<span class="string">'posact'</span>});
+0851                 pre = hlp_diskcache(<span class="string">'icaweights'</span>,@pop_runica,pre,arglist{:});            
+0852             <span class="keyword">case</span> <span class="string">'beamica'</span>
+0853                 sig = cov(pre.data');
+0854                 <span class="keyword">if</span> ~isempty(variant.anchorlabels)
+0855                     <span class="comment">% calc beamformer penalty matrix for selected locations</span>
+0856                     [B,dummy,chanmask] = hlp_diskcache(<span class="string">'filterdesign'</span>,@calc_beamformer_constraints,{pre.chanlocs.labels},variant.anchorlabels,sig,variant.reference); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0857                     <span class="comment">% remove missing channels</span>
+0858                     <span class="keyword">if</span> ~any(chanmask)
+0859                         error(<span class="string">'None of your channels is in the head model; the AnchorLabels option can currently only be used for data with 10-20 labels.'</span>); <span class="keyword">end</span>
+0860                     pre = pop_select(pre,<span class="string">'nochannel'</span>,find(~chanmask));
+0861                 <span class="keyword">else</span>
+0862                     B = {};
+0863                 <span class="keyword">end</span>
+0864                 [pre.icaweights,pre.icasphere] = beamica(pre.data,B,[],[],[],variant.max_iter,variant.lrate,variant.tradeoff,variant.verbose,variant.usegpu,variant.convergence_check);
+0865             <span class="keyword">case</span> <span class="string">'fastica'</span>
+0866                 <span class="comment">% translate all booleans into 'on'/'off'</span>
+0867                 variant = structfun(@(p) fastif(islogical(p),fastif(p,<span class="string">'on'</span>,<span class="string">'off'</span>),p),variant,<span class="string">'UniformOutput'</span>,false);
+0868                 arglist = hlp_struct2varargin(variant,<span class="string">'suppress'</span>,{<span class="string">'arg_selection'</span>,<span class="string">'arg_direct'</span>},<span class="string">'rewrite'</span>,{<span class="string">'stepsize'</span>,<span class="string">'mu'</span>});
+0869                 [dummy,pre.icaweights] = hlp_diskcache(<span class="string">'icaweights'</span>,@fastica,pre.data,arglist{:}); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0870                 pre.icasphere = eye(size(pre.data,1));
+0871             <span class="keyword">case</span> <span class="string">'rica'</span>                
+0872                 variant.solverOptions.Method = hlp_rewrite(variant.solverOptions.Method, <span class="keyword">...</span>
+0873                     <span class="string">'Steepest Descent'</span>,<span class="string">'sd'</span>,<span class="string">'Cyclic Steepest Descent'</span>,<span class="string">'csd'</span>,<span class="string">'Barzilai and Borwein Gradient'</span>,<span class="string">'bb'</span>,<span class="keyword">...</span>
+0874                     <span class="string">'Non-Linear Conjugate Gradient'</span>,<span class="string">'cg'</span>,<span class="string">'Scaled Non-Linear Conjugate Gradient'</span>,<span class="string">'scg'</span>,<span class="string">'Preconditionined Non-Linear Conjugate Gradient'</span>,<span class="string">'pcg'</span>,<span class="keyword">...</span>
+0875                     <span class="string">'Quasi-Newton with Limited-Memory BFGS Updating'</span>,<span class="string">'lbfgs'</span>,<span class="string">'Hessian-Free Newton'</span>,<span class="string">'newton0'</span>,<span class="keyword">...</span>
+0876                     <span class="string">'Preconditioned Hessian-Free Newton'</span>,<span class="string">'pnewton0'</span>,<span class="string">'Quasi-Newton Hessian approximation'</span>,<span class="string">'qnewton'</span>, <span class="keyword">...</span>
+0877                     <span class="string">'Newton with Hessian update every k''th step'</span>,<span class="string">'mnewton'</span>);
+0878                 variant.solverOptions.LS_init = hlp_rewrite(variant.solverOptions.LS_init,<span class="string">'Default'</span>,[],<span class="string">'Always1'</span>,0,<span class="string">'AsPrevious'</span>,1,<span class="string">'QuadraticInterp'</span>,2,<span class="string">'TwicePrevious'</span>,3,<span class="string">'ScaledConj'</span>,4);
+0879                 variant.solverOptions.LS_type = hlp_rewrite(variant.solverOptions.LS_type,<span class="string">'Default'</span>,[],<span class="string">'BacktrackingArmijo'</span>,0,<span class="string">'BracketingWolfe'</span>,1,<span class="string">'MatlabOptTB'</span>,2);
+0880                 variant.solverOptions.LS_interp = hlp_rewrite(variant.solverOptions.LS_interp,<span class="string">'Default'</span>,[],<span class="string">'DoubleOrBisect'</span>,0,<span class="string">'Cubic'</span>,1,<span class="string">'MixedQuadraticCubic'</span>,2);
+0881                 variant.solverOptions.LS_multi = hlp_rewrite(variant.solverOptions.LS_multi,<span class="string">'Default'</span>,[],<span class="string">'SameOrder'</span>,0,<span class="string">'HigherOrder'</span>,1);
+0882                 variant.chan_labels = {pre.chanlocs.labels};
+0883                 <span class="keyword">if</span> doforce
+0884                     [pre.icaweights,pre.icasphere,pre.icachansind] = rica(pre.data,rmfield(variant,<span class="string">'solverOptions'</span>),rmfield(variant.solverOptions,<span class="string">'arg_direct'</span>));
+0885                 <span class="keyword">else</span>
+0886                     [pre.icaweights,pre.icasphere,pre.icachansind] = hlp_diskcache(<span class="string">'icaweights'</span>,@rica,pre.data,rmfield(variant,<span class="string">'solverOptions'</span>),rmfield(variant.solverOptions,<span class="string">'arg_direct'</span>));
+0887                 <span class="keyword">end</span>
+0888             <span class="keyword">case</span> <span class="string">'dictica'</span>
+0889                 <span class="comment">% use dictionary learning</span>
+0890                  [pre.icadict,pre.icasphere] = hlp_diskcache(<span class="string">'icaweights'</span>,@dictlearn,variant,<span class="string">'X'</span>,pre.data,<span class="string">'chanlocs'</span>,pre.chanlocs);
+0891             <span class="keyword">case</span> <span class="string">'kernelica'</span>
+0892                 <span class="comment">% translate all booleans into 0/1</span>
+0893                 variant = structfun(@(p) fastif(islogical(p),double(p),p),variant,<span class="string">'UniformOutput'</span>,false);
+0894                 <span class="keyword">if</span> strcmp(variant.kernel,<span class="string">'gaussian'</span>)
+0895                     variant.sig = variant.GaussianSigma;
+0896                 <span class="keyword">else</span>
+0897                     variant.sig = variant.HermiteSigma;
+0898                 <span class="keyword">end</span>
+0899                 arglist = hlp_struct2varargin(variant,<span class="string">'suppress'</span>,{<span class="string">'arg_selection'</span>,<span class="string">'arg_direct'</span>,<span class="string">'GaussianSigma'</span>,<span class="string">'HermiteSigma'</span>},<span class="string">'rewrite'</span>,{<span class="string">'contrastfun'</span>,<span class="string">'contrast'</span>,<span class="string">'dodisp'</span>,<span class="string">'disp'</span>});
+0900                 pre.icaweights = hlp_diskcache(<span class="string">'icaweights'</span>,@kernel_ica_options,pre.data,arglist{:});
+0901                 pre.icasphere = eye(size(pre.data,1));
+0902             <span class="keyword">case</span> <span class="string">'fastkernelica'</span>
+0903                 <span class="comment">% fast KernelICA is a euphemism</span>
+0904                 C = size(pre.data,1);
+0905                 pre.icasphere = 2.0*inv(sqrtm(cov(pre.data'))); <span class="comment">%#ok&lt;MINV&gt;</span>
+0906                 guess = eye(C);
+0907                 <span class="keyword">for</span> k=1:variant.restarts
+0908                     tmpdata = (pre.icasphere * pre.data);
+0909                     [Ws{k}, dummy, HSIC] = hlp_diskcache(<span class="string">'icaweights'</span>,@fastkica,tmpdata, guess, variant.maxiter, variant.psigma, variant.thresh); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0910                     guess = eye(C) + randn(C);
+0911                     HSICs(k) = min(HSIC);
+0912                 <span class="keyword">end</span>
+0913                 [dummy,bestidx] = min(HSICs); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0914                 pre.icaweights = Ws{bestidx};
+0915             <span class="keyword">case</span> <span class="string">'sphere'</span>
+0916                  pre.icasphere = inv(sqrtm(cov(pre.data')));
+0917                  pre.icaweights = eye(size(pre.data,1));
+0918             <span class="keyword">case</span> <span class="string">'robust_sphere'</span>
+0919                  pre.icasphere = inv(sqrtm(hlp_diskcache(<span class="string">'icaweights'</span>,@cov_robust,pre.data')));
+0920                  pre.icaweights = eye(size(pre.data,1));
+0921             <span class="keyword">otherwise</span>
+0922                 <span class="comment">% let pop_runica handle all the rest</span>
+0923                 arglist = hlp_struct2varargin(variant,<span class="string">'suppress'</span>,{<span class="string">'arg_selection'</span>,<span class="string">'arg_direct'</span>});
+0924                 pre = pop_runica(pre,<span class="string">'icatype'</span>,variant.label,arglist{:});
+0925         <span class="keyword">end</span>
+0926         
+0927         
+0928         <span class="comment">% add channel indices, if necessary</span>
+0929         <span class="keyword">try</span>
+0930             <span class="keyword">if</span> isempty(pre.icachansind)
+0931                 pre.icachansind = 1:size(pre.data,1); <span class="keyword">end</span>
+0932             <span class="comment">% add weight inverse (mixing matrix), if necessary</span>
+0933             <span class="keyword">if</span> isempty(pre.icawinv)
+0934                 pre.icawinv = pinv(pre.icaweights*pre.icasphere); <span class="keyword">end</span>;
+0935             <span class="comment">% normalize winv, for better plotting</span>
+0936             <span class="keyword">if</span> normalize_weights
+0937                 normalizer = sqrt(1./sum(pre.icawinv.*pre.icawinv));
+0938                 pre.icawinv = single(pre.icawinv .* (ones(size(pre.icawinv,1),1)*normalizer));
+0939                 pre.icaweights = diag(1./normalizer)*pre.icaweights;
+0940             <span class="keyword">end</span>          
+0941             
+0942             <span class="keyword">if</span> cleaned_data
+0943                 signal = pre;
+0944                 <span class="keyword">if</span> trials ~= 1
+0945                     warning(<span class="string">'BCILAB:flt_ica:data_loss'</span>,<span class="string">'The original epoch and event information has been erased from the cleaned data during artifact rejection; cannot restore.'</span>);
+0946                     signal.data = reshape(signal.data,chans,pnts,trials);
+0947                 <span class="keyword">end</span>
+0948             <span class="keyword">else</span>
+0949                 <span class="comment">% carry over the fields to the output data set</span>
+0950                 signal.icaweights = pre.icaweights;
+0951                 signal.icasphere = pre.icasphere;
+0952                 signal.icawinv = pre.icawinv;
+0953                 <span class="comment">% if channel rejection was used, we remember from which channels the ica map was derived</span>
+0954                 [dummy,idxeeg,idxpre] = intersect({signal.chanlocs.labels},{pre.chanlocs.labels}); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0955                 [dummy,idxpre_order] = sort(idxpre);  <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0956                 signal.icachansind = idxeeg(idxpre_order);
+0957             <span class="keyword">end</span>
+0958         <span class="keyword">catch</span> e
+0959             <span class="keyword">if</span> dodebug
+0960                 disp(<span class="string">'Error in flt_ica code; waiting for user input. You can disable this behavior by setting the DebugMode option to false.'</span>);
+0961                 keyboard;
+0962             <span class="keyword">else</span>
+0963                 rethrow(e);
+0964             <span class="keyword">end</span>
+0965         <span class="keyword">end</span>
+0966     <span class="keyword">else</span>
+0967         disp(<span class="string">'The dataset already contains an IC decomposition; skipping... (note: set parameter ''doforce'' to true to force re-computation).'</span>);
+0968     <span class="keyword">end</span>
+0969     
+0970     <span class="comment">% generate root chanlocs, if not already there</span>
+0971     <span class="keyword">if</span> ~exist(<span class="string">'root_chanlocs'</span>,<span class="string">'var'</span>)
+0972         root_chanlocs = signal.chanlocs(signal.icachansind); <span class="keyword">end</span>
+0973     
+0974     <span class="comment">% store the ICA decomposition in the state</span>
+0975     state = struct(<span class="string">'icasphere'</span>,{signal.icasphere}, <span class="string">'icaweights'</span>,{signal.icaweights}, <span class="string">'icawinv'</span>,{signal.icawinv}, <span class="string">'icachansind'</span>,{signal.icachansind},<span class="string">'root_chanlocs'</span>,{root_chanlocs});
+0976     <span class="keyword">if</span> isfield(signal.etc,<span class="string">'amica'</span>)
+0977         state.amica = signal.etc.amica; <span class="keyword">end</span>
+0978 <span class="keyword">end</span>
+0979 
+0980 <span class="comment">% keep track of the last ICA decomposition for inspection</span>
+0981 <span class="keyword">global</span> tracking; tracking.inspection.ica = state;
+0982 
+0983 <span class="keyword">if</span> do_calcact
+0984     <span class="comment">% just populate icaact</span>
+0985     signal.icaact = (signal.icaweights*signal.icasphere)*signal.data(signal.icachansind,:); <span class="keyword">end</span>
+0986 
+0987 <span class="keyword">if</span> do_transform
+0988     <span class="comment">% transform the data itself, if necessary</span>
+0989     <span class="keyword">if</span> isfield(signal.etc,<span class="string">'amica'</span>) &amp;&amp; size(signal.etc.amica.W,3) &gt; 1
+0990         warn_once(<span class="string">'Note: The signal will only be transformed according to the 1st amica model.'</span>); <span class="keyword">end</span>
+0991     signal.data = (signal.icaweights*signal.icasphere)*signal.data(signal.icachansind,:);
+0992     signal.chanlocs = struct(<span class="string">'labels'</span>,cellfun(@num2str,num2cell(1:length(signal.icachansind),1),<span class="string">'UniformOutput'</span>,false));
+0993     signal.nbchan = size(signal.data,1);
+0994     <span class="keyword">if</span> clear_after_trans
+0995         signal.icaweights = [];
+0996         signal.icawinv = [];
+0997         signal.icasphere = [];
+0998     <span class="keyword">end</span>
+0999 <span class="keyword">end</span>
+1000 
+1001 <span class="comment">% remember which cleaning level was used</span>
+1002 <span class="keyword">try</span>
+1003     signal.etc.clean_settings = data_cleaning;
+1004 <span class="keyword">catch</span>
+1005 <span class="keyword">end</span>
+1006 
+1007 exp_endfun;
+1008 
+1009 
+1010 <span class="comment">% schedule an AMICA run on an Sun Grid Engine cluster...</span>
+1011 <a name="_sub1" href="#_subfunctions" class="code">function [job,result,t0,iter_times,maxiters,lastlines,job_started,early_finish] = schedule_amica(X,scheduler,amica_version,logfile,varargin)</a>
+1012 
+1013 <span class="comment">% schedule the job, get console output</span>
+1014 <span class="keyword">switch</span> amica_version
+1015     <span class="keyword">case</span> <span class="string">'devel'</span>
+1016         [conout,dummy] = evalc(<span class="string">'runamica10(X,[],size(X,1),size(X,2), varargin{:})'</span>); <span class="comment">%#ok&lt;NASGU&gt;</span>
+1017     <span class="keyword">case</span> <span class="string">'stable'</span>
+1018         [conout,dummy] = evalc(<span class="string">'runamica(X,[],size(X,1),size(X,2), varargin{:})'</span>); <span class="comment">%#ok&lt;NASGU&gt;</span>
+1019     <span class="keyword">case</span> {<span class="string">'stable11'</span>,<span class="string">'stable12'</span>}
+1020         <span class="comment">% resolve the queue auto-detection</span>
+1021         args = hlp_varargin2struct(varargin);
+1022         <span class="keyword">if</span> iscell(args.use_queue)
+1023             startwait = now;
+1024             <span class="keyword">while</span> true
+1025                 fprintf(<span class="string">'Scanning available queues...'</span>);
+1026                 [status,info] = system([<span class="string">'ssh '</span> scheduler <span class="string">' -x &quot;qstat -g c&quot;'</span>]); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+1027                 lines = hlp_split(info,sprintf(<span class="string">'\n'</span>));
+1028                 keys = hlp_split(lines{1},<span class="string">' '</span>);
+1029                 availrow = find(strcmpi(keys,<span class="string">'avail'</span>))-1;
+1030                 lines = lines(3:end);
+1031                 qavail = [];
+1032                 qname = {};
+1033                 qdata = {};
+1034                 <span class="keyword">for</span> l=1:length(lines)
+1035                     line = lines{l};
+1036                     vals = hlp_split(line,<span class="string">' '</span>);
+1037                     qname{l} = vals{1};
+1038                     qavail(l) = str2num(vals{availrow});
+1039                     qdata{l} = [vals{1} <span class="string">':'</span> vals{availrow}];
+1040                 <span class="keyword">end</span>
+1041                 <span class="comment">% our options</span>
+1042                 options = intersect(args.use_queue,qdata);
+1043                 <span class="keyword">if</span> isempty(options)
+1044                     enough = find(qavail&gt;=32);
+1045                     <span class="keyword">if</span> (now - startwait) &gt; 6*3600 &amp;&amp; ~isempty(enough)
+1046                         <span class="comment">% waited for more than a few hours</span>
+1047                         newargs = args;
+1048                         newargs.use_queue = qname{enough(1)};
+1049                         varargin = hlp_struct2varargin(newargs);
+1050                         <span class="keyword">if</span> newargs.numprocs == 0
+1051                             newargs.numprocs = qavail; <span class="keyword">end</span>
+1052                         fprintf(<span class="string">'patience exhausted. Using queue %s (%i processors).\n'</span>,newargs.use_queue,newargs.numprocs);
+1053                         <span class="keyword">break</span>;
+1054                     <span class="keyword">else</span>
+1055                         fprintf(<span class="string">'no available queue found; waiting...\n'</span>);
+1056                         <span class="comment">% wait for 10 minutes...</span>
+1057                         pause(10*60);
+1058                     <span class="keyword">end</span>
+1059                 <span class="keyword">else</span>
+1060                     <span class="comment">% pick a random one</span>
+1061                     pick = options{1+floor(rand*length(options)-eps)};
+1062                     parts = hlp_split(pick,<span class="string">':'</span>);
+1063                     <span class="comment">% rebuild varargin</span>
+1064                     newargs = args;
+1065                     newargs.use_queue = parts{1};
+1066                     <span class="keyword">if</span> newargs.numprocs == 0
+1067                         newargs.numprocs = qavail; <span class="keyword">end</span>
+1068                     varargin = hlp_struct2varargin(newargs);
+1069                     fprintf(<span class="string">'using queue %s (%i processors).\n'</span>,newargs.use_queue,newargs.numprocs);
+1070                     <span class="keyword">break</span>;
+1071                 <span class="keyword">end</span>
+1072             <span class="keyword">end</span>
+1073         <span class="keyword">end</span>
+1074         quicklog(logfile,<span class="string">'=== new attempt/%s: [%i x %i]; numprocs=%i; num_models=%i; outdir=%s'</span>,amica_version,size(X,1),size(X,2),newargs.numprocs,newargs.num_models, newargs.outdir);
+1075         <span class="keyword">if</span> strcmp(amica_version,<span class="string">'stable11'</span>)
+1076             [conout,dummy] = evalc(<span class="string">'runamica11(X,args.outdir,varargin{:})'</span>); <span class="comment">%#ok&lt;NASGU&gt;</span>
+1077         <span class="keyword">else</span>
+1078             [conout,dummy] = evalc(<span class="string">'runamica12(X,args.outdir,varargin{:})'</span>); <span class="comment">%#ok&lt;NASGU&gt;</span>
+1079         <span class="keyword">end</span>
+1080 <span class="keyword">end</span>
+1081 
+1082 <span class="keyword">try</span>
+1083     <span class="comment">% take apart the console output of AMICA to find the qsub id....</span>
+1084     lines = hlp_split(conout,10);
+1085     id = [];
+1086     <span class="keyword">for</span> l = 1:length(lines)
+1087         <span class="keyword">if</span> ~isempty(strfind(lines{l},<span class="string">'qsub id ='</span>))
+1088             parts = hlp_split(lines{l},<span class="string">'='</span>);
+1089             id = strtrim(parts{2});
+1090             <span class="keyword">if</span> isempty(id)
+1091                 error(<span class="string">'Amica could not submit a job to the queue. Please check whether you are on a computer from which you can submit to that queue.'</span>); <span class="keyword">end</span>
+1092             id = str2num(id);
+1093             <span class="keyword">try</span>
+1094                 disp([<span class="string">'current qsub id: '</span> num2str(id)]);
+1095             <span class="keyword">catch</span>,<span class="keyword">end</span>
+1096             <span class="keyword">break</span>;
+1097         <span class="keyword">end</span>
+1098     <span class="keyword">end</span>
+1099     <span class="keyword">if</span> ~id
+1100         error(<span class="string">'didn''t find the qsub id...'</span>); <span class="keyword">end</span>
+1101     <span class="comment">% get the job's outdir</span>
+1102     args = hlp_varargin2struct(varargin);
+1103     clean_function = @()<a href="#_sub3" class="code" title="subfunction delete_job(id,scheduler,outdir)">delete_job</a>(id,scheduler,args.outdir);
+1104     job = {id, onCleanup(clean_function)};
+1105 <span class="keyword">catch</span>
+1106     disp(<span class="string">'couldn''t identify job id, jobs will not be auto-deleted.'</span>);
+1107     job = [];
+1108 <span class="keyword">end</span>
+1109 result = [];
+1110 <span class="comment">% also set a few other things that are associated with a new amica run</span>
+1111 t0 = tic;
+1112 iter_times = [];
+1113 maxiters = 0;
+1114 lastlines = 0;
+1115 job_started = false;
+1116 early_finish = false;
+1117 
+1118 
+1119 
+1120 <span class="comment">% native MATLAB implementation of AMICA</span>
+1121 <a name="_sub2" href="#_subfunctions" class="code">function r = amica_native(pre,variant)</a>
+1122 <span class="keyword">if</span> ~isfield(variant,<span class="string">'do_mean'</span>)
+1123     variant.do_mean = 1; <span class="keyword">end</span>
+1124 <span class="keyword">if</span> ~isfield(variant,<span class="string">'do_sphere'</span>)
+1125     variant.do_sphere = 1; <span class="keyword">end</span>
+1126 [r.W r.A r.c r.LL r.LLt r.mod_prob] = amica10(pre.data, variant.num_models, variant.num_mix_comps, variant.max_iter, variant.do_mean|variant.do_sphere, variant.do_newton);
+1127 <span class="comment">% recompute some missing parameters</span>
+1128 r.S = eye(size(pre.data,1));
+1129 r.v = zeros(size(r.LLt));
+1130 <span class="keyword">for</span> m = 1:size(r.v,1)
+1131     r.v(m,:) = 1./sum(exp(bsxfun(@minus,r.LLt,r.LLt(m,:))),1); <span class="keyword">end</span>
+1132 
+1133 
+1134 
+1135 <span class="comment">% delete a running (or possibly completed) amica job</span>
+1136 <a name="_sub3" href="#_subfunctions" class="code">function delete_job(id,scheduler,outdir)</a>
+1137 <span class="comment">% first delete the job from qsub</span>
+1138 system([<span class="string">'ssh '</span> scheduler <span class="string">' qdel '</span> num2str(id)]);
+1139 <span class="comment">% try to clean up the out.txt file, if the job did not get done...</span>
+1140 job_done = false;
+1141 file_exists = false;
+1142 <span class="keyword">try</span>
+1143     t = fopen([outdir filesep <span class="string">'out.txt'</span>]);
+1144     file_exists = (t ~= -1);
+1145     <span class="keyword">if</span> file_exists
+1146         <span class="keyword">while</span> 1
+1147             line = fgetl(t);
+1148             <span class="keyword">if</span> ~ischar(line)
+1149                 <span class="keyword">break</span>; <span class="keyword">end</span>
+1150             <span class="keyword">if</span> ~isempty(strfind(line,<span class="string">'done.'</span>))
+1151                 job_done = true;
+1152                 <span class="keyword">break</span>;
+1153             <span class="keyword">end</span>
+1154         <span class="keyword">end</span>
+1155         fclose(t);
+1156     <span class="keyword">end</span>
+1157 <span class="keyword">catch</span>
+1158     <span class="keyword">try</span>
+1159         fclose(t);
+1160     <span class="keyword">catch</span>,<span class="keyword">end</span>
+1161 <span class="keyword">end</span>
+1162 
+1163 <span class="keyword">if</span> ~job_done &amp;&amp; file_exists
+1164     <span class="keyword">try</span>
+1165         <span class="keyword">if</span> exist([outdir filesep <span class="string">'out.txt'</span>],<span class="string">'file'</span>)
+1166             delete([outdir filesep <span class="string">'out.txt'</span>]); <span class="keyword">end</span>
+1167         disp(<span class="string">'Deleted out.txt file.'</span>);
+1168     <span class="keyword">catch</span>
+1169         disp(<span class="string">'Could not delete out.txt file.'</span>);
+1170     <span class="keyword">end</span>
+1171 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of hlp_superimposedata</title>
+  <meta name="keywords" content="hlp_superimposedata">
+  <meta name="description" content="Merge multiple partially populated data structures into one fully populated one.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">helpers</a> &gt; hlp_superimposedata.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>hlp_superimposedata
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Merge multiple partially populated data structures into one fully populated one.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function res = hlp_superimposedata(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Merge multiple partially populated data structures into one fully populated one.
+ Result = hlp_superimposedata(Data1, Data2, Data3, ...)
+
+ The function is applicable when you have cell arrays or structs/struct arrays with non-overlapping
+ patterns of non-empty entries, where all entries should be merged into a single data structure
+ which retains their original positions. If entries exist in multiple data structures at the same
+ location, entries of later items will be ignored (i.e. earlier data structures take precedence).
+
+ In:
+   DataK : a data structure that should be super-imposed with the others to form a single data
+           structure
+
+ Out:
+   Result : the resulting data structure
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-08-19</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function A = merge(A,B)</a></li><li><a href="#_sub2" class="code">function C = grow_cell(C,idx)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function res = hlp_superimposedata(varargin)</a>
+0002 <span class="comment">% Merge multiple partially populated data structures into one fully populated one.</span>
+0003 <span class="comment">% Result = hlp_superimposedata(Data1, Data2, Data3, ...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% The function is applicable when you have cell arrays or structs/struct arrays with non-overlapping</span>
+0006 <span class="comment">% patterns of non-empty entries, where all entries should be merged into a single data structure</span>
+0007 <span class="comment">% which retains their original positions. If entries exist in multiple data structures at the same</span>
+0008 <span class="comment">% location, entries of later items will be ignored (i.e. earlier data structures take precedence).</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% In:</span>
+0011 <span class="comment">%   DataK : a data structure that should be super-imposed with the others to form a single data</span>
+0012 <span class="comment">%           structure</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">% Out:</span>
+0015 <span class="comment">%   Result : the resulting data structure</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0018 <span class="comment">%                                2011-08-19</span>
+0019 
+0020 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2011, christian@sccn.ucsd.edu</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0023 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0024 <span class="comment">% License, or (at your option) any later version.</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0027 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0028 <span class="comment">% General Public License for more details.</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0031 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0032 <span class="comment">% USA</span>
+0033 
+0034 <span class="comment">% first, compactify the data by removing the empty items</span>
+0035 compact = varargin(~cellfun(<span class="string">'isempty'</span>,varargin));
+0036 <span class="keyword">if</span> isempty(compact)
+0037     res = [];
+0038 <span class="keyword">else</span>
+0039     <span class="comment">% start with the last data structure, then merge the remaining data structures into it (in reverse</span>
+0040     <span class="comment">% order as this avoids having to grow arrays incrementally in typical cases)</span>
+0041     res = compact{end};
+0042     <span class="keyword">for</span> k=length(compact)-1:-1:1
+0043         res = <a href="#_sub1" class="code" title="subfunction A = merge(A,B)">merge</a>(res,compact{k}); <span class="keyword">end</span>
+0044 <span class="keyword">end</span>
+0045 
+0046 <span class="comment">% merge data structures A and B</span>
+0047 <a name="_sub1" href="#_subfunctions" class="code">function A = merge(A,B)</a>
+0048 
+0049 <span class="keyword">if</span> iscell(A) &amp;&amp; iscell(B)
+0050     <span class="comment">% make sure that both have the same number of dimensions</span>
+0051     <span class="keyword">if</span> ndims(A) &gt; ndims(B)
+0052         B = <a href="#_sub2" class="code" title="subfunction C = grow_cell(C,idx)">grow_cell</a>(B,size(A));
+0053     <span class="keyword">elseif</span> ndims(A) &lt; ndims(B)
+0054         A = <a href="#_sub2" class="code" title="subfunction C = grow_cell(C,idx)">grow_cell</a>(A,size(B));
+0055     <span class="keyword">end</span>
+0056     
+0057     <span class="comment">% make sure that both have the same size</span>
+0058     <span class="keyword">if</span> all(size(B)==size(A))
+0059         <span class="comment">% we're fine</span>
+0060     <span class="keyword">elseif</span> all(size(B)&gt;=size(A))
+0061         <span class="comment">% A is a minor of B: grow A</span>
+0062         A = <a href="#_sub2" class="code" title="subfunction C = grow_cell(C,idx)">grow_cell</a>(A,size(B));
+0063     <span class="keyword">elseif</span> all(size(A)&gt;=size(B))
+0064         <span class="comment">% B is a minor of A: grow B</span>
+0065         B = <a href="#_sub2" class="code" title="subfunction C = grow_cell(C,idx)">grow_cell</a>(B,size(A));
+0066     <span class="keyword">else</span>
+0067         <span class="comment">% A and B have mixed sizes... grow both as necessary</span>
+0068         M = max(size(A),size(B));
+0069         A = <a href="#_sub2" class="code" title="subfunction C = grow_cell(C,idx)">grow_cell</a>(A,M);
+0070         B = <a href="#_sub2" class="code" title="subfunction C = grow_cell(C,idx)">grow_cell</a>(B,M);
+0071     <span class="keyword">end</span>
+0072     
+0073     <span class="comment">% find all non-empty elements in B</span>
+0074     idx = find(~cellfun(@(x)isequal(x,[]),B));
+0075     
+0076     <span class="keyword">if</span> ~isempty(idx)
+0077         <span class="comment">% check if any of these is occupied in A</span>
+0078         clean = cellfun(<span class="string">'isempty'</span>,A(idx));
+0079         <span class="keyword">if</span> ~all(clean)
+0080             <span class="comment">% merge all conflicting items recursively</span>
+0081             conflicts = idx(~clean);
+0082             <span class="keyword">for</span> k=conflicts(:)'
+0083                 A{k} = <a href="#_sub1" class="code" title="subfunction A = merge(A,B)">merge</a>(A{k},B{k}); <span class="keyword">end</span>
+0084             <span class="comment">% and transfer the rest</span>
+0085             <span class="keyword">if</span> any(clean)
+0086                 A(idx(clean)) = B(idx(clean)); <span class="keyword">end</span>
+0087         <span class="keyword">else</span>
+0088             <span class="comment">% transfer all to A</span>
+0089             A(idx) = B(idx);
+0090         <span class="keyword">end</span>
+0091     <span class="keyword">end</span>
+0092 <span class="keyword">elseif</span> isstruct(A) &amp;&amp; isstruct(B)
+0093     <span class="comment">% first make sure that both have the same fields</span>
+0094     fnA = fieldnames(A);
+0095     fnB = fieldnames(B);
+0096     <span class="keyword">if</span> isequal(fnA,fnB)
+0097         <span class="comment">% we're fine</span>
+0098     <span class="keyword">elseif</span> isequal(sort(fnA),sort(fnB))
+0099         <span class="comment">% order doesn't match -- impose A's order on B</span>
+0100         B = orderfields(B,fnA);
+0101     <span class="keyword">elseif</span> isempty(setdiff(fnA,fnB))
+0102         <span class="comment">% B has a superset of A's fields: add the remaining fields to A, and order them according to B</span>
+0103         remaining = setdiff(fnB,fnA);
+0104         <span class="keyword">for</span> fn = remaining'
+0105             A(1).(fn{1}) = []; <span class="keyword">end</span>
+0106         A = orderfields(A,fnB);
+0107     <span class="keyword">elseif</span> isempty(setdiff(fnB,fnA))
+0108         <span class="comment">% A has a superset of B's fields: add the remaining fields to B, and order them according to A</span>
+0109         remaining = setdiff(fnA,fnB);
+0110         <span class="keyword">for</span> fn = remaining'
+0111             B(1).(fn{1}) = []; <span class="keyword">end</span>
+0112         B = orderfields(B,fnA);
+0113     <span class="keyword">else</span>
+0114         <span class="comment">% A and B have incommensurable fields; add B's fields to A's fields, add A's fields to B's</span>
+0115         <span class="comment">% and order according to A's fields</span>
+0116         remainingB = setdiff(fnB,fnA);
+0117         <span class="keyword">for</span> fn = remainingB'
+0118             A(1).(fn{1}) = []; <span class="keyword">end</span>
+0119         remainingA = setdiff(fnA,fnB);
+0120         <span class="keyword">for</span> fn = remainingA'
+0121             B(1).(fn{1}) = []; <span class="keyword">end</span>
+0122         B = orderfields(B,A);
+0123     <span class="keyword">end</span>
+0124     
+0125     <span class="comment">% that being established, convert them to cell arrays, merge their cell arrays, and convert back to structs</span>
+0126     merged = <a href="#_sub1" class="code" title="subfunction A = merge(A,B)">merge</a>(struct2cell(A),struct2cell(B));
+0127     A = cell2struct(merged,fieldnames(A),1);
+0128     
+0129 <span class="keyword">elseif</span> isstruct(A) &amp;&amp; ~isstruct(B)
+0130     <span class="keyword">if</span> ~isempty(B)
+0131         error(<span class="string">'One of the sub-items is a struct, and the other one is of a non-struct type.'</span>);
+0132     <span class="keyword">else</span>
+0133         <span class="comment">% we retain A</span>
+0134     <span class="keyword">end</span>
+0135 <span class="keyword">elseif</span> isstruct(B) &amp;&amp; ~isstruct(A)
+0136     <span class="keyword">if</span> ~isempty(A)
+0137         error(<span class="string">'One of the sub-items is a struct, and the other one is of a non-struct type.'</span>);
+0138     <span class="keyword">else</span>
+0139         <span class="comment">% we retain B</span>
+0140         A = B;
+0141     <span class="keyword">end</span>
+0142 <span class="keyword">elseif</span> iscell(A) &amp;&amp; ~iscell(B)
+0143     <span class="keyword">if</span> ~isempty(B)
+0144         error(<span class="string">'One of the sub-items is a cell array, and the other one is of a non-cell type.'</span>);
+0145     <span class="keyword">else</span>
+0146         <span class="comment">% we retain A</span>
+0147     <span class="keyword">end</span>
+0148 <span class="keyword">elseif</span> iscell(B) &amp;&amp; ~iscell(A)
+0149     <span class="keyword">if</span> ~isempty(A)
+0150         error(<span class="string">'One of the sub-items is a cell array, and the other one is of a non-cell type.'</span>);
+0151     <span class="keyword">else</span>
+0152         <span class="comment">% we retain B</span>
+0153         A = B;
+0154     <span class="keyword">end</span>
+0155 <span class="keyword">elseif</span> isempty(A) &amp;&amp; ~isempty(B)
+0156     <span class="comment">% we retain B</span>
+0157     A = B;
+0158 <span class="keyword">elseif</span> isempty(B) &amp;&amp; ~isempty(A)
+0159     <span class="comment">% we retain A</span>
+0160 <span class="keyword">elseif</span> ~isequal_weak(A,B)
+0161     <span class="comment">% we retain A and warn about dropping B</span>
+0162     warn_once(<span class="string">'Two non-empty (and non-identical) sub-elements occupied the same index; one was dropped. This warning will only be displayed once.'</span>);
+0163 <span class="keyword">end</span>
+0164 
+0165 <span class="comment">% grow a cell array to accomodate a particular index</span>
+0166 <span class="comment">% (assuming that this index is not contained in the cell array yet)</span>
+0167 <a name="_sub2" href="#_subfunctions" class="code">function C = grow_cell(C,idx)</a>
+0168 tmp = sprintf(<span class="string">'%i,'</span>,idx);
+0169 eval([<span class="string">'C{'</span> tmp(1:end-1) <span class="string">'} = [];'</span>]);</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_add_online</title>
+  <meta name="keywords" content="utl_add_online">
+  <meta name="description" content="Internal. Post-step for exp_beginfun, adding an online expression to a dataset.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_add_online.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_add_online
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Internal. Post-step for exp_beginfun, adding an online expression to a dataset.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function context = utl_add_online(context) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Internal. Post-step for exp_beginfun, adding an online expression to a dataset.
+
+ This is a poststep (i.e. calculation that runs at the time of the exp_endfun call) to insert a
+ .tracking.online_expression field into the data set that is returned by a filter stage; the
+ online_expression is the one that will be evaluated online per chunk to realize this filter stage.
+
+ This is the function that handles the 'set_online' and 'append_online' attributes.
+
+ See also:
+   exp_beginfun, exp_endfun, <a href="utl_complete_model.html" class="code" title="function model = utl_complete_model(model,func,bundle)">utl_complete_model</a></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_same.html" class="code" title="function r = utl_same(a,b)">utl_same</a>	Check whether two expressions are structurally identical.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function context = utl_add_online(context)</a>
+0002 <span class="comment">% Internal. Post-step for exp_beginfun, adding an online expression to a dataset.</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% This is a poststep (i.e. calculation that runs at the time of the exp_endfun call) to insert a</span>
+0005 <span class="comment">% .tracking.online_expression field into the data set that is returned by a filter stage; the</span>
+0006 <span class="comment">% online_expression is the one that will be evaluated online per chunk to realize this filter stage.</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% This is the function that handles the 'set_online' and 'append_online' attributes.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% See also:</span>
+0011 <span class="comment">%   exp_beginfun, exp_endfun, utl_complete_model</span>
+0012 
+0013 <span class="comment">% the mode is determined by the setting used in exp_beginfun and/or custom arguments to exp_endfun</span>
+0014 <span class="comment">% (such as 'set_online'/'append_online')</span>
+0015 mode = context.opts.set_online;
+0016 
+0017 <span class="keyword">if</span> strcmp(mode,<span class="string">'passthrough'</span>)
+0018     
+0019     <span class="comment">% the function shall be skipped online: we effectively set as this online expression one of our</span>
+0020     <span class="comment">% input signal's online expressions (the data sets among the filter arrguments are here viewed</span>
+0021     <span class="comment">% as the input 'signals' during online operations). This is the default for the 'editing' setting</span>
+0022     <span class="comment">% in exp_begindef.</span>
+0023     online_expressions = {};
+0024     <span class="keyword">for</span> k=1:length(context.expression_posteval.parts)
+0025         exp = context.expression_posteval.parts{k};
+0026         <span class="keyword">if</span> is_impure_expression(exp) &amp;&amp; isfield(exp.tracking,<span class="string">'online_expression'</span>)
+0027             online_expressions{end+1} = exp.tracking.online_expression; <span class="keyword">end</span> <span class="comment">%#ok&lt;AGROW&gt;</span>
+0028     <span class="keyword">end</span>
+0029     
+0030     <span class="keyword">if</span> isempty(online_expressions)
+0031         <span class="comment">% there must be at least one signal among the inputs</span>
+0032         final_expression = struct(<span class="string">'head'</span>,@error,<span class="string">'parts'</span>,{{<span class="string">'BCILAB:exp_beginfun:no_skip'</span>,<span class="string">'This stage cannot be skipped online, since it does have not any input signal.'</span>}});
+0033     <span class="keyword">elseif</span> length(online_expressions) &gt; 1 &amp;&amp; ~all(cellfun(@(e)<a href="utl_same.html" class="code" title="function r = utl_same(a,b)">utl_same</a>(e,online_expressions{1}), online_expressions(2:end)))
+0034         <span class="comment">% and if there are multiple input signals, they must all be the same</span>
+0035         final_expression = struct(<span class="string">'head'</span>,@error,<span class="string">'parts'</span>,{{<span class="string">'BCILAB:exp_beginfun:no_skip'</span>,<span class="string">'This stage cannot be skipped online, since it has multiple different input signals.'</span>}});
+0036     <span class="keyword">else</span>
+0037         final_expression = online_expressions{1};
+0038     <span class="keyword">end</span>
+0039         
+0040     <span class="keyword">if</span> ~isempty(context.opts.append_online)
+0041         error(<span class="string">'BCILAB:exp_beginfun:cannot_append'</span>,<span class="string">'You cannot append expressions to a filter that has been declared as ''editing'' (i.e. skipped). However, you can replace the entire expression for it by what you like to invoke online using the ''set_online'' attribute.'</span>); <span class="keyword">end</span>
+0042     
+0043 <span class="keyword">elseif</span> strcmp(mode,<span class="string">'inapplicable'</span>)
+0044 
+0045     <span class="comment">% Generate an error when used online. This is the default for the 'offline' setting in exp_begindef.</span>
+0046     final_expression = struct(<span class="string">'head'</span>,@error,<span class="string">'parts'</span>,{{<span class="string">'BCILAB:exp_beginfun:no_online'</span>,<span class="string">'This function cannot be run online.'</span>}});
+0047     
+0048 <span class="keyword">else</span>    
+0049     <span class="comment">% reproduce the original expression</span>
+0050     
+0051     <span class="keyword">if</span> strcmp(mode,<span class="string">'reproduce'</span>)
+0052         <span class="comment">% take the original expression directly as the online expression (this is the default for</span>
+0053         <span class="comment">% 'filter' expressions, as specified in exp_settings)</span>
+0054         final_expression = context.expression_posteval;
+0055     <span class="keyword">elseif</span> isfield(mode,{<span class="string">'head'</span>,<span class="string">'parts'</span>})
+0056         <span class="comment">% completely replace the original expression by the set_online attribute</span>
+0057         final_expression = mode;
+0058     <span class="keyword">elseif</span> iscell(mode)
+0059         <span class="comment">% leave the function the same and override only the arguments (parts) by by the set_online</span>
+0060         <span class="comment">% attribute</span>
+0061         final_expression = context.expression_posteval;
+0062         final_expression.parts = mode;
+0063     <span class="keyword">elseif</span> isa(mode,<span class="string">'function_handle'</span>)
+0064         <span class="comment">% the given expression is just a function handle (i.e. a symbol)</span>
+0065         final_expression = mode;
+0066     <span class="keyword">else</span>
+0067         <span class="comment">% unknown format</span>
+0068         error(<span class="string">'Unsupported ''set_online'' format.'</span>);
+0069     <span class="keyword">end</span>
+0070 
+0071     <span class="comment">% append additional parameters, if requested</span>
+0072     <span class="keyword">if</span> ~isempty(context.opts.append_online)
+0073         <span class="keyword">if</span> iscell(context.opts.append_online)
+0074             final_expression.parts = [final_expression.parts context.opts.append_online];
+0075         <span class="keyword">else</span>
+0076             error(<span class="string">'The append_online attribute must be set to a cell array of parameters...'</span>);
+0077         <span class="keyword">end</span>
+0078     <span class="keyword">end</span>
+0079     
+0080     <span class="comment">% the function will participate in online processing; we take the original expression (with</span>
+0081     <span class="comment">% evaluated inputs) as the reproducing online expression</span>
+0082     <span class="keyword">if</span> length(context.outargs) &gt; 1 &amp;&amp; isfield(context.ws_output_post,context.outargs{2})
+0083         <span class="comment">% if a second output is present and assigned, we treat it as a state output, and include it</span>
+0084         <span class="comment">% in the final expression this will be picked up by the online system</span>
+0085         final_expression.state = context.ws_output_post.(context.outargs{2}); 
+0086         
+0087         <span class="comment">% also, generally append 'state',state to the expression - for proper cross-validation behavior</span>
+0088         final_expression.parts = [final_expression.parts {<span class="string">'state'</span> final_expression.state}];
+0089     <span class="keyword">end</span>
+0090     
+0091     <span class="comment">% for all sub-arguments that have an online expression (i.e. data sets / signals), substitute</span>
+0092     <span class="comment">% their expression into the big online expression</span>
+0093     <span class="keyword">if</span> isfield(final_expression,<span class="string">'parts'</span>)
+0094         <span class="comment">% this field lets us keep track of the window length expected from each respective input expression</span>
+0095         final_expression.subrequests = [];
+0096         <span class="keyword">for</span> k=1:length(final_expression.parts)
+0097             exp = final_expression.parts{k};
+0098             <span class="keyword">if</span> isfield(exp,<span class="string">'tracking'</span>) &amp;&amp; isfield(exp.tracking,<span class="string">'online_expression'</span>)
+0099                 <span class="keyword">if</span> size(exp.data,3) &gt; 1
+0100                     <span class="comment">% if this is epoched data, we record the window length expected from that stage</span>
+0101                     final_expression.subrequests(end+1) = size(exp.data,2);
+0102                 <span class="keyword">else</span>
+0103                     <span class="comment">% if it is continuous data, we leave it open for later</span>
+0104                     final_expression.subrequests(end+1) = NaN;
+0105                 <span class="keyword">end</span>
+0106                 final_expression.parts{k} = exp.tracking.online_expression;
+0107             <span class="keyword">elseif</span> all(isfield(exp,{<span class="string">'head'</span>,<span class="string">'parts'</span>})) &amp;&amp; ~strcmp(char(exp.head),<span class="string">'rawdata'</span>)
+0108                 warning(<span class="string">'BCILAB:utl_add_online:potential_issue'</span>,<span class="string">'Note: the online expression for this filter depends on an unevaluated term, so that term''s the output sample count is not available. It will be assumed that this is not a rate-chaning epoch-based filter.'</span>);
+0109                 disp([<span class="string">'The term in question is: '</span> exp_fullform(exp)]);
+0110                 final_expression.subrequests(end+1) = NaN;
+0111             <span class="keyword">end</span>
+0112         <span class="keyword">end</span>
+0113     <span class="keyword">end</span>
+0114     
+0115     <span class="comment">% last but not least, append an arg_direct,1 to the final expression</span>
+0116     final_expression.parts{end+1} = struct(<span class="string">'arg_direct'</span>,{1});
+0117 <span class="keyword">end</span>
+0118 
+0119 
+0120 <span class="comment">% assign the expression to the .tracking.online_expression field of the first output (-to-be)</span>
+0121 <span class="keyword">if</span> isfield(context.ws_output_post.(context.outargs{1}),<span class="string">'tracking'</span>)
+0122     context.ws_output_post.(context.outargs{1}).tracking.online_expression = final_expression; <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

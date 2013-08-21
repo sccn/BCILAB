@@ -1,0 +1,994 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ml_trainproximal</title>
+  <meta name="keywords" content="ml_trainproximal">
+  <meta name="description" content="Learn a linear probabilistic model proximal splitting methods.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">machine_learning</a> &gt; ml_trainproximal.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/machine_learning&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ml_trainproximal
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Learn a linear probabilistic model proximal splitting methods.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function model = ml_trainproximal(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Learn a linear probabilistic model proximal splitting methods.
+ Model = ml_trainproximal(Trials, Targets, Lambdas, Options...)
+
+ This function allows to implement linear or logistic regression using a variety of regularization
+ terms and combinations thereof using proximal splitting [1].
+
+ In:
+   Trials       : training data matrix, as in ml_train
+
+   Targets      : 1d target variable vector, as in ml_train
+
+   LossType     : loss function to be used,
+                  'logistic' for classification (default)
+                  'squared' for regression
+                  'hyperbolic-secant' special-purpose for super-Gaussian estimation
+
+   Regularizers : Definition of the regularization terms. Any combination of terms is permitted.
+
+
+   Options  : optional name-value parameters to control the training details:
+
+               'regweights' : Weights of the regularizers. This is a vector of (relative) regularization
+                              parameters. If [] set to 1/N for N regularizers. (default: [])
+                              Can also be a cell array of (normalized) weight vectors; in this case 
+                              it it simultaneously optimized together with the lambdas.
+
+               'solverOptions' : cell array of name-value pairs to control how the outer ADMM solver
+                                 behaves
+
+                    'abs_tol' : Absolute tolerance criterion. (default: 10e-4)
+
+                    'rel_tol' : Relative tolerance criterion. (default: 10e-3)
+
+                    'maxit' : Maximum number of iterations. (default: 1000)
+
+                    'rho' : Initial coupling parameter. For proximal algorithms this is the coupling strength
+                            between the terms between updates. Increasing this can improve the convergence
+                            speed but too strong values can prevent any convergence. (default: 1)
+
+                    'rho_update' : Update Rho. Whether to update rho dynamically according to 3.4.1 in [2].
+                                   Note, this can sometimes cause r_norm, s_norm to &quot;blow up&quot;. (default: true)
+
+                    'rho_cutoff' : Rho update threshold. (default: 10)
+
+                    'rho_incr' : Rho update increment factor. (default: 2)
+
+                    'rho_decr' : Rho update decrement factor. (default: 2)
+
+               'lbfgsOptions' : cell array of name-value pairs to control how the inner LFBGS solver
+                                behaves
+
+                    'm' : LBFGS history length. The number of corrections to approximate the inverse
+                          hessian matrix. (default: 6)
+
+                    'epsilon' : Tolerance criterion.  A minimization terminates when ||g|| &lt; epsilon*max(1,||x||).
+                                (default: 1e-3)
+
+                    'past' : Distance for delta-based convergence test. (default: 0)
+
+                    'delta' : Delta for convergence test. (default: 1e-5)
+
+                    'MaxIter' : Maximum number of iterations. (default: 10)
+
+                    'linesearch' : The line search algorithm. Can be any of the following:
+                                   {'more_thuente','backtracking_armijo','backtracking_wolfe','backtracking_strong_wolfe'}
+                                   (default: more_thuente)
+
+                    'max_linesearch' : Maximum number of trials for the line search. (default: 40)
+
+                    'min_step' : Minimum step of the line search. (default: 1e-20)
+
+                    'max_step': Maximum step of the line search routine. (default: 1e20)
+
+                    'ftol' : Line search tolerance F. A parameter to control the accuracy of the
+                             line search routine. (default: 1e-4)
+
+                    'wolfe' : Coefficient for the Wolfe condition. (default: 0.9)
+
+                    'gtol' : Line search tolerance G. A parameter to control the accuracy of the
+                             line search routine. (default: 0.9)
+
+                    'xtol' : Machine precision for floating-point values. (default: 1e-16)
+
+                    'DerivativeCheck' : Derivative check using finite differences. (default: 'off')
+
+                    'Display' : Options for displaying progress. (default: 'none')
+
+               'lambdaSearch' : cell array of name-value pairs governing the regularization path search
+
+                   'lambdas' : Regulariation parameters. Controls the sparsity/simplicity of the result.
+                               Typically, this is an interval to scan. (default: 2.^(3:-0.25:-5))
+
+                   'nfolds' : Cross-validation folds. The cross-validation is used to determine the best
+                              regularization parameter value (default: 5)
+
+                   'foldmargin' : Margin (in trials) between folds. This is the number of trials omitted
+                                  between training and test sets. (default: 5)
+
+                   'cvmetric' : metric to use for parameter optimization; can be any of those supported by
+                                ml_calcloss. In particular, 'auc' is a good idea if the classification
+                                task is between highly imbalanced classes. (default: '' = auto-determine)
+
+                   'return_regpath' : Return the entire regularization path. If false, only the best model will
+                                      be returned. (default: true)
+
+
+               'scaling': pre-scaling of the data (see hlp_findscaling for options) (default: 'std')
+
+               'includebias': whether to include a bias param (default: true)
+
+               'verbosity': verbosity level, 0-3 (0=no output)
+
+ Out:
+   Models   : a predictive model
+
+ Examples:
+
+ Notes:
+   When linear operators and shapes are given as string expressions the variables a to h can be used as short-hands
+   to refer to the number of array elements along respective dimension.
+
+ See also:
+   <a href="ml_predictproximal.html" class="code" title="function pred = ml_predictproximal(trials,model)">ml_predictproximal</a>
+
+ References:
+  [1] Patrick L. Combettes &amp; Jean-Christophe Pesquet, &quot;Proximal Splitting Methods in Signal Processing&quot;,
+      in Fixed-Point Algorithms for Inverse Problems in Science and Engineering, Springer Optimization and Its Applications
+      pp. 185-212, 2011
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2013-02-04</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ml_calcloss.html" class="code" title="function [measure,stats] = ml_calcloss(type,T,P)">ml_calcloss</a>	Calculate the loss for a set of predictions, given knowledge about the target values.</li><li><a href="ml_predictproximal.html" class="code" title="function pred = ml_predictproximal(trials,model)">ml_predictproximal</a>	Prediction function for the proximal framework.</li><li><a href="ml_trainproximal.html" class="code" title="function model = ml_trainproximal(varargin)">ml_trainproximal</a>	Learn a linear probabilistic model proximal splitting methods.</li><li><a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>	Internal meta-algorithm for voting. Used by other machine learning functions.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ml_trainproximal.html" class="code" title="function model = ml_trainproximal(varargin)">ml_trainproximal</a>	Learn a linear probabilistic model proximal splitting methods.</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function [regpath,fullhist] = solve_regularization_path(A,y,lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizersArg,regweights,featureshape)</a></li><li><a href="#_sub2" class="code">function [val,grad] = obj_proxlogistic(x,C,Cp,z,gamma,m)</a></li><li><a href="#_sub3" class="code">function x = prox_logistic(C,Cp,z,gamma,x0,m,args)</a></li><li><a href="#_sub4" class="code">function obj = obj_logistic(C,x,m)</a></li><li><a href="#_sub5" class="code">function x = prox_squared_factored(A,Atb,L,U,rho,z,u,m,n)</a></li><li><a href="#_sub6" class="code">function x = prox_squared_iter(A,b,rho,z,u,n,x0)</a></li><li><a href="#_sub7" class="code">function obj = obj_squared(A,b,x)</a></li><li><a href="#_sub8" class="code">function x = prox_l1_simple(z, gamma)</a></li><li><a href="#_sub9" class="code">function x = prox_l12_simple(z, gamma, shape)</a></li><li><a href="#_sub10" class="code">function x = prox_l2_simple(z, gamma)</a></li><li><a href="#_sub11" class="code">function x = prox_l1inf_simple(z, gamma, shape)</a></li><li><a href="#_sub12" class="code">function x = prox_nuclear_simple(z, gamma, shape)</a></li><li><a href="#_sub13" class="code">function n = norm_l12_simple(z, shape)</a></li><li><a href="#_sub14" class="code">function n = norm_l1inf_simple(z, shape)</a></li><li><a href="#_sub15" class="code">function n = norm_nuclear_simple(z, shape)</a></li><li><a href="#_sub16" class="code">function [val,grad] = obj_proxhs(x,b,z,gamma)</a></li><li><a href="#_sub17" class="code">function x = prox_hs(b,z,gamma,x0,args)</a></li><li><a href="#_sub18" class="code">function obj = obj_hs(x,b)</a></li><li><a href="#_sub19" class="code">function [L,U] = factor(A, rho)</a></li><li><a href="#_sub20" class="code">function M = operator_to_matrix(op,n)</a></li><li><a href="#_sub21" class="code">function M = operator_to_matrix_cached(op,n)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function model = ml_trainproximal(varargin)</a>
+0002 <span class="comment">% Learn a linear probabilistic model proximal splitting methods.</span>
+0003 <span class="comment">% Model = ml_trainproximal(Trials, Targets, Lambdas, Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This function allows to implement linear or logistic regression using a variety of regularization</span>
+0006 <span class="comment">% terms and combinations thereof using proximal splitting [1].</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% In:</span>
+0009 <span class="comment">%   Trials       : training data matrix, as in ml_train</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">%   Targets      : 1d target variable vector, as in ml_train</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">%   LossType     : loss function to be used,</span>
+0014 <span class="comment">%                  'logistic' for classification (default)</span>
+0015 <span class="comment">%                  'squared' for regression</span>
+0016 <span class="comment">%                  'hyperbolic-secant' special-purpose for super-Gaussian estimation</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   Regularizers : Definition of the regularization terms. Any combination of terms is permitted.</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   Options  : optional name-value parameters to control the training details:</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%               'regweights' : Weights of the regularizers. This is a vector of (relative) regularization</span>
+0024 <span class="comment">%                              parameters. If [] set to 1/N for N regularizers. (default: [])</span>
+0025 <span class="comment">%                              Can also be a cell array of (normalized) weight vectors; in this case</span>
+0026 <span class="comment">%                              it it simultaneously optimized together with the lambdas.</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">%               'solverOptions' : cell array of name-value pairs to control how the outer ADMM solver</span>
+0029 <span class="comment">%                                 behaves</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%                    'abs_tol' : Absolute tolerance criterion. (default: 10e-4)</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%                    'rel_tol' : Relative tolerance criterion. (default: 10e-3)</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%                    'maxit' : Maximum number of iterations. (default: 1000)</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%                    'rho' : Initial coupling parameter. For proximal algorithms this is the coupling strength</span>
+0038 <span class="comment">%                            between the terms between updates. Increasing this can improve the convergence</span>
+0039 <span class="comment">%                            speed but too strong values can prevent any convergence. (default: 1)</span>
+0040 <span class="comment">%</span>
+0041 <span class="comment">%                    'rho_update' : Update Rho. Whether to update rho dynamically according to 3.4.1 in [2].</span>
+0042 <span class="comment">%                                   Note, this can sometimes cause r_norm, s_norm to &quot;blow up&quot;. (default: true)</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">%                    'rho_cutoff' : Rho update threshold. (default: 10)</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">%                    'rho_incr' : Rho update increment factor. (default: 2)</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">%                    'rho_decr' : Rho update decrement factor. (default: 2)</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">%               'lbfgsOptions' : cell array of name-value pairs to control how the inner LFBGS solver</span>
+0051 <span class="comment">%                                behaves</span>
+0052 <span class="comment">%</span>
+0053 <span class="comment">%                    'm' : LBFGS history length. The number of corrections to approximate the inverse</span>
+0054 <span class="comment">%                          hessian matrix. (default: 6)</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">%                    'epsilon' : Tolerance criterion.  A minimization terminates when ||g|| &lt; epsilon*max(1,||x||).</span>
+0057 <span class="comment">%                                (default: 1e-3)</span>
+0058 <span class="comment">%</span>
+0059 <span class="comment">%                    'past' : Distance for delta-based convergence test. (default: 0)</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">%                    'delta' : Delta for convergence test. (default: 1e-5)</span>
+0062 <span class="comment">%</span>
+0063 <span class="comment">%                    'MaxIter' : Maximum number of iterations. (default: 10)</span>
+0064 <span class="comment">%</span>
+0065 <span class="comment">%                    'linesearch' : The line search algorithm. Can be any of the following:</span>
+0066 <span class="comment">%                                   {'more_thuente','backtracking_armijo','backtracking_wolfe','backtracking_strong_wolfe'}</span>
+0067 <span class="comment">%                                   (default: more_thuente)</span>
+0068 <span class="comment">%</span>
+0069 <span class="comment">%                    'max_linesearch' : Maximum number of trials for the line search. (default: 40)</span>
+0070 <span class="comment">%</span>
+0071 <span class="comment">%                    'min_step' : Minimum step of the line search. (default: 1e-20)</span>
+0072 <span class="comment">%</span>
+0073 <span class="comment">%                    'max_step': Maximum step of the line search routine. (default: 1e20)</span>
+0074 <span class="comment">%</span>
+0075 <span class="comment">%                    'ftol' : Line search tolerance F. A parameter to control the accuracy of the</span>
+0076 <span class="comment">%                             line search routine. (default: 1e-4)</span>
+0077 <span class="comment">%</span>
+0078 <span class="comment">%                    'wolfe' : Coefficient for the Wolfe condition. (default: 0.9)</span>
+0079 <span class="comment">%</span>
+0080 <span class="comment">%                    'gtol' : Line search tolerance G. A parameter to control the accuracy of the</span>
+0081 <span class="comment">%                             line search routine. (default: 0.9)</span>
+0082 <span class="comment">%</span>
+0083 <span class="comment">%                    'xtol' : Machine precision for floating-point values. (default: 1e-16)</span>
+0084 <span class="comment">%</span>
+0085 <span class="comment">%                    'DerivativeCheck' : Derivative check using finite differences. (default: 'off')</span>
+0086 <span class="comment">%</span>
+0087 <span class="comment">%                    'Display' : Options for displaying progress. (default: 'none')</span>
+0088 <span class="comment">%</span>
+0089 <span class="comment">%               'lambdaSearch' : cell array of name-value pairs governing the regularization path search</span>
+0090 <span class="comment">%</span>
+0091 <span class="comment">%                   'lambdas' : Regulariation parameters. Controls the sparsity/simplicity of the result.</span>
+0092 <span class="comment">%                               Typically, this is an interval to scan. (default: 2.^(3:-0.25:-5))</span>
+0093 <span class="comment">%</span>
+0094 <span class="comment">%                   'nfolds' : Cross-validation folds. The cross-validation is used to determine the best</span>
+0095 <span class="comment">%                              regularization parameter value (default: 5)</span>
+0096 <span class="comment">%</span>
+0097 <span class="comment">%                   'foldmargin' : Margin (in trials) between folds. This is the number of trials omitted</span>
+0098 <span class="comment">%                                  between training and test sets. (default: 5)</span>
+0099 <span class="comment">%</span>
+0100 <span class="comment">%                   'cvmetric' : metric to use for parameter optimization; can be any of those supported by</span>
+0101 <span class="comment">%                                ml_calcloss. In particular, 'auc' is a good idea if the classification</span>
+0102 <span class="comment">%                                task is between highly imbalanced classes. (default: '' = auto-determine)</span>
+0103 <span class="comment">%</span>
+0104 <span class="comment">%                   'return_regpath' : Return the entire regularization path. If false, only the best model will</span>
+0105 <span class="comment">%                                      be returned. (default: true)</span>
+0106 <span class="comment">%</span>
+0107 <span class="comment">%</span>
+0108 <span class="comment">%               'scaling': pre-scaling of the data (see hlp_findscaling for options) (default: 'std')</span>
+0109 <span class="comment">%</span>
+0110 <span class="comment">%               'includebias': whether to include a bias param (default: true)</span>
+0111 <span class="comment">%</span>
+0112 <span class="comment">%               'verbosity': verbosity level, 0-3 (0=no output)</span>
+0113 <span class="comment">%</span>
+0114 <span class="comment">% Out:</span>
+0115 <span class="comment">%   Models   : a predictive model</span>
+0116 <span class="comment">%</span>
+0117 <span class="comment">% Examples:</span>
+0118 <span class="comment">%</span>
+0119 <span class="comment">% Notes:</span>
+0120 <span class="comment">%   When linear operators and shapes are given as string expressions the variables a to h can be used as short-hands</span>
+0121 <span class="comment">%   to refer to the number of array elements along respective dimension.</span>
+0122 <span class="comment">%</span>
+0123 <span class="comment">% See also:</span>
+0124 <span class="comment">%   ml_predictproximal</span>
+0125 <span class="comment">%</span>
+0126 <span class="comment">% References:</span>
+0127 <span class="comment">%  [1] Patrick L. Combettes &amp; Jean-Christophe Pesquet, &quot;Proximal Splitting Methods in Signal Processing&quot;,</span>
+0128 <span class="comment">%      in Fixed-Point Algorithms for Inverse Problems in Science and Engineering, Springer Optimization and Its Applications</span>
+0129 <span class="comment">%      pp. 185-212, 2011</span>
+0130 <span class="comment">%</span>
+0131 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0132 <span class="comment">%                                2013-02-04</span>
+0133 
+0134 <span class="comment">% definition of regularization terms</span>
+0135 regularizer_params = @(name) arg_subswitch({lower(name),name},{<span class="string">'none'</span>},{ <span class="keyword">...</span>
+0136     <span class="string">'none'</span>, {}, <span class="keyword">...</span>
+0137     <span class="string">'l1'</span>, { <span class="keyword">...</span>
+0138     arg({<span class="string">'A'</span>,<span class="string">'LinearOperator'</span>},<span class="string">'@(x)x'</span>,[],<span class="string">'Linear transform. The norm applies to the linearly transformed feature vector. Either an expression that is evaluated in the workspace or a function handle.'</span>), <span class="keyword">...</span>
+0139     arg({<span class="string">'weights'</span>,<span class="string">'FeatureWeights'</span>},[],[],<span class="string">'Weights on the features. Allows for a reweighted the norm (e.g., to impose certain types of priors).'</span>), <span class="keyword">...</span>
+0140     }, <span class="keyword">...</span>
+0141     <span class="string">'l2'</span>, { <span class="keyword">...</span>
+0142     arg({<span class="string">'A'</span>,<span class="string">'LinearOperator'</span>},<span class="string">'@(x)x'</span>,[],<span class="string">'Linear transform. The norm applies to the linearly transformed feature vector. Either an expression that is evaluated in the workspace or a function handle.'</span>), <span class="keyword">...</span>
+0143     arg({<span class="string">'nonorthogonal_transform'</span>,<span class="string">'NonorthogonalTransform'</span>},false,[],<span class="string">'Linear operator is non-orthogonal. In this case an iterative method will be used that is faster and numerically more robust than letting ADMM do it.'</span>), <span class="keyword">...</span>
+0144     arg({<span class="string">'y'</span>,<span class="string">'TargetValues'</span>},[],[],<span class="string">'Recenter the norm around target values. This allows for regression problems as side assumptions.'</span>), <span class="keyword">...</span>
+0145     arg({<span class="string">'weights'</span>,<span class="string">'FeatureWeights'</span>},[],[],<span class="string">'Weights on the features. Allows for a reweighted norm (e.g., to impose certain types of priors).'</span>), <span class="keyword">...</span>
+0146     }, <span class="keyword">...</span>
+0147     <span class="string">'l1/l2'</span>, { <span class="keyword">...</span>
+0148     arg({<span class="string">'A'</span>,<span class="string">'LinearOperator'</span>},<span class="string">'@(x)x'</span>,[],<span class="string">'Linear transform. The norm applies to the linearly transformed feature vector. Either an expression that is evaluated in the workspace or a function handle.'</span>), <span class="keyword">...</span>
+0149     arg({<span class="string">'g_d'</span>,<span class="string">'GroupIndices'</span>},[],[],<span class="string">'Feature group indices. This is a vector of indices that form the support of all groups; can also be a matrix. If empty, this defaults to columnwise sparsity.'</span>), <span class="keyword">...</span>
+0150     arg({<span class="string">'g_t'</span>,<span class="string">'GroupSizes'</span>},[],[],<span class="string">'Feature group sizes. This is a vector of successive range lengths on the indices.'</span>), <span class="keyword">...</span>
+0151     arg({<span class="string">'weights'</span>,<span class="string">'FeatureWeights'</span>},[],[],<span class="string">'Weights on the features. Allows for a reweighted norm (e.g., to impose certain types of priors).'</span>), <span class="keyword">...</span>
+0152     arg({<span class="string">'weights1'</span>,<span class="string">'GroupWeights'</span>},[],[],<span class="string">'Weights on the groups. Allows for a reweighted the norm (e.g., to impose certain types of priors).'</span>) <span class="keyword">...</span>
+0153     }, <span class="keyword">...</span>
+0154     <span class="string">'l1/linf'</span>, { <span class="keyword">...</span>
+0155     arg({<span class="string">'A'</span>,<span class="string">'LinearOperator'</span>},<span class="string">'@(x)x'</span>,[],<span class="string">'Linear transform. The norm applies to the linearly transformed feature vector. Either an expression that is evaluated in the workspace or a function handle.'</span>), <span class="keyword">...</span>
+0156     arg({<span class="string">'g_d'</span>,<span class="string">'GroupIndices'</span>},[],[],<span class="string">'Feature group indices. This is a vector of indices that form the support of all groups; can also be a matrix. If empty, this defaults to columnwise sparsity.'</span>), <span class="keyword">...</span>
+0157     arg({<span class="string">'g_t'</span>,<span class="string">'GroupSizes'</span>},[],[],<span class="string">'Feature group sizes. This is a vector of successive range lengths on the indices.'</span>), <span class="keyword">...</span>
+0158     arg({<span class="string">'weights'</span>,<span class="string">'FeatureWeights'</span>},[],[],<span class="string">'Weights on the features. Allows for a reweighted norm (e.g., to impose certain types of priors).'</span>), <span class="keyword">...</span>
+0159     arg({<span class="string">'weights1'</span>,<span class="string">'GroupWeights'</span>},[],[],<span class="string">'Weights on the groups. Allows for a reweighted the norm (e.g., to impose certain types of priors).'</span>) <span class="keyword">...</span>
+0160     }, <span class="keyword">...</span>
+0161     <span class="string">'tv2d'</span>, { <span class="keyword">...</span>
+0162     arg({<span class="string">'A'</span>,<span class="string">'LinearOperator'</span>},<span class="string">'@(x)x'</span>,[],<span class="string">'Linear transform. The norm applies to the linearly transformed feature vector. Either an expression that is evaluated in the workspace or a function handle.'</span>), <span class="keyword">...</span>
+0163     arg({<span class="string">'shape'</span>,<span class="string">'Shape'</span>},<span class="string">''</span>,[],<span class="string">'Final feature shape. Allows to reshape the linearly transformed features into a matrix to apply matrix norms. If empty defaults to the shape of the original features.'</span>), <span class="keyword">...</span>
+0164     arg({<span class="string">'useGPU'</span>,<span class="string">'UseGPU'</span>},false,[],<span class="string">'Use GPU acceleration. This is experimental and requires that UnLocBox is started with GPU support enabled.'</span>), <span class="keyword">...</span>
+0165     }, <span class="keyword">...</span>
+0166     <span class="string">'tv3d'</span>, { <span class="keyword">...</span>
+0167     arg({<span class="string">'A'</span>,<span class="string">'LinearOperator'</span>},<span class="string">'@(x)x'</span>,[],<span class="string">'Linear transform. The norm applies to the linearly transformed feature vector. Either an expression that is evaluated in the workspace or a function handle.'</span>), <span class="keyword">...</span>
+0168     arg({<span class="string">'shape'</span>,<span class="string">'Shape'</span>},<span class="string">''</span>,[],<span class="string">'Final feature shape. Allows to reshape the linearly transformed features into a matrix to apply matrix norms. If empty defaults to the shape of the original features.'</span>), <span class="keyword">...</span>
+0169     arg({<span class="string">'useGPU'</span>,<span class="string">'UseGPU'</span>},false,[],<span class="string">'Use GPU acceleration. This is experimental and requires that UnLocBox is started with GPU support enabled.'</span>), <span class="keyword">...</span>
+0170     }, <span class="keyword">...</span>
+0171     <span class="string">'trace'</span>, { <span class="keyword">...</span>
+0172     arg({<span class="string">'A'</span>,<span class="string">'LinearOperator'</span>},<span class="string">'@(x)x'</span>,[],<span class="string">'Linear transform. The norm applies to the linearly transformed feature vector. Either an expression that is evaluated in the workspace or a function handle.'</span>), <span class="keyword">...</span>
+0173     arg({<span class="string">'shape'</span>,<span class="string">'Shape'</span>},<span class="string">''</span>,[],<span class="string">'Final feature shape. Allows to reshape the linearly transformed features into a matrix to apply matrix norms. If empty defaults to the shape of the original features.'</span>), <span class="keyword">...</span>
+0174     }}, <span class="string">'Regularization param. Defines a param in the optimization problem; multiple types are supported and can be mixed freely.'</span>);
+0175 
+0176 arg_define([0 2],varargin, <span class="keyword">...</span>
+0177     arg_norep(<span class="string">'trials'</span>), <span class="keyword">...</span>
+0178     arg_norep(<span class="string">'targets'</span>), <span class="keyword">...</span>
+0179     arg({<span class="string">'loss'</span>,<span class="string">'LossType'</span>}, <span class="string">'logistic'</span>, {<span class="string">'logistic'</span>,<span class="string">'squared'</span>}, <span class="string">'Loss function to be used. The logistic loss is suited for classification problems, whereas the squared loss is suited for regression problems.'</span>), <span class="keyword">...</span>
+0180     arg_sub({<span class="string">'regularizers'</span>,<span class="string">'Regularizers'</span>},{},{ <span class="keyword">...</span>
+0181         regularizer_params(<span class="string">'Term1'</span>), <span class="keyword">...</span>
+0182         regularizer_params(<span class="string">'Term2'</span>), <span class="keyword">...</span>
+0183         regularizer_params(<span class="string">'Term3'</span>), <span class="keyword">...</span>
+0184         regularizer_params(<span class="string">'Term4'</span>), <span class="keyword">...</span>
+0185         regularizer_params(<span class="string">'Term5'</span>), <span class="keyword">...</span>
+0186         regularizer_params(<span class="string">'Term6'</span>), <span class="keyword">...</span>
+0187         regularizer_params(<span class="string">'Term7'</span>)}, <span class="string">'Definition of the regularization terms. Any combination of terms is permitted.'</span>), <span class="keyword">...</span>
+0188     arg({<span class="string">'regweights'</span>,<span class="string">'TermWeights'</span>},{{[]}},[],<span class="string">'Weights of the regularizers. This is a cell array of vectors of (relative) regularization parameters. Default is 1/N for N regularization terms. The cell array lists all possible assignments to search over.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0189     arg_sub({<span class="string">'solverOptions'</span>,<span class="string">'SolverOptions'</span>},{},{ <span class="keyword">...</span>
+0190         arg({<span class="string">'maxit'</span>,<span class="string">'MaxIterations'</span>},1000,[],<span class="string">'Maximum number of iterations.'</span>), <span class="keyword">...</span>
+0191         arg({<span class="string">'rel_tol'</span>,<span class="string">'RelativeTolerance'</span>},2e-4,[],<span class="string">'Relative tolerance criterion. If the relative difference between two successive iterates is lower than this value the algorithm terminates.'</span>),<span class="keyword">...</span>
+0192         arg({<span class="string">'abs_tol'</span>,<span class="string">'AbsoluteTolerance'</span>},0.000001,[],<span class="string">'Absolute tolerance criterion. If the objective function value falls below this the algorithm terminates.'</span>), <span class="keyword">...</span>
+0193         arg({<span class="string">'rho'</span>,<span class="string">'CouplingParameter'</span>},4,[],<span class="string">'Initial coupling parameter. For proximal algorithms this is the coupling strength between the terms between updates. Increasing this can improve the convergence speed but too strong values can prevent any convergence.'</span>), <span class="keyword">...</span>
+0194         arg({<span class="string">'rho_update'</span>,<span class="string">'RhoUpdate'</span>},true,[],<span class="string">'Update Rho. Whether to update rho dynamically according to 3.4.1 in [1]. Note, this can sometimes cause r_norm, s_norm to &quot;blow up&quot;.'</span>), <span class="keyword">...</span>
+0195         arg({<span class="string">'rho_cutoff'</span>,<span class="string">'RhoUpdateThreshold'</span>},10.0,[],<span class="string">'Rho update threshold.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0196         arg({<span class="string">'rho_incr'</span>,<span class="string">'RhoUpdateIncr'</span>},2.0,[],<span class="string">'Rho update increment factor.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0197         arg({<span class="string">'rho_decr'</span>,<span class="string">'RhoUpdateDecr'</span>},2.0,[],<span class="string">'Rho update decrement factor.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0198         arg({<span class="string">'warmstart'</span>,<span class="string">'Warmstart'</span>},true,[],<span class="string">'Warm-start through regularization path. Enabling this is more efficient but convergence issues can be harder to trace down.'</span>) <span class="keyword">...</span>
+0199     }, <span class="string">'Controls the behavior of the ADMM optimization algorithm.'</span>), <span class="keyword">...</span>
+0200     arg_sub({<span class="string">'lbfgsOptions'</span>,<span class="string">'LBFGSOptions'</span>},{},{ <span class="keyword">...</span>
+0201         arg({<span class="string">'MaxIter'</span>,<span class="string">'MaxIterations'</span>},10,[],<span class="string">'Maximum number of iterations.'</span>), <span class="keyword">...</span>
+0202         arg({<span class="string">'m'</span>,<span class="string">'HessianHistory'</span>},6,[],<span class="string">'LBFGS history length. The number of corrections to approximate the inverse hessian matrix.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0203         arg({<span class="string">'epsilon'</span>,<span class="string">'Epsilon'</span>},1e-4,[],<span class="string">'Tolerance criterion.  A minimization terminates when ||g|| &lt; epsilon*max(1,||x||).'</span>), <span class="keyword">...</span>
+0204         arg({<span class="string">'past'</span>,<span class="string">'DeltaDistance'</span>},0,[],<span class="string">'Distance for delta-based convergence test.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0205         arg({<span class="string">'delta'</span>,<span class="string">'Delta'</span>},1e-5,[],<span class="string">'Delta for convergence test.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0206         arg({<span class="string">'linesearch'</span>,<span class="string">'LineSearchAlgorithm'</span>},<span class="string">'more_thuente'</span>,{<span class="string">'more_thuente'</span>,<span class="string">'backtracking_armijo'</span>,<span class="string">'backtracking_wolfe'</span>,<span class="string">'backtracking_strong_wolfe'</span>},<span class="string">'The line search algorithm.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0207         arg({<span class="string">'max_linesearch'</span>,<span class="string">'MaxLineSearch'</span>},40,[],<span class="string">'Maximum number of trials for the line search.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0208         arg({<span class="string">'min_step'</span>,<span class="string">'MinStepsize'</span>},1e-20,[],<span class="string">' Minimum step of the line search.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0209         arg({<span class="string">'max_step'</span>,<span class="string">'MaxStepsize'</span>},1e20,[],<span class="string">' Maximum step of the line search routine.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0210         arg({<span class="string">'ftol'</span>,<span class="string">'FTolerance'</span>},1e-4,[],<span class="string">'Line search tolerance F. A parameter to control the accuracy of the line search routine.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0211         arg({<span class="string">'wolfe'</span>,<span class="string">'WolfeCoefficient'</span>}, 0.9,[],<span class="string">'Coefficient for the Wolfe condition.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0212         arg({<span class="string">'gtol'</span>,<span class="string">'GTolerance'</span>},0.9,[],<span class="string">'Line search tolerance G. A parameter to control the accuracy of the line search routine.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0213         arg({<span class="string">'xtol'</span>,<span class="string">'XTolerance'</span>},1e-16,[],<span class="string">'Machine precision for floating-point values.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0214         arg({<span class="string">'useGPU'</span>,<span class="string">'UseGPU'</span>},true,[],<span class="string">'Run on the GPU if possible.'</span>), <span class="keyword">...</span>
+0215         arg(<span class="string">'DerivativeCheck'</span>,<span class="string">'off'</span>,{<span class="string">'off'</span>,<span class="string">'on'</span>},<span class="string">' Derivative check using finite differences.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0216         arg({<span class="string">'Display'</span>,<span class="string">'Verbosity'</span>},<span class="string">'none'</span>,{<span class="string">'none'</span>,<span class="string">'on'</span>},<span class="string">'Options for displaying progress.'</span>) <span class="keyword">...</span>
+0217     },<span class="string">'Options of the inner LBFGS solver. This is for the logistic objective function.'</span>), <span class="keyword">...</span>
+0218     arg_sub({<span class="string">'lambdaSearch'</span>,<span class="string">'LambdaSearch'</span>},{},{ <span class="keyword">...</span>
+0219         arg({<span class="string">'lambdas'</span>,<span class="string">'Lambdas'</span>}, 2.^(3:-0.66:-8), [], <span class="string">'Regulariation parameters. Controls the sparsity/simplicity of the result. Typically, this is an interval to scan, such as 2.^(10:-1:-15).'</span>), <span class="keyword">...</span>
+0220         arg({<span class="string">'nfolds'</span>,<span class="string">'NumFolds'</span>},5,[],<span class="string">'Cross-validation folds. The cross-validation is used to determine the best regularization parameter.'</span>),<span class="keyword">...</span>
+0221         arg({<span class="string">'foldmargin'</span>,<span class="string">'FoldMargin'</span>},0,[],<span class="string">'Margin between folds. This is the number of trials omitted between training and test set.'</span>), <span class="keyword">...</span>
+0222         arg({<span class="string">'cvmetric'</span>,<span class="string">'ParameterMetric'</span>},<span class="string">''</span>,{<span class="string">''</span>,<span class="string">'kld'</span>,<span class="string">'nll'</span>,<span class="string">'mcr'</span>,<span class="string">'mae'</span>,<span class="string">'mse'</span>,<span class="string">'max'</span>,<span class="string">'rms'</span>,<span class="string">'bias'</span>,<span class="string">'medse'</span>,<span class="string">'auc'</span>,<span class="string">'cond_entropy'</span>,<span class="string">'cross_entropy'</span>,<span class="string">'f_measure'</span>},<span class="string">'Metric for Parameter Optimization. By default auto-determined; can be any of the ml_calcloss-supported metrics. In particular, auc is a good idea if the classification task is between highly imbalanced classes.'</span>) <span class="keyword">...</span>
+0223         arg({<span class="string">'return_regpath'</span>,<span class="string">'ReturnRegpath'</span>}, true, [], <span class="string">'Return the entire regularization path. This is for the best relative weighting of terms. If false, only the best model will be returned.'</span>), <span class="keyword">...</span>
+0224         arg({<span class="string">'return_reggrid'</span>,<span class="string">'ReturnReggrid'</span>}, false, [], <span class="string">'Return the entire regularization grid. This also returns regularization paths for all other relative weightings.'</span>), <span class="keyword">...</span>
+0225         arg({<span class="string">'history_traces'</span>,<span class="string">'HistoryTraces'</span>}, false, [], <span class="string">'Return history traces. If true, optimization history traces will be returned.'</span>), <span class="keyword">...</span>
+0226     }, <span class="string">'Controls the search for the optimal regularization parameter.'</span>), <span class="keyword">...</span>
+0227     arg({<span class="string">'scaling'</span>,<span class="string">'Scaling'</span>}, <span class="string">'std'</span>, {<span class="string">'none'</span>,<span class="string">'center'</span>,<span class="string">'std'</span>,<span class="string">'minmax'</span>,<span class="string">'whiten'</span>}, <span class="string">'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.'</span>), <span class="keyword">...</span>
+0228     arg_nogui({<span class="string">'shape'</span>,<span class="string">'Shape'</span>}, [], [], <span class="string">'Reshaping for features. Allows to reshape (perhaps vectorized) features into a particular representation.'</span>), <span class="keyword">...</span>
+0229     arg({<span class="string">'verbosity'</span>,<span class="string">'Verbosity'</span>},1,[],<span class="string">'Diagnostic output level. Zero is off, 1 only shows cross-validation diagnostics, 2 shows solver diagnostics, 3 shows iteration diagnostics.'</span>), <span class="keyword">...</span>
+0230     arg({<span class="string">'continuous_targets'</span>,<span class="string">'ContinuousTargets'</span>,<span class="string">'Regression'</span>}, false, [], <span class="string">'Whether to use continuous targets. This allows to implement some kind of damped regression approach.'</span>),<span class="keyword">...</span>
+0231     arg({<span class="string">'includebias'</span>,<span class="string">'IncludeBias'</span>,<span class="string">'bias'</span>},true,[],<span class="string">'Include bias param. Also learns an unregularized bias param (strongly recommended for typical classification problems).'</span>));
+0232 
+0233 classes = unique(targets);
+0234 <span class="keyword">if</span> length(classes) &gt; 2 &amp;&amp; strcmp(loss,<span class="string">'logistic'</span>) &amp;&amp; ~continuous_targets
+0235     <span class="comment">% in the multi-class case we use the voter for now (TODO: use softmax loss instead)</span>
+0236     model = <a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>(trials, targets, <span class="string">'1v1'</span>, @<a href="ml_trainproximal.html" class="code" title="function model = ml_trainproximal(varargin)">ml_trainproximal</a>, @<a href="ml_predictproximal.html" class="code" title="function pred = ml_predictproximal(trials,model)">ml_predictproximal</a>, varargin{:});
+0237 <span class="keyword">elseif</span> length(classes) == 1
+0238     error(<span class="string">'BCILAB:only_one_class'</span>,<span class="string">'Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.'</span>);
+0239 <span class="keyword">else</span>
+0240     <span class="comment">% optionally allow nfolds to be a function of #trials</span>
+0241     <span class="keyword">if</span> lambdaSearch.nfolds &lt; 1
+0242         lambdaSearch.nfolds = round(lambdaSearch.nfolds*length(targets)); <span class="keyword">end</span>
+0243     <span class="comment">% sanitize some more inputs</span>
+0244     solverOptions.verbose = max(0,verbosity-1);    
+0245     <span class="keyword">if</span> isnumeric(regweights)
+0246         regweights = {regweights}; <span class="keyword">end</span>
+0247     
+0248     <span class="comment">% lambdas need to be sorted in descending order for the warm-starting to work</span>
+0249     lambdaSearch.lambdas = sort(lambdaSearch.lambdas,<span class="string">'ascend'</span>);
+0250     <span class="keyword">if</span> strcmp(lambdaSearch.cvmetric,<span class="string">'mcr'</span>)
+0251         lambdaSearch.cvmetric = <span class="string">''</span>; <span class="keyword">end</span>
+0252     
+0253     <span class="comment">% vectorize data if necessary &amp; sanity-check explicit shape parameter if specified</span>
+0254     <span class="keyword">if</span> ndims(trials) &gt; 2 <span class="comment">%#ok&lt;ISMAT&gt;</span>
+0255         featureshape = size(trials); featureshape = featureshape(1:end-1);
+0256         <span class="keyword">if</span> ~isempty(shape) &amp;&amp; ~isequal(shape,featureshape)
+0257             <span class="keyword">if</span> prod(featureshape) == prod(shape)
+0258                 warning(<span class="string">'You are specifying a shape property but also multidimensional features of a different shape; using the explicit shape parameter.'</span>);
+0259                 featureshape = shape;
+0260             <span class="keyword">else</span>
+0261                 error(<span class="string">'You are specifying a shape property but also features with an incompatible number of elements. Please correct.'</span>);
+0262             <span class="keyword">end</span>
+0263         <span class="keyword">end</span>
+0264         trials = double(reshape(trials,[],size(trials,ndims(trials)))');
+0265         vectorize_trials = true;
+0266     <span class="keyword">else</span>
+0267         <span class="keyword">if</span> ~isempty(shape)
+0268             <span class="keyword">if</span> size(shape,1) &gt; 1
+0269                 <span class="keyword">if</span> all(all(bsxfun(@eq,shape(1,:),shape)))
+0270                     featureshape = [shape(1,1),shape(1,2),size(shape,1)];
+0271                     <span class="keyword">if</span> prod(featureshape) == size(trials,2)
+0272                         <span class="comment">% the reason is that it is much more efficient to operate on a dense 3d array than a very sparse 2d array</span>
+0273                         warn_once(<span class="string">'This method will by convention reshape block-diagonalized feature matrices with identical blocks into a 3d tensor. This warning will only come up once.'</span>);
+0274                     <span class="keyword">else</span>
+0275                         error(<span class="string">'Your shape parameter has a different number of features than your data.'</span>);
+0276                     <span class="keyword">end</span>
+0277                 <span class="keyword">else</span>
+0278                     <span class="comment">% we don't implement block-diagonalization in here</span>
+0279                     error(<span class="string">'This method does not handle implicitly block-diagonal features; please either reformulate in tensor form or pass a large sparse data matrix (pre-blockdiagonalized). Note that the tensor form is likely several times faster.'</span>);
+0280                 <span class="keyword">end</span>
+0281             <span class="keyword">elseif</span> prod(shape) ~= size(trials,2)
+0282                 error(<span class="string">'Your shape parameter has a different number of features than data.'</span>);
+0283             <span class="keyword">else</span>
+0284                 featureshape = shape;
+0285             <span class="keyword">end</span>
+0286         <span class="keyword">else</span>
+0287             featureshape = [size(trials,2),1];
+0288         <span class="keyword">end</span>
+0289         vectorize_trials = false;
+0290     <span class="keyword">end</span>
+0291     
+0292     <span class="comment">% optionally scale the data</span>
+0293     sc_info = hlp_findscaling(trials,scaling);
+0294     trials = hlp_applyscaling(trials,sc_info);
+0295     
+0296     <span class="comment">% optionally remap target labels to -1,+1</span>
+0297     <span class="keyword">if</span> strcmp(loss,<span class="string">'logistic'</span>) &amp;&amp; length(classes) == 2 &amp;&amp; ~continuous_targets
+0298         targets(targets==classes(1)) = -1;
+0299         targets(targets==classes(2)) = +1;
+0300     <span class="keyword">end</span>
+0301         
+0302     <span class="comment">% learn a sequence of models across the given lambda's, on all the data (i.e. the regularization path)</span>
+0303     <span class="keyword">if</span> verbosity
+0304         disp(<span class="string">'Running optimization...'</span>); <span class="keyword">end</span>
+0305     
+0306     <span class="comment">% run a cross-validation to score the lambdas and regweights</span>
+0307     loss_mean = cell(1,length(regweights));
+0308     predictions = repmat({zeros(length(targets),length(lambdaSearch.lambdas))},1,length(regweights)); <span class="comment">% predictions{r}(t,l) is the prediction for regweight combination #r, trial #t and lambda #l</span>
+0309     reptargets = repmat(targets,1,length(lambdaSearch.lambdas));
+0310     foldid = 1+floor((0:length(targets)-1)/length(targets)*lambdaSearch.nfolds);
+0311     <span class="comment">% for each fold...</span>
+0312     <span class="keyword">for</span> i = 1:lambdaSearch.nfolds
+0313         <span class="keyword">if</span> verbosity
+0314             disp([<span class="string">'Fitting fold # '</span> num2str(i) <span class="string">' of '</span> num2str(lambdaSearch.nfolds)]); <span class="keyword">end</span>
+0315 
+0316         <span class="comment">% determine training and test sets</span>
+0317         which = foldid==i;
+0318         trainids = ~which;
+0319         whichpos = find(which);
+0320         <span class="keyword">for</span> j=1:lambdaSearch.foldmargin
+0321             trainids(max(1,whichpos-j)) = false;
+0322             trainids(min(length(which),whichpos+j)) = false;
+0323         <span class="keyword">end</span>
+0324         testset = [trials(which,:) ones(length(whichpos),double(includebias))];
+0325 
+0326         <span class="comment">% for each relative regularization term weighting...</span>
+0327         <span class="keyword">for</span> w = 1:length(regweights)
+0328 
+0329             <span class="comment">% get regularization path</span>
+0330             [model_seq{w},history_seq{w}] = hlp_diskcache(<span class="string">'predictivemodels'</span>,@<a href="#_sub1" class="code" title="subfunction [regpath,fullhist] = solve_regularization_path(A,y,lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizersArg,regweights,featureshape)">solve_regularization_path</a>,trials(trainids,:),targets(trainids),lambdaSearch.lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,regweights{w},featureshape);  <span class="comment">%#ok&lt;NASGU&gt;</span>
+0331             
+0332             <span class="comment">% calc test-set predictions for each model</span>
+0333             <span class="keyword">for</span> m=1:length(model_seq{w})
+0334                 predictions{w}(which,m) = (testset*model_seq{w}{m}(:))'; <span class="keyword">end</span>
+0335             <span class="keyword">if</span> strcmp(loss,<span class="string">'logistic'</span>)
+0336                 predictions{w}(which,:) = 2*(1 ./ (1 + exp(-predictions{w}(which,:))))-1; <span class="keyword">end</span>
+0337             
+0338             <span class="comment">% evaluate losses on the fold</span>
+0339             <span class="keyword">if</span> isempty(lambdaSearch.cvmetric)
+0340                 <span class="keyword">if</span> strcmp(loss,<span class="string">'logistic'</span>)
+0341                     loss_mean{w}(i,:) = mean(reptargets(which,:) ~= sign(predictions{w}(which,:)));
+0342                 <span class="keyword">else</span>
+0343                     loss_mean{w}(i,:) = mean((reptargets(which,:) - predictions{w}(which,:)).^2);
+0344                 <span class="keyword">end</span>
+0345             <span class="keyword">else</span>
+0346                 <span class="keyword">for</span> r=1:length(lambdaSearch.lambdas)
+0347                     loss_mean{w}(i,r) = <a href="ml_calcloss.html" class="code" title="function [measure,stats] = ml_calcloss(type,T,P)">ml_calcloss</a>(lambdaSearch.cvmetric,reptargets(which,r),predictions{w}(which,r)); <span class="keyword">end</span>
+0348             <span class="keyword">end</span>
+0349         <span class="keyword">end</span>
+0350         1;
+0351     <span class="keyword">end</span>
+0352 
+0353     <span class="comment">% find best lambdas &amp; regweight combination</span>
+0354     <span class="keyword">for</span> k=1:length(regweights)
+0355         <span class="comment">% average over folds</span>
+0356         loss_mean{k} = mean(loss_mean{k},1);
+0357         <span class="comment">% if there are several minima, choose largest lambda of the smallest cvm</span>
+0358         best_lambda{k} = max(lambdaSearch.lambdas(loss_mean{k} &lt;= min(loss_mean{k})));
+0359         best_loss{k} = min(loss_mean{k});
+0360     <span class="keyword">end</span>
+0361     <span class="comment">% pick regweights and lambda at best loss</span>
+0362     [dummy,best_regidx] = min([best_loss{:}]); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0363     best_regweights = regweights{best_regidx};
+0364     lambda_min = best_lambda{best_regidx};
+0365 
+0366     <span class="comment">% pick the model at the minimum...</span>
+0367     <span class="keyword">if</span> lambdaSearch.return_regpath
+0368         [regpath,history] = hlp_diskcache(<span class="string">'predictivemodels'</span>,@<a href="#_sub1" class="code" title="subfunction [regpath,fullhist] = solve_regularization_path(A,y,lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizersArg,regweights,featureshape)">solve_regularization_path</a>,trials,targets,lambdaSearch.lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,best_regweights,featureshape);
+0369         model.regularization_path = regpath;
+0370         model.regularization_loss = loss_mean{best_regidx};
+0371         model.w = regpath{find(lambdaSearch.lambdas == lambda_min,1)};
+0372     <span class="keyword">else</span>
+0373         [tmp,history] = hlp_diskcache(<span class="string">'predictivemodels'</span>,@<a href="#_sub1" class="code" title="subfunction [regpath,fullhist] = solve_regularization_path(A,y,lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizersArg,regweights,featureshape)">solve_regularization_path</a>,trials,targets,lambdaSearch.lambdas(find(lambdaSearch.lambdas==lambda_min,1)),loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,best_regweights,featureshape);
+0374         model.w = tmp{1};
+0375     <span class="keyword">end</span>
+0376     model.balance_losses = loss_mean;
+0377     <span class="keyword">if</span> lambdaSearch.history_traces
+0378         model.fold_history = history_seq;
+0379         model.regularization_history = history;
+0380     <span class="keyword">end</span>
+0381     <span class="keyword">if</span> lambdaSearch.return_reggrid
+0382         model.regularization_grid = model_seq; <span class="keyword">end</span>
+0383     model.classes = classes;
+0384     model.includebias = includebias;
+0385     model.vectorize_trials = vectorize_trials;
+0386     model.featureshape = featureshape;
+0387     model.sc_info = sc_info;
+0388     model.loss = loss;
+0389 <span class="keyword">end</span>
+0390 
+0391 
+0392 
+0393 <span class="comment">% learn the regularization path</span>
+0394 <a name="_sub1" href="#_subfunctions" class="code">function [regpath,fullhist] = solve_regularization_path(A,y,lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizersArg,regweights,featureshape)</a>
+0395 <span class="comment">% solve_regularization_path_version&lt;1.0.0&gt;</span>
+0396 fullhist = {};
+0397 
+0398 [m,n] = size(A); <span class="comment">% m trials, n features</span>
+0399 w = zeros(n+double(includebias),1);
+0400 
+0401 <span class="comment">% derive the design matrix A &amp; label vector y from the trials...</span>
+0402 A = double(A);
+0403 y = double(y(:));
+0404 
+0405 <span class="comment">% set up the data-dependent loss function to use</span>
+0406 <span class="keyword">switch</span> loss
+0407     <span class="keyword">case</span> <span class="string">'logistic'</span>
+0408         C = [bsxfun(@times,-y,A) -y];
+0409         <span class="keyword">if</span> lbfgsOptions.useGPU
+0410             <span class="keyword">try</span>
+0411                 C = gpuArray(C); 
+0412             <span class="keyword">catch</span> e
+0413                 disp_once([<span class="string">'Could not enable GPU support: '</span> e.message]);
+0414             <span class="keyword">end</span>
+0415         <span class="keyword">end</span>
+0416         Cp = C';
+0417         lossfunc.prox = @(x,gamma,x0) <a href="#_sub3" class="code" title="subfunction x = prox_logistic(C,Cp,z,gamma,x0,m,args)">prox_logistic</a>(C,Cp,x,gamma,x0,m,hlp_struct2varargin(lbfgsOptions));
+0418         lossfunc.eval = @(x,lambda) lambda*<a href="#_sub4" class="code" title="subfunction obj = obj_logistic(C,x,m)">obj_logistic</a>(C,x,n);
+0419     <span class="keyword">case</span> <span class="string">'squared'</span>
+0420         <span class="comment">% append a bias to the design matrix</span>
+0421         Ao = [A ones(size(A,1),1)];
+0422         [mm,nn] = size(Ao);
+0423         <span class="comment">% choose the right prox operator</span>
+0424         <span class="keyword">if</span> solverOptions.rho_update
+0425             lossfunc.prox = @(x,gamma,x0) <a href="#_sub6" class="code" title="subfunction x = prox_squared_iter(A,b,rho,z,u,n,x0)">prox_squared_iter</a>(Ao,y,1/gamma,x,zeros(size(x)),nn,x0);
+0426         <span class="keyword">else</span>            
+0427             Atb = Ao'*y;
+0428             [L,U] = <a href="#_sub19" class="code" title="subfunction [L,U] = factor(A, rho)">factor</a>(Ao,solverOptions.rho);
+0429             lossfunc.prox = @(x,gamma,x0) <a href="#_sub5" class="code" title="subfunction x = prox_squared_factored(A,Atb,L,U,rho,z,u,m,n)">prox_squared_factored</a>(Ao,Atb,L,U,solverOptions.rho,x,zeros(size(x)),mm,nn);
+0430         <span class="keyword">end</span>
+0431         lossfunc.eval = @(x,lambda) lambda*<a href="#_sub7" class="code" title="subfunction obj = obj_squared(A,b,x)">obj_squared</a>(Ao,y,x);
+0432     <span class="keyword">case</span> <span class="string">'hyperbolic-secant'</span>
+0433         <span class="comment">% lossfunc.prox = @(x,gamma,x0) prox_hs(y,x,gamma,x0,hlp_struct2varargin(lbfgsOptions));</span>
+0434         <span class="comment">% lossfunc.eval = @(x,lambda) lambda*obj_hs(x,b);</span>
+0435         error(<span class="string">'Hyperbolic-secant loss is not yet implemented.'</span>);
+0436     <span class="keyword">otherwise</span>
+0437         error(<span class="string">'Unsupported loss function.'</span>);
+0438 <span class="keyword">end</span>
+0439 lossfunc.y0 = [];
+0440 lossfunc = @(lambda)setfield(setfield(lossfunc,<span class="string">'prox'</span>,@(x,gamma,x0)lossfunc.prox(x,gamma*lambda,x0)),<span class="string">'eval'</span>,@(x)lossfunc.eval(x,lambda)); <span class="comment">%#ok&lt;SFLD&gt;</span>
+0441 
+0442 <span class="comment">% ensure that regularizers is a cell array</span>
+0443 regularizers = {};
+0444 <span class="keyword">if</span> isstruct(regularizersArg)
+0445     <span class="keyword">for</span> k=1:length(fieldnames(regularizersArg))
+0446         <span class="keyword">if</span> isfield(regularizersArg,[<span class="string">'term'</span> num2str(k)])
+0447             regularizers{end+1} = regularizersArg.([<span class="string">'term'</span> num2str(k)]); <span class="keyword">end</span>
+0448     <span class="keyword">end</span>
+0449 <span class="keyword">else</span>
+0450     regularizers = regularizersArg;
+0451 <span class="keyword">end</span>
+0452 
+0453 
+0454 <span class="comment">% set up the regularization functions one by one</span>
+0455 regfuncs = {};
+0456 <span class="keyword">for</span> t = 1:length(regularizers)
+0457     param = regularizers{t};
+0458     <span class="keyword">if</span> ~strcmp(param.arg_selection,<span class="string">'none'</span>)
+0459         regfunc = struct();
+0460         <span class="keyword">if</span> isfield(param,<span class="string">'weights'</span>)
+0461             param.weights2 = param.weights; <span class="keyword">end</span>
+0462         param.verbose = max(0,solverOptions.verbose-2);
+0463         
+0464         <span class="comment">% rename &amp; evaluate the linear operator expressions</span>
+0465         <span class="keyword">if</span> ischar(param.A)
+0466             <span class="keyword">try</span>
+0467                 [a,b,c,d,e,f,g,h] = size(reshape(w(1:n),featureshape)); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0468                 param.A = eval(param.A);
+0469             <span class="keyword">catch</span> e
+0470                 env_handleerror(e);
+0471                 disp([<span class="string">'This param does not evaluate correctly: '</span>  param.A]);
+0472             <span class="keyword">end</span>
+0473         <span class="keyword">end</span>
+0474         
+0475         <span class="comment">% if the linear operator happens to accept weights in the shape of the original features</span>
+0476         <span class="comment">% (and the numels are matching) then we reshape the weights to that shape before applying</span>
+0477         <span class="comment">% the linear operator</span>
+0478         <span class="keyword">try</span>
+0479             rA = param.A;
+0480             rA(reshape(w(1:n),featureshape));
+0481             param.A = @(x)rA(reshape(x(1:n),featureshape));
+0482         <span class="keyword">catch</span>
+0483             <span class="keyword">try</span>
+0484                 param.A(w(1:n));
+0485                 param.A = @(x)rA(x(1:n));
+0486             <span class="keyword">catch</span> e
+0487                 <span class="comment">% sanity check: if this happens either your linear operator is incorrect or</span>
+0488                 <span class="comment">% you need to specify NumberOfElements for this term</span>
+0489                 error([<span class="string">'The linear operator '</span> char(param.A) <span class="string">' is not applicable to the weights w. Check for syntax errors and sizes.'</span>]);
+0490             <span class="keyword">end</span>
+0491         <span class="keyword">end</span>
+0492         shape_A_out = size(param.A(w));
+0493         
+0494         <span class="comment">% if shape for the term is unspecified we assume that it is the output shape of the A</span>
+0495         <span class="comment">% operator</span>
+0496         <span class="keyword">if</span> isfield(param,<span class="string">'shape'</span>) &amp;&amp; isempty(param.shape)
+0497             param.shape = shape_A_out; <span class="keyword">end</span>
+0498         <span class="keyword">if</span> isfield(param,<span class="string">'shape'</span>) &amp;&amp; ischar(param.shape)
+0499             [a,b,c,d,e,f,g,h] = size(reshape(w(1:n),featureshape)); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0500             param.shape = eval(param.shape);
+0501         <span class="keyword">end</span>
+0502         
+0503         <span class="comment">% set the A matrix for future reference</span>
+0504         <span class="keyword">if</span> isfield(param,<span class="string">'A'</span>)
+0505             rA = param.A;
+0506         <span class="keyword">else</span>
+0507             rA = @(x)x(1:n);
+0508         <span class="keyword">end</span>
+0509         
+0510         <span class="comment">% move the A parameter into regfunc.L (handled by ADMM)</span>
+0511         <span class="keyword">if</span> isfield(param,<span class="string">'A'</span>) &amp;&amp; ~(strcmp(param.arg_selection,<span class="string">'l2'</span>) &amp;&amp; param.nonorthogonal_transform)
+0512             regfunc.L = param.A;
+0513             <span class="comment">% remove fields from param</span>
+0514             param = rmfield(param,<span class="string">'A'</span>);
+0515             <span class="keyword">if</span> isfield(param,<span class="string">'At'</span>)
+0516                 param = rmfield(param,<span class="string">'At'</span>); <span class="keyword">end</span>
+0517         <span class="keyword">else</span>
+0518             regfunc.L = @(x)x(1:n);
+0519         <span class="keyword">end</span>
+0520         
+0521         <span class="comment">% now turn .L into a matrix (since we actually need it in matrix form)</span>
+0522         <span class="comment">% the calculation is cached since it's quite slow for large parameter spaces</span>
+0523         regfunc.L = <a href="#_sub20" class="code" title="subfunction M = operator_to_matrix(op,n)">operator_to_matrix</a>(regfunc.L,numel(w));
+0524         
+0525         regfunc.param = param;
+0526         
+0527         vec = @(x)x(:);
+0528         <span class="keyword">if</span> isfield(param,<span class="string">'weights'</span>)
+0529             <span class="keyword">if</span> isempty(param.weights)
+0530                 param.weights = ones(prod(shape_A_out),1); <span class="keyword">end</span>
+0531             shaped_weights = reshape(param.weights,shape_A_out);
+0532         <span class="keyword">else</span>
+0533             shaped_weights = ones(shape_A_out);
+0534         <span class="keyword">end</span>
+0535         <span class="keyword">switch</span> param.arg_selection
+0536             <span class="keyword">case</span> <span class="string">'l1'</span>
+0537                 <span class="keyword">if</span> (isempty(param.weights) || all(param.weights(:)==1)) &amp;&amp; ~isfield(param,<span class="string">'A'</span>)
+0538                     regfunc.prox = @(x,gamma,x0) <a href="#_sub8" class="code" title="subfunction x = prox_l1_simple(z, gamma)">prox_l1_simple</a>(x,gamma);
+0539                     regfunc.eval = @(x,lambda) lambda*sum(abs(x));
+0540                 <span class="keyword">else</span>
+0541                     regfunc.prox = @(x,gamma,x0) prox_l1(x,gamma,param);
+0542                     regfunc.eval = @(x,lambda) lambda*norm(vec(shaped_weights.*rA(x)),1);
+0543                 <span class="keyword">end</span>
+0544             <span class="keyword">case</span> <span class="string">'l2'</span>
+0545                 <span class="keyword">if</span> isempty(param.y)
+0546                     param.y = zeros(prod(shape_A_out),1); <span class="keyword">end</span>
+0547                 <span class="keyword">if</span> isfield(param,<span class="string">'A'</span>)
+0548                     A = <a href="#_sub20" class="code" title="subfunction M = operator_to_matrix(op,n)">operator_to_matrix</a>(param.A,n);
+0549                     regfunc.prox = @(x,gamma,x0) <a href="#_sub6" class="code" title="subfunction x = prox_squared_iter(A,b,rho,z,u,n,x0)">prox_squared_iter</a>(A,param.y,1/gamma,x,zeros(size(x)),n,x0);
+0550                     regfunc.eval = @(x,lambda) lambda*<a href="#_sub7" class="code" title="subfunction obj = obj_squared(A,b,x)">obj_squared</a>(A,param.y,x(1:n));
+0551                 <span class="keyword">else</span>                
+0552                     regfunc.prox = @(x,gamma,x0) <a href="#_sub10" class="code" title="subfunction x = prox_l2_simple(z, gamma)">prox_l2_simple</a>(x,gamma);
+0553                     regfunc.eval = @(x,lambda) lambda*norm(shaped_weights(:).*(vec(rA(x)) - param.y(:)),2).^2;
+0554                 <span class="keyword">end</span>
+0555             <span class="keyword">case</span> <span class="string">'l1/l2'</span>
+0556                 <span class="keyword">if</span> isfield(param,<span class="string">'A'</span>)
+0557                     error(<span class="string">'The linear operator for the group sparsity prox operator is not implemented. You can however apply it by using the SDMM algorithm.'</span>); <span class="keyword">end</span>
+0558                 <span class="keyword">if</span> isempty(param.g_d) &amp;&amp; isempty(param.g_t) &amp;&amp; (isempty(param.weights2)||all(param.weights2(:)==1)) &amp;&amp; (isempty(param.weights1)||all(param.weights1(:)==1))
+0559                     regfunc.prox = @(x,gamma,x0) <a href="#_sub9" class="code" title="subfunction x = prox_l12_simple(z, gamma, shape)">prox_l12_simple</a>(x,gamma,shape_A_out);
+0560                     regfunc.eval = @(x,lambda)lambda*<a href="#_sub13" class="code" title="subfunction n = norm_l12_simple(z, shape)">norm_l12_simple</a>(rA(x),shape_A_out);
+0561                 <span class="keyword">else</span>                    
+0562                     <span class="keyword">if</span> isempty(param.g_d) &amp;&amp; isempty(param.g_t)
+0563                         param.g_d = (1:prod(shape_A_out));
+0564                         param.g_t = shape_A_out(1)*ones(1,prod(shape_A_out(2:end)));
+0565                     <span class="keyword">end</span>
+0566                     <span class="keyword">if</span> isempty(param.weights1)
+0567                         param.weights1 = ones(numel(param.g_t),1); <span class="keyword">end</span>
+0568                     <span class="keyword">if</span> isempty(param.weights2)
+0569                         param.weights2 = ones(prod(shape_A_out),1); <span class="keyword">end</span>
+0570                     regfunc.prox = @(x,gamma,x0) prox_l12(x,gamma,param);
+0571                     regfunc.eval = @(x,lambda) lambda*norm_l12(rA(x),param.g_d,param.g_t,param.weights2,param.weights1);
+0572                 <span class="keyword">end</span>
+0573             <span class="keyword">case</span> <span class="string">'l1/linf'</span>
+0574                 <span class="keyword">if</span> isfield(param,<span class="string">'A'</span>)
+0575                     error(<span class="string">'The linear operator for the group sparsity prox operator is not implemented. You can however apply it by using the SDMM algorithm.'</span>); <span class="keyword">end</span>
+0576                 <span class="keyword">if</span> isempty(param.g_d) &amp;&amp; isempty(param.g_t) &amp;&amp; (isempty(param.weights2)||all(param.weights2(:)==1)) &amp;&amp; (isempty(param.weights1)||all(param.weights1(:)==1))
+0577                     regfunc.prox = @(x,gamma,x0) <a href="#_sub11" class="code" title="subfunction x = prox_l1inf_simple(z, gamma, shape)">prox_l1inf_simple</a>(x,gamma,shape_A_out);
+0578                     regfunc.eval = @(x,lambda)lambda*<a href="#_sub14" class="code" title="subfunction n = norm_l1inf_simple(z, shape)">norm_l1inf_simple</a>(rA(x),shape_A_out);
+0579                 <span class="keyword">else</span>                    
+0580                     <span class="keyword">if</span> isempty(param.g_d) &amp;&amp; isempty(param.g_t)
+0581                         param.g_d = (1:prod(shape_A_out));
+0582                         param.g_t = shape_A_out(1)*ones(1,prod(shape_A_out(2:end)));
+0583                     <span class="keyword">end</span>
+0584                     <span class="keyword">if</span> isempty(param.weights1)
+0585                         param.weights1 = ones(numel(param.g_t),1); <span class="keyword">end</span>
+0586                     <span class="keyword">if</span> isempty(param.weights2)
+0587                         param.weights2 = ones(prod(shape_A_out),1); <span class="keyword">end</span>
+0588                     regfunc.prox = @(x,gamma,x0) prox_l1inf(x,gamma,param);
+0589                     regfunc.eval = @(x,lambda) lambda*norm_l1inf(rA(x),param.g_d,param.g_t,param.weights2,param.weights1);
+0590                 <span class="keyword">end</span>
+0591             <span class="keyword">case</span> <span class="string">'tv2d'</span>
+0592                 <span class="keyword">if</span> isfield(param,<span class="string">'A'</span>)
+0593                     error(<span class="string">'The linear operator for the total-variation prox operator is not implemented. You can however apply it by using the SDMM algorithm.'</span>); <span class="keyword">end</span>
+0594                 regfunc.prox = @(x,gamma,x0) prox_tv(x,gamma,param);
+0595                 regfunc.eval = @(x,lambda) lambda*tv_norm(rA(x),param.shape);
+0596             <span class="keyword">case</span> <span class="string">'tv3d'</span>
+0597                 <span class="keyword">if</span> isfield(param,<span class="string">'A'</span>)
+0598                     error(<span class="string">'The linear operator for the total-variation prox operator is not implemented. You can however apply it by using the SDMM algorithm.'</span>); <span class="keyword">end</span>
+0599                 regfunc.prox = @(x,gamma,x0) prox_tv3d(x,gamma,param);
+0600                 regfunc.eval = @(x,lambda) lambda*tv_norm3d(rA(x),param.shape);
+0601             <span class="keyword">case</span> <span class="string">'trace'</span>
+0602                 regfunc.prox = @(x,gamma,x0) <a href="#_sub12" class="code" title="subfunction x = prox_nuclear_simple(z, gamma, shape)">prox_nuclear_simple</a>(x,gamma,shape_A_out);
+0603                 regfunc.eval = @(x,lambda) lambda*<a href="#_sub15" class="code" title="subfunction n = norm_nuclear_simple(z, shape)">norm_nuclear_simple</a>(rA(x),shape_A_out);
+0604             <span class="keyword">otherwise</span>
+0605                 error(<span class="string">'Unrecognized regularization type requested.'</span>);
+0606         <span class="keyword">end</span>
+0607         regfunc.y0 = [];
+0608         regfuncs{end+1} = @(lambda) setfield(setfield(regfunc,<span class="string">'prox'</span>,@(x,gamma,x0)regfunc.prox(x,gamma*lambda,x0)),<span class="string">'eval'</span>,@(x)regfunc.eval(x,lambda)); <span class="comment">%#ok&lt;SFLD&gt;</span>
+0609     <span class="keyword">end</span>
+0610 <span class="keyword">end</span>
+0611 
+0612 <span class="keyword">if</span> iscell(regweights) &amp;&amp; numel(regweights) == 1
+0613     regweights = regweights{1}; <span class="keyword">end</span>
+0614 <span class="keyword">if</span> isempty(regweights)
+0615     regweights = ones(1,length(regfuncs)); <span class="keyword">end</span>
+0616 regweights = regweights/sum(regweights); 
+0617 
+0618 <span class="comment">% learn the regularization path</span>
+0619 <span class="keyword">if</span> verbosity
+0620     disp(<span class="string">'solving regularization path...'</span>); <span class="keyword">end</span>
+0621 y0 = {};
+0622 regpath = cell(1,length(lambdas));
+0623 <span class="keyword">for</span> k =1:length(lambdas)
+0624     
+0625     <span class="comment">% set up parameters</span>
+0626     weights = [1,lambdas(k)*regweights];
+0627     lossfunc = lossfunc(1);
+0628     lossfunc.L = [];
+0629     <span class="keyword">if</span> ~isempty(y0)
+0630         lossfunc.y0 = y0{1}; <span class="keyword">end</span>
+0631     lossfunc.param = struct();
+0632     <span class="keyword">for</span> r = 1:length(regfuncs)
+0633         tmpregfuncs(r) = regfuncs{r}(weights(1+r));
+0634         <span class="keyword">if</span> ~isempty(y0)
+0635             tmpregfuncs(r).y0 = y0{1+r}; <span class="keyword">end</span>
+0636     <span class="keyword">end</span>
+0637     
+0638     <span class="comment">% solve</span>
+0639     t0 = tic;
+0640     <span class="keyword">if</span> verbosity
+0641         fprintf(<span class="string">'  scanning lambda = %f (%i/%i)...'</span>,lambdas(k),k,length(lambdas)); <span class="keyword">end</span>
+0642     <span class="keyword">if</span> solverOptions.warmstart
+0643         [w,y0,rho,hist] = hlp_diskcache(<span class="string">'temporary'</span>,@consensus_admm,w,[lossfunc tmpregfuncs],solverOptions); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0644     <span class="keyword">else</span>
+0645         [w,y0dummy,rho,hist] = hlp_diskcache(<span class="string">'temporary'</span>,@consensus_admm,zeros(size(w)),[lossfunc tmpregfuncs],solverOptions); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0646     <span class="keyword">end</span>
+0647     <span class="keyword">if</span> verbosity
+0648         fprintf(<span class="string">' %i iters; t = %.1fs\n'</span>,length(hist.objval),toc(t0)); <span class="keyword">end</span>
+0649     
+0650     <span class="comment">% store</span>
+0651     regpath{k} = w;
+0652     fullhist{k} = hist;
+0653 <span class="keyword">end</span>
+0654 
+0655 <span class="comment">% --- logistic loss code ---</span>
+0656 
+0657 <a name="_sub2" href="#_subfunctions" class="code">function [val,grad] = obj_proxlogistic(x,C,Cp,z,gamma,m)</a>
+0658 <span class="comment">% objective function for the logistic loss proximity operator (effectively l2-regularized logreg)</span>
+0659 ecx = exp(C*x);
+0660 val = (1/2)*sum((x-z).^2) + gamma/m*gather(sum(log1p(ecx)));
+0661 <span class="keyword">if</span> ~isfinite(val)
+0662     ecx(~isfinite(ecx(:))) = 2.^50;
+0663     val = (1/2)*sum((x-z).^2) + gamma/m*gather(sum(log1p(ecx)));
+0664 <span class="keyword">end</span>
+0665 grad = (x - z) + (gamma/m)*gather(Cp*(ecx./(1+ecx)));
+0666 
+0667 <a name="_sub3" href="#_subfunctions" class="code">function x = prox_logistic(C,Cp,z,gamma,x0,m,args)</a>
+0668 x = liblbfgs(@(w)<a href="#_sub2" class="code" title="subfunction [val,grad] = obj_proxlogistic(x,C,Cp,z,gamma,m)">obj_proxlogistic</a>(w,C,Cp,z,gamma,m),x0,args{:});
+0669 
+0670 <a name="_sub4" href="#_subfunctions" class="code">function obj = obj_logistic(C,x,m)</a>
+0671 obj = gather(sum(log1p(exp(C*x))))/m;
+0672 
+0673            
+0674 <span class="comment">% --- square loss code  ---</span>
+0675 
+0676 <a name="_sub5" href="#_subfunctions" class="code">function x = prox_squared_factored(A,Atb,L,U,rho,z,u,m,n)</a>
+0677 <span class="comment">% this version can only be used if rho stays constant</span>
+0678 q = Atb + rho*(z - u);
+0679 <span class="keyword">if</span>(m &gt;= n)
+0680     x = U\(L\q);
+0681 <span class="keyword">else</span>
+0682     x = q/rho - (A'*(U\(L\(A*q))))/rho^2;
+0683 <span class="keyword">end</span>
+0684 
+0685 <a name="_sub6" href="#_subfunctions" class="code">function x = prox_squared_iter(A,b,rho,z,u,n,x0)</a>
+0686 [x, flag, relres, iters] = lsqr([A; sqrt(rho)*speye(n)], [b; sqrt(rho)*(z-u)], [], [], [], [], x0); <span class="comment">%#ok&lt;NASGU,ASGLU&gt;</span>
+0687 
+0688 <a name="_sub7" href="#_subfunctions" class="code">function obj = obj_squared(A,b,x)</a>
+0689 obj = 0.5*norm(A*x - b,2).^2;
+0690 
+0691 
+0692 <span class="comment">% --- some useful prox operators &amp; norms ---</span>
+0693 
+0694 <a name="_sub8" href="#_subfunctions" class="code">function x = prox_l1_simple(z, gamma)</a>
+0695 <span class="comment">% for the l1 norm</span>
+0696 x = max(0,z-gamma) - max(0,-z-gamma);
+0697 
+0698 <a name="_sub9" href="#_subfunctions" class="code">function x = prox_l12_simple(z, gamma, shape)</a>
+0699 <span class="comment">% for the columnwise group l1/l2 norm</span>
+0700 z = reshape(z,shape);
+0701 x = bsxfun(@times,max(0,1-gamma./sqrt(sum(z.^2))),z);
+0702 x = x(:);
+0703 
+0704 <a name="_sub10" href="#_subfunctions" class="code">function x = prox_l2_simple(z, gamma)</a>
+0705 <span class="comment">% for the l2 norm</span>
+0706 x = bsxfun(@times,max(0,1-gamma./sqrt(sum(z.^2))),z);
+0707 
+0708 <a name="_sub11" href="#_subfunctions" class="code">function x = prox_l1inf_simple(z, gamma, shape)</a>
+0709 <span class="comment">% for the columnwise group l1/linf norm</span>
+0710 z = reshape(z,shape);
+0711 x = bsxfun(@times,max(0,1-gamma/max(abs(z))),z);
+0712 x = x(:);
+0713 
+0714 <a name="_sub12" href="#_subfunctions" class="code">function x = prox_nuclear_simple(z, gamma, shape)</a>
+0715 <span class="comment">% for the trace norm on first 2 dimensions</span>
+0716 z = reshape(z,shape);
+0717 <span class="keyword">if</span> ~ismatrix(z)
+0718     siz = size(z);
+0719     z = reshape(z,siz(1),siz(2),[]);
+0720     <span class="keyword">for</span> k=1:size(z,3)
+0721         [U,S,V] = svd(z(:,:,k),<span class="string">'econ'</span>);
+0722         S = diag(max(0,diag(S)-gamma));
+0723         z(:,:,k) = U*S*V.';
+0724     <span class="keyword">end</span>
+0725     x = reshape(z,siz);
+0726 <span class="keyword">else</span>
+0727     [U,S,V] = svd(z,<span class="string">'econ'</span>);
+0728     S = diag(max(0,diag(S)-gamma));
+0729     x = U*S*V.';
+0730 <span class="keyword">end</span>
+0731 x = x(:);
+0732 
+0733 <a name="_sub13" href="#_subfunctions" class="code">function n = norm_l12_simple(z, shape)</a>
+0734 <span class="comment">% for the columnwise group l1/l2 norm</span>
+0735 n = sqrt(sum(reshape(z.^2,shape)));
+0736 n = sum(n(:));
+0737 
+0738 <a name="_sub14" href="#_subfunctions" class="code">function n = norm_l1inf_simple(z, shape)</a>
+0739 <span class="comment">% for the columnwise group l1/linf norm</span>
+0740 n = max(reshape(abs(z),shape));
+0741 n = sum(n(:));
+0742 
+0743 <a name="_sub15" href="#_subfunctions" class="code">function n = norm_nuclear_simple(z, shape)</a>
+0744 <span class="comment">% for the trace norm on first 2 dimensions</span>
+0745 z = reshape(z,shape);
+0746 <span class="keyword">if</span> ~ismatrix(z)
+0747     siz = size(z);
+0748     z = reshape(z,siz(1),siz(2),[]);
+0749     n = 0;
+0750     <span class="keyword">for</span> k=1:size(z,3)
+0751         n = n+sum(svd(z(:,:,k))); <span class="keyword">end</span>
+0752 <span class="keyword">else</span>
+0753     n = sum(svd(z));
+0754 <span class="keyword">end</span>
+0755 
+0756 
+0757 <span class="comment">% -- hyperbolic secant distribution loss code ---</span>
+0758 
+0759 <a name="_sub16" href="#_subfunctions" class="code">function [val,grad] = obj_proxhs(x,b,z,gamma)</a>
+0760 <span class="comment">% objective function for the hyperbolic-secant loss proximity operator</span>
+0761 zz = x-b;
+0762 mz = abs(zz);
+0763 ezzmz = exp(zz-mz);
+0764 enzzmz = exp(-zz-mz);
+0765 val = (1/2)*norm(x - z).^2 + gamma*sum(mz + log(ezzmz+enzzmz)-log(2/pi));
+0766 grad = (x - z) + gamma*(ezzmz-enzzmz)./(ezzmz+enzzmz);
+0767 
+0768 <a name="_sub17" href="#_subfunctions" class="code">function x = prox_hs(b,z,gamma,x0,args)</a>
+0769 x = liblbfgs(@(w)<a href="#_sub16" class="code" title="subfunction [val,grad] = obj_proxhs(x,b,z,gamma)">obj_proxhs</a>(w,b,z,gamma),x0,args{:});
+0770 
+0771 <a name="_sub18" href="#_subfunctions" class="code">function obj = obj_hs(x,b)</a>
+0772 x = x-b;
+0773 ax = abs(x);
+0774 obj = sum(mz + log(exp(x-ax)+exp(-x-ax))-log(2/pi));
+0775 
+0776 
+0777 <span class="comment">% --- helper functions ---</span>
+0778 
+0779 <a name="_sub19" href="#_subfunctions" class="code">function [L,U] = factor(A, rho)</a>
+0780 <span class="comment">% note: rho is 1/gamma</span>
+0781 [m,n] = size(A);
+0782 <span class="keyword">if</span> (m &gt;= n)
+0783     L = chol(A'*A + rho*speye(n),<span class="string">'lower'</span>);
+0784 <span class="keyword">else</span>
+0785     L = chol(speye(m) + 1/rho*(A*A'),<span class="string">'lower'</span>);
+0786 <span class="keyword">end</span>
+0787 <span class="comment">% force matlab to recognize the upper / lower triangular structure</span>
+0788 L = sparse(L);
+0789 U = sparse(L');
+0790 
+0791 
+0792 <a name="_sub20" href="#_subfunctions" class="code">function M = operator_to_matrix(op,n)</a>
+0793 <span class="keyword">persistent</span> operator_cache;
+0794 opid = [<span class="string">'x'</span> hlp_cryptohash({op,n})];
+0795 <span class="keyword">try</span>
+0796     M = operator_cache.(opid);
+0797 <span class="keyword">catch</span>
+0798     <span class="comment">% convert a linear operator function to a matrix (given the input dimensionality)</span>
+0799     <span class="comment">% this works by going through the canonical basis vectors of the space and projecting them</span>
+0800     <span class="comment">% one-by-one through the operator</span>
+0801     fprintf(<span class="string">'Evaluating and caching operator...'</span>);
+0802     M = hlp_diskcache(<span class="string">'general'</span>,@<a href="#_sub21" class="code" title="subfunction M = operator_to_matrix_cached(op,n)">operator_to_matrix_cached</a>,op,n);
+0803     operator_cache.(opid) = M;
+0804     fprintf(<span class="string">'done.\n'</span>);
+0805 <span class="keyword">end</span>
+0806 
+0807 <a name="_sub21" href="#_subfunctions" class="code">function M = operator_to_matrix_cached(op,n)</a>
+0808 vec = @(x)x(:);
+0809 M = [];
+0810 w = zeros(n,1);
+0811 <span class="keyword">for</span> c=n:-1:1
+0812     v = w; v(c) = 1;
+0813     M(:,c) = vec(op(v));
+0814 <span class="keyword">end</span>
+0815 M = sparse(M);</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

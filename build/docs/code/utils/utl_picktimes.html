@@ -1,0 +1,110 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_picktimes</title>
+  <meta name="keywords" content="utl_picktimes">
+  <meta name="description" content="Average the input array within the given index ranges, for each row and plane.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_picktimes.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_picktimes
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Average the input array within the given index ranges, for each row and plane.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function Y = utl_picktimes(X,wnd) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Average the input array within the given index ranges, for each row and plane.
+ Result = utl_picktimes(Data, Windows)
+
+ In:
+   Data    : [Channels x Samples x Trials] data array
+   Windows : [Ranges x 2] array specifying the beginning and end of each range, in samples
+
+ Out:
+   Result  : averaged sub-ranges of the original data array; sized [Channels x Ranges x Trials]
+
+ Examples:
+   % for a given 3d data array, average intervals of 20:30 samples, 50:100 samples, and 100:200 samples
+   % for each epoch and each channel
+   averages = utl_picktimes(EEG.data,[20 30;50 100;100 200])
+
+ See also:
+   set_picktimes
+
+                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                               2010-04-20</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function Y = utl_picktimes(X,wnd)</a>
+0002 <span class="comment">% Average the input array within the given index ranges, for each row and plane.</span>
+0003 <span class="comment">% Result = utl_picktimes(Data, Windows)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Data    : [Channels x Samples x Trials] data array</span>
+0007 <span class="comment">%   Windows : [Ranges x 2] array specifying the beginning and end of each range, in samples</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% Out:</span>
+0010 <span class="comment">%   Result  : averaged sub-ranges of the original data array; sized [Channels x Ranges x Trials]</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">% Examples:</span>
+0013 <span class="comment">%   % for a given 3d data array, average intervals of 20:30 samples, 50:100 samples, and 100:200 samples</span>
+0014 <span class="comment">%   % for each epoch and each channel</span>
+0015 <span class="comment">%   averages = utl_picktimes(EEG.data,[20 30;50 100;100 200])</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">% See also:</span>
+0018 <span class="comment">%   set_picktimes</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0021 <span class="comment">%                               2010-04-20</span>
+0022 
+0023 [C,S,T] = size(X);
+0024 
+0025 <span class="comment">% fix the windows, if necessary</span>
+0026 wnd = min(max(wnd,1),S);
+0027 wnd(:,2) = wnd(:,2)+1;
+0028 wnd = wnd(wnd(:,2)&gt;wnd(:,1),:);
+0029 W = size(wnd,1);
+0030 
+0031 <span class="comment">% calc offset &amp; coverage values for first &amp; last sample</span>
+0032 fo = floor(wnd(:,1));
+0033 fc = min(fo+1,wnd(:,2)) - wnd(:,1);
+0034 lo = ceil(wnd(:,2)-1);
+0035 lc = wnd(:,2) - max(lo,wnd(:,1));
+0036 <span class="comment">% calc fully overlapped sample range, inverse length</span>
+0037 <span class="keyword">for</span> r=1:W
+0038     full{r} = fo(r)+1:lo(r)-1; <span class="keyword">end</span>
+0039 ilen = 1./(fc+cellfun(@length,full)'+lc); 
+0040 
+0041 Y = zeros(C,W,T);
+0042 <span class="comment">% accumulate for every range...</span>
+0043 <span class="keyword">for</span> r=1:W    
+0044     Y(:,r,:) = (X(:,fo(r),:)*fc(r)+sum(X(:,full{r},:),2)+X(:,lo(r),:)*lc(r))*ilen(r); <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,248 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_coherence</title>
+  <meta name="keywords" content="flt_coherence">
+  <meta name="description" content="Calculate between-channel / component coherence.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_coherence.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_coherence
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Calculate between-channel / component coherence.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function signal = flt_coherence(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Calculate between-channel / component coherence.
+ Signal = flt_coherence(Signal, TimeBandwidth, Tapers, Padding, IncludePhase, Normalized, LogTransform)
+
+ The fourier representation is practical if there is a highly complex (relevant) spectral structure
+ in the data. In any representation except for 'complex', it is necessary that an appropriate
+ spatial filter has been applied to the data beforehand (e.g., ICA with the 'transform' option set
+ to 1, or the surface laplacian). The complex representation can be spatially transformed after
+ running the Fourier filter, since it is a linear operator. If classifiers operate directly on the
+ fourier representation, it is usually necessary to chose a representation that can be linearly
+ mapped to a prediction, such as 'amplitude', 'polar' or 'phase'; 'complex' requires a non-linear
+ classification, which is almost certain to overfit any other random non-linear dependencies in the
+ data. Some interesting assumptions that can be imposed on Fourier data include sparsity (l1) and
+ group sparsity (if independent component activity was transformed).
+
+ Note: The computation time of coherence scales quadratically with the number of components under
+       consideration; 16 components is still fast enough for real-time use. Also note that coherence
+       applied to channels is not nearly as useful as applied to spatially filtered source signals.
+
+ In:
+   Signal :   Epoched data set to be processed
+
+   TimeBandwidth : Spectral smoothing. Controls the bias vs. variance of the spectral estimation.
+                   (default: 3)
+
+   Tapers : Number of tapers. Should be an integer smaller than 2*TimeBandwith (default: 2*TimeBandwidth-1)
+
+   Padding : FFT padding factor. Controls the oversampling of the spectrum; 0 is the next largest
+             power of two, 1 is 2x as much, etc. (default: 0)
+
+   IncludePhase : Include phase information. Whether to include the phase of coherence in the result.
+                  (default: true)
+
+   Normalized  : Normalize the spectrum by 1/f. Doing this has benefits for classifiers that work
+                 best with naturally normalized features (e.g. some regularized classifiers).
+                 (default: true)
+
+   LogTransform : Log-Transform. Whether to transform the resulting spectral data into the log
+                  domain; can facilitates the use of simple (linear) classifiers. (default: false)
+
+ Out: 
+   Signal  :   processed data set
+
+ Examples:
+   % use default settings (basically contains all information, but not log-transformed PSDs)
+   eeg = flt_coherence(eeg)
+
+   % use a custom bandwith
+   eeg = flt_coherence(eeg,4)
+
+   % turn off the phase information
+   eeg = flt_coherence('Signal',eeg,'IncludePhase',false)
+
+   % turn on log-transformation of the PSD's (diagonals)
+   eeg = flt_coherence('Signal',eeg,'LogTransform',true)
+
+   % turn off the 1/f normalization (giving raw spectra)
+   eeg = flt_coherence('Signal',eeg,'Normalized',false)
+
+ See also:
+   cohmatrixc
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-03-28</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = flt_coherence(varargin)</a>
+0002 <span class="comment">% Calculate between-channel / component coherence.</span>
+0003 <span class="comment">% Signal = flt_coherence(Signal, TimeBandwidth, Tapers, Padding, IncludePhase, Normalized, LogTransform)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% The fourier representation is practical if there is a highly complex (relevant) spectral structure</span>
+0006 <span class="comment">% in the data. In any representation except for 'complex', it is necessary that an appropriate</span>
+0007 <span class="comment">% spatial filter has been applied to the data beforehand (e.g., ICA with the 'transform' option set</span>
+0008 <span class="comment">% to 1, or the surface laplacian). The complex representation can be spatially transformed after</span>
+0009 <span class="comment">% running the Fourier filter, since it is a linear operator. If classifiers operate directly on the</span>
+0010 <span class="comment">% fourier representation, it is usually necessary to chose a representation that can be linearly</span>
+0011 <span class="comment">% mapped to a prediction, such as 'amplitude', 'polar' or 'phase'; 'complex' requires a non-linear</span>
+0012 <span class="comment">% classification, which is almost certain to overfit any other random non-linear dependencies in the</span>
+0013 <span class="comment">% data. Some interesting assumptions that can be imposed on Fourier data include sparsity (l1) and</span>
+0014 <span class="comment">% group sparsity (if independent component activity was transformed).</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">% Note: The computation time of coherence scales quadratically with the number of components under</span>
+0017 <span class="comment">%       consideration; 16 components is still fast enough for real-time use. Also note that coherence</span>
+0018 <span class="comment">%       applied to channels is not nearly as useful as applied to spatially filtered source signals.</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% In:</span>
+0021 <span class="comment">%   Signal :   Epoched data set to be processed</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%   TimeBandwidth : Spectral smoothing. Controls the bias vs. variance of the spectral estimation.</span>
+0024 <span class="comment">%                   (default: 3)</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">%   Tapers : Number of tapers. Should be an integer smaller than 2*TimeBandwith (default: 2*TimeBandwidth-1)</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">%   Padding : FFT padding factor. Controls the oversampling of the spectrum; 0 is the next largest</span>
+0029 <span class="comment">%             power of two, 1 is 2x as much, etc. (default: 0)</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%   IncludePhase : Include phase information. Whether to include the phase of coherence in the result.</span>
+0032 <span class="comment">%                  (default: true)</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">%   Normalized  : Normalize the spectrum by 1/f. Doing this has benefits for classifiers that work</span>
+0035 <span class="comment">%                 best with naturally normalized features (e.g. some regularized classifiers).</span>
+0036 <span class="comment">%                 (default: true)</span>
+0037 <span class="comment">%</span>
+0038 <span class="comment">%   LogTransform : Log-Transform. Whether to transform the resulting spectral data into the log</span>
+0039 <span class="comment">%                  domain; can facilitates the use of simple (linear) classifiers. (default: false)</span>
+0040 <span class="comment">%</span>
+0041 <span class="comment">% Out:</span>
+0042 <span class="comment">%   Signal  :   processed data set</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">% Examples:</span>
+0045 <span class="comment">%   % use default settings (basically contains all information, but not log-transformed PSDs)</span>
+0046 <span class="comment">%   eeg = flt_coherence(eeg)</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">%   % use a custom bandwith</span>
+0049 <span class="comment">%   eeg = flt_coherence(eeg,4)</span>
+0050 <span class="comment">%</span>
+0051 <span class="comment">%   % turn off the phase information</span>
+0052 <span class="comment">%   eeg = flt_coherence('Signal',eeg,'IncludePhase',false)</span>
+0053 <span class="comment">%</span>
+0054 <span class="comment">%   % turn on log-transformation of the PSD's (diagonals)</span>
+0055 <span class="comment">%   eeg = flt_coherence('Signal',eeg,'LogTransform',true)</span>
+0056 <span class="comment">%</span>
+0057 <span class="comment">%   % turn off the 1/f normalization (giving raw spectra)</span>
+0058 <span class="comment">%   eeg = flt_coherence('Signal',eeg,'Normalized',false)</span>
+0059 <span class="comment">%</span>
+0060 <span class="comment">% See also:</span>
+0061 <span class="comment">%   cohmatrixc</span>
+0062 <span class="comment">%</span>
+0063 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0064 <span class="comment">%                                2010-03-28</span>
+0065 
+0066 <span class="comment">% flt_coherence_version&lt;0.95&gt; -- for the cache</span>
+0067 
+0068 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0069 
+0070 <span class="comment">% requires epoched data, works best on spatially filtered data</span>
+0071 declare_properties(<span class="string">'name'</span>,<span class="string">'CoherenceTransform'</span>, <span class="string">'depends'</span>,<span class="string">'set_makepos'</span>, <span class="string">'follows'</span>,{<span class="string">'flt_reconstruct'</span>,<span class="string">'flt_project'</span>,<span class="string">'flt_window'</span>}, <span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,true);
+0072 
+0073 arg_define(varargin,<span class="keyword">...</span>
+0074     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0075     arg({<span class="string">'mtbandwidth'</span>,<span class="string">'TimeBandwidth'</span>},3,[],<span class="string">'Spectral smoothing. Controls the bias vs. variance of the spectral estimation.'</span>), <span class="keyword">...</span>
+0076     arg({<span class="string">'mttapers'</span>,<span class="string">'Tapers'</span>},[],[],<span class="string">'Number of tapers. Should be an integer smaller than 2*TimeBandwith; default 2*TimeBandwidth-1'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0077     arg({<span class="string">'mtpadding'</span>,<span class="string">'Padding'</span>},0,[],<span class="string">'FFT padding factor. Controls the oversampling of the spectrum; 0 is the next largest power of two, 1 is 2x as much, etc.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0078     arg({<span class="string">'includephase'</span>,<span class="string">'IncludePhase'</span>}, true, [], <span class="string">'Include phase information. Whether to include the phase of coherence in the result.'</span>), <span class="keyword">...</span>
+0079     arg({<span class="string">'normalized'</span>,<span class="string">'Normalized'</span>}, true, [], <span class="string">'Normalize the spectrum by 1/f. Doing this has benefits for classifiers that work best with naturally normalized features (e.g. some regularized classifiers).'</span>), <span class="keyword">...</span>
+0080     arg({<span class="string">'logtransform'</span>,<span class="string">'LogTransform'</span>}, false, [], <span class="string">'Log-Transform. Whether to transform the resulting spectral data into the log domain; can facilitates the use of simple (linear) classifiers.'</span>));
+0081 
+0082     
+0083 [C,S,T] = size(signal.data);
+0084 
+0085 <span class="comment">% compute the Coherence &amp; PSD using Slepian tapers</span>
+0086 <span class="keyword">if</span> isempty(mttapers)
+0087     mttapers = 2*mtbandwidth-1; <span class="keyword">end</span>
+0088 tmp = cell(1,size(signal.data,3));
+0089 <span class="keyword">for</span> t = 1:length(tmp)
+0090     <span class="comment">% calc coherence magnitude and phase</span>
+0091     [coh,phi] = cohmatrixc(signal.data(:,:,t)',struct(<span class="string">'tapers'</span>,[2*mtbandwidth mttapers],<span class="string">'pad'</span>,mtpadding,<span class="string">'Fs'</span>,signal.srate));
+0092     <span class="comment">% also calc the spectrum</span>
+0093     [spec,F] = mtspectrumc(signal.data(:,:,t)',struct(<span class="string">'tapers'</span>,[2*mtbandwidth mttapers],<span class="string">'pad'</span>,mtpadding,<span class="string">'Fs'</span>,signal.srate));
+0094     transp_coh = cell(1,size(signal.data,1));
+0095     transp_phi = cell(1,size(signal.data,1));
+0096     <span class="keyword">for</span> c=1:length(transp_coh)
+0097         <span class="keyword">if</span> normalized
+0098             coh(:,c,c) = spec(:,c) .* ([1 1:size(spec,1)-1]')/size(spec,1);
+0099         <span class="keyword">else</span>
+0100             coh(:,c,c) = spec(:,c);
+0101         <span class="keyword">end</span>
+0102         transp_coh{c} = coh(:,:,c)';
+0103         transp_phi{c} = phi(:,:,c)';
+0104     <span class="keyword">end</span>
+0105     <span class="keyword">if</span> includephase
+0106         tmp{t} = [vertcat(transp_coh{:}) ; vertcat(transp_phi{:})];
+0107     <span class="keyword">else</span>
+0108         tmp{t} = vertcat(transp_coh{:});
+0109     <span class="keyword">end</span>
+0110 <span class="keyword">end</span>
+0111 signal.data = cat(3,tmp{:});
+0112 signal.pnts = size(signal.data,2);
+0113 signal.freqs = F;
+0114 
+0115 <span class="keyword">if</span> includephase
+0116     <span class="comment">% replicate chanlocs</span>
+0117     idx = [1:signal.nbchan; 1:signal.nbchan];
+0118     signal.chanlocs = signal.chanlocs(idx);
+0119     <span class="keyword">for</span> k=1:length(signal.chanlocs)
+0120         <span class="keyword">if</span> mod(k,2)
+0121             signal.chanlocs(k).labels = [signal.chanlocs(k).labels <span class="string">'_mag'</span>];
+0122         <span class="keyword">else</span>
+0123             signal.chanlocs(k).labels = [signal.chanlocs(k).labels <span class="string">'_ang'</span>];
+0124         <span class="keyword">end</span>
+0125     <span class="keyword">end</span>
+0126     <span class="comment">% recalc channel number</span>
+0127     signal.nbchan = size(signal.data,1);
+0128 <span class="keyword">end</span>
+0129 
+0130 <span class="keyword">if</span> logtransform
+0131     <span class="keyword">if</span> includephase
+0132         signal.data(1:2:<span class="keyword">end</span>,:,:) = log(signal.data(1:2:<span class="keyword">end</span>,:,:)); 
+0133     <span class="keyword">else</span>
+0134         signal.data = log(signal.data); 
+0135     <span class="keyword">end</span>
+0136     signal.data(~isfinite(signal.data(:))) = 0;
+0137 <span class="keyword">end</span>
+0138 
+0139 exp_endfun;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

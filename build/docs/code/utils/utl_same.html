@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_same</title>
+  <meta name="keywords" content="utl_same">
+  <meta name="description" content="Check whether two expressions are structurally identical.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_same.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_same
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Check whether two expressions are structurally identical.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function r = utl_same(a,b) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Check whether two expressions are structurally identical.
+
+ Differs from isequal() in the following ways:
+  a) ignores the values associated with impure expressions
+  b) compares lambda expressions by their string representation; necessary for exp_symbol to work as expected
+  note: exp_symbol('x') and @x are considered non-equal by utl_same.
+
+ Note: This function treats anonymous functions nested inside cell arrays or structs as non-equal,
+       unless they are copies of each other; use isequal_weak for this.
+
+ See also:
+   exp_same
+
+                                       Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                       2010-04-19</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_same.html" class="code" title="function r = utl_same(a,b)">utl_same</a>	Check whether two expressions are structurally identical.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_add_online.html" class="code" title="function context = utl_add_online(context)">utl_add_online</a>	Internal. Post-step for exp_beginfun, adding an online expression to a dataset.</li><li><a href="utl_match.html" class="code" title="function [r,dict] = utl_match(x,f,dict)">utl_match</a>	Check whether an expression is matched by a pattern.</li><li><a href="utl_memoize_lookup.html" class="code" title="function [action,result] = utl_memoize_lookup(exp,memo_ctrl,ctx)">utl_memoize_lookup</a>	Check for memoizability and/or availability of the given expression.</li><li><a href="utl_same.html" class="code" title="function r = utl_same(a,b)">utl_same</a>	Check whether two expressions are structurally identical.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function r = utl_same(a,b)</a>
+0002 <span class="comment">% Check whether two expressions are structurally identical.</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% Differs from isequal() in the following ways:</span>
+0005 <span class="comment">%  a) ignores the values associated with impure expressions</span>
+0006 <span class="comment">%  b) compares lambda expressions by their string representation; necessary for exp_symbol to work as expected</span>
+0007 <span class="comment">%  note: exp_symbol('x') and @x are considered non-equal by utl_same.</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% Note: This function treats anonymous functions nested inside cell arrays or structs as non-equal,</span>
+0010 <span class="comment">%       unless they are copies of each other; use isequal_weak for this.</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">% See also:</span>
+0013 <span class="comment">%   exp_same</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%                                       Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0016 <span class="comment">%                                       2010-04-19</span>
+0017 
+0018 <span class="keyword">if</span> isstruct(a) &amp;&amp; isstruct(b)
+0019     <span class="comment">% structures may be impure expressions</span>
+0020     <span class="keyword">if</span> isfield(a,<span class="string">'tracking'</span>) &amp;&amp; isfield(a.tracking,<span class="string">'expression'</span>)
+0021         a = a.tracking.expression; <span class="keyword">end</span>
+0022     <span class="keyword">if</span> isfield(b,<span class="string">'tracking'</span>) &amp;&amp; isfield(b.tracking,<span class="string">'expression'</span>)
+0023         b = b.tracking.expression; <span class="keyword">end</span>
+0024     
+0025     <span class="comment">% or canonically represented expressions</span>
+0026     <span class="keyword">if</span> isfield(a,{<span class="string">'head'</span>,<span class="string">'parts'</span>}) &amp; isfield(b,{<span class="string">'head'</span>,<span class="string">'parts'</span>}) <span class="comment">%#ok&lt;AND2&gt;</span>
+0027         <span class="keyword">if</span> ~isequal(a.head,b.head) || (length(a.parts) ~= length(b.parts))
+0028             r = false;
+0029         <span class="keyword">else</span>
+0030             <span class="keyword">for</span> k=1:length(a.parts)
+0031                 <span class="keyword">if</span> ~<a href="utl_same.html" class="code" title="function r = utl_same(a,b)">utl_same</a>(a.parts{k},b.parts{k})
+0032                     r = false;
+0033                     <span class="keyword">return</span>;
+0034                 <span class="keyword">end</span>
+0035             <span class="keyword">end</span>
+0036             r = true;
+0037         <span class="keyword">end</span>
+0038     <span class="keyword">else</span>
+0039         <span class="comment">% or general structures</span>
+0040         r = isequalwithequalnans(a,b);
+0041     <span class="keyword">end</span>        
+0042 <span class="keyword">elseif</span> isa(a,<span class="string">'function_handle'</span>) &amp;&amp; isa(b,<span class="string">'function_handle'</span>)
+0043     <span class="comment">% function handles are compared via their string representation</span>
+0044     r = strcmp(char(a),char(b));
+0045 <span class="keyword">else</span>
+0046     <span class="comment">% everything else is compared using isqual</span>
+0047     r = isequalwithequalnans(a,b);
+0048 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

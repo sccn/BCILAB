@@ -1,0 +1,232 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_warmstart</title>
+  <meta name="keywords" content="utl_warmstart">
+  <meta name="description" content="Utility function to ease the definition of warm-start techniques in BCILAB.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_warmstart.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_warmstart
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Utility function to ease the definition of warm-start techniques in BCILAB.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function model = utl_warmstart(initial_model,learning_function,parameter_index,varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Utility function to ease the definition of warm-start techniques in BCILAB.
+ Model = utl_warmstart(InitialModel,LearningFunction,SpecialParamIndex,Arguments...)
+
+ Warm-starting is an approach in which a result is computed based on some previously computed result,
+ potentially saving redundant computations. 
+ 
+ Warm-starting is frequently used to solve a sequence of constrained optimization problems with
+ incrementally larger (i.e. less strict) constraint sets, where the solution of the previous run
+ is used as initial value for the next run. In certain regularized machine learning settings, 
+ it can be used to efficiently learn the entire regularization path for a series of regularization 
+ parameter values.
+
+ This function simplifies this task in BCILAB by automatically keeping track of the model that was 
+ previously computed for a given parameter setting (but possibly for another regularization 
+ parameter value), and using it (in place of the InitialModel) as parameter to the LearningFunction.
+ Note that when implementing the parameter search loop, cross-validation, etc. ad hoc by hand, 
+ there is little need for this function - it only helps when it is difficult or impossible to 
+ manually keep track of the previous models.
+
+ To be able to distinguish between the learner arguments (out of Arguments) that vary over a
+ sequence of related learning problems (namely the regularization parameters) and those that
+ constitute a different (unrelated) learning problem (such as the training data itself), the
+ function requires that the index (or indices, into Arguments) of those parameters that may vary is
+ passed as SpecialParamIndex.
+
+ In:
+   InitialModel : the initial model to use for the learning function
+
+   LearningFunction : function handle to learn a new model given a previous model and some 
+                      arbitrary parameters; invoked as NewModel = LearningFunction(PrevModel,Arguments...)
+
+   SpecialParamIndex : index into the Arguments which denotes the (variable) regularization 
+                       pararameter. Can also be a vector of indices, if there are multiple such 
+                       parameters.
+
+   Arguments... : optional list of arguments to the LearningFunction (passed after the model)
+
+ Out:
+   Model : the newly learned model
+
+ Notes:
+   The global variable tracking.cache.max_cached_models can be used to control how many models may
+   be held in cache simultaneously (default: 20)
+
+ Examples:
+   % suppose a learning function defined as follows exist:
+      newmodel = function mylearner(initialmodel,X,y,alpha,beta,gamma)
+
+   % ... which accepts an initial model as parameter, followed by several other parameters. 
+   % The Parameter &quot;alpha&quot; shall be special, and denote the regularization parameter (i.e., related 
+   % problems only differ in the value assigned to this parameter, whereas changes to any other 
+   % parameter denote an unrelated problem).
+
+   % Then, instead of invoking the function as:
+    result1 = mylearner([],myX,myY,0.1,mybeta,mygamma);
+    result2 = mylearner(result1,myX,myY,0.2,mybeta,mygamma);
+    result3 = mylearner(result2,myX,myY,0.3,mybeta,mygamma);
+   % It can be invoked as:
+    result1 = utl_warmstart([],@mylearner,3,myX,myY,0.1,mybeta,mygamma);
+    result2 = utl_warmstart([],@mylearner,3,myX,myY,0.2,mybeta,mygamma);
+    result3 = utl_warmstart([],@mylearner,3,myX,myY,0.3,mybeta,mygamma);
+ 
+   % ... for any setting of its parameters - however, whenever the values of myX, myY, mybeta and 
+   % mygamma match the values of some previous invocation (perhaps with a different myalpha), the 
+   % model that was produced during that computation is being used instead of initial_model (and
+   % saved for the next case).
+ 
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-02-10</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function model = utl_warmstart(initial_model,learning_function,parameter_index,varargin)</a>
+0002 <span class="comment">% Utility function to ease the definition of warm-start techniques in BCILAB.</span>
+0003 <span class="comment">% Model = utl_warmstart(InitialModel,LearningFunction,SpecialParamIndex,Arguments...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Warm-starting is an approach in which a result is computed based on some previously computed result,</span>
+0006 <span class="comment">% potentially saving redundant computations.</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% Warm-starting is frequently used to solve a sequence of constrained optimization problems with</span>
+0009 <span class="comment">% incrementally larger (i.e. less strict) constraint sets, where the solution of the previous run</span>
+0010 <span class="comment">% is used as initial value for the next run. In certain regularized machine learning settings,</span>
+0011 <span class="comment">% it can be used to efficiently learn the entire regularization path for a series of regularization</span>
+0012 <span class="comment">% parameter values.</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">% This function simplifies this task in BCILAB by automatically keeping track of the model that was</span>
+0015 <span class="comment">% previously computed for a given parameter setting (but possibly for another regularization</span>
+0016 <span class="comment">% parameter value), and using it (in place of the InitialModel) as parameter to the LearningFunction.</span>
+0017 <span class="comment">% Note that when implementing the parameter search loop, cross-validation, etc. ad hoc by hand,</span>
+0018 <span class="comment">% there is little need for this function - it only helps when it is difficult or impossible to</span>
+0019 <span class="comment">% manually keep track of the previous models.</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">% To be able to distinguish between the learner arguments (out of Arguments) that vary over a</span>
+0022 <span class="comment">% sequence of related learning problems (namely the regularization parameters) and those that</span>
+0023 <span class="comment">% constitute a different (unrelated) learning problem (such as the training data itself), the</span>
+0024 <span class="comment">% function requires that the index (or indices, into Arguments) of those parameters that may vary is</span>
+0025 <span class="comment">% passed as SpecialParamIndex.</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">% In:</span>
+0028 <span class="comment">%   InitialModel : the initial model to use for the learning function</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%   LearningFunction : function handle to learn a new model given a previous model and some</span>
+0031 <span class="comment">%                      arbitrary parameters; invoked as NewModel = LearningFunction(PrevModel,Arguments...)</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%   SpecialParamIndex : index into the Arguments which denotes the (variable) regularization</span>
+0034 <span class="comment">%                       pararameter. Can also be a vector of indices, if there are multiple such</span>
+0035 <span class="comment">%                       parameters.</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%   Arguments... : optional list of arguments to the LearningFunction (passed after the model)</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">% Out:</span>
+0040 <span class="comment">%   Model : the newly learned model</span>
+0041 <span class="comment">%</span>
+0042 <span class="comment">% Notes:</span>
+0043 <span class="comment">%   The global variable tracking.cache.max_cached_models can be used to control how many models may</span>
+0044 <span class="comment">%   be held in cache simultaneously (default: 20)</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">% Examples:</span>
+0047 <span class="comment">%   % suppose a learning function defined as follows exist:</span>
+0048 <span class="comment">%      newmodel = function mylearner(initialmodel,X,y,alpha,beta,gamma)</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">%   % ... which accepts an initial model as parameter, followed by several other parameters.</span>
+0051 <span class="comment">%   % The Parameter &quot;alpha&quot; shall be special, and denote the regularization parameter (i.e., related</span>
+0052 <span class="comment">%   % problems only differ in the value assigned to this parameter, whereas changes to any other</span>
+0053 <span class="comment">%   % parameter denote an unrelated problem).</span>
+0054 <span class="comment">%</span>
+0055 <span class="comment">%   % Then, instead of invoking the function as:</span>
+0056 <span class="comment">%    result1 = mylearner([],myX,myY,0.1,mybeta,mygamma);</span>
+0057 <span class="comment">%    result2 = mylearner(result1,myX,myY,0.2,mybeta,mygamma);</span>
+0058 <span class="comment">%    result3 = mylearner(result2,myX,myY,0.3,mybeta,mygamma);</span>
+0059 <span class="comment">%   % It can be invoked as:</span>
+0060 <span class="comment">%    result1 = utl_warmstart([],@mylearner,3,myX,myY,0.1,mybeta,mygamma);</span>
+0061 <span class="comment">%    result2 = utl_warmstart([],@mylearner,3,myX,myY,0.2,mybeta,mygamma);</span>
+0062 <span class="comment">%    result3 = utl_warmstart([],@mylearner,3,myX,myY,0.3,mybeta,mygamma);</span>
+0063 <span class="comment">%</span>
+0064 <span class="comment">%   % ... for any setting of its parameters - however, whenever the values of myX, myY, mybeta and</span>
+0065 <span class="comment">%   % mygamma match the values of some previous invocation (perhaps with a different myalpha), the</span>
+0066 <span class="comment">%   % model that was produced during that computation is being used instead of initial_model (and</span>
+0067 <span class="comment">%   % saved for the next case).</span>
+0068 <span class="comment">%</span>
+0069 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0070 <span class="comment">%                                2011-02-10</span>
+0071 
+0072 
+0073 <span class="keyword">persistent</span> previous_models; <span class="comment">% struct holding previous models (indexed by problem id / hash)</span>
+0074 <span class="keyword">persistent</span> previous_times;  <span class="comment">% struct holding model creation times (indexed like previous_models)</span>
+0075 
+0076 <span class="comment">% find a hash/id for the given learning problem</span>
+0077 indices = 1:length(varargin); indices(parameter_index) = [];
+0078 hash = hlp_fingerprint([{learning_function},varargin(indices)]);
+0079 problem_id = sprintf(<span class="string">'x%.0f'</span>,hash);
+0080 
+0081 <span class="comment">% see if we have a previous model stored for it</span>
+0082 <span class="keyword">if</span> isfield(previous_models,problem_id)    
+0083     <span class="keyword">try</span>
+0084         <span class="comment">% yes: try to use it</span>
+0085         model = learning_function(previous_models.(problem_id),varargin{:});
+0086     <span class="keyword">catch</span> e
+0087         <span class="comment">% no: fall back to the initial model in case of an error</span>
+0088         disp(<span class="string">'Error evaluation learning function with cached model; falling back to initial model. Traceback:'</span>);
+0089         env_handleerror(e);
+0090         model = learning_function(initial_model,varargin{:});
+0091     <span class="keyword">end</span>
+0092 <span class="keyword">else</span>
+0093     <span class="comment">% use the initial model right away</span>
+0094     model = learning_function(initial_model,varargin{:});
+0095 <span class="keyword">end</span>
+0096 
+0097 <span class="comment">% store the model for the next time</span>
+0098 previous_models.(problem_id) = model;
+0099 previous_times.(problem_id) = cputime;
+0100 
+0101 <span class="keyword">global</span> tracking;
+0102 <span class="keyword">if</span> ~isfield(tracking.cache,<span class="string">'max_cached_models'</span>)
+0103     tracking.cache.max_cached_models = 20; <span class="keyword">end</span>
+0104 
+0105 problems = fieldnames(previous_times);
+0106 <span class="comment">% too many models in cache?</span>
+0107 <span class="keyword">if</span> length(problems) &gt; tracking.cache.max_cached_models
+0108     <span class="comment">% get corresponding creation times</span>
+0109     times = struct2cell(previous_times);
+0110     <span class="comment">% sort them from oldest to newest</span>
+0111     [sorted,indices] = sort([times{:}]); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0112     <span class="comment">% get the indices of those that need to be removed</span>
+0113     toremove = indices(1:(length(problems) - tracking.cache.max_cached_models));
+0114     <span class="comment">% remove them</span>
+0115     previous_models = rmfield(previous_models,problems(toremove));
+0116     previous_times = rmfield(previous_times,problems(toremove));
+0117 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

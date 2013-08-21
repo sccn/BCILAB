@@ -1,0 +1,263 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ml_trainglm</title>
+  <meta name="keywords" content="ml_trainglm">
+  <meta name="description" content="Learn a Bayesian generalized linear model">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">machine_learning</a> &gt; ml_trainglm.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/machine_learning&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ml_trainglm
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Learn a Bayesian generalized linear model</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function model = ml_trainglm(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Learn a Bayesian generalized linear model
+ Model = ml_trainglm(Trials, Targets, Options...)
+
+ This is an incomplete experimental implementatation wrapping the glm-ie toolbox; more to come
+ later.
+
+ In:
+   Trials       : training data, as in ml_train
+                  in addition, it may be specified as UxVxN 3d matrix,
+                  with UxV-formatted feature matrices per trial (N trials), or
+                  as {{U1xV1,U2xV2,...}, {U1xV1,U2xV2,...}
+
+   Targets      : target variable, as in ml_train
+
+   Options  : optional name-value parameters to control the training details:
+              'ptype': problem type: 'classification' (default) or 'regression'
+
+              'shape': if trials is a NxF 2d matrix of vectorized matrices,
+                           this is the dimensions of the matrices (default: Fx1)
+                       if trials is specified as an UxVxN 3d matrix, shape defaults to
+                           [U,V] and trials are vectorized into the regular [N, U*V]
+                       if shape is specified with one of the values being NaN,
+                           that value is set so that prod(shape)==F==U*V
+
+              'scaling': pre-scaling of the data (see hlp_findscaling for options) (default: 'std')
+
+              'setupfcn': Setup Function. Receives trials, targets and the options structure, and 
+                          returns the variables [X,y,B,pot,tau,G]. If empty, performs ridge
+                          regression or logistic regression depending on Type parameter.
+
+               for additional parameters see infEngine.m in the glm-ie directory.
+
+ Out:
+   Models   : a predictive model
+
+ See also:
+   <a href="ml_predictglm.html" class="code" title="function pred = ml_predictglm(trials,model)">ml_predictglm</a>, dli
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-07-08</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ml_predictglm.html" class="code" title="function pred = ml_predictglm(trials,model)">ml_predictglm</a>	Simple prediction function for the Bayesian GLM.</li><li><a href="ml_trainglm.html" class="code" title="function model = ml_trainglm(varargin)">ml_trainglm</a>	Learn a Bayesian generalized linear model</li><li><a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>	Internal meta-algorithm for voting. Used by other machine learning functions.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ml_trainglm.html" class="code" title="function model = ml_trainglm(varargin)">ml_trainglm</a>	Learn a Bayesian generalized linear model</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function [X,y,B,pot,tau,G] = default_setup(trials,targets,shape,opts)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function model = ml_trainglm(varargin)</a>
+0002 <span class="comment">% Learn a Bayesian generalized linear model</span>
+0003 <span class="comment">% Model = ml_trainglm(Trials, Targets, Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This is an incomplete experimental implementatation wrapping the glm-ie toolbox; more to come</span>
+0006 <span class="comment">% later.</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% In:</span>
+0009 <span class="comment">%   Trials       : training data, as in ml_train</span>
+0010 <span class="comment">%                  in addition, it may be specified as UxVxN 3d matrix,</span>
+0011 <span class="comment">%                  with UxV-formatted feature matrices per trial (N trials), or</span>
+0012 <span class="comment">%                  as {{U1xV1,U2xV2,...}, {U1xV1,U2xV2,...}</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%   Targets      : target variable, as in ml_train</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%   Options  : optional name-value parameters to control the training details:</span>
+0017 <span class="comment">%              'ptype': problem type: 'classification' (default) or 'regression'</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">%              'shape': if trials is a NxF 2d matrix of vectorized matrices,</span>
+0020 <span class="comment">%                           this is the dimensions of the matrices (default: Fx1)</span>
+0021 <span class="comment">%                       if trials is specified as an UxVxN 3d matrix, shape defaults to</span>
+0022 <span class="comment">%                           [U,V] and trials are vectorized into the regular [N, U*V]</span>
+0023 <span class="comment">%                       if shape is specified with one of the values being NaN,</span>
+0024 <span class="comment">%                           that value is set so that prod(shape)==F==U*V</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">%              'scaling': pre-scaling of the data (see hlp_findscaling for options) (default: 'std')</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">%              'setupfcn': Setup Function. Receives trials, targets and the options structure, and</span>
+0029 <span class="comment">%                          returns the variables [X,y,B,pot,tau,G]. If empty, performs ridge</span>
+0030 <span class="comment">%                          regression or logistic regression depending on Type parameter.</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%               for additional parameters see infEngine.m in the glm-ie directory.</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">% Out:</span>
+0035 <span class="comment">%   Models   : a predictive model</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">% See also:</span>
+0038 <span class="comment">%   ml_predictglm, dli</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0041 <span class="comment">%                                2011-07-08</span>
+0042 
+0043 
+0044 args = arg_define([0 2],varargin, <span class="keyword">...</span>
+0045     arg_norep(<span class="string">'trials'</span>), <span class="keyword">...</span>
+0046     arg_norep(<span class="string">'targets'</span>), <span class="keyword">...</span>
+0047     <span class="keyword">...</span><span class="comment"> % (pre)processing options</span>
+0048     arg({<span class="string">'lambdas'</span>,<span class="string">'Lambdas'</span>}, 1, [], <span class="string">'Noise variance parameter. This can be used as a regularization parameter.'</span>), <span class="keyword">...</span>
+0049     arg({<span class="string">'ptype'</span>,<span class="string">'Type'</span>}, <span class="string">'classification'</span>, {<span class="string">'classification'</span>,<span class="string">'regression'</span>}, <span class="string">'Type of problem to solve.'</span>), <span class="keyword">...</span>
+0050     arg({<span class="string">'shape'</span>,<span class="string">'Shape'</span>}, [], [], <span class="string">'Shape of the feature matrices. If given as [X,NaN] or [NaN,X], such that X is a divisor of the number of features F, the NaN is replaced by F/X.'</span>), <span class="keyword">...</span>
+0051     arg({<span class="string">'scaling'</span>,<span class="string">'Scaling'</span>}, <span class="string">'std'</span>, {<span class="string">'none'</span>,<span class="string">'center'</span>,<span class="string">'std'</span>,<span class="string">'minmax'</span>,<span class="string">'whiten'</span>}, <span class="string">'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.'</span>), <span class="keyword">...</span>
+0052     <span class="keyword">...</span><span class="comment"> % misc</span>
+0053     arg({<span class="string">'vectorize_trials'</span>,<span class="string">'VectorizeTrials'</span>}, false, [], <span class="string">'Vectorize trial matrices. Auto-determined if left unspecified.'</span>), <span class="keyword">...</span>
+0054     <span class="keyword">...</span><span class="comment"> % parameter setup</span>
+0055     arg({<span class="string">'setupfcn'</span>,<span class="string">'SetupFunction'</span>}, [], [], <span class="string">'Setup Function. Receives trials, targets, shape and the options structure, and returns the variables [X,y,B,pot,tau,G]. If empty, performs ridge regression or logistic regression depending on Type parameter.'</span>), <span class="keyword">...</span>
+0056     <span class="keyword">...</span><span class="comment"> % inference engine parameters</span>
+0057     arg({<span class="string">'outerNiter'</span>,<span class="string">'OuterIterations'</span>},10,[],<span class="string">'Outer loop iterations.'</span>),<span class="keyword">...</span>
+0058     arg({<span class="string">'outerMVM'</span>,<span class="string">'OuterLanczosVectors'</span>},50,[],<span class="string">'Outer Lanczos vectors. Number of Lanczos vectors to compute; more may yields a more complete posterior estimation.'</span>),<span class="keyword">...</span>
+0059     arg({<span class="string">'innerMVM'</span>,<span class="string">'InnerMVMSteps'</span>},50,[],<span class="string">'Inner-loop MVM steps. Number of matrix-vector multiplications and/or conjugate gradient steps to perform in inner loop.'</span>),<span class="keyword">...</span>
+0060     arg({<span class="string">'innerIt'</span>,<span class="string">'InnerNewtonSteps'</span>},15,[],<span class="string">'Inner-loop MVM steps. Number of Newton steps to perform in inner loop (if Truncated-Newton is used as the solver).'</span>),<span class="keyword">...</span>
+0061     arg({<span class="string">'outerZinit'</span>,<span class="string">'InitialUpperBound'</span>},0.05,[],<span class="string">'Initial upper bound.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span>
+0062     arg({<span class="string">'outerGainit'</span>,<span class="string">'InitialVariationalParam'</span>},1,[],<span class="string">'Initial variational parameter.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span>
+0063     arg({<span class="string">'outerExact'</span>,<span class="string">'ExactSolution'</span>},false,[],<span class="string">'Exact solution. Whether the posterior covariance should be exactly computed (note: this may be prohibitively slow).'</span>),<span class="keyword">...</span>
+0064     arg({<span class="string">'outerOutput'</span>,<span class="string">'OuterVerbose'</span>,<span class="string">'verbose'</span>},false,[],<span class="string">'Verbose outer loop. Show diagonstic output in the outer loop of the algorithm.'</span>),<span class="keyword">...</span>
+0065     arg({<span class="string">'innerOutput'</span>,<span class="string">'InnerVerbose'</span>},false,[],<span class="string">'Verbose inner loop. Show diagonstic output in the inner loop of the algorithm.'</span>),<span class="keyword">...</span>
+0066     arg({<span class="string">'innerType'</span>,<span class="string">'InferenceEngine'</span>},<span class="string">'VariationalBayes'</span>,{<span class="string">'VariationalBayes'</span>,<span class="string">'ExpectationPropagation'</span>},<span class="string">'Inference engine. Inference engine to use in the inner loop; Variational Bayes is highly recommended as it works with all options, whereas Expectation Propagation comes with some restrictions (see glm-ie help).'</span>),<span class="keyword">...</span>
+0067     arg({<span class="string">'innerVBpls'</span>,<span class="string">'Solver'</span>},<span class="string">'Conjugate Gradients'</span>,{<span class="string">'Quasi-Newton'</span>,<span class="string">'Truncated Newton'</span>,<span class="string">'Backtracking Conjugate Gradients'</span>,<span class="string">'Conjugate Gradients'</span>,<span class="string">'Split-Bregman'</span>},<span class="string">'PLS solver. Penalized least-squares solver to use in the inner loop; Quasi-Newton (L-BFGS) is preferred but depends on Fortran code, (backtracking) Conjugate Gradients and truncated Newton are among the most useful fallbacks.'</span>),<span class="keyword">...</span>
+0068     arg({<span class="string">'innerEPeta'</span>,<span class="string">'InnerEPEta'</span>},1,[],<span class="string">'Fractional EP parameter. Parameter used for fractional expectation-propagation (only works with Gauss and Laplace potential functions).'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0069     arg({<span class="string">'doinspect'</span>,<span class="string">'InspectMode'</span>},false,[],<span class="string">'Inspection Mode. If enabled, the execution will break after the weights have been learned.'</span>,<span class="string">'guru'</span>,true));
+0070 
+0071 arg_toworkspace(args);
+0072 
+0073 <span class="comment">% set default setup function</span>
+0074 <span class="keyword">if</span> isempty(setupfcn)
+0075     setupfcn = @<a href="#_sub1" class="code" title="subfunction [X,y,B,pot,tau,G] = default_setup(trials,targets,shape,opts)">default_setup</a>; <span class="keyword">end</span>
+0076 
+0077 <span class="comment">% get the correct feature matrix shape</span>
+0078 <span class="keyword">if</span> isempty(shape) <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0079     <span class="keyword">if</span> ndims(trials) == 3
+0080         shape = [size(trials,1) size(trials,2)];
+0081         <span class="comment">% ... also make sure that the trials are vectorized</span>
+0082         trials = double(reshape(trials,[],size(trials,3))');
+0083         vectorize_trials = true;
+0084     <span class="keyword">else</span>
+0085         shape = [size(trials,2) 1];
+0086     <span class="keyword">end</span>
+0087 <span class="keyword">elseif</span> size(shape,1) == 1
+0088     nf = size(trials,2);
+0089     ni = isnan(shape);
+0090     <span class="keyword">if</span> any(ni)
+0091         <span class="comment">% if necessary, set NaN shape parameters appropriately</span>
+0092         shape(ni) = nf / shape(~ni);
+0093     <span class="keyword">elseif</span> nf ~= shape(1)*shape(2)
+0094         <span class="comment">% otherwise check for consistency</span>
+0095         error(<span class="string">'shape parameter is inconsistent with feature space dimension.'</span>);
+0096     <span class="keyword">end</span>
+0097 <span class="keyword">end</span>
+0098 
+0099 
+0100 <span class="comment">% pre-process the data</span>
+0101 <span class="keyword">if</span> strcmp(ptype,<span class="string">'classification'</span>)
+0102     classes = unique(targets);
+0103     <span class="keyword">if</span> length(classes) &gt; 2
+0104         <span class="comment">% in the multi-class case we use the voter</span>
+0105         model = <a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>(trials, targets, <span class="string">'1v1'</span>, @<a href="ml_trainglm.html" class="code" title="function model = ml_trainglm(varargin)">ml_trainglm</a>, @<a href="ml_predictglm.html" class="code" title="function pred = ml_predictglm(trials,model)">ml_predictglm</a>, varargin{:},<span class="string">'shape'</span>,shape,<span class="string">'vectorize_trials'</span>,vectorize_trials);
+0106         <span class="keyword">return</span>
+0107     <span class="keyword">elseif</span> length(classes) == 1
+0108         error(<span class="string">'BCILAB:only_one_class'</span>,<span class="string">'Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.'</span>);
+0109     <span class="keyword">else</span>       
+0110         <span class="comment">% optionally scale the data</span>
+0111         sc_info = hlp_findscaling(trials,scaling);
+0112         trials = hlp_applyscaling(trials,sc_info);
+0113         <span class="comment">% remap target labels to -1,+1</span>
+0114         targets(targets==classes(1)) = -1;
+0115         targets(targets==classes(2)) = +1;
+0116     <span class="keyword">end</span>
+0117 <span class="keyword">elseif</span> strcmp(ptype,<span class="string">'regression'</span>)
+0118     classes = [];
+0119     <span class="comment">% scale the data</span>
+0120     sc_info = hlp_findscaling(trials,scaling);
+0121     trials = hlp_applyscaling(trials,sc_info);
+0122 <span class="keyword">else</span>
+0123     error(<span class="string">'Unrecognized problem type.'</span>);
+0124 <span class="keyword">end</span>
+0125 
+0126 <span class="comment">% rewrite arguments</span>
+0127 args.innerType = hlp_rewrite(args.innerType,<span class="string">'VariationalBayes'</span>,<span class="string">'VB'</span>,<span class="string">'ExpectationPropagation'</span>,<span class="string">'EP'</span>);
+0128 args.innerVBpls = hlp_rewrite(args.innerVBpls,<span class="string">'Quasi-Newton'</span>,<span class="string">'plsLBFGS'</span>,<span class="string">'Truncated Newton'</span>,<span class="string">'plsTN'</span>,<span class="string">'Backtracking Conjugate Gradients'</span>,<span class="string">'plsCGBT'</span>,<span class="string">'Conjugate Gradients'</span>,<span class="string">'plsCG'</span>,<span class="string">'Split-Bregman'</span>,<span class="string">'plsSB'</span>,<span class="string">'Barzilai/Borwein'</span>,<span class="string">'plsBB'</span>);
+0129 
+0130 <span class="comment">% call setup function</span>
+0131 <span class="keyword">if</span> nargout(setupfcn) == 5
+0132     [X,y,B,pot,tau] = setupfcn(trials,targets,shape,args);
+0133     G = [];
+0134 <span class="keyword">else</span>
+0135     [X,y,B,pot,tau,G] = setupfcn(trials,targets,shape,args);
+0136 <span class="keyword">end</span>
+0137 
+0138 <span class="comment">% run inference</span>
+0139 [uinf,ga,b,z,nlZ,Q,T] = hlp_diskcache(<span class="string">'predictivemodels'</span>,@dli,X,y,lambdas,B,pot,tau,rmfield(args,{<span class="string">'trials'</span>,<span class="string">'targets'</span>,<span class="string">'lambdas'</span>,<span class="string">'ptype'</span>,<span class="string">'scaling'</span>,<span class="string">'setupfcn'</span>,<span class="string">'shape'</span>,<span class="string">'doinspect'</span>}),G); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0140 
+0141 <span class="comment">% add misc meta-data to the model</span>
+0142 model.ptype = ptype;
+0143 model.classes = classes;
+0144 model.sc_info = sc_info;
+0145 model.shape = shape;
+0146 model.w = uinf;
+0147 model.vectorize = vectorize_trials;
+0148 
+0149 <span class="comment">% graphics</span>
+0150 <span class="keyword">if</span> doinspect
+0151     disp(<span class="string">'GLM inspection breakpoint; halted.'</span>);
+0152     keyboard;
+0153 <span class="keyword">end</span>
+0154 
+0155 
+0156 <a name="_sub1" href="#_subfunctions" class="code">function [X,y,B,pot,tau,G] = default_setup(trials,targets,shape,opts)</a>
+0157 [n,f] = size(trials);
+0158 <span class="keyword">if</span> strcmp(opts.ptype,<span class="string">'regression'</span>)
+0159     <span class="comment">% ridge regression</span>
+0160     X = trials';
+0161     y = targets;
+0162     B = eye(f);
+0163     pot = @potGauss;
+0164     tau = ones(f,1);
+0165     G = [];
+0166 <span class="keyword">else</span>
+0167     <span class="comment">% logistic regression</span>
+0168     X = eye(f);
+0169     y = zeros(f,1);
+0170     B = trials';
+0171     pot = @potLogistic;
+0172     tau = targets;
+0173     G = [];
+0174 <span class="keyword">end</span>
+0175</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

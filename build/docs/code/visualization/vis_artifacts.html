@@ -1,0 +1,406 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of vis_artifacts</title>
+  <meta name="keywords" content="vis_artifacts">
+  <meta name="description" content="vis_artifacts(NewEEG,OldEEG,Options...)">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">visualization</a> &gt; vis_artifacts.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/visualization&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>vis_artifacts
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>vis_artifacts(NewEEG,OldEEG,Options...)</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [h_old,h_new] = vis_artifacts(new,old,varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> vis_artifacts(NewEEG,OldEEG,Options...)
+ Display the artifact rejections done by any of the artifact cleaning functions.
+
+ Keyboard Shortcuts:
+   [n] : display just the new time series
+   [o] : display just the old time series
+   [b] : display both time series super-imposed
+   [d] : display the difference between both time series
+   [+] : increase signal scale
+   [-] : decrease signal scale
+   [*] : expand time range
+   [/] : reduce time range
+   [h] : show/hide slider
+
+ In:
+   NewEEG     : cleaned continuous EEG data set
+   OldEEG     : original continuous EEG data set
+   Options... : name-value pairs specifying the options, with names:
+                'YRange' : y range of the figure that is occupied by the signal plot
+                'YScaling' : distance of the channel time series from each other in std. deviations
+                'WindowLength : window length to display
+                'NewColor' : color of the new (i.e., cleaned) data
+                'OldColor' : color of the old (i.e., uncleaned) data
+                'HighpassOldData' : whether to high-pass the old data if not already done
+                'ScaleBy' : the data set according to which the display should be scaled, can be 
+                            'old' or 'new' (default: 'new')
+                'ChannelSubset' : optionally a channel subset to display
+                'TimeSubet' : optionally a time subrange to display
+                'DisplayMode' : what should be displayed: 'both', 'new', 'old', 'diff'
+                'ShowSetname' : whether to display the dataset name in the title
+                'EqualizeChannelScaling' : optionally equalize the channel scaling
+
+ Notes:
+   This function is primarily meant for testing purposes and is not a particularly high-quality
+   implementation.
+
+ Examples:
+  vis_artifacts(clean,raw)
+
+  % display only a subset of channels
+  vis_artifacts(clean,raw,'ChannelSubset',1:4:raw.nbchan);
+
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-07-06
+
+                                relies on the findjobj() function by Yair M. Altman.</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function repaint(relPos,moved)</a></li><li><a href="#_sub2" class="code">function on_update(varargin)</a></li><li><a href="#_sub3" class="code">function on_resize(varargin)</a></li><li><a href="#_sub4" class="code">function on_window_resized(varargin)</a></li><li><a href="#_sub5" class="code">function EEG = to_continuous(EEG)</a></li><li><a href="#_sub6" class="code">function EEG = expand_rejections(EEG)</a></li><li><a href="#_sub7" class="code">function on_key(key)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [h_old,h_new] = vis_artifacts(new,old,varargin)</a>
+0002 <span class="comment">% vis_artifacts(NewEEG,OldEEG,Options...)</span>
+0003 <span class="comment">% Display the artifact rejections done by any of the artifact cleaning functions.</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Keyboard Shortcuts:</span>
+0006 <span class="comment">%   [n] : display just the new time series</span>
+0007 <span class="comment">%   [o] : display just the old time series</span>
+0008 <span class="comment">%   [b] : display both time series super-imposed</span>
+0009 <span class="comment">%   [d] : display the difference between both time series</span>
+0010 <span class="comment">%   [+] : increase signal scale</span>
+0011 <span class="comment">%   [-] : decrease signal scale</span>
+0012 <span class="comment">%   [*] : expand time range</span>
+0013 <span class="comment">%   [/] : reduce time range</span>
+0014 <span class="comment">%   [h] : show/hide slider</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">% In:</span>
+0017 <span class="comment">%   NewEEG     : cleaned continuous EEG data set</span>
+0018 <span class="comment">%   OldEEG     : original continuous EEG data set</span>
+0019 <span class="comment">%   Options... : name-value pairs specifying the options, with names:</span>
+0020 <span class="comment">%                'YRange' : y range of the figure that is occupied by the signal plot</span>
+0021 <span class="comment">%                'YScaling' : distance of the channel time series from each other in std. deviations</span>
+0022 <span class="comment">%                'WindowLength : window length to display</span>
+0023 <span class="comment">%                'NewColor' : color of the new (i.e., cleaned) data</span>
+0024 <span class="comment">%                'OldColor' : color of the old (i.e., uncleaned) data</span>
+0025 <span class="comment">%                'HighpassOldData' : whether to high-pass the old data if not already done</span>
+0026 <span class="comment">%                'ScaleBy' : the data set according to which the display should be scaled, can be</span>
+0027 <span class="comment">%                            'old' or 'new' (default: 'new')</span>
+0028 <span class="comment">%                'ChannelSubset' : optionally a channel subset to display</span>
+0029 <span class="comment">%                'TimeSubet' : optionally a time subrange to display</span>
+0030 <span class="comment">%                'DisplayMode' : what should be displayed: 'both', 'new', 'old', 'diff'</span>
+0031 <span class="comment">%                'ShowSetname' : whether to display the dataset name in the title</span>
+0032 <span class="comment">%                'EqualizeChannelScaling' : optionally equalize the channel scaling</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">% Notes:</span>
+0035 <span class="comment">%   This function is primarily meant for testing purposes and is not a particularly high-quality</span>
+0036 <span class="comment">%   implementation.</span>
+0037 <span class="comment">%</span>
+0038 <span class="comment">% Examples:</span>
+0039 <span class="comment">%  vis_artifacts(clean,raw)</span>
+0040 <span class="comment">%</span>
+0041 <span class="comment">%  % display only a subset of channels</span>
+0042 <span class="comment">%  vis_artifacts(clean,raw,'ChannelSubset',1:4:raw.nbchan);</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0046 <span class="comment">%                                2010-07-06</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">%                                relies on the findjobj() function by Yair M. Altman.</span>
+0049 
+0050 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2012, christian@sccn.ucsd.edu</span>
+0051 <span class="comment">%</span>
+0052 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0053 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0054 <span class="comment">% License, or (at your option) any later version.</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0057 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0058 <span class="comment">% General Public License for more details.</span>
+0059 <span class="comment">%</span>
+0060 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0061 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0062 <span class="comment">% USA</span>
+0063 
+0064 done_legend = false;
+0065 
+0066 <span class="keyword">if</span> nargin &lt; 2
+0067     old = new; 
+0068 <span class="keyword">elseif</span> ischar(old)
+0069     varargin = [{old} varargin];
+0070     old = new;
+0071 <span class="keyword">end</span>
+0072 
+0073 <span class="comment">% parse options</span>
+0074 opts = hlp_varargin2struct(varargin, <span class="keyword">...</span>
+0075     {<span class="string">'yrange'</span>,<span class="string">'YRange'</span>}, [0.05 0.95], <span class="keyword">...</span><span class="comment">       % y range of the figure occupied by the signal plot</span>
+0076     {<span class="string">'yscaling'</span>,<span class="string">'YScaling'</span>}, 3.5, <span class="keyword">...</span><span class="comment">           % distance of the channel time series from each other in std. deviations</span>
+0077     {<span class="string">'wndlen'</span>,<span class="string">'WindowLength'</span>}, 10, <span class="keyword">...</span><span class="comment">          % window length to display</span>
+0078     {<span class="string">'newcol'</span>,<span class="string">'NewColor'</span>}, [0 0 0.5], <span class="keyword">...</span><span class="comment">       % color of the new (i.e., cleaned) data</span>
+0079     {<span class="string">'oldcol'</span>,<span class="string">'OldColor'</span>}, [1 0 0], <span class="keyword">...</span><span class="comment">         % color of the old (i.e., uncleaned) data</span>
+0080     {<span class="string">'highpass_old'</span>,<span class="string">'HighpassOldData'</span>},true, <span class="keyword">...</span><span class="comment">% whether to high-pass the old data if not already done</span>
+0081     {<span class="string">'show_removed_portions'</span>,<span class="string">'ShowRemovedPortions'</span>},true, <span class="keyword">...</span><span class="comment">% whether to show removed data portions (if only one set is passed in)</span>
+0082     {<span class="string">'scale_by'</span>,<span class="string">'ScaleBy'</span>},<span class="string">'new'</span>,<span class="keyword">...</span><span class="comment">            % the data set according to which the display should be scaled</span>
+0083     {<span class="string">'channel_subset'</span>,<span class="string">'ChannelSubset'</span>},[], <span class="keyword">...</span><span class="comment">  % optionally a channel subset to display</span>
+0084     {<span class="string">'time_subset'</span>,<span class="string">'TimeSubset'</span>},[],<span class="keyword">...</span><span class="comment">         % optionally a time subrange to display</span>
+0085     {<span class="string">'display_mode'</span>,<span class="string">'DisplayMode'</span>},<span class="string">'both'</span>,<span class="keyword">...</span><span class="comment">   % what should be displayed: 'both', 'new', 'old', 'diff'</span>
+0086     {<span class="string">'show_setname'</span>,<span class="string">'ShowSetname'</span>},true,<span class="keyword">...</span><span class="comment">     % whether to display the dataset name in the title</span>
+0087     {<span class="string">'line_spec'</span>,<span class="string">'LineSpec'</span>},<span class="string">'-'</span>,<span class="keyword">...</span><span class="comment">            % line style for plotting</span>
+0088     {<span class="string">'line_width'</span>,<span class="string">'LineWidth'</span>},0.5,<span class="keyword">...</span><span class="comment">          % line width</span>
+0089     {<span class="string">'add_legend'</span>,<span class="string">'AddLegend'</span>},false,<span class="keyword">...</span><span class="comment">        % add a legend</span>
+0090     {<span class="string">'equalize_channel_scaling'</span>,<span class="string">'EqualizeChannelScaling'</span>},false);  <span class="comment">% optionally equalize the channel scaling</span>
+0091 
+0092 <span class="comment">% ensure that the data are not epoched and expand the rejections with NaN's (now both should have the same size)</span>
+0093 <span class="keyword">if</span> opts.show_removed_portions
+0094     new = <a href="#_sub6" class="code" title="subfunction EEG = expand_rejections(EEG)">expand_rejections</a>(<a href="#_sub5" class="code" title="subfunction EEG = to_continuous(EEG)">to_continuous</a>(new));
+0095     old = <a href="#_sub6" class="code" title="subfunction EEG = expand_rejections(EEG)">expand_rejections</a>(<a href="#_sub5" class="code" title="subfunction EEG = to_continuous(EEG)">to_continuous</a>(old));
+0096 <span class="keyword">end</span>
+0097 new.chanlocs = old.chanlocs;
+0098 
+0099 <span class="comment">% correct for filter delay</span>
+0100 <span class="keyword">if</span> isfield(new.etc,<span class="string">'filter_delay'</span>)
+0101     new.data = new.data(:,[1+round(new.etc.filter_delay*new.srate):end end:-1:(end+1-round(new.etc.filter_delay*new.srate))]); <span class="keyword">end</span>
+0102 <span class="keyword">if</span> isfield(old.etc,<span class="string">'filter_delay'</span>)
+0103     old.data = old.data(:,[1+round(old.etc.filter_delay*old.srate):end end:-1:(end+1-round(old.etc.filter_delay*old.srate))]); <span class="keyword">end</span>
+0104 
+0105 <span class="comment">% make sure that the old data is high-passed the same way as the new data</span>
+0106 <span class="keyword">if</span> opts.highpass_old &amp;&amp; isfield(new.etc,<span class="string">'clean_drifts_kernel'</span>) &amp;&amp; ~isfield(old.etc,<span class="string">'clean_drifts_kernel'</span>)
+0107     old.data = old.data';
+0108     <span class="keyword">for</span> c=1:old.nbchan
+0109         old.data(:,c) = filtfilt_fast(new.etc.clean_drifts_kernel,1,old.data(:,c)); <span class="keyword">end</span>
+0110     old.data = old.data';
+0111 <span class="keyword">end</span>
+0112 
+0113 <span class="keyword">if</span> isscalar(opts.line_width)
+0114     opts.line_width = [opts.line_width opts.line_width]; <span class="keyword">end</span>
+0115 
+0116 <span class="comment">% optionally pick a subrange to work on</span>
+0117 <span class="keyword">if</span> ~isempty(opts.channel_subset)
+0118     old = pop_select(old,<span class="string">'channel'</span>,opts.channel_subset);
+0119     new = pop_select(new,<span class="string">'channel'</span>,opts.channel_subset);
+0120 <span class="keyword">end</span>
+0121 
+0122 <span class="keyword">if</span> ~isempty(opts.time_subset)
+0123     old = pop_select(old,<span class="string">'time'</span>,opts.time_subset);
+0124     new = pop_select(new,<span class="string">'time'</span>,opts.time_subset);
+0125 <span class="keyword">end</span>
+0126 
+0127 <span class="keyword">if</span> opts.equalize_channel_scaling    
+0128     rescale = 1./mad(old.data,[],2);
+0129     new.data = bsxfun(@times,new.data,rescale);
+0130     old.data = bsxfun(@times,old.data,rescale);
+0131 <span class="keyword">end</span>
+0132 
+0133 <span class="comment">% create a unique name for this visualization and store the options it in the workspace</span>
+0134 taken = evalin(<span class="string">'base'</span>,<span class="string">'whos(''vis_*'')'</span>);
+0135 visname = genvarname(<span class="string">'vis_artifacts_opts'</span>,{taken.name});
+0136 visinfo.opts = opts;
+0137 assignin(<span class="string">'base'</span>,visname,visinfo);
+0138 
+0139 <span class="comment">% create figure &amp; slider</span>
+0140 lastPos = 0;
+0141 hFig = figure(<span class="string">'ResizeFcn'</span>,@<a href="#_sub4" class="code" title="subfunction on_window_resized(varargin)">on_window_resized</a>,<span class="string">'KeyPressFcn'</span>,@(varargin)<a href="#_sub7" class="code" title="subfunction on_key(key)">on_key</a>(varargin{2}.Key)); hold; axis();
+0142 hAxis = gca;
+0143 hSlider = uicontrol(<span class="string">'style'</span>,<span class="string">'slider'</span>,<span class="string">'KeyPressFcn'</span>,@(varargin)<a href="#_sub7" class="code" title="subfunction on_key(key)">on_key</a>(varargin{2}.Key)); <a href="#_sub3" class="code" title="subfunction on_resize(varargin)">on_resize</a>();
+0144 jSlider = findjobj(hSlider);
+0145 jSlider.AdjustmentValueChangedCallback = @<a href="#_sub2" class="code" title="subfunction on_update(varargin)">on_update</a>;
+0146 
+0147 <span class="comment">% do the initial update</span>
+0148 <a href="#_sub2" class="code" title="subfunction on_update(varargin)">on_update</a>();
+0149 
+0150 
+0151     <a name="_sub1" href="#_subfunctions" class="code">function repaint(relPos,moved)</a>
+0152         <span class="comment">% repaint the current data</span>
+0153         
+0154         <span class="comment">% if this happens, we are maxing out MATLAB's graphics pipeline: let it catch up</span>
+0155         <span class="keyword">if</span> relPos == lastPos &amp;&amp; moved
+0156             <span class="keyword">return</span>; <span class="keyword">end</span>
+0157         
+0158         <span class="comment">% get potentially updated options</span>
+0159         visinfo = evalin(<span class="string">'base'</span>,visname);
+0160                 
+0161         <span class="comment">% axes</span>
+0162         cla;
+0163         
+0164         <span class="comment">% compute pixel range from axis properties</span>
+0165         xl = get(hAxis,<span class="string">'XLim'</span>);
+0166         yl = get(hAxis,<span class="string">'YLim'</span>);
+0167         fp = get(hFig,<span class="string">'Position'</span>);
+0168         ap = get(hAxis,<span class="string">'Position'</span>);
+0169         pixels = (fp(3))*(ap(3)-ap(1));
+0170         ylr = yl(1) + opts.yrange*(yl(2)-yl(1));
+0171         channel_y = (ylr(2):(ylr(1)-ylr(2))/(size(new.data,1)-1):ylr(1))';
+0172         
+0173         <span class="comment">% compute sample range</span>
+0174         wndsamples = visinfo.opts.wndlen * new.srate;
+0175         pos = floor((size(new.data,2)-wndsamples)*relPos);
+0176         wndindices = 1 + floor(0:wndsamples/pixels:(wndsamples-1));
+0177         wndrange = pos+wndindices;
+0178         
+0179         oldwnd = old.data(:,wndrange);
+0180         newwnd = new.data(:,wndrange);
+0181         <span class="keyword">if</span> strcmp(opts.scale_by,<span class="string">'old'</span>)
+0182             iqrange = iqr(oldwnd')';
+0183         <span class="keyword">else</span>
+0184             iqrange = iqr(newwnd')';
+0185             iqrange(isnan(iqrange)) = iqr(oldwnd(isnan(iqrange),:)')';
+0186         <span class="keyword">end</span>
+0187         scale = ((ylr(2)-ylr(1))/size(new.data,1)) ./ (visinfo.opts.yscaling*iqrange); scale(~isfinite(scale)) = 0;
+0188         scale(scale&gt;median(scale)*3) = median(scale);
+0189         scale = repmat(scale,1,length(wndindices));
+0190                 
+0191         <span class="comment">% draw</span>
+0192         <span class="keyword">if</span> opts.show_setname
+0193             tit = sprintf(<span class="string">'%s - '</span>,[old.filepath filesep old.filename]);
+0194         <span class="keyword">else</span>
+0195             tit = <span class="string">''</span>;
+0196         <span class="keyword">end</span>
+0197         
+0198         <span class="keyword">if</span> ~isempty(wndrange)
+0199             tit = [tit sprintf(<span class="string">'[%.1f - %.1f]'</span>,new.xmin + (wndrange(1)-1)/new.srate, new.xmin + (wndrange(end)-1)/new.srate)];        
+0200         <span class="keyword">end</span>
+0201         
+0202         <span class="keyword">switch</span> visinfo.opts.display_mode            
+0203             <span class="keyword">case</span> <span class="string">'both'</span>                
+0204                 title([tit <span class="string">'; superposition'</span>],<span class="string">'Interpreter'</span>,<span class="string">'none'</span>);
+0205                 h_old = plot(xl(1):(xl(2)-xl(1))/(length(wndindices)-1):xl(2), (repmat(channel_y,1,length(wndindices)) + scale.*oldwnd)',<span class="string">'Color'</span>,opts.oldcol,<span class="string">'LineWidth'</span>,opts.line_width(1));
+0206                 h_new = plot(xl(1):(xl(2)-xl(1))/(length(wndindices)-1):xl(2), (repmat(channel_y,1,length(wndindices)) + scale.*newwnd)',<span class="string">'Color'</span>,opts.newcol,<span class="string">'LineWidth'</span>,opts.line_width(2));
+0207             <span class="keyword">case</span> <span class="string">'new'</span>
+0208                 title([tit <span class="string">'; cleaned'</span>],<span class="string">'Interpreter'</span>,<span class="string">'none'</span>);
+0209                 plot(xl(1):(xl(2)-xl(1))/(length(wndindices)-1):xl(2), (repmat(channel_y,1,length(wndindices)) + scale.*newwnd)',<span class="string">'Color'</span>,opts.newcol,<span class="string">'LineWidth'</span>,opts.line_width(2));
+0210             <span class="keyword">case</span> <span class="string">'old'</span>
+0211                 title([tit <span class="string">'; original'</span>],<span class="string">'Interpreter'</span>,<span class="string">'none'</span>);
+0212                 plot(xl(1):(xl(2)-xl(1))/(length(wndindices)-1):xl(2), (repmat(channel_y,1,length(wndindices)) + scale.*oldwnd)',<span class="string">'Color'</span>,opts.oldcol,<span class="string">'LineWidth'</span>,opts.line_width(1));
+0213             <span class="keyword">case</span> <span class="string">'diff'</span>
+0214                 title([tit <span class="string">'; difference'</span>],<span class="string">'Interpreter'</span>,<span class="string">'none'</span>);
+0215                 plot(xl(1):(xl(2)-xl(1))/(length(wndindices)-1):xl(2), (repmat(channel_y,1,length(wndindices)) + scale.*(oldwnd-newwnd))',<span class="string">'Color'</span>,opts.newcol,<span class="string">'LineWidth'</span>,opts.line_width(1));
+0216         <span class="keyword">end</span>
+0217         axis([0 1 0 1]);
+0218         
+0219         <span class="keyword">if</span> opts.add_legend &amp;&amp; ~done_legend
+0220             legend([h_old(1);h_new(1)],<span class="string">'Original'</span>,<span class="string">'Corrected'</span>);
+0221             done_legend = 1;
+0222         <span class="keyword">end</span>
+0223         drawnow;
+0224 
+0225 
+0226         lastPos = relPos;
+0227     <span class="keyword">end</span>
+0228 
+0229 
+0230     <a name="_sub2" href="#_subfunctions" class="code">function on_update(varargin)</a>
+0231         <span class="comment">% slider moved</span>
+0232         <a href="#_sub1" class="code" title="subfunction repaint(relPos,moved)">repaint</a>(get(hSlider,<span class="string">'Value'</span>),~isempty(varargin));
+0233     <span class="keyword">end</span>
+0234 
+0235     <a name="_sub3" href="#_subfunctions" class="code">function on_resize(varargin)</a>
+0236         <span class="comment">% adapt/set the slider's size</span>
+0237         wPos = get(hFig,<span class="string">'Position'</span>);
+0238         <span class="keyword">if</span> ~isempty(hSlider)
+0239             <span class="keyword">try</span>
+0240                 set(hSlider,<span class="string">'Position'</span>,[20,20,wPos(3)-40,20]);
+0241             <span class="keyword">catch</span>,<span class="keyword">end</span>
+0242             <a href="#_sub2" class="code" title="subfunction on_update(varargin)">on_update</a>;
+0243         <span class="keyword">end</span>
+0244     <span class="keyword">end</span>
+0245 
+0246     <a name="_sub4" href="#_subfunctions" class="code">function on_window_resized(varargin)</a>
+0247         <span class="comment">% window resized</span>
+0248         <a href="#_sub3" class="code" title="subfunction on_resize(varargin)">on_resize</a>();
+0249     <span class="keyword">end</span>
+0250 
+0251     <a name="_sub5" href="#_subfunctions" class="code">function EEG = to_continuous(EEG)</a>
+0252         <span class="comment">% convert an EEG set to continuous if currently epoched</span>
+0253         <span class="keyword">if</span> ndims(EEG.data) == 3
+0254             EEG.data = EEG.data(:,:);
+0255             [EEG.nbchan,EEG.pnts,EEG.trials] = size(EEG.data);
+0256         <span class="keyword">end</span>
+0257     <span class="keyword">end</span>
+0258 
+0259     <a name="_sub6" href="#_subfunctions" class="code">function EEG = expand_rejections(EEG)</a>
+0260         <span class="comment">% reformat the new data so that it can be super-imposed with the old data</span>
+0261         [EEG.nbchan,EEG.pnts] = size(EEG.data);
+0262         <span class="keyword">if</span> ~isfield(EEG.etc,<span class="string">'clean_channel_mask'</span>)
+0263             EEG.etc.clean_channel_mask = true(1,EEG.nbchan); <span class="keyword">end</span>
+0264         <span class="keyword">if</span> ~isfield(EEG.etc,<span class="string">'clean_sample_mask'</span>)
+0265             EEG.etc.clean_sample_mask = true(1,EEG.pnts); <span class="keyword">end</span>
+0266         tmpdata = nan(length(EEG.etc.clean_channel_mask),length(EEG.etc.clean_sample_mask));
+0267         tmpdata(EEG.etc.clean_channel_mask,EEG.etc.clean_sample_mask) = EEG.data;
+0268         EEG.data = tmpdata;
+0269         [EEG.nbchan,EEG.pnts] = size(EEG.data);
+0270     <span class="keyword">end</span>
+0271 
+0272     <a name="_sub7" href="#_subfunctions" class="code">function on_key(key)</a>
+0273         visinfo = evalin(<span class="string">'base'</span>,visname);
+0274         <span class="keyword">switch</span> lower(key)
+0275             <span class="keyword">case</span> {<span class="string">'add'</span>,<span class="string">'+'</span>}
+0276                 <span class="comment">% decrease datascale</span>
+0277                 visinfo.opts.yscaling = visinfo.opts.yscaling*0.9;
+0278             <span class="keyword">case</span> {<span class="string">'subtract'</span>,<span class="string">'-'</span>}
+0279                 <span class="comment">% increase datascale</span>
+0280                 visinfo.opts.yscaling = visinfo.opts.yscaling*1.1;
+0281             <span class="keyword">case</span> {<span class="string">'multiply'</span>,<span class="string">'*'</span>}
+0282                 <span class="comment">% increase timerange</span>
+0283                 visinfo.opts.wndlen = visinfo.opts.wndlen*1.1;                
+0284             <span class="keyword">case</span> {<span class="string">'divide'</span>,<span class="string">'/'</span>}
+0285                 <span class="comment">% decrease timerange</span>
+0286                 visinfo.opts.wndlen = visinfo.opts.wndlen*0.9;                
+0287             <span class="keyword">case</span> <span class="string">'pagedown'</span>
+0288                 <span class="comment">% shift display page offset down</span>
+0289                 visinfo.opts.pageoffset = visinfo.opts.pageoffset+1;                
+0290             <span class="keyword">case</span> <span class="string">'pageup'</span>
+0291                 <span class="comment">% shift display page offset up</span>
+0292                 visinfo.opts.pageoffset = visinfo.opts.pageoffset-1;
+0293             <span class="keyword">case</span> <span class="string">'n'</span>
+0294                 visinfo.opts.display_mode = <span class="string">'new'</span>;
+0295             <span class="keyword">case</span> <span class="string">'o'</span>
+0296                 visinfo.opts.display_mode = <span class="string">'old'</span>;
+0297             <span class="keyword">case</span> <span class="string">'b'</span>
+0298                 visinfo.opts.display_mode = <span class="string">'both'</span>;
+0299             <span class="keyword">case</span> <span class="string">'d'</span>
+0300                 visinfo.opts.display_mode = <span class="string">'diff'</span>;
+0301             <span class="keyword">case</span> <span class="string">'h'</span>
+0302                 <span class="keyword">if</span> strcmp(get(hSlider,<span class="string">'Visible'</span>),<span class="string">'on'</span>)
+0303                     set(hSlider,<span class="string">'Visible'</span>,<span class="string">'off'</span>)
+0304                 <span class="keyword">else</span>
+0305                     set(hSlider,<span class="string">'Visible'</span>,<span class="string">'on'</span>)
+0306                 <span class="keyword">end</span>
+0307         <span class="keyword">end</span>        
+0308         assignin(<span class="string">'base'</span>,visname,visinfo);
+0309         <a href="#_sub2" class="code" title="subfunction on_update(varargin)">on_update</a>();
+0310     <span class="keyword">end</span>
+0311 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

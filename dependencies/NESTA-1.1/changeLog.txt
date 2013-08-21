@@ -1,0 +1,72 @@
+NESTA changelog
+
+NESTA version 1.0
+	Summer 2009.  Jerome Bobin and Stephen Becker.
+
+NESTA version 1.1
+	Nov 12, 2009.  Stephen Becker.
+Changes:
+	DemoContinuation.m updated:
+		-- shows how to undo the change-of-variables trick
+		-- adds some plots
+		-- also demonstrates how to do least-squares debiasing.  To help with this,
+			    added LSQRwrapper.m to the Misc/ subdirectory.
+		-- ability to set if A and U are explicit (matrices) or implicit (function handles)
+
+	Misc/msp_signal.m updated:
+		-- has a global variable called COMPLEX.  If set to "true", 
+			generates complex valued data
+		-- A  is now A = @(x)x(Omega,:) instead of @(x)x(Omega) 
+			to allow for vectorization.
+
+	Misc/my_normest.m
+		-- like MATLAB's normest() function but works with function handles
+		
+
+	DemoComplex.m created.
+		-- sets COMPLEX variable to "true" and generates an example 
+			with complex data and a complex operator
+		-- adds a case for when A is not orthogonal, and tests with 
+			and without noise (and tests UP version)
+
+	DemoUP.m created
+		-- example for using unconstrained (UP) version
+			(when A is not required to be a projector)
+
+	fastProjection.m
+		-- fixed to handle complex data (e.g. b2=abs(b).^2, and other changes)
+
+	DemoNonProjector.m updated:
+		-- shows several ways to deal with the case
+			when A*A' is not the identity
+			e.g. orthogonalizing A and b, using the Cholesky factorization of A*A',
+				using inv(A*A'), using svd(A), and using
+				Conjugate-Gradients to calculate inv(A*A')
+
+	Main code (Core_Nesterov.m, NESTA.m) and unconstrained versions (Core_Nesterov_UP and NESTA_UP.m)
+
+		-- bug fix: checks if norm(U) = 1 or if user has provided it, 
+			otherwise it estimates it.
+				This was implicitly set to 1 in previous versions, which was incorrect.
+				Also, the v1.0 update in September '09 had a bug where norm(U) 
+				was actually set to norm(A). This is fixed.
+		-- the norm estimation is now done in the wrapper routines (NESTA.m, NESTA_UP.m), 
+			not in the Core routines.
+			This means if you use the Core routines directly, 
+			you must provide an accurate estimate of norm(U).
+		-- U is now allowed to be a matrix, as opposed to just a function handle as in v1.0
+		-- in wrapper routines, checks that A*A' = I.  
+			If not, it's an error, unless inv(A*A') or svd(A) has been provided.
+				In the Core routines, no check is done, so the user must know what they're doing.
+		-- "opts" is a new output, so the user can see what options were used.
+		-- value of the string in opts.TypeMin is now case 
+				insensitive ('L1','l1','tv','TV,'Tv',... all OK)
+		-- internal subroutine setOpts.m changed to have two outputs.  
+			In UP versions, fixed a bug with rmfield.
+		-- every ten iterations, Axk is updated to A*xk to prevent accumulation of numerical errors.
+		-- for working with complex data, switched all A.'*x to A'*x (including in the UP versions)
+		-- UP versions: added in the norm(U), x_ref
+			Also, fixed help menu to read || b - Ax||_2^2 not || y - Ax||_2
+
+	TODO:
+		TV versions not checked for complex data yet

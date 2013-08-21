@@ -1,0 +1,202 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmBandpower</title>
+  <meta name="keywords" content="ParadigmBandpower">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmBandpower.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmBandpower
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmBandpower.html" class="code" title="">ParadigmBandpower</a>	</li><li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmBandpower.html" class="code" title="">ParadigmBandpower</a>	</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li><li><a href="#_sub2" class="code">function model = feature_adapt(self,varargin)</a></li><li><a href="#_sub3" class="code">function features = feature_extract(self,signal,featuremodel)</a></li><li><a href="#_sub4" class="code">function visualize_model(self,parent,fmodel,pmodel)</a></li><li><a href="#_sub5" class="code">function layout = dialog_layout_defaults(self)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmBandpower.html" class="code" title="">ParadigmBandpower</a> &lt; <a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>
+0002     <span class="comment">% Basic paradigm for oscillatory processes, via per-channel logarithmic</span>
+0003     <span class="comment">% bandpower (note: fairly primitive by modern standards)</span>
+0004     <span class="comment">%</span>
+0005     <span class="comment">% The logarithmic Bandpower estimates (&quot;log-BP&quot;) paradigm is based on the design of the original</span>
+0006     <span class="comment">% Graz Brain-Computer Interface [1][5], which used lateralized motor imagery for control. The</span>
+0007     <span class="comment">% features exploited by this paradigm in its original form are Event-Related Synchronization and</span>
+0008     <span class="comment">% Desynchronization [2] localized in the motor cortex, but the paradigm is not restricted to these</span>
+0009     <span class="comment">% applications. Similar measures have also been used in [4] although without machine learning.</span>
+0010     <span class="comment">%</span>
+0011     <span class="comment">% Generally, log-BP can be used as a simple method to operate on oscillatory processes, either in</span>
+0012     <span class="comment">% relation to events, or asynchronously. The paradigm is simple in that it does not capture any</span>
+0013     <span class="comment">% complex time variations in the oscillations detected, does not capture interactions between</span>
+0014     <span class="comment">% multiple frequency bands, and does not contain data-adaptive signal processing or feature</span>
+0015     <span class="comment">% extraction (the machine learning component is adaptive, though).</span>
+0016     <span class="comment">%</span>
+0017     <span class="comment">% The paradigm is implemented as a standard sequence of signal (pre-)processing (spatial/spectral</span>
+0018     <span class="comment">% filtering), feature extraction, and machine learning. The defining property of the paradigm is</span>
+0019     <span class="comment">% that it extracts, per trial, the per-channel log-variance log(var(X)) as features of the signal.</span>
+0020     <span class="comment">% The resulting feature vectors are then passed along to the learner component. By default, the</span>
+0021     <span class="comment">% paradigm uses a non-adaptive spatial filter, the surface Laplacian, and a non-adaptive spectral</span>
+0022     <span class="comment">% filter. In place of these, a spatial transformation into Indepentent Components and/or adaptive</span>
+0023     <span class="comment">% spectral filtering can be used. Since the feature space created by it is typically relatively</span>
+0024     <span class="comment">% low-dimensional, almost any classifier in the toolbox can be used with log-BP, including</span>
+0025     <span class="comment">% non-linear ones such as SVMperf and QDA. Aside from these optional modifications, the parameters</span>
+0026     <span class="comment">% that almost certainly need to be tuned to the task at hand are the length of the data epoch and</span>
+0027     <span class="comment">% the choice of a frequency band (defaulting to motor imagery time scales and frequency ranges),</span>
+0028     <span class="comment">% both of which can also be found via a small parameter search.</span>
+0029     <span class="comment">%</span>
+0030     <span class="comment">% The most closely related (more advanced) paradigms are CSP (Common Spatial Patterns), FBCSP</span>
+0031     <span class="comment">% (Filter-Bank CSP), and SpecCSP (Spectrally weighted CSP), which add adaptively learned spatial</span>
+0032     <span class="comment">% filters in one (CSP) or more (FBCSP) bands, and adaptively learned spatio-spectral filters</span>
+0033     <span class="comment">% (SpecCSP), respectively. An even more advanced paradigm for oscillatory processes is DALOSC</span>
+0034     <span class="comment">% (named after the Dual-Augmented Lagrangian optimization used), which learns both spatial filters</span>
+0035     <span class="comment">% and their relative weightings in a unified cost function (although omitting the log() transform).</span>
+0036     <span class="comment">%</span>
+0037     <span class="comment">% Some application areas include detection of major brain rhythm modulations (e.g. alpha, beta), for</span>
+0038     <span class="comment">% example related to relaxation, aspects of workload, and motor imagery. See also [3].</span>
+0039     <span class="comment">%</span>
+0040     <span class="comment">% Simple Example: Consider a calibration data set in which a subject is in varying degrees of</span>
+0041     <span class="comment">% relaxedness throughout different time periods. Markers 'relaxed', 'non-relaxed' and 'stressed'</span>
+0042     <span class="comment">% have been inserted in 2 second intervals into these data ranges. The goal is to learn a model</span>
+0043     <span class="comment">% which can predict these states, using alpha rhythm features.</span>
+0044     <span class="comment">%</span>
+0045     <span class="comment">%   calib = io_loadset('data sets/demos/relaxation.eeg')</span>
+0046     <span class="comment">%   myapproach = {'ParadigmBandpower' 'SignalProcessing',{'FIRFilter',[6 8 14 15],'EpochExtraction',[-2 2]}};</span>
+0047     <span class="comment">%   [loss,model,stats] = bci_train('Data',calib, 'Approach',myapproach, 'TargetMarkers',{'relaxed','non-relaxed','stressed'})</span>
+0048     <span class="comment">%</span>
+0049     <span class="comment">% Advanced Example: On the same data set, the relevant information shall be derived using a better</span>
+0050     <span class="comment">% (adaptive) spatial filter (ICA) and a better classifier (logistic regression) than the defaults.</span>
+0051     <span class="comment">% The classifier shall be sparse, since we assume that only few of the independent components in the</span>
+0052     <span class="comment">% data will carry relevant information. A Bayesian variant of the classifier will be used (using</span>
+0053     <span class="comment">% Automatic Relevance Determination) to avoid the need for time-consuming regularization. As an</span>
+0054     <span class="comment">% alternative, the l1-regularized variant of the classifier could be used.</span>
+0055     <span class="comment">%</span>
+0056     <span class="comment">%   calib = io_loadset('data sets/demos/relaxation.eeg')</span>
+0057     <span class="comment">%   myapproach = {'ParadigmBandpower', 'SignalProcessing',{'FIRFilter',[6 8 14 15],'EpochExtraction',[-2 2], ...</span>
+0058     <span class="comment">%       'ICA','on'}, 'Prediction',{'MachineLearning',{'Learner',{'logreg','variant','vb-ard'}}}}</span>
+0059     <span class="comment">%   [loss,model,stats] = bci_train('Data',calib, 'Approach',myapproach, 'TargetMarkers',{'relaxed','non-relaxed','stressed'})</span>
+0060     <span class="comment">%</span>
+0061     <span class="comment">% Examples:</span>
+0062     <span class="comment">%   After an approach has been defined as in one of the following examples, a predictive model can be obtained</span>
+0063     <span class="comment">%   (given a calibration data set and a specification of target markers) using bci_train:</span>
+0064     <span class="comment">%   [loss,model,stats] = bci_train('Data',io_loadset('calibration_rec.eeg'),'Approach',myapproach','TargetMarkers',{'mymarker1','mymarker2'});</span>
+0065     <span class="comment">%</span>
+0066     <span class="comment">%   % define a log-bandpower approach, using the defaults (7-30 Hz bandpass, shrinkage LDA classifier)</span>
+0067     <span class="comment">%   myapproach = 'Bandpower';</span>
+0068     <span class="comment">%</span>
+0069     <span class="comment">%   % define an approach using a different frequency filter (here ~10-15 Hz, i.e. alpha band)</span>
+0070     <span class="comment">%   myapproach = {'Bandpower' 'SignalProcessing',{'FIRFilter',[9 10 14 15]}};</span>
+0071     <span class="comment">%</span>
+0072     <span class="comment">%   % define an approach using a different relevant time window around the markers (here 0.5s - 3s post-event)</span>
+0073     <span class="comment">%   myapproach = {'Bandpower' 'SignalProcessing',{'EpochExtraction',[0.5 3]}};</span>
+0074     <span class="comment">%</span>
+0075     <span class="comment">%   % define an approach where the surface Laplacian filter is turned off</span>
+0076     <span class="comment">%   myapproach = {'Bandpower' 'SignalProcessing',{'SurfaceLaplacian','off'}};</span>
+0077     <span class="comment">%</span>
+0078     <span class="comment">%   % turn off the FIRFilter filter, and use instead an IIRFilter to achieve the same effect</span>
+0079     <span class="comment">%   myapproach = {'Bandpower' 'SignalProcessing',{'FIRFilter','off', 'IIRFilter',[5 7 25 30]}};</span>
+0080     <span class="comment">%</span>
+0081     <span class="comment">%   % use a different machine learning function (here: shrinkage QDA)</span>
+0082     <span class="comment">%   myapproach = {'Bandpower' 'Prediction',{'MachineLearning',{'Learner','qda'}}};</span>
+0083     <span class="comment">%</span>
+0084     <span class="comment">%   % use a fast sparse Bayesian logistic regression</span>
+0085     <span class="comment">%   myapproach = {'Bandpower' 'Prediction',{'MachineLearning',{'Learner',{'logreg',[],'variant','vb-ard'}}}};</span>
+0086     <span class="comment">%</span>
+0087     <span class="comment">%   % use a (slow!) l1-regularized logistic regression (using parameter search, takes 2-5 minutes)</span>
+0088     <span class="comment">%   myapproach = {'Bandpower' 'Prediction',{'MachineLearning',{'Learner',{'logreg','lambda',search(2.^(-6:1.5:10)),'variant','l1'}}}};</span>
+0089     <span class="comment">%</span>
+0090     <span class="comment">% References:</span>
+0091     <span class="comment">%  [1] G. Pfurtscheller, C. Neuper, &quot;Motor imagery and direct brain-computer communication&quot;</span>
+0092     <span class="comment">%      Proceedings of the IEEE, Vol. 89, No. 7. (07 August 2002), pp. 1123-1134.</span>
+0093     <span class="comment">%  [2] Pfurtscheller, G., and da Silva, L. &quot;Event-related EEG/MEG synchronizaion and desynchronization: basic principles.&quot;</span>
+0094     <span class="comment">%      Clin Neurophysiol 110 (1999), 1842-1857.</span>
+0095     <span class="comment">%  [3] Buzsaki, G., &quot;Rhythms of the brain&quot;</span>
+0096     <span class="comment">%      Oxford University Press US, 2006</span>
+0097     <span class="comment">%  ﻿[4] D. J. McFarland, L. M. McCane, S. V. David, and J. R. Wolpaw,  “Spatial filter selection for {EEG-based} communication,”</span>
+0098     <span class="comment">%      Electroencephalography and Clinical Neurophysiology, vol. 103, no. 3, pp. 386-394, Sep. 1997.</span>
+0099     <span class="comment">%  ﻿[5] J. Kalcher, D. Flotzinger, C. Neuper, S. Gölly, and G. Pfurtscheller,</span>
+0100     <span class="comment">%      “Graz brain-computer interface {II:} towards communication between humans and computers based on online classification of three different {EEG} patterns,”</span>
+0101     <span class="comment">%      Medical &amp; Biological Engineering &amp; Computing, vol. 34, no. 5, pp. 382-388, Sep. 1996.</span>
+0102     <span class="comment">%</span>
+0103     <span class="comment">% Name:</span>
+0104     <span class="comment">%   log-Bandpower</span>
+0105     <span class="comment">%</span>
+0106     <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0107     <span class="comment">%                           2010-04-29</span>
+0108     
+0109     methods
+0110       
+0111         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0112             defaults = {<span class="string">'FIRFilter'</span>,{<span class="string">'Frequencies'</span>,[6 8 28 32],<span class="string">'Type'</span>,<span class="string">'minimum-phase'</span>}, <span class="string">'SurfaceLaplacian'</span>,<span class="string">'on'</span>, <span class="string">'EpochExtraction'</span>,[0.5 3.5], <span class="string">'Resampling'</span>,100};
+0113         <span class="keyword">end</span>
+0114                 
+0115         <a name="_sub1" href="#_subfunctions" class="code">function model = feature_adapt(self,varargin)</a>
+0116             arg_define(varargin, <span class="keyword">...</span>
+0117                 arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}));
+0118             model.chanlocs = signal.chanlocs;
+0119         <span class="keyword">end</span>
+0120         
+0121         <a name="_sub2" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
+0122             features = reshape(log(var(signal.data,0,2)),[size(signal.data,1),size(signal.data,3)])';
+0123         <span class="keyword">end</span>
+0124         
+0125         <a name="_sub3" href="#_subfunctions" class="code">function visualize_model(self,parent,fmodel,pmodel) </a><span class="comment">%#ok&lt;*INUSD&gt;</span>
+0126             <span class="comment">% no parent: create new figure</span>
+0127             <span class="keyword">if</span> isempty(parent)
+0128                 parent = figure(<span class="string">'Name'</span>,<span class="string">'Per-window weights'</span>); <span class="keyword">end</span>
+0129             <span class="keyword">if</span> isfield(pmodel.model,<span class="string">'w'</span>)
+0130                 weights = pmodel.model.w;
+0131             <span class="keyword">elseif</span> isfield(pmodel.model,<span class="string">'W'</span>)
+0132                 weights = pmodel.model.W;
+0133             <span class="keyword">elseif</span> isfield(pmodel.model,<span class="string">'weights'</span>)
+0134                 weights = pmodel.model.weights;
+0135             <span class="keyword">else</span>
+0136                 title(<span class="string">'Cannot find model weights.'</span>);
+0137                 weights = [];
+0138             <span class="keyword">end</span>
+0139             <span class="comment">% display</span>
+0140             <span class="keyword">if</span> ~isempty(weights)
+0141                 topoplot(weights,fmodel.chanlocs,<span class="string">'maplimits'</span>,[-max(abs(weights)) max(abs(weights))]);
+0142             <span class="keyword">end</span>
+0143         <span class="keyword">end</span>
+0144         
+0145         <a name="_sub4" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0146             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>, <span class="string">'SignalProcessing.SurfaceLaplacian'</span>, <span class="keyword">...</span>
+0147                 <span class="string">'SignalProcessing.FIRFilter.Frequencies'</span>, <span class="string">'SignalProcessing.FIRFilter.Type'</span>, <span class="keyword">...</span>
+0148                 <span class="string">'SignalProcessing.EpochExtraction'</span>, <span class="string">''</span>, <span class="string">'Prediction.MachineLearning.Learner'</span>};
+0149         <span class="keyword">end</span>
+0150         
+0151     <span class="keyword">end</span>
+0152 <span class="keyword">end</span>
+0153</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

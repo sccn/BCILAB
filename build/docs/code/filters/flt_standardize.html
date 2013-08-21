@@ -1,0 +1,279 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_standardize</title>
+  <meta name="keywords" content="flt_standardize">
+  <meta name="description" content="Standardize a continuous EEG set causally.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_standardize.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_standardize
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Standardize a continuous EEG set causally.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [signal,state] = flt_standardize(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Standardize a continuous EEG set causally.
+ [Signal,State] = flt_standardize(Signal, State, WindowLength)
+
+ Standardization ensures that per-channel data that normally can have any variance (e.g. due to
+ varying conductivity, amplifier settings, etc.) is approximately normally distributed over data
+ sets and time periods. This is usually necessary when learning and running models across sessions
+ and subjects. It should not be applied before other artifact-rejection steps, as these steps
+ usually take relative signal power into account. It is important to make the standardization
+ window long enough that it does not factor out changes in signal power that one is interested in.
+
+ In:
+   Signal       :   continuous data set to be filtered
+
+   WindowLength :   length of the window based on which normalization shall be performed, in
+                    seconds (default: 30)
+
+   State        :   previous filter state, as obtained by a previous execution of flt_iir on an
+                    immediately preceding data set (default: [])
+
+ Out: 
+   Signal       :  standardized, continuous data set
+
+   State        :  state of the filter, after it got applied
+
+ Examples:
+   % standardize the data in a moving window of default length (30s)
+   eeg = flt_standardize(eeg)
+
+   % standardize the data in a moving window of 60s length
+   eeg = flt_standardize(eeg,60)
+
+   % as previous, but passing all parameters by name
+   eeg = flt_standardize('Signal',eeg,'WindowLength',60)
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-04-17</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function [X,Zf] = moving_average(N,X,Zi)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal,state] = flt_standardize(varargin)</a>
+0002 <span class="comment">% Standardize a continuous EEG set causally.</span>
+0003 <span class="comment">% [Signal,State] = flt_standardize(Signal, State, WindowLength)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Standardization ensures that per-channel data that normally can have any variance (e.g. due to</span>
+0006 <span class="comment">% varying conductivity, amplifier settings, etc.) is approximately normally distributed over data</span>
+0007 <span class="comment">% sets and time periods. This is usually necessary when learning and running models across sessions</span>
+0008 <span class="comment">% and subjects. It should not be applied before other artifact-rejection steps, as these steps</span>
+0009 <span class="comment">% usually take relative signal power into account. It is important to make the standardization</span>
+0010 <span class="comment">% window long enough that it does not factor out changes in signal power that one is interested in.</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">% In:</span>
+0013 <span class="comment">%   Signal       :   continuous data set to be filtered</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%   WindowLength :   length of the window based on which normalization shall be performed, in</span>
+0016 <span class="comment">%                    seconds (default: 30)</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   State        :   previous filter state, as obtained by a previous execution of flt_iir on an</span>
+0019 <span class="comment">%                    immediately preceding data set (default: [])</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">% Out:</span>
+0022 <span class="comment">%   Signal       :  standardized, continuous data set</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   State        :  state of the filter, after it got applied</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">% Examples:</span>
+0027 <span class="comment">%   % standardize the data in a moving window of default length (30s)</span>
+0028 <span class="comment">%   eeg = flt_standardize(eeg)</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%   % standardize the data in a moving window of 60s length</span>
+0031 <span class="comment">%   eeg = flt_standardize(eeg,60)</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%   % as previous, but passing all parameters by name</span>
+0034 <span class="comment">%   eeg = flt_standardize('Signal',eeg,'WindowLength',60)</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0037 <span class="comment">%                                2010-04-17</span>
+0038 
+0039 <span class="comment">% flt_standardize_version&lt;1.01&gt; -- for the cache</span>
+0040 
+0041 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0042 
+0043 <span class="comment">% follows IIR/FIR, as it should operate on a clean signal (rather than depend on HF noise, etc.)</span>
+0044 declare_properties(<span class="string">'name'</span>,{<span class="string">'Standardization'</span>,<span class="string">'Standardize'</span>}, <span class="string">'cannot_follow'</span>,<span class="string">'set_makepos'</span>, <span class="string">'follows'</span>,{<span class="string">'flt_iir'</span>,<span class="string">'flt_fir'</span>}, <span class="string">'independent_channels'</span>,true, <span class="string">'independent_trials'</span>,false);
+0045 
+0046 arg_define(varargin, <span class="keyword">...</span>
+0047     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0048     arg({<span class="string">'window_len'</span>,<span class="string">'WindowLength'</span>}, 30, [], <span class="string">'Length of normalization window. In seconds.'</span>), <span class="keyword">...</span>
+0049     arg({<span class="string">'multivariate_sphering'</span>,<span class="string">'Sphere'</span>,<span class="string">'sphere'</span>}, false, [], <span class="string">'Perform multivariate sphering. This removes correlations between channels but maintains. Assumes that the data is approximately zero-mean (i.e., first highpass filtered).'</span>), <span class="keyword">...</span>
+0050     arg({<span class="string">'stepsize'</span>,<span class="string">'StepSize'</span>}, 1/3, [], <span class="string">'Step size between updates. The sphering matrix will be updated every this many samples. If this is below 1, it is assumed to be in seconds.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0051     arg({<span class="string">'usegpu'</span>,<span class="string">'UseGPU'</span>}, false, [], <span class="string">'Use the GPU for sphering.'</span>), <span class="keyword">...</span>
+0052     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>}));
+0053 
+0054 warning off MATLAB:nearlySingularMatrix
+0055 
+0056 <span class="comment">% calc maximum amount of memory to use</span>
+0057 <span class="keyword">if</span> usegpu
+0058     dev = gpuDevice(); maxmem = dev.FreeMemory/2^20;
+0059 <span class="keyword">else</span>
+0060     maxmem = hlp_memfree/(2^21);
+0061 <span class="keyword">end</span>
+0062 
+0063 <span class="comment">% number of data points for our normalization window</span>
+0064 N = round(window_len*signal.srate); <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0065 <span class="keyword">if</span> stepsize &lt; 1
+0066     stepsize = round(stepsize*signal.srate); <span class="keyword">end</span>
+0067 
+0068 <span class="comment">% make up prior state if necessary</span>
+0069 <span class="keyword">if</span> isempty(state)
+0070     <span class="keyword">for</span> fld = utl_timeseries_fields(signal)
+0071         field = fld{1};
+0072         <span class="keyword">if</span> size(signal.(field),2) &gt; N
+0073             <span class="comment">% filter conditions &amp; constant overall data offset (for better numerical accuracy; this is</span>
+0074             <span class="comment">% unrelated to the running mean)</span>
+0075             state.(field) = struct(<span class="string">'ord1'</span>,[],<span class="string">'ord2'</span>,[],<span class="string">'offset'</span>,sum(signal.(field) ,2)/size(signal.(field) ,2),<span class="string">'last_R'</span>,[]);
+0076             <span class="comment">% prepend a made up data sequence</span>
+0077             signal.(field) = [repmat(2*signal.(field) (:,1),1,N) - signal.(field)(:,(N+1):-1:2) signal.(field)];
+0078         <span class="keyword">elseif</span> ~isequal(signal.(field),1)
+0079             disp_once([<span class="string">'Not filtering the field .'</span> field <span class="string">': needs to be longer than the set data window length (for this data set '</span> num2str(window_len) <span class="string">' seconds).'</span>]);
+0080         <span class="keyword">end</span>
+0081     <span class="keyword">end</span>
+0082     prepended = true;
+0083 <span class="keyword">else</span>
+0084     prepended = false;
+0085 <span class="keyword">end</span>
+0086 
+0087 <span class="keyword">for</span> fld = utl_timeseries_fields(signal)
+0088     field = fld{1};
+0089     <span class="keyword">if</span> ~isempty(signal.(field)) &amp;&amp; isfield(state,field)
+0090         <span class="comment">% get rid of NaN's and Inf's</span>
+0091         signal.(field)(~isfinite(signal.(field)(:))) = 0;
+0092         
+0093         <span class="keyword">if</span> ~multivariate_sphering
+0094             <span class="comment">% get raw data X and running mean E[X]</span>
+0095             X = bsxfun(@minus,double(signal.(field)),state.(field).offset);
+0096             [X_mean,state.(field).ord1] = <a href="#_sub1" class="code" title="subfunction [X,Zf] = moving_average(N,X,Zi)">moving_average</a>(N,X,state.(field).ord1);
+0097             <span class="comment">% get squared data X^2 and running squared mean E[X^2]</span>
+0098             X2 = X.^2;
+0099             [X2_mean,state.(field).ord2] = <a href="#_sub1" class="code" title="subfunction [X,Zf] = moving_average(N,X,Zi)">moving_average</a>(N,X2,state.(field).ord2);
+0100             <span class="comment">% compute running std deviation sqrt(E[X^2] - E[X]^2)</span>
+0101             X_std = sqrt(abs(X2_mean - X_mean.^2));
+0102 
+0103             <span class="comment">% compute standardized data</span>
+0104             signal.(field) = (X - X_mean) ./ X_std;
+0105         <span class="keyword">else</span>
+0106             [C,S] = size(signal.(field));
+0107             <span class="comment">% split up the total sample range into k chunks that will fit in memory</span>
+0108             splits = ceil((C*C*S*8*8 + C*C*8*S/stepsize + C*S*8*2 + S*8*5) / (maxmem*1024*1024));
+0109             <span class="keyword">if</span> splits &gt; 1
+0110                 fprintf(<span class="string">'Now sphering data in %i blocks'</span>,splits); <span class="keyword">end</span>            
+0111             <span class="keyword">for</span> i=1:splits
+0112                 range = 1+floor((i-1)*S/splits) : min(S,floor(i*S/splits));
+0113                 <span class="keyword">if</span> ~isempty(range)
+0114                     <span class="comment">% get the data range</span>
+0115                     X = double(signal.(field)(:,range));
+0116                     <span class="comment">% move it to the GPU if applicable</span>
+0117                     <span class="keyword">if</span> usegpu &amp;&amp; length(range) &gt; 1000
+0118                         <span class="keyword">try</span> X = gpuArray(X); <span class="keyword">catch</span>,<span class="keyword">end</span>; <span class="keyword">end</span>
+0119                     <span class="comment">% compute running mean covariance (assuming a zero-mean signal)</span>
+0120                     [Xcov,state.(field).ord2] = <a href="#_sub1" class="code" title="subfunction [X,Zf] = moving_average(N,X,Zi)">moving_average</a>(N,reshape(bsxfun(@times,reshape(X,1,C,[]),reshape(X,C,1,[])),C*C,[]),state.(field).ord2);
+0121                     <span class="comment">% extract the subset of time points at which we intend to update the sphering matrix</span>
+0122                     update_at = min(stepsize:stepsize:(size(Xcov,2)+stepsize-1),size(Xcov,2));
+0123                     <span class="comment">% if there is no previous R (from the end of the last chunk), we estimate it right at the first sample</span>
+0124                     <span class="keyword">if</span> isempty(state.(field).last_R)
+0125                         update_at = [1 update_at];
+0126                         state.(field).last_R = eye(C);
+0127                     <span class="keyword">end</span>
+0128                     Xcov = reshape(Xcov(:,update_at),C,C,[]);
+0129                     <span class="keyword">if</span> usegpu
+0130                         Xcov = gather(Xcov); <span class="keyword">end</span>
+0131                     <span class="comment">% do the reconstruction in intervals of length stepsize (or shorter if at the end of a chunk)</span>
+0132                     last_n = 0;
+0133                     <span class="keyword">for</span> j=1:length(update_at)
+0134                         <span class="comment">% update the sphering matrix</span>
+0135                         R = real(Xcov(:,:,j)^-1/2);
+0136                         <span class="comment">% apply the reconstruction to intermediate samples (using raised-cosine blending)</span>
+0137                         n = update_at(j);
+0138                         subrange = range((last_n+1):n);
+0139                         blend = (1-cos(pi*(1:(n-last_n))/(n-last_n)))/2;
+0140                         signal.(field)(:,subrange) = bsxfun(@times,blend,R*signal.(field)(:,subrange)) + bsxfun(@times,1-blend,state.(field).last_R*signal.(field)(:,subrange));
+0141                         [last_n,state.(field).last_R] = deal(n,R);
+0142                     <span class="keyword">end</span>
+0143                 <span class="keyword">end</span>
+0144                 <span class="keyword">if</span> splits &gt; 1
+0145                     fprintf(<span class="string">'.'</span>); <span class="keyword">end</span>
+0146             <span class="keyword">end</span>
+0147             <span class="keyword">if</span> splits &gt; 1
+0148                 fprintf(<span class="string">'\n'</span>); <span class="keyword">end</span>            
+0149         <span class="keyword">end</span>
+0150         
+0151         <span class="comment">% trim the prepended part if there was one</span>
+0152         <span class="keyword">if</span> prepended
+0153             signal.(field)(:,1:N) = []; <span class="keyword">end</span>
+0154     <span class="keyword">end</span>
+0155 <span class="keyword">end</span>
+0156 
+0157 <span class="keyword">if</span> usegpu
+0158     state.ord2 = gather(state.ord2); <span class="keyword">end</span>
+0159 
+0160 exp_endfun;
+0161 
+0162 
+0163 
+0164 <a name="_sub1" href="#_subfunctions" class="code">function [X,Zf] = moving_average(N,X,Zi)</a>
+0165 <span class="comment">% Run a moving-average filter along the second dimension of the data.</span>
+0166 <span class="comment">% [X,Zf] = moving_average(N,X,Zi)</span>
+0167 <span class="comment">%</span>
+0168 <span class="comment">% In:</span>
+0169 <span class="comment">%   N : filter length in samples</span>
+0170 <span class="comment">%   X : data matrix [#Channels x #Samples]</span>
+0171 <span class="comment">%   Zi : initial filter conditions (default: [])</span>
+0172 <span class="comment">%</span>
+0173 <span class="comment">% Out:</span>
+0174 <span class="comment">%   X : the filtered data</span>
+0175 <span class="comment">%   Zf : final filter conditions</span>
+0176 <span class="comment">%</span>
+0177 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0178 <span class="comment">%                           2012-01-10</span>
+0179 
+0180 <span class="keyword">if</span> nargin &lt;= 2 || isempty(Zi)
+0181     Zi = zeros(size(X,1),N); <span class="keyword">end</span>
+0182 
+0183 <span class="comment">% pre-pend initial state &amp; get dimensions</span>
+0184 Y = [Zi X]; M = size(Y,2);
+0185 <span class="comment">% get alternating index vector (for additions &amp; subtractions)</span>
+0186 I = [1:M-N; 1+N:M];
+0187 <span class="comment">% get sign vector (also alternating, and includes the scaling)</span>
+0188 S = [-ones(1,M-N); ones(1,M-N)]/N;
+0189 <span class="comment">% run moving average</span>
+0190 X = cumsum(bsxfun(@times,Y(:,I(:)),S(:)'),2);
+0191 <span class="comment">% read out result</span>
+0192 X = X(:,2:2:end);
+0193 
+0194 <span class="keyword">if</span> nargout &gt; 1
+0195     Zf = [-(X(:,end)*N-Y(:,end-N+1)) Y(:,end-N+2:end)]; <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

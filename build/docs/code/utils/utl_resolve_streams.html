@@ -1,0 +1,398 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_resolve_streams</title>
+  <meta name="keywords" content="utl_resolve_streams">
+  <meta name="description" content="resolve the stream that each rawdata node in the given filter chain requires, given a list">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_resolve_streams.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_resolve_streams
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>resolve the stream that each rawdata node in the given filter chain requires, given a list</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function pip = utl_resolve_streams(pip,streams,chanlocs) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> resolve the stream that each rawdata node in the given filter chain requires, given a list
+ of workspace stream names (or stream structs), and a subset of channels needed by above pipelines (where empty means 'all')
+
+ In:
+   Pipeline : a filter chain or filter graph (cell array of filter chains) with rawdata nodes to resolve
+
+   Streams : a cell array of workspace stream names, or a cell array of stream/dataset structs,
+             or a stream bundle (struct with .streams{} cell array); these are the candidates
+             that shall be subsituted into the open rawdata nodes
+
+   Chanlocs : optionally the chanlocs structure that is expected at the outlet of the filter
+              chain, as cell array of chanlocs structs in case the pipeline is a filter graph; if 
+              known, it can help in situations where a candidate stream provides fewer channels than
+              technically required by the filter chain -- but not effectively required as the chain
+              prunes some of them further down the processing
+
+ Out:
+   Pipeline : the pipeline with matched streams filled in at the @rawdata nodes;
+              if streams was a name array, then the rawdata nodes are augmented with the stream name
+              (for online processing); otherwise, the expression of the respective stream is
+              substituted in place of the respective rawdata node
+
+ See also:
+   bci_train, bci_predict, onl_newpredictor
+
+ Notes:
+   The matching is generally case insensitive (both for channel labels and channel types).
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-11-23</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_preprocess_bundle.html" class="code" title="function outbundle = utl_preprocess_bundle(inbundle,model)">utl_preprocess_bundle</a>	Internal. Pre-process a stream bundle with a model's filter graph.</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function pip = resolve_rawdata(pip,streams,chan_subset,type_subset)</a></li><li><a href="#_sub2" class="code">function output = resolve_stream_properties(stream)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function pip = utl_resolve_streams(pip,streams,chanlocs)</a>
+0002 <span class="comment">% resolve the stream that each rawdata node in the given filter chain requires, given a list</span>
+0003 <span class="comment">% of workspace stream names (or stream structs), and a subset of channels needed by above pipelines (where empty means 'all')</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Pipeline : a filter chain or filter graph (cell array of filter chains) with rawdata nodes to resolve</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">%   Streams : a cell array of workspace stream names, or a cell array of stream/dataset structs,</span>
+0009 <span class="comment">%             or a stream bundle (struct with .streams{} cell array); these are the candidates</span>
+0010 <span class="comment">%             that shall be subsituted into the open rawdata nodes</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%   Chanlocs : optionally the chanlocs structure that is expected at the outlet of the filter</span>
+0013 <span class="comment">%              chain, as cell array of chanlocs structs in case the pipeline is a filter graph; if</span>
+0014 <span class="comment">%              known, it can help in situations where a candidate stream provides fewer channels than</span>
+0015 <span class="comment">%              technically required by the filter chain -- but not effectively required as the chain</span>
+0016 <span class="comment">%              prunes some of them further down the processing</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">% Out:</span>
+0019 <span class="comment">%   Pipeline : the pipeline with matched streams filled in at the @rawdata nodes;</span>
+0020 <span class="comment">%              if streams was a name array, then the rawdata nodes are augmented with the stream name</span>
+0021 <span class="comment">%              (for online processing); otherwise, the expression of the respective stream is</span>
+0022 <span class="comment">%              substituted in place of the respective rawdata node</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">% See also:</span>
+0025 <span class="comment">%   bci_train, bci_predict, onl_newpredictor</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">% Notes:</span>
+0028 <span class="comment">%   The matching is generally case insensitive (both for channel labels and channel types).</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0031 <span class="comment">%                                2011-11-23</span>
+0032 
+0033 <span class="keyword">if</span> isstruct(streams) &amp;&amp; isscalar(streams) &amp;&amp; isfield(streams,<span class="string">'streams'</span>)
+0034     <span class="comment">% streams given as a bundle: turn into cell array</span>
+0035     streams = streams.streams; <span class="keyword">end</span>
+0036 
+0037 <span class="keyword">if</span> ~iscell(streams)
+0038     streams = {streams}; <span class="keyword">end</span>
+0039 
+0040 <span class="comment">% resolve stream properties</span>
+0041 <span class="keyword">for</span> s = 1:length(streams)
+0042     <span class="keyword">if</span> ischar(streams{s})
+0043         <span class="comment">% stream given as a workspace variable name:</span>
+0044         <span class="comment">% - can read out the chanlocs.labels directly from it</span>
+0045         <span class="comment">% - we take the types as declared by the stream</span>
+0046         <span class="comment">% - we substitute the variable name into the rawdata node, as we will refer to this stream online</span>
+0047         tmp = evalin(<span class="string">'base'</span>,streams{s});
+0048         streams{s} = struct(<span class="string">'labels'</span>,{{tmp.chanlocs.labels}},<span class="string">'types'</span>,{tmp.types},<span class="string">'substitute'</span>,streams{s});
+0049     <span class="keyword">elseif</span> all(isfield(streams{s},{<span class="string">'chanlocs'</span>,<span class="string">'tracking'</span>}))
+0050         <span class="comment">% stream is given as a full data set:</span>
+0051         <span class="comment">% - can read out the chanlocs &amp; their types directly from it</span>
+0052         <span class="comment">% - we substitute the streams expression in there</span>
+0053         streams{s} = struct(<span class="string">'labels'</span>,{{streams{s}.chanlocs.labels}},<span class="string">'types'</span>,{unique({streams{s}.chanlocs.type})},<span class="string">'substitute'</span>,streams{s}.tracking.expression);
+0054     <span class="keyword">elseif</span> all(isfield(streams{s},{<span class="string">'head'</span>,<span class="string">'parts'</span>}))
+0055         <span class="comment">% stream is an unevaluated expression:</span>
+0056         <span class="comment">% - we try to infer the chanlocs &amp; their types from it without evaluating too much of it</span>
+0057         <span class="comment">% - we substitute the stream expression itself</span>
+0058         streams{s} = <a href="#_sub2" class="code" title="subfunction output = resolve_stream_properties(stream)">resolve_stream_properties</a>(streams{s});
+0059     <span class="keyword">end</span>
+0060 <span class="keyword">end</span>
+0061 
+0062 <span class="comment">% now resolve rawdata nodes using the stream information</span>
+0063 <span class="keyword">if</span> ~iscell(pip)
+0064     <span class="comment">% pipeline given as single filter chain</span>
+0065     <span class="keyword">if</span> exist(<span class="string">'chanlocs'</span>,<span class="string">'var'</span>)
+0066         labels = {chanlocs.labels};
+0067         types = unique({chanlocs.type});
+0068     <span class="keyword">else</span>
+0069         labels = [];
+0070         types = [];
+0071     <span class="keyword">end</span>
+0072     pip = <a href="#_sub1" class="code" title="subfunction pip = resolve_rawdata(pip,streams,chan_subset,type_subset)">resolve_rawdata</a>(pip,streams,labels,types);
+0073 <span class="keyword">else</span>
+0074     <span class="comment">% pipeline given as a cell array: resolve each one by one</span>
+0075     <span class="keyword">if</span> exist(<span class="string">'chanlocs'</span>,<span class="string">'var'</span>)
+0076         <span class="keyword">if</span> ~iscell(chanlocs)
+0077             error(<span class="string">'If given, chanlocs should be a cell array with one cell for each chain in the filter graph.'</span>); <span class="keyword">end</span>
+0078         <span class="keyword">if</span> length(chanlocs) ~= length(pip)
+0079             error(<span class="string">'The Chanlocs array has a different number of elements than the filter graph.'</span>); <span class="keyword">end</span>
+0080         <span class="keyword">for</span> p = 1:length(pip)
+0081             labels{p} = {chanlocs{p}.labels};
+0082             types{p} = unique({chanlocs{p}.type});            
+0083         <span class="keyword">end</span>
+0084     <span class="keyword">else</span>
+0085         labels = repmat({[]},1,length(pip));
+0086         types = repmat({[]},1,length(pip));
+0087     <span class="keyword">end</span>
+0088     <span class="keyword">for</span> p = 1:length(pip)
+0089         pip{p} = <a href="#_sub1" class="code" title="subfunction pip = resolve_rawdata(pip,streams,chan_subset,type_subset)">resolve_rawdata</a>(pip{p},streams,labels{p},types{p}); <span class="keyword">end</span>
+0090 <span class="keyword">end</span>
+0091 
+0092 
+0093 <a name="_sub1" href="#_subfunctions" class="code">function pip = resolve_rawdata(pip,streams,chan_subset,type_subset)</a>
+0094 <span class="comment">% Resolve rawdata nodes in a single filter chain into streams.</span>
+0095 <span class="comment">%</span>
+0096 <span class="comment">% In:</span>
+0097 <span class="comment">%   Pipeline : the filter chain</span>
+0098 <span class="comment">%</span>
+0099 <span class="comment">%   Streams : cell array of structs with fields .labels, .types, and .substitute</span>
+0100 <span class="comment">%             (.labels is a cell array of labels provided by the stream, .types is a cell array of</span>
+0101 <span class="comment">%              channel types (unique) provided by the stream, and .substitute is  the object that</span>
+0102 <span class="comment">%              should be used for substitution in the respective rawdata slot if it matches)</span>
+0103 <span class="comment">%</span>
+0104 <span class="comment">%   RequiredChannels : full set of channel labels that are required from this pipeline (may be a</span>
+0105 <span class="comment">%                      subset of the channel labels expected at the @rawdata node, in which case</span>
+0106 <span class="comment">%                      fewer channels need to be provided by a matching stream); may be a cell array</span>
+0107 <span class="comment">%                      of channel labels or index range, or [] (which stands for &quot;all channels&quot; of this stage)</span>
+0108 <span class="comment">%</span>
+0109 <span class="comment">%   RequiredTypes : full set of channel types that are required from this pipeline (may be a subset</span>
+0110 <span class="comment">%                   of the types expected at the rawdata node, in which case fewer channeels need to</span>
+0111 <span class="comment">%                   be provided by the matching stream); may also be [] (which stands for &quot;all types&quot; of this stage)</span>
+0112 <span class="comment">%</span>
+0113 <span class="comment">% Out:</span>
+0114 <span class="comment">%   Pipeline : the filter chain with @rawdata nodes substituted appropriately</span>
+0115 <span class="comment">%</span>
+0116 
+0117 phead = char(pip.head);
+0118 <span class="keyword">if</span> ~strcmp(phead,<span class="string">'rawdata'</span>)
+0119     
+0120     <span class="comment">% --- intermediate node ---</span>
+0121 
+0122     <span class="comment">% figure out the needed channels &amp; types along the way</span>
+0123     <span class="keyword">if</span> strcmp(phead,<span class="string">'flt_selchans'</span>)
+0124         <span class="comment">% a selchans node: informs us that we need only a subset of channels from our input streams</span>
+0125         
+0126         <span class="comment">% find the last index in the pipeline's arguments that is 'channels'...</span>
+0127         <span class="comment">% the channel selection is the argument following that (it is a name-value pair)</span>
+0128         ci = find(strcmp(pip.parts,<span class="string">'channels'</span>),1,<span class="string">'last'</span>);
+0129         selected_chans = pip.parts{ci+1};
+0130         <span class="comment">% our current channel working subset is either a subset of the selection done by this</span>
+0131         <span class="comment">% flt_selchans or refers to &quot;all&quot; channels</span>
+0132         <span class="keyword">if</span> isempty(chan_subset)
+0133             <span class="comment">% &quot;all&quot; channels required: we need the entire chan selection at this level</span>
+0134             chan_subset = selected_chans;
+0135         <span class="keyword">elseif</span> isnumeric(chan_subset)
+0136             <span class="comment">% we need an index subrange of pip.parts</span>
+0137             chan_subset = selected_chans(chan_subset);
+0138         <span class="keyword">else</span>
+0139             <span class="comment">% we known which named subset we need; the flt_selchans does not provide additional info</span>
+0140         <span class="keyword">end</span>
+0141     <span class="keyword">elseif</span> strcmp(phead,<span class="string">'flt_seltypes'</span>)
+0142         <span class="comment">% a seltypes node: informs us that we need only a subset of channel types from here on</span>
+0143         <span class="keyword">if</span> isempty(type_subset)
+0144             <span class="comment">% find the last index in the pipeline's arguments that is 'types'...</span>
+0145             <span class="comment">% the channel selection is the argument following that (it is a name-value pair)</span>
+0146             ti = find(strcmp(pip.parts,<span class="string">'chantypes'</span>),1,<span class="string">'last'</span>);
+0147             type_subset = pip.parts{ti+1};
+0148             <span class="keyword">if</span> ~iscell(type_subset)
+0149                 type_subset = {type_subset}; <span class="keyword">end</span>
+0150         <span class="keyword">else</span>
+0151             <span class="comment">% note: if we already have a type subset from farther up in the processing chain we</span>
+0152             <span class="comment">%       don't need additional info from this stage</span>
+0153         <span class="keyword">end</span>
+0154         
+0155     <span class="keyword">else</span>
+0156         <span class="comment">% a generic node: check if this one mixes channels -- in which case we need all channels &amp; types from below</span>
+0157         props = arg_report(<span class="string">'properties'</span>,pip.head);
+0158         <span class="keyword">if</span> ~props.independent_channels
+0159             <span class="comment">% the node doesn't have independent channels: need all channnels &amp; types from below</span>
+0160             chan_subset = [];
+0161             type_subset = [];
+0162         <span class="keyword">end</span>
+0163     <span class="keyword">end</span>
+0164 
+0165     <span class="comment">% and follow down its inlets</span>
+0166     <span class="keyword">for</span> p = find(cellfun(@(p)all(isfield(p,{<span class="string">'head'</span>,<span class="string">'parts'</span>})),pip.parts))
+0167         pip.parts{p} = <a href="#_sub1" class="code" title="subfunction pip = resolve_rawdata(pip,streams,chan_subset,type_subset)">resolve_rawdata</a>(pip.parts{p},streams,chan_subset,type_subset); <span class="keyword">end</span>
+0168     
+0169 <span class="keyword">else</span>
+0170     <span class="comment">% --- reached a rawdata node: resolve it using streams ---</span>
+0171     
+0172     <span class="comment">% find out what types we need</span>
+0173     <span class="keyword">if</span> isempty(type_subset)
+0174         <span class="comment">% all types from here are needed</span>
+0175         needed_types = pip.parts{2};
+0176     <span class="keyword">elseif</span> iscell(type_subset)
+0177         <span class="comment">% can restrict the types according to the already known type subset (from further up the pipeline)</span>
+0178         needed_types = intersect(pip.parts{2},type_subset);
+0179     <span class="keyword">else</span>
+0180         error(<span class="string">'Unsupported type subset format.'</span>);
+0181     <span class="keyword">end</span>
+0182     
+0183     <span class="comment">% find out what channels we need</span>
+0184     <span class="keyword">if</span> isempty(chan_subset)
+0185         <span class="comment">% all channels are needed</span>
+0186         needed_channels = pip.parts{1};
+0187     <span class="keyword">elseif</span> iscell(chan_subset)
+0188         <span class="comment">% a particular named set of channels is needed</span>
+0189         needed_channels = chan_subset;
+0190     <span class="keyword">elseif</span> isnumeric(chan_subset)
+0191         <span class="comment">% an index range referring to the base channel set is needed</span>
+0192         needed_channels = pip.parts{1}(chan_subset);
+0193     <span class="keyword">else</span>
+0194         error(<span class="string">'Unsupported channel subset format.'</span>);
+0195     <span class="keyword">end</span>
+0196     
+0197     satisfies_channels = []; <span class="comment">% the stream can provide all the channels required by the pipeline (ideal case if non-ambiguous)</span>
+0198     satisfies_types = [];    <span class="comment">% the stream has the same number of channels and set of types as required by the pipeline (happens when the online plugin doesn't supply the correct channel labels...)</span>
+0199     <span class="comment">% for each stream...</span>
+0200     <span class="keyword">for</span> s = 1:length(streams)
+0201         <span class="comment">% find out if the stream matches</span>
+0202         satisfies_channels(s) = isempty(fast_setdiff(lower(needed_channels),lower(streams{s}.labels)));
+0203         satisfies_types(s) = length(pip.parts{1}) == length(streams{s}.labels) &amp;&amp; isequal(sort(lower(needed_types)),lower(streams{s}.types));
+0204     <span class="keyword">end</span>
+0205     
+0206     <span class="comment">% resolve the stream used for this rawdata node</span>
+0207     <span class="keyword">if</span> nnz(satisfies_channels) == 1
+0208         <span class="comment">% found exactly one applicable stream</span>
+0209         strm = streams{satisfies_channels};
+0210         <span class="keyword">if</span> ischar(strm.substitute)
+0211             <span class="comment">% substitute a variable name into the rawdata node</span>
+0212             pip = struct(<span class="string">'head'</span>,@rawdata,<span class="string">'parts'</span>,{{strm.substitute,set_chanid(strm.labels,needed_channels)}});
+0213         <span class="keyword">else</span>
+0214             <span class="comment">% substitute the rawdata node by the stream's expression</span>
+0215             pip = strm.substitute;
+0216         <span class="keyword">end</span>
+0217     <span class="keyword">else</span>
+0218         
+0219         <span class="comment">% no clear-cut case: check whether the channel numbers &amp; set of types matches</span>
+0220         <span class="keyword">if</span> nnz(satisfies_channels) &gt; 1
+0221             <span class="comment">% found more than one stream: include the type constraint</span>
+0222             <span class="keyword">if</span> nnz(satisfies_channels &amp; satisfies_types) == 1
+0223                 <span class="comment">% now it is non-ambiguous, but warn</span>
+0224                 warning(<span class="string">'BCILAB:onl_newpredictor:ambiguous'</span>,<span class="string">'More than one of the supplied/available streams could supply the required channels; falling back to basic channel type requirements to resolve the ambiguity.'</span>);
+0225                 strm = streams{satisfies_channels &amp; satisfies_types};
+0226                 <span class="keyword">if</span> ischar(strm.substitute)
+0227                     <span class="comment">% stream given as a variable name: augment the rawdata node</span>
+0228                     pip = struct(<span class="string">'head'</span>,@rawdata,<span class="string">'parts'</span>,{{strm.substitute,set_chanid(strm.labels,needed_channels)}});
+0229                 <span class="keyword">else</span>
+0230                     <span class="comment">% substitute the rawdata node by the stream's expression</span>
+0231                     pip = strm.substitute;
+0232                 <span class="keyword">end</span>
+0233             <span class="keyword">elseif</span> nnz(satisfies_channels &amp; satisfies_types) &gt; 1
+0234                 <span class="comment">% still ambiguous</span>
+0235                 error(<span class="string">'BCILAB:onl_newpredictor:ambiguous'</span>,<span class="string">'More than one of the supplied/available streams could supply the required channels &amp; types; please provide the desired subset of streams.'</span>);
+0236             <span class="keyword">else</span>
+0237                 <span class="comment">% the additional constraint eliminates all options</span>
+0238                 error(<span class="string">'BCILAB:onl_newpredictor:ambiguous'</span>,<span class="string">'More than one of the supplied/available streams could supply the required channels; please provide the desired subset of streams.'</span>);
+0239             <span class="keyword">end</span>
+0240         <span class="keyword">elseif</span> nnz(satisfies_types) == 1
+0241             <span class="comment">% found exactly one stream which has the correct number of channels and the same set of types</span>
+0242             warning(<span class="string">'BCILAB:onl_newpredictor:ambiguous'</span>,<span class="string">'No stream was found which contains the required channels; however, a stream was found to have the same number of channels and set of types as required by the pipeline.'</span>);
+0243             strm = streams{satisfies_types};
+0244             <span class="keyword">if</span> ischar(strm)
+0245                 <span class="comment">% stream given as a variable name: augment the rawdata node</span>
+0246                 pip = struct(<span class="string">'head'</span>,@rawdata,<span class="string">'parts'</span>,{{strm,1:length(strm.labels)}});
+0247             <span class="keyword">else</span>
+0248                 <span class="comment">% substitute the rawdata node by the stream's expression</span>
+0249                 pip = strm.substitute;
+0250             <span class="keyword">end</span>
+0251         <span class="keyword">else</span>
+0252             <span class="comment">% found no applicable stream</span>
+0253             error(<span class="string">'BCILAB:onl_newpredictor:nostream'</span>,[<span class="string">'None of the supplied/available streams has the required channels: '</span> hlp_tostring(needed_channels) <span class="string">'.'</span>]);
+0254         <span class="keyword">end</span>
+0255         
+0256     <span class="keyword">end</span>
+0257 <span class="keyword">end</span>
+0258 
+0259 <a name="_sub2" href="#_subfunctions" class="code">function output = resolve_stream_properties(stream)</a>
+0260 <span class="comment">% recursively infer the channel labels &amp; types, as well as the substitution expression produced by this pipeline stage</span>
+0261 <span class="keyword">if</span> isfield(stream,<span class="string">'chanlocs'</span>)
+0262     <span class="comment">% we have reached a data set node: derive all properties</span>
+0263     output.chanlocs = stream.chanlocs;
+0264     output.labels = {stream.chanlocs.labels};
+0265     output.types = unique({stream.chanlocs.type});
+0266     <span class="keyword">try</span>
+0267         output.substitute = stream.tracking.expression;
+0268     <span class="keyword">catch</span>
+0269         error(<span class="string">'Reached a dataset node which is lacking an associated expression. This should have been resolved previously using utl_check_dataset or utl_check_bundle.'</span>);
+0270     <span class="keyword">end</span>
+0271 <span class="keyword">elseif</span> all(isfield(stream,{<span class="string">'head'</span>,<span class="string">'parts'</span>}))
+0272     <span class="comment">% we are looking at a symbolic expression</span>
+0273     output.substitute = stream;
+0274     <span class="comment">% check if it is a special known one</span>
+0275     shead = char(stream.head);
+0276     <span class="keyword">switch</span>(shead)
+0277         <span class="keyword">case</span> <span class="string">'io_loadset'</span>
+0278             <span class="comment">% the chanlocs info can be obtained from the underlying raw data set</span>
+0279             tmp = exp_eval_optimized(stream);
+0280             output.chanlocs = tmp.chanlocs;
+0281             output.labels = {tmp.chanlocs.labels};
+0282             output.types = unique({tmp.chanlocs.type});
+0283         <span class="keyword">case</span> <span class="string">'flt_selchans'</span>
+0284             <span class="comment">% a channel subset has been selected here: get the chanlocs from further below...</span>
+0285             subprops = <a href="#_sub2" class="code" title="subfunction output = resolve_stream_properties(stream)">resolve_stream_properties</a>(stream.parts{find(cellfun(@(p)all(isfield(p,{<span class="string">'head'</span>,<span class="string">'parts'</span>})),stream.parts),1)});
+0286             <span class="comment">% and get the selected channel labels</span>
+0287             selection = stream.parts{find(strcmp(stream.parts,<span class="string">'channels'</span>),1,<span class="string">'last'</span>)+1};
+0288             output.chanlocs = subprops.chanlocs(set_chanid(subprops.chanlocs,selection));
+0289             output.labels = {output.chanlocs.labels};
+0290             output.types = unique({output.chanlocs.type});
+0291         <span class="keyword">case</span> <span class="string">'flt_seltypes'</span>
+0292             <span class="comment">% a type subset has been selected here: get the chanlocs from further below</span>
+0293             subprops = <a href="#_sub2" class="code" title="subfunction output = resolve_stream_properties(stream)">resolve_stream_properties</a>(stream.parts{find(cellfun(@(p)all(isfield(p,{<span class="string">'head'</span>,<span class="string">'parts'</span>})),stream.parts),1)});
+0294             <span class="comment">% and get the selected type labels</span>
+0295             selection = stream.parts{find(strcmp(stream.parts,<span class="string">'types'</span>),1,<span class="string">'last'</span>)+1};
+0296             <span class="keyword">if</span> ~iscell(selection)
+0297                 selection = {selection}; <span class="keyword">end</span>
+0298             <span class="comment">% now restrict both the types and the chanlocs appropriately</span>
+0299             [dummy,ia] = intersect(lower({subprops.chanlocs.type}),lower(selection)); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0300             output.chanlocs = subprops.chanlocs(ia);
+0301             output.labels = {output.chanlocs.labels};
+0302             output.types = unique({output.chanlocs.type});
+0303         <span class="keyword">case</span> <span class="string">'exp_block'</span>
+0304             output = <a href="#_sub2" class="code" title="subfunction output = resolve_stream_properties(stream)">resolve_stream_properties</a>(stream.parts{2});
+0305         <span class="keyword">otherwise</span>
+0306             <span class="comment">% generic expression node: check if this node mixes up channels ...</span>
+0307             props = arg_report(<span class="string">'properties'</span>,stream.head);
+0308             <span class="keyword">if</span> isfield(props,<span class="string">'independent_channels'</span>) &amp;&amp; props.independent_channels
+0309                 <span class="comment">% has independent channels: just take the output from below</span>
+0310                 output = <a href="#_sub2" class="code" title="subfunction output = resolve_stream_properties(stream)">resolve_stream_properties</a>(stream.parts{find(cellfun(@(p) any(isfield(p,{<span class="string">'parts'</span>,<span class="string">'chanlocs'</span>})),stream.parts),1)});
+0311                 output.substitute = stream;
+0312             <span class="keyword">else</span>
+0313                 <span class="comment">% does not have independent channels: need to evaluate the sub-expression</span>
+0314                 tmp = exp_eval_optimized(stream);
+0315                 output.chanlocs = tmp.chanlocs;
+0316                 output.labels = {tmp.chanlocs.labels};
+0317                 output.types = unique({tmp.chanlocs.type});
+0318             <span class="keyword">end</span>
+0319     <span class="keyword">end</span>
+0320 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

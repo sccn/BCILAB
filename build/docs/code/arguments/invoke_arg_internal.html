@@ -1,0 +1,194 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of invoke_arg_internal</title>
+  <meta name="keywords" content="invoke_arg_internal">
+  <meta name="description" content="same type of invoke function as in arg_sub, arg_subswitch, etc. - but shared between">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">arguments</a> &gt; invoke_arg_internal.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/arguments&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>invoke_arg_internal
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>same type of invoke function as in arg_sub, arg_subswitch, etc. - but shared between</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function spec = invoke_arg_internal(reptype,varargin) %#ok<INUSL> </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> same type of invoke function as in arg_sub, arg_subswitch, etc. - but shared between
+ arg, arg_norep, and arg_nogui</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="arg.html" class="code" title="function res = arg(varargin)">arg</a>	A (rich) specification of a function argument, for use in arg_define() clauses.</li><li><a href="arg_specifier.html" class="code" title="function spec = arg_specifier(varargin)">arg_specifier</a>	Internal: create a base specifier struct for an argument.</li><li><a href="parse_help.html" class="code" title="function help = parse_help(help,summary_len)">parse_help</a>	helper function for the arg* specifiers, to parse the help into a first and second part.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="arg.html" class="code" title="function res = arg(varargin)">arg</a>	A (rich) specification of a function argument, for use in arg_define() clauses.</li><li><a href="arg_deprecated.html" class="code" title="function res = arg_deprecated(names,default,range,help,varargin)">arg_deprecated</a>	Declaration of a deprecated argument.</li><li><a href="arg_nogui.html" class="code" title="function res = arg_nogui(varargin)">arg_nogui</a>	Like arg(), but not displayed by GUIs.</li><li><a href="arg_norep.html" class="code" title="function res = arg_norep(varargin)">arg_norep</a>	Like arg(), but not reported to outer functions (inluding GUIs or other frameworks).</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function spec = invoke_arg(names,default,range,help,varargin)</a></li><li><a href="#_sub2" class="code">function [type,shape,range,value] = infer_type(type,shape,range,value)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function spec = invoke_arg_internal(reptype,varargin) </a><span class="comment">%#ok&lt;INUSL&gt;</span>
+0002 <span class="comment">% same type of invoke function as in arg_sub, arg_subswitch, etc. - but shared between</span>
+0003 <span class="comment">% arg, arg_norep, and arg_nogui</span>
+0004 
+0005 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0008 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0009 <span class="comment">% License, or (at your option) any later version.</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0012 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0013 <span class="comment">% General Public License for more details.</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0016 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0017 <span class="comment">% USA</span>
+0018 
+0019 spec = hlp_microcache(<span class="string">'arg'</span>,@<a href="#_sub1" class="code" title="subfunction spec = invoke_arg(names,default,range,help,varargin)">invoke_arg</a>,varargin{:});
+0020 
+0021 <span class="comment">% the function that does the actual work of building the argument specifier</span>
+0022 <a name="_sub1" href="#_subfunctions" class="code">function spec = invoke_arg(names,default,range,help,varargin)</a>
+0023 
+0024 <span class="comment">% start with a base specification</span>
+0025 spec = <a href="arg_specifier.html" class="code" title="function spec = arg_specifier(varargin)">arg_specifier</a>(<span class="string">'head'</span>,@<a href="arg.html" class="code" title="function res = arg(varargin)">arg</a>);
+0026 
+0027 <span class="comment">% override properties</span>
+0028 <span class="keyword">if</span> exist(<span class="string">'names'</span>,<span class="string">'var'</span>)
+0029     spec.names = names; <span class="keyword">end</span>
+0030 <span class="keyword">if</span> exist(<span class="string">'default'</span>,<span class="string">'var'</span>)
+0031     spec.value = default; <span class="keyword">end</span>
+0032 <span class="keyword">if</span> exist(<span class="string">'range'</span>,<span class="string">'var'</span>)
+0033     spec.range = range; <span class="keyword">end</span>
+0034 <span class="keyword">if</span> exist(<span class="string">'help'</span>,<span class="string">'var'</span>)
+0035     spec.help = help; <span class="keyword">end</span>
+0036 <span class="keyword">for</span> k=1:2:length(varargin)
+0037     <span class="keyword">if</span> isfield(spec,varargin{k})
+0038         spec.(varargin{k}) = varargin{k+1}; 
+0039     <span class="keyword">else</span>
+0040         error(<span class="string">'BCILAB:arg:no_new_fields'</span>,<span class="string">'It is not allowed to introduce fields into a specifier that are not declared in arg_specifier.'</span>);
+0041     <span class="keyword">end</span>
+0042 <span class="keyword">end</span>
+0043 
+0044 <span class="comment">% do fixups &amp; checking</span>
+0045 <span class="keyword">if</span> ~iscell(spec.names)
+0046     spec.names = {spec.names}; <span class="keyword">end</span>
+0047 <span class="keyword">if</span> isempty(spec.names) || ~iscellstr(spec.names)
+0048     error(<span class="string">'The argument must have a name or cell array of names.'</span>); <span class="keyword">end</span>
+0049 
+0050 <span class="comment">% parse the help</span>
+0051 <span class="keyword">if</span> ~isempty(spec.help)
+0052     <span class="keyword">try</span>
+0053         spec.help = <a href="parse_help.html" class="code" title="function help = parse_help(help,summary_len)">parse_help</a>(spec.help);
+0054     <span class="keyword">catch</span> e
+0055         disp([<span class="string">'Problem with the help text for argument '</span> spec.names{1} <span class="string">': '</span> e.message]);
+0056         spec.help = {};
+0057     <span class="keyword">end</span>
+0058 <span class="keyword">elseif</span> spec.reportable &amp;&amp; spec.displayable
+0059     disp([<span class="string">'Please specify a description for argument '</span> spec.names{1} <span class="string">', or specify it via arg_nogui() instead.'</span>]);
+0060 <span class="keyword">end</span>
+0061 
+0062 <span class="comment">% do type inference</span>
+0063 [spec.type,spec.shape,spec.range,spec.value] = <a href="#_sub2" class="code" title="subfunction [type,shape,range,value] = infer_type(type,shape,range,value)">infer_type</a>(spec.type,spec.shape,spec.range,spec.value);
+0064 
+0065 
+0066 <span class="comment">% infer the type &amp; range of the argument, based on provided info (note: somewhat messy)</span>
+0067 <a name="_sub2" href="#_subfunctions" class="code">function [type,shape,range,value] = infer_type(type,shape,range,value)</a>
+0068 <span class="keyword">try</span>
+0069     <span class="keyword">if</span> isempty(type)
+0070         <span class="comment">% try to auto-discover the type (or leave empty, if impossible)</span>
+0071         <span class="keyword">if</span> ~isempty(value)
+0072             type = PropertyType.AutoDiscoverType(value);
+0073         <span class="keyword">elseif</span> ~isempty(range)
+0074             <span class="keyword">if</span> isnumeric(range)
+0075                 type = PropertyType.AutoDiscoverType(range);
+0076             <span class="keyword">elseif</span> iscell(range)
+0077                 types = cellfun(@PropertyType.AutoDiscoverType,range,<span class="string">'UniformOutput'</span>,false);
+0078                 <span class="keyword">if</span> length(unique(types)) == 1
+0079                     type = types{1}; <span class="keyword">end</span>
+0080             <span class="keyword">end</span>
+0081         <span class="keyword">end</span>
+0082     <span class="keyword">end</span>
+0083     <span class="keyword">if</span> isempty(shape)
+0084         <span class="comment">% try to auto-discover the shape</span>
+0085         <span class="keyword">if</span> ~isempty(value)
+0086             shape = PropertyType.AutoDiscoverShape(value);
+0087         <span class="keyword">elseif</span> ~isempty(range)
+0088             <span class="keyword">if</span> isnumeric(range)
+0089                 shape = <span class="string">'scalar'</span>;
+0090             <span class="keyword">elseif</span> iscell(range)
+0091                 shapes = cellfun(@PropertyType.AutoDiscoverShape,range,<span class="string">'UniformOutput'</span>,false);
+0092                 <span class="keyword">if</span> length(unique(shapes)) == 1
+0093                     shape = shapes{1}; <span class="keyword">end</span>
+0094             <span class="keyword">end</span>
+0095         <span class="keyword">end</span>
+0096     <span class="keyword">end</span>
+0097 <span class="keyword">catch</span>
+0098 <span class="keyword">end</span>
+0099 
+0100 <span class="comment">% rule: if in doubt, fall back to denserealdouble and/or matrix</span>
+0101 <span class="keyword">if</span> isempty(type)
+0102     type = <span class="string">'denserealdouble'</span>; <span class="keyword">end</span>
+0103 <span class="keyword">if</span> isempty(shape)
+0104     shape = <span class="string">'matrix'</span>; <span class="keyword">end</span>
+0105 
+0106 <span class="comment">% rule: if both the value and the range are cell-string arrays, the type is 'logical';</span>
+0107 <span class="comment">%       this means that the value is a subset of the range</span>
+0108 <span class="keyword">if</span> iscellstr(value) &amp;&amp; iscellstr(range)
+0109     type = <span class="string">'logical'</span>; <span class="keyword">end</span>
+0110 
+0111 <span class="comment">% rule: if the value is empty, but the range is a cell-string array and the type is not 'logical',</span>
+0112 <span class="comment">%       the value is the first range element; here, the value is exactly one out of the possible</span>
+0113 <span class="comment">%       strings in range (and cannot be empty)</span>
+0114 <span class="keyword">if</span> isempty(value) &amp;&amp; iscellstr(range) &amp;&amp; ~strcmp(type,<span class="string">'logical'</span>)
+0115     value = range{1}; <span class="keyword">end</span>
+0116 
+0117 <span class="comment">% rule: if the value is an empty char array, the shape is by default 'row'</span>
+0118 <span class="keyword">if</span> isequal(value,<span class="string">''</span>) &amp;&amp; ischar(value)
+0119     shape = <span class="string">'row'</span>; <span class="keyword">end</span>
+0120 
+0121 <span class="comment">% rule: if the value is []; convert to the appropriate MATLAB type (e.g., int, etc.)</span>
+0122 <span class="keyword">if</span> isequal(value,[])
+0123     <span class="keyword">if</span> strcmp(type,<span class="string">'cellstr'</span>)
+0124         value = {}; 
+0125     <span class="keyword">else</span>
+0126         <span class="keyword">try</span>
+0127             pt = PropertyType(type,shape,range);
+0128             value = pt.ConvertFromMatLab(value);
+0129         <span class="keyword">catch</span>
+0130         <span class="keyword">end</span>
+0131     <span class="keyword">end</span>
+0132 <span class="keyword">end</span>
+0133 
+0134 <span class="comment">% rule: if the value is a logical scalar and the type is logical, and the range is a cell-string</span>
+0135 <span class="comment">%       array (i.e. a set of strings), the value is mapped to either the entire set or the empty set</span>
+0136 <span class="comment">%       (i.e. either all elements are in, or none)</span>
+0137 <span class="keyword">if</span> isscalar(value) &amp;&amp; islogical(value) &amp;&amp; strcmp(type,<span class="string">'logical'</span>) &amp;&amp; iscell(range)
+0138     <span class="keyword">if</span> value
+0139         value = range;
+0140     <span class="keyword">else</span>
+0141         value = {};
+0142     <span class="keyword">end</span>
+0143 <span class="keyword">end</span>
+0144</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_epochica</title>
+  <meta name="keywords" content="flt_epochica">
+  <meta name="description" content="Apply an independent component decomposition across time (or frequency) in an epoch.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../index.html">filters</a> &gt; <a href="index.html">in_development</a> &gt; flt_epochica.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters/in_development&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>flt_epochica
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Apply an independent component decomposition across time (or frequency) in an epoch.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function signal = flt_epochica(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Apply an independent component decomposition across time (or frequency) in an epoch.
+ Signal = flt_epochica(Signal)
+
+ This is currently experimental.
+
+ In:
+   Signal     : Epoched data set to be processed
+
+   RetainDimensions : Reduce the dimensionality (per channel) to this number, or [] to retain all 
+                      dimensions (default: [])
+
+   Fast : use a fast approach (instead of a slow one) (default: false)
+
+ Out: 
+   Signal  :   processed data set
+
+ See also:
+   flt_epochpca, flt_ica
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-04-27</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = flt_epochica(varargin)</a>
+0002 <span class="comment">% Apply an independent component decomposition across time (or frequency) in an epoch.</span>
+0003 <span class="comment">% Signal = flt_epochica(Signal)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This is currently experimental.</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">% In:</span>
+0008 <span class="comment">%   Signal     : Epoched data set to be processed</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">%   RetainDimensions : Reduce the dimensionality (per channel) to this number, or [] to retain all</span>
+0011 <span class="comment">%                      dimensions (default: [])</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">%   Fast : use a fast approach (instead of a slow one) (default: false)</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">% Out:</span>
+0016 <span class="comment">%   Signal  :   processed data set</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">% See also:</span>
+0019 <span class="comment">%   flt_epochpca, flt_ica</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0022 <span class="comment">%                                2011-04-27</span>
+0023 
+0024 <span class="comment">% flt_epochica_version&lt;0.9&gt; -- for the cache</span>
+0025 
+0026 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0027 
+0028 <span class="comment">% requires epoched data, works best on spatially filtered data</span>
+0029 declare_properties(<span class="string">'name'</span>,<span class="string">'EpochICA'</span>, <span class="string">'experimental'</span>,true, <span class="string">'depends'</span>,<span class="string">'set_makepos'</span>, <span class="string">'follows'</span>,{<span class="string">'flt_fourier'</span>,<span class="string">'flt_epochpca'</span>}, <span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,false);
+0030 
+0031 arg_define(varargin,<span class="keyword">...</span>
+0032     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0033     arg({<span class="string">'reducedim'</span>,<span class="string">'RetainDimensions'</span>}, [], [], <span class="string">'Dimensionality reduction. Reduce to this number of dimensions.'</span>), <span class="keyword">...</span>
+0034     arg({<span class="string">'fastmode'</span>,<span class="string">'FastApproach'</span>}, false, [], <span class="string">'Use FastICA. As a faster alternative to the (high-quality) amica solution.'</span>), <span class="keyword">...</span>
+0035     arg_norep(<span class="string">'mapping'</span>,unassigned), <span class="keyword">...</span>
+0036     arg_norep(<span class="string">'scaling'</span>,unassigned));
+0037 
+0038 <span class="keyword">if</span> ~exist(<span class="string">'mapping'</span>,<span class="string">'var'</span>)
+0039     <span class="comment">% mapping needs to be created first</span>
+0040     [C,S,T] = size(signal.data);
+0041     
+0042     <span class="comment">% concatenate the data across epochs &amp; channels</span>
+0043     tmp = zeros(S,C*T);
+0044     <span class="keyword">for</span> s = 1:S
+0045         vec = squeeze(signal.data(:,s,:));
+0046         tmp(s,:) = vec(:); 
+0047     <span class="keyword">end</span>
+0048 
+0049     <span class="comment">% standardize the data</span>
+0050     scaling = hlp_findscaling(tmp',<span class="string">'std'</span>);
+0051     tmp = hlp_applyscaling(tmp',scaling)';
+0052     
+0053     <span class="keyword">if</span> fastmode
+0054         <span class="comment">% do a FastICA</span>
+0055         [mixing,mapping] = fastica(tmp,<span class="string">'maxNumIterations'</span>,1000,<span class="string">'approach'</span>,<span class="string">'symm'</span>,<span class="string">'numOfIC'</span>,reducedim,<span class="string">'g'</span>,<span class="string">'tanh'</span>,<span class="string">'finetune'</span>,<span class="string">'tanh'</span>,<span class="string">'a1'</span>,1,<span class="string">'a2'</span>,1,<span class="string">'mu'</span>,1,<span class="keyword">...</span>
+0056             <span class="string">'stabilization'</span>,<span class="string">'off'</span>,<span class="string">'epsilon'</span>,0.001,<span class="string">'maxFinetune'</span>,100,<span class="string">'sampleSize'</span>,1,<span class="string">'initGuess'</span>,[],<span class="string">'verbose'</span>,<span class="string">'off'</span>,<span class="string">'displayMode'</span>,<span class="string">'off'</span>,<span class="string">'displayInterval'</span>,1,<span class="string">'firstEig'</span>,1,<span class="string">'lastEig'</span>,[]); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0057     <span class="keyword">else</span>
+0058         <span class="comment">% do an AMICA</span>
+0059         tmpset = exp_eval(set_new(<span class="string">'data'</span>,tmp,<span class="string">'srate'</span>,C/S * signal.srate));
+0060         tmpdecomp = exp_eval(flt_ica(tmpset,{<span class="string">'amica'</span>,<span class="string">'useqsub'</span>,<span class="string">'on'</span>,<span class="string">'num_models'</span>,1,<span class="string">'max_iter'</span>,250},<span class="string">'clean'</span>,<span class="string">'hardcore_nochans'</span>));
+0061         mapping = tmpdecomp.icaweights*tmpdecomp.icasphere;
+0062     <span class="keyword">end</span>
+0063 <span class="keyword">end</span>
+0064 
+0065 <span class="comment">% transform each channel into the spectral eigenspace and write back</span>
+0066 tmp = zeros(signal.nbchan,size(mapping,1),signal.trials);
+0067 <span class="keyword">for</span> c = 1:signal.nbchan
+0068     tmp(c,:,:) = (mapping * hlp_applyscaling(squeeze(signal.data(c,:,:))',scaling)'); <span class="keyword">end</span>
+0069 
+0070 <span class="comment">% mapping is not yet defined: obtain it via ICA</span>
+0071 signal.data = tmp;
+0072 signal.pnts = size(signal.data,2);
+0073 <span class="comment">% make sure that the mapping gets overridden by the precomputed one online</span>
+0074 exp_endfun(<span class="string">'append_online'</span>,{<span class="string">'mapping'</span>,mapping,<span class="string">'scaling'</span>,scaling});
+0075 
+0076 
+0077 <span class="comment">% keep track of the mapping decomposition</span>
+0078 <span class="keyword">global</span> tracking;
+0079 tracking.inspection.epochica = mapping;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

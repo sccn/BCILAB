@@ -1,0 +1,378 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of vis_stream</title>
+  <meta name="keywords" content="vis_stream">
+  <meta name="description" content="Display an LSL stream.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">visualization</a> &gt; vis_stream.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/visualization&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>vis_stream
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Display an LSL stream.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function inlet = vis_stream(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Display an LSL stream.
+
+ Keyboard shortcuts:
+   [up arrow]   : increase the y scale of the time series
+   [down arrow] : decrease the y scale of the time series
+   [right arrow]: increase the displayed time range
+   [left arrow] : decrease the displayed time range
+   [page up]    : go up by one page of channels
+   [page down]  : go down by one page of channels
+
+ In:
+   StreamName : Stream to display. The name of the stream that you would like to display.
+
+   TimeScale : Initial time scale in seconds. The time range of the display window;
+               can be changed with keyboard shortcuts (see help). Default=5
+
+   DataScale : Initial scale of the data. The scale of the data, in units between horizontal lines;
+               can be changed with keyboard shortcuts (see help). Default=150
+
+   ChannelRange : Channels to display. The channel range to display. Default=[1:32]
+
+   SamplingRate : Sampling rate for display. This is the sampling rate that is used for plotting, in Hz;
+                  for faster drawing. Default=100
+
+   RefreshRate : Refresh rate for display. This is the rate at which the graphics are updated, in Hz.
+                 Default=10
+
+   Rereference : Apply common-average re-referencing to the data. Useful for noisy EEG streams.
+                 Default=false
+
+   PageOffset : Channel page offset. Allows to flip forward or backward pagewise through the displayed channels.
+                Default=0
+
+   Position : Figure position. Allows to script the position at which the figures should appear.
+              This is a 4-element vector of the form [X-offset,Y-offset,Width,Height]
+              with all values in pixes.
+              Default=[]
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2012-07-10
+
+                                uses portions of vis_dataStreamViewer
+                                (c) 2012 by Tim Mullen</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function create_figure(opts)</a></li><li><a href="#_sub2" class="code">function on_timer(varargin)</a></li><li><a href="#_sub3" class="code">function on_key(key)</a></li><li><a href="#_sub4" class="code">function names = find_streams</a></li><li><a href="#_sub5" class="code">function inlet = create_inlet(opts)</a></li><li><a href="#_sub6" class="code">function stream = create_streambuffer(opts,info)</a></li><li><a href="#_sub7" class="code">function channels = derive_channel_labels(info)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function inlet = vis_stream(varargin)</a>
+0002 <span class="comment">% Display an LSL stream.</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% Keyboard shortcuts:</span>
+0005 <span class="comment">%   [up arrow]   : increase the y scale of the time series</span>
+0006 <span class="comment">%   [down arrow] : decrease the y scale of the time series</span>
+0007 <span class="comment">%   [right arrow]: increase the displayed time range</span>
+0008 <span class="comment">%   [left arrow] : decrease the displayed time range</span>
+0009 <span class="comment">%   [page up]    : go up by one page of channels</span>
+0010 <span class="comment">%   [page down]  : go down by one page of channels</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">% In:</span>
+0013 <span class="comment">%   StreamName : Stream to display. The name of the stream that you would like to display.</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%   TimeScale : Initial time scale in seconds. The time range of the display window;</span>
+0016 <span class="comment">%               can be changed with keyboard shortcuts (see help). Default=5</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   DataScale : Initial scale of the data. The scale of the data, in units between horizontal lines;</span>
+0019 <span class="comment">%               can be changed with keyboard shortcuts (see help). Default=150</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   ChannelRange : Channels to display. The channel range to display. Default=[1:32]</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%   SamplingRate : Sampling rate for display. This is the sampling rate that is used for plotting, in Hz;</span>
+0024 <span class="comment">%                  for faster drawing. Default=100</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">%   RefreshRate : Refresh rate for display. This is the rate at which the graphics are updated, in Hz.</span>
+0027 <span class="comment">%                 Default=10</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">%   Rereference : Apply common-average re-referencing to the data. Useful for noisy EEG streams.</span>
+0030 <span class="comment">%                 Default=false</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%   PageOffset : Channel page offset. Allows to flip forward or backward pagewise through the displayed channels.</span>
+0033 <span class="comment">%                Default=0</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%   Position : Figure position. Allows to script the position at which the figures should appear.</span>
+0036 <span class="comment">%              This is a 4-element vector of the form [X-offset,Y-offset,Width,Height]</span>
+0037 <span class="comment">%              with all values in pixes.</span>
+0038 <span class="comment">%              Default=[]</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0041 <span class="comment">%                                2012-07-10</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%                                uses portions of vis_dataStreamViewer</span>
+0044 <span class="comment">%                                (c) 2012 by Tim Mullen</span>
+0045 
+0046 
+0047 <span class="comment">% make sure that everything is on the path and LSL is loaded</span>
+0048 <span class="keyword">if</span> ~exist(<span class="string">'arg_define'</span>,<span class="string">'file'</span>)
+0049     addpath(genpath(fileparts(mfilename(<span class="string">'fullpath'</span>)))); <span class="keyword">end</span>
+0050 <span class="keyword">if</span> ~exist(<span class="string">'env_translatepath'</span>,<span class="string">'file'</span>)
+0051     <span class="comment">% standalone case</span>
+0052     lib = lsl_loadlib();
+0053 <span class="keyword">else</span>
+0054     <span class="comment">% if we're within BCILAB we want to make sure that the library is also found if the toolbox is compiled</span>
+0055     lib = lsl_loadlib(env_translatepath(<span class="string">'dependencies:/liblsl-Matlab/bin'</span>));
+0056 <span class="keyword">end</span>
+0057 
+0058 <span class="comment">% handle input arguments</span>
+0059 streamnames = <a href="#_sub4" class="code" title="subfunction names = find_streams">find_streams</a>;
+0060 opts = arg_define(varargin, <span class="keyword">...</span>
+0061     arg({<span class="string">'streamname'</span>,<span class="string">'StreamName'</span>},streamnames{1},streamnames,<span class="string">'LSL stream that should be displayed. The name of the stream that you would like to display.'</span>), <span class="keyword">...</span>
+0062     arg({<span class="string">'bufferrange'</span>,<span class="string">'BufferRange'</span>},360,[],<span class="string">'Maximum time range to buffer. Imposes an upper limit on what can be displayed.'</span>), <span class="keyword">...</span>
+0063     arg({<span class="string">'timerange'</span>,<span class="string">'TimeRange'</span>},5,[],<span class="string">'Initial time range in seconds. The time range of the display window; can be changed with keyboard shortcuts (see help).'</span>), <span class="keyword">...</span>
+0064     arg({<span class="string">'datascale'</span>,<span class="string">'DataScale'</span>},150,[],<span class="string">'Initial scale of the data. The scale of the data, in units between horizontal lines; can be changed with keyboard shortcuts (see help).'</span>), <span class="keyword">...</span>
+0065     arg({<span class="string">'channelrange'</span>,<span class="string">'ChannelRange'</span>},1:32,[],<span class="string">'Channels to display. The channel range to display.'</span>), <span class="keyword">...</span>
+0066     arg({<span class="string">'samplingrate'</span>,<span class="string">'SamplingRate'</span>},100,[],<span class="string">'Sampling rate for display. This is the sampling rate that is used for plotting; for faster drawing.'</span>), <span class="keyword">...</span>
+0067     arg({<span class="string">'refreshrate'</span>,<span class="string">'RefreshRate'</span>},10,[],<span class="string">'Refresh rate for display. This is the rate at which the graphics are updated.'</span>), <span class="keyword">...</span>
+0068     arg({<span class="string">'reref'</span>,<span class="string">'Rereference'</span>},false,[],<span class="string">'Common average reference. Enable this to view the data with a common average reference filter applied.'</span>), <span class="keyword">...</span>
+0069     arg_nogui({<span class="string">'pageoffset'</span>,<span class="string">'PageOffset'</span>},0,[],<span class="string">'Channel page offset. Allows to flip forward or backward pagewise through the displayed channels.'</span>), <span class="keyword">...</span>
+0070     arg_nogui({<span class="string">'position'</span>,<span class="string">'Position'</span>},[],[],<span class="string">'Figure position. Allows to script the position at which the figures should appear.'</span>));
+0071 
+0072 
+0073 <span class="keyword">if</span> isempty(varargin)
+0074     <span class="comment">% bring up GUI dialog if no arguments were passed</span>
+0075     arg_guidialog;
+0076 <span class="keyword">else</span>
+0077     <span class="comment">% fix up some arguments</span>
+0078     opts.bufferrange = max(opts.bufferrange,opts.timerange);    
+0079 
+0080     <span class="comment">% init shared handles</span>
+0081     [fig,ax,lines] = deal([]);
+0082         
+0083     <span class="comment">% choose variable names to hold the stream's data (in the base workspace)</span>
+0084     taken = evalin(<span class="string">'base'</span>,<span class="string">'whos(''lsl*'')'</span>);
+0085     chunkname = genvarname([<span class="string">'lsl_'</span> opts.streamname <span class="string">'_chunk'</span>],{taken.name});
+0086     buffername = genvarname([<span class="string">'lsl_'</span> opts.streamname <span class="string">'_stream'</span>],{taken.name});
+0087         
+0088     <span class="comment">% create a stream inlet</span>
+0089     inlet = <a href="#_sub5" class="code" title="subfunction inlet = create_inlet(opts)">create_inlet</a>(opts);
+0090     
+0091     <span class="comment">% create the stream data structure in the base workspace</span>
+0092     assignin(<span class="string">'base'</span>, buffername, <a href="#_sub6" class="code" title="subfunction stream = create_streambuffer(opts,info)">create_streambuffer</a>(opts,inlet.info()));
+0093     
+0094     <span class="comment">% create the figure</span>
+0095     <a href="#_sub1" class="code" title="subfunction create_figure(opts)">create_figure</a>(opts);
+0096     
+0097     <span class="comment">% set up a timer that reads from LSL</span>
+0098     th = timer(<span class="string">'Period'</span>, 1.0/opts.refreshrate,<span class="string">'ExecutionMode'</span>,<span class="string">'fixedRate'</span>,<span class="string">'TimerFcn'</span>,@<a href="#_sub2" class="code" title="subfunction on_timer(varargin)">on_timer</a>,<span class="string">'StartDelay'</span>,0.2,<span class="string">'Tag'</span>,[<span class="string">'lsl_'</span> genvarname(opts.streamname) <span class="string">'_timer'</span>]);
+0099     start(th);
+0100 <span class="keyword">end</span>
+0101 
+0102 
+0103     <span class="comment">% === nested functions (sharing some handles with each other) ===</span>
+0104 
+0105     <span class="comment">% create a new figure and axes</span>
+0106     <a name="_sub1" href="#_subfunctions" class="code">function create_figure(opts)</a>
+0107         fig = figure(<span class="string">'Tag'</span>,[<span class="string">'Fig'</span> buffername],<span class="string">'Name'</span>,[<span class="string">'LSL:Stream'''</span> opts.streamname <span class="string">''''</span>],<span class="string">'CloseRequestFcn'</span>,<span class="string">'delete(gcbf)'</span>, <span class="keyword">...</span>
+0108             <span class="string">'KeyPressFcn'</span>,@(varargin)<a href="#_sub3" class="code" title="subfunction on_key(key)">on_key</a>(varargin{2}.Key));
+0109         <span class="keyword">if</span> ~isempty(opts.position)
+0110             set(fig,<span class="string">'Position'</span>,opts.position); <span class="keyword">end</span>
+0111         ax = axes(<span class="string">'Parent'</span>,fig, <span class="string">'Tag'</span>,<span class="string">'LSLViewer'</span>, <span class="string">'YDir'</span>,<span class="string">'reverse'</span>);
+0112     <span class="keyword">end</span>
+0113 
+0114     <a name="_sub2" href="#_subfunctions" class="code">function on_timer(varargin)</a>
+0115         <span class="keyword">try</span> 
+0116             <span class="comment">% check if the buffer is still there</span>
+0117             <span class="keyword">if</span> evalin(<span class="string">'base'</span>,[<span class="string">'exist('''</span> buffername <span class="string">''',''var'')'</span>])
+0118                 
+0119                 
+0120                 <span class="comment">% === update buffer contents (happens in the base workspace) ===</span>
+0121                 
+0122                 <span class="comment">% pull a new chunk from LSL</span>
+0123                 assignin(<span class="string">'base'</span>,chunkname,inlet.pull_chunk());
+0124                 
+0125                 <span class="comment">% append it to the stream buffer</span>
+0126                 evalin(<span class="string">'base'</span>,[<span class="string">'['</span> buffername <span class="string">'.smax,'</span> buffername <span class="string">'.data(:,1+mod('</span> buffername <span class="string">'.smax:'</span> buffername <span class="string">'.smax+size('</span> chunkname <span class="string">',2)-1,'</span> buffername <span class="string">'.pnts))] = deal('</span> buffername <span class="string">'.smax + size('</span> chunkname <span class="string">',2),'</span> chunkname <span class="string">');'</span>]);
+0127                 
+0128                 <span class="comment">% get the updated stream buffer</span>
+0129                 stream = evalin(<span class="string">'base'</span>,buffername);
+0130                 
+0131                 <span class="comment">% reformat the stream buffer to contain only the current block that should be displayed</span>
+0132                 samples_to_get = min(stream.pnts, round(stream.srate*stream.opts.timerange));
+0133                 stream.data = stream.data(:, 1+mod(stream.smax-samples_to_get:stream.smax-1,stream.pnts));
+0134                 [stream.nbchan,stream.pnts,stream.trials] = size(stream.data);
+0135                 stream.xmax = stream.smax/stream.srate;
+0136                 stream.xmin = stream.xmax - (stream.pnts-1)/stream.srate;
+0137                 
+0138                 
+0139                 <span class="comment">% === data post-processing for plotting ===</span>
+0140                 
+0141                 <span class="comment">% determine channels and samples to display</span>
+0142                 plotchans = stream.opts.channelrange + stream.opts.pageoffset*length(stream.opts.channelrange);
+0143                 <span class="keyword">if</span> isempty(plotchans)
+0144                     plotchans = 1:stream.nbchan;
+0145                 <span class="keyword">else</span>
+0146                     plotchans = intersect(1:stream.nbchan,plotchans);
+0147                 <span class="keyword">end</span>
+0148                 plotdata = stream.data(plotchans, round(1 : stream.srate/stream.opts.samplingrate : end));
+0149                 plottime = linspace(stream.xmin,stream.xmax,size(plotdata,2));
+0150                 
+0151                 <span class="comment">% re-reference</span>
+0152                 <span class="keyword">if</span> stream.opts.reref
+0153                     plotdata = bsxfun(@minus,plotdata,mean(plotdata)); <span class="keyword">end</span>
+0154                                 
+0155                 <span class="comment">% zero-mean</span>
+0156                 plotdata = bsxfun(@minus, plotdata, mean(plotdata,2));
+0157                 
+0158                 <span class="comment">% arrange for plotting</span>
+0159                 plotoffsets = (0:size(plotdata,1)-1)*stream.opts.datascale;
+0160                 plotdata = bsxfun(@plus, plotdata', plotoffsets);
+0161                 
+0162                 
+0163                 <span class="comment">% === actual drawing ===</span>
+0164                 
+0165                 <span class="comment">% draw the block contents...</span>
+0166                 <span class="keyword">if</span> ~isempty(plotdata)
+0167                     <span class="keyword">if</span> ~exist(<span class="string">'lines'</span>,<span class="string">'var'</span>) || isempty(lines)                        
+0168                         lines = plot(ax,plottime,plotdata);
+0169                         title(ax,opts.streamname);
+0170                         xlabel(ax,<span class="string">'Time (sec)'</span>,<span class="string">'FontSize'</span>,12);
+0171                         ylabel(ax,<span class="string">'Activation'</span>,<span class="string">'FontSize'</span>,12);
+0172                     <span class="keyword">else</span>
+0173                         <span class="keyword">for</span> k=1:length(lines)
+0174                             set(lines(k),<span class="string">'Ydata'</span>,plotdata(:,k));
+0175                             set(lines(k),<span class="string">'Xdata'</span>,plottime);
+0176                         <span class="keyword">end</span>
+0177                     <span class="keyword">end</span>
+0178                 
+0179                     <span class="comment">% update the axis limit and tickmarks</span>
+0180                     axis(ax,[stream.xmin stream.xmax -stream.opts.datascale size(plotdata,2)*stream.opts.datascale + stream.opts.datascale]);
+0181                     set(ax, <span class="string">'YTick'</span>,plotoffsets, <span class="string">'YTickLabel'</span>,{stream.chanlocs(plotchans).labels});
+0182                 <span class="keyword">end</span>
+0183                 
+0184                 drawnow;
+0185             <span class="keyword">else</span>
+0186                 <span class="keyword">try</span> 
+0187                     disp([<span class="string">'Deleting timer '</span> get(th,<span class="string">'Tag'</span>) <span class="string">'.'</span>]);
+0188                 <span class="keyword">catch</span> e
+0189                     disp(<span class="string">'Deleting timer.'</span>);
+0190                 <span class="keyword">end</span>
+0191                 <span class="comment">% delete the timer</span>
+0192                 warning off MATLAB:timer:deleterunning
+0193                 delete(th);
+0194             <span class="keyword">end</span>
+0195         <span class="keyword">catch</span> e
+0196             <span class="keyword">if</span> isempty(findobj(<span class="string">'Tag'</span>,[<span class="string">'Fig'</span> buffername]))
+0197                 disp(<span class="string">'Figure was closed.'</span>);
+0198             <span class="keyword">else</span>
+0199                 disp(<span class="string">'An error occurred during the stream viewer update: '</span>);
+0200                 hlp_handleerror(e);
+0201             <span class="keyword">end</span>
+0202             warning off MATLAB:timer:deleterunning
+0203             delete(th);
+0204         <span class="keyword">end</span>
+0205     <span class="keyword">end</span>
+0206 
+0207     <a name="_sub3" href="#_subfunctions" class="code">function on_key(key)</a>
+0208         stream = evalin(<span class="string">'base'</span>,buffername);
+0209         <span class="keyword">switch</span> lower(key)
+0210             <span class="keyword">case</span> <span class="string">'uparrow'</span>
+0211                 <span class="comment">% decrease datascale</span>
+0212                 stream.opts.datascale = stream.opts.datascale*0.9;
+0213             <span class="keyword">case</span> <span class="string">'downarrow'</span>
+0214                 <span class="comment">% increase datascale</span>
+0215                 stream.opts.datascale = stream.opts.datascale*1.1;
+0216             <span class="keyword">case</span> <span class="string">'rightarrow'</span>
+0217                 <span class="comment">% increase timerange</span>
+0218                 stream.opts.timerange = stream.opts.timerange*1.1;                
+0219             <span class="keyword">case</span> <span class="string">'leftarrow'</span>
+0220                 <span class="comment">% decrease timerange</span>
+0221                 stream.opts.timerange = stream.opts.timerange*0.9;                
+0222             <span class="keyword">case</span> <span class="string">'pagedown'</span>
+0223                 <span class="comment">% shift display page offset down</span>
+0224                 stream.opts.pageoffset = stream.opts.pageoffset+1;                
+0225             <span class="keyword">case</span> <span class="string">'pageup'</span>
+0226                 <span class="comment">% shift display page offset up</span>
+0227                 stream.opts.pageoffset = stream.opts.pageoffset-1;
+0228         <span class="keyword">end</span>
+0229         assignin(<span class="string">'base'</span>,buffername,stream);
+0230     <span class="keyword">end</span>
+0231 
+0232 
+0233     <span class="comment">% === utility functions ===</span>
+0234     
+0235     <span class="comment">% find names of streams on the lab network...</span>
+0236     <a name="_sub4" href="#_subfunctions" class="code">function names = find_streams</a>
+0237         streams = lsl_resolve_all(lib,3);
+0238         names = cellfun(@(s)s.name(),streams ,<span class="string">'UniformOutput'</span>,false);
+0239         <span class="keyword">if</span> isempty(names)
+0240             error(<span class="string">'There is no stream visible on the network.'</span>); <span class="keyword">end</span>
+0241     <span class="keyword">end</span>
+0242 
+0243 
+0244     <span class="comment">% create an inlet to read from the stream with the given name</span>
+0245     <a name="_sub5" href="#_subfunctions" class="code">function inlet = create_inlet(opts)</a>
+0246         <span class="comment">% look for the desired device</span>
+0247         result = {};
+0248         disp([<span class="string">'Looking for a stream with name='</span> opts.streamname <span class="string">' ...'</span>]);
+0249         <span class="keyword">while</span> isempty(result)
+0250             result = lsl_resolve_byprop(lib,<span class="string">'name'</span>,opts.streamname); <span class="keyword">end</span>
+0251         <span class="comment">% create a new inlet</span>
+0252         disp(<span class="string">'Opening an inlet...'</span>);
+0253         inlet = lsl_inlet(result{1},opts.bufferrange);
+0254     <span class="keyword">end</span>
+0255 
+0256 
+0257     <span class="comment">% create a new stream buffer in the base workspace</span>
+0258     <a name="_sub6" href="#_subfunctions" class="code">function stream = create_streambuffer(opts,info)</a>
+0259         stream.srate = info.nominal_srate();                                <span class="comment">% sampling rate in Hz</span>
+0260         stream.chanlocs = struct(<span class="string">'labels'</span>,<a href="#_sub7" class="code" title="subfunction channels = derive_channel_labels(info)">derive_channel_labels</a>(info));     <span class="comment">% struct with per-channel meta-data</span>
+0261         stream.pnts = max(opts.bufferrange*stream.srate,100);               <span class="comment">% number of data points in the buffer</span>
+0262         stream.nbchan = info.channel_count();                               <span class="comment">% number of channels in the buffer</span>
+0263         stream.trials = 1;                                                  <span class="comment">% number of segments in the buffer (always 1)</span>
+0264         stream.data = zeros(stream.nbchan,stream.pnts,stream.trials);       <span class="comment">% the circular buffer storage</span>
+0265         stream.smax = 0;                                                    <span class="comment">% number of samples that have been written into the buffer so far (wrapping around)</span>
+0266         stream.opts = opts;                                                 <span class="comment">% current display options for this stream</span>
+0267     <span class="keyword">end</span>
+0268 
+0269 
+0270     <span class="comment">% derive a list of channel labels for the given stream info</span>
+0271     <a name="_sub7" href="#_subfunctions" class="code">function channels = derive_channel_labels(info)</a>
+0272         channels = {};
+0273         ch = info.desc().child(<span class="string">'channels'</span>).child(<span class="string">'channel'</span>);
+0274         <span class="keyword">while</span> ~ch.empty()
+0275             name = ch.child_value_n(<span class="string">'label'</span>);
+0276             <span class="keyword">if</span> name
+0277                 channels{end+1} = name; <span class="keyword">end</span>
+0278             ch = ch.next_sibling_n(<span class="string">'channel'</span>);
+0279         <span class="keyword">end</span>
+0280         <span class="keyword">if</span> length(channels) ~= info.channel_count()
+0281             disp(<span class="string">'The number of channels in the steam does not match the number of labeled channel records. Using numbered labels.'</span>);
+0282             channels = cellfun(@(k)[<span class="string">'Ch'</span> num2str(k)],num2cell(1:info.channel_count(),1),<span class="string">'UniformOutput'</span>,false);
+0283         <span class="keyword">end</span>
+0284     <span class="keyword">end</span>
+0285     
+0286 <span class="keyword">end</span>
+0287</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

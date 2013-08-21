@@ -1,0 +1,123 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of io_saveworkspace</title>
+  <meta name="keywords" content="io_saveworkspace">
+  <meta name="description" content="Save workspace to a file.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">io</a> &gt; io_saveworkspace.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/io&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>io_saveworkspace
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Save workspace to a file.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function io_saveworkspace(filename,bugreport) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Save workspace to a file.
+ io_saveworkspace(filename)
+
+ In:
+   Filename : workspace file name
+
+   Bugreport : whether to save a full bug report (default: false)
+
+ See also:
+   <a href="io_loadworkspace.html" class="code" title="function io_loadworkspace(filename)">io_loadworkspace</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-11-19</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function io_saveworkspace(filename,bugreport)</a>
+0002 <span class="comment">% Save workspace to a file.</span>
+0003 <span class="comment">% io_saveworkspace(filename)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Filename : workspace file name</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">%   Bugreport : whether to save a full bug report (default: false)</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% See also:</span>
+0011 <span class="comment">%   io_loadworkspace</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0014 <span class="comment">%                                2010-11-19</span>
+0015 
+0016 <span class="keyword">global</span> tracking;
+0017 
+0018 <span class="comment">% set default</span>
+0019 <span class="keyword">if</span> ~exist(<span class="string">'filename'</span>,<span class="string">'var'</span>) || isempty(filename)
+0020     filename = <span class="string">'bcilab:/resources/workspaces/'</span>; <span class="keyword">end</span>
+0021 <span class="keyword">if</span> ~exist(<span class="string">'bugreport'</span>,<span class="string">'var'</span>) || isempty(bugreport)
+0022     bugreport = false; <span class="keyword">end</span>
+0023 
+0024 <span class="comment">% translate to platform-specific path</span>
+0025 filename = env_translatepath(filename);
+0026 
+0027 <span class="keyword">if</span> exist(filename,<span class="string">'dir'</span>)
+0028     <span class="comment">% save to given directory</span>
+0029     [filename,filepath] = uiputfile({<span class="string">'*.mat'</span>,<span class="string">'Workspace files (*.mat)'</span>},<span class="string">'Save workspace'</span>,filename);
+0030     filename = [filepath filename];
+0031 <span class="keyword">end</span>
+0032 
+0033 <span class="keyword">if</span> isempty(filename) || ~ischar(filename)
+0034     <span class="comment">% user pressed cancel: nothing to do</span>
+0035 <span class="keyword">else</span>
+0036     <span class="comment">% read out specs</span>
+0037     sysspec.computer = computer;
+0038     sysspec.matversion = evalc(<span class="string">'ver'</span>);
+0039     <span class="keyword">try</span> sysspec.gccversion = hlp_gcc_version; <span class="keyword">catch</span>,<span class="keyword">end</span>
+0040     <span class="keyword">try</span> sysspec.bciversion = env_version; <span class="keyword">catch</span>,<span class="keyword">end</span>
+0041     assignin(<span class="string">'base'</span>,<span class="string">'sysspec'</span>,sysspec);
+0042     consolelog = {};
+0043     <span class="keyword">if</span> bugreport
+0044         <span class="keyword">if</span> isfield(tracking,<span class="string">'logfile'</span>)
+0045             <span class="keyword">try</span>
+0046                 diary off;
+0047                 f = fopen(tracking.logfile,<span class="string">'rt'</span>);
+0048                 <span class="keyword">while</span> 1
+0049                     line = fgetl(f);
+0050                     <span class="keyword">if</span> ~ischar(line), <span class="keyword">break</span>, <span class="keyword">end</span>
+0051                     consolelog{end+1} = line;
+0052                 <span class="keyword">end</span>
+0053                 fclose(f);
+0054                 assignin(<span class="string">'base'</span>,<span class="string">'consolelog'</span>,consolelog);
+0055             <span class="keyword">catch</span>
+0056                 <span class="keyword">try</span> diary(tracking.logfile); <span class="keyword">catch</span>,<span class="keyword">end</span>
+0057                 <span class="keyword">try</span> fclose(f); <span class="keyword">catch</span>,<span class="keyword">end</span>
+0058             <span class="keyword">end</span>
+0059         <span class="keyword">end</span>
+0060     <span class="keyword">end</span>
+0061     fprintf(<span class="string">'Saving workspace...'</span>);
+0062     evalin(<span class="string">'base'</span>,sprintf(<span class="string">'io_save(''%s'');'</span>,filename));
+0063     fprintf(<span class="string">'done.\n'</span>);
+0064 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

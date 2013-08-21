@@ -1,0 +1,209 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmWPI</title>
+  <meta name="keywords" content="ParadigmWPI">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../index.html">paradigms</a> &gt; <a href="index.html">in_development</a> &gt; ParadigmWPI.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms/in_development&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmWPI
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+<li><a href="ParadigmWPI.html" class="code" title="">ParadigmWPI</a>	</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+<li><a href="ParadigmWPI.html" class="code" title="">ParadigmWPI</a>	</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li><li><a href="#_sub2" class="code">function defaults = machine_learning_defaults(self)</a></li><li><a href="#_sub3" class="code">function [featuremodel,predictivemodel] = calibrate_prediction_function(self,varargin)</a></li><li><a href="#_sub4" class="code">function features = feature_extract(self,signal,featuremodel)</a></li><li><a href="#_sub5" class="code">function X = wpi_decompose(self,data,mdl)</a></li><li><a href="#_sub6" class="code">function [X,y,B,pot,tau,G] = wpi_setup(self,trials,targets,shape,opts,scales,args)</a></li><li><a href="#_sub7" class="code">function layout = dialog_layout_defaults(self)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmWPI.html" class="code" title="">ParadigmWPI</a> &lt; ParadigmDataflowSimplified
+0002     <span class="comment">% Experimental paradigm for ERPs; Assumes that ERPs are composed of localized propagating wavelets.</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% This is a new approach to ERP analysis which does not require any parameters to be set except for the</span>
+0005     <span class="comment">% overall time window of interest -- all the rest is learned as a solution to a jointly convex optimization</span>
+0006     <span class="comment">% problem.</span>
+0007     <span class="comment">%</span>
+0008     <span class="comment">% The model is laid out as follows. The features of interest are an over-complete continuous wavelet transform</span>
+0009     <span class="comment">% of each channel (using complex Gaussian wavelets of a specific order) in the overall time window of interest.</span>
+0010     <span class="comment">% This yields a 3d weight tensor of space (channel), time, and wavelet scale. The model is a logistic regression</span>
+0011     <span class="comment">% from these features onto the output variable (which is a generalized linear model, meaning that it is invariant</span>
+0012     <span class="comment">% under volume conduction). The model is group sparse with groups over channels (so it is effectively sparse in the</span>
+0013     <span class="comment">% wavelet decomposition space), and smooth in time and scale by means of a Gaussian Markov Random field imposed</span>
+0014     <span class="comment">% between any two neighbouring sets of weights. The solution is not a MAP estimate but instead a posterior mean</span>
+0015     <span class="comment">% approximation obtained using a relatively new convex reformulation of variational inference [1].</span>
+0016     <span class="comment">%</span>
+0017     <span class="comment">% The way in which the sparsity/accuracy tradeoff is implemented is currently not yet ideal, which is why this</span>
+0018     <span class="comment">% method is declared work in progress.</span>
+0019     <span class="comment">%</span>
+0020     <span class="comment">% Name:</span>
+0021     <span class="comment">%   Wave Propagation Imaging, work in progress</span>
+0022     <span class="comment">%</span>
+0023     <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0024     <span class="comment">%                           2011-10-08</span>
+0025     
+0026     methods
+0027       
+0028         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0029             defaults = {<span class="string">'EpochExtraction'</span>,[-1 1],<span class="string">'Resampling'</span>,70};
+0030         <span class="keyword">end</span>
+0031         
+0032         <a name="_sub1" href="#_subfunctions" class="code">function defaults = machine_learning_defaults(self)</a>
+0033             defaults = {<span class="string">'glm'</span> <span class="string">'Solver'</span>,<span class="string">'Conjugate Gradients'</span>};
+0034         <span class="keyword">end</span>
+0035         
+0036         <a name="_sub2" href="#_subfunctions" class="code">function [featuremodel,predictivemodel] = calibrate_prediction_function(self,varargin)</a>
+0037             args = arg_define(varargin, <span class="keyword">...</span>
+0038                 arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
+0039                 arg_sub({<span class="string">'fex'</span>,<span class="string">'FeatureExtraction'</span>},{},<span class="keyword">...</span>
+0040                     {arg({<span class="string">'sparsity'</span>,<span class="string">'ModelSparsity'</span>},1,[],<span class="string">'Model sparsity. The higher this value, the fewer wavelet components will be used.'</span>) <span class="keyword">...</span>
+0041                     arg({<span class="string">'smoothness'</span>,<span class="string">'ModelSmoothness'</span>},1,[],<span class="string">'Model smoothness. The higher this value, the more parameter coupling between time-shifted wavelets is encouraged.'</span>) <span class="keyword">...</span>
+0042                     arg({<span class="string">'normalizers'</span>,<span class="string">'NormalizationExponents'</span>},[-0.25,-0.25],[],<span class="string">'Normalization exponents [lhs, rhs]. Two-element array of powers for the left-hand-side and right-hand-side normalization matrices that are applied to the data from the region.'</span>), <span class="keyword">...</span>
+0043                     arg({<span class="string">'subsampling'</span>,<span class="string">'TimeSubsampling'</span>},1,[],<span class="string">'Temporal subsampling factor. Can speed up the learning.'</span>), <span class="keyword">...</span>
+0044                     arg({<span class="string">'finestscale'</span>,<span class="string">'FinestScale'</span>},2,[],<span class="string">'Finest wavelet scale.'</span>), <span class="keyword">...</span>
+0045                     arg({<span class="string">'coarsestscale'</span>,<span class="string">'CoarsestScale'</span>},0.5,[],<span class="string">'Coarsest wavelet scale. Relative to the size of the epoch.'</span>), <span class="keyword">...</span>
+0046                     arg({<span class="string">'scalesteps'</span>,<span class="string">'NumScales'</span>},20,[],<span class="string">'Number of scales. Number of wavelet scales to consider between finest and coarsest; log-spaced.'</span>), <span class="keyword">...</span>
+0047                     arg({<span class="string">'waveorder'</span>,<span class="string">'Wigglyness'</span>},3,[],<span class="string">'ERP Wigglyness. Assumed wigglyness of the underlying ERP consituents; integer between 1 to 8.'</span>) <span class="keyword">...</span>
+0048                     }, <span class="string">'Parameters for the feature-adaptation function. These parameters control how features are statistically adapted and extracted from the filtered data before they are passed int othe machine learning stage.'</span>), <span class="keyword">...</span>
+0049                 arg_sub({<span class="string">'ml'</span>,<span class="string">'MachineLearning'</span>},{<span class="string">'Learner'</span>,self.machine_learning_defaults()},@ml_train,<span class="string">'Machine learning stage of the paradigm. Operates on the feature vectors that are produced by the feature-extraction stage.'</span>));
+0050             
+0051             <span class="comment">% precompute a few wavelet properties</span>
+0052             featuremodel.scales = logspace(log10(args.fex.finestscale),log10(size(args.signal.data,2)*args.fex.coarsestscale),args.fex.scalesteps);
+0053             featuremodel.subsampling = args.fex.subsampling;
+0054             featuremodel.family = sprintf(<span class="string">'cgau%i'</span>,args.fex.waveorder);
+0055             [featuremodel.wavelet,featuremodel.waveletX] = intwave(featuremodel.family,10);
+0056             featuremodel.waveletStep = featuremodel.waveletX(2)-featuremodel.waveletX(1);
+0057             featuremodel.waveletMax = featuremodel.waveletX(end)-featuremodel.waveletX(1);
+0058             featuremodel.wavelet = conj(featuremodel.wavelet);
+0059             <span class="comment">% do a decomposition</span>
+0060             X = self.wpi_decompose(args.signal,featuremodel);
+0061             X = num2cell(X,[1 2]);
+0062             featuremodel.P = {cov(cat(2,X{:})')^args.fex.normalizers(1),var(cat(1,X{:})).^args.fex.normalizers(2)};
+0063             featuremodel.chanlocs = args.signal.chanlocs;
+0064             featuremodel.times = args.signal.times;
+0065             featuremodel.sparsity = args.fex.sparsity;
+0066             featuremodel.smoothness = args.fex.smoothness;
+0067             <span class="comment">% track some properties for inspection</span>
+0068             <span class="keyword">global</span> tracking; tracking.inspection.wpi_model = featuremodel;
+0069             
+0070             <span class="comment">% update machine learning settings</span>
+0071             args.ml.learner.setupfcn = @(varargin)self.wpi_setup(varargin{:},featuremodel.scales,args.fex);
+0072             args.ml.learner.scaling = <span class="string">'none'</span>;
+0073             <span class="comment">% extract features &amp; target labels</span>
+0074             features = self.feature_extract(args.signal, featuremodel);
+0075             targets = set_gettarget(args.signal);
+0076             <span class="comment">% run the machine learning stage</span>
+0077             predictivemodel = ml_train(<span class="string">'data'</span>,{features,targets}, args.ml);
+0078         <span class="keyword">end</span>        
+0079         
+0080         <a name="_sub3" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
+0081             features = self.wpi_decompose(signal,featuremodel);
+0082             <span class="keyword">for</span> t=1:size(features,3)
+0083                 features(:,:,t) = featuremodel.P{1}*bsxfun(@times,features(:,:,t),featuremodel.P{2}); <span class="keyword">end</span>
+0084         <span class="keyword">end</span>
+0085         
+0086         <a name="_sub4" href="#_subfunctions" class="code">function X = wpi_decompose(self,data,mdl)</a>
+0087             N = length(mdl.scales);
+0088             [C,S,T] = size(data.data);
+0089             <span class="comment">% stack all time courses as an array of columns</span>
+0090             X = zeros(S,C,T);
+0091             <span class="keyword">for</span> t = 1:T
+0092                 X(:,:,t) = data.data(:,:,t)'; <span class="keyword">end</span>
+0093             X = reshape(X,S,C*T);
+0094             Y = zeros(S-1,C*T,N);
+0095             <span class="keyword">for</span> s = 1:N
+0096                 a = mdl.scales(s);
+0097                 j = 1+floor((0:a*mdl.waveletMax)/(a*mdl.waveletStep));
+0098                 <span class="keyword">if</span> isscalar(j) j = [1 1]; <span class="keyword">end</span>
+0099                 f = fliplr(mdl.wavelet(j));
+0100                 Y(:,:,s) = -sqrt(a) * diff(conv2(X,f',<span class="string">'same'</span>));
+0101             <span class="keyword">end</span>
+0102             Y = reshape(Y,S-1,C,T,N);
+0103             Y = permute(Y,[2 1 3 4]);
+0104             X = zeros(C,2*(S-1)*N,T);
+0105             <span class="keyword">for</span> t=1:size(data.data,3)
+0106                 tmp = reshape(Y(:,:,t,:),C,[]);
+0107                 X(:,:,t) = [real(tmp) imag(tmp)];
+0108             <span class="keyword">end</span>
+0109         <span class="keyword">end</span>
+0110         
+0111         <a name="_sub5" href="#_subfunctions" class="code">function [X,y,B,pot,tau,G] = wpi_setup(self,trials,targets,shape,opts,scales,args)</a>
+0112             [n,f] = size(trials);   <span class="comment">% number of trials, number of features</span>
+0113             c = shape(1);           <span class="comment">% number of channels</span>
+0114             w = shape(2);           <span class="comment">% number of wavelet coeffs</span>
+0115             s = length(scales);     <span class="comment">% number of scales</span>
+0116             t = w/s/2;              <span class="comment">% number of time points (per scale); note that this is to be taken *2 (as we have real &amp; imag)</span>
+0117             
+0118             <span class="keyword">if</span> strcmp(opts.ptype,<span class="string">'regression'</span>)
+0119                 error(<span class="string">'Currently, only the classification model is implemented.'</span>); <span class="keyword">end</span>
+0120             <span class="keyword">if</span> t-round(t) &gt; eps
+0121                 error(<span class="string">'Some of the design parameters (trials,shape,scales) do not match up as they should.'</span>); <span class="keyword">end</span>
+0122             
+0123             <span class="comment">% inverse link variances for each scale of wavelets</span>
+0124             vars = 1 ./ ((2./scales).^2);
+0125             <span class="comment">% variances expanded for all time points (setting the inv variance for the last time point's edge, going to the next row's time point, to 0)</span>
+0126             timevars = [repmat(vars,t-1,1); zeros(1,length(vars))]; timevars = timevars(:)';
+0127             <span class="comment">% variances expanded for all channels</span>
+0128             chantimevars = repmat(timevars,c,1); chantimevars = chantimevars(:)';
+0129             <span class="comment">% and replicated for the real/imag blocks</span>
+0130             fulltimevars = [chantimevars chantimevars]';
+0131             
+0132             <span class="comment">% X is a finite-difference operator on features for smoothing...</span>
+0133             X = spdiags([fulltimevars [zeros(c,1); -fulltimevars(1:end-c,1)]],[0,c]',f,f)*args.smoothness;
+0134             <span class="comment">% y is the mean of the Gaussian prior on finite feature differences</span>
+0135             y = zeros(f,1);
+0136             
+0137             <span class="comment">% B is the matrix that maps onto the factorial super-Gaussian potentials</span>
+0138             <span class="comment">% first, we carry over the features as they are, followed by the projected trials...</span>
+0139             B = [speye(f); double(trials)];
+0140             <span class="comment">% we then impose the grouping structure over channels using matrix G...</span>
+0141             <span class="comment">% with an additional identity block of size NxN to carry through the features for the logreg potential</span>
+0142             grp = repmat({sparse(ones(1,c))},1,t*s*2);
+0143             G = blkdiag(grp{:},speye(n));
+0144             <span class="comment">% now the corresponding tau's for the group sparsity &amp; logistic regression</span>
+0145             tau  = [ones(t*s*2,1)/args.sparsity; targets];
+0146             <span class="comment">% finally the potential function, which is a concatentation of Laplacian and logistic</span>
+0147             pot = @(ss,varargin) potCat(ss,varargin{:},{@potLaplace,@potLogistic},{1:(t*s*2),(t*s*2)+(1:n)});            
+0148         <span class="keyword">end</span>
+0149         
+0150         <a name="_sub6" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0151             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>,<span class="string">'SignalProcessing.EpochExtraction'</span>,<span class="string">''</span>, <span class="keyword">...</span>
+0152                 <span class="string">'Prediction.FeatureExtraction.TimeSubsampling'</span>,<span class="string">'Prediction.FeatureExtraction.FinestScale'</span>, <span class="keyword">...</span>
+0153                 <span class="string">'Prediction.FeatureExtraction.CoarsestScale'</span>,<span class="string">'Prediction.FeatureExtraction.NumScales'</span>,<span class="string">''</span>, <span class="keyword">...</span>
+0154                 <span class="string">'Prediction.MachineLearning.Learner.Lambdas'</span>,<span class="string">'Prediction.MachineLearning.Learner.Type'</span>, <span class="keyword">...</span>
+0155                 <span class="string">'Prediction.MachineLearning.Learner.Solver'</span>};
+0156         <span class="keyword">end</span>
+0157         
+0158     <span class="keyword">end</span>
+0159 <span class="keyword">end</span>
+0160</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

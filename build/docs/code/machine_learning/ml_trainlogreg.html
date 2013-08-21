@@ -1,0 +1,469 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ml_trainlogreg</title>
+  <meta name="keywords" content="ml_trainlogreg">
+  <meta name="description" content="Learn a linear probabilistic predictive model by logistic regression.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">machine_learning</a> &gt; ml_trainlogreg.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/machine_learning&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ml_trainlogreg
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Learn a linear probabilistic predictive model by logistic regression.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function model = ml_trainlogreg(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Learn a linear probabilistic predictive model by logistic regression.
+ Model = ml_trainlogreg(Trials, Targets, Lambda, Options...)
+
+ Logistic regression is the simplest fully probabilistic classifier in the toolbox, and can be
+ understood as a linear projection followed by a mapping through a sigmoid (0-1) function, which
+ allows to translate the input space smoothly into probabilities. Logreg is available in several
+ variants, first the three variational Bayes (vb) ones, which are not dependent on a regularization
+ parameter [1]. 'vb' and 'vb-iter' are about as versatile as LDA, except that they are fully
+ probabilistic and not as outlier-prone; they differ mostly in numerical robustness. 'vb-ard' uses
+ automatic relevance determination [2] to obtain a mapping that is sparse in the features, i.e.
+ only a subset of the features is used for prediction. The Bayesian implementations compute not
+ only a point estimate of the weights, but a full posterior distribution (gaussian), which enables
+ more advanced post-processing of the model and outputs.
+
+ The l1/l2 variants are computed via convex optimization. They might generally be somewhat more
+ robust in extreme corner cases than the variational variants. Both require that a regularization
+ parameter is specified, which can in simple cases be left at the default, but which is ideally
+ optimized using parameter search, especially in the presence of many features and/or
+ hard-to-handle distributions (more important for l1 than l2). This is computationally expensive,
+ however. The 'l2' variant is the general-purpose one and in practice very similar to the
+ vb/vb-iter variants. The 'l1' variant uses an l1-norm on the weights as regularizer and therefore
+ gives a model that is sparse in the features (like vb-ard).
+
+ A particularly fast implementation that is equivalent to l1 is LARS (least-angle regression) [7], 
+ which is generally to be preferred for sparse results, when speed is an issue and the binary is 
+ executable.
+
+ Logistic regression is a very powerful, robust and versatile classifier for biosignals, and also
+ very fast (when not regularized) - it is worth trying it on almost every problem that is hoped to
+ be (more or less) linearly separable. Sparse logistic regression is a special case which allows to
+ select features (out of exponentially many irrelevant ones) [3,4] on top of doing classification.
+ EEG-derived feature are however in most cases not sparse, so that l1 or vb-ard may give worse
+ results. Exceptions are features derived from independent components and other sparsity-inducing
+ feature extractors. Some signal bases (e.g. wavelets) may be half-way in between sparse and
+ non-sparse.
+
+ The Bayesian variants are implemented using the bayes_logit toolbox by Jan Drugowitsch, and the
+ regularized variants are implemented using the LIBLINEAR package [5] or CVX [6] as a fall-back.
+
+ In:
+   Trials       : training data, as in ml_train
+
+   Targets      : target variable, as in ml_train
+                  may also contain weights, in the form {Targets,Weights}; supported by l1 &amp; l2 variants
+
+   Lambda       : regularization parameter, for l1/l2 logistic regression variant (default: 1)
+                  a comprehensive search interval would be 2.^(-6:0.5:10)
+
+   Options  : optional name-value parameters to control the training details:
+              'variant': one of several logreg variants:
+                        'vb': variational Bayes (Jakkola&amp;Jordan, 2000), using a joint uninformative
+                              prior on the weights, but possibly numerically unstable in corner cases (default)
+                        'vb-iter': variational Bayes (Jakkola&amp;Jordan, 2000), iterative, using a per-weight prior,
+                                   more or less uninformative, but numerically more robust than the 'vb' variant
+                        'vb-ard': variational Bayes (Jakkola&amp;Jordan, 2000), implements sparse logistic regression
+                                   (using automated relevance determination)
+                        'lars' : using least-angle regression (efficient version of 'l1', using GLMNET)
+                                 note: this can also be specified as a cell array of the form 
+                                 {'lars', name,value, name,value, ...} where the names and values 
+                                 specify custom options for the glmnet solver.
+                        'l1' : sparse logistic regression using l1 regularization, using either 
+                               LIBLINEAR or CVX
+                        'l2' : logistic regression using l2 regularization using LIBLINEAR
+                       
+
+              'eps'    : desired accuracy (default: [] - the default of the respective library, currently only supported for l1/l2)
+
+              'scaling': pre-scaling of the data (see hlp_findscaling for options) (default: 'std')
+
+              'regression' : do binomially-distributed regression as opposed to binary classification (default: false)
+
+ Out:
+   Model   : a linear model;
+             w is the linear weights, b is the bias;
+             V is the covariance matrix of a posterior distribution around the weights (jointly over w and b)
+               (only available for the three 'vb' modes)
+             classes indicates the class labels which the model predicts
+             additional parameters determine a posterior distribution over the weights
+
+ Examples:
+   % learn a logistic regression model using a fast Bayesian method
+   model = ml_trainlogreg(trials,targets)
+
+   % as before, but using a numerically more robust (yet slower) approach
+   model = ml_trainlogreg(trials,targets,[],'variant','vb-iter')
+
+   % learn a sparse Bayesian logistic regression model 
+   model = ml_trainlogreg(trials,targets,[],'variant','vb-ard')
+
+   % learn a sparse regularized logistic regression model using LARS
+   model = ml_trainlogreg(trials,targets,[],'variant','lars')
+
+   % as before, but use a different number of inner cross-validation folds for LARS.
+   model = ml_trainlogreg(trials,targets,[],'variant',{'lars','NumFolds',10})
+
+   % learn a sparse regularized logistic regression model using a relatively less efficient approach
+   model = utl_searchmodel({trials,targets},'args',{{'logreg',search(2.^(-6:1:10)),'variant','l1'}})
+
+   % learn a regularized logistic regression model (using cross-validation)
+   model = utl_searchmodel({trials,targets},'args',{{'logreg',search(2.^(-6:1:10)),'variant','l1'}})
+
+ See also:
+   <a href="ml_predictlogreg.html" class="code" title="function pred = ml_predictlogreg(trials,model)">ml_predictlogreg</a>
+
+ References:
+   [1] Jaakkola, T. S., and Jordan, M. I. &quot;A variational approach to bayesian logistic regression models and their extensions.&quot;
+       In Proceedings of the Sixth International Workshop on Artificial Intelligence and Statistics (1997).
+   [2] Wipf, D., Nagarajan, S., Platt, J., Koller, D., Singer, Y., and Roweis, S. &quot;A New View of Automatic Relevance Determination.&quot;
+       MIT Press, 2008, pp. 1632, 1625.
+   [3] P. Zhao and B. Yu. &quot;On model selection consistency of Lasso.&quot;
+       JMLR, 7:2541–2563, 2006.
+   [4] M. J. Wainwright. &quot;Sharp thresholds for noisy and high-dimensional recovery of sparsity using l1-constrained quadratic programming.&quot;
+      Technical Report 709, Dpt. of Statistics, UC Berkeley, 2006.
+   [5] R.-E. Fan, K.-W. Chang, C.-J. Hsieh, X.-R. Wang, and C.-J. Lin. &quot;LIBLINEAR: A library for large linear classification&quot;
+       Journal of Machine Learning Research 9(2008), 1871-1874.
+   [6] M. Grant and S. Boyd. &quot;Graph implementations for nonsmooth convex programs&quot;
+       Recent Advances in Learning and Control (a tribute to M. Vidyasagar), V. Blondel, S. Boyd, and H. Kimura, editors, pages 95-110,
+       Lecture Notes in Control and Information Sciences, Springer, 2008.
+   [7] Efron B., Hastie T., Johnstone I., and Tibshirani R., &quot;Least Angle Regression&quot;,
+       Annals of Statistics 32(2), 407-499. 2004.
+
+                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                           2010-04-04</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ml_predictlogreg.html" class="code" title="function pred = ml_predictlogreg(trials,model)">ml_predictlogreg</a>	Prediction function for Logistic Regression.</li><li><a href="ml_trainlogreg.html" class="code" title="function model = ml_trainlogreg(varargin)">ml_trainlogreg</a>	Learn a linear probabilistic predictive model by logistic regression.</li><li><a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>	Internal meta-algorithm for voting. Used by other machine learning functions.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ml_traingauss.html" class="code" title="function model = ml_traingauss(varargin)">ml_traingauss</a>	Learn a predictive model via a robust Gaussian Bayes classifier (with feature selection).</li><li><a href="ml_trainlogreg.html" class="code" title="function model = ml_trainlogreg(varargin)">ml_trainlogreg</a>	Learn a linear probabilistic predictive model by logistic regression.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function model = ml_trainlogreg(varargin)</a>
+0002 <span class="comment">% Learn a linear probabilistic predictive model by logistic regression.</span>
+0003 <span class="comment">% Model = ml_trainlogreg(Trials, Targets, Lambda, Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Logistic regression is the simplest fully probabilistic classifier in the toolbox, and can be</span>
+0006 <span class="comment">% understood as a linear projection followed by a mapping through a sigmoid (0-1) function, which</span>
+0007 <span class="comment">% allows to translate the input space smoothly into probabilities. Logreg is available in several</span>
+0008 <span class="comment">% variants, first the three variational Bayes (vb) ones, which are not dependent on a regularization</span>
+0009 <span class="comment">% parameter [1]. 'vb' and 'vb-iter' are about as versatile as LDA, except that they are fully</span>
+0010 <span class="comment">% probabilistic and not as outlier-prone; they differ mostly in numerical robustness. 'vb-ard' uses</span>
+0011 <span class="comment">% automatic relevance determination [2] to obtain a mapping that is sparse in the features, i.e.</span>
+0012 <span class="comment">% only a subset of the features is used for prediction. The Bayesian implementations compute not</span>
+0013 <span class="comment">% only a point estimate of the weights, but a full posterior distribution (gaussian), which enables</span>
+0014 <span class="comment">% more advanced post-processing of the model and outputs.</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">% The l1/l2 variants are computed via convex optimization. They might generally be somewhat more</span>
+0017 <span class="comment">% robust in extreme corner cases than the variational variants. Both require that a regularization</span>
+0018 <span class="comment">% parameter is specified, which can in simple cases be left at the default, but which is ideally</span>
+0019 <span class="comment">% optimized using parameter search, especially in the presence of many features and/or</span>
+0020 <span class="comment">% hard-to-handle distributions (more important for l1 than l2). This is computationally expensive,</span>
+0021 <span class="comment">% however. The 'l2' variant is the general-purpose one and in practice very similar to the</span>
+0022 <span class="comment">% vb/vb-iter variants. The 'l1' variant uses an l1-norm on the weights as regularizer and therefore</span>
+0023 <span class="comment">% gives a model that is sparse in the features (like vb-ard).</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">% A particularly fast implementation that is equivalent to l1 is LARS (least-angle regression) [7],</span>
+0026 <span class="comment">% which is generally to be preferred for sparse results, when speed is an issue and the binary is</span>
+0027 <span class="comment">% executable.</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">% Logistic regression is a very powerful, robust and versatile classifier for biosignals, and also</span>
+0030 <span class="comment">% very fast (when not regularized) - it is worth trying it on almost every problem that is hoped to</span>
+0031 <span class="comment">% be (more or less) linearly separable. Sparse logistic regression is a special case which allows to</span>
+0032 <span class="comment">% select features (out of exponentially many irrelevant ones) [3,4] on top of doing classification.</span>
+0033 <span class="comment">% EEG-derived feature are however in most cases not sparse, so that l1 or vb-ard may give worse</span>
+0034 <span class="comment">% results. Exceptions are features derived from independent components and other sparsity-inducing</span>
+0035 <span class="comment">% feature extractors. Some signal bases (e.g. wavelets) may be half-way in between sparse and</span>
+0036 <span class="comment">% non-sparse.</span>
+0037 <span class="comment">%</span>
+0038 <span class="comment">% The Bayesian variants are implemented using the bayes_logit toolbox by Jan Drugowitsch, and the</span>
+0039 <span class="comment">% regularized variants are implemented using the LIBLINEAR package [5] or CVX [6] as a fall-back.</span>
+0040 <span class="comment">%</span>
+0041 <span class="comment">% In:</span>
+0042 <span class="comment">%   Trials       : training data, as in ml_train</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">%   Targets      : target variable, as in ml_train</span>
+0045 <span class="comment">%                  may also contain weights, in the form {Targets,Weights}; supported by l1 &amp; l2 variants</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">%   Lambda       : regularization parameter, for l1/l2 logistic regression variant (default: 1)</span>
+0048 <span class="comment">%                  a comprehensive search interval would be 2.^(-6:0.5:10)</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">%   Options  : optional name-value parameters to control the training details:</span>
+0051 <span class="comment">%              'variant': one of several logreg variants:</span>
+0052 <span class="comment">%                        'vb': variational Bayes (Jakkola&amp;Jordan, 2000), using a joint uninformative</span>
+0053 <span class="comment">%                              prior on the weights, but possibly numerically unstable in corner cases (default)</span>
+0054 <span class="comment">%                        'vb-iter': variational Bayes (Jakkola&amp;Jordan, 2000), iterative, using a per-weight prior,</span>
+0055 <span class="comment">%                                   more or less uninformative, but numerically more robust than the 'vb' variant</span>
+0056 <span class="comment">%                        'vb-ard': variational Bayes (Jakkola&amp;Jordan, 2000), implements sparse logistic regression</span>
+0057 <span class="comment">%                                   (using automated relevance determination)</span>
+0058 <span class="comment">%                        'lars' : using least-angle regression (efficient version of 'l1', using GLMNET)</span>
+0059 <span class="comment">%                                 note: this can also be specified as a cell array of the form</span>
+0060 <span class="comment">%                                 {'lars', name,value, name,value, ...} where the names and values</span>
+0061 <span class="comment">%                                 specify custom options for the glmnet solver.</span>
+0062 <span class="comment">%                        'l1' : sparse logistic regression using l1 regularization, using either</span>
+0063 <span class="comment">%                               LIBLINEAR or CVX</span>
+0064 <span class="comment">%                        'l2' : logistic regression using l2 regularization using LIBLINEAR</span>
+0065 <span class="comment">%</span>
+0066 <span class="comment">%</span>
+0067 <span class="comment">%              'eps'    : desired accuracy (default: [] - the default of the respective library, currently only supported for l1/l2)</span>
+0068 <span class="comment">%</span>
+0069 <span class="comment">%              'scaling': pre-scaling of the data (see hlp_findscaling for options) (default: 'std')</span>
+0070 <span class="comment">%</span>
+0071 <span class="comment">%              'regression' : do binomially-distributed regression as opposed to binary classification (default: false)</span>
+0072 <span class="comment">%</span>
+0073 <span class="comment">% Out:</span>
+0074 <span class="comment">%   Model   : a linear model;</span>
+0075 <span class="comment">%             w is the linear weights, b is the bias;</span>
+0076 <span class="comment">%             V is the covariance matrix of a posterior distribution around the weights (jointly over w and b)</span>
+0077 <span class="comment">%               (only available for the three 'vb' modes)</span>
+0078 <span class="comment">%             classes indicates the class labels which the model predicts</span>
+0079 <span class="comment">%             additional parameters determine a posterior distribution over the weights</span>
+0080 <span class="comment">%</span>
+0081 <span class="comment">% Examples:</span>
+0082 <span class="comment">%   % learn a logistic regression model using a fast Bayesian method</span>
+0083 <span class="comment">%   model = ml_trainlogreg(trials,targets)</span>
+0084 <span class="comment">%</span>
+0085 <span class="comment">%   % as before, but using a numerically more robust (yet slower) approach</span>
+0086 <span class="comment">%   model = ml_trainlogreg(trials,targets,[],'variant','vb-iter')</span>
+0087 <span class="comment">%</span>
+0088 <span class="comment">%   % learn a sparse Bayesian logistic regression model</span>
+0089 <span class="comment">%   model = ml_trainlogreg(trials,targets,[],'variant','vb-ard')</span>
+0090 <span class="comment">%</span>
+0091 <span class="comment">%   % learn a sparse regularized logistic regression model using LARS</span>
+0092 <span class="comment">%   model = ml_trainlogreg(trials,targets,[],'variant','lars')</span>
+0093 <span class="comment">%</span>
+0094 <span class="comment">%   % as before, but use a different number of inner cross-validation folds for LARS.</span>
+0095 <span class="comment">%   model = ml_trainlogreg(trials,targets,[],'variant',{'lars','NumFolds',10})</span>
+0096 <span class="comment">%</span>
+0097 <span class="comment">%   % learn a sparse regularized logistic regression model using a relatively less efficient approach</span>
+0098 <span class="comment">%   model = utl_searchmodel({trials,targets},'args',{{'logreg',search(2.^(-6:1:10)),'variant','l1'}})</span>
+0099 <span class="comment">%</span>
+0100 <span class="comment">%   % learn a regularized logistic regression model (using cross-validation)</span>
+0101 <span class="comment">%   model = utl_searchmodel({trials,targets},'args',{{'logreg',search(2.^(-6:1:10)),'variant','l1'}})</span>
+0102 <span class="comment">%</span>
+0103 <span class="comment">% See also:</span>
+0104 <span class="comment">%   ml_predictlogreg</span>
+0105 <span class="comment">%</span>
+0106 <span class="comment">% References:</span>
+0107 <span class="comment">%   [1] Jaakkola, T. S., and Jordan, M. I. &quot;A variational approach to bayesian logistic regression models and their extensions.&quot;</span>
+0108 <span class="comment">%       In Proceedings of the Sixth International Workshop on Artificial Intelligence and Statistics (1997).</span>
+0109 <span class="comment">%   [2] Wipf, D., Nagarajan, S., Platt, J., Koller, D., Singer, Y., and Roweis, S. &quot;A New View of Automatic Relevance Determination.&quot;</span>
+0110 <span class="comment">%       MIT Press, 2008, pp. 1632, 1625.</span>
+0111 <span class="comment">%   [3] P. Zhao and B. Yu. &quot;On model selection consistency of Lasso.&quot;</span>
+0112 <span class="comment">%       JMLR, 7:2541–2563, 2006.</span>
+0113 <span class="comment">%   [4] M. J. Wainwright. &quot;Sharp thresholds for noisy and high-dimensional recovery of sparsity using l1-constrained quadratic programming.&quot;</span>
+0114 <span class="comment">%      Technical Report 709, Dpt. of Statistics, UC Berkeley, 2006.</span>
+0115 <span class="comment">%   [5] R.-E. Fan, K.-W. Chang, C.-J. Hsieh, X.-R. Wang, and C.-J. Lin. &quot;LIBLINEAR: A library for large linear classification&quot;</span>
+0116 <span class="comment">%       Journal of Machine Learning Research 9(2008), 1871-1874.</span>
+0117 <span class="comment">%   [6] M. Grant and S. Boyd. &quot;Graph implementations for nonsmooth convex programs&quot;</span>
+0118 <span class="comment">%       Recent Advances in Learning and Control (a tribute to M. Vidyasagar), V. Blondel, S. Boyd, and H. Kimura, editors, pages 95-110,</span>
+0119 <span class="comment">%       Lecture Notes in Control and Information Sciences, Springer, 2008.</span>
+0120 <span class="comment">%   [7] Efron B., Hastie T., Johnstone I., and Tibshirani R., &quot;Least Angle Regression&quot;,</span>
+0121 <span class="comment">%       Annals of Statistics 32(2), 407-499. 2004.</span>
+0122 <span class="comment">%</span>
+0123 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0124 <span class="comment">%                           2010-04-04</span>
+0125 
+0126 arg_define([0 3],varargin, <span class="keyword">...</span>
+0127     arg_norep(<span class="string">'trials'</span>), <span class="keyword">...</span>
+0128     arg_norep(<span class="string">'targets'</span>), <span class="keyword">...</span>
+0129     arg({<span class="string">'lam'</span>,<span class="string">'Lambda'</span>,<span class="string">'lambda'</span>},  1, [], <span class="string">'Regularization parameter for l1/l2. A comprehensive search interval would be 2.^(-6:0.5:10).'</span>), <span class="keyword">...</span>
+0130     arg_subswitch({<span class="string">'variant'</span>,<span class="string">'Variant'</span>},<span class="string">'vb'</span>, <span class="keyword">...</span>
+0131         {<span class="string">'vb'</span>,{},<span class="string">'vb-iter'</span>,{},<span class="string">'vb-ard'</span>,{},<span class="string">'l1'</span>,{},<span class="string">'l2'</span>,{}, <span class="keyword">...</span>
+0132          <span class="string">'lars'</span>,{arg({<span class="string">'nfolds'</span>,<span class="string">'NumFolds'</span>},5,[],<span class="string">'Cross-validation folds. The cross-validation is used to determine the best regularization parameter. If this is smaller than 1, it is taken as a fraction of the number of trials.'</span>),<span class="keyword">...</span>
+0133                   arg({<span class="string">'foldmargin'</span>,<span class="string">'FoldMargin'</span>},0,[],<span class="string">'Margin between folds. This is the number of trials omitted between training and test set.'</span>), <span class="keyword">...</span>
+0134                   arg({<span class="string">'alpha'</span>,<span class="string">'ElasticMixing'</span>},1,[0.01 1],<span class="string">'ElasticNet mixing parameter. The default is the lasso penalty.'</span>), <span class="keyword">...</span>
+0135                   arg({<span class="string">'nlambda'</span>,<span class="string">'NumLambdas'</span>},100,[],<span class="string">'Number of lambdas. Number of lambda (regularization) parameter values to consider.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0136                   arg({<span class="string">'penalty_factor'</span>,<span class="string">'PenaltyFactor'</span>},[],[],<span class="string">'Penalty per feature. Allows for selective shrinkage and the like.'</span>), <span class="keyword">...</span>
+0137                   arg({<span class="string">'lambda_min'</span>,<span class="string">'MinLambda'</span>},0,[],<span class="string">'Minimum lambda. Smallest value for lambda, as a fraction of lambda_max, the (data derived) entry value (i.e., the smallest value for which all coefficients are zero). By default 0.0001, or 0.05 if #observations &lt; #trials.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0138                   arg({<span class="string">'thresh'</span>,<span class="string">'ConvergenceThreshold'</span>},[],[],<span class="string">'Convergence threshold. Each inner coordinate-descent loop continues until the relative change in any coefficient is less than this (if specified).'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0139                   arg({<span class="string">'dfmax'</span>,<span class="string">'MaxVariables'</span>},0,[],<span class="string">'Max #of variables. If specified, this constraints the maximum number of variables in the model.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0140                   arg({<span class="string">'pmax'</span>,<span class="string">'MaxNonzeroes'</span>},0,[],<span class="string">'Max #of non-zeroes. If specified, this constraints the maximum number of non-zero variables in the model.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0141                   arg({<span class="string">'maxit'</span>,<span class="string">'MaxIterations'</span>},300,[],<span class="string">'Max iterations. The maximum number of iterations, if the convergence threshold is not reached.'</span>), <span class="keyword">...</span>
+0142                   arg({<span class="string">'HessianExtract'</span>,<span class="string">'ExtractHessian'</span>},false,[],<span class="string">'Extract Hessian. If false (the default), an upper-bound approximation is made to the hessian, which is not recalculated at each outer loop..'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0143                   arg({<span class="string">'verbose'</span>,<span class="string">'VerboseOutput'</span>},false,[],<span class="string">'Verbose outputs. Whether to display verbose console outputs.'</span>), <span class="keyword">...</span>
+0144                   arg({<span class="string">'customloss'</span>,<span class="string">'CustomLoss'</span>},<span class="string">'default'</span>,{<span class="string">'default'</span>,<span class="string">'auto'</span>,<span class="string">'kld'</span>,<span class="string">'nll'</span>,<span class="string">'mcr'</span>,<span class="string">'mae'</span>,<span class="string">'mse'</span>,<span class="string">'max'</span>,<span class="string">'rms'</span>,<span class="string">'bias'</span>,<span class="string">'medse'</span>,<span class="string">'auc'</span>,<span class="string">'cond_entropy'</span>,<span class="string">'cross_entropy'</span>,<span class="string">'f_measure'</span>},<span class="string">'Search lambda according to a custom loss. Note that some loss types may not be applicable here and give errors.'</span>)} <span class="keyword">...</span>
+0145         }, <span class="string">'Variant to use. Variational Bayes methods: using a joint uniformative prior (possibly unstable), or using a per-weight prior (iter), or using a sparse prior (Automatic Relevance Determination). Regularized methods: lars for fast sparse logistic regression, l1 for slow sparse logistic regression, or l2 for not necessarily sparse results.'</span>),<span class="keyword">...</span>
+0146     arg({<span class="string">'epsi'</span>,<span class="string">'Epsilon'</span>,<span class="string">'eps'</span>}, [], [], <span class="string">'Desired residual error. Currently only supported for the l1/l2 variants.'</span>), <span class="keyword">...</span>
+0147     arg({<span class="string">'scaling'</span>,<span class="string">'Scaling'</span>}, <span class="string">'std'</span>, {<span class="string">'none'</span>,<span class="string">'center'</span>,<span class="string">'std'</span>,<span class="string">'minmax'</span>,<span class="string">'whiten'</span>}, <span class="string">'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.'</span>),<span class="keyword">...</span>
+0148     arg({<span class="string">'continuous_targets'</span>,<span class="string">'ContinuousTargets'</span>,<span class="string">'Regression'</span>}, false, [], <span class="string">'Whether to use continuous targets. This allows to implement some kind of damped regression approach.'</span>),<span class="keyword">...</span>
+0149     arg({<span class="string">'fallback'</span>,<span class="string">'UseFallback'</span>}, false, [], <span class="string">'Use CVX fallback. The CVX fallback does not depend on binaries and should yield consistent results across all platforms.'</span>));
+0150 
+0151 <span class="keyword">if</span> is_search(lam)
+0152     lam = 1; <span class="keyword">end</span>
+0153 <span class="keyword">if</span> ~isnumeric(lam)
+0154     error([<span class="string">'Lambdas is expected to be numeric, but was assigned: '</span> hlp_tostring(lam)]); <span class="keyword">end</span>
+0155 
+0156 <span class="comment">% obtain weights</span>
+0157 <span class="keyword">if</span> iscell(targets) <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0158     [targets,weights] = deal(targets{:});
+0159     weights = weights/sum(weights);
+0160 <span class="keyword">else</span>
+0161     weights = [];
+0162 <span class="keyword">end</span>
+0163 
+0164 <span class="comment">% we have to use CVX for logreg, if the appropriate LIBLINEAR version is missing</span>
+0165 need_fallback = fallback || isempty(which(<span class="string">'llwtrain'</span>));
+0166 use_cvx = any(strcmp(variant.arg_selection,{<span class="string">'l1'</span>,<span class="string">'l2'</span>})) &amp;&amp; need_fallback;
+0167 
+0168 <span class="comment">% identify and remap the classes</span>
+0169 classes = unique(targets);
+0170 <span class="keyword">if</span> length(classes) == 1
+0171     error(<span class="string">'BCILAB:only_one_class'</span>,<span class="string">'Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.'</span>); <span class="keyword">end</span>
+0172 
+0173 <span class="comment">% optionally remap target values to the proper class indices</span>
+0174 <span class="keyword">if</span> ~continuous_targets
+0175     <span class="keyword">if</span> ~isempty(strfind(variant.arg_selection,<span class="string">'vb'</span>)) || use_cvx
+0176         <span class="comment">% these are two-class classifiers</span>
+0177         <span class="keyword">if</span> length(classes) &gt; 2
+0178             <span class="comment">% so we need to vote in this case</span>
+0179             model = <a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>(trials,targets,<span class="string">'1v1'</span>,@<a href="ml_trainlogreg.html" class="code" title="function model = ml_trainlogreg(varargin)">ml_trainlogreg</a>,@<a href="ml_predictlogreg.html" class="code" title="function pred = ml_predictlogreg(trials,model)">ml_predictlogreg</a>,varargin{:});
+0180             <span class="keyword">return</span>;
+0181         <span class="keyword">end</span>
+0182         <span class="comment">% remap target labels to -1,+1</span>
+0183         targets(targets==classes(1)) = -1;
+0184         targets(targets==classes(2)) = +1;
+0185     <span class="keyword">elseif</span> strcmp(variant.arg_selection,<span class="string">'lars'</span>)
+0186         <span class="comment">% remap target labels to 1..k</span>
+0187         targ = targets;
+0188         <span class="keyword">for</span> c=1:length(classes)
+0189             targets(targ==classes(c)) = c; <span class="keyword">end</span>
+0190     <span class="keyword">else</span>
+0191         <span class="comment">% remap target labels to 0..k-1</span>
+0192         targ = targets;
+0193         <span class="keyword">for</span> c=1:length(classes)
+0194             targets(targ==classes(c)) = c-1; <span class="keyword">end</span>
+0195     <span class="keyword">end</span>
+0196 <span class="keyword">end</span>
+0197 
+0198 
+0199 <span class="comment">% scale the data</span>
+0200 sc_info = hlp_findscaling(trials,scaling);
+0201 trials = hlp_applyscaling(trials,sc_info);
+0202 
+0203 <span class="comment">% add bias variable to training data for the VB's</span>
+0204 <span class="keyword">if</span> ~isempty(strfind(variant.arg_selection,<span class="string">'vb'</span>))
+0205     warning off Bayes:maxIter
+0206     trials = [trials ones(size(trials,1),1)];
+0207 <span class="keyword">end</span>
+0208 
+0209 <span class="keyword">switch</span> variant.arg_selection
+0210     <span class="keyword">case</span> <span class="string">'vb'</span>
+0211         [model.w, model.V, model.invV, model.logdetV] = hlp_diskcache(<span class="string">'predictivemodels'</span>,@bayes_logit_fit,trials,targets);
+0212     <span class="keyword">case</span> <span class="string">'vb-iter'</span>
+0213         [model.w, model.V, model.invV, model.logdetV] = hlp_diskcache(<span class="string">'predictivemodels'</span>,@bayes_logit_fit_iter,trials,targets);
+0214     <span class="keyword">case</span> <span class="string">'vb-ard'</span>
+0215         [model.w, model.V, model.invV, model.logdetV] = hlp_diskcache(<span class="string">'predictivemodels'</span>,@bayes_logit_fit_ard,trials,targets);
+0216     <span class="keyword">case</span> <span class="string">'lars'</span>
+0217         <span class="comment">% build options structure</span>
+0218         <span class="keyword">if</span> isempty(variant.thresh)
+0219             variant = rmfield(variant,<span class="string">'thresh'</span>); <span class="keyword">end</span>
+0220         <span class="keyword">if</span> isfield(variant,<span class="string">'arg_direct'</span>)
+0221             variant = rmfield(variant,<span class="string">'arg_direct'</span>); <span class="keyword">end</span>
+0222         glmopts = variant;
+0223         <span class="comment">% add weights, if given</span>
+0224         <span class="keyword">if</span> ~isempty(weights)
+0225             glmopts.weights = weights; <span class="keyword">end</span>
+0226         <span class="keyword">if</span> variant.nfolds &lt; 1
+0227             variant.nfolds = round(size(trials,1)*variant.nfolds); <span class="keyword">end</span>
+0228         <span class="keyword">if</span> ~continuous_targets
+0229             family = <span class="string">'multinomial'</span>;
+0230         <span class="keyword">else</span>
+0231             family = <span class="string">'gaussian'</span>; <span class="comment">% note: glmnet can't handle logistic regression with continuous targets, so need to revert to Gaussian</span>
+0232         <span class="keyword">end</span>
+0233         <span class="comment">% run</span>
+0234         foldid = 1+floor((0:length(targets)-1)/length(targets)*variant.nfolds);
+0235         model.CVerr = cvglmnetMulticlass(double(trials),double(targets),variant.nfolds,variant.foldmargin,foldid,<span class="string">'response'</span>,family,glmnetSet(glmopts),variant.verbose,variant.customloss);
+0236         <span class="keyword">try</span>
+0237             <span class="comment">% assign reasonable weights for visualization</span>
+0238             model.w = model.CVerr.glmnet_object.beta{2}(:,model.CVerr.glmnet_object.lambda == model.CVerr.lambda_min);
+0239         <span class="keyword">catch</span>
+0240             disp_once(<span class="string">'ml_trainlogreg: Could not assign weights for visualization.'</span>);
+0241         <span class="keyword">end</span>
+0242     <span class="keyword">case</span> <span class="string">'l1'</span>
+0243         lam = 1/lam; <span class="comment">% lambda is parameterized differently in LIBLINEAR, we adapt to that</span>
+0244         <span class="keyword">try</span>
+0245             <span class="keyword">if</span> use_cvx
+0246                 error(<span class="string">'fall back'</span>); <span class="keyword">end</span>
+0247             <span class="keyword">if</span> isempty(weights)
+0248                 weights = ones(size(targets)); <span class="keyword">end</span>
+0249             <span class="comment">% LIBLINEAR-weights 1.6+</span>
+0250             model = hlp_diskcache(<span class="string">'predictivemodels'</span>,@llwtrain,double(weights),double(targets),sparse(double(trials)),[<span class="keyword">...</span>
+0251                 <span class="string">'-s 6 -c '</span> num2str(lam) <span class="string">' -B 1'</span> fastif(~need_fallback,<span class="string">' -q '</span>,<span class="string">''</span>) <span class="keyword">...</span>
+0252                 fastif(~isempty(epsi),[<span class="string">' -e '</span> num2str(epsi)],<span class="string">''</span>)]);
+0253         <span class="keyword">catch</span>
+0254             <span class="comment">% fallback</span>
+0255             <span class="keyword">if</span> ~isempty(weights)
+0256                 cvx_begin
+0257                     variables W(size(trials,2)) b
+0258                     minimize(sum(weights.*log(1+exp(-targets.*(trials*W+b))))*lam + norm(W,1))
+0259                 cvx_end
+0260             <span class="keyword">else</span>
+0261                 cvx_begin
+0262                     variables W(size(trials,2)) b
+0263                     minimize(sum(log(1+exp(-targets .* (trials*W+b))))*lam + norm(W,1))
+0264                 cvx_end                
+0265             <span class="keyword">end</span>
+0266             model = struct(<span class="string">'W'</span>,W,<span class="string">'b'</span>,b);
+0267         <span class="keyword">end</span>
+0268     <span class="keyword">case</span> <span class="string">'l2'</span>
+0269         lam = 1/lam;
+0270         <span class="keyword">try</span>
+0271             <span class="keyword">if</span> use_cvx
+0272                 error(<span class="string">'fall back'</span>); <span class="keyword">end</span>
+0273             <span class="keyword">if</span> isempty(weights)
+0274                 weights = ones(size(targets)); <span class="keyword">end</span>
+0275             <span class="comment">% LIBLINEAR-weights 1.6+</span>
+0276             model = hlp_diskcache(<span class="string">'predictivemodels'</span>,@llwtrain,double(weights),double(targets),sparse(double(trials)),[<span class="keyword">...</span>
+0277                 <span class="string">'-s 0 -c '</span> num2str(lam) <span class="string">' -B 1'</span> fastif(~need_fallback,<span class="string">' -q '</span>,<span class="string">''</span>) <span class="keyword">...</span>
+0278                 fastif(~isempty(epsi),[<span class="string">' -e '</span> num2str(epsi)],<span class="string">''</span>)]);
+0279         <span class="keyword">catch</span>
+0280             <span class="keyword">if</span> ~isempty(weights)
+0281                 <span class="comment">% fallback</span>
+0282                 cvx_begin
+0283                     variables W(size(trials,2)) b
+0284                     minimize(sum(weights.*log(1+exp(-targets.*(trials*W+b))))*lam + norm(W,2))
+0285                 cvx_end
+0286             <span class="keyword">else</span>
+0287                 cvx_begin
+0288                     variables W(size(trials,2)) b
+0289                     minimize(sum(log(1+exp(-targets .* (trials*W+b))))*lam + norm(W,2))
+0290                 cvx_end
+0291             <span class="keyword">end</span>
+0292             model = struct(<span class="string">'W'</span>,W,<span class="string">'b'</span>,b);
+0293         <span class="keyword">end</span>
+0294 <span class="keyword">end</span>
+0295 
+0296 model.classes = classes;
+0297 model.sc_info = sc_info;
+0298 model.variant = variant.arg_selection;
+0299 model.use_cvx = use_cvx;
+0300 model.continuous_targets = continuous_targets;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

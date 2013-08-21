@@ -1,0 +1,1295 @@
+Only in 2: build.sh
+Only in 2: global.c
+Only in 2: global.h
+Only in 2: Makefile.win
+Only in 2: mem_clean.c
+Only in 2: mem_clean.h
+Only in 2: mexcommon.c
+Only in 2: mexcommon.h
+Only in 2: mexkernel.c
+Only in 2: mexsinglekernel.c
+Only in 2: mexsvmclassify.c
+Only in 2: mexsvmlearn.c
+Only in 2: mexsvmlearn.h
+Only in 2: README.mex
+diff -bur 1/svm_classify.c 2/svm_classify.c
+--- 1/svm_classify.c	2004-07-14 14:50:00.000000000 -0400
++++ 2/svm_classify.c	2005-02-16 09:22:04.878654928 -0500
+@@ -14,9 +14,11 @@
+ /*   author. The author is not responsible for implications from the   */
+ /*   use of this software.                                             */
+ /*                                                                     */
+-/************************************************************************/
++/*   January 1, 2005 - Modifications by Tom Briggs                     */
++/***********************************************************************/
+ 
+-# include "svm_common.h"
++#include "svm_common.h"
++#include "global.h"     /* add global functions */
+ 
+ char docfile[200];
+ char modelfile[200];
+@@ -26,7 +28,6 @@
+ 			   long *);
+ void print_help(void);
+ 
+-
+ int main (int argc, char* argv[])
+ {
+   DOC *doc;   /* test example */
+@@ -42,6 +43,9 @@
+   FILE *predfl,*docfl;
+   MODEL *model; 
+ 
++  /* initialize global variables */
++  global_init( );
++
+   read_input_parameters(argc,argv,docfile,modelfile,predictionsfile,
+ 			&verbosity,&pred_format);
+ 
+@@ -116,8 +120,9 @@
+       }
+     }
+   }  
+-  free(line);
+-  free(words);
++
++  my_free(line);   /* 1/1/05 thb - change to use my_free */
++  my_free(words);
+   free_model(model,1);
+ 
+   if(verbosity>=2) {
+@@ -136,6 +141,10 @@
+     printf("Precision/recall on test set: %.2f%%/%.2f%%\n",(float)(res_a)*100.0/(res_a+res_b),(float)(res_a)*100.0/(res_a+res_c));
+   }
+ 
++
++  /* Free any remaining memory blocks */
++  global_destroy( );
++
+   return(0);
+ }
+ 
+diff -bur 1/svm_common.c 2/svm_common.c
+--- 1/svm_common.c	2004-08-27 18:05:25.000000000 -0400
++++ 2/svm_common.c	2005-02-16 09:22:04.878654928 -0500
+@@ -14,23 +14,28 @@
+ /*   author. The author is not responsible for implications from the    */
+ /*   use of this software.                                              */
+ /*                                                                      */
++/*   January 1, 2005 - Modifications by Tom Briggs                      */
+ /************************************************************************/
+-
+-# include "ctype.h"
+-# include "svm_common.h"
+-# include "kernel.h"           /* this contains a user supplied kernel */
+-
+-long   verbosity;              /* verbosity level (0-4) */
+-long   kernel_cache_statistic;
++#include "ctype.h"
++#include "svm_common.h"
++#include "kernel.h"           /* this contains a user supplied kernel */
++
++#include "global.h"           /* include global initializations */
++
++#ifdef MATLAB_MEX             /* include MATLAB headers as necessary */
++#include "mex.h"
++#include "matrix.h"
++#include "mexcommon.h"
++#endif 
+ 
+ double classify_example(MODEL *model, DOC *ex) 
+      /* classifies one example */
+ {
+   register long i;
+-  register double dist;
++  register double dist = 0;
+ 
+   if((model->kernel_parm.kernel_type == LINEAR) && (model->lin_weights))
+-    return(classify_example_linear(model,ex));
++	
+ 	   
+   dist=0;
+   for(i=1;i<model->sv_num;i++) {  
+@@ -63,14 +68,21 @@
+ {
+   double sum=0;
+   SVECTOR *fa,*fb;
++  int cnta, cntb;
+ 
+   /* in case the constraints are sums of feature vector as represented
+      as a list of SVECTOR's with their coefficient factor in the sum,
+      take the kernel between all pairs */ 
++  cnta = 0;
++  cntb = 0;
++
+   for(fa=a->fvec;fa;fa=fa->next) { 
+     for(fb=b->fvec;fb;fb=fb->next) {
+-      if(fa->kernel_id == fb->kernel_id)
+-	sum+=fa->factor*fb->factor*single_kernel(kernel_parm,fa,fb);
++      if(fa->kernel_id == fb->kernel_id) {
++	/*	sum+=fa->factor*fb->factor*single_kernel(kernel_parm,fa,fb); */
++	double tmp = single_kernel(kernel_parm,fa,fb);
++	sum += tmp;
++      }
+     }
+   }
+   return(sum);
+@@ -80,6 +92,7 @@
+      /* calculate the kernel function between two vectors */
+ {
+   kernel_cache_statistic++;
++
+   switch(kernel_parm->kernel_type) {
+     case 0: /* linear */ 
+             return((CFLOAT)sprod_ss(a,b)); 
+@@ -91,7 +104,13 @@
+             return((CFLOAT)tanh(kernel_parm->coef_lin*sprod_ss(a,b)+kernel_parm->coef_const)); 
+     case 4: /* custom-kernel supplied in file kernel.h*/
+             return((CFLOAT)custom_kernel(kernel_parm,a,b)); 
+-    default: printf("Error: Unknown kernel function\n"); exit(1);
++  default: 
++#ifdef MATLAB_MEX
++    mexErrMsgTxt(ERR005);
++#else
++    printf("Error: Unknown kernel function\n"); 
++    exit(1);
++#endif
+   }
+ }
+ 
+@@ -100,14 +119,17 @@
+ {
+   SVECTOR *vec;
+   long    fnum,i;
++  /*  size_t size;   / * GCC says this is unused */
+ 
+   fnum=0;
+   while(words[fnum].wnum) {
+     fnum++;
+   }
+   fnum++;
++
+   vec = (SVECTOR *)my_malloc(sizeof(SVECTOR));
+   vec->words = (WORD *)my_malloc(sizeof(WORD)*(fnum));
++
+   for(i=0;i<fnum;i++) { 
+       vec->words[i]=words[i];
+   }
+@@ -141,11 +163,11 @@
+ void free_svector(SVECTOR *vec)
+ {
+   if(vec) {
+-    free(vec->words);
++    my_free(vec->words);
+     if(vec->userdefined)
+-      free(vec->userdefined);
++      my_free(vec->userdefined);
+     free_svector(vec->next);
+-    free(vec);
++    my_free(vec);
+   }
+ }
+ 
+@@ -249,7 +271,7 @@
+     sumi->wnum=0;
+ 
+     vec=create_svector(sum,"",1.0);
+-    free(sum);
++  my_free(sum);
+ 
+     return(vec);
+ }
+@@ -331,7 +353,7 @@
+     sumi->wnum=0;
+ 
+     vec=create_svector(sum,"",1.0);
+-    free(sum);
++  my_free(sum);
+ 
+     return(vec);
+ }
+@@ -399,7 +421,7 @@
+     sumi->wnum=0;
+ 
+     vec=create_svector(sum,a->userdefined,a->factor);
+-    free(sum);
++  my_free(sum);
+ 
+     return(vec);
+ }
+@@ -512,7 +534,7 @@
+       if(example->fvec)
+ 	free_svector(example->fvec);
+     }
+-    free(example);
++    my_free(example);
+   }
+ }
+ 
+@@ -633,8 +655,8 @@
+ 				      create_svector(words,comment,1.0));
+   }
+   fclose(modelfl);
+-  free(line);
+-  free(words);
++  my_free(line);
++  my_free(words);
+   if(verbosity>=1) {
+     fprintf(stdout, "OK. (%d support vectors read)\n",(int)(model->sv_num-1));
+   }
+@@ -678,12 +700,12 @@
+ 	free_example(model->supvec[i],1);
+       }
+     }
+-    free(model->supvec);
++    my_free(model->supvec);
+   }
+-  if(model->alpha) free(model->alpha);
+-  if(model->index) free(model->index);
+-  if(model->lin_weights) free(model->lin_weights);
+-  free(model);
++  if(model->alpha) my_free(model->alpha);
++  if(model->index) my_free(model->index);
++  if(model->lin_weights) my_free(model->lin_weights);
++  my_free(model);
+ }
+ 
+ 
+@@ -752,8 +774,8 @@
+   } 
+ 
+   fclose(docfl);
+-  free(line);
+-  free(words);
++  my_free(line);
++  my_free(words);
+   if(verbosity>=1) {
+     fprintf(stdout, "OK. (%ld examples read)\n", dnum);
+   }
+@@ -963,17 +985,119 @@
+   return isspace(c);
+ }
+ 
++
++/**
++ * my_free : call the apropriate operation to free a block
++ * of memory, and have it removed from the memory malloc_array 
++ * THB - 1/1/2005
++ ** */
++void my_free(void *ptr)
++{
++  if (ptr == NULL) {
++    /*    fprintf(stderr,"Warning: my_free called with NULL pointer, ignoring\n"); */
++    return;
++  }
++
++  /* remove the memory block from the allocated memory
++   * pool.  If the block is not in the malloc_array then
++   * it probably was not malloc'ed , or has been previously
++   * free()'d, so don't try to free it again. */
++  if (hash_delete(malloc_array, ptr)) {
++#ifdef MATLAB_MEX
++    mxFree(ptr);
++#else
++    free(ptr);
++#endif
++  }
++
++}
++
++/**
++ * my_realloc : call the apropriate operation to reallocate a 
++ * block of memory on the heap.  
++ * -THB 01/01/2005- 
++ */
++void *my_realloc(void *ptr, size_t size)
++{
++  void *newptr = NULL;
++
++  /* TODO: modify to use the malloc_array to check the ptr first */
++#ifdef MATLAB_MEX
++  if (ptr == NULL) 
++    mexErrMsgTxt(ERR010);
++
++  if (hash_delete(malloc_array, ptr)) {
++    newptr = mxRealloc(ptr,size);
++    hash_add(malloc_array, newptr);
++    return newptr;
++  }
++  else
++    mexErrMsgTxt(ERR011);
++
++#else
++  if (ptr == NULL) {
++    fprintf(stderr,"Warning: my_realloc() called with NULL pointer, ignoring\n");
++    return NULL;
++  }
++
++  if (hash_delete(malloc_array, ptr)) {
++    newptr = realloc(ptr,size);
++    hash_add(malloc_array, newptr);
++    return newptr;
++  }
++  else {
++    fprintf(stderr,"Error: realloc called on invalid pointer.\n");
++    return NULL;
++  }
++#endif
++
++}
++
++	
++/**
++ * my_malloc : dynamically allocate memory from the heap
++ * using the apropriate malloc operation. Uses the malloc_array
++ * to track blocks that have previously been allocated. 
++ * -THB 01/01/2005- 
++ */
+ void *my_malloc(size_t size)
+ {
+   void *ptr;
+-  ptr=(void *)malloc(size);
++
++#ifdef MATLAB_MEX
++  /* there is a buffer overrun somewhere in the code.  It happens
++   * in various places - because the overrun actually occurs 
++   * somewhere else in the code and is triggered only when
++   * another portion goes for the memory again. Adding 
++   * 128 bytes to the allocated block size creates overhead, but
++   * does correct the problem ( I think this nicely fits the definition
++   * of an engineering kludge).
++   */
++  ptr=(void *)mxMalloc(size + 128 );
++
++  /* ** add the ptr to the malloc array */
++  hash_add(malloc_array, ptr);
++
++  /* ** check the error code of malloc */
+   if(!ptr) { 
+-    perror ("Out of memory!\n"); 
+-    exit (1); 
++    mexErrMsgTxt(ERR007);
+   }
++
++#else
++  ptr=(void *)malloc(size);
++
++  hash_add(malloc_array, ptr);
++  
++  if (!ptr) {
++    perror("Out of memory!\n");
++    exit(1);
++  }
++#endif
++
+   return(ptr);
+ }
+ 
++
+ void copyright_notice(void)
+ {
+   printf("\nCopyright: Thorsten Joachims, thorsten@joachims.org\n\n");
+@@ -982,3 +1106,6 @@
+   printf("The author is not responsible for implications from the use of this\n");
+   printf("software.\n\n");
+ }
++
++
++
+diff -bur 1/svm_common.h 2/svm_common.h
+--- 1/svm_common.h	2004-09-03 15:22:55.000000000 -0400
++++ 2/svm_common.h	2005-02-16 09:22:04.879654776 -0500
+@@ -19,36 +19,42 @@
+ #ifndef SVM_COMMON
+ #define SVM_COMMON
+ 
+-# define MAXSHRINK     50000    /* maximum number of shrinking rounds */
+-# define MAXFEATNUM 99999999    /* maximum feature number (must be in
++#define MAXSHRINK     50000    /* maximum number of shrinking rounds */
++#define MAXFEATNUM 99999999    /* maximum feature number (must be in
+ 			  	   valid range of long int type!) */
++#define KPARM_CUSTOM_LEN 128   /* define length of custom field in kernel_param */
+ 
+-# include <stdio.h>
+-# include <ctype.h>
+-# include <math.h>
+-# include <string.h>
+-# include <stdlib.h>
+-# include <time.h> 
+-# include <float.h>
+-
+-# define VERSION       "V6.01"
+-# define VERSION_DATE  "01.09.04"
++#include <stdio.h>
++#include <ctype.h>
++#include <math.h>
++#include <string.h>
++#include <stdlib.h>
++#include <time.h> 
++#include <float.h>
++
++#ifdef MATLAB_MEX
++#define VERSION       "V6.01+MEX"
++#define VERSION_DATE  "01.01.05"
++#else
++#define VERSION       "V6.01"
++#define VERSION_DATE  "01.09.04"
++#endif
+ 
+-# define CFLOAT  float       /* the type of float to use for caching */
++#define CFLOAT  float       /* the type of float to use for caching */
+                              /* kernel evaluations. Using float saves */
+                              /* us some memory, but you can use double, too */
+-# define FNUM    long        /* the type used for storing feature ids */
+-# define FVAL    float       /* the type used for storing feature values */
++#define FNUM    long        /* the type used for storing feature ids */
++#define FVAL    float       /* the type used for storing feature values */
+ 
+-# define LINEAR  0           /* linear kernel type */
+-# define POLY    1           /* polynoial kernel type */
+-# define RBF     2           /* rbf kernel type */
+-# define SIGMOID 3           /* sigmoid kernel type */
+-
+-# define CLASSIFICATION 1    /* train classification model */
+-# define REGRESSION     2    /* train regression model */
+-# define RANKING        3    /* train ranking model */
+-# define OPTIMIZATION   4    /* train on general set of constraints */
++#define LINEAR  0           /* linear kernel type */
++#define POLY    1           /* polynoial kernel type */
++#define RBF     2           /* rbf kernel type */
++#define SIGMOID 3           /* sigmoid kernel type */
++
++#define CLASSIFICATION 1    /* train classification model */
++#define REGRESSION     2    /* train regression model */
++#define RANKING        3    /* train ranking model */
++#define OPTIMIZATION   4    /* train on general set of constraints */
+ 
+ typedef struct word {
+   FNUM    wnum;	               /* word number */
+@@ -187,7 +193,7 @@
+   double  rbf_gamma;
+   double  coef_lin;
+   double  coef_const;
+-  char    custom[50];    /* for user supplied kernel */
++  char    custom[KPARM_CUSTOM_LEN];    /* for user supplied kernel */
+ } KERNEL_PARM;
+ 
+ typedef struct model {
+@@ -208,6 +214,16 @@
+ 						 folding */
+   double  maxdiff;                            /* precision, up to which this 
+ 						 model is accurate */
++
++#ifdef MATLAB_MEX
++  double r_delta_sq;                /* store additional params for mex */
++  double r_delta_avg;
++  double model_length;
++  double loss;
++  double vcdim;
++  double example_length;
++  double *a;
++#endif
+ } MODEL;
+ 
+ typedef struct quadratic_program {
+@@ -290,6 +306,8 @@
+ long   get_runtime(void);
+ int    space_or_null(int);
+ void   *my_malloc(size_t); 
++void   *my_realloc(void *, size_t);  /* thb - added for mex */
++void   my_free(void *ptr); 
+ void   copyright_notice(void);
+ # ifdef _MSC_VER
+    int isnan(double);
+diff -bur 1/svm_hideo.c 2/svm_hideo.c
+--- 1/svm_hideo.c	2004-09-03 16:00:26.000000000 -0400
++++ 2/svm_hideo.c	2005-02-16 09:22:04.879654776 -0500
+@@ -15,9 +15,15 @@
+ /*   use of this software.                                             */
+ /*                                                                     */
+ /***********************************************************************/
++#include <math.h>
++#include "svm_common.h"
+ 
+-# include <math.h>
+-# include "svm_common.h"
++#include "global.h"
++
++#ifdef MATLAB_MEX
++#include "mex.h" 
++#include "matrix.h"
++#endif
+ 
+ /* 
+   solve the quadratic programming problem
+@@ -44,27 +50,33 @@
+ 
+ /* /////////////////////////////////////////////////////////////// */
+ 
+-# define DEF_PRECISION          1E-5
+-# define DEF_MAX_ITERATIONS     200
+-# define DEF_LINDEP_SENSITIVITY 1E-8
+-# define EPSILON_HIDEO          1E-20
+-# define EPSILON_EQ             1E-5
++/* the following were moved to global.h */
++
++/* #ifndef MATLAB */
++
++/* # define DEF_PRECISION          1E-5 */
++/* # define DEF_MAX_ITERATIONS     200 */
++/* # define DEF_LINDEP_SENSITIVITY 1E-8 */
++/* # define EPSILON_HIDEO          1E-20 */
++/* # define EPSILON_EQ             1E-5 */
++
++/* #endif  */
+ 
+ double *optimize_qp(QP *, double *, long, double *, LEARN_PARM *);
+-double *primal=0,*dual=0;
+-long   precision_violations=0;
+-double opt_precision=DEF_PRECISION;
+-long   maxiter=DEF_MAX_ITERATIONS;
+-double lindep_sensitivity=DEF_LINDEP_SENSITIVITY;
+-double *buffer;
+-long   *nonoptimal;
++/* double *primal=0,*dual=0;  */
++/* long   precision_violations=0;  */
++/* double opt_precision=DEF_PRECISION;  */
++/* long   maxiter=DEF_MAX_ITERATIONS; */
++/* double lindep_sensitivity=DEF_LINDEP_SENSITIVITY; */
++/* double *buffer;  */
++/* long   *nonoptimal;  */
+ 
+-long  smallroundcount=0;
+-long  roundnumber=0;
++/* long  smallroundcount=0; */
++/* long  roundnumber=0; */
+ 
+ /* /////////////////////////////////////////////////////////////// */
+ 
+-void *my_malloc();
++/* void *my_malloc(); */
+ 
+ int optimize_hildreth_despo(long,long,double,double,double,long,long,long,double,double *,
+ 			    double *,double *,double *,double *,double *,
+diff -bur 1/svm_learn.c 2/svm_learn.c
+--- 1/svm_learn.c	2004-08-27 17:56:21.000000000 -0400
++++ 2/svm_learn.c	2005-02-16 09:22:04.879654776 -0500
+@@ -15,10 +15,14 @@
+ /*   use of this software.                                             */
+ /*                                                                     */
+ /***********************************************************************/
++#include "svm_common.h"
++#include "svm_learn.h"
+ 
+-
+-# include "svm_common.h"
+-# include "svm_learn.h"
++#ifdef MATLAB_MEX
++#include "mex.h"
++#include "global.h"
++#include "mexcommon.h"
++#endif
+ 
+ 
+ /* interface to QP-solver */
+@@ -65,8 +69,11 @@
+   double heldout_c=0,r_delta_sq=0,r_delta,r_delta_avg;
+   long *index,*index2dnum;
+   double *weights;
++  double tmp;
+   CFLOAT *aicache;  /* buffer to keep one row of hessian */
+ 
++
++
+   double *xi_fullset; /* buffer for storing xi on full sample in loo */
+   double *a_fullset;  /* buffer for storing alpha on full sample in loo */
+   TIMING timing_profile;
+@@ -105,6 +112,8 @@
+   model->alpha = (double *)my_malloc(sizeof(double)*(totdoc+2));
+   model->index = (long *)my_malloc(sizeof(long)*(totdoc+2));
+ 
++
++
+   model->at_upper_bound=0;
+   model->b=0;	       
+   model->supvec[0]=0;  /* element 0 reserved and empty for now */
+@@ -127,6 +136,13 @@
+   r_delta_sq=r_delta*r_delta;
+ 
+   r_delta_avg=estimate_r_delta_average(docs,totdoc,kernel_parm);
++
++  /* store some extra values in the model */
++#ifdef MATLAB_MEX
++  model->r_delta_sq = r_delta_sq;
++  model->r_delta_avg = r_delta_avg;
++#endif
++
+   if(learn_parm->svm_c == 0.0) {  /* default value for C */
+     learn_parm->svm_c=1.0/(r_delta_avg*r_delta_avg);
+     if(verbosity>=1) 
+@@ -207,10 +223,13 @@
+     for(i=0;i<totdoc;i++) {    /* copy initial alphas */
+       a[i]=alpha[i];
+     }
+-    free(index);
+-    free(index2dnum);
+-    free(weights);
+-    free(aicache);
++
++    /** changed to use my_free */
++    my_free(index);
++    my_free(index2dnum);
++    my_free(weights);
++    my_free(aicache);
++
+     if(verbosity>=1) {
+       printf("done.\n");  fflush(stdout);
+     }   
+@@ -251,7 +270,13 @@
+ 				     &maxdiff,(long)-1,
+ 				     (long)1);
+   
++
++  /* when using MATLAB, this must always be executed - but possibly
++   * not displayed .   It must be run to populate the model variable.
++   */
++#ifndef MATLAB_MEX
+   if(verbosity>=1) {
++#endif
+     if(verbosity==1) printf("done. (%ld iterations)\n",iterations);
+ 
+     misclassified=0;
+@@ -260,6 +285,7 @@
+ 	misclassified++;
+     }
+ 
++    if (verbosity>=1) 
+     printf("Optimization finished (%ld misclassified, maxdiff=%.5f).\n",
+ 	   misclassified,maxdiff); 
+ 
+@@ -276,6 +302,7 @@
+         (100.0*timing_profile.time_select)/(float)(runtime_end-runtime_start));
+     }
+     else {
++      if (verbosity>=1)
+       printf("Runtime in cpu-seconds: %.2f\n",
+ 	     (runtime_end-runtime_start)/100.0);
+     }
+@@ -285,6 +312,7 @@
+       for(i=0;i<totdoc;i++) 
+ 	if(inconsistent[i]) 
+ 	  inconsistentnum++;
++      if (verbosity>=1)
+       printf("Number of SV: %ld (plus %ld inconsistent examples)\n",
+ 	     model->sv_num-1,inconsistentnum);
+     }
+@@ -296,11 +324,15 @@
+ 	    learn_parm->epsilon_a)) 
+ 	  upsupvecnum++;
+       }
++      if (verbosity >=1)
+       printf("Number of SV: %ld (including %ld at upper bound)\n",
+ 	     model->sv_num-1,upsupvecnum);
+     }
+     
++#ifndef MATLAB_MEX
+     if((verbosity>=1) && (!learn_parm->skip_final_opt_check)) {
++#endif
++      if (!learn_parm->skip_final_opt_check) {  
+       loss=0;
+       model_length=0; 
+       for(i=0;i<totdoc;i++) {
+@@ -309,25 +341,41 @@
+ 	model_length+=a[i]*label[i]*lin[i];
+       }
+       model_length=sqrt(model_length);
++
++/* #ifdef MATLAB_MEX */
++/* 	/\* this isn't really an errorr,but will probably confuse MATLAB fns. *\/ */
++/* 	if (model_length == 0) */
++/* 	  mexErrMsgTxt(ERR006); */
++/* #endif */
++
++	example_length=estimate_sphere(model,kernel_parm); 
++	tmp =  estimate_margin_vcdim(model,model_length,example_length, kernel_parm);
++	
++#ifdef MATLAB_MEX
++	model->model_length = model_length;
++	model->loss = loss;
++	model->vcdim = tmp;
++	model->example_length = example_length;
++#endif
++	if (verbosity >=1) {
+       fprintf(stdout,"L1 loss: loss=%.5f\n",loss);
+       fprintf(stdout,"Norm of weight vector: |w|=%.5f\n",model_length);
+-      example_length=estimate_sphere(model,kernel_parm); 
+       fprintf(stdout,"Norm of longest example vector: |x|=%.5f\n",
+ 	      length_of_longest_document_vector(docs,totdoc,kernel_parm));
+-      fprintf(stdout,"Estimated VCdim of classifier: VCdim<=%.5f\n",
+-	      estimate_margin_vcdim(model,model_length,example_length,
+-				    kernel_parm));
++	  fprintf(stdout,"Estimated VCdim of classifier: VCdim<=%.5f\n", tmp);
++	}
++	
+       if((!learn_parm->remove_inconsistent) && (!transduction)) {
+-	runtime_start_xa=get_runtime();
++	  
+ 	if(verbosity>=1) {
+ 	  printf("Computing XiAlpha-estimates..."); fflush(stdout);
+ 	}
++	  runtime_start_xa=get_runtime();
+ 	compute_xa_estimates(model,label,unlabeled,totdoc,docs,lin,a,
+ 			     kernel_parm,learn_parm,&(model->xa_error),
+ 			     &(model->xa_recall),&(model->xa_precision));
+ 	if(verbosity>=1) {
+ 	  printf("done\n");
+-	}
+ 	printf("Runtime for XiAlpha-estimates in cpu-seconds: %.2f\n",
+ 	       (get_runtime()-runtime_start_xa)/100.0);
+ 	
+@@ -338,6 +386,7 @@
+ 	fprintf(stdout,"XiAlpha-estimate of the precision: precision=>%.2f%% (rho=%.2f,depth=%ld)\n",
+ 		model->xa_precision,learn_parm->rho,learn_parm->xa_depth);
+       }
++	}
+       else if(!learn_parm->remove_inconsistent) {
+ 	estimate_transduction_quality(model,label,unlabeled,totdoc,docs,lin);
+       }
+@@ -345,8 +394,10 @@
+     if(verbosity>=1) {
+       printf("Number of kernel evaluations: %ld\n",kernel_cache_statistic);
+     }
++#ifndef MATLAB_MEX      
+   }
+-
++  }
++#endif
+ 
+   /* leave-one-out testing starts now */
+   if(learn_parm->compute_loo) {
+@@ -416,7 +467,6 @@
+       }
+     } /* end of leave-one-out loop */
+ 
+-
+     if(verbosity>=1) {
+       printf("\nRetrain on full problem"); fflush(stdout); 
+     }
+@@ -435,35 +485,40 @@
+     model->loo_precision=(trainpos-loo_count_pos)/
+       (double)(trainpos-loo_count_pos+loo_count_neg)*100.0;
+     if(verbosity >= 1) {
+-      fprintf(stdout,"Leave-one-out estimate of the error: error=%.2f%%\n",
++      printf("Leave-one-out estimate of the error: error=%.2f%%\n",
+ 	      model->loo_error);
+-      fprintf(stdout,"Leave-one-out estimate of the recall: recall=%.2f%%\n",
++      printf("Leave-one-out estimate of the recall: recall=%.2f%%\n",
+ 	      model->loo_recall);
+-      fprintf(stdout,"Leave-one-out estimate of the precision: precision=%.2f%%\n",
++      printf("Leave-one-out estimate of the precision: precision=%.2f%%\n",
+ 	      model->loo_precision);
+-      fprintf(stdout,"Actual leave-one-outs computed:  %ld (rho=%.2f)\n",
++      printf("Actual leave-one-outs computed:  %ld (rho=%.2f)\n",
+ 	      loocomputed,learn_parm->rho);
+       printf("Runtime for leave-one-out in cpu-seconds: %.2f\n",
+ 	     (double)(get_runtime()-runtime_start_loo)/100.0);
+-    }
+-  }
++    } /* end if verbosity... */
++  } /* end if compute_loo */
+     
++#ifndef MATLAB_MEX  
+   if(learn_parm->alphafile[0])
+     write_alphas(learn_parm->alphafile,a,label,totdoc);
++#else
++  model->a = (double *)malloc(sizeof(double) * totdoc);
++  for (i = 0; i < totdoc; i++)
++    model->a[i] = a[i] * label[i];
++#endif
+   
+   shrink_state_cleanup(&shrink_state);
+-  free(label);
+-  free(inconsistent);
+-  free(unlabeled);
+-  free(c);
+-  free(a);
+-  free(a_fullset);
+-  free(xi_fullset);
+-  free(lin);
+-  free(learn_parm->svm_cost);
++  my_free(label);   /* change to use my_free */
++  my_free(inconsistent);
++  my_free(unlabeled);
++  my_free(c);
++  my_free(a);
++  my_free(a_fullset);
++  my_free(xi_fullset);
++  my_free(lin);
++  my_free(learn_parm->svm_cost);
+ }
+ 
+-
+ /* Learns an SVM regression model based on the training data in
+    docs/label. The resulting model is returned in the structure
+    model. */
+@@ -498,6 +553,11 @@
+   DOC **docs_org;
+   long *label;
+ 
++#ifdef MATLAB_MEX
++  /* TODO modify svm_learn_regression for MATLAB */
++  mexErrMsgTxt(ERR008);
++#endif
++
+   /* set up regression problem in standard form */
+   docs_org=docs;
+   docs = (DOC **)my_malloc(sizeof(DOC)*2*totdoc);
+@@ -514,6 +574,7 @@
+   }
+   totdoc*=2;
+ 
++
+   /* need to get a bigger kernel cache */
+   if(*kernel_cache) {
+     kernel_cache_size=(*kernel_cache)->buffsize*sizeof(CFLOAT)/(1024*1024);
+@@ -533,6 +594,7 @@
+ 
+   learn_parm->totwords=totwords;
+ 
++
+   /* make sure -n value is reasonable */
+   if((learn_parm->svm_newvarsinqp < 2) 
+      || (learn_parm->svm_newvarsinqp > learn_parm->svm_maxqpsize)) {
+@@ -688,16 +750,16 @@
+   shrink_state_cleanup(&shrink_state);
+   for(i=0;i<totdoc;i++)
+     free_example(docs[i],0);
+-  free(docs);
+-  free(label);
+-  free(inconsistent);
+-  free(unlabeled);
+-  free(c);
+-  free(a);
+-  free(a_fullset);
+-  free(xi_fullset);
+-  free(lin);
+-  free(learn_parm->svm_cost);
++  my_free(docs);
++  my_free(label);
++  my_free(inconsistent);
++  my_free(unlabeled);
++  my_free(c);
++  my_free(a);
++  my_free(a_fullset);
++  my_free(xi_fullset);
++  my_free(lin);
++  my_free(learn_parm->svm_cost);
+ }
+ 
+ void svm_learn_ranking(DOC **docs, double *rankvalue, long int totdoc, 
+@@ -722,6 +784,10 @@
+   MODEL *pairmodel;
+   SVECTOR *flow,*fhigh;
+ 
++#ifdef MATLAB_MEX
++  mexErrMsgTxt(ERR009);
++#endif
++	
+   totpair=0;
+   for(i=0;i<totdoc;i++) {
+     for(j=i+1;j<totdoc;j++) {
+@@ -836,16 +902,16 @@
+   model->xa_recall=-1;
+   model->xa_precision=-1;
+ 
+-  free(alpha);
+-  free(greater);
+-  free(lesser);
+-  free(target);
++  my_free(alpha);
++  my_free(greater);
++  my_free(lesser);
++  my_free(target);
+ 
+   /* If you would like to output the original model on pairs of
+      document, replace the following lines with '(*model)=(*pairmodel);' */
+   for(i=0;i<totpair;i++)
+     free_example(docdiff[i],1);
+-  free(docdiff);
++  my_free(docdiff);
+   free_model(pairmodel,0);
+ }
+ 
+@@ -1008,10 +1074,10 @@
+     for(i=0;i<totdoc;i++) {    /* copy initial alphas */
+       a[i]=alpha[i];
+     }
+-    free(index);
+-    free(index2dnum);
+-    free(weights);
+-    free(aicache);
++    my_free(index);
++    my_free(index2dnum);
++    my_free(weights);
++    my_free(aicache);
+     if(verbosity>=1) {
+       printf("done.\n");  fflush(stdout);
+     }   
+@@ -1115,10 +1181,10 @@
+       if(alphaslack[i] > learn_parm->epsilon_a)
+ 	svsetnum++;
+     }
+-    free(index);
+-    free(index2dnum);
+-    free(slack);
+-    free(alphaslack);
++    my_free(index);
++    my_free(index2dnum);
++    my_free(slack);
++    my_free(alphaslack);
+   }
+   
+   if((verbosity>=1) && (!learn_parm->skip_final_opt_check)) {
+@@ -1159,13 +1225,13 @@
+     write_alphas(learn_parm->alphafile,a,label,totdoc);
+   
+   shrink_state_cleanup(&shrink_state);
+-  free(label);
+-  free(unlabeled);
+-  free(inconsistent);
+-  free(c);
+-  free(a);
+-  free(lin);
+-  free(learn_parm->svm_cost);
++  my_free(label);
++  my_free(unlabeled);
++  my_free(inconsistent);
++  my_free(c);
++  my_free(a);
++  my_free(lin);
++  my_free(learn_parm->svm_cost);
+ }
+ 
+ 
+@@ -1396,14 +1462,17 @@
+       cache_multiple_kernel_rows(kernel_cache,docs,working2dnum,
+ 				 choosenum,kernel_parm); 
+     
++
+     if(verbosity>=2) t2=get_runtime();
+     if(retrain != 2) {
++
+       optimize_svm(docs,label,unlabeled,inconsistent,0.0,chosen,active2dnum,
+ 		   model,totdoc,working2dnum,choosenum,a,lin,c,learn_parm,
+ 		   aicache,kernel_parm,&qp,&epsilon_crit_org);
+     }
+ 
+     if(verbosity>=2) t3=get_runtime();
++
+     update_linear_component(docs,label,active2dnum,a,a_old,working2dnum,totdoc,
+ 			    totwords,kernel_parm,kernel_cache,lin,aicache,
+ 			    weights);
+@@ -1427,6 +1496,8 @@
+       a_old[i]=a[i];
+     }
+ 
++
++
+     if(retrain == 2) {  /* reset inconsistent unlabeled examples */
+       for(i=0;(i<totdoc);i++) {
+ 	if(inconsistent[i] && unlabeled[i]) {
+@@ -1441,6 +1512,8 @@
+ 			     inconsistent,active2dnum,last_suboptimal_at,
+ 			     iteration,kernel_parm);
+ 
++
++
+     if(verbosity>=2) {
+       t6=get_runtime();
+       timing_profile->time_select+=t1-t0;
+@@ -1587,23 +1660,23 @@
+     }
+   } /* end of loop */
+ 
+-  free(chosen);
+-  free(last_suboptimal_at);
+-  free(key);
+-  free(selcrit);
+-  free(selexam);
+-  free(a_old);
+-  free(aicache);
+-  free(working2dnum);
+-  free(active2dnum);
+-  free(qp.opt_ce);
+-  free(qp.opt_ce0);
+-  free(qp.opt_g);
+-  free(qp.opt_g0);
+-  free(qp.opt_xinit);
+-  free(qp.opt_low);
+-  free(qp.opt_up);
+-  free(weights);
++  my_free(chosen);
++  my_free(last_suboptimal_at);
++  my_free(key);
++  my_free(selcrit);
++  my_free(selexam);
++  my_free(a_old);
++  my_free(aicache);
++  my_free(working2dnum);
++  my_free(active2dnum);
++  my_free(qp.opt_ce);
++  my_free(qp.opt_ce0);
++  my_free(qp.opt_g);
++  my_free(qp.opt_g0);
++  my_free(qp.opt_xinit);
++  my_free(qp.opt_low);
++  my_free(qp.opt_up);
++  my_free(weights);
+ 
+   learn_parm->epsilon_crit=epsilon_crit_org; /* restore org */
+   model->maxdiff=(*maxdiff);
+@@ -2014,28 +2087,28 @@
+   } /* end of loop */
+ 
+ 
+-  free(alphaslack);
+-  free(slack);
+-  free(chosen);
+-  free(unlabeled);
+-  free(inconsistent);
+-  free(ignore);
+-  free(last_suboptimal_at);
+-  free(key);
+-  free(selcrit);
+-  free(selexam);
+-  free(a_old);
+-  free(aicache);
+-  free(working2dnum);
+-  free(active2dnum);
+-  free(qp.opt_ce);
+-  free(qp.opt_ce0);
+-  free(qp.opt_g);
+-  free(qp.opt_g0);
+-  free(qp.opt_xinit);
+-  free(qp.opt_low);
+-  free(qp.opt_up);
+-  free(weights);
++  my_free(alphaslack);
++  my_free(slack);
++  my_free(chosen);
++  my_free(unlabeled);
++  my_free(inconsistent);
++  my_free(ignore);
++  my_free(last_suboptimal_at);
++  my_free(key);
++  my_free(selcrit);
++  my_free(selexam);
++  my_free(a_old);
++  my_free(aicache);
++  my_free(working2dnum);
++  my_free(active2dnum);
++  my_free(qp.opt_ce);
++  my_free(qp.opt_ce0);
++  my_free(qp.opt_g);
++  my_free(qp.opt_g0);
++  my_free(qp.opt_xinit);
++  my_free(qp.opt_low);
++  my_free(qp.opt_up);
++  my_free(weights);
+ 
+   learn_parm->epsilon_crit=epsilon_crit_org; /* restore org */
+   model->maxdiff=(*maxdiff);
+@@ -2107,12 +2180,14 @@
+     long i;
+     double *a_v;
+ 
++
+     compute_matrices_for_optimization(docs,label,unlabeled,
+ 				      exclude_from_eq_const,eq_target,chosen,
+ 				      active2dnum,working2dnum,model,a,lin,c,
+ 				      varnum,totdoc,learn_parm,aicache,
+ 				      kernel_parm,qp);
+ 
++
+     if(verbosity>=3) {
+       printf("Running optimizer..."); fflush(stdout);
+     }
+@@ -2150,6 +2225,7 @@
+   register long ki,kj,i,j;
+   register double kernel_temp;
+ 
++
+   if(verbosity>=3) {
+     fprintf(stdout,"Computing qp-matrices (type %ld kernel [degree %ld, rbf_gamma %f, coef_lin %f, coef_const %f])...",kernel_parm->kernel_type,kernel_parm->poly_degree,kernel_parm->rbf_gamma,kernel_parm->coef_lin,kernel_parm->coef_const); 
+     fflush(stdout);
+@@ -3076,7 +3152,7 @@
+ 				    long int *key, 
+ 				    long int *chosen, 
+ 				    long int iteration)
+-/* Use the feasible direction approach to select the next
++     /* Use the feasible direction approach to select the next
+    qp-subproblem (see section 'Selecting a good working set'). Chooses
+    a feasible direction at (pseudo) random to help jump over numerical
+    problem. */
+@@ -3227,13 +3303,13 @@
+ 
+ void shrink_state_cleanup(SHRINK_STATE *shrink_state)
+ {
+-  free(shrink_state->active);
+-  free(shrink_state->inactive_since);
++  my_free(shrink_state->active);
++  my_free(shrink_state->inactive_since);
+   if(shrink_state->deactnum > 0) 
+-    free(shrink_state->a_history[shrink_state->deactnum-1]);
+-  free(shrink_state->a_history);
+-  free(shrink_state->last_a);
+-  free(shrink_state->last_lin);
++    my_free(shrink_state->a_history[shrink_state->deactnum-1]);
++  my_free(shrink_state->a_history);
++  my_free(shrink_state->last_a);
++  my_free(shrink_state->last_lin);
+ }
+ 
+ long shrink_problem(DOC **docs,
+@@ -3381,10 +3457,10 @@
+ 	}
+       }
+     }
+-    free(changed);
+-    free(changed2dnum);
+-    free(inactive);
+-    free(inactive2dnum);
++    my_free(changed);
++    my_free(changed2dnum);
++    my_free(inactive);
++    my_free(inactive2dnum);
+   }
+   (*maxdiff)=0;
+   for(i=0;i<totdoc;i++) {
+@@ -3422,7 +3498,7 @@
+       (shrink_state->a_history[shrink_state->deactnum-1])[i]=a[i];
+     }
+     for(t=shrink_state->deactnum-2;(t>=0) && shrink_state->a_history[t];t--) {
+-      free(shrink_state->a_history[t]);
++      my_free(shrink_state->a_history[t]);
+       shrink_state->a_history[t]=0;
+     }
+   }
+@@ -3565,7 +3641,7 @@
+     kernel_cache->max_elems=totdoc;
+   }
+ 
+-  free(keep);
++  my_free(keep);
+ 
+   if(verbosity>=2) {
+     printf("done.\n"); fflush(stdout);
+@@ -3635,14 +3711,14 @@
+ 
+ void kernel_cache_cleanup(KERNEL_CACHE *kernel_cache)
+ {
+-  free(kernel_cache->index);
+-  free(kernel_cache->occu);
+-  free(kernel_cache->lru);
+-  free(kernel_cache->invindex);
+-  free(kernel_cache->active2totdoc);
+-  free(kernel_cache->totdoc2active);
+-  free(kernel_cache->buffer);
+-  free(kernel_cache);
++  my_free(kernel_cache->index);
++  my_free(kernel_cache->occu);
++  my_free(kernel_cache->lru);
++  my_free(kernel_cache->invindex);
++  my_free(kernel_cache->active2totdoc);
++  my_free(kernel_cache->totdoc2active);
++  my_free(kernel_cache->buffer);
++  my_free(kernel_cache);
+ }
+ 
+ long kernel_cache_malloc(KERNEL_CACHE *kernel_cache)
+@@ -3814,8 +3890,8 @@
+   (*precision)=(((double)totposex-(double)looposerror)
+     /((double)totposex-(double)looposerror+(double)loonegerror))*100.0;
+ 
+-  free(sv);
+-  free(sv2dnum);
++  my_free(sv);
++  my_free(sv2dnum);
+ }
+ 
+ 
+@@ -3900,8 +3976,8 @@
+     }
+   }    
+ 
+-  free(cache);
+-  free(trow);
++  my_free(cache);
++  my_free(trow);
+ 
+   /*  printf("Distribute[%ld](%ld)=%f, ",docnum,best_depth,best); */
+   return(best);
+@@ -4145,3 +4221,4 @@
+   }
+ }
+ 
++    
+diff -bur 1/svm_learn_main.c 2/svm_learn_main.c
+--- 1/svm_learn_main.c	2004-08-25 20:03:59.000000000 -0400
++++ 2/svm_learn_main.c	2005-02-16 09:22:04.880654624 -0500
+@@ -22,6 +22,8 @@
+ /* extern "C" { */
+ # include "svm_common.h"
+ # include "svm_learn.h"
++#include "global.h"
++
+ /* } */
+ 
+ char docfile[200];           /* file with training examples */
+@@ -44,7 +46,10 @@
+   KERNEL_CACHE *kernel_cache;
+   LEARN_PARM learn_parm;
+   KERNEL_PARM kernel_parm;
+-  MODEL *model=(MODEL *)my_malloc(sizeof(MODEL));
++  MODEL *model;
++
++  global_init();  /* THB - initialize global environment */
++  model =(MODEL *)my_malloc(sizeof(MODEL)); /* moved here from init section */
+ 
+   read_input_parameters(argc,argv,docfile,modelfile,restartfile,&verbosity,
+ 			&learn_parm,&kernel_parm);
+@@ -88,12 +93,15 @@
+   /* deep_copy_of_model=copy_model(model); */
+   write_model(modelfile,model);
+ 
+-  free(alpha_in);
++  /** changed to use my_free **/
++  my_free(alpha_in);
+   free_model(model,0);
+   for(i=0;i<totdoc;i++) 
+     free_example(docs[i],1);
+-  free(docs);
+-  free(target);
++  my_free(docs);
++  my_free(target);
++
++  global_destroy();
+ 
+   return(0);
+ }
+diff -bur 1/svm_loqo.c 2/svm_loqo.c
+--- 1/svm_loqo.c	2004-07-14 17:45:44.000000000 -0400
++++ 2/svm_loqo.c	2005-02-16 09:22:04.880654624 -0500
+@@ -16,9 +16,11 @@
+ /*                                                                     */
+ /***********************************************************************/
+ 
++/* this has not been modified for MEX/MATLAB */
+ # include <math.h>
+ # include "pr_loqo/pr_loqo.h"
+ # include "svm_common.h"
++#include "global.h"
+ 
+ /* Common Block Declarations */
+ 

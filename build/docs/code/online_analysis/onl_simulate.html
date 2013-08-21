@@ -1,0 +1,347 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of onl_simulate</title>
+  <meta name="keywords" content="onl_simulate">
+  <meta name="description" content="Apply a predictive model to some raw data set at specified time points.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">online_analysis</a> &gt; onl_simulate.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/online_analysis&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>onl_simulate
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Apply a predictive model to some raw data set at specified time points.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [predictions,predict_at,timings] = onl_simulate(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Apply a predictive model to some raw data set at specified time points.
+ [Predictions,Latencies,TImings] = onl_simulate(Data,Model,Markers,Latencies,SamplingRate,Shift,Format,Interval,Waitbar,Feedback)
+ 
+ 
+ The function onl_simulate is the standard way in BCILAB to apply predictive models to data sets,
+ i.e. to receive predictions of cognitive state at various specified time points in the given data
+ set. The data set must be unfiltered, but it may have been structurally edited (e.g. chanlocs,
+ dipfit, etc.), The model is usually one that has been previously computed using bci_train (see
+ bci_train) on some calibration data set (note that predictions on the calibration data set itself
+ result in overly optimistic estimates, and are usually scientifically invalid results).
+ 
+ The time points at which the model shall be invoked can be specified in flexible ways: among
+ others, a model can be invoked at certain specified latencies ('Samples'), at a given rate
+ ('SamplingRate'), or relative to events of certain types ('Markers'). Generally, a constant offset
+ can be added to the specified time points, which is important when classifying relative to certain
+ stimulus events: usually the data necessary for the prediction is only fully available at some
+ time after the stimulus event (as a rule of thumb: when a model was calibrated relative to events,
+ using an epoch clause which ended x seconds past the event, then this is the amount of time that
+ needs to be specified as the offset (converted in samples).
+ 
+ The predictions produced by onl_simulate are of the same format as those produced by bci_predict
+ and ml_predict (and may depend on how the model was calibrated), see bci_predict for an
+ explanation of the most common case(s).
+
+ onl_predict uses the online infrastructure of the toolbox to produce its results (and can
+ currently not be used while online processing is in progress in the current MATLAB instance).
+ Therefore, the outputs are exactly identical to what would be computed by the model if it was
+ applied in real time. The analysis done by onl_simulate is typically called &quot;pseudo-online
+ analysis&quot;, since the data is actually streamed (causally) through the processing chain in a
+ simulated online fashion. In contrast, the related bci_predict does what is often called &quot;offline
+ analysis&quot;, in which the data is processed not necessarily causally in successive stages, and
+ predictions are obtained in a trial-by-trial fashion, not in a time-point-by-time-point fashion;
+ offline analysis typically involves known desired outputs, against which the predictions of the
+ model are compared, to get loss estimates. The framework of bci_predict is designed to give
+ identical results to what would be computed by onl_simulate in the respective situations (e.g. at
+ the time points of certain events), but the data processing is generally more efficient (for
+ example, intermediate results can be cached in memory or on disk, whereas onl_simulate usually
+ processes the data in small chunks). For these reasons, onl_simulate is the preferred method when
+ details of the time course of a model's output are required (e.g. how it behaves in the proximity
+ of events or in areas of the data where unknown cognitive processes take place), and/or when it
+ must be 100% certain that the model can be applied online as-is. bci_predict is the preferred
+ method when high-throughput offline analyses on certain constrained portions of the data (e.g.
+ relative to events) need to be executed as efficiently as possible (e.g. in batch analyses).
+
+
+ In:
+   Data         : raw EEGLAB data set that shall be streamed through the online pipeline,
+                  or stream bundle, or cell array of EEGLAB data sets
+
+   Model        : the predictive model (as produced by bci_train) that should be used to make
+                  predictions at certain latencies in the data (specified in the Options)
+
+   Markers      : predict when an event appears whose type matches any of the markers
+
+   SamplingRate : predict at the given sampling rate (in Hz)
+
+   Latencies    : predict at the given data sample latencies (if multiple streams are passed this is 
+                  measured by the rate of the first stream)
+
+   Shift        : add this offset (in seconds) to the times at which the predictive model is invoked 
+
+   Format       : format of the prediction; see utl_formatprediction (default: 'distribution')
+
+   Interval     : process only this interval of the data, in seconds (if both ends &lt;= 1, assume
+                  that the interval is a fraction) (default: [0 1])
+   
+   Waitbar      : whether to display a progress update (default: 0) 
+   
+   Feedback     : whether to display a bar diagram for every prediction (default: 0)
+
+   TightenBuffer: whether to tighten the stream buffer for increased speed (default: false)
+                  note: if this is true, the resulting processing times are not representative of
+                        actual online processing speed
+
+ Out:
+   Predictions : the prediction results for every point at which the detector should be invoked
+
+   Latencies   : data set points for the corresponding predictions (in seconds)
+
+ Notes:
+   NaN outputs are generated at time points where no prediction could be made (e.g. too close to data 
+   set boundaries).
+
+ Examples:
+  % 1. load calibration data and compute a model (see bci_train)
+  calib = io_loadset('data sets/mary/stresslevels_calib.signal');
+  [loss,model] = bci_train({'data',calib,'paradigm',@para_speccsp},'events',{'low','medium','high'});
+
+  % 2. apply pseudo-online, here at a rate of 5 Hz
+  testdata = io_loadset('data sets/mary/stresslevels_realworld.signal');
+  [predictions,latencies] = onl_simulate(testdata, model, 'SamplingRate',5);
+
+  % 3. plot time course of the model's output
+  plot(latencies, predictions{2}*predictions{3}); title('expected stress level');
+
+ See also:
+   bci_anntate, <a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_output)">onl_predict</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-11-07</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="onl_append.html" class="code" title="function onl_append(name, chunk, stamp)">onl_append</a>	Append a block of raw data to a stream.</li><li><a href="onl_newpredictor.html" class="code" title="function id = onl_newpredictor(name, model, streams)">onl_newpredictor</a>	Create a new predictor from a predictive model, and tie it to some stream(s).</li><li><a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>	Create a new data stream, and set up meta-data.</li><li><a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_output)">onl_predict</a>	Query a predictor given the current contents of the stream(s) referenced by it.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [predictions,predict_at,timings] = onl_simulate(varargin)</a>
+0002 <span class="comment">% Apply a predictive model to some raw data set at specified time points.</span>
+0003 <span class="comment">% [Predictions,Latencies,TImings] = onl_simulate(Data,Model,Markers,Latencies,SamplingRate,Shift,Format,Interval,Waitbar,Feedback)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">%</span>
+0006 <span class="comment">% The function onl_simulate is the standard way in BCILAB to apply predictive models to data sets,</span>
+0007 <span class="comment">% i.e. to receive predictions of cognitive state at various specified time points in the given data</span>
+0008 <span class="comment">% set. The data set must be unfiltered, but it may have been structurally edited (e.g. chanlocs,</span>
+0009 <span class="comment">% dipfit, etc.), The model is usually one that has been previously computed using bci_train (see</span>
+0010 <span class="comment">% bci_train) on some calibration data set (note that predictions on the calibration data set itself</span>
+0011 <span class="comment">% result in overly optimistic estimates, and are usually scientifically invalid results).</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">% The time points at which the model shall be invoked can be specified in flexible ways: among</span>
+0014 <span class="comment">% others, a model can be invoked at certain specified latencies ('Samples'), at a given rate</span>
+0015 <span class="comment">% ('SamplingRate'), or relative to events of certain types ('Markers'). Generally, a constant offset</span>
+0016 <span class="comment">% can be added to the specified time points, which is important when classifying relative to certain</span>
+0017 <span class="comment">% stimulus events: usually the data necessary for the prediction is only fully available at some</span>
+0018 <span class="comment">% time after the stimulus event (as a rule of thumb: when a model was calibrated relative to events,</span>
+0019 <span class="comment">% using an epoch clause which ended x seconds past the event, then this is the amount of time that</span>
+0020 <span class="comment">% needs to be specified as the offset (converted in samples).</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">% The predictions produced by onl_simulate are of the same format as those produced by bci_predict</span>
+0023 <span class="comment">% and ml_predict (and may depend on how the model was calibrated), see bci_predict for an</span>
+0024 <span class="comment">% explanation of the most common case(s).</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">% onl_predict uses the online infrastructure of the toolbox to produce its results (and can</span>
+0027 <span class="comment">% currently not be used while online processing is in progress in the current MATLAB instance).</span>
+0028 <span class="comment">% Therefore, the outputs are exactly identical to what would be computed by the model if it was</span>
+0029 <span class="comment">% applied in real time. The analysis done by onl_simulate is typically called &quot;pseudo-online</span>
+0030 <span class="comment">% analysis&quot;, since the data is actually streamed (causally) through the processing chain in a</span>
+0031 <span class="comment">% simulated online fashion. In contrast, the related bci_predict does what is often called &quot;offline</span>
+0032 <span class="comment">% analysis&quot;, in which the data is processed not necessarily causally in successive stages, and</span>
+0033 <span class="comment">% predictions are obtained in a trial-by-trial fashion, not in a time-point-by-time-point fashion;</span>
+0034 <span class="comment">% offline analysis typically involves known desired outputs, against which the predictions of the</span>
+0035 <span class="comment">% model are compared, to get loss estimates. The framework of bci_predict is designed to give</span>
+0036 <span class="comment">% identical results to what would be computed by onl_simulate in the respective situations (e.g. at</span>
+0037 <span class="comment">% the time points of certain events), but the data processing is generally more efficient (for</span>
+0038 <span class="comment">% example, intermediate results can be cached in memory or on disk, whereas onl_simulate usually</span>
+0039 <span class="comment">% processes the data in small chunks). For these reasons, onl_simulate is the preferred method when</span>
+0040 <span class="comment">% details of the time course of a model's output are required (e.g. how it behaves in the proximity</span>
+0041 <span class="comment">% of events or in areas of the data where unknown cognitive processes take place), and/or when it</span>
+0042 <span class="comment">% must be 100% certain that the model can be applied online as-is. bci_predict is the preferred</span>
+0043 <span class="comment">% method when high-throughput offline analyses on certain constrained portions of the data (e.g.</span>
+0044 <span class="comment">% relative to events) need to be executed as efficiently as possible (e.g. in batch analyses).</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">% In:</span>
+0048 <span class="comment">%   Data         : raw EEGLAB data set that shall be streamed through the online pipeline,</span>
+0049 <span class="comment">%                  or stream bundle, or cell array of EEGLAB data sets</span>
+0050 <span class="comment">%</span>
+0051 <span class="comment">%   Model        : the predictive model (as produced by bci_train) that should be used to make</span>
+0052 <span class="comment">%                  predictions at certain latencies in the data (specified in the Options)</span>
+0053 <span class="comment">%</span>
+0054 <span class="comment">%   Markers      : predict when an event appears whose type matches any of the markers</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">%   SamplingRate : predict at the given sampling rate (in Hz)</span>
+0057 <span class="comment">%</span>
+0058 <span class="comment">%   Latencies    : predict at the given data sample latencies (if multiple streams are passed this is</span>
+0059 <span class="comment">%                  measured by the rate of the first stream)</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">%   Shift        : add this offset (in seconds) to the times at which the predictive model is invoked</span>
+0062 <span class="comment">%</span>
+0063 <span class="comment">%   Format       : format of the prediction; see utl_formatprediction (default: 'distribution')</span>
+0064 <span class="comment">%</span>
+0065 <span class="comment">%   Interval     : process only this interval of the data, in seconds (if both ends &lt;= 1, assume</span>
+0066 <span class="comment">%                  that the interval is a fraction) (default: [0 1])</span>
+0067 <span class="comment">%</span>
+0068 <span class="comment">%   Waitbar      : whether to display a progress update (default: 0)</span>
+0069 <span class="comment">%</span>
+0070 <span class="comment">%   Feedback     : whether to display a bar diagram for every prediction (default: 0)</span>
+0071 <span class="comment">%</span>
+0072 <span class="comment">%   TightenBuffer: whether to tighten the stream buffer for increased speed (default: false)</span>
+0073 <span class="comment">%                  note: if this is true, the resulting processing times are not representative of</span>
+0074 <span class="comment">%                        actual online processing speed</span>
+0075 <span class="comment">%</span>
+0076 <span class="comment">% Out:</span>
+0077 <span class="comment">%   Predictions : the prediction results for every point at which the detector should be invoked</span>
+0078 <span class="comment">%</span>
+0079 <span class="comment">%   Latencies   : data set points for the corresponding predictions (in seconds)</span>
+0080 <span class="comment">%</span>
+0081 <span class="comment">% Notes:</span>
+0082 <span class="comment">%   NaN outputs are generated at time points where no prediction could be made (e.g. too close to data</span>
+0083 <span class="comment">%   set boundaries).</span>
+0084 <span class="comment">%</span>
+0085 <span class="comment">% Examples:</span>
+0086 <span class="comment">%  % 1. load calibration data and compute a model (see bci_train)</span>
+0087 <span class="comment">%  calib = io_loadset('data sets/mary/stresslevels_calib.signal');</span>
+0088 <span class="comment">%  [loss,model] = bci_train({'data',calib,'paradigm',@para_speccsp},'events',{'low','medium','high'});</span>
+0089 <span class="comment">%</span>
+0090 <span class="comment">%  % 2. apply pseudo-online, here at a rate of 5 Hz</span>
+0091 <span class="comment">%  testdata = io_loadset('data sets/mary/stresslevels_realworld.signal');</span>
+0092 <span class="comment">%  [predictions,latencies] = onl_simulate(testdata, model, 'SamplingRate',5);</span>
+0093 <span class="comment">%</span>
+0094 <span class="comment">%  % 3. plot time course of the model's output</span>
+0095 <span class="comment">%  plot(latencies, predictions{2}*predictions{3}); title('expected stress level');</span>
+0096 <span class="comment">%</span>
+0097 <span class="comment">% See also:</span>
+0098 <span class="comment">%   bci_anntate, onl_predict</span>
+0099 <span class="comment">%</span>
+0100 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0101 <span class="comment">%                                2010-11-07</span>
+0102 
+0103 arg_define([0 2],varargin, <span class="keyword">...</span>
+0104     arg_norep({<span class="string">'data'</span>,<span class="string">'Data'</span>,<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0105     arg_norep({<span class="string">'mdl'</span>,<span class="string">'Model'</span>}), <span class="keyword">...</span>
+0106     arg({<span class="string">'lockmrks'</span>,<span class="string">'Markers'</span>,<span class="string">'markers'</span>}, {}, [], <span class="string">'Predict at these events. Produce outputs at the latencies of these events.'</span>), <span class="keyword">...</span>
+0107     arg({<span class="string">'locksamples'</span>,<span class="string">'Latencies'</span>}, [], [], <span class="string">'Predict at these latencies.. Produce outputs at the given data sample latencies.'</span>), <span class="keyword">...</span>
+0108     arg({<span class="string">'srate'</span>,<span class="string">'SamplingRate'</span>,<span class="string">'sampling_rate'</span>},[],[],<span class="string">'Predict at this rate. If set, produce outputs at the given sampling rate.'</span>), <span class="keyword">...</span>
+0109     arg({<span class="string">'relshift'</span>,<span class="string">'Shift'</span>,<span class="string">'offset'</span>},0,[],<span class="string">'Add time offset. Shift the time points at which to predict by this amount (in seconds).'</span>), <span class="keyword">...</span>
+0110     arg({<span class="string">'outformat'</span>,<span class="string">'Format'</span>,<span class="string">'format'</span>},<span class="string">'distribution'</span>,{<span class="string">'expectation'</span>,<span class="string">'distribution'</span>,<span class="string">'mode'</span>},<span class="string">'Prediction format. See utl_formatprediction.'</span>), <span class="keyword">...</span>
+0111     arg({<span class="string">'dowaitbar'</span>,<span class="string">'Waitbar'</span>},false,[],<span class="string">'Display progress update. A waitbar will be displayed if enabled.'</span>), <span class="keyword">...</span>
+0112     arg({<span class="string">'dofeedback'</span>,<span class="string">'Feedback'</span>},false,[],<span class="string">'Display BCI outputs. BCI outputs will be displayed on the fly if enabled.'</span>), <span class="keyword">...</span>
+0113     arg({<span class="string">'restrict_to'</span>,<span class="string">'Interval'</span>,<span class="string">'interval'</span>},[0 1],[],<span class="string">'Restrict to time interval. Process only this interval of the data, in seconds (if both ends &lt;= 1, assume that the interval is a fraction)'</span>), <span class="keyword">...</span>
+0114     arg({<span class="string">'tighten_buffer'</span>,<span class="string">'TightenBuffer'</span>},false,[],<span class="string">'Tighten data buffer. Optional speed optimization that is specific to offline simulation.'</span>), <span class="keyword">...</span>
+0115     arg({<span class="string">'force_array'</span>,<span class="string">'ForceArrayOutputs'</span>},true,[],<span class="string">'Force outputs into array. If true, the predictions, which would normally be a cell array, are returned as a numeric array; if a subset of predictions has non-matching size, they are replaced by appropriately-sized NaN vectors.'</span>));
+0116 
+0117 <span class="comment">% uniformize the data</span>
+0118 <span class="keyword">if</span> iscell(data)
+0119     data = struct(<span class="string">'streams'</span>,{data}); <span class="keyword">end</span>
+0120 <span class="keyword">if</span> all(isfield(data,{<span class="string">'data'</span>,<span class="string">'srate'</span>}))
+0121     data = struct(<span class="string">'streams'</span>,{{data}}); <span class="keyword">end</span>
+0122 
+0123 <span class="comment">% and make sure that it is well-formed and evaluated</span>
+0124 data = utl_check_bundle(data);
+0125 <span class="keyword">for</span> s=1:length(data.streams)
+0126     data.streams{s} = exp_eval_optimized(data.streams{s}); <span class="keyword">end</span>
+0127 
+0128 stream_srate = data.streams{1}.srate;
+0129 stream_xmax = data.streams{1}.xmax;
+0130 
+0131 <span class="keyword">if</span> all(restrict_to &lt;= 1)
+0132     <span class="comment">% as a fraction</span>
+0133     restrict_to = max(0,min(1,restrict_to)) * stream_xmax;
+0134 <span class="keyword">else</span>
+0135     <span class="comment">% as a time interval</span>
+0136     restrict_to = max(0,min(stream_xmax,restrict_to));
+0137 <span class="keyword">end</span>
+0138 
+0139 <span class="comment">% aggregate the time points at which the model should be invoked</span>
+0140 predict_at = [];
+0141 <span class="keyword">for</span> m=1:length(lockmrks)
+0142     predict_at = [predict_at ([data.streams{1}.event(strcmp(lockmrks{m},{data.streams{1}.event.type})).latency]-1)/stream_srate]; <span class="keyword">end</span>
+0143 <span class="keyword">if</span> ~isempty(srate)
+0144     predict_at = [predict_at 0:(1/srate):stream_xmax]; <span class="keyword">end</span>
+0145 <span class="keyword">if</span> ~isempty(locksamples)
+0146     predict_at = [predict_at locksamples/stream_srate]; <span class="keyword">end</span>
+0147 predict_at = predict_at + relshift;
+0148 predict_at = predict_at(predict_at &gt;= restrict_to(1) &amp; predict_at &lt;= restrict_to(2));
+0149 predict_at = sort(predict_at);
+0150 predictions = cell(1,length(predict_at));
+0151 
+0152 <span class="comment">% initialize the online stream(s)</span>
+0153 stream_names = {};
+0154 <span class="keyword">for</span> s=1:length(data.streams)
+0155     stream_names{s} = sprintf(<span class="string">'stream_simulated_%.0f'</span>,s);
+0156     <span class="keyword">if</span> tighten_buffer
+0157         <a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>(stream_names{s}, data.streams{s}, <span class="string">'buffer_len'</span>,max(diff(predict_at)) + 10/data.streams{s}.srate);
+0158     <span class="keyword">else</span>
+0159         <a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>(stream_names{s}, data.streams{s});
+0160     <span class="keyword">end</span>
+0161 <span class="keyword">end</span>
+0162 <a href="onl_newpredictor.html" class="code" title="function id = onl_newpredictor(name, model, streams)">onl_newpredictor</a>(<span class="string">'predictor_simulated'</span>,mdl,stream_names);
+0163 
+0164 <span class="comment">% init BCI display</span>
+0165 <span class="keyword">if</span> dofeedback
+0166     figure; drawnow; <span class="keyword">end</span>
+0167 
+0168 
+0169 <span class="comment">% for each latency of interest...</span>
+0170 cursors = zeros(1,length(data.streams)); <span class="comment">% data up to an including this sample latency has been streamed in</span>
+0171 timings = zeros(1,length(predict_at));
+0172 <span class="keyword">for</span> k=1:length(predict_at)
+0173     
+0174     tic;
+0175     <span class="comment">% skip ahead to the position of the next prediction</span>
+0176     <span class="comment">% (i.e. feed all samples from the current cursor up to that position)</span>
+0177     <span class="keyword">for</span> s=1:length(data.streams)
+0178         next_sample = 1 + round(predict_at(k)*data.streams{s}.srate);
+0179         <a href="onl_append.html" class="code" title="function onl_append(name, chunk, stamp)">onl_append</a>(stream_names{s},data.streams{s}.data(:,(cursors(s)+1) : next_sample));
+0180         cursors(s) = next_sample;
+0181     <span class="keyword">end</span>
+0182     
+0183     <span class="comment">% query the predictor</span>
+0184     predictions{k} = <a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_output)">onl_predict</a>(<span class="string">'predictor_simulated'</span>,outformat);
+0185     timings(k) = toc;
+0186     
+0187     <span class="comment">% display outputs</span>
+0188     <span class="keyword">if</span> dowaitbar &amp;&amp; mod(k,floor(length(predict_at)/100))==0
+0189         waitbar(k/length(predict_at),<span class="string">'Processing...'</span>); <span class="keyword">end</span>        
+0190     <span class="keyword">if</span> dofeedback &amp;&amp; ~any(isnan(predictions{k}))
+0191         bar(predictions{k});
+0192         drawnow; 
+0193     <span class="keyword">end</span>
+0194 <span class="keyword">end</span>
+0195 
+0196 <span class="keyword">if</span> force_array
+0197     <span class="comment">% turn predictions into an array</span>
+0198     dims = cellfun(<span class="string">'size'</span>,predictions,2);
+0199     [predictions{dims~=median(dims)}] = deal(nan(1,median(dims)));
+0200     predictions = vertcat(predictions{:});
+0201 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

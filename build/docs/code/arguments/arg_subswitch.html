@@ -1,0 +1,493 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of arg_subswitch</title>
+  <meta name="keywords" content="arg_subswitch">
+  <meta name="description" content="Specify a function argument that can be one of several alternative structs.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">arguments</a> &gt; arg_subswitch.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/arguments&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>arg_subswitch
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Specify a function argument that can be one of several alternative structs.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function res = arg_subswitch(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Specify a function argument that can be one of several alternative structs.
+ Spec = arg_subswitch(Names,Defaults,Alternatives,Help,Options...)
+
+ The correct struct is chosen according to a selection rule (the mapper). Accessible to the
+ function as a struct, and visible in the GUI as an expandable sub-list of arguments (with a
+ drop-down list of alternative options). The chosen option (usually one out of a set of strings) is
+ delivered to the Function as the special struct field 'arg_selection'.
+
+ In:
+   Names : The name(s) of the argument. At least one must be specified, and if multiple are
+           specified, they must be passed in a cell array.
+           * The first name specified is the argument's &quot;code&quot; name, as it should appear in the
+             function's code (= the name under which arg_define() returns it to the function).
+           * The second name, if specified, is the &quot;Human-readable&quot; name, which is exposed in the
+             GUIs (if omitted, the code name is displayed).
+           * Further specified names are alternative names for the argument (e.g., for backwards
+             compatibility with older function syntaxes/parameter names).
+
+   Defaults : A cell array of arguments to override defaults for the Source (sources declared as
+              part of Alternatives); all syntax accepted by the (selected) Source is allowed here,
+              whereas in the case of positional arguments, the leading arg_norep() arguments of the
+              source are implicitly skipped. Note: Which one out of the several alternatives should
+              be selected is determined via the 'mapper' (which can be overridden in form of an
+              optional parameter). By default, the mapper maps the first argument to the Selector,
+              and assigns the rest to the matching Source.
+
+   Alternatives : Definition of the switchable option groups. This is a cell array of the form:
+                  {{'selector', Source}, {'selector', Source}, {'selector', Source}, ...} Each
+                  Source is either a function handle (referring to a function that exposes
+                  arguments via an arg_define() clause), or an in-line cell array of argument
+                  specifications, analogously to the more detailed explanation in arg_sub(). In the
+                  latter case (Source is a cell array), the option group may also be a 3-element
+                  cell array of the form {'selector',Source,Format} ... where Format is a format
+                  specifier as explained in arg_define().
+
+   Help : The help text for this argument (displayed inside GUIs), optional. (default: []).
+          (Developers: Please do *not* omit this, as it is the key bridge between ease of use and
+          advanced functionality.)
+
+          The first sentence should be the executive summary (max. 60 chars), any further sentences
+          are a detailed explanation (examples, units, considerations). The end of the first
+          sentence is indicated by a '. ' followed by a capital letter (beginning of the next
+          sentence). If ambiguous, the help can also be specified as a cell array of 2 cells.
+
+   Options... : Optional name-value pairs to denote additional properties:
+                 'cat' :  The human-readable category of this argument, helpful to present a list
+                          of many parameters in a categorized list, and to separate &quot;Core
+                          Parameters&quot; from &quot;Miscellaneous&quot; arguments. Developers: When choosing
+                          names, every bit of consistency with other function in the toolbox helps
+                          the uses find their way (default: []).
+
+                 'mapper' : A function that maps the value (cell array of arguments like Defaults)
+                            to a value in the domain of selectors (first output), and a potentially
+                            updated argument list (second output). The mapper is applied to the
+                            argument list prior to any parsing (i.e. it faces the raw argument
+                            list) to determine the current selection, and its second output (the
+                            potentially updated argument list) is forwarded to the Source that was
+                            selected, for further parsing.
+                           
+                            The default mapper takes the first argument in the argument list as the
+                            Selector and passes the remaining list entries to the Source. If there
+                            is only a single argument that is a struct with a field
+                            'arg_selection', this field's value is taken as the Selector, and the
+                            struct is passed as-is to the Source.
+
+                 'merge': Whether a value (cell array of arguments) assigned to this argument
+                          should completely replace all arguments of the default, or whether it
+                          should instead the two cell arrays should be concatenated ('merged'), so
+                          that defaults are only selectively overridden. Note that for
+                          concatenation to make sense, the cell array of Defaults cannot be some
+                          subset of all allowed positional arguments, but must instead either be
+                          the full set of positional arguments (and possibly some NVPs) or be
+                          specified as NVPs in the first place.
+
+ Out:
+   Spec : A cell array, that, when called as spec{1}(reptype,spec{2}{:}), yields a specification of
+          the argument, for use by arg_define. Technical note: Upon assignment with a value (via
+          the assigner field), the 'children' field of the specifier struct is populated according
+          to how the selected (by the mapper) Source (from Alternatives) parses the value into
+          arguments. The additional struct field 'arg_selection 'is introduced at this point.
+
+ Examples:
+   % define a function with a multiple-choice argument, with different sub-arguments for each choice
+   % (where the default is 'kmeans'; some valid calls are:
+   %  myfunction('method','em','flagXY',true)
+   %  myfunction('flagXY',true, 'method',{'em', 'myarg',1001})
+   %  myfunction({'vb', 'myarg1',1001, 'myarg2','test'},false)
+   %  myfunction({'kmeans', struct('arg2','test')})
+   function myfunction(varargin)
+   arg_define(varargin, ...
+       arg_subswitch('method','kmeans',{ ...
+            {'kmeans', {arg('arg1',10,[],'argument for kmeans.'), arg('arg2','test',[],'another argument for it.')}, ...
+            {'em', {arg('myarg',1000,[],'argument for the EM method.')}, ...
+            {'vb', {arg('myarg1',test',[],'argument for the VB method.'), arg('myarg2','xyz',[],'another argument for VB.')} ...
+           }, 'Method to use. Three methods are supported: k-means, EM and VB, and each method has optional parameters that can be specified if chosen.'), ...
+       arg('flagXY',false,[],'And some flag.'));
+
+   % define a function with a multiple-choice argument, where the arguments for the choices come 
+   % from a different function each
+   function myfunction(varargin)
+   arg_define(varargin, ...
+       arg_subswitch('method','kmeans',{{'kmeans', @kmeans},{'em', @expectation_maximization},{'vb',@variational_bayes}}, 'Method to use. Each has optional parameters that can be specified if chosen.'), ...
+       arg('flagXY',false,[],'And some flag.'));
+
+   % as before, but specify a different default and override some of the arguments for that default
+   function myfunction(varargin)
+   arg_define(varargin, ...
+       arg_subswitch('method',{'vb','myarg1','toast'},{{'kmeans', @kmeans},{'em', @expectation_maximization},{'vb',@variational_bayes}}, 'Method to use. Each has optional parameters that can be specified if chosen.'), ...
+       arg('flagXY',false,[],'And some flag.'));
+   
+   % specify a custom function to determine the format of the argument (and in particular the 
+   % mapping of assigned value to chosen selection
+       arg_subswitch('method','kmeans',{{'kmeans', @kmeans},{'em',@expectation_maximization},{'vb',@variational_bayes}}, ...
+           'Method to use. Each has optional parameters that can be specified if chosen.', 'mapper',@mymapper), ...
+
+ See also:
+   <a href="arg.html" class="code" title="function res = arg(varargin)">arg</a>, <a href="arg_nogui.html" class="code" title="function res = arg_nogui(varargin)">arg_nogui</a>, <a href="arg_norep.html" class="code" title="function res = arg_norep(varargin)">arg_norep</a>, <a href="arg_sub.html" class="code" title="function res = arg_sub(varargin)">arg_sub</a>, <a href="arg_subtoggle.html" class="code" title="function res = arg_subtoggle(varargin)">arg_subtoggle</a>, <a href="arg_define.html" class="code" title="function res = arg_define(vals,varargin)">arg_define</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-09-24</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="arg_define.html" class="code" title="function res = arg_define(vals,varargin)">arg_define</a>	Declare function arguments with optional defaults and built-in GUI support.</li><li><a href="arg_nogui.html" class="code" title="function res = arg_nogui(varargin)">arg_nogui</a>	Like arg(), but not displayed by GUIs.</li><li><a href="arg_report.html" class="code" title="function res = arg_report(type,func,args)">arg_report</a>	Report information of a certain Type from the given Function.</li><li><a href="arg_specifier.html" class="code" title="function spec = arg_specifier(varargin)">arg_specifier</a>	Internal: create a base specifier struct for an argument.</li><li><a href="arg_subswitch.html" class="code" title="function res = arg_subswitch(varargin)">arg_subswitch</a>	Specify a function argument that can be one of several alternative structs.</li><li><a href="parse_help.html" class="code" title="function help = parse_help(help,summary_len)">parse_help</a>	helper function for the arg* specifiers, to parse the help into a first and second part.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="arg_subswitch.html" class="code" title="function res = arg_subswitch(varargin)">arg_subswitch</a>	Specify a function argument that can be one of several alternative structs.</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function spec = invoke_argsubswitch_cached(varargin)</a></li><li><a href="#_sub2" class="code">function spec = invoke_argsubswitch(reptype,names,defaults,alternatives,help,varargin)</a></li><li><a href="#_sub3" class="code">function spec = assign_argsubswitch(spec,value,reptype,sources,default_idx,default_val,suppressNames)</a></li><li><a href="#_sub4" class="code">function [selection,args] = map_argsubswitch(args,selectors,names)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function res = arg_subswitch(varargin)</a>
+0002 <span class="comment">% Specify a function argument that can be one of several alternative structs.</span>
+0003 <span class="comment">% Spec = arg_subswitch(Names,Defaults,Alternatives,Help,Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% The correct struct is chosen according to a selection rule (the mapper). Accessible to the</span>
+0006 <span class="comment">% function as a struct, and visible in the GUI as an expandable sub-list of arguments (with a</span>
+0007 <span class="comment">% drop-down list of alternative options). The chosen option (usually one out of a set of strings) is</span>
+0008 <span class="comment">% delivered to the Function as the special struct field 'arg_selection'.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% In:</span>
+0011 <span class="comment">%   Names : The name(s) of the argument. At least one must be specified, and if multiple are</span>
+0012 <span class="comment">%           specified, they must be passed in a cell array.</span>
+0013 <span class="comment">%           * The first name specified is the argument's &quot;code&quot; name, as it should appear in the</span>
+0014 <span class="comment">%             function's code (= the name under which arg_define() returns it to the function).</span>
+0015 <span class="comment">%           * The second name, if specified, is the &quot;Human-readable&quot; name, which is exposed in the</span>
+0016 <span class="comment">%             GUIs (if omitted, the code name is displayed).</span>
+0017 <span class="comment">%           * Further specified names are alternative names for the argument (e.g., for backwards</span>
+0018 <span class="comment">%             compatibility with older function syntaxes/parameter names).</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%   Defaults : A cell array of arguments to override defaults for the Source (sources declared as</span>
+0021 <span class="comment">%              part of Alternatives); all syntax accepted by the (selected) Source is allowed here,</span>
+0022 <span class="comment">%              whereas in the case of positional arguments, the leading arg_norep() arguments of the</span>
+0023 <span class="comment">%              source are implicitly skipped. Note: Which one out of the several alternatives should</span>
+0024 <span class="comment">%              be selected is determined via the 'mapper' (which can be overridden in form of an</span>
+0025 <span class="comment">%              optional parameter). By default, the mapper maps the first argument to the Selector,</span>
+0026 <span class="comment">%              and assigns the rest to the matching Source.</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">%   Alternatives : Definition of the switchable option groups. This is a cell array of the form:</span>
+0029 <span class="comment">%                  {{'selector', Source}, {'selector', Source}, {'selector', Source}, ...} Each</span>
+0030 <span class="comment">%                  Source is either a function handle (referring to a function that exposes</span>
+0031 <span class="comment">%                  arguments via an arg_define() clause), or an in-line cell array of argument</span>
+0032 <span class="comment">%                  specifications, analogously to the more detailed explanation in arg_sub(). In the</span>
+0033 <span class="comment">%                  latter case (Source is a cell array), the option group may also be a 3-element</span>
+0034 <span class="comment">%                  cell array of the form {'selector',Source,Format} ... where Format is a format</span>
+0035 <span class="comment">%                  specifier as explained in arg_define().</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%   Help : The help text for this argument (displayed inside GUIs), optional. (default: []).</span>
+0038 <span class="comment">%          (Developers: Please do *not* omit this, as it is the key bridge between ease of use and</span>
+0039 <span class="comment">%          advanced functionality.)</span>
+0040 <span class="comment">%</span>
+0041 <span class="comment">%          The first sentence should be the executive summary (max. 60 chars), any further sentences</span>
+0042 <span class="comment">%          are a detailed explanation (examples, units, considerations). The end of the first</span>
+0043 <span class="comment">%          sentence is indicated by a '. ' followed by a capital letter (beginning of the next</span>
+0044 <span class="comment">%          sentence). If ambiguous, the help can also be specified as a cell array of 2 cells.</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">%   Options... : Optional name-value pairs to denote additional properties:</span>
+0047 <span class="comment">%                 'cat' :  The human-readable category of this argument, helpful to present a list</span>
+0048 <span class="comment">%                          of many parameters in a categorized list, and to separate &quot;Core</span>
+0049 <span class="comment">%                          Parameters&quot; from &quot;Miscellaneous&quot; arguments. Developers: When choosing</span>
+0050 <span class="comment">%                          names, every bit of consistency with other function in the toolbox helps</span>
+0051 <span class="comment">%                          the uses find their way (default: []).</span>
+0052 <span class="comment">%</span>
+0053 <span class="comment">%                 'mapper' : A function that maps the value (cell array of arguments like Defaults)</span>
+0054 <span class="comment">%                            to a value in the domain of selectors (first output), and a potentially</span>
+0055 <span class="comment">%                            updated argument list (second output). The mapper is applied to the</span>
+0056 <span class="comment">%                            argument list prior to any parsing (i.e. it faces the raw argument</span>
+0057 <span class="comment">%                            list) to determine the current selection, and its second output (the</span>
+0058 <span class="comment">%                            potentially updated argument list) is forwarded to the Source that was</span>
+0059 <span class="comment">%                            selected, for further parsing.</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">%                            The default mapper takes the first argument in the argument list as the</span>
+0062 <span class="comment">%                            Selector and passes the remaining list entries to the Source. If there</span>
+0063 <span class="comment">%                            is only a single argument that is a struct with a field</span>
+0064 <span class="comment">%                            'arg_selection', this field's value is taken as the Selector, and the</span>
+0065 <span class="comment">%                            struct is passed as-is to the Source.</span>
+0066 <span class="comment">%</span>
+0067 <span class="comment">%                 'merge': Whether a value (cell array of arguments) assigned to this argument</span>
+0068 <span class="comment">%                          should completely replace all arguments of the default, or whether it</span>
+0069 <span class="comment">%                          should instead the two cell arrays should be concatenated ('merged'), so</span>
+0070 <span class="comment">%                          that defaults are only selectively overridden. Note that for</span>
+0071 <span class="comment">%                          concatenation to make sense, the cell array of Defaults cannot be some</span>
+0072 <span class="comment">%                          subset of all allowed positional arguments, but must instead either be</span>
+0073 <span class="comment">%                          the full set of positional arguments (and possibly some NVPs) or be</span>
+0074 <span class="comment">%                          specified as NVPs in the first place.</span>
+0075 <span class="comment">%</span>
+0076 <span class="comment">% Out:</span>
+0077 <span class="comment">%   Spec : A cell array, that, when called as spec{1}(reptype,spec{2}{:}), yields a specification of</span>
+0078 <span class="comment">%          the argument, for use by arg_define. Technical note: Upon assignment with a value (via</span>
+0079 <span class="comment">%          the assigner field), the 'children' field of the specifier struct is populated according</span>
+0080 <span class="comment">%          to how the selected (by the mapper) Source (from Alternatives) parses the value into</span>
+0081 <span class="comment">%          arguments. The additional struct field 'arg_selection 'is introduced at this point.</span>
+0082 <span class="comment">%</span>
+0083 <span class="comment">% Examples:</span>
+0084 <span class="comment">%   % define a function with a multiple-choice argument, with different sub-arguments for each choice</span>
+0085 <span class="comment">%   % (where the default is 'kmeans'; some valid calls are:</span>
+0086 <span class="comment">%   %  myfunction('method','em','flagXY',true)</span>
+0087 <span class="comment">%   %  myfunction('flagXY',true, 'method',{'em', 'myarg',1001})</span>
+0088 <span class="comment">%   %  myfunction({'vb', 'myarg1',1001, 'myarg2','test'},false)</span>
+0089 <span class="comment">%   %  myfunction({'kmeans', struct('arg2','test')})</span>
+0090 <span class="comment">%   function myfunction(varargin)</span>
+0091 <span class="comment">%   arg_define(varargin, ...</span>
+0092 <span class="comment">%       arg_subswitch('method','kmeans',{ ...</span>
+0093 <span class="comment">%            {'kmeans', {arg('arg1',10,[],'argument for kmeans.'), arg('arg2','test',[],'another argument for it.')}, ...</span>
+0094 <span class="comment">%            {'em', {arg('myarg',1000,[],'argument for the EM method.')}, ...</span>
+0095 <span class="comment">%            {'vb', {arg('myarg1',test',[],'argument for the VB method.'), arg('myarg2','xyz',[],'another argument for VB.')} ...</span>
+0096 <span class="comment">%           }, 'Method to use. Three methods are supported: k-means, EM and VB, and each method has optional parameters that can be specified if chosen.'), ...</span>
+0097 <span class="comment">%       arg('flagXY',false,[],'And some flag.'));</span>
+0098 <span class="comment">%</span>
+0099 <span class="comment">%   % define a function with a multiple-choice argument, where the arguments for the choices come</span>
+0100 <span class="comment">%   % from a different function each</span>
+0101 <span class="comment">%   function myfunction(varargin)</span>
+0102 <span class="comment">%   arg_define(varargin, ...</span>
+0103 <span class="comment">%       arg_subswitch('method','kmeans',{{'kmeans', @kmeans},{'em', @expectation_maximization},{'vb',@variational_bayes}}, 'Method to use. Each has optional parameters that can be specified if chosen.'), ...</span>
+0104 <span class="comment">%       arg('flagXY',false,[],'And some flag.'));</span>
+0105 <span class="comment">%</span>
+0106 <span class="comment">%   % as before, but specify a different default and override some of the arguments for that default</span>
+0107 <span class="comment">%   function myfunction(varargin)</span>
+0108 <span class="comment">%   arg_define(varargin, ...</span>
+0109 <span class="comment">%       arg_subswitch('method',{'vb','myarg1','toast'},{{'kmeans', @kmeans},{'em', @expectation_maximization},{'vb',@variational_bayes}}, 'Method to use. Each has optional parameters that can be specified if chosen.'), ...</span>
+0110 <span class="comment">%       arg('flagXY',false,[],'And some flag.'));</span>
+0111 <span class="comment">%</span>
+0112 <span class="comment">%   % specify a custom function to determine the format of the argument (and in particular the</span>
+0113 <span class="comment">%   % mapping of assigned value to chosen selection</span>
+0114 <span class="comment">%       arg_subswitch('method','kmeans',{{'kmeans', @kmeans},{'em',@expectation_maximization},{'vb',@variational_bayes}}, ...</span>
+0115 <span class="comment">%           'Method to use. Each has optional parameters that can be specified if chosen.', 'mapper',@mymapper), ...</span>
+0116 <span class="comment">%</span>
+0117 <span class="comment">% See also:</span>
+0118 <span class="comment">%   arg, arg_nogui, arg_norep, arg_sub, arg_subtoggle, arg_define</span>
+0119 <span class="comment">%</span>
+0120 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0121 <span class="comment">%                                2010-09-24</span>
+0122 
+0123 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0124 <span class="comment">%</span>
+0125 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0126 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0127 <span class="comment">% License, or (at your option) any later version.</span>
+0128 <span class="comment">%</span>
+0129 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0130 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0131 <span class="comment">% General Public License for more details.</span>
+0132 <span class="comment">%</span>
+0133 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0134 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0135 <span class="comment">% USA</span>
+0136 
+0137 <span class="comment">% we return a function that an be invoked to yield a specification (its output is cached for</span>
+0138 <span class="comment">% efficiency) packed in a cell array together with the remaining arguments</span>
+0139 res = {@<a href="#_sub1" class="code" title="subfunction spec = invoke_argsubswitch_cached(varargin)">invoke_argsubswitch_cached</a>,varargin};
+0140 
+0141 
+0142 <a name="_sub1" href="#_subfunctions" class="code">function spec = invoke_argsubswitch_cached(varargin)</a>
+0143 spec = hlp_microcache(<span class="string">'arg'</span>,@<a href="#_sub2" class="code" title="subfunction spec = invoke_argsubswitch(reptype,names,defaults,alternatives,help,varargin)">invoke_argsubswitch</a>,varargin{:});
+0144 
+0145 
+0146 <span class="comment">% the function that does the actual work of building the argument specifier</span>
+0147 <a name="_sub2" href="#_subfunctions" class="code">function spec = invoke_argsubswitch(reptype,names,defaults,alternatives,help,varargin)</a>
+0148 
+0149 suppressNames = {};
+0150 
+0151 <span class="comment">% start with a base specification</span>
+0152 spec = <a href="arg_specifier.html" class="code" title="function spec = arg_specifier(varargin)">arg_specifier</a>(<span class="string">'head'</span>,@<a href="arg_subswitch.html" class="code" title="function res = arg_subswitch(varargin)">arg_subswitch</a>, <span class="string">'type'</span>,<span class="string">'char'</span>, <span class="string">'shape'</span>,<span class="string">'row'</span>, <span class="string">'mapper'</span>,@<a href="#_sub4" class="code" title="subfunction [selection,args] = map_argsubswitch(args,selectors,names)">map_argsubswitch</a>);
+0153 
+0154 <span class="comment">% override properties</span>
+0155 <span class="keyword">if</span> exist(<span class="string">'names'</span>,<span class="string">'var'</span>)
+0156     spec.names = names; <span class="keyword">end</span>
+0157 <span class="keyword">if</span> exist(<span class="string">'help'</span>,<span class="string">'var'</span>)
+0158     spec.help = help; <span class="keyword">end</span>
+0159 <span class="keyword">for</span> k=1:2:length(varargin)
+0160     <span class="keyword">if</span> isfield(spec,varargin{k})
+0161         spec.(varargin{k}) = varargin{k+1}; 
+0162     <span class="keyword">elseif</span> strcmpi(varargin{k},<span class="string">'suppress'</span>)
+0163         suppressNames = varargin{k+1};
+0164     <span class="keyword">else</span>
+0165         error([<span class="string">'BCILAB:arg:no_new_fields'</span>,<span class="string">'It is not allowed to introduce fields (here: '</span> varargin{k} <span class="string">') into a specifier that are not declared in arg_specifier.'</span>]);
+0166     <span class="keyword">end</span>
+0167 <span class="keyword">end</span>
+0168 
+0169 <span class="comment">% do checking</span>
+0170 <span class="keyword">if</span> ~iscell(spec.names)
+0171     spec.names = {spec.names}; <span class="keyword">end</span>
+0172 <span class="keyword">if</span> isempty(spec.names) || ~iscellstr(spec.names)
+0173     error(<span class="string">'The argument must have a name or cell array of names.'</span>); <span class="keyword">end</span>
+0174 <span class="keyword">if</span> isempty(alternatives) 
+0175     error(<span class="string">'BCILAB:args:no_options'</span>,<span class="string">'The Alternatives argument for arg_subswitch() may not be omitted.'</span>); <span class="keyword">end</span> <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0176 <span class="keyword">if</span> nargin(spec.mapper) == 1
+0177     spec.mapper = @(x,y,z) spec.mapper(x); <span class="keyword">end</span>
+0178 <span class="comment">% parse the help</span>
+0179 <span class="keyword">if</span> ~isempty(spec.help)
+0180     <span class="keyword">try</span>
+0181         spec.help = <a href="parse_help.html" class="code" title="function help = parse_help(help,summary_len)">parse_help</a>(spec.help,100);
+0182     <span class="keyword">catch</span> e
+0183         disp([<span class="string">'Problem with the help text for argument '</span> spec.names{1} <span class="string">': '</span> e.message]);
+0184         spec.help = {};
+0185     <span class="keyword">end</span>
+0186 <span class="keyword">elseif</span> spec.reportable &amp;&amp; spec.displayable
+0187     disp([<span class="string">'Please specify a description for argument '</span> spec.names{1} <span class="string">', or specify it via arg_nogui() instead.'</span>]);
+0188 <span class="keyword">end</span>
+0189 
+0190 <span class="comment">% uniformize Alternatives syntax into {{'selector1',@function1, ...}, {'selector2',@function2, ...}, ...}</span>
+0191 <span class="keyword">if</span> iscellstr(alternatives(1:2:end)) &amp;&amp; all(cellfun(@(x)iscell(x)||isa(x,<span class="string">'function_handle'</span>),alternatives(2:2:end)))
+0192     alternatives = mat2cell(alternatives,1,repmat(2,length(alternatives)/2,1)); <span class="keyword">end</span>
+0193 
+0194 <span class="comment">% derive range</span>
+0195 spec.range = cellfun(@(c)c{1},alternatives,<span class="string">'UniformOutput'</span>,false);
+0196 
+0197 <span class="comment">% turn Alternatives into a cell array of Source functions</span>
+0198 <span class="keyword">for</span> k=1:length(alternatives)
+0199     sel = alternatives{k};
+0200     selector = sel{1};
+0201     source = sel{2};    
+0202     <span class="keyword">if</span> ~ischar(selector)
+0203         error(<span class="string">'In arg_subswitch, each selector must be a string.'</span>); <span class="keyword">end</span>
+0204     <span class="keyword">if</span> length(sel) &gt; 2
+0205         fmt = sel{3};
+0206     <span class="keyword">else</span>
+0207         fmt = [];
+0208     <span class="keyword">end</span>
+0209     <span class="comment">% uniformize Source syntax...</span>
+0210     <span class="keyword">if</span> iscell(source)
+0211         <span class="comment">% args is a cell array instead of a function: we effectively turn this into a regular</span>
+0212         <span class="comment">% arg_define-using function (taking &amp; parsing values)</span>
+0213         source = @(varargin) <a href="arg_define.html" class="code" title="function res = arg_define(vals,varargin)">arg_define</a>(fmt,varargin,source{:});
+0214     <span class="keyword">else</span>
+0215         <span class="comment">% args is a function: was a custom format specified?</span>
+0216         <span class="keyword">if</span> isa(fmt,<span class="string">'function_handle'</span>)
+0217             source = @(varargin) source(fmt(varargin));
+0218         <span class="keyword">elseif</span> ~isempty(fmt)
+0219             error(<span class="string">'The only allowed form in which the Format of a Source that is a function may be overridden is as a pre-parser (given as a function handle)'</span>); <span class="keyword">end</span>
+0220     <span class="keyword">end</span>
+0221     alternatives{k} = source;
+0222 <span class="keyword">end</span>
+0223 sources = alternatives;
+0224 
+0225 <span class="comment">% wrap the defaults into a cell if necessary (note: this is convenience syntax)</span>
+0226 <span class="keyword">if</span> ~iscell(defaults)
+0227     <span class="keyword">if</span> ~(isstruct(defaults) || ischar(defaults))
+0228         error([<span class="string">'It is not allowed to use anything other than a cell, a struct, or a (selector) string as default for an arg_subswitch argument (here:'</span> spec.names{1} <span class="string">')'</span>]); <span class="keyword">end</span>
+0229     defaults = {defaults};
+0230 <span class="keyword">end</span>
+0231 <span class="comment">% find out what index and value set the default configuration maps to; this is relevant for the</span>
+0232 <span class="comment">% merging option: in this case, we need to pull up the correct default and merge it with the passed</span>
+0233 <span class="comment">% value</span>
+0234 [default_sel,default_val] = spec.mapper(defaults,spec.range,spec.names);
+0235 default_idx = find(strcmp(default_sel,spec.range));
+0236 
+0237 <span class="comment">% create the regular assigner...</span>
+0238 spec.assigner = @(spec,value) <a href="#_sub3" class="code" title="subfunction spec = assign_argsubswitch(spec,value,reptype,sources,default_idx,default_val,suppressNames)">assign_argsubswitch</a>(spec,value,reptype,sources,default_idx,default_val,suppressNames);
+0239 
+0240 <span class="comment">% and assign the default itself</span>
+0241 <span class="keyword">if</span> strcmp(reptype,<span class="string">'rich'</span>)
+0242     spec = <a href="#_sub3" class="code" title="subfunction spec = assign_argsubswitch(spec,value,reptype,sources,default_idx,default_val,suppressNames)">assign_argsubswitch</a>(spec,defaults,<span class="string">'build'</span>,sources,0,{},suppressNames);
+0243 <span class="keyword">else</span>
+0244     spec = <a href="#_sub3" class="code" title="subfunction spec = assign_argsubswitch(spec,value,reptype,sources,default_idx,default_val,suppressNames)">assign_argsubswitch</a>(spec,defaults,<span class="string">'lean'</span>,sources,0,{},suppressNames);
+0245 <span class="keyword">end</span>
+0246 
+0247 
+0248 
+0249 <a name="_sub3" href="#_subfunctions" class="code">function spec = assign_argsubswitch(spec,value,reptype,sources,default_idx,default_val,suppressNames)</a>
+0250 <span class="comment">% for convenience (in scripts calling the function), also support values that are not cell arrays</span>
+0251 <span class="keyword">if</span> ~iscell(value)
+0252     <span class="keyword">if</span> ~(isstruct(value) || ischar(value))
+0253         error([<span class="string">'It is not allowed to assign anything other than a cell, a struct, or a (selector) string to an arg_subswitch argument (here:'</span> spec.names{1} <span class="string">')'</span>]); <span class="keyword">end</span>
+0254     value = {value};
+0255 <span class="keyword">end</span>
+0256 <span class="comment">% run the mapper to get the selection according to the value (selectors is here for error checking);</span>
+0257 <span class="comment">% also update the value</span>
+0258 [selection,value] = spec.mapper(value,spec.range,spec.names);
+0259 <span class="comment">% find the appropriate index in the selections...</span>
+0260 idx = find(strcmp(selection,spec.range));
+0261 <span class="comment">% if we should build the set of alternatives, do so now....</span>
+0262 <span class="keyword">if</span> strcmp(reptype,<span class="string">'build'</span>)
+0263     <span class="keyword">for</span> n=setdiff(1:length(sources),idx)
+0264         arg_sel = <a href="arg_nogui.html" class="code" title="function res = arg_nogui(varargin)">arg_nogui</a>(<span class="string">'arg_selection'</span>,spec.range{n});
+0265         spec.alternatives{n} = [<a href="arg_report.html" class="code" title="function res = arg_report(type,func,args)">arg_report</a>(<span class="string">'rich'</span>,sources{n}) arg_sel{1}([],arg_sel{2}{:})]; 
+0266     <span class="keyword">end</span>
+0267     reptype = <span class="string">'rich'</span>;
+0268 <span class="keyword">end</span>
+0269 <span class="comment">% build children and override the appropriate item in the aternatives</span>
+0270 arg_sel = <a href="arg_nogui.html" class="code" title="function res = arg_nogui(varargin)">arg_nogui</a>(<span class="string">'arg_selection'</span>,spec.range{idx});
+0271 <span class="keyword">if</span> spec.merge &amp;&amp; idx == default_idx
+0272     spec.children = [<a href="arg_report.html" class="code" title="function res = arg_report(type,func,args)">arg_report</a>(reptype,sources{idx},[default_val value]) arg_sel{1}([],arg_sel{2}{:})];
+0273 <span class="keyword">else</span>
+0274     spec.children = [<a href="arg_report.html" class="code" title="function res = arg_report(type,func,args)">arg_report</a>(reptype,sources{idx},value) arg_sel{1}([],arg_sel{2}{:})];
+0275 <span class="keyword">end</span>
+0276 
+0277 <span class="comment">% toggle the displayable option for children which should be suppressed</span>
+0278 <span class="keyword">if</span> ~isempty(suppressNames)
+0279     <span class="comment">% identify which children we want to suppress display</span>
+0280     hidden = find(cellfun(@any,cellfun(@(x,y) ismember(x,suppressNames),{spec.children.names},<span class="string">'UniformOutput'</span>,false)));
+0281     <span class="comment">% set display flag to false</span>
+0282     <span class="keyword">for</span> k=hidden(:)'
+0283         spec.children(k).displayable = false;
+0284     <span class="keyword">end</span>
+0285 
+0286     <span class="comment">% identify which alternatives we want to suppress display</span>
+0287     <span class="keyword">for</span> alt_idx = 1:length(spec.alternatives)
+0288         <span class="keyword">if</span> isempty(spec.alternatives{alt_idx})
+0289             <span class="keyword">continue</span>; <span class="keyword">end</span>
+0290         hidden = find(cellfun(@any,cellfun(@(x,y) ismember(x,suppressNames),{spec.alternatives{alt_idx}.names},<span class="string">'UniformOutput'</span>,false)));
+0291         <span class="comment">% set display flag to false</span>
+0292         <span class="keyword">for</span> k=hidden(:)'
+0293             spec.alternatives{alt_idx}(k).displayable = false;
+0294         <span class="keyword">end</span>
+0295     <span class="keyword">end</span>
+0296 <span class="keyword">end</span>
+0297 
+0298 spec.alternatives{idx} = spec.children;
+0299 <span class="comment">% and set the value of the selector field itself to the current selection</span>
+0300 spec.value = selection;
+0301 
+0302 
+0303 
+0304 
+0305 <a name="_sub4" href="#_subfunctions" class="code">function [selection,args] = map_argsubswitch(args,selectors,names)</a>
+0306 <span class="keyword">if</span> isempty(args)
+0307     selection = selectors{1};
+0308 <span class="keyword">elseif</span> isfield(args{1},<span class="string">'arg_selection'</span>)
+0309     selection = args{1}.arg_selection;
+0310 <span class="keyword">elseif</span> any(strcmp(args{1},selectors))
+0311     [selection,args] = deal(args{1},args(2:end));
+0312 <span class="keyword">else</span>
+0313     <span class="comment">% find the arg_selection in the cell array</span>
+0314     pos = find(strcmp(<span class="string">'arg_selection'</span>,args(1:end-1)),1,<span class="string">'last'</span>);
+0315     [selection,args] = deal(args{pos+1},args([1:pos-1 pos+2:end]));
+0316 <span class="keyword">end</span>
+0317 <span class="comment">% Note: If this error is triggered, an value was passed for an argument which has a flexible structure (chosen out of a set of possibilities), but the possibility</span>
+0318 <span class="comment">%       which was chosen according to the passed value does not match any of the specified ones. For a value that is a cell array of arguments, the choice is</span>
+0319 <span class="comment">%       made based on the first element in the cell. For a value that is a structure of arguments, the choice is made based on the 'arg_selection' field.</span>
+0320 <span class="comment">%       The error is usually resolved by reviewing the argument specification of the offending function carefully, and comparing the passed value to the Alternatives</span>
+0321 <span class="comment">%       declared in the arg_subswitch() clause in which the offending argument is declared.</span>
+0322 <span class="keyword">if</span> isempty(selection)
+0323     error([<span class="string">'The chosen selector argument (empty) does not match any of the possible options ('</span> sprintf(<span class="string">'%s, '</span>,selectors{1:end-1}) selectors{end} <span class="string">') in the function argument '</span> names{1} <span class="string">'.'</span>]);
+0324 <span class="keyword">elseif</span> ~any(strcmpi(selection,selectors))
+0325     error([<span class="string">'The chosen selector argument ('</span> selection <span class="string">') does not match any of the possible options ('</span> sprintf(<span class="string">'%s, '</span>,selectors{1:end-1}) selectors{end} <span class="string">') in the function argument '</span> names{1} <span class="string">'.'</span>]); <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

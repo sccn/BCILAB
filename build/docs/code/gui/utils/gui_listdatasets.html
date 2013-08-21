@@ -1,0 +1,168 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of gui_listdatasets</title>
+  <meta name="keywords" content="gui_listdatasets">
+  <meta name="description" content="Compile a list of all datasets that are currently in the workspace">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../index.html">gui</a> &gt; <a href="index.html">utils</a> &gt; gui_listdatasets.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/gui/utils&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>gui_listdatasets
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Compile a list of all datasets that are currently in the workspace</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function [list,flat,indexable] = gui_listdatasets() </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Compile a list of all datasets that are currently in the workspace
+ List = gui_listdatasets()
+
+ Out:
+   List : cell array of {'Groupname', {data1,data2,data3, ...}, 'Groupname', {data1,data2}, ...}
+
+   Flat : pretty-printed cell-string array of List contents
+  
+   Indexable : a flat cell array of datas ets that can be indexed in accordance with Flat
+
+ Notes:
+   if no output is taken, the function displays the Flat list.
+
+   The following groups are generated:
+   'Loaded via BCILAB' --&gt; expressions which contain an io_loadset node somewhere...
+   'Loaded via EEGLAB' --&gt; full continuous (non-empty) datasets, including EEG
+
+   The datasets are variable names of the form 'varname(index) (comments)', where (index) 
+   is omitted for one-element struct arrays (i.e. regular structs). Thus, the command
+     evalin('base',strtok(name)) gives the appropriate workspace variable.
+
+
+                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                           2010-10-25</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+<li><a href="gui_print_grouplist.html" class="code" title="function [list,indexable] = gui_print_grouplist(grouplist,namemap)">gui_print_grouplist</a>	create a pretty-printed list (cellstr) of grouped data</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [list,flat,indexable] = gui_listdatasets()</a>
+0002 <span class="comment">% Compile a list of all datasets that are currently in the workspace</span>
+0003 <span class="comment">% List = gui_listdatasets()</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Out:</span>
+0006 <span class="comment">%   List : cell array of {'Groupname', {data1,data2,data3, ...}, 'Groupname', {data1,data2}, ...}</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">%   Flat : pretty-printed cell-string array of List contents</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">%   Indexable : a flat cell array of datas ets that can be indexed in accordance with Flat</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">% Notes:</span>
+0013 <span class="comment">%   if no output is taken, the function displays the Flat list.</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%   The following groups are generated:</span>
+0016 <span class="comment">%   'Loaded via BCILAB' --&gt; expressions which contain an io_loadset node somewhere...</span>
+0017 <span class="comment">%   'Loaded via EEGLAB' --&gt; full continuous (non-empty) datasets, including EEG</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">%   The datasets are variable names of the form 'varname(index) (comments)', where (index)</span>
+0020 <span class="comment">%   is omitted for one-element struct arrays (i.e. regular structs). Thus, the command</span>
+0021 <span class="comment">%     evalin('base',strtok(name)) gives the appropriate workspace variable.</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0025 <span class="comment">%                           2010-10-25</span>
+0026 
+0027 list = {};
+0028 
+0029 <span class="comment">% --- aggregate all EEGLAB datasets in the workspace ---</span>
+0030 datasets = {};
+0031 
+0032 vars = evalin(<span class="string">'base'</span>,<span class="string">'whos'</span>);
+0033 <span class="comment">% go through all structs in the workspace</span>
+0034 <span class="keyword">for</span> v=find(strcmp({vars.class},<span class="string">'struct'</span>))
+0035     var = evalin(<span class="string">'base'</span>,vars(v).name);
+0036     <span class="comment">% check if it is an EEGLAB data set (array)</span>
+0037     <span class="keyword">if</span> all(isfield(var,{<span class="string">'data'</span>,<span class="string">'chanlocs'</span>,<span class="string">'srate'</span>,<span class="string">'xmin'</span>})) 
+0038         <span class="comment">% go through all entries</span>
+0039         <span class="keyword">for</span> k=1:length(var)
+0040             <span class="comment">% check if it is non-empty and continuous</span>
+0041             <span class="keyword">if</span> ~isempty(var(k).data) &amp;&amp; ndims(var(k).data) == 2
+0042                 <span class="comment">% list it</span>
+0043                 <span class="keyword">if</span> length(var) == 1
+0044                     varname = vars(v).name;
+0045                 <span class="keyword">else</span>
+0046                     varname = [vars(v).name <span class="string">'('</span> num2str(k) <span class="string">')'</span>];
+0047                 <span class="keyword">end</span>
+0048                 <span class="keyword">if</span> isfield(var(k),<span class="string">'setname'</span>) &amp;&amp; ~isempty(var(k).setname)
+0049                     name = [varname <span class="string">' (&quot;'</span> var(k).setname <span class="string">'&quot;)'</span>];
+0050                 <span class="keyword">else</span>
+0051                     name = varname;
+0052                 <span class="keyword">end</span>
+0053                 datasets{end+1} = name;
+0054             <span class="keyword">end</span>
+0055         <span class="keyword">end</span>
+0056     <span class="keyword">end</span>
+0057 <span class="keyword">end</span>
+0058 
+0059 list = [list {<span class="string">'Loaded via EEGLAB'</span>, datasets}];
+0060 
+0061 
+0062 <span class="comment">% --- aggregate all BCILAB datasets in the workspace ---</span>
+0063 datasets = {};
+0064 
+0065 vars = evalin(<span class="string">'base'</span>,<span class="string">'whos'</span>);
+0066 <span class="comment">% go through all structs in the workspace</span>
+0067 <span class="keyword">for</span> v=find(strcmp({vars.class},<span class="string">'struct'</span>))
+0068     var = evalin(<span class="string">'base'</span>,vars(v).name);
+0069     <span class="keyword">if</span> isfield(var,{<span class="string">'head'</span>,<span class="string">'parts'</span>})
+0070         <span class="comment">% found an expression: check if it contains an io_loadset() subexpression</span>
+0071         occurrences = utl_cases(var,exp_blank(@io_loadset),Inf);
+0072         <span class="keyword">if</span> ~isempty(occurrences)
+0073             <span class="comment">% list it</span>
+0074             <span class="keyword">if</span> length(occurrences) == 1
+0075                 <span class="keyword">if</span> isfield(occurrences{1},<span class="string">'tracking'</span>) &amp;&amp; isfield(occurrences{1}.tracking,<span class="string">'expression'</span>)
+0076                     occurrences{1} = occurrences{1}.tracking.expression; <span class="keyword">end</span>
+0077                 <span class="comment">% there is exactly 1 io_loadset(filepath, ...) in the expression: put the filename in brackets</span>
+0078                 [path,file,ext] = fileparts(occurrences{1}.parts{1}); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0079                 <span class="keyword">if</span> isequal(var.head,@io_loadset)
+0080                     name = [vars(v).name <span class="string">' (&quot;'</span> file ext <span class="string">'&quot;)'</span>]; 
+0081                 <span class="keyword">else</span>
+0082                     name = [vars(v).name <span class="string">' (&quot;'</span> file ext <span class="string">'&quot;; modified)'</span>]; 
+0083                 <span class="keyword">end</span>
+0084             <span class="keyword">else</span>
+0085                 name = vars(v).name;
+0086             <span class="keyword">end</span>
+0087             datasets{end+1} = name;
+0088         <span class="keyword">end</span>
+0089     <span class="keyword">end</span>
+0090 <span class="keyword">end</span>
+0091 
+0092 list = [list {<span class="string">'Loaded via BCILAB'</span>, datasets}];
+0093 
+0094 [flat,indexable] = <a href="gui_print_grouplist.html" class="code" title="function [list,indexable] = gui_print_grouplist(grouplist,namemap)">gui_print_grouplist</a>(list);
+0095 
+0096 <span class="comment">% print it</span>
+0097 <span class="keyword">if</span> nargout == 0
+0098     fprintf(<span class="string">'%s\n'</span>,flat{:}); <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

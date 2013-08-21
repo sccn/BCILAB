@@ -1,0 +1,176 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_interpchs</title>
+  <meta name="keywords" content="flt_interpchs">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../index.html">filters</a> &gt; <a href="index.html">in_development</a> &gt; flt_interpchs.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters/in_development&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>flt_interpchs
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function [signal state] = flt_interpchs(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment">
+ Automatic corregistration of an individual montage to a template, it uses
+ a common set of landmarks to estimate the affine mapping from the
+ individual space to the template.
+ 
+ Input:
+  scalpmaps:           Nsensors x Nscalpmaps to be corregistered
+  xyzSensors:          Nsensors x 3 with the sensor locations in world coordinates
+  landmarkCoordinates: Nlandmarks x 3 coordinates of the points used for matching individual and template spaces
+  landmarkLabels:      Nlandmarks x 1 cell array of strings with the label of each landmar
+
+ Output:
+  scalpmaps:  spatialy resampled scalpmaps (if is needed)
+  xyzSensors: warped individual montage
+
+ See also: headModel, geometricTools, variationalDynLoreta
+ For more details visit https://code.google.com/p/mobilab/
+
+ Author: Alejandro Ojeda, SCCN/INC/UCSD, Mar-2013
+ extract some defaults</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal state] = flt_interpchs(varargin)</a>
+0002 <span class="comment">%</span>
+0003 <span class="comment">% Automatic corregistration of an individual montage to a template, it uses</span>
+0004 <span class="comment">% a common set of landmarks to estimate the affine mapping from the</span>
+0005 <span class="comment">% individual space to the template.</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">% Input:</span>
+0008 <span class="comment">%  scalpmaps:           Nsensors x Nscalpmaps to be corregistered</span>
+0009 <span class="comment">%  xyzSensors:          Nsensors x 3 with the sensor locations in world coordinates</span>
+0010 <span class="comment">%  landmarkCoordinates: Nlandmarks x 3 coordinates of the points used for matching individual and template spaces</span>
+0011 <span class="comment">%  landmarkLabels:      Nlandmarks x 1 cell array of strings with the label of each landmar</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">% Output:</span>
+0014 <span class="comment">%  scalpmaps:  spatialy resampled scalpmaps (if is needed)</span>
+0015 <span class="comment">%  xyzSensors: warped individual montage</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">% See also: headModel, geometricTools, variationalDynLoreta</span>
+0018 <span class="comment">% For more details visit https://code.google.com/p/mobilab/</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% Author: Alejandro Ojeda, SCCN/INC/UCSD, Mar-2013</span>
+0021 <span class="comment">% extract some defaults</span>
+0022 
+0023 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>), <span class="keyword">return</span>; <span class="keyword">end</span>
+0024 
+0025 declare_properties(<span class="string">'name'</span>,<span class="string">'ChannelInterpolation'</span>, <span class="string">'experimental'</span>,true, <span class="string">'follows'</span>,{<span class="string">'flt_selchans'</span>,<span class="string">'flt_clean_settings'</span>},<span class="string">'follows'</span>,{<span class="string">'flt_reref'</span>},<span class="string">'cannot_follow'</span>,{<span class="string">'set_makepos'</span>},<span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,false);
+0026 
+0027 headmodel_default = <span class="string">'resources:/headmodels/standard-Colin27-385ch.mat'</span>;
+0028 <span class="comment">% if ~onl_isonline</span>
+0029 <span class="comment">%     hmObj = arg_extract(varargin,{'hmObj','HeadModelObject'},[],headmodel_default);</span>
+0030 <span class="comment">%     hmObj = hlp_validateHeadModelObject(hmObj);</span>
+0031 <span class="comment">% end</span>
+0032 
+0033 state = [];
+0034 arg_define(varargin, <span class="keyword">...</span>
+0035     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>},[],[],<span class="string">'Signal structure. Must contain .data field with channel data'</span>), <span class="keyword">...</span>
+0036     arg({<span class="string">'hmObj'</span>,<span class="string">'TemplateHeadModel'</span>,<span class="string">'HeadModelObject'</span>},headmodel_default,[],<span class="string">'Head model object generated by MOBILAB. See MOBILAB''s headModel class.'</span>), <span class="keyword">...</span>
+0037     arg({<span class="string">'verb'</span>,<span class="string">'Verbosity'</span>},false,[],<span class="string">'Verbose output'</span>), <span class="keyword">...</span>
+0038     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>},unassigned));
+0039 
+0040 <span class="comment">%     arg({'landmarkCoordinates','LandmarkCoordinates'},[],[],'Landmark coordinates [nchs x 3]. These are at least 3 electrode locations in both the template model and signal.chanlocs, used for coregistration'), ...</span>
+0041 
+0042 hmObj = hlp_validateHeadModelObject(hmObj);
+0043 
+0044 <span class="keyword">if</span> size(hmObj.channelSpace,1) == signal.nbchan
+0045     <span class="keyword">return</span>;
+0046 <span class="keyword">end</span>
+0047 
+0048 <span class="keyword">if</span> ~exist(<span class="string">'state'</span>,<span class="string">'var'</span>) || isempty(state)
+0049    <span class="comment">% construct state</span>
+0050     
+0051     <span class="comment">% get current sensor locations</span>
+0052     xyzSensors = [[signal.chanlocs.X]' [signal.chanlocs.Y]' [signal.chanlocs.Z]'];
+0053     
+0054     [~,loc1,loc2] = intersect(lower(hmObj.getChannelLabels),lower({signal.chanlocs.labels}));
+0055     <span class="keyword">if</span> isempty(loc1), error(<span class="string">'Cannot find a match between the landmarks and the template model channels.'</span>);<span class="keyword">end</span>
+0056     T = hmObj.channelSpace(loc1,:);
+0057     S = xyzSensors(loc2,:);
+0058 
+0059     <span class="comment">% affine coregistration at scalp level</span>
+0060     Aff = geometricTools.affineMapping(S,T);
+0061     xyzSensors = geometricTools.applyAffineMapping(xyzSensors, Aff);
+0062                 
+0063     <span class="keyword">if</span> ~isempty(which(<span class="string">'bspline_trans_points_double'</span>))
+0064         S = xyzSensors;
+0065         T = hmObj.channelSpace;
+0066         [S,d] = geometricTools.nearestNeighbor(S, T);
+0067         z = zscore(d);
+0068         th = norminv(0.90);
+0069         S(abs(z)&gt;th,:) = [];
+0070         T(abs(z)&gt;th,:) = [];
+0071         options.Verbose = verb;
+0072         options.MaxRef = 2;
+0073         [Def,spacing,offset] = geometricTools.bSplineMapping(S,T,S,options);
+0074         xyzSensors = geometricTools.applyBSplineMapping(Def,spacing,offset,xyzSensors);
+0075     <span class="keyword">else</span>
+0076         <span class="keyword">if</span> verb
+0077             disp(<span class="string">'Affine corregistration is not always enough, for a second step bspline corregistration add to the path: ''.../mobilab/dependency/nonrigid_version23'' '</span>);
+0078         <span class="keyword">end</span>
+0079     <span class="keyword">end</span>
+0080 
+0081     <span class="comment">% Gaussian kernel interpolation</span>
+0082     state.interpmat = geometricTools.localGaussianInterpolator(xyzSensors,hmObj.channelSpace,3);
+0083     state.interpmat = full(state.interpmat);
+0084     
+0085     <span class="comment">% reconstruct chanlocs</span>
+0086     targ_nchs = size(hmObj.channelSpace,1);
+0087     chanlocs = repmat(struct(<span class="string">'labels'</span>,[],<span class="string">'type'</span>,[],<span class="string">'X'</span>,[],<span class="string">'Y'</span>,[],<span class="string">'Z'</span>,[],<span class="string">'radius'</span>,[],<span class="string">'theta'</span>,[]),targ_nchs,1);
+0088     labels = hmObj.getChannelLabels;
+0089     <span class="keyword">for</span> it=1:targ_nchs
+0090         chanlocs(it).labels = labels{it};
+0091         chanlocs(it).type = <span class="string">'EEG'</span>;
+0092         
+0093         chanlocs(it).X = hmObj.channelSpace(it,2);
+0094         chanlocs(it).Y = hmObj.channelSpace(it,1);
+0095         chanlocs(it).Z = hmObj.channelSpace(it,3);
+0096         [chanlocs(it).theta,chanlocs(it).radius] = cart2pol(hmObj.channelSpace(it,1), hmObj.channelSpace(it,2), <span class="keyword">...</span>
+0097             hmObj.channelSpace(it,3));
+0098         chanlocs(it).theta = -chanlocs(it).theta*180/pi;
+0099     <span class="keyword">end</span>
+0100     state.chanlocs = chanlocs;
+0101 
+0102 <span class="keyword">end</span>
+0103 
+0104 <span class="comment">% perform interpolation</span>
+0105 signal.data     = state.interpmat*signal.data;
+0106 signal.nbchan   = size(signal.data,1);
+0107 signal.chanlocs = state.chanlocs;
+0108 
+0109 
+0110 exp_endfun;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

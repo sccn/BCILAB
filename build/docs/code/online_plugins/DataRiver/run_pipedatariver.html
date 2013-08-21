@@ -1,0 +1,275 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of run_pipedatariver</title>
+  <meta name="keywords" content="run_pipedatariver">
+  <meta name="description" content="Run BCILAB's real-time engine as a module in the DataRiver real-time system.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="#">online_plugins</a> &gt; <a href="index.html">DataRiver</a> &gt; run_pipedatariver.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/online_plugins/DataRiver&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>run_pipedatariver
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Run BCILAB's real-time engine as a module in the DataRiver real-time system.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function res = run_pipedatariver(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Run BCILAB's real-time engine as a module in the DataRiver real-time system.
+ run_pipedatariver(Model,InputMetadata,InputStream,OutputStream,OutputForm,OutputSamplingRate,MaximumCPULoad)
+
+ BCILAB reads raw data from some input stream and writes predictions to some output stream.
+
+ In:
+    Model : a file or struct that contains a predictive model as previously computed by bci_train
+           (default: 'lastmodel')
+
+   InputMetadata : Meta-data of the input stream. This is a struct or cell array of name-value pairs 
+                   with meta-data fields to use. The mandatory fields are 'srate' and 'chanlocs',
+                   where chanlocs is either a channel locations struct array, or a cell array of
+                   channel names, or the number of channels (in which case a cell array of the form
+                   {'A1','A2', ..., 'A32','B1', ...} is created). Optionally, the field
+                   'datasource' can be set to point to a dataset on disk or in a MATLAB workspace
+                   variable.
+
+    InputStream  : name of the input stream to be used (e.g., from the acquisition system) (default:
+                  'C:/tmp/DataRiver')
+
+   OutputStream : name of the output stream (carrying the control signal); must be a valid file
+                  name (default: 'C:/tmp/BCILAB')
+
+   OutputForm : form of the output stream, can be one of the following:
+                'expectation' : the expected value (= posterior mean) of the outputs; can be multi-
+                                dimensional but is usually 1d (default) this mode is appropriate
+                                for simple applications that expect a smooth control signal, or for
+                                applications that expect a regression output
+                'distribution' : parameters of the output distribution; for discrete distributions,
+                                 this is one probability value for each target (adding up to 1)
+                                 this mode is appropriate for more advanced applications that use
+                                 the full output distribution (e.g., for decision-theoretical
+                                 processing)
+                'mode' : the most likely output value (currently only supported for discrete 
+                         distributions) this mode is appropriate for simple applications that take
+                         a non-probabilistic classifier decision (e.g., as from a Support Vector
+                         Machine)
+ 
+   OutputSamplingRate :  rate, in Hz, at which the output stream shall be sampled (default: 10)
+                          note: if the sampling rate is higher than the rate at which BCILAB can
+                                process data, samples will be replicated (i.e., the same output
+                                comes multiple times)
+
+   MaximumCPULoad : the maximum fraction of CPU time allocated for this predictor (default: 0.6)
+                    note: this should leave some room for other important processes (e.g.,
+                          recording, data transfer, visualization, or other BCILAB predictors), but
+                          setting it too low (to sustain the given sampling rate) will lead to
+                          output samples being replicated
+
+ Example:
+   % run BCILAB as a processing node in a datariver enironment; use the model stored in mypredictor.mat, 
+   % read from C:/tmp/DataRiver, with some given meta-data, and write to C:/tmp/BCILAB (default output stream)
+   run_pipedatariver('Model','mypredictor.mat', 'InputStream','C:/tmp/DataRiver', ...
+       'InputMetadata',{'srate',512,'channels',{'C3','C4','Cz','FP1', ...}});
+
+ Notes:
+   The DataRiver real-time system is in active development, and therefore, only a beta version can
+   be obtained at this point.
+
+ References:
+   [1] Vankov A., Bigdely-Shamlo N.,  Makeig S. &quot;DataRiver ? A software platform for real time management of multiple data streams&quot;
+       Fourth International BCI Meeting, Carmel, CA, June 2010  
+   [2] http://sccn.ucsd.edu/wiki/DataSuite
+ 
+                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                               2010-09-08</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function res = run_pipedatariver(varargin)</a>
+0002 <span class="comment">% Run BCILAB's real-time engine as a module in the DataRiver real-time system.</span>
+0003 <span class="comment">% run_pipedatariver(Model,InputMetadata,InputStream,OutputStream,OutputForm,OutputSamplingRate,MaximumCPULoad)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% BCILAB reads raw data from some input stream and writes predictions to some output stream.</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">% In:</span>
+0008 <span class="comment">%    Model : a file or struct that contains a predictive model as previously computed by bci_train</span>
+0009 <span class="comment">%           (default: 'lastmodel')</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">%   InputMetadata : Meta-data of the input stream. This is a struct or cell array of name-value pairs</span>
+0012 <span class="comment">%                   with meta-data fields to use. The mandatory fields are 'srate' and 'chanlocs',</span>
+0013 <span class="comment">%                   where chanlocs is either a channel locations struct array, or a cell array of</span>
+0014 <span class="comment">%                   channel names, or the number of channels (in which case a cell array of the form</span>
+0015 <span class="comment">%                   {'A1','A2', ..., 'A32','B1', ...} is created). Optionally, the field</span>
+0016 <span class="comment">%                   'datasource' can be set to point to a dataset on disk or in a MATLAB workspace</span>
+0017 <span class="comment">%                   variable.</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">%    InputStream  : name of the input stream to be used (e.g., from the acquisition system) (default:</span>
+0020 <span class="comment">%                  'C:/tmp/DataRiver')</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">%   OutputStream : name of the output stream (carrying the control signal); must be a valid file</span>
+0023 <span class="comment">%                  name (default: 'C:/tmp/BCILAB')</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%   OutputForm : form of the output stream, can be one of the following:</span>
+0026 <span class="comment">%                'expectation' : the expected value (= posterior mean) of the outputs; can be multi-</span>
+0027 <span class="comment">%                                dimensional but is usually 1d (default) this mode is appropriate</span>
+0028 <span class="comment">%                                for simple applications that expect a smooth control signal, or for</span>
+0029 <span class="comment">%                                applications that expect a regression output</span>
+0030 <span class="comment">%                'distribution' : parameters of the output distribution; for discrete distributions,</span>
+0031 <span class="comment">%                                 this is one probability value for each target (adding up to 1)</span>
+0032 <span class="comment">%                                 this mode is appropriate for more advanced applications that use</span>
+0033 <span class="comment">%                                 the full output distribution (e.g., for decision-theoretical</span>
+0034 <span class="comment">%                                 processing)</span>
+0035 <span class="comment">%                'mode' : the most likely output value (currently only supported for discrete</span>
+0036 <span class="comment">%                         distributions) this mode is appropriate for simple applications that take</span>
+0037 <span class="comment">%                         a non-probabilistic classifier decision (e.g., as from a Support Vector</span>
+0038 <span class="comment">%                         Machine)</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">%   OutputSamplingRate :  rate, in Hz, at which the output stream shall be sampled (default: 10)</span>
+0041 <span class="comment">%                          note: if the sampling rate is higher than the rate at which BCILAB can</span>
+0042 <span class="comment">%                                process data, samples will be replicated (i.e., the same output</span>
+0043 <span class="comment">%                                comes multiple times)</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">%   MaximumCPULoad : the maximum fraction of CPU time allocated for this predictor (default: 0.6)</span>
+0046 <span class="comment">%                    note: this should leave some room for other important processes (e.g.,</span>
+0047 <span class="comment">%                          recording, data transfer, visualization, or other BCILAB predictors), but</span>
+0048 <span class="comment">%                          setting it too low (to sustain the given sampling rate) will lead to</span>
+0049 <span class="comment">%                          output samples being replicated</span>
+0050 <span class="comment">%</span>
+0051 <span class="comment">% Example:</span>
+0052 <span class="comment">%   % run BCILAB as a processing node in a datariver enironment; use the model stored in mypredictor.mat,</span>
+0053 <span class="comment">%   % read from C:/tmp/DataRiver, with some given meta-data, and write to C:/tmp/BCILAB (default output stream)</span>
+0054 <span class="comment">%   run_pipedatariver('Model','mypredictor.mat', 'InputStream','C:/tmp/DataRiver', ...</span>
+0055 <span class="comment">%       'InputMetadata',{'srate',512,'channels',{'C3','C4','Cz','FP1', ...}});</span>
+0056 <span class="comment">%</span>
+0057 <span class="comment">% Notes:</span>
+0058 <span class="comment">%   The DataRiver real-time system is in active development, and therefore, only a beta version can</span>
+0059 <span class="comment">%   be obtained at this point.</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">% References:</span>
+0062 <span class="comment">%   [1] Vankov A., Bigdely-Shamlo N.,  Makeig S. &quot;DataRiver ? A software platform for real time management of multiple data streams&quot;</span>
+0063 <span class="comment">%       Fourth International BCI Meeting, Carmel, CA, June 2010</span>
+0064 <span class="comment">%   [2] http://sccn.ucsd.edu/wiki/DataSuite</span>
+0065 <span class="comment">%</span>
+0066 <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0067 <span class="comment">%                               2010-09-08</span>
+0068 
+0069 <span class="comment">% declare the name of this component (shown in the menu)</span>
+0070 declare_properties(<span class="string">'name'</span>,<span class="string">'DataRiver'</span>);
+0071 
+0072 default_prefix = fastif(ispc,<span class="string">'C:/tmp/'</span>,<span class="string">'/tmp/'</span>);
+0073 
+0074 <span class="comment">% read options</span>
+0075 opts = arg_define(varargin, <span class="keyword">...</span>
+0076     arg({<span class="string">'model'</span>,<span class="string">'Model'</span>,<span class="string">'predictor'</span>,<span class="string">'detector'</span>,<span class="string">'classifier'</span>}, <span class="string">'lastmodel'</span>, [], <span class="string">'Predictive model. As obtained via bci_train or the Model Calibration dialog.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0077     arg_sub({<span class="string">'in_metadata'</span>,<span class="string">'InputMetadata'</span>},{},@utl_parse_metadata, <span class="string">'Meta-data of the input stream. These are fields as they appear in EEGLAB data sets; only sampling rate and channel labels are mandatory.'</span>), <span class="keyword">...</span>
+0078     arg({<span class="string">'in_stream'</span>,<span class="string">'InputStream'</span>}, [default_prefix <span class="string">'DataRiver'</span>],[],<span class="string">'Input DataRiver stream. This is the stream that shall be analyzed and processed.'</span>), <span class="keyword">...</span>
+0079     arg({<span class="string">'out_stream'</span>,<span class="string">'OutputStream'</span>}, [default_prefix <span class="string">'BCILAB'</span>],[],<span class="string">'Output DataRiver stream. This is the stream that is produced by BCILAB.'</span>), <span class="keyword">...</span>
+0080     arg({<span class="string">'out_form'</span>,<span class="string">'OutputForm'</span>}, <span class="string">'distribution'</span>,{<span class="string">'expectation'</span>,<span class="string">'distribution'</span>,<span class="string">'mode'</span>},<span class="string">'Format of the produced output values. Can be the expected value (posterior mean) of the target variable, or the distribution over possible target values (probabilities for each outcome, or parametric distribution), or the mode (most likely value) of the target variable.'</span>), <span class="keyword">...</span>
+0081     arg({<span class="string">'out_srate'</span>,<span class="string">'OutputSamplingRate'</span>}, 10,[],<span class="string">'Output sampling rate. This is the rate at which estimate should be computed. If the sampling rate is higher than the CPU can handle, outputs will be repeated.'</span>), <span class="keyword">...</span>
+0082     arg({<span class="string">'max_cpu'</span>,<span class="string">'MaximumCPULoad'</span>}, 0.6,[],<span class="string">'Maximum CPU load. BCILAB will attempt to not exceed this value, which leaves room for other processes (e.g., recording, data transfer or other preditors).'</span>));
+0083 
+0084 <span class="comment">% parse the meta-data spec</span>
+0085 meta = utl_parse_metadata(opts.in_metadata);
+0086    
+0087 <span class="comment">% load DataSuite, if necessary</span>
+0088 <span class="keyword">global</span> ds_lib;
+0089 <span class="keyword">if</span> isempty(ds_lib)
+0090     disp(<span class="string">'Loading DataSuite...'</span>);
+0091     startup_ds; 
+0092 <span class="keyword">end</span>
+0093 
+0094 <span class="comment">% set up a BCILAB online stream</span>
+0095 onl_newstream(<span class="string">'stream_datariver'</span>,meta);
+0096 
+0097 <span class="comment">% load the predictor</span>
+0098 onl_newpredictor(<span class="string">'predictor_datariver'</span>,opts.model,<span class="string">'stream_datariver'</span>);
+0099 
+0100 <span class="comment">% open a DataSuite input stream</span>
+0101 in_stream = ds_OpenRead(opts.in_stream);
+0102 in_cleanup = onCleanup(@()ds_CloseRead(in_stream));
+0103 
+0104 <span class="comment">% open a DataSuite output stream</span>
+0105 out_stream = ds_OpenWrite(opts.out_stream,opts.out_srate);
+0106 out_cleanup = onCleanup(@()ds_CloseWrite(out_stream));
+0107 
+0108 <span class="comment">% our temporary sample data structure</span>
+0109 tmpsample = ds_array;
+0110 tmpsample.nItems = 1;
+0111 tmpsample.Data = 0;
+0112 
+0113 <span class="comment">% run</span>
+0114 in_samples = 0;  <span class="comment">% number of samples received so far</span>
+0115 out_samples = 0; <span class="comment">% number of samples produced so far</span>
+0116 <span class="keyword">while</span> 1
+0117     t0 = tic;
+0118     <span class="comment">% while we have samples to read until the next output sample can be produced...</span>
+0119     <span class="keyword">while</span> round(in_samples*(opts.out_srate/opts.in_stream.srate)) &lt;= out_samples
+0120         <span class="comment">% read in at least one more sample</span>
+0121         received = false;
+0122         <span class="keyword">while</span> ~received
+0123             <span class="comment">% try to get a new sample</span>
+0124             [received,sample] = ds_Read(in_stream);
+0125             <span class="keyword">if</span> ~received
+0126                 pause(1/opts.in_metadata.srate); <span class="keyword">end</span>
+0127         <span class="keyword">end</span>        
+0128         <span class="comment">% feed sample to BCI</span>
+0129         onl_append(double(sample.Data(2:sample.nItems)'));
+0130         in_samples = in_samples+1;
+0131     <span class="keyword">end</span>
+0132     
+0133     <span class="comment">% make a prediction to produce an output sample</span>
+0134     t1 = tic;
+0135     prediction = onl_predict(<span class="string">'predictor_datariver'</span>,opts.out_form);
+0136     <span class="keyword">if</span> ~(isnumeric(prediction) &amp;&amp; isnan(prediction))
+0137         <span class="comment">% valid data: set up the sample</span>
+0138         tmpsample.nItems = length(prediction);
+0139         tmpsample.Data = prediction;
+0140     <span class="keyword">else</span>
+0141         <span class="comment">% keep the dimensionality of the last output (or dummy output), but set data to NaN's</span>
+0142         tmpsample.Data = tmpsample.Data.*NaN;
+0143     <span class="keyword">end</span>
+0144     <span class="comment">% write out the data</span>
+0145     ds_Write(out_stream,tmpsample);
+0146     out_samples = out_samples+1;
+0147     
+0148     <span class="comment">% make sure that we are not exceeding our CPU budget</span>
+0149     computation_time = toc(t1);
+0150     <span class="keyword">if</span> opts.max_cpu &lt; 1
+0151         pause(computation_time * (1 - opts.max_cpu) / opts.max_cpu); <span class="keyword">end</span>
+0152     
+0153     <span class="comment">% check how much processing time is left for this output sample</span>
+0154     time_spent = toc(t0);
+0155     time_left = 1/opts.out_srate - time_spent;
+0156     <span class="keyword">if</span> time_left &lt; 0
+0157         <span class="comment">% we exceeded our time budget: replicate samples</span>
+0158         <span class="keyword">for</span> k=1:ceil(-time_left*opts.out_srate)
+0159             ds_Write(out_stream,tmpsample);
+0160             out_samples = out_samples+1;
+0161         <span class="keyword">end</span>
+0162     <span class="keyword">end</span>
+0163 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

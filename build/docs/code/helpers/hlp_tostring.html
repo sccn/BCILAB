@@ -1,0 +1,336 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of hlp_tostring</title>
+  <meta name="keywords" content="hlp_tostring">
+  <meta name="description" content="Get an human-readable string representation of a data structure.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">helpers</a> &gt; hlp_tostring.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>hlp_tostring
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Get an human-readable string representation of a data structure.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function str = hlp_tostring(v,stringcutoff,prec) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Get an human-readable string representation of a data structure.
+ String = hlp_tostring(Data,StringCutoff)
+
+ The resulting string representations are usually executable, but there are corner cases (e.g.,
+ certain anonymous function handles and large data sets), which are not supported. For
+ general-purpose serialization, see hlp_serialize/hlp_deserialize.
+
+ In:
+   Data : a data structure
+
+   StringCutoff : optional maximum string length for atomic fields (default: 0=off)
+
+   Precision : maximum significant digits (default: 15)
+
+ Out:
+   String : string form of the data structure
+
+ Notes:
+   hlp_tostring has builtin support for displaying expression data structures.
+
+ Examples:
+   % get a string representation of a data structure
+   hlp_tostring({'test',[1 2 3], struct('field','value')})
+
+ See also:
+   <a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-04-15
+
+                                adapted from serialize.m
+                                (C) 2006 Joger Hansegord (jogerh@ifi.uio.no)</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="hlp_trycompile.html" class="code" title="function ok = hlp_trycompile(varargin)">hlp_trycompile</a>	Try to auto-compile a set of binary files in a folder, and return the status.</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function val = serializevalue(v)</a></li><li><a href="#_sub2" class="code">function val = serializestring(v)</a></li><li><a href="#_sub3" class="code">function val = serializematrix(v)</a></li><li><a href="#_sub4" class="code">function val = serializecell(v)</a></li><li><a href="#_sub5" class="code">function val = serializeexpression(v)</a></li><li><a href="#_sub6" class="code">function val = serializedataset(v)</a></li><li><a href="#_sub7" class="code">function val = serializestruct(v)</a></li><li><a href="#_sub8" class="code">function val = serializeobject(v)</a></li><li><a href="#_sub9" class="code">function val = serializefunction(v)</a></li><li><a href="#_sub10" class="code">function v = trim_value(v,appendix)</a></li><li><a href="#_sub11" class="code">function result___ = get_function_symbol(expression___)</a></li><li><a href="#_sub12" class="code">function res = is_symbolic_lambda(x)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function str = hlp_tostring(v,stringcutoff,prec)</a>
+0002 <span class="comment">% Get an human-readable string representation of a data structure.</span>
+0003 <span class="comment">% String = hlp_tostring(Data,StringCutoff)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% The resulting string representations are usually executable, but there are corner cases (e.g.,</span>
+0006 <span class="comment">% certain anonymous function handles and large data sets), which are not supported. For</span>
+0007 <span class="comment">% general-purpose serialization, see hlp_serialize/hlp_deserialize.</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% In:</span>
+0010 <span class="comment">%   Data : a data structure</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%   StringCutoff : optional maximum string length for atomic fields (default: 0=off)</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%   Precision : maximum significant digits (default: 15)</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">% Out:</span>
+0017 <span class="comment">%   String : string form of the data structure</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">% Notes:</span>
+0020 <span class="comment">%   hlp_tostring has builtin support for displaying expression data structures.</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">% Examples:</span>
+0023 <span class="comment">%   % get a string representation of a data structure</span>
+0024 <span class="comment">%   hlp_tostring({'test',[1 2 3], struct('field','value')})</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">% See also:</span>
+0027 <span class="comment">%   hlp_serialize</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0030 <span class="comment">%                                2010-04-15</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%                                adapted from serialize.m</span>
+0033 <span class="comment">%                                (C) 2006 Joger Hansegord (jogerh@ifi.uio.no)</span>
+0034 
+0035 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0038 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0039 <span class="comment">% License, or (at your option) any later version.</span>
+0040 <span class="comment">%</span>
+0041 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0042 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0043 <span class="comment">% General Public License for more details.</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0046 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0047 <span class="comment">% USA</span>
+0048 
+0049 <span class="keyword">if</span> nargin &lt; 2
+0050     stringcutoff = 0; <span class="keyword">end</span>
+0051 <span class="keyword">if</span> nargin &lt; 3
+0052     prec = 15; <span class="keyword">end</span>
+0053 
+0054 str = <a href="#_sub1" class="code" title="subfunction val = serializevalue(v)">serializevalue</a>(v);
+0055 
+0056 
+0057     <a name="_sub1" href="#_subfunctions" class="code">function val = serializevalue(v)</a>
+0058         <span class="comment">% Main hub for serializing values</span>
+0059         <span class="keyword">if</span> isnumeric(v) || islogical(v)
+0060             val = <a href="#_sub3" class="code" title="subfunction val = serializematrix(v)">serializematrix</a>(v);
+0061         <span class="keyword">elseif</span> ischar(v)
+0062             val = <a href="#_sub2" class="code" title="subfunction val = serializestring(v)">serializestring</a>(v);
+0063         <span class="keyword">elseif</span> isa(v,<span class="string">'function_handle'</span>)
+0064             val = <a href="#_sub9" class="code" title="subfunction val = serializefunction(v)">serializefunction</a>(v);
+0065         <span class="keyword">elseif</span> is_impure_expression(v)
+0066             val = <a href="#_sub1" class="code" title="subfunction val = serializevalue(v)">serializevalue</a>(v.tracking.expression);
+0067         <span class="keyword">elseif</span> has_canonical_representation(v)
+0068             val = <a href="#_sub5" class="code" title="subfunction val = serializeexpression(v)">serializeexpression</a>(v);
+0069         <span class="keyword">elseif</span> is_dataset(v)
+0070             val = <a href="#_sub6" class="code" title="subfunction val = serializedataset(v) ">serializedataset</a>(v);
+0071         <span class="keyword">elseif</span> isstruct(v)
+0072             val = <a href="#_sub7" class="code" title="subfunction val = serializestruct(v)">serializestruct</a>(v);
+0073         <span class="keyword">elseif</span> iscell(v)
+0074             val = <a href="#_sub4" class="code" title="subfunction val = serializecell(v)">serializecell</a>(v);
+0075         <span class="keyword">elseif</span> isobject(v)
+0076             val = <a href="#_sub8" class="code" title="subfunction val = serializeobject(v)">serializeobject</a>(v);
+0077         <span class="keyword">else</span>
+0078             <span class="keyword">try</span>
+0079                 val = <a href="#_sub8" class="code" title="subfunction val = serializeobject(v)">serializeobject</a>(v);
+0080             <span class="keyword">catch</span>
+0081                 error(<span class="string">'Unhandled type %s'</span>, class(v));
+0082             <span class="keyword">end</span>
+0083         <span class="keyword">end</span>
+0084     <span class="keyword">end</span>
+0085 
+0086     <a name="_sub2" href="#_subfunctions" class="code">function val = serializestring(v)</a>
+0087         <span class="comment">% Serialize a string</span>
+0088         <span class="keyword">if</span> any(v == <span class="string">''''</span>)
+0089             val = [<span class="string">''''</span> strrep(v,<span class="string">''''</span>,<span class="string">''''''</span>) <span class="string">''''</span>];
+0090             <span class="keyword">try</span>
+0091                 <span class="keyword">if</span> ~isequal(eval(val),v)
+0092                     val = [<span class="string">'char('</span> <a href="#_sub1" class="code" title="subfunction val = serializevalue(v)">serializevalue</a>(uint8(v)) <span class="string">')'</span>]; <span class="keyword">end</span>
+0093             <span class="keyword">catch</span>
+0094                 val = [<span class="string">'char('</span> <a href="#_sub1" class="code" title="subfunction val = serializevalue(v)">serializevalue</a>(uint8(v)) <span class="string">')'</span>];
+0095             <span class="keyword">end</span>
+0096         <span class="keyword">else</span>
+0097             val = [<span class="string">''''</span> v <span class="string">''''</span>];
+0098         <span class="keyword">end</span>
+0099         val = <a href="#_sub10" class="code" title="subfunction v = trim_value(v,appendix)">trim_value</a>(val,<span class="string">''''</span>);
+0100     <span class="keyword">end</span>
+0101 
+0102     <a name="_sub3" href="#_subfunctions" class="code">function val = serializematrix(v)</a>
+0103         <span class="comment">% Serialize a matrix and apply correct class and reshape if required</span>
+0104         <span class="keyword">if</span> ndims(v) &lt; 3 <span class="comment">%#ok&lt;ISMAT&gt;</span>
+0105             <span class="keyword">if</span> isa(v, <span class="string">'double'</span>)
+0106                 <span class="keyword">if</span> size(v,1) == 1 &amp;&amp; length(v) &gt; 3 &amp;&amp; isequal(v,v(1):v(2)-v(1):v(end))
+0107                     <span class="comment">% special case: colon sequence</span>
+0108                     <span class="keyword">if</span> v(2)-v(1) == 1
+0109                         val = [<span class="string">'['</span> num2str(v(1)) <span class="string">':'</span> num2str(v(end)) <span class="string">']'</span>];
+0110                     <span class="keyword">else</span>
+0111                         val = [<span class="string">'['</span> num2str(v(1)) <span class="string">':'</span> num2str(v(2)-v(1)) <span class="string">':'</span> num2str(v(end)) <span class="string">']'</span>];
+0112                     <span class="keyword">end</span>
+0113                 <span class="keyword">elseif</span> size(v,2) == 1 &amp;&amp; length(v) &gt; 3 &amp;&amp; isequal(v',v(1):v(2)-v(1):v(end))
+0114                     <span class="comment">% special case: colon sequence</span>
+0115                     <span class="keyword">if</span> v(2)-v(1) == 1
+0116                         val = [<span class="string">'['</span> num2str(v(1)) <span class="string">':'</span> num2str(v(end)) <span class="string">']'''</span>];
+0117                     <span class="keyword">else</span>
+0118                         val = [<span class="string">'['</span> num2str(v(1)) <span class="string">':'</span> num2str(v(2)-v(1)) <span class="string">':'</span> num2str(v(end)) <span class="string">']'''</span>];
+0119                     <span class="keyword">end</span>
+0120                 <span class="keyword">else</span>
+0121                     val = mat2str(v,prec);
+0122                 <span class="keyword">end</span>
+0123             <span class="keyword">else</span>
+0124                 val = mat2str(v,prec,<span class="string">'class'</span>);
+0125             <span class="keyword">end</span>
+0126             val = <a href="#_sub10" class="code" title="subfunction v = trim_value(v,appendix)">trim_value</a>(val,<span class="string">']'</span>);
+0127         <span class="keyword">else</span>
+0128             <span class="keyword">if</span> isa(v, <span class="string">'double'</span>)
+0129                 val = mat2str(v(:),prec);
+0130             <span class="keyword">else</span>
+0131                 val = mat2str(v(:),prec,<span class="string">'class'</span>);
+0132             <span class="keyword">end</span>
+0133             val = <a href="#_sub10" class="code" title="subfunction v = trim_value(v,appendix)">trim_value</a>(val,<span class="string">']'</span>);
+0134             val = sprintf(<span class="string">'reshape(%s, %s)'</span>, val, mat2str(size(v)));
+0135         <span class="keyword">end</span>
+0136     <span class="keyword">end</span>
+0137 
+0138     <a name="_sub4" href="#_subfunctions" class="code">function val = serializecell(v)</a>
+0139         <span class="comment">% Serialize a cell</span>
+0140         <span class="keyword">if</span> isempty(v)
+0141             val = <span class="string">'{}'</span>;
+0142             <span class="keyword">return</span>
+0143         <span class="keyword">end</span>
+0144         cellSep = <span class="string">', '</span>;
+0145         <span class="keyword">if</span> isvector(v) &amp;&amp; size(v,1) &gt; 1
+0146             cellSep = <span class="string">'; '</span>;
+0147         <span class="keyword">end</span>
+0148         
+0149         <span class="comment">% Serialize each value in the cell array, and pad the string with a cell</span>
+0150         <span class="comment">% separator.</span>
+0151         vstr = cellfun(@(val) [<a href="#_sub1" class="code" title="subfunction val = serializevalue(v)">serializevalue</a>(val) cellSep], v, <span class="string">'UniformOutput'</span>, false);
+0152         vstr{end} = vstr{end}(1:end-2);
+0153         
+0154         <span class="comment">% Concatenate the elements and add a reshape if requied</span>
+0155         val = [ <span class="string">'{'</span> vstr{:} <span class="string">'}'</span>];
+0156         <span class="keyword">if</span> ~isvector(v)
+0157             val = [<span class="string">'reshape('</span>  val sprintf(<span class="string">', %s)'</span>, mat2str(size(v)))];
+0158         <span class="keyword">end</span>
+0159     <span class="keyword">end</span>
+0160 
+0161     <a name="_sub5" href="#_subfunctions" class="code">function val = serializeexpression(v)</a>
+0162         <span class="comment">% Serialize an expression</span>
+0163         <span class="keyword">if</span> numel(v) &gt; 1
+0164             val = [<span class="string">'['</span>];
+0165             <span class="keyword">for</span> k = 1:numel(v)
+0166                 val = [val <a href="#_sub1" class="code" title="subfunction val = serializevalue(v)">serializevalue</a>(v(k)), <span class="string">', '</span>]; <span class="keyword">end</span>
+0167             val = [val(1:end-2) <span class="string">']'</span>];
+0168         <span class="keyword">else</span>
+0169             <span class="keyword">if</span> numel(v.parts) &gt; 0
+0170                 val = [char(v.head) <span class="string">'('</span>];
+0171                 <span class="keyword">for</span> fieldNo = 1:numel(v.parts)
+0172                     val = [val <a href="#_sub1" class="code" title="subfunction val = serializevalue(v)">serializevalue</a>(v.parts{fieldNo}), <span class="string">', '</span>]; <span class="keyword">end</span>
+0173                 val = [val(1:end-2) <span class="string">')'</span>];
+0174             <span class="keyword">else</span>
+0175                 val = char(v.head);
+0176             <span class="keyword">end</span>
+0177         <span class="keyword">end</span>
+0178     <span class="keyword">end</span>
+0179 
+0180     <a name="_sub6" href="#_subfunctions" class="code">function val = serializedataset(v) </a><span class="comment">%#ok&lt;INUSD&gt;</span>
+0181         <span class="comment">% Serialize a data set</span>
+0182         val = <span class="string">'&lt;EEGLAB data set&gt;'</span>;
+0183     <span class="keyword">end</span>
+0184 
+0185     <a name="_sub7" href="#_subfunctions" class="code">function val = serializestruct(v)</a>
+0186         <span class="comment">% Serialize a struct by converting the field values using struct2cell</span>
+0187         fieldNames   = fieldnames(v);
+0188         fieldValues  = struct2cell(v);
+0189         <span class="keyword">if</span> ndims(fieldValues) &gt; 6
+0190             error(<span class="string">'Structures with more than six dimensions are not supported'</span>);
+0191         <span class="keyword">end</span>
+0192         val = <span class="string">'struct('</span>;
+0193         <span class="keyword">for</span> fieldNo = 1:numel(fieldNames)
+0194             val = [val <a href="#_sub1" class="code" title="subfunction val = serializevalue(v)">serializevalue</a>( fieldNames{fieldNo}) <span class="string">', '</span>];
+0195             val = [val <a href="#_sub1" class="code" title="subfunction val = serializevalue(v)">serializevalue</a>( permute(fieldValues(fieldNo, :,:,:,:,:,:), [2:ndims(fieldValues) 1]) ) ];
+0196             val = [val <span class="string">', '</span>];
+0197         <span class="keyword">end</span>
+0198         <span class="keyword">if</span> numel(fieldNames)==0
+0199             val = [val <span class="string">')'</span>];
+0200         <span class="keyword">else</span>
+0201             val = [val(1:end-2) <span class="string">')'</span>];
+0202         <span class="keyword">end</span>
+0203         <span class="keyword">if</span> ~isvector(v)
+0204             val = sprintf(<span class="string">'reshape(%s, %s)'</span>, val, mat2str(size(v)));
+0205         <span class="keyword">end</span>
+0206     <span class="keyword">end</span>
+0207 
+0208     <a name="_sub8" href="#_subfunctions" class="code">function val = serializeobject(v)</a>
+0209         <span class="comment">% Serialize an object by converting to struct and add a call to the copy constructor</span>
+0210         val = sprintf(<span class="string">'%s(%s)'</span>, class(v), <a href="#_sub1" class="code" title="subfunction val = serializevalue(v)">serializevalue</a>(struct(v)));
+0211     <span class="keyword">end</span>
+0212 
+0213 
+0214     <a name="_sub9" href="#_subfunctions" class="code">function val = serializefunction(v)</a>
+0215         <span class="comment">% Serialize a function handle</span>
+0216         <span class="keyword">try</span>
+0217             val = [<span class="string">'@'</span> char(<a href="#_sub11" class="code" title="subfunction result___ = get_function_symbol(expression___)">get_function_symbol</a>(v))];
+0218         <span class="keyword">catch</span>
+0219             val = char(v);
+0220         <span class="keyword">end</span>
+0221     <span class="keyword">end</span>
+0222 
+0223     <a name="_sub10" href="#_subfunctions" class="code">function v = trim_value(v,appendix)</a>
+0224         <span class="keyword">if</span> nargin &lt; 2
+0225             appendix = <span class="string">''</span>; <span class="keyword">end</span>
+0226         <span class="comment">% Trim a serialized value to a certain length</span>
+0227         <span class="keyword">if</span> stringcutoff &amp;&amp; length(v) &gt; stringcutoff
+0228             v = [v(1:stringcutoff) <span class="string">'...'</span> appendix]; <span class="keyword">end</span>
+0229     <span class="keyword">end</span>
+0230 
+0231 <span class="keyword">end</span>
+0232 
+0233 <a name="_sub11" href="#_subfunctions" class="code">function result___ = get_function_symbol(expression___)</a>
+0234 <span class="comment">% internal: some function_handle expressions have a function symbol (an @name expression), and this function obtains it</span>
+0235 <span class="comment">% note: we are using funny names here to bypass potential name conflicts within the eval() clause further below</span>
+0236 <span class="keyword">if</span> ~isa(expression___,<span class="string">'function_handle'</span>)
+0237     error(<span class="string">'the expression has no associated function symbol.'</span>); <span class="keyword">end</span>
+0238 
+0239 string___ = char(expression___);
+0240 <span class="keyword">if</span> string___(1) == <span class="string">'@'</span>
+0241     <span class="comment">% we are dealing with a lambda function</span>
+0242     <span class="keyword">if</span> <a href="#_sub12" class="code" title="subfunction res = is_symbolic_lambda(x)">is_symbolic_lambda</a>(expression___)
+0243         result___ = eval(string___(27:end-21));
+0244     <span class="keyword">else</span>
+0245         error(<span class="string">'cannot derive a function symbol from a non-symbolic lambda function.'</span>);
+0246     <span class="keyword">end</span>
+0247 <span class="keyword">else</span>
+0248     <span class="comment">% we are dealing with a regular function handle</span>
+0249     result___ = expression___;
+0250 <span class="keyword">end</span>
+0251 <span class="keyword">end</span>
+0252 
+0253 <a name="_sub12" href="#_subfunctions" class="code">function res = is_symbolic_lambda(x)</a>
+0254 <span class="comment">% internal: a symbolic lambda function is one which generates expressions when invoked with arguments (this is what exp_symbol generates)</span>
+0255 res = isa(x,<span class="string">'function_handle'</span>) &amp;&amp; ~isempty(regexp(char(x),<span class="string">'@\(varargin\)struct\(''head'',\{.*\},''parts'',\{varargin\}\)'</span>,<span class="string">'once'</span>));
+0256 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

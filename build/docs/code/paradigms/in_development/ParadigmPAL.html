@@ -1,0 +1,593 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmPAL</title>
+  <meta name="keywords" content="ParadigmPAL">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../index.html">paradigms</a> &gt; <a href="index.html">in_development</a> &gt; ParadigmPAL.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms/in_development&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmPAL
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+<li><a href="ParadigmPAL.html" class="code" title="">ParadigmPAL</a>	</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+<li><a href="ParadigmPAL.html" class="code" title="">ParadigmPAL</a>	</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li><li><a href="#_sub2" class="code">function model = calibrate_simple(self,varargin)</a></li><li><a href="#_sub3" class="code">function outputs = predict_simple(self,signal,model)</a></li><li><a href="#_sub4" class="code">function visualize(self,model)</a></li><li><a href="#_sub5" class="code">function model = calibrate(self,varargin)</a></li><li><a href="#_sub6" class="code">function outputs = predict(self,bundle,model)</a></li><li><a href="#_sub7" class="code">function obj = full_objective(ccp, mu, Wx, Wz)</a></li><li><a href="#_sub8" class="code">function [val,grad] = x_objective(x, C, z, u, rho)</a></li><li><a href="#_sub9" class="code">function [vals,grads] = x_objective_batch(Wx,Wz,Wu,ccp,rho)</a></li><li><a href="#_sub10" class="code">function Wz = shrinkage(Wa, kappa)</a></li><li><a href="#_sub11" class="code">function z = shrinkage_l1(a, kappa)</a></li><li><a href="#_sub12" class="code">function [W,fuuu,U,V] = prox_tr(W,rescale,mu,kappa,rho,K,args)</a></li><li><a href="#_sub13" class="code">function W = prox_gl(W,rescale,mu,kappa,rho,T,m)</a></li><li><a href="#_sub14" class="code">function [x,fuuu,U,V] = prox_sum(r,rescale,mu,kappa,rho,K,T,m,args)</a></li><li><a href="#_sub15" class="code">function X = minimize_batch(X, f, len, Wz,Wu,ccp,rho)</a></li><li><a href="#_sub16" class="code">function layout = dialog_layout_defaults(self)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmPAL.html" class="code" title="">ParadigmPAL</a> &lt; ParadigmBaseSimplified
+0002     <span class="comment">% Experimental implementation of the Pattern Alignment Learning (PAL) method.</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% This paradigm is not yet completed, please move on! :-)</span>
+0005     <span class="comment">%</span>
+0006     <span class="comment">% Name:</span>
+0007     <span class="comment">%   Wave Alignment, work in progress</span>
+0008     <span class="comment">%</span>
+0009     <span class="comment">%                            Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0010     <span class="comment">%                            2011-08-28</span>
+0011     
+0012     methods
+0013         
+0014         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0015             <span class="comment">% define the default pre-processing parameters of this paradigm</span>
+0016             defaults = {<span class="string">'SpectralSelection'</span>,[0.1 35],<span class="string">'EpochExtraction'</span>,[-0.5 1.5], <span class="string">'Resampling'</span>,100};
+0017         <span class="keyword">end</span>
+0018         
+0019         <a name="_sub1" href="#_subfunctions" class="code">function model = calibrate_simple(self,varargin)</a>
+0020             <span class="comment">% Override this function to implement your calibration code</span>
+0021             <span class="comment">% Model = calibrate_simple(Signal,Arguments...)</span>
+0022             <span class="comment">%</span>
+0023             <span class="comment">% In:</span>
+0024             <span class="comment">%   Signal : a single continuous EEGLAB data set (annotated with target markers; see</span>
+0025             <span class="comment">%            set_targetmarkers for more info)</span>
+0026             <span class="comment">%</span>
+0027             <span class="comment">%   Arguments : further optional user arguments</span>
+0028             <span class="comment">%</span>
+0029             <span class="comment">% Out:</span>
+0030             <span class="comment">%   Model : a model struct with a mandatory field .filter_graph and arbitrary other content</span>
+0031             <span class="comment">%           * The .filter_graph filed is a 1x1 cell array that contains the desciption of</span>
+0032             <span class="comment">%             filter steps that is to be applied to the data, and is usually passed as either</span>
+0033             <span class="comment">%             the .tracking.online_expression field of the processed Signal or the processed</span>
+0034             <span class="comment">%             Signal itself. If no signal processing is performed by this paradigm, the raw</span>
+0035             <span class="comment">%             signal may be passed.</span>
+0036             <span class="comment">%</span>
+0037             <span class="comment">%           * May have optional fields .prediction_function, .prediction_window and</span>
+0038             <span class="comment">%             .prediction_channels - though these are generally auto-deduced</span>
+0039             <span class="comment">%</span>
+0040             <span class="comment">% Notes:</span>
+0041             
+0042             args = arg_define(varargin, <span class="keyword">...</span>
+0043                 arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
+0044                 arg_sub({<span class="string">'flt'</span>,<span class="string">'SignalProcessing'</span>}, self.preprocessing_defaults(), @flt_pipeline, <span class="string">'Signal processing stages. These parameters control filter stages that run on the signal level; they can be enabled, disabled and configured for the given paradigm. The prediction operates on the outputs of this stage.'</span>), <span class="keyword">...</span>
+0045                 arg({<span class="string">'lambdas'</span>,<span class="string">'Lambdas'</span>},[2.^(8:-0.125:-5)],[],<span class="string">'Regularization parameter. Larger means stronger regularization, 1.0 is the Bayesian ad hoc choice.'</span>), <span class="keyword">...</span>
+0046                 arg({<span class="string">'duration'</span>,<span class="string">'WaveDuration'</span>},0.8,[],<span class="string">'Duration of Waveform. This is the length of the waveform that will be searched in the epoch.'</span>), <span class="keyword">...</span>
+0047                 arg({<span class="string">'stepping'</span>,<span class="string">'Stepping'</span>},3,[],<span class="string">'Relative jitter stepping. This is the precision (in samples) at which relative jitters will be considered.'</span>), <span class="keyword">...</span>
+0048                 arg({<span class="string">'admm_iters'</span>,<span class="string">'ADMMIterations'</span>},30,[],<span class="string">'Max Iterations. Number of iterations for the overall ADMM solver.'</span>), <span class="keyword">...</span>
+0049                 arg({<span class="string">'inner_iters'</span>,<span class="string">'InnerIterations'</span>},10,[],<span class="string">'Max Inner Iterations. Number of iterations for the inner ADMM solver that solves the sparsity vs trace norm.'</span>), <span class="keyword">...</span>
+0050                 arg({<span class="string">'cg_iters'</span>,<span class="string">'CgIterations'</span>},30,[],<span class="string">'Max CG Iterations. Number of iterations for the inner conjugate-gradient solver.'</span>), <span class="keyword">...</span>
+0051                 arg({<span class="string">'lanczos_iters'</span>,<span class="string">'LanczosIterations'</span>},10,[],<span class="string">'Max Lanczos Iterations. Number of iterations for the inner Lanczos solver.'</span>), <span class="keyword">...</span>
+0052                 arg({<span class="string">'abs_tol'</span>,<span class="string">'AbsoluteTolerance'</span>},1e-6,[],<span class="string">'Absolute tolerance.'</span>), <span class="keyword">...</span>
+0053                 arg({<span class="string">'rel_tol'</span>,<span class="string">'RelativeTolerance'</span>},1e-3,[],<span class="string">'Relative tolerance.'</span>), <span class="keyword">...</span>
+0054                 arg({<span class="string">'alpha'</span>,<span class="string">'OverRelaxation'</span>},1,[1 1.8],<span class="string">'Over-relaxation parameter. Some references suggest that values between 1.5 and 1.8 can improve convergence.'</span>), <span class="keyword">...</span>
+0055                 arg({<span class="string">'rho'</span>,<span class="string">'AugmentedLagrangian'</span>},1.0,[],<span class="string">'Augmented Lagrangian parameter.'</span>), <span class="keyword">...</span>
+0056                 arg({<span class="string">'rho_update'</span>,<span class="string">'RhoUpdate'</span>},true,[],<span class="string">'Update Rho. Whether to update rho dynamically according to 3.4.1 in [1]'</span>), <span class="keyword">...</span>
+0057                 arg({<span class="string">'rho_cutoff'</span>,<span class="string">'RhoUpdateThreshold'</span>},10.0,[],<span class="string">'Rho update threshold.'</span>), <span class="keyword">...</span>
+0058                 arg({<span class="string">'rho_incr'</span>,<span class="string">'RhoUpdateIncr'</span>},2.0,[],<span class="string">'Rho update increment factor.'</span>), <span class="keyword">...</span>
+0059                 arg({<span class="string">'rho_decr'</span>,<span class="string">'RhoUpdateDecr'</span>},2.0,[],<span class="string">'Rho update decrement factor.'</span>), <span class="keyword">...</span><span class="comment">                </span>
+0060                 arg({<span class="string">'kappa'</span>,<span class="string">'SparsityTraceTradeoff'</span>},0.75,[],<span class="string">'Sparsity (=1) vs. Trace norm (=0) tradeoff. Between 0 and 1, similar to the elastic net criterion.'</span>), <span class="keyword">...</span>
+0061                 arg({<span class="string">'patterns'</span>,<span class="string">'NumPatterns'</span>},20,[],<span class="string">'Number of weight patterns. This is the maximum number of (possibly distinct) weight patterns to recover.'</span>), <span class="keyword">...</span>
+0062                 arg({<span class="string">'verbose'</span>,<span class="string">'Verbose'</span>},<span class="string">'really'</span>,[],<span class="string">'Verbose output.'</span>), <span class="keyword">...</span>
+0063                 arg({<span class="string">'scaling'</span>,<span class="string">'Scaling'</span>}, <span class="string">'std'</span>, {<span class="string">'none'</span>,<span class="string">'center'</span>,<span class="string">'std'</span>,<span class="string">'minmax'</span>,<span class="string">'whiten'</span>}, <span class="string">'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.'</span>), <span class="keyword">...</span>
+0064                 arg({<span class="string">'fast'</span>,<span class="string">'Fast'</span>},true,[],<span class="string">'Fast mode.'</span>), <span class="keyword">...</span>
+0065                 arg({<span class="string">'arg_dialogsel'</span>,<span class="string">'ConfigLayout'</span>},self.dialog_layout_defaults(),[],<span class="string">'Parameters displayed in the config dialog. Cell array of parameter names to display (dot-notation allowed); blanks are translated into empty rows in the dialog. Referring to a structure argument lists all parameters of that struture, except if it is a switchable structure - in this case, a pulldown menu with switch options is displayed.'</span>,<span class="string">'type'</span>,<span class="string">'cellstr'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>));
+0066             
+0067             <span class="comment">% first pre-process the data (symbolically)</span>
+0068             signal = flt_pipeline(<span class="string">'signal'</span>,args.signal, args.flt); <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0069             
+0070             <span class="comment">% evaluate this in an optimized fashion</span>
+0071             signal = exp_eval_optimized(signal);
+0072             
+0073             <span class="comment">% get trial labels</span>
+0074             labels = set_gettarget(signal);
+0075             
+0076             <span class="comment">% build meta-data</span>
+0077             model.args = rmfield(args,<span class="string">'signal'</span>);
+0078             model.classes = unique(labels,<span class="string">'rows'</span>);
+0079             model.tracking.filter_graph = signal;
+0080             
+0081             <span class="keyword">if</span> length(model.classes) &gt; 2
+0082                 error(<span class="string">'Currently, only two classes are supported here.'</span>); <span class="keyword">end</span>
+0083             
+0084             <span class="comment">% extract time-shifted windows from each trial...</span>
+0085             duration = round(args.duration * signal.srate);
+0086             offsets = 1 : args.stepping : (signal.pnts - duration);
+0087             trials = cell(1,length(offsets));
+0088 
+0089             <span class="comment">% get the entire epoch and figure out an appropriate rescaling</span>
+0090             alldata = reshape(permute(signal.data,[2 1 3]),[],signal.trials);
+0091             sc_info = hlp_findscaling(alldata,args.scaling);
+0092             
+0093             <span class="comment">% for each time shift...</span>
+0094             <span class="keyword">for</span> o = offsets
+0095                 <span class="comment">% determine the window to cut out of the data</span>
+0096                 cutwindow = o + (1:duration);
+0097                 <span class="comment">% extract from all trials</span>
+0098                 data = signal.data(:,cutwindow,:);
+0099                 <span class="comment">% vectorize into #trials x #features, and rescale</span>
+0100                 data = permute(data,[2 1 3]);
+0101                 trials{o} = hlp_applyscaling(reshape(data,[],signal.trials),sc_info)';
+0102             <span class="keyword">end</span>
+0103             
+0104             T = signal.trials;
+0105             fprintf(<span class="string">'#trials=%.0f; #shifts=%.0f; #features=%.0f; #channels=%.0f; #windows=%.0f\n'</span>,T,length(offsets),signal.nbchan*length(cutwindow),signal.nbchan,length(cutwindow));
+0106             
+0107             <span class="comment">% vertically concatenate all shifts (into #shifts*#trials x #features)</span>
+0108             A = vertcat(trials{:});
+0109 
+0110             <span class="comment">% remap the labels to -1 / +1</span>
+0111             labels(labels == model.classes(1)) = -1;
+0112             labels(labels == model.classes(2)) = +1;
+0113             
+0114             <span class="comment">% and generate shift-replicated target matrix b</span>
+0115             b = repmat(labels,1,length(offsets));
+0116             b = b(:);
+0117                 
+0118             C0 = -[b A];   <span class="comment">% (bias is first elem, followed by rest...)</span>
+0119             ccp = C0';
+0120             
+0121             <span class="comment">% weight vectors</span>
+0122             [m,n] = size(A);
+0123             Wz = zeros(n+1,m);          <span class="comment">% consensus variable</span>
+0124             Wx = zeros(n+1,m);          <span class="comment">% data weights variable, FxN; n+1 accounts for the added bias (this is actually just the initial conditions vector...)</span>
+0125             Wu = zeros(n+1,m);          <span class="comment">% scaled dual parameter u for Wx</span>
+0126 
+0127             alpha = args.alpha;         <span class="comment">% over-relaxation parameter (if 1, OR turned off)</span>
+0128             rho = args.rho;             <span class="comment">% augmented Lagrangian parameter; probably determines sort of the tightness of the constraints...</span>
+0129             kappa = args.kappa;         <span class="comment">% blend factor between trialwise sparsity and trialwise agreement</span>
+0130             K = args.patterns;          <span class="comment">% the maximum number of SV's to recover</span>
+0131             
+0132             rescale = 1;                  <span class="comment">% scale of the left-hand side term (could be m/length(offsets)</span>
+0133             <span class="keyword">for</span> mu = args.lambdas       <span class="comment">% regularization parameter (should be decreasing)</span>
+0134                 fprintf(<span class="string">'Now using lambda = %.3f\n'</span>,mu);
+0135                 <span class="keyword">if</span> args.verbose
+0136                     fprintf(<span class="string">'%3s\t%10s\t%10s\t%10s\t%10s\t%10s\n'</span>, <span class="string">'iter'</span>, <span class="keyword">...</span>
+0137                         <span class="string">'r norm'</span>, <span class="string">'eps pri'</span>, <span class="string">'s norm'</span>, <span class="string">'eps dual'</span>, <span class="string">'objective'</span>);
+0138                 <span class="keyword">end</span>
+0139                 
+0140                 <span class="keyword">for</span> k = 1:args.admm_iters
+0141                     Wzold = Wz;
+0142                     fprintf(<span class="string">'Outer step #%.0f\n'</span>,k);
+0143                     
+0144                     <span class="comment">%% x-update</span>
+0145                     Wx = ParadigmPAL.minimize_batch(Wx, @ParadigmPAL.x_objective_batch, args.cg_iters, Wz, Wu, ccp, rho);
+0146                     Wx_hat = alpha*Wx + (1-alpha)*Wzold;  <span class="comment">% (optional over-relaxation)</span>
+0147                     
+0148                     <span class="comment">%% z-update</span>
+0149                     Wz = Wx_hat + Wu;
+0150                     [Wz,fuuu,U,V] = ParadigmPAL.prox_sum(Wz,rescale,mu,kappa,rho,K,T,m,args);
+0151 
+0152                     <span class="comment">%% dual parameter update</span>
+0153                     fprintf(<span class="string">'  updating u''s\n'</span>);
+0154                     Wu = Wu + (Wx_hat - Wz);
+0155                     
+0156                     <span class="comment">%% diagnostics, reporting, termination checks</span>
+0157                     fprintf(<span class="string">'  diagnostics...\n'</span>);
+0158                     history.objval(k)  = 0; <span class="comment">%ParadigmPAL.full_objective(ccp, mu, Wx, Wz);</span>
+0159                     history.r_norm(k)  = norm(Wx(:) - Wz(:));
+0160                     history.s_norm(k)  = norm(rho*(Wz(:) - Wzold(:)));
+0161                     history.eps_pri(k) = args.abs_tol + args.rel_tol*max(norm(Wx(:)), norm(Wz(:)));
+0162                     history.eps_dual(k)= args.abs_tol + args.rel_tol*norm(rho*Wu(:));
+0163                     
+0164                     <span class="keyword">if</span> args.verbose
+0165                         fprintf(<span class="string">'%3d\t%10.4f\t%10.4f\t%10.4f\t%10.4f\t%10.2f\n'</span>, k, <span class="keyword">...</span>
+0166                             history.r_norm(k), history.eps_pri(k), <span class="keyword">...</span>
+0167                             history.s_norm(k), history.eps_dual(k), history.objval(k));
+0168                         <span class="keyword">if</span> strcmp(args.verbose,<span class="string">'really'</span>) &amp;&amp; nnz(fuuu)
+0169                             f=figure; set(f,<span class="string">'Position'</span>,get(f,<span class="string">'Position'</span>)-[0 500 0 0]);
+0170                             imagesc(Wz); ylabel(<span class="string">'features'</span>); xlabel(<span class="string">'shifted trials'</span>); title(sprintf(<span class="string">'ADMM iter #%.0f, lambda=%.3f'</span>,k,mu)); 
+0171                             figure;
+0172                             <span class="comment">% weight patterns</span>
+0173                             N = nnz(fuuu);
+0174                             cols = ceil(sqrt(N));
+0175                             rows = ceil(N/cols);
+0176                             <span class="keyword">for</span> p=1:N
+0177                                 subplot(cols,rows,p);
+0178                                 plot((0:round(args.duration * signal.srate)-1)/signal.srate,reshape(U(2:<span class="keyword">end</span>,p),length(cutwindow),signal.nbchan)); title(sprintf(<span class="string">'weight array #%.0f'</span>,p)); xlabel(<span class="string">'time (s)'</span>); ylabel(<span class="string">'weight'</span>);
+0179                             <span class="keyword">end</span>
+0180                             <span class="comment">% topoplots...</span>
+0181                             f=figure; set(f,<span class="string">'Position'</span>,get(f,<span class="string">'Position'</span>)-[550 0 0 0]);
+0182                             N = nnz(fuuu);
+0183                             cols = ceil(sqrt(N));
+0184                             rows = ceil(N/cols);
+0185                             <span class="keyword">for</span> p=1:N
+0186                                 subplot(cols,rows,p);
+0187                                 mat = reshape(U(2:<span class="keyword">end</span>,p),length(cutwindow),signal.nbchan);
+0188                                 mat_inner = mat(round(end*1/4):round(end*3/4),:);
+0189                                 [dummy,peakidx] = max(mean(abs(mat_inner),2)); <span class="comment">% #ok&lt;NASGU&gt;</span>
+0190                                 topoplot(mat_inner(peakidx,:),signal.chanlocs);
+0191                             <span class="keyword">end</span>
+0192                             drawnow; 
+0193                         <span class="keyword">end</span>
+0194                     <span class="keyword">end</span>
+0195                     
+0196                     <span class="keyword">if</span> history.r_norm(k) &lt; history.eps_pri(k) &amp;&amp; history.s_norm(k) &lt; history.eps_dual(k)
+0197                         <span class="keyword">break</span>; <span class="keyword">end</span>
+0198                     
+0199                     <span class="comment">%% update of rho</span>
+0200                     <span class="keyword">if</span> args.rho_update
+0201                         <span class="keyword">if</span> history.r_norm(k) &gt; args.rho_cutoff * history.s_norm(k)
+0202                             disp(<span class="string">'  incrementing rho.'</span>);
+0203                             rho = rho .* args.rho_incr;
+0204                             Wu = Wu ./ args.rho_incr;
+0205                         <span class="keyword">elseif</span> history.s_norm(k) &gt; args.rho_cutoff * history.r_norm(k)
+0206                             disp(<span class="string">'  decrementing rho.'</span>);
+0207                             rho = rho ./ args.rho_incr;
+0208                             Wu = Wu .* args.rho_incr;
+0209                         <span class="keyword">end</span>
+0210                     <span class="keyword">end</span>
+0211                 <span class="keyword">end</span>
+0212             <span class="keyword">end</span>
+0213             1       
+0214             <span class="comment">%% plotting...</span>
+0215             
+0216 <span class="comment">%             % full weight matrix</span>
+0217 <span class="comment">%             figure;imagesc(Wz); title('full weight matrix'); xlabel('features'); ylabel('shifted trials');</span>
+0218 <span class="comment">%</span>
+0219 <span class="comment">%             % shift matrix (?)</span>
+0220 <span class="comment">%             figure; imagesc(reshape(V(:,1),length(offsets),[])); title('shift matrix'); xlabel('trials'); ylabel('shifts');</span>
+0221         <span class="keyword">end</span>       
+0222         
+0223         <a name="_sub2" href="#_subfunctions" class="code">function outputs = predict_simple(self,signal,model)</a>
+0224             <span class="comment">% Override this function to implement your prediction code</span>
+0225             <span class="comment">% Outputs = predict_simple(Sginal,Model)</span>
+0226             <span class="comment">%</span>
+0227             <span class="comment">% In:</span>
+0228             <span class="comment">%   Signal : a signal pre-processed according to the model's filter graph</span>
+0229             <span class="comment">%</span>
+0230             <span class="comment">%   Model : a predictive model as created by your calibrate_simple() function</span>
+0231             <span class="comment">%</span>
+0232             <span class="comment">% Out:</span>
+0233             <span class="comment">%   Outputs : a prediction/estimate for the most recent time point in the data (or one for</span>
+0234             <span class="comment">%             every epoch if the signal is epoched); see ml_predict for the allowed formats</span>
+0235             
+0236             error(<span class="string">'This paradigm implements no predict() function.'</span>);
+0237         <span class="keyword">end</span>
+0238         
+0239         
+0240         <a name="_sub3" href="#_subfunctions" class="code">function visualize(self,model)</a>
+0241             <span class="comment">% Optionally override this function to implement your visualization code</span>
+0242             <span class="comment">% visualize(Model)</span>
+0243             <span class="comment">%</span>
+0244             <span class="comment">% In:</span>
+0245             <span class="comment">%   Model: a model as created by your calibrate() function;</span>
+0246             <span class="comment">%          a plot or GUI will be produced to inspect the model</span>
+0247             <span class="comment">%</span>
+0248             
+0249             error(<span class="string">'This paradigm implements no visualize() function.'</span>);
+0250         <span class="keyword">end</span>
+0251         
+0252         
+0253         
+0254         <span class="comment">% --- implementation ----</span>
+0255         
+0256         <a name="_sub4" href="#_subfunctions" class="code">function model = calibrate(self,varargin)</a>
+0257             <span class="comment">% Implementation of the calibrate() function (see ParadigmBase)</span>
+0258             <span class="comment">% Model = calibrate(Collection,GoalIdentifier,Arguments...)</span>
+0259             <span class="comment">%</span>
+0260             <span class="comment">% This is essentially a wrapper around calibrate_simple() which peels off any additional</span>
+0261             <span class="comment">% data structure (for multiple collections and stream bundles) before passing it on.</span>
+0262             <span class="comment">%</span>
+0263             <span class="comment">% In:</span>
+0264             <span class="comment">%   Collection : a collection (cell array) of stream bundles</span>
+0265             <span class="comment">%</span>
+0266             <span class="comment">%   GoalIdentifier: the goal-identifier</span>
+0267             <span class="comment">%</span>
+0268             <span class="comment">%   Arguments... : further optional user arguments</span>
+0269             <span class="comment">%</span>
+0270             <span class="comment">% Out:</span>
+0271             <span class="comment">%   Model : The returned model struct</span>
+0272             
+0273             <span class="comment">% get the collection argument and extract the signal argument</span>
+0274             collection = arg_extract(varargin,{<span class="string">'collection'</span>,<span class="string">'Collection'</span>},[],{});
+0275             <span class="keyword">if</span> ~isempty(collection)
+0276                 <span class="keyword">if</span> length(collection) &gt; 1
+0277                     error(<span class="string">'This paradigm does not support collections of more than one recording.'</span>); <span class="keyword">end</span>
+0278                 <span class="keyword">if</span> length(collection{1}.streams) &gt; 1
+0279                     error(<span class="string">'This paradigm does not support more than one stream in parallel.'</span>); <span class="keyword">end</span>
+0280                 signal = collection{1}.streams{1};
+0281             <span class="keyword">else</span>
+0282                 signal = {};
+0283             <span class="keyword">end</span>
+0284             
+0285             <span class="comment">% call calibrate_simple with the signal passed in as additional argument</span>
+0286             model = self.calibrate_simple(varargin{:}, <span class="string">'signal'</span>,signal);
+0287         <span class="keyword">end</span>
+0288         
+0289         
+0290         <a name="_sub5" href="#_subfunctions" class="code">function outputs = predict(self,bundle,model)</a>
+0291             <span class="comment">% Override this function to implement your prediction code</span>
+0292             <span class="comment">% Outputs = predict(Bundle,Model)</span>
+0293             <span class="comment">%</span>
+0294             <span class="comment">% This is a wrapper around the predict_simple() function which peels off the stream bundle</span>
+0295             <span class="comment">% representation and just passes on the contained signal.</span>
+0296             <span class="comment">%</span>
+0297             <span class="comment">% In:</span>
+0298             <span class="comment">%   Bundle : stream bundle preprocessed by the model's filter graph</span>
+0299             <span class="comment">%</span>
+0300             <span class="comment">%   Model : a predictive model</span>
+0301             <span class="comment">%</span>
+0302             <span class="comment">% Out:</span>
+0303             <span class="comment">%   Outputs : the outputs of calibrate_simple()</span>
+0304             
+0305             <span class="keyword">if</span> length(bundle.streams) &gt; 1
+0306                 error(<span class="string">'This paradigm does not support more than one stream in parallel.'</span>); <span class="keyword">end</span>
+0307             outputs = self.predict_simple(bundle.streams{1},model);
+0308         <span class="keyword">end</span>
+0309         
+0310     <span class="keyword">end</span>
+0311     
+0312     
+0313     methods(Static)
+0314         <a name="_sub6" href="#_subfunctions" class="code">function obj = full_objective(ccp, mu, Wx, Wz)</a>
+0315             <span class="comment">% this is the overall objective function of alignment learning</span>
+0316             obj = sum(log(1 + exp(sum(ccp.*Wx)))) + mu*(norm_nuc(Wz) + sum(norms(Wz))) * size(ccp,2);            
+0317         <span class="keyword">end</span>
+0318         
+0319         <a name="_sub7" href="#_subfunctions" class="code">function [val,grad] = x_objective(x, C, z, u, rho)</a>
+0320             <span class="comment">% this is the objective function for the decoupled x criterion (basically l2 logreg)</span>
+0321             ecx = exp(C*x);
+0322             val = sum(log(1 + ecx)) + (rho/2)*norm(x - z + u).^2;
+0323             grad = C'*(ecx./(1 + ecx)) + rho*(x - z + u);
+0324         <span class="keyword">end</span>
+0325         
+0326         <a name="_sub8" href="#_subfunctions" class="code">function [vals,grads] = x_objective_batch(Wx,Wz,Wu,ccp,rho)</a>
+0327             <span class="comment">% this is the batch version of the above (for all samples &amp; variables in parallel)</span>
+0328             ecx = exp(sum(ccp.*Wx));
+0329             d = Wx - Wz + Wu;
+0330             vals = log(1 + ecx) + (rho/2)*sum(d.*d);
+0331             grads = bsxfun(@times,ccp,(ecx./(1 + ecx))) + rho*d;
+0332         <span class="keyword">end</span>
+0333         
+0334         <span class="comment">% l1/l2 shrinkage operator</span>
+0335         <a name="_sub9" href="#_subfunctions" class="code">function Wz = shrinkage(Wa, kappa)</a>
+0336             Wz = pos(1 - kappa/norm(Wa))*Wa;
+0337         <span class="keyword">end</span>
+0338 
+0339         <span class="comment">% l1 shrinkage operator</span>
+0340         <a name="_sub10" href="#_subfunctions" class="code">function z = shrinkage_l1(a, kappa)</a>
+0341             z = max(0, a-kappa) - max(0, -a-kappa);
+0342         <span class="keyword">end</span>
+0343 
+0344         <span class="comment">% trace norm proximal operator</span>
+0345         <a name="_sub11" href="#_subfunctions" class="code">function [W,fuuu,U,V] = prox_tr(W,rescale,mu,kappa,rho,K,args)</a>
+0346             fprintf(<span class="string">'  trace norming r\n'</span>);
+0347             [U,S,V] = pca(W,K,args.lanczos_iters);
+0348             fuuu = ParadigmPAL.shrinkage_l1(diag(S),(rescale*mu*(1-kappa))/rho); nn = length(fuuu); <span class="comment">% we shrink the SV spectrum using prox operator</span>
+0349             Ws = sparse(1:nn,1:nn,fuuu,size(S,1),size(S,2));
+0350             <span class="comment">% clamp minority of V's members at 0</span>
+0351             smv = sign(median(V));
+0352             V(:,smv==-1) = min(0,V(:,smv==-1));
+0353             V(:,smv==1) = max(0,V(:,smv==1));
+0354             W = U*(Ws*V');
+0355             
+0356             <span class="keyword">if</span> strcmp(args.verbose,<span class="string">'ultra'</span>)
+0357                 f=figure; set(f,<span class="string">'Position'</span>,get(f,<span class="string">'Position'</span>)-[0 500 0 0]);
+0358                 imagesc(W); ylabel(<span class="string">'features'</span>); xlabel(<span class="string">'shifted trials'</span>); title(sprintf(<span class="string">'lambda=%.3f'</span>,mu));
+0359                 figure;
+0360                 <span class="comment">% weight patterns</span>
+0361                 N = nnz(spec);
+0362                 cols = ceil(sqrt(N));
+0363                 rows = ceil(N/cols);
+0364                 signal=args.signal;
+0365                 <span class="keyword">for</span> p=1:N
+0366                     subplot(cols,rows,p);
+0367                     plot((0:(numel(U(2:<span class="keyword">end</span>,p))/signal.nbchan)-1)/signal.srate,reshape(U(2:<span class="keyword">end</span>,p),[],signal.nbchan)); title(sprintf(<span class="string">'weight array #%.0f'</span>,p)); xlabel(<span class="string">'time (s)'</span>); ylabel(<span class="string">'weight'</span>);
+0368                 <span class="keyword">end</span>
+0369                 drawnow;
+0370             <span class="keyword">end</span>
+0371             
+0372         <span class="keyword">end</span>
+0373         
+0374         <span class="comment">% group-sparse proximal operator</span>
+0375         <a name="_sub12" href="#_subfunctions" class="code">function W = prox_gl(W,rescale,mu,kappa,rho,T,m)</a>
+0376             fprintf(<span class="string">'  sparsifying z\n'</span>);
+0377             <span class="keyword">for</span> i = 1:m
+0378                 W(2:<span class="keyword">end</span>,i) = ParadigmPAL.shrinkage(W(2:<span class="keyword">end</span>,i), (rescale*mu*kappa/10)/rho); <span class="keyword">end</span>
+0379         <span class="keyword">end</span>
+0380         
+0381         <span class="comment">% summed proximal operator (using some splitting scheme, see Bauscke, 2008)</span>
+0382         <a name="_sub13" href="#_subfunctions" class="code">function [x,fuuu,U,V] = prox_sum(r,rescale,mu,kappa,rho,K,T,m,args)</a>
+0383             y = r;
+0384             p = zeros(size(y));
+0385             q = zeros(size(y));
+0386             <span class="keyword">for</span> n=1:args.inner_iters
+0387                 [x,fuuu,U,V] = ParadigmPAL.prox_tr(y+q,rescale,mu,kappa,rho,K,args);
+0388                 q = y+q-x;
+0389                 y = ParadigmPAL.prox_gl(x+p,rescale,mu,kappa,rho,T,m);
+0390                 p = x+p-y;
+0391                 <span class="keyword">if</span> norm(x(:) - y(:)) &lt; args.rel_tol*max(norm(x(:)),norm(y(:)))
+0392                     <span class="keyword">break</span>; <span class="keyword">end</span>
+0393             <span class="keyword">end</span>            
+0394         <span class="keyword">end</span>
+0395   
+0396         <a name="_sub14" href="#_subfunctions" class="code">function X = minimize_batch(X, f, len, Wz,Wu,ccp,rho)</a>
+0397             <span class="comment">% Copyright (C) 2001 - 2010 by Carl Edward Rasmussen, 2010-01-03</span>
+0398             
+0399             INT = 0.1;    <span class="comment">% don't reevaluate within 0.1 of the limit of the current bracket         % const</span>
+0400             EXT = 3.0;                  <span class="comment">% extrapolate maximum 3 times the current step-size         % const</span>
+0401             MAX = 20;                         <span class="comment">% max 20 function evaluations per line search         % const</span>
+0402             RATIO = 10;                                       <span class="comment">% maximum allowed slope ratio         % const</span>
+0403             SIG = 0.1; RHO = SIG/2; <span class="comment">% SIG and RHO are the constants controlling the Wolfe-          % const</span>
+0404             <span class="keyword">if</span> max(size(len)) == 2, red=len(2); len=len(1); <span class="keyword">else</span> red=1; <span class="keyword">end</span>                         <span class="comment">% scalar</span>
+0405 
+0406             
+0407             [f0 df0] = feval(f,X,Wz,Wu,ccp,rho);          <span class="comment">% get function value and gradient</span>
+0408             N = length(f0);
+0409                         
+0410             [A,B,d1,d2,d3,d4,f1,f2,f3,f4,x1,x2,x4] = deal(zeros(1,N)); <span class="comment">% initialize a few variables...</span>
+0411             df3 = zeros(size(X));
+0412             i = 0;                                            <span class="comment">% zero the run length counter         % scalar</span>
+0413             ls_failed = false(1,N);                             <span class="comment">% no previous line search has failed% boolean vector</span>
+0414             i = i + (len&lt;0);                                            <span class="comment">% count epochs?!            % scalar</span>
+0415             s = -df0;                                 <span class="comment">% initial search direction (steepest)         % column MATRIX</span>
+0416             d0 = -sum(s.*s);                                                    <span class="comment">% and slope         % row vector</span>
+0417             x3 = red./(1-d0);                                  <span class="comment">% initial step is red/(|s|+1)        % row vector</span>
+0418             
+0419             keep_going = true(1,N);                                                                 <span class="comment">% mask for the outermost loop updates...</span>
+0420             <span class="keyword">while</span> any(keep_going) &amp;&amp; i &lt; abs(len)                                      <span class="comment">% while not finished            % scalar</span>
+0421                 i = i + (len&gt;0);                                      <span class="comment">% count iterations?!          % scalar</span>
+0422                 fprintf(<span class="string">'  Cg step #%.0f\n'</span>,i);
+0423                 
+0424                 X0 = X;                                                                             <span class="comment">% column MATRIX</span>
+0425                 F0 = f0;                                                                            <span class="comment">% row vector</span>
+0426                 dF0 = df0;                   <span class="comment">% make a copy of current values                        % column MATRIX</span>
+0427                 <span class="keyword">if</span> len&gt;0, M = MAX; <span class="keyword">else</span> M = min(MAX, -len-i); <span class="keyword">end</span>                                   <span class="comment">% scalar</span>
+0428                 
+0429                 om = keep_going;                                                                    <span class="comment">% mask for outer-loop updates</span>
+0430                 <span class="keyword">while</span> 1                             <span class="comment">% keep extrapolating as long as necessary</span>
+0431                     x2(om) = 0;                                                                     <span class="comment">% row vector</span>
+0432                     f2(om) = f0(om);                                                                <span class="comment">% row vector</span>
+0433                     d2(om) = d0(om);                                                                <span class="comment">% row vector</span>
+0434                     f3(om) = f0(om);                                                                <span class="comment">% row vector</span>
+0435                     df3(:,om) = df0(:,om);                                                          <span class="comment">% column matrix</span>
+0436                     ok(om) = false;                                                                 <span class="comment">% boolean vector</span>
+0437                     <span class="keyword">while</span> ~all(ok(om)) &amp;&amp; M &gt; 0                                                     <span class="comment">% mask check</span>
+0438                         M = M - 1; i = i + (len&lt;0);                         <span class="comment">% count epochs?!        % scalar</span>
+0439                         nokom = ~ok&amp;om;
+0440                         [f3(nokom) df3(:,nokom)] = feval(f, X(:,nokom) + bsxfun(@times,x3(nokom),s(:,nokom)), Wz(:,nokom), Wu(:,nokom), ccp(:,nokom), rho); <span class="comment">% masked array op</span>
+0441                         ok(om) = ok(om) | ~(isnan(f3(om)) | isinf(f3(om)) | any(isnan(df3(om))+isinf(df3(om))));            <span class="comment">% mask update</span>
+0442                         x3(~ok&amp;om) = (x2(~ok&amp;om)+x3(~ok&amp;om))/2;         <span class="comment">% bisect and try again      % maked update</span>
+0443                     <span class="keyword">end</span>
+0444                     mask = f3&lt;F0;                                       <span class="comment">% keep best values          % mask generation</span>
+0445                     X0(:,mask&amp;om) = X(:,mask&amp;om) + bsxfun(@times,x3(mask&amp;om),s(:,mask&amp;om));         <span class="comment">% masked updates</span>
+0446                     F0(mask&amp;om) = f3(mask&amp;om);
+0447                     dF0(:,mask&amp;om) = df3(:,mask&amp;om);
+0448                     
+0449                     d3(om) = sum(df3(:,om).*s(:,om));                                    <span class="comment">% new slope% row vector</span>
+0450                     
+0451                     om(d3 &gt; SIG*d0 | f3 &gt; f0 + x3.*d0*RHO) = false;             <span class="comment">% update outer mask</span>
+0452                     <span class="keyword">if</span> ~any(om) || M == 0  <span class="comment">% are we done extrapolating?</span>
+0453                         <span class="keyword">break</span>; <span class="keyword">end</span>
+0454                     
+0455                     x1(om) = x2(om); f1(om) = f2(om); d1(om) = d2(om); <span class="comment">% move point 2 to point 1    % row vectors</span>
+0456                     x2(om) = x3(om); f2(om) = f3(om); d2(om) = d3(om); <span class="comment">% move point 3 to point 2    % row vectors</span>
+0457                     A(om) = 6*(f1(om)-f2(om))+3*(d2(om)+d1(om)).*(x2(om)-x1(om));<span class="comment">% make cubic extrap.% row vectors</span>
+0458                     B(om) = 3*(f2(om)-f1(om))-(2*d1(om)+d2(om)).*(x2(om)-x1(om));
+0459                     x3(om) = x1(om)-d1(om).*(x2(om)-x1(om)).^2./(B(om)+sqrt(B(om).*B(om)-A(om).*d1(om).*(x2(om)-x1(om)))); <span class="comment">% num. error possible, ok!</span>
+0460                     
+0461                     <span class="comment">% implement fixups: num prob | wrong sign | new point beyond extrapolation limit?</span>
+0462                     issue_mask = ~isreal(x3) | isnan(x3) | isinf(x3) | x3 &lt; 0 | x3 &gt; x2*EXT;
+0463                     x3(om &amp; issue_mask) = x2(om &amp; issue_mask)*EXT;
+0464                     <span class="comment">% new point too close to previous point?</span>
+0465                     issue_mask = ~issue_mask &amp; (x3 &lt; x2+INT*(x2-x1));
+0466                     x3(om &amp; issue_mask) = x2(om &amp; issue_mask) + INT*(x2(om &amp; issue_mask) - x1(om &amp; issue_mask));
+0467                 <span class="keyword">end</span>                                                       <span class="comment">% end extrapolation</span>
+0468 
+0469                 <span class="keyword">while</span> 1                    
+0470                     om = keep_going &amp; (abs(d3) &gt; -SIG*d0 | f3 &gt; f0+x3.*d0*RHO);    <span class="comment">% update outer mask</span>
+0471                     <span class="keyword">if</span> ~(any(om) &amp;&amp; M &gt; 0)
+0472                         <span class="keyword">break</span>; <span class="keyword">end</span>
+0473                     tog = d3 &gt; 0 | f3 &gt; f0+x3.*d0*RHO;           <span class="comment">% subinterval toggle</span>
+0474                     x4(om&amp;tog) = x3(om&amp;tog); 
+0475                     f4(om&amp;tog) = f3(om&amp;tog); 
+0476                     d4(om&amp;tog) = d3(om&amp;tog);
+0477                     x2(om&amp;~tog) = x3(om&amp;~tog); 
+0478                     f2(om&amp;~tog) = f3(om&amp;~tog); 
+0479                     d2(om&amp;~tog) = d3(om&amp;~tog);                    
+0480                     tog=f4&gt;f0;                                   <span class="comment">% interpolation toggle</span>
+0481                     x3(om&amp;tog) = x2(om&amp;tog) - (0.5*d2(om&amp;tog).*(x4(om&amp;tog)-x2(om&amp;tog)).^2) ./ (f4(om&amp;tog)-f2(om&amp;tog)-d2(om&amp;tog).*(x4(om&amp;tog)-x2(om&amp;tog)));  <span class="comment">% quadratic interpolation</span>
+0482                     A(om&amp;~tog) = 6*(f2(om&amp;~tog)-f4(om&amp;~tog))./(x4(om&amp;~tog)-x2(om&amp;~tog)) + 3*(d4(om&amp;~tog)+d2(om&amp;~tog));                    <span class="comment">% cubic interpolation</span>
+0483                     B(om&amp;~tog) = 3*(f4(om&amp;~tog)-f2(om&amp;~tog)) - (2*d2(om&amp;~tog)+d4(om&amp;~tog)).*(x4(om&amp;~tog)-x2(om&amp;~tog));
+0484                     x3(om&amp;~tog) = x2(om&amp;~tog) + (sqrt(B(om&amp;~tog).*B(om&amp;~tog) - A(om&amp;~tog).*d2(om&amp;~tog).*(x4(om&amp;~tog)-x2(om&amp;~tog)).^2)-B(om&amp;~tog))./A(om&amp;~tog);  <span class="comment">% num. error possible, ok!</span>
+0485                     numprob = isnan(x3) | isinf(x3);             <span class="comment">% if we had a numerical problem then bisect</span>
+0486                     x3(om&amp;numprob) = (x2(om&amp;numprob)+x4(om&amp;numprob))/2;
+0487 
+0488                     x3(om) = max(min(x3(om), x4(om)-INT*(x4(om)-x2(om))),x2(om)+INT*(x4(om)-x2(om)));  <span class="comment">% don't accept too close</span>
+0489                     [f3(om) df3(:,om)] = feval(f, X(:,om) + bsxfun(@times,x3(om),s(:,om)), Wz(:,om), Wu(:,om), ccp(:,om), rho); <span class="comment">% masked array op</span>
+0490                     mask = om &amp; f3&lt;F0;                                      <span class="comment">% keep best values</span>
+0491                     X0(:,mask) = X(:,mask) + bsxfun(@times,x3(mask),s(:,mask)); 
+0492                     F0(mask) = f3(mask); 
+0493                     dF0(:,mask) = df3(:,mask);
+0494                     M = M - 1; i = i + (len&lt;0);                             <span class="comment">% count epochs?!</span>
+0495                     d3(om) = sum(df3(:,om).*s(:,om));                                    <span class="comment">% new slope% row vector</span>
+0496                 <span class="keyword">end</span>
+0497                 
+0498                 <span class="comment">% --- we are here ---</span>
+0499                 
+0500                 okay = abs(d3) &lt; -SIG*d0 &amp; f3 &lt; f0+x3.*d0*RHO;
+0501 
+0502                 upd = okay &amp; keep_going;
+0503                 X(:,upd) = X(:,upd) + bsxfun(@times,x3(upd),s(:,upd));
+0504                 f0(upd) = f3(upd);
+0505                 s(:,upd) = bsxfun(@times,sum(df3(:,upd).*df3(:,upd)) - sum(df0(:,upd).*df3(:,upd)) ./ sum(df0(:,upd).*df0(:,upd)),s(:,upd)) - df3(:,upd);
+0506                 df0(:,upd) = df3(:,upd);                                <span class="comment">% swap derivatives</span>
+0507                 d3(upd) = d0(upd);
+0508                 d0(upd) = sum(df0(:,upd).*s(:,upd));
+0509                 mask = upd &amp; d0 &gt; 0;                         <span class="comment">% otherwise use steepest direction</span>
+0510                 s(:,mask) = -df0(:,mask);
+0511                 d0(mask) = -sum(s(:,mask).*s(:,mask));                
+0512                 x3(upd) = x3(upd) .* min(RATIO, d3(upd)./(d0(upd)-realmin));  <span class="comment">% slope ratio but max RATIO</span>
+0513                 ls_failed(upd) = false;                              <span class="comment">% this line search did not fail</span>
+0514                 
+0515                 upd = ~okay &amp; keep_going;
+0516                 X(:,upd) = X0(:,upd);
+0517                 f0(upd) = F0(upd);
+0518                 df0(:,upd) = dF0(:,upd);
+0519                 
+0520                 keep_going(upd) = keep_going(upd) &amp; ~ls_failed(upd); <span class="comment">% line search failed twice in a row</span>
+0521                                                                      <span class="comment">% so we give up on these guys</span>
+0522                 upd = upd &amp; keep_going;
+0523                 <span class="keyword">if</span> i &lt;= abs(len)
+0524                     s(:,upd) = -df0(:,upd);
+0525                     d0(:,upd) = -sum(s(:,upd).*s(:,upd));                             <span class="comment">% try steepest</span>
+0526                     x3(upd) = 1./(1-d0(upd));
+0527                     ls_failed(upd) = true;
+0528                 <span class="keyword">end</span>
+0529             <span class="keyword">end</span>
+0530         <span class="keyword">end</span>
+0531         
+0532         <a name="_sub15" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0533             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>,<span class="string">'SignalProcessing.SpectralSelection.FrequencySpecification'</span>, <span class="keyword">...</span>
+0534                 <span class="string">'SignalProcessing.EpochExtraction'</span>,<span class="string">''</span>,<span class="string">'Lambdas'</span>,<span class="string">'WaveDuration'</span>,<span class="string">'Stepping'</span>,<span class="string">'ADMMIterations'</span>,<span class="string">'CgIterations'</span>,<span class="keyword">...</span>
+0535                 <span class="string">'LanczosIterations'</span>,<span class="string">'NumPatterns'</span>,<span class="string">'SparsityTraceTradeoff'</span>};
+0536         <span class="keyword">end</span>
+0537         
+0538     <span class="keyword">end</span>
+0539 <span class="keyword">end</span>
+0540 
+0541 <span class="comment">% (turn off a few editor warnings because some actual implementations are missing in this file)</span>
+0542 <span class="comment">%#ok&lt;*INUSD,*STOUT,*MANU&gt;</span>
+0543 
+0544</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

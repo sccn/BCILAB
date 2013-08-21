@@ -1,0 +1,323 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>pop_loadmodout</title><meta name="generator" content="MATLAB 7.11"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2010-10-07"><meta name="DC.source" content="pop_loadmodout.m"><style type="text/css">
+
+body {
+  background-color: white;
+  margin:10px;
+}
+
+h1 {
+  color: #990000; 
+  font-size: x-large;
+}
+
+h2 {
+  color: #990000;
+  font-size: medium;
+}
+
+/* Make the text shrink to fit narrow windows, but not stretch too far in 
+wide windows. */ 
+p,h1,h2,div.content div {
+  max-width: 600px;
+  /* Hack for IE6 */
+  width: auto !important; width: 600px;
+}
+
+pre.codeinput {
+  background: #EEEEEE;
+  padding: 10px;
+}
+@media print {
+  pre.codeinput {word-wrap:break-word; width:100%;}
+} 
+
+span.keyword {color: #0000FF}
+span.comment {color: #228B22}
+span.string {color: #A020F0}
+span.untermstring {color: #B20000}
+span.syscmd {color: #B28C00}
+
+pre.codeoutput {
+  color: #666666;
+  padding: 10px;
+}
+
+pre.error {
+  color: red;
+}
+
+p.footer {
+  text-align: right;
+  font-size: xx-small;
+  font-weight: lighter;
+  font-style: italic;
+  color: gray;
+}
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="comment">% pop_loadmodout() - import AMICA results</span>
+<span class="comment">%</span>
+<span class="comment">% Usage:</span>
+<span class="comment">%   &gt;&gt; OUTEEG = pop_loadmodout( EEG, filepath );</span>
+<span class="comment">%</span>
+<span class="comment">% Inputs:</span>
+<span class="comment">%   EEG            - input dataset</span>
+<span class="comment">%   filepath       - file path for loadmodout function</span>
+<span class="comment">%</span>
+<span class="comment">% Outputs:</span>
+<span class="comment">%   OUTEEG         - EEGLAB data structure</span>
+<span class="comment">%</span>
+<span class="comment">% Author: Arnaud Delorme &amp; Jason palmer, SCCN, INC, UCSD</span>
+
+<span class="comment">%123456789012345678901234567890123456789012345678901234567890123456789012</span>
+
+<span class="comment">% Copyright (C) 2002 Arnaud Delorme, Salk Institute, arno@salk.edu</span>
+<span class="comment">%</span>
+<span class="comment">% This program is free software; you can redistribute it and/or modify</span>
+<span class="comment">% it under the terms of the GNU General Public License as published by</span>
+<span class="comment">% the Free Software Foundation; either version 2 of the License, or</span>
+<span class="comment">% (at your option) any later version.</span>
+<span class="comment">%</span>
+<span class="comment">% This program is distributed in the hope that it will be useful,</span>
+<span class="comment">% but WITHOUT ANY WARRANTY; without even the implied warranty of</span>
+<span class="comment">% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the</span>
+<span class="comment">% GNU General Public License for more details.</span>
+<span class="comment">%</span>
+<span class="comment">% You should have received a copy of the GNU General Public License</span>
+<span class="comment">% along with this program; if not, write to the Free Software</span>
+<span class="comment">% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA</span>
+
+<span class="comment">% $Log: pop_loadmodout.m,v $</span>
+
+<span class="keyword">function</span> [EEG, command] = pop_loadmodout(EEG, filepath,smoothlen);
+
+    <span class="keyword">if</span> nargin &lt; 1
+        help <span class="string">pop_loadmodout</span>;
+        <span class="keyword">return</span>;
+    <span class="keyword">end</span>;
+
+    command = <span class="string">''</span>;
+
+    <span class="comment">% check whether the data is already epoched.</span>
+<span class="comment">%     if EEG.trials &gt; 1</span>
+<span class="comment">%         error('Loading AMICA components is only allowed on continuous data')</span>
+<span class="comment">%     end</span>
+    <span class="comment">%----------------------------------------</span>
+
+    <span class="keyword">if</span> nargin &lt; 2
+        <span class="comment">% ask user</span>
+        filepath = uigetdir(<span class="string">'*.*'</span>, <span class="string">'Choose a AMICA output folder -- pop_loadmodout'</span>);
+        <span class="keyword">if</span> filepath == 0 <span class="keyword">return</span>; <span class="keyword">end</span>;
+    <span class="keyword">end</span>;
+
+    <span class="keyword">if</span> nargin&lt;3
+        uilist = {{<span class="string">'style'</span> <span class="string">'text'</span> <span class="string">'string'</span> <span class="string">'Length of probability smoothing window (sec)'</span>}<span class="keyword">...</span>
+            {<span class="string">'style'</span> <span class="string">'edit'</span> <span class="string">'string'</span> <span class="string">'2'</span>}};
+        uigeom = [1 1];
+        guititle = <span class="string">'Load AMICA components -- pop_loadmodout()'</span>;
+        result = inputgui(uigeom, uilist, <span class="string">'pophelp(''pop_modprobplotl'')'</span>, guititle, [], <span class="string">'normal'</span>);
+        <span class="keyword">if</span> ~isempty(result) &amp;&amp; isnumeric(result) &amp;&amp; result&gt;0
+            smoothlen = eval([<span class="string">'['</span> result{1} <span class="string">']'</span>]);
+        <span class="keyword">else</span>
+            smoothlen = 2;
+
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+    <span class="comment">% import data</span>
+    <span class="comment">% -----------</span>
+    mod = loadmodout([ filepath filesep ]);
+    EEG.etc.amica = mod;
+
+    EEG.icaweights = EEG.etc.amica.W(:,:,1);
+    EEG.icasphere  = EEG.etc.amica.S(:,:,1);
+    EEG.icawinv    = EEG.etc.amica.A(:,:,1);
+    EEG.icaact     = [];
+
+
+    <span class="keyword">if</span> isequal(size(EEG.etc.amica.LLt,2),size(EEG.data,2)) &amp;&amp; isequal(size(EEG.etc.amica.LLt,3),size(EEG.data,3))
+
+        smoothwnd = hann(round(smoothlen*EEG.srate)); smoothwnd = smoothwnd/sum(smoothwnd);
+        disp(<span class="string">'Smoothing probabilities ...'</span>)
+        llt_smooth = filtfilt_fast(smoothwnd,1,EEG.etc.amica.LLt')';
+        <span class="keyword">for</span> i = 1:size(llt_smooth,1)
+        EEG.etc.amica.LLt_smooth(i,:) = llt_smooth(i,:);
+        <span class="keyword">end</span>
+
+        v_smooth = zeros(size(llt_smooth));
+        <span class="keyword">for</span> m = 1:size(v_smooth,1)
+        v_smooth(m,:) = 1./sum(exp(bsxfun(@minus,llt_smooth,llt_smooth(m,:))),1);
+        <span class="keyword">end</span>
+        <span class="keyword">for</span> i = 1:size(v_smooth,1)
+        EEG.etc.amica.v_smooth(i,:) = v_smooth(i,:);
+        EEG.etc.amica.v_smooth_orig(i,:) = v_smooth(i,:);
+        <span class="keyword">end</span>
+
+
+    <span class="keyword">else</span>
+        disp(<span class="string">'Data and probabilities mismatch.Probabilities are being recomputed..'</span>)
+        [EEG.etc.amica.v_smooth EEG.etc.amica.LLt EEG.etc.amica.LLt_smooth] = flt_v_LLt(EEG,filepath,smoothlen);
+        <span class="keyword">if</span> EEG.trials &gt; 1
+            EEG.etc.amica.v_smooth = reshape(EEG.etc.amica.v_smooth,size(EEG.etc.amica.v_smooth,1),EEG.pnts,EEG.trials);
+            EEG.etc.amica.LLt_smooth = reshape(EEG.etc.amica.LLt_smooth,size(EEG.etc.amica.LLt_smooth,1),EEG.pnts,EEG.trials);
+            EEG.etc.amica.LLt = reshape(EEG.etc.amica.LLt,size(EEG.etc.amica.LLt,1),EEG.pnts,EEG.trials);
+        <span class="keyword">end</span>
+        EEG.etc.amica.v_smooth_orig = EEG.etc.amica.v_smooth;
+        <span class="comment">%         LLt = getmodLLt(EEG.data,mod);</span>
+<span class="comment">%         llt_smooth = filtfilt_fast(smoothwnd,1,LLt')';</span>
+        <span class="comment">%llt_smooth = reshape(llt_smooth,size(LLt,1),EEG.pnts,EEG.trials);</span>
+
+    <span class="keyword">end</span>
+
+
+
+
+
+    disp(<span class="string">'AMICA components imported successfully, under EEG.etc.amica'</span>);
+    command = sprintf(<span class="string">'%s = pop_loadmodout(%s,''%s'',%d)'</span>,inputname(1),inputname(1),filepath,smoothlen);
+</pre><pre class="codeoutput">  pop_loadmodout() - import AMICA results
+ 
+  Usage:
+    &gt;&gt; OUTEEG = pop_loadmodout( EEG, filepath );
+ 
+  Inputs:
+    EEG            - input dataset
+    filepath       - file path for loadmodout function
+ 
+  Outputs:
+    OUTEEG         - EEGLAB data structure
+ 
+  Author: Arnaud Delorme &amp; Jason palmer, SCCN, INC, UCSD
+
+</pre><p class="footer"><br>
+      Published with MATLAB&reg; 7.11<br></p></div><!--
+##### SOURCE BEGIN #####
+% pop_loadmodout() - import AMICA results
+%
+% Usage:
+%   >> OUTEEG = pop_loadmodout( EEG, filepath );
+%
+% Inputs:
+%   EEG            - input dataset
+%   filepath       - file path for loadmodout function
+%
+% Outputs:
+%   OUTEEG         - EEGLAB data structure
+%
+% Author: Arnaud Delorme & Jason palmer, SCCN, INC, UCSD
+
+%123456789012345678901234567890123456789012345678901234567890123456789012
+
+% Copyright (C) 2002 Arnaud Delorme, Salk Institute, arno@salk.edu
+%
+% This program is free software; you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation; either version 2 of the License, or
+% (at your option) any later version.
+%
+% This program is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+% GNU General Public License for more details.
+%
+% You should have received a copy of the GNU General Public License
+% along with this program; if not, write to the Free Software
+% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+% $Log: pop_loadmodout.m,v $
+
+function [EEG, command] = pop_loadmodout(EEG, filepath,smoothlen); 
+
+    if nargin < 1
+        help pop_loadmodout;
+        return;
+    end;
+    
+    command = '';
+    
+    % check whether the data is already epoched.
+%     if EEG.trials > 1
+%         error('Loading AMICA components is only allowed on continuous data')
+%     end
+    %REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+    
+    if nargin < 2
+        % ask user
+        filepath = uigetdir('*.*', 'Choose a AMICA output folder REPLACE_WITH_DASH_DASH pop_loadmodout'); 
+        if filepath == 0 return; end;
+    end;
+    
+    if nargin<3
+        uilist = {{'style' 'text' 'string' 'Length of probability smoothing window (sec)'}...
+            {'style' 'edit' 'string' '2'}};
+        uigeom = [1 1];
+        guititle = 'Load AMICA components REPLACE_WITH_DASH_DASH pop_loadmodout()';
+        result = inputgui(uigeom, uilist, 'pophelp(''pop_modprobplotl'')', guititle, [], 'normal');
+        if ~isempty(result) && isnumeric(result) && result>0
+            smoothlen = eval(['[' result{1} ']']);
+        else
+            smoothlen = 2;
+            
+        end
+    end
+    % import data
+    % REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+    mod = loadmodout([ filepath filesep ]);
+    EEG.etc.amica = mod;   
+    
+    EEG.icaweights = EEG.etc.amica.W(:,:,1);  
+    EEG.icasphere  = EEG.etc.amica.S(:,:,1); 
+    EEG.icawinv    = EEG.etc.amica.A(:,:,1);
+    EEG.icaact     = [];
+    
+    
+    if isequal(size(EEG.etc.amica.LLt,2),size(EEG.data,2)) && isequal(size(EEG.etc.amica.LLt,3),size(EEG.data,3))
+        
+        smoothwnd = hann(round(smoothlen*EEG.srate)); smoothwnd = smoothwnd/sum(smoothwnd);
+        disp('Smoothing probabilities ...')
+        llt_smooth = filtfilt_fast(smoothwnd,1,EEG.etc.amica.LLt')';
+        for i = 1:size(llt_smooth,1)
+        EEG.etc.amica.LLt_smooth(i,:) = llt_smooth(i,:);
+        end
+    
+        v_smooth = zeros(size(llt_smooth));
+        for m = 1:size(v_smooth,1)
+        v_smooth(m,:) = 1./sum(exp(bsxfun(@minus,llt_smooth,llt_smooth(m,:))),1);
+        end
+        for i = 1:size(v_smooth,1)
+        EEG.etc.amica.v_smooth(i,:) = v_smooth(i,:);
+        EEG.etc.amica.v_smooth_orig(i,:) = v_smooth(i,:);
+        end
+        
+        
+    else
+        disp('Data and probabilities mismatch.Probabilities are being recomputed..')
+        [EEG.etc.amica.v_smooth EEG.etc.amica.LLt EEG.etc.amica.LLt_smooth] = flt_v_LLt(EEG,filepath,smoothlen);
+        if EEG.trials > 1
+            EEG.etc.amica.v_smooth = reshape(EEG.etc.amica.v_smooth,size(EEG.etc.amica.v_smooth,1),EEG.pnts,EEG.trials);
+            EEG.etc.amica.LLt_smooth = reshape(EEG.etc.amica.LLt_smooth,size(EEG.etc.amica.LLt_smooth,1),EEG.pnts,EEG.trials);
+            EEG.etc.amica.LLt = reshape(EEG.etc.amica.LLt,size(EEG.etc.amica.LLt,1),EEG.pnts,EEG.trials);
+        end
+        EEG.etc.amica.v_smooth_orig = EEG.etc.amica.v_smooth;
+        %         LLt = getmodLLt(EEG.data,mod);
+%         llt_smooth = filtfilt_fast(smoothwnd,1,LLt')';
+        %llt_smooth = reshape(llt_smooth,size(LLt,1),EEG.pnts,EEG.trials);
+        
+    end
+    
+    
+    
+    
+    
+    disp('AMICA components imported successfully, under EEG.etc.amica');
+    command = sprintf('%s = pop_loadmodout(%s,''%s'',%d)',inputname(1),inputname(1),filepath,smoothlen);
+    
+
+##### SOURCE END #####
+--></body></html>

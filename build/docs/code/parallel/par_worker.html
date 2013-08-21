@@ -1,0 +1,449 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of par_worker</title>
+  <meta name="keywords" content="par_worker">
+  <meta name="description" content="Run a worker process on a cluster node.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">parallel</a> &gt; par_worker.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/parallel&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>par_worker
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Run a worker process on a cluster node.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function par_worker(port,portrange,timeout_heartbeat,varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Run a worker process on a cluster node.
+ par_worker(Port,PortRange,TimeoutHeartbeat,Options...)
+
+ Receives commands (string expressions) from the network, evaluates them, and sends off the result to 
+ some collector (again as a string). Processing is done in a single thread. Matlab processes which
+ are running this function can communicate with the function par_schedule, which schedules tasks
+ to these workers.
+
+ In:
+   Port: port number on which to listen for requests (default: 23547)
+         if the port is already in use, the next free one will be chosen, until the permitted
+         portrange is exceeded. if specified as 0, a free port is chosen directly
+
+         If you intend to share your worker with other users on the same network, it is a good idea
+         to keep the default port and portrange. Note that par_getworkers, however, will generally
+         determine the ports to use according to its own logic.
+
+   PortRange: number of successive ports to try, including the default/supplied port; (default: 0) 
+             * if 1, only the desired port will be tried
+             * if 0, the portrange will match the # of cores on the machine divided by the # of 
+               threads per MATLAB instance (parameter 'matlabthreads')
+
+   TimeoutHeartbeat : timeout for heartbeat messages; if nonzero and no such message is received 
+                      for the given period of time, the worker will terminate itself (default: 0)
+
+   Options... : optional name-value pairs, with possible names:
+                'backlog': backlog of queued incoming connections (default: 1)
+
+                'timeout_accept': timeout for accepting connections, in seconds (default: 3)
+
+                'timeout_recv': timeout for receiving data, in seconds (default: 5)
+
+                'timeout_send': timeout for sending results, in seconds (default: 10)
+
+                'timeout_dialout': timeout for dial-out connections (upon returning data), in seconds 
+                                   (default: 10)
+
+                'min_keepalive' : the minimum time for which the worker is kept alive after
+                                  startup, even if no heatbeat message is received at first, in
+                                  seconds (default: 300)
+
+                'retries_send': number of retries for sending a given result (default: 2)
+
+                'retry_wait': waiting period before re-trying, in seconds (default: 2)
+
+                'linger_send': time for which the connection is held open after completing a 
+                               send-back operation, in seconds (default: 3)
+
+                'update_check': information for code update checking (default: [] = no checking)
+                                this is a cell array of arguments to par_checkupdate
+
+                'matlabthreads': number of threads used by MATLAB on a machine (also determines
+                                 the portrange to use) (default: 4)
+
+                'token': the token used to indicate a heartbeat message (default: some random
+                         string)
+
+ Notes:
+  * use multiple workers to make use of multiple cores
+  * use only ports that are not accessible from the internet
+  * request format: &lt;task_id&gt;&lt;collectoraddress_length&gt;&lt;collectoraddress&gt;&lt;body_length&gt;&lt;body&gt;
+    &lt;task_id&gt;: identifier of the task (needs to be forwarded, with the result,
+               to a some data collector upon task completion) (int)
+    &lt;collectoraddress_length&gt;: length, in bytes, of the data collector's address (int)
+    &lt;collectoraddress&gt;: where to send the result for collection (string, formatted as host:port)
+    &lt;body_length&gt;: length, in bytes, of the message body (int)
+    &lt;body&gt;: a MATLAB command that yields, when evaluated, some result in ans
+            (string, as MATLAB expression)
+            if an exception occurs, the exception struct (as from lasterror) replaces ans
+  * response format: &lt;task_id&gt;&lt;body_length&gt;&lt;body&gt;
+
+ Examples:
+   % start a worker process on one of the default ports (and use a successively higher port number)
+   % if it is occupied, but try only as many ports as the computer has cores
+   par_worker;
+
+   % start a worker process on the default port, or return if that port is occupied
+   par_worker([],1);
+
+   % start a worker listening on some specific port, or return if that port is occupied
+   par_worker(51123,1);
+
+   % start a worker listening on some specific port, or one of the 5 successively higher ones
+   par_worker(51123,5);
+
+   % start a worker listening on some specific port, or one of the #cores successively higher ones
+   par_worker(51123);
+
+   % start a worker using default port settings, but customize some of the timing options
+   par_worker([],[],'timeout_accept',5,'timeout_recv',3,'timeout_send',15);
+
+ See also:
+   <a href="par_schedule.html" class="code" title="function [results,errors] = par_schedule(tasks,varargin)">par_schedule</a>, <a href="par_beginschedule.html" class="code" title="function sched = par_beginschedule(tasks,varargin)">par_beginschedule</a>, <a href="par_endschedule.html" class="code" title="function [results,errors] = par_endschedule(sched,varargin)">par_endschedule</a>, <a href="par_getworkers_ssh.html" class="code" title="function pool = par_getworkers_ssh(varargin)">par_getworkers_ssh</a>, par_getworkers_qsub
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-08-26</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="par_evaluate.html" class="code" title="function result = par_evaluate(task__)">par_evaluate</a>	Internal: Task processing function of the worker.</li><li><a href="par_haveupdate.html" class="code" title="function tf = par_haveupdate(current_file,reference_file)">par_haveupdate</a>	Return true if a code update is available.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function par_worker(port,portrange,timeout_heartbeat,varargin)</a>
+0002 <span class="comment">% Run a worker process on a cluster node.</span>
+0003 <span class="comment">% par_worker(Port,PortRange,TimeoutHeartbeat,Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Receives commands (string expressions) from the network, evaluates them, and sends off the result to</span>
+0006 <span class="comment">% some collector (again as a string). Processing is done in a single thread. Matlab processes which</span>
+0007 <span class="comment">% are running this function can communicate with the function par_schedule, which schedules tasks</span>
+0008 <span class="comment">% to these workers.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% In:</span>
+0011 <span class="comment">%   Port: port number on which to listen for requests (default: 23547)</span>
+0012 <span class="comment">%         if the port is already in use, the next free one will be chosen, until the permitted</span>
+0013 <span class="comment">%         portrange is exceeded. if specified as 0, a free port is chosen directly</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%         If you intend to share your worker with other users on the same network, it is a good idea</span>
+0016 <span class="comment">%         to keep the default port and portrange. Note that par_getworkers, however, will generally</span>
+0017 <span class="comment">%         determine the ports to use according to its own logic.</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">%   PortRange: number of successive ports to try, including the default/supplied port; (default: 0)</span>
+0020 <span class="comment">%             * if 1, only the desired port will be tried</span>
+0021 <span class="comment">%             * if 0, the portrange will match the # of cores on the machine divided by the # of</span>
+0022 <span class="comment">%               threads per MATLAB instance (parameter 'matlabthreads')</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   TimeoutHeartbeat : timeout for heartbeat messages; if nonzero and no such message is received</span>
+0025 <span class="comment">%                      for the given period of time, the worker will terminate itself (default: 0)</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">%   Options... : optional name-value pairs, with possible names:</span>
+0028 <span class="comment">%                'backlog': backlog of queued incoming connections (default: 1)</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%                'timeout_accept': timeout for accepting connections, in seconds (default: 3)</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%                'timeout_recv': timeout for receiving data, in seconds (default: 5)</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">%                'timeout_send': timeout for sending results, in seconds (default: 10)</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">%                'timeout_dialout': timeout for dial-out connections (upon returning data), in seconds</span>
+0037 <span class="comment">%                                   (default: 10)</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%                'min_keepalive' : the minimum time for which the worker is kept alive after</span>
+0040 <span class="comment">%                                  startup, even if no heatbeat message is received at first, in</span>
+0041 <span class="comment">%                                  seconds (default: 300)</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%                'retries_send': number of retries for sending a given result (default: 2)</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">%                'retry_wait': waiting period before re-trying, in seconds (default: 2)</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">%                'linger_send': time for which the connection is held open after completing a</span>
+0048 <span class="comment">%                               send-back operation, in seconds (default: 3)</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">%                'update_check': information for code update checking (default: [] = no checking)</span>
+0051 <span class="comment">%                                this is a cell array of arguments to par_checkupdate</span>
+0052 <span class="comment">%</span>
+0053 <span class="comment">%                'matlabthreads': number of threads used by MATLAB on a machine (also determines</span>
+0054 <span class="comment">%                                 the portrange to use) (default: 4)</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">%                'token': the token used to indicate a heartbeat message (default: some random</span>
+0057 <span class="comment">%                         string)</span>
+0058 <span class="comment">%</span>
+0059 <span class="comment">% Notes:</span>
+0060 <span class="comment">%  * use multiple workers to make use of multiple cores</span>
+0061 <span class="comment">%  * use only ports that are not accessible from the internet</span>
+0062 <span class="comment">%  * request format: &lt;task_id&gt;&lt;collectoraddress_length&gt;&lt;collectoraddress&gt;&lt;body_length&gt;&lt;body&gt;</span>
+0063 <span class="comment">%    &lt;task_id&gt;: identifier of the task (needs to be forwarded, with the result,</span>
+0064 <span class="comment">%               to a some data collector upon task completion) (int)</span>
+0065 <span class="comment">%    &lt;collectoraddress_length&gt;: length, in bytes, of the data collector's address (int)</span>
+0066 <span class="comment">%    &lt;collectoraddress&gt;: where to send the result for collection (string, formatted as host:port)</span>
+0067 <span class="comment">%    &lt;body_length&gt;: length, in bytes, of the message body (int)</span>
+0068 <span class="comment">%    &lt;body&gt;: a MATLAB command that yields, when evaluated, some result in ans</span>
+0069 <span class="comment">%            (string, as MATLAB expression)</span>
+0070 <span class="comment">%            if an exception occurs, the exception struct (as from lasterror) replaces ans</span>
+0071 <span class="comment">%  * response format: &lt;task_id&gt;&lt;body_length&gt;&lt;body&gt;</span>
+0072 <span class="comment">%</span>
+0073 <span class="comment">% Examples:</span>
+0074 <span class="comment">%   % start a worker process on one of the default ports (and use a successively higher port number)</span>
+0075 <span class="comment">%   % if it is occupied, but try only as many ports as the computer has cores</span>
+0076 <span class="comment">%   par_worker;</span>
+0077 <span class="comment">%</span>
+0078 <span class="comment">%   % start a worker process on the default port, or return if that port is occupied</span>
+0079 <span class="comment">%   par_worker([],1);</span>
+0080 <span class="comment">%</span>
+0081 <span class="comment">%   % start a worker listening on some specific port, or return if that port is occupied</span>
+0082 <span class="comment">%   par_worker(51123,1);</span>
+0083 <span class="comment">%</span>
+0084 <span class="comment">%   % start a worker listening on some specific port, or one of the 5 successively higher ones</span>
+0085 <span class="comment">%   par_worker(51123,5);</span>
+0086 <span class="comment">%</span>
+0087 <span class="comment">%   % start a worker listening on some specific port, or one of the #cores successively higher ones</span>
+0088 <span class="comment">%   par_worker(51123);</span>
+0089 <span class="comment">%</span>
+0090 <span class="comment">%   % start a worker using default port settings, but customize some of the timing options</span>
+0091 <span class="comment">%   par_worker([],[],'timeout_accept',5,'timeout_recv',3,'timeout_send',15);</span>
+0092 <span class="comment">%</span>
+0093 <span class="comment">% See also:</span>
+0094 <span class="comment">%   par_schedule, par_beginschedule, par_endschedule, par_getworkers_ssh, par_getworkers_qsub</span>
+0095 <span class="comment">%</span>
+0096 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0097 <span class="comment">%                                2010-08-26</span>
+0098 
+0099 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0100 <span class="comment">%</span>
+0101 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0102 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0103 <span class="comment">% License, or (at your option) any later version.</span>
+0104 <span class="comment">%</span>
+0105 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0106 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0107 <span class="comment">% General Public License for more details.</span>
+0108 <span class="comment">%</span>
+0109 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0110 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0111 <span class="comment">% USA</span>
+0112 
+0113 import java.io.*
+0114 import java.net.*
+0115 import java.lang.*
+0116 
+0117 <span class="comment">% this may be triggered during serialization quite frequently</span>
+0118 warning off MATLAB:structOnObject
+0119 
+0120 <span class="comment">% parse arguments</span>
+0121 <span class="keyword">if</span> ~exist(<span class="string">'port'</span>,<span class="string">'var'</span>) || isempty(port)
+0122     port = 23547; <span class="keyword">end</span>
+0123 <span class="keyword">if</span> ~exist(<span class="string">'portrange'</span>,<span class="string">'var'</span>) || isempty(portrange)
+0124     portrange = 0; <span class="keyword">end</span>
+0125 <span class="keyword">if</span> ~exist(<span class="string">'timeout_heartbeat'</span>,<span class="string">'var'</span>) || isempty(timeout_heartbeat)
+0126     timeout_heartbeat = 0; <span class="keyword">end</span>
+0127 <span class="keyword">if</span> ~isnumeric(port) || ~isscalar(port) || port-round(port) &gt; eps
+0128     error(<span class="string">'The Port must be given as an integer.'</span>); <span class="keyword">end</span>
+0129 <span class="keyword">if</span> ~isnumeric(portrange) || ~isscalar(portrange) || portrange-round(portrange) &gt; eps
+0130     error(<span class="string">'The PortRange must be given as an integer.'</span>); <span class="keyword">end</span>
+0131 
+0132 <span class="comment">% read additional options</span>
+0133 opts = hlp_varargin2struct(varargin, <span class="string">'backlog'</span>,1, <span class="string">'timeout_accept'</span>,3, <span class="string">'timeout_dialout'</span>,10, <span class="string">'timeout_send'</span>,10, <span class="keyword">...</span>
+0134     <span class="string">'timeout_recv'</span>,5, <span class="string">'min_keepalive'</span>,300, <span class="string">'receive_buffer'</span>,64000, <span class="string">'retries_send'</span>,2,<span class="string">'retry_wait'</span>,2, <span class="string">'linger_send'</span>,3, <span class="string">'update_check'</span>,[],<span class="string">'matlabthreads'</span>,4,<span class="string">'token'</span>,<span class="string">'dsfjk45djf'</span>);
+0135 
+0136 <span class="comment">% make sure that the necessary Java/MATLAB code is present</span>
+0137 <span class="keyword">if</span> ~exist(<span class="string">'ChunkReader'</span>,<span class="string">'class'</span>)
+0138     disp([<span class="string">'Trying to add Java class files in '</span> pwd]);
+0139     javaaddpath(pwd);
+0140 <span class="keyword">end</span>
+0141 <span class="keyword">if</span> ~exist(<span class="string">'ChunkReader'</span>,<span class="string">'class'</span>)
+0142     error(<span class="string">'Cannot find the ChunkReader.class; please make sure that you have bundled it with the worker.'</span>); <span class="keyword">end</span>
+0143 
+0144 <span class="comment">% set portrange</span>
+0145 <span class="keyword">if</span> portrange == 0
+0146     runtime = java.lang.Runtime.getRuntime();
+0147     portrange = ceil(runtime.availableProcessors()/opts.matlabthreads);
+0148 <span class="keyword">end</span>
+0149 
+0150 <span class="keyword">try</span>
+0151     <span class="comment">% try to adhere to the matlabthreads setting</span>
+0152     warning off MATLAB:maxNumCompThreads:Deprecated
+0153     maxNumCompThreads(opts.matlabthreads);
+0154 <span class="keyword">catch</span>
+0155     disp(<span class="string">'Note: could not restrict the # of threads to be used by MATLAB.'</span>);
+0156 <span class="keyword">end</span>
+0157 
+0158 <span class="comment">% open a new server socket (trying the specified portrange)</span>
+0159 opened = false;
+0160 <span class="keyword">for</span> p = port : port+portrange-1
+0161     <span class="keyword">try</span>
+0162         serv = ServerSocket(p, opts.backlog);
+0163         opened = true;
+0164         <span class="keyword">break</span>;
+0165     <span class="keyword">catch</span>,<span class="keyword">end</span>
+0166 <span class="keyword">end</span>
+0167 
+0168 <span class="comment">% display status, or exit, if no port found</span>
+0169 <span class="keyword">if</span> opened
+0170     disp([<span class="string">'This is '</span> char(InetAddress.getLocalHost()) <span class="string">'.'</span>]);
+0171     disp([<span class="string">'Listening on port '</span> num2str(serv.getLocalPort()) <span class="string">'.'</span>]);
+0172 <span class="keyword">else</span>
+0173     disp(<span class="string">'No free port found; exiting.'</span>);
+0174     <span class="keyword">return</span>; 
+0175 <span class="keyword">end</span>
+0176 
+0177 <span class="comment">% set socket properties (e.g., making the function interruptible)</span>
+0178 serv.setReceiveBufferSize(opts.receive_buffer);
+0179 serv.setSoTimeout(round(1000*opts.timeout_accept));
+0180 <span class="comment">% make sure that the server socket will be closed when this function is terminated</span>
+0181 cleaner = onCleanup(@()serv.close());
+0182 
+0183 <span class="comment">% try to open a keepalive listener socket, if desired</span>
+0184 <span class="keyword">if</span> timeout_heartbeat
+0185     <span class="comment">% this value is the time when we will terminate if no heartbeat is received before that time</span>
+0186     terminate_at = toc(uint64(0)) + max(opts.min_keepalive,timeout_heartbeat);
+0187     <span class="keyword">try</span>
+0188         fprintf(<span class="string">'Setting up heartbeat server... '</span>);
+0189         <span class="comment">% we listen on the same port as the corresponding TCP port</span>
+0190         heartbeat = DatagramSocket(p);
+0191         heartbeat.setSoTimeout(50);    <span class="comment">% this is just the receive timeout (in ms)</span>
+0192         closer = onCleanup(@()heartbeat.close());
+0193         disp(<span class="string">'success.'</span>);
+0194     <span class="keyword">catch</span> e
+0195         disp([<span class="string">'could not open heartbeat socket, exiting now. Reason: '</span> e.message]);
+0196         <span class="keyword">return</span>;
+0197     <span class="keyword">end</span>
+0198 <span class="keyword">end</span>
+0199 
+0200 tasknum = 1;
+0201 disp(<span class="string">'waiting for connections...'</span>);
+0202 <span class="keyword">while</span> 1
+0203     <span class="keyword">try</span>
+0204         <span class="comment">% wait for an incoming request</span>
+0205         conn = serv.accept();
+0206         conn.setSoTimeout(round(1000*opts.timeout_recv));
+0207         conn.setTcpNoDelay(1);
+0208         disp(<span class="string">'connected.'</span>);
+0209 
+0210         <span class="keyword">try</span>
+0211             <span class="comment">% parse request</span>
+0212             in = DataInputStream(conn.getInputStream());
+0213             cr = ChunkReader(in);
+0214             taskid = in.readInt();
+0215             collector = char(cr.readFully(in.readInt())');
+0216             task = char(cr.readFully(in.readInt())');
+0217             <span class="keyword">if</span> ~isempty(opts.update_check)
+0218                 fprintf(<span class="string">'received data (%.0fkb); checking for update first...\n'</span>,length(task)/1024);
+0219                 <span class="keyword">if</span> <a href="par_haveupdate.html" class="code" title="function tf = par_haveupdate(current_file,reference_file)">par_haveupdate</a>(opts.update_check{:})
+0220                     disp(<span class="string">'update available; terminating.'</span>);
+0221                     conn.close();
+0222                     <span class="keyword">return</span>;
+0223                 <span class="keyword">else</span>                    
+0224                     disp(<span class="string">'no update; now hand-shaking.'</span>);
+0225                 <span class="keyword">end</span>
+0226             <span class="keyword">else</span>
+0227                 fprintf(<span class="string">'received data (%.0fkb); hand-shaking.\n'</span>,length(task)/1024);
+0228             <span class="keyword">end</span>
+0229             out = DataOutputStream(conn.getOutputStream());
+0230             out.writeInt(taskid+length(collector)+length(task));
+0231             out.flush();
+0232             conn.close();
+0233             
+0234             <span class="comment">% process task</span>
+0235             disp([<span class="string">'processing task '</span> num2str(taskid) <span class="string">' ('</span> num2str(tasknum) <span class="string">') ...'</span>]); tasknum = tasknum+1;
+0236             result = base64encode(<a href="par_evaluate.html" class="code" title="function result = par_evaluate(task__)">par_evaluate</a>(base64decode(task)));
+0237             disp(<span class="string">'done with task; opening back link...'</span>);
+0238             
+0239             <span class="keyword">for</span> retry = 1:opts.retries_send
+0240                 <span class="keyword">try</span>
+0241                     <span class="comment">% send off the result</span>
+0242                     idx = find(collector==<span class="string">':'</span>,1);
+0243                     outconn = Socket();
+0244                     destination = InetSocketAddress(collector(1:idx-1), str2num(collector(idx+1:end)));
+0245                     outconn.connect(destination,round(1000*opts.timeout_dialout));
+0246                     outconn.setTcpNoDelay(1);
+0247                     outconn.setSoTimeout(round(1000*opts.timeout_send));
+0248                     outconn.setSoLinger(true,3);
+0249                     fprintf(<span class="string">'connected; now sending (%.0fkb)...'</span>,length(result)/1024);
+0250                     out = DataOutputStream(outconn.getOutputStream());
+0251                     out.writeInt(taskid);
+0252                     out.writeInt(length(result));
+0253                     out.writeBytes(result);
+0254                     out.flush();
+0255                     fprintf(<span class="string">'done; now closing...'</span>);
+0256                     outconn.close();
+0257                     disp(<span class="string">'done.'</span>);
+0258                     disp(<span class="string">'waiting for connections...'</span>);
+0259                     <span class="keyword">break</span>;
+0260                 <span class="keyword">catch</span> e
+0261                     <span class="keyword">if</span> isempty(strfind(e.message,<span class="string">'timed out'</span>))
+0262                         disp([<span class="string">'Exception during result forwarding: '</span> e.message]); <span class="keyword">end</span>
+0263                     disp(<span class="string">'waiting before retry...'</span>);
+0264                     pause(opts.retry_wait);
+0265                     disp(<span class="string">'retrying to open back link...'</span>);
+0266                 <span class="keyword">end</span>
+0267             <span class="keyword">end</span>
+0268             
+0269         <span class="keyword">catch</span> e
+0270             conn.close();
+0271             <span class="keyword">if</span> ~isempty(strfind(e.message,<span class="string">'EOFException'</span>))
+0272                 disp(<span class="string">'cancelled by scheduler.'</span>);
+0273             <span class="keyword">elseif</span> isempty(strfind(e.message,<span class="string">'timed out'</span>))
+0274                 disp([<span class="string">'Exception during task receive: '</span> e.message]); 
+0275             <span class="keyword">end</span>
+0276         <span class="keyword">end</span>
+0277                
+0278     <span class="keyword">catch</span> e
+0279         <span class="comment">% accept timed out</span>
+0280         <span class="keyword">if</span> timeout_heartbeat
+0281             <span class="comment">% we're dependent on heartbeat messages; check what we got</span>
+0282             <span class="keyword">try</span>
+0283                 <span class="keyword">while</span> 1
+0284                     <span class="comment">% capture all datagram packets that have been enqueued so far</span>
+0285                     tmp = DatagramPacket(uint8(zeros(1,1024)),1024);
+0286                     heartbeat.receive(tmp);
+0287                     content = char(tmp.getData');
+0288                     <span class="keyword">if</span> strncmp(content,opts.token,length(opts.token))
+0289                         <span class="comment">% advance the terminate_at time</span>
+0290                         terminate_at = max(toc(uint64(0)) + timeout_heartbeat, terminate_at);
+0291                     <span class="keyword">end</span>
+0292                 <span class="keyword">end</span>
+0293             <span class="keyword">catch</span> e
+0294                 <span class="comment">% got an exception (= no more packets)</span>
+0295             <span class="keyword">end</span>
+0296             <span class="comment">% check if the heartbeat timeout has expired</span>
+0297             <span class="keyword">if</span> toc(uint64(0)) &gt; terminate_at
+0298                 disp(<span class="string">'No keep-alive message has been received in time; now terminating.'</span>);
+0299                 <span class="keyword">return</span>;
+0300             <span class="keyword">end</span>
+0301         <span class="keyword">end</span>
+0302         
+0303         <span class="comment">% check if we need to display an error message</span>
+0304         <span class="keyword">if</span> isempty(strfind(e.message,<span class="string">'timed out'</span>))
+0305             disp([<span class="string">'Exception during accept: '</span> e.message]); <span class="keyword">end</span>
+0306     <span class="keyword">end</span>
+0307 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

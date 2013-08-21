@@ -1,0 +1,242 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of set_makepos</title>
+  <meta name="keywords" content="set_makepos">
+  <meta name="description" content="Create epochs relative to the target markers in a data set.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">dataset_editing</a> &gt; set_makepos.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/dataset_editing&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>set_makepos
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Create epochs relative to the target markers in a data set.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function signal = set_makepos(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Create epochs relative to the target markers in a data set.
+ Signal = set_makepos(Signal,TimeWindow)
+
+ This function turns a continuous data set with &quot;target&quot; markers (aka target events), i.e. events
+ that have a .target field which contains a non-empty &quot;target value&quot; into an epoched data set,
+ creating one epoch relative to each target marker, and copying that markers's .target value into the
+ respective epoch's .target field. Target markers are created via the function set_targetmarkers.
+
+ In:
+   Signal      :   continuous data set from which epochs shall be extracted
+
+   TimeWindow  :   time window relative to the events (forming the extracted epoch), in seconds
+
+ Out:
+   Signal  :  epoched data set, with target variable assigned; changes:
+              - data is reformatted into a 3d array
+              - xmin &amp; xmax indicate the epoch bounds in seconds
+              - events are rewritten to be relative to epochs (urevents unaffected)
+              - times contains the time points inside the epoch
+
+ Notes:
+   In the regular BCILAB processing pipeline, target markers are defined on the continuous 
+   data set either automatically by the bci_ functions, or manually via set_targetmarkers.
+
+ Examples:
+   % extract epochs from a continuous data set, beginning 0.5s before the position of each marker
+   % and ending 1.5s after the position of the corresponding marker
+   eeg = set_makepos(eeg,[-0.5 1.5])
+
+   % as before, but first add target markers for event types 'X' and 'Y'
+   eeg = set_makepos(set_targetmarkers(eeg,{'X','Y'}),[-0.5 1.5])
+
+ See also:
+   <a href="set_targetmarkers.html" class="code" title="function signal = set_targetmarkers(varargin)">set_targetmarkers</a>, bci_train
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-04-01</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = set_makepos(varargin)</a>
+0002 <span class="comment">% Create epochs relative to the target markers in a data set.</span>
+0003 <span class="comment">% Signal = set_makepos(Signal,TimeWindow)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This function turns a continuous data set with &quot;target&quot; markers (aka target events), i.e. events</span>
+0006 <span class="comment">% that have a .target field which contains a non-empty &quot;target value&quot; into an epoched data set,</span>
+0007 <span class="comment">% creating one epoch relative to each target marker, and copying that markers's .target value into the</span>
+0008 <span class="comment">% respective epoch's .target field. Target markers are created via the function set_targetmarkers.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% In:</span>
+0011 <span class="comment">%   Signal      :   continuous data set from which epochs shall be extracted</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">%   TimeWindow  :   time window relative to the events (forming the extracted epoch), in seconds</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">% Out:</span>
+0016 <span class="comment">%   Signal  :  epoched data set, with target variable assigned; changes:</span>
+0017 <span class="comment">%              - data is reformatted into a 3d array</span>
+0018 <span class="comment">%              - xmin &amp; xmax indicate the epoch bounds in seconds</span>
+0019 <span class="comment">%              - events are rewritten to be relative to epochs (urevents unaffected)</span>
+0020 <span class="comment">%              - times contains the time points inside the epoch</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">% Notes:</span>
+0023 <span class="comment">%   In the regular BCILAB processing pipeline, target markers are defined on the continuous</span>
+0024 <span class="comment">%   data set either automatically by the bci_ functions, or manually via set_targetmarkers.</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">% Examples:</span>
+0027 <span class="comment">%   % extract epochs from a continuous data set, beginning 0.5s before the position of each marker</span>
+0028 <span class="comment">%   % and ending 1.5s after the position of the corresponding marker</span>
+0029 <span class="comment">%   eeg = set_makepos(eeg,[-0.5 1.5])</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%   % as before, but first add target markers for event types 'X' and 'Y'</span>
+0032 <span class="comment">%   eeg = set_makepos(set_targetmarkers(eeg,{'X','Y'}),[-0.5 1.5])</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">% See also:</span>
+0035 <span class="comment">%   set_targetmarkers, bci_train</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0038 <span class="comment">%                                2010-04-01</span>
+0039 
+0040 <span class="comment">% set_makepos_version&lt;1.0&gt; -- for the cache</span>
+0041 
+0042 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0043 
+0044 declare_properties(<span class="string">'name'</span>,{<span class="string">'EpochExtraction'</span>,<span class="string">'epoch'</span>}, <span class="string">'independent_channels'</span>,true,<span class="string">'independent_trials'</span>,true);
+0045 
+0046 arg_define(varargin, <span class="keyword">...</span>
+0047     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0048     arg({<span class="string">'epobounds'</span>,<span class="string">'TimeWindow'</span>}, [], [], <span class="string">'Epoch time window relative to the target markers. In seconds.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>));
+0049 
+0050 <span class="keyword">if</span> ~onl_isonline
+0051     evtbackup = signal.event;
+0052     had_icaact = ~isempty(signal.icaact) &amp;&amp; ~isscalar(signal.icaact) &amp;&amp; ~isempty(signal.icaweights) &amp;&amp; ~isempty(signal.icasphere) &amp;&amp; ~isempty(signal.icachansind);
+0053     <span class="keyword">if</span> isempty(signal.event)
+0054         error(<span class="string">'This data set has no events.'</span>); <span class="keyword">end</span>
+0055     
+0056     <span class="comment">% make sure that the events are sorted (otherwise pop_epoch may behave erratically)</span>
+0057     <span class="keyword">if</span> ~issorted([signal.event.latency])
+0058         disp(<span class="string">'set_makepos: The events in this data set are unsorted; sorting them now.'</span>);
+0059         [sorted,idx] = sort([signal.event.latency]); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0060         signal.event = signal.event(idx);
+0061     <span class="keyword">end</span>
+0062     
+0063     <span class="comment">% identify the target events</span>
+0064     <span class="keyword">if</span> ~isfield(signal.event,<span class="string">'target'</span>)
+0065         <span class="comment">% If you are getting this error, then the events of your signal are lacking a piece of</span>
+0066         <span class="comment">% meta-data, namely the field signal.event.target. The regular processing pipeline (bci_train</span>
+0067         <span class="comment">% or the model calibration GUI) automatically add this field, so either you are calling this</span>
+0068         <span class="comment">% function directly on &quot;raw&quot; data (in which case you should first run set_targetmarkers on it),</span>
+0069         <span class="comment">% or this field got lost during one of the intermediate processing stages (in which case</span>
+0070         <span class="comment">% there is an error in one of the filter plugins or the basic EEGLAB functions).</span>
+0071         error(<span class="string">'The events of this signal must have a .target field (which is assigned using set_targetmarkers).'</span>); 
+0072     <span class="keyword">end</span>
+0073     targmask = ~cellfun(<span class="string">'isempty'</span>,{signal.event.target});
+0074     
+0075     <span class="keyword">if</span> ~any(targmask)
+0076         <span class="comment">% Note: if you are getting this error it means that no event in the data was tagged as a</span>
+0077         <span class="comment">% &quot;target&quot; event (these are the ones that the BCI is supposed to deal with). The tagging</span>
+0078         <span class="comment">% happens automatically during bci_train / &quot;calibrate model&quot; based on the TargetMarkers that</span>
+0079         <span class="comment">% you specified, so the most likely reason for this error is that no event type in the data</span>
+0080         <span class="comment">% matched any of those that you gave as &quot;target markers&quot;. Please check whether you specified</span>
+0081         <span class="comment">% them in accordance with what's in your data. Another, less likely, reason is that you</span>
+0082         <span class="comment">% accidentally &quot;lost&quot; them during some manual data curation or during a pre-processing step</span>
+0083         <span class="comment">% (unlikely, unless you are using a lot of ad hoc plugins).</span>
+0084         error(<span class="string">'This data set contains none of the target events (i.e. events with non-empty .target field). Did you specify the correct target markers?'</span>); 
+0085     <span class="keyword">end</span>
+0086     
+0087     <span class="comment">% temporarily back up the .type field into .oldtype and replace the type of the target events by '__target__'</span>
+0088     [signal.event.oldtype] = signal.event.type;
+0089     [signal.event(targmask).type] = deal(<span class="string">'__target__'</span>);
+0090 
+0091     <span class="comment">% extract epochs &amp; do sanity checks</span>
+0092     [signal, evtindices] = pop_epoch(signal, {<span class="string">'__target__'</span>}, epobounds);
+0093     <span class="keyword">if</span> length(evtindices) ~= size(signal.data,3) || ((length(evtindices) ~= length(signal.epoch)) &amp;&amp; ~isempty(signal.epoch))
+0094         <span class="comment">% Note: If you are getting this error, the event information returned by pop_epoch is not</span>
+0095         <span class="comment">% what is expected by BCILAB. This should not happen, but pop_epoch is a very complex function;</span>
+0096         <span class="comment">% therefore, if you get this message, you probably spotted a bug deep in the plumbing of</span>
+0097         <span class="comment">% EEGLAB -- please report it.</span>
+0098         error(<span class="string">'BCILAB:set_makepos:inconsistent_epochinfo'</span>,<span class="string">'The data returned by pop_epoch is inconsistent; unable to determine the per-epoch target value.'</span>);
+0099     <span class="keyword">end</span>
+0100     
+0101     <span class="keyword">if</span> length(evtindices) ~= nnz(targmask)
+0102         <span class="comment">% Note: If you are getting this error, there are some events in your data set that have been</span>
+0103         <span class="comment">% labeled as &quot;target&quot; events (by set_targetmarkers) but which are so close to a boundary</span>
+0104         <span class="comment">% event or the edge of the dataset, that no epochs could be extracted for them. This may</span>
+0105         <span class="comment">% either be caused by some intermediate processing stage that introduced new boundary events</span>
+0106         <span class="comment">% into the data (e.g. artifact rejection) without properly pruning the invalidated target</span>
+0107         <span class="comment">% markers, or, somewhat less likely, because set_targetmarkers was not given a large enough</span>
+0108         <span class="comment">% &quot;safety range&quot; around the events (e.g., either you explicitly passed a range that is</span>
+0109         <span class="comment">% smaller than the size of your actual epochs or bci_train failed to figure out the size of</span>
+0110         <span class="comment">% your epochs by itself -- which would be a bug). Or, least likely, it may have been caused</span>
+0111         <span class="comment">% by a bug already in set_targetmarkers (should not happen since the code is fairly</span>
+0112         <span class="comment">% simple, but if you manage to track this down, please report it).</span>
+0113         error(<span class="string">'BCILAB:set_makepos:inconsistent_issue'</span>,<span class="string">'Failed to extract an epoch for each target event.'</span>);
+0114     <span class="keyword">end</span>
+0115         
+0116     <span class="comment">% copy back the .oldtype field to the .type field, if some events are left</span>
+0117     <span class="keyword">if</span> ~isempty(signal.event)
+0118         [signal.event.type] = signal.event.oldtype;
+0119         signal.event = rmfield(signal.event,<span class="string">'oldtype'</span>);
+0120     <span class="keyword">end</span>
+0121     
+0122     <span class="comment">% make sure that the .epoch field has the right length</span>
+0123     <span class="comment">% (it can be empty because sometimes no events are retained)</span>
+0124     <span class="keyword">if</span> length(signal.epoch) ~= nnz(targmask)
+0125         <span class="keyword">if</span> isempty(signal.epoch)
+0126             signal.epoch = struct(<span class="string">'target'</span>,cell(1,nnz(targmask)));
+0127         <span class="keyword">else</span>
+0128             signal.epoch(nnz(targmask)).target = [];
+0129         <span class="keyword">end</span>
+0130     <span class="keyword">end</span>
+0131     
+0132     <span class="comment">% copy back old types to the epoch field</span>
+0133     <span class="keyword">if</span> ~isempty(signal.epoch)
+0134         <span class="keyword">try</span>
+0135             [signal.epoch.eventtype] = signal.epoch.eventoldtype;
+0136             signal.epoch = rmfield(signal.epoch,<span class="string">'eventoldtype'</span>);
+0137         <span class="keyword">catch</span>
+0138             <span class="comment">% (... which might perhaps be malformed or non-exitant)</span>
+0139         <span class="keyword">end</span>
+0140     <span class="keyword">end</span>
+0141     
+0142     <span class="comment">% assign target values and latencies to the epoch</span>
+0143     [signal.epoch.target] = evtbackup(targmask).target;
+0144     [signal.epoch.latency] = evtbackup(targmask).latency;
+0145     
+0146     <span class="comment">% reconstruct the ICA activation if required</span>
+0147     <span class="keyword">if</span> had_icaact        
+0148         signal.icaact = reshape((signal.icaweights*signal.icasphere)*signal.data(signal.icachansind,:), [], signal.pnts, signal.trials); <span class="keyword">end</span>
+0149 <span class="keyword">else</span>
+0150     <span class="comment">% in the online case we don't extract epochs but instead behave as an epoch that slides over the data</span>
+0151     
+0152     <span class="comment">% fix up xmin and xmax for the current epoch</span>
+0153     signal.xmin = epobounds(1);
+0154     signal.xmax = epobounds(1) + (size(signal.data,2)-1)/signal.srate;    
+0155     <span class="comment">% add an epoch field; this contains at least the latency (of the time-locking event, in samples)</span>
+0156     signal.epoch = struct(<span class="string">'latency'</span>, {signal.smax - signal.xmax*signal.srate});        
+0157 <span class="keyword">end</span>
+0158 
+0159 exp_endfun;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,428 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_fir</title>
+  <meta name="keywords" content="flt_fir">
+  <meta name="description" content="Filter a continuous data set by a digital FIR filter.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_fir.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_fir
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Filter a continuous data set by a digital FIR filter.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [signal,state] = flt_fir(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Filter a continuous data set by a digital FIR filter.
+ [Signal,State] = flt_fir(Signal, Frequencies, Mode, Type, PassbandRipple, StopbandRipple, State)
+
+ Digital FIR filters [1] are computationally less efficient than IIR filters, but allow for
+ somewhat more control. Specifically, FIR filters can not &quot;blow up&quot; (diverge), even if extremely
+ demanding frequency responses are implemented (e.g., drift removal). The computational cost of
+ very low-frequency filters during online processing may be prohibitive, though. FIR filters can be
+ designed with different phase (delay/distortion) behavior, depending on the desired application.
+ Linear phase filters are the most commonly used ones, as they do not distort the data (which makes
+ interpretation easier) but only delay it, and because they are causal (i.e. can be used online).
+ The delay can, however, easily be too large for certain time-sensitive online tasks (it is a
+ function of the lower transition edge). Zero-phase filters are mostly interesting for
+ visualization, as they neither delay nor distort the signal, but cannot be used for online
+ applications, or within data analyses that estimate online application behavior. Minimum-phase
+ filters can be used online, have very low latency, and can implement extreme frequency responses,
+ but distort the signal. In that case, some assumptions about signal shape may turn invalid, and
+ have to be revised given the filtered data.
+ 
+ In:
+   Signal        :   continuous data set to be filtered
+
+   Frequencies  :   frequency specification:
+                    * for a low/high-pass filter, this is: [transition-start, transition-end],in Hz
+                    * for a band-pass/stop filter, this is: [low-transition-start,
+                      low-transition-end, hi-transition-start, hi-transition-end], in Hz
+                    * for a free-form filter, this is a cell array of {[frequency, frequency, ...],
+                      [amplitude, amplitude, ...]} (where the amplitudes specify piecewise constant 
+                      regions in the desired filter response, usually between 0 and 1, and the 
+                      frequencies are the lower and upper frequency edge of each of the bands, 
+                      omitting the lower edge of the first band and upper edge of the last band, 
+                      which are assumed to be 0Hz and the Nyquist frequency, respectively) 
+
+                      Alternatively, it can also be a 3xN array of the form;
+                      [freq_lo,freq_hi,amp; freq_lo,freq_hi,amp; freq_lo,freq_hi,amp; ...]
+                      specifying the lower edge, upper edge and amplitude of each constant segment.
+                      The lower edge of the first segment and upper edge of the last segment are 
+                      ignored and assumed as explained above.
+
+   Mode         :   filter mode, 'bp' for bandpass, 'hp' for highpass, 'lp' for lowpass, 'bs' for
+                    bandstop, 'ff' for free-form (default: 'bp')
+
+   Type         :   * 'minimum-phase' minimum-hase filter -- pro: introduces minimal signal delay;
+                       con: distorts the signal (default)
+                    * 'linear-phase' linear-phase filter -- pro: no signal distortion; con: delays
+                       the signal
+                    * 'zero-phase' zero-phase filter -- pro: no signal delay or distortion; con:
+                       can not be used for online purposes
+
+   PassbandRipple  :   Maximum relative ripple amplitude in pass-band. Relative to nominal 
+                       pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.
+                       (default: -20)
+
+   StopbandRipple  :   Maximum relative ripple amplitude in stop-band. Relative to nominal
+                       pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.
+                       (default: -30)
+
+   DesignRule : Filter design rule. Parks-McClellan minimizes the maximum error, the Window Method
+                minimizes the square error, and Frequency Sampling constructs the filter via the 
+                Fourier transform without tuning. (default: 'Frequency Sampling')
+
+   ChunkLength : Maximum chunk length. Process the data in chunks of no larger than this (to avoid
+                 memory limitations). (default: 50000)
+
+   NormalizeAmplitude : Normalize amplitude. Normalizes the amplitude such that the maximum gain is
+                        1. This helps with the occasional erratic filter design result. (default: true)
+
+   State        :   previous filter state, as obtained by a previous execution of flt_fir on an
+                    immediately preceding data set (default: [])
+
+ Out: 
+   Signal       :  filtered, continuous data set
+   State        :  state of the filter, after it got applied
+
+ Examples:
+   % use a 7-30 Hz bandpass filter, with transition regions that are 2 Hz wide
+   eeg = flt_fir(eeg,[6 8 29 31])
+
+   % use a 1Hz highpass filter (with a transition between 0.9 and 1.1 Hz)
+   eeg = flt_fir(eeg,[0.9 1.1],'highpass')
+
+   % use a 1Hz highpass filter (with very generous transition region) that is linear phase (i.e. 
+   % does not distort the signal)
+   eeg = flt_fir(eeg,[0.5 1.5],'highpass','linear-phase')
+
+   % use a 7.5-30 Hz bandpass filter, with transition regions that are 5 Hz wide, and a particular
+   % specification of pass-band and stop-band rippling constraints, passing all arguments by name
+   eeg = flt_fir('Signal',eeg,'Frequencies',[5 10 27.5 32.5],'PassbandRipple',-10,'StopbandRipple',-50);
+
+   % as previous, but using the short argument names
+   eeg = flt_fir('signal',eeg,'fspec',[5 10 27.5 32.5],'passripple',-10,'stopripple',-50);
+
+   % implement a free-form FIR filter with peaks within 12-15 Hz and within 26-35 Hz
+   eeg = flt_fir(eeg,[0 11 0; 12 15 1; 16 25 0; 26 35 1; 36 100 0],'freeform')
+
+ Notes:
+   The Parks-McClellan and Window Method design rules require the Signal Processing toolbox.
+
+ References:
+   [1] A.V. Oppenheim and R.W. Schafer, &quot;Digital Signal Processing&quot;,
+       Prentice-Hall, 1975.
+
+ See also:
+   firpm, fir1, design_fir, filter
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-04-17</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="flt_clean_settings.html" class="code" title="function signal = flt_clean_settings(varargin)">flt_clean_settings</a>	Clean EEG data according to a particular cleaning setting.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal,state] = flt_fir(varargin)</a>
+0002 <span class="comment">% Filter a continuous data set by a digital FIR filter.</span>
+0003 <span class="comment">% [Signal,State] = flt_fir(Signal, Frequencies, Mode, Type, PassbandRipple, StopbandRipple, State)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Digital FIR filters [1] are computationally less efficient than IIR filters, but allow for</span>
+0006 <span class="comment">% somewhat more control. Specifically, FIR filters can not &quot;blow up&quot; (diverge), even if extremely</span>
+0007 <span class="comment">% demanding frequency responses are implemented (e.g., drift removal). The computational cost of</span>
+0008 <span class="comment">% very low-frequency filters during online processing may be prohibitive, though. FIR filters can be</span>
+0009 <span class="comment">% designed with different phase (delay/distortion) behavior, depending on the desired application.</span>
+0010 <span class="comment">% Linear phase filters are the most commonly used ones, as they do not distort the data (which makes</span>
+0011 <span class="comment">% interpretation easier) but only delay it, and because they are causal (i.e. can be used online).</span>
+0012 <span class="comment">% The delay can, however, easily be too large for certain time-sensitive online tasks (it is a</span>
+0013 <span class="comment">% function of the lower transition edge). Zero-phase filters are mostly interesting for</span>
+0014 <span class="comment">% visualization, as they neither delay nor distort the signal, but cannot be used for online</span>
+0015 <span class="comment">% applications, or within data analyses that estimate online application behavior. Minimum-phase</span>
+0016 <span class="comment">% filters can be used online, have very low latency, and can implement extreme frequency responses,</span>
+0017 <span class="comment">% but distort the signal. In that case, some assumptions about signal shape may turn invalid, and</span>
+0018 <span class="comment">% have to be revised given the filtered data.</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% In:</span>
+0021 <span class="comment">%   Signal        :   continuous data set to be filtered</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%   Frequencies  :   frequency specification:</span>
+0024 <span class="comment">%                    * for a low/high-pass filter, this is: [transition-start, transition-end],in Hz</span>
+0025 <span class="comment">%                    * for a band-pass/stop filter, this is: [low-transition-start,</span>
+0026 <span class="comment">%                      low-transition-end, hi-transition-start, hi-transition-end], in Hz</span>
+0027 <span class="comment">%                    * for a free-form filter, this is a cell array of {[frequency, frequency, ...],</span>
+0028 <span class="comment">%                      [amplitude, amplitude, ...]} (where the amplitudes specify piecewise constant</span>
+0029 <span class="comment">%                      regions in the desired filter response, usually between 0 and 1, and the</span>
+0030 <span class="comment">%                      frequencies are the lower and upper frequency edge of each of the bands,</span>
+0031 <span class="comment">%                      omitting the lower edge of the first band and upper edge of the last band,</span>
+0032 <span class="comment">%                      which are assumed to be 0Hz and the Nyquist frequency, respectively)</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">%                      Alternatively, it can also be a 3xN array of the form;</span>
+0035 <span class="comment">%                      [freq_lo,freq_hi,amp; freq_lo,freq_hi,amp; freq_lo,freq_hi,amp; ...]</span>
+0036 <span class="comment">%                      specifying the lower edge, upper edge and amplitude of each constant segment.</span>
+0037 <span class="comment">%                      The lower edge of the first segment and upper edge of the last segment are</span>
+0038 <span class="comment">%                      ignored and assumed as explained above.</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">%   Mode         :   filter mode, 'bp' for bandpass, 'hp' for highpass, 'lp' for lowpass, 'bs' for</span>
+0041 <span class="comment">%                    bandstop, 'ff' for free-form (default: 'bp')</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%   Type         :   * 'minimum-phase' minimum-hase filter -- pro: introduces minimal signal delay;</span>
+0044 <span class="comment">%                       con: distorts the signal (default)</span>
+0045 <span class="comment">%                    * 'linear-phase' linear-phase filter -- pro: no signal distortion; con: delays</span>
+0046 <span class="comment">%                       the signal</span>
+0047 <span class="comment">%                    * 'zero-phase' zero-phase filter -- pro: no signal delay or distortion; con:</span>
+0048 <span class="comment">%                       can not be used for online purposes</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">%   PassbandRipple  :   Maximum relative ripple amplitude in pass-band. Relative to nominal</span>
+0051 <span class="comment">%                       pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.</span>
+0052 <span class="comment">%                       (default: -20)</span>
+0053 <span class="comment">%</span>
+0054 <span class="comment">%   StopbandRipple  :   Maximum relative ripple amplitude in stop-band. Relative to nominal</span>
+0055 <span class="comment">%                       pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.</span>
+0056 <span class="comment">%                       (default: -30)</span>
+0057 <span class="comment">%</span>
+0058 <span class="comment">%   DesignRule : Filter design rule. Parks-McClellan minimizes the maximum error, the Window Method</span>
+0059 <span class="comment">%                minimizes the square error, and Frequency Sampling constructs the filter via the</span>
+0060 <span class="comment">%                Fourier transform without tuning. (default: 'Frequency Sampling')</span>
+0061 <span class="comment">%</span>
+0062 <span class="comment">%   ChunkLength : Maximum chunk length. Process the data in chunks of no larger than this (to avoid</span>
+0063 <span class="comment">%                 memory limitations). (default: 50000)</span>
+0064 <span class="comment">%</span>
+0065 <span class="comment">%   NormalizeAmplitude : Normalize amplitude. Normalizes the amplitude such that the maximum gain is</span>
+0066 <span class="comment">%                        1. This helps with the occasional erratic filter design result. (default: true)</span>
+0067 <span class="comment">%</span>
+0068 <span class="comment">%   State        :   previous filter state, as obtained by a previous execution of flt_fir on an</span>
+0069 <span class="comment">%                    immediately preceding data set (default: [])</span>
+0070 <span class="comment">%</span>
+0071 <span class="comment">% Out:</span>
+0072 <span class="comment">%   Signal       :  filtered, continuous data set</span>
+0073 <span class="comment">%   State        :  state of the filter, after it got applied</span>
+0074 <span class="comment">%</span>
+0075 <span class="comment">% Examples:</span>
+0076 <span class="comment">%   % use a 7-30 Hz bandpass filter, with transition regions that are 2 Hz wide</span>
+0077 <span class="comment">%   eeg = flt_fir(eeg,[6 8 29 31])</span>
+0078 <span class="comment">%</span>
+0079 <span class="comment">%   % use a 1Hz highpass filter (with a transition between 0.9 and 1.1 Hz)</span>
+0080 <span class="comment">%   eeg = flt_fir(eeg,[0.9 1.1],'highpass')</span>
+0081 <span class="comment">%</span>
+0082 <span class="comment">%   % use a 1Hz highpass filter (with very generous transition region) that is linear phase (i.e.</span>
+0083 <span class="comment">%   % does not distort the signal)</span>
+0084 <span class="comment">%   eeg = flt_fir(eeg,[0.5 1.5],'highpass','linear-phase')</span>
+0085 <span class="comment">%</span>
+0086 <span class="comment">%   % use a 7.5-30 Hz bandpass filter, with transition regions that are 5 Hz wide, and a particular</span>
+0087 <span class="comment">%   % specification of pass-band and stop-band rippling constraints, passing all arguments by name</span>
+0088 <span class="comment">%   eeg = flt_fir('Signal',eeg,'Frequencies',[5 10 27.5 32.5],'PassbandRipple',-10,'StopbandRipple',-50);</span>
+0089 <span class="comment">%</span>
+0090 <span class="comment">%   % as previous, but using the short argument names</span>
+0091 <span class="comment">%   eeg = flt_fir('signal',eeg,'fspec',[5 10 27.5 32.5],'passripple',-10,'stopripple',-50);</span>
+0092 <span class="comment">%</span>
+0093 <span class="comment">%   % implement a free-form FIR filter with peaks within 12-15 Hz and within 26-35 Hz</span>
+0094 <span class="comment">%   eeg = flt_fir(eeg,[0 11 0; 12 15 1; 16 25 0; 26 35 1; 36 100 0],'freeform')</span>
+0095 <span class="comment">%</span>
+0096 <span class="comment">% Notes:</span>
+0097 <span class="comment">%   The Parks-McClellan and Window Method design rules require the Signal Processing toolbox.</span>
+0098 <span class="comment">%</span>
+0099 <span class="comment">% References:</span>
+0100 <span class="comment">%   [1] A.V. Oppenheim and R.W. Schafer, &quot;Digital Signal Processing&quot;,</span>
+0101 <span class="comment">%       Prentice-Hall, 1975.</span>
+0102 <span class="comment">%</span>
+0103 <span class="comment">% See also:</span>
+0104 <span class="comment">%   firpm, fir1, design_fir, filter</span>
+0105 <span class="comment">%</span>
+0106 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0107 <span class="comment">%                                2010-04-17</span>
+0108 
+0109 <span class="comment">% flt_fir_version&lt;1.02&gt; -- for the cache</span>
+0110 
+0111 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0112 
+0113 <span class="comment">% does not make sense on epoched data</span>
+0114 declare_properties(<span class="string">'name'</span>,<span class="string">'FIRFilter'</span>, <span class="string">'follows'</span>,<span class="string">'flt_iir'</span>, <span class="string">'cannot_follow'</span>,<span class="string">'set_makepos'</span>, <span class="string">'independent_channels'</span>,true, <span class="string">'independent_trials'</span>,true);
+0115 
+0116 arg_define(varargin, <span class="keyword">...</span><span class="comment"> </span>
+0117     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0118     arg({<span class="string">'fspec'</span>,<span class="string">'Frequencies'</span>}, [], [], [<span class="string">'Frequency specification of the filter. For a low/high-pass filter, this is: [transition-start, transition-end], in Hz and for a band-pass/stop filter, this is: [low-transition-start, low-transition-end, hi-transition-start, hi-transition-end], in Hz. For a free-form filter, this is a 2d matrix of the form [frequency,frequency,frequency, ...; amplitude, amplitude, amplitude, ...] or [frequency,frequency,frequency, ...; amplitude, amplitude, amplitude, ...; ripple, ripple, ripple, ...]'</span>]), <span class="keyword">...</span>
+0119     arg({<span class="string">'fmode'</span>,<span class="string">'Mode'</span>}, <span class="string">'bandpass'</span>, {<span class="string">'bandpass'</span>,<span class="string">'highpass'</span>,<span class="string">'lowpass'</span>,<span class="string">'bandstop'</span>,<span class="string">'freeform'</span>}, <span class="string">'Filtering mode. Determines how the Frequencies parameter is interpreted.'</span>), <span class="keyword">...</span>
+0120     arg({<span class="string">'ftype'</span>,<span class="string">'Type'</span>},<span class="string">'minimum-phase'</span>, {<span class="string">'minimum-phase'</span>,<span class="string">'linear-phase'</span>,<span class="string">'zero-phase'</span>}, <span class="string">'Filter type. Minimum-phase introduces only minimal signal delay but distorts the signal. Linear-phase has no signal distortion but delays the signal. Zero-phase has neither signal delay nor distortion but can not be used for online purposes.'</span>), <span class="keyword">...</span>
+0121     arg({<span class="string">'passripple'</span>,<span class="string">'PassbandRipple'</span>}, -20, [-180 1], <span class="string">'Maximum relative ripple amplitude in pass-band. Relative to nominal pass-band gain. Affects the filter length (i.e., delay). Assumed to be in db if negative, otherwise taken as a ratio.'</span>), <span class="keyword">...</span>
+0122     arg({<span class="string">'stopripple'</span>,<span class="string">'StopbandRipple'</span>}, -30, [-180 1], <span class="string">'Maximum relative ripple amplitude in stop-band. Relative to nominal pass-band gain. Affects the filter length (i.e., delay). Assumed to be in db if negative, otherwise taken as a ratio.'</span>), <span class="keyword">...</span>
+0123     arg({<span class="string">'designrule'</span>,<span class="string">'DesignRule'</span>}, <span class="string">'Frequency Sampling'</span>, {<span class="string">'Parks-McClellan'</span>,<span class="string">'Window Method'</span>,<span class="string">'Frequency Sampling'</span>}, <span class="string">'Filter design rule. Parks-McClellan minimizes the maximum error, the Window Method minimizes the square error, and Frequency Sampling constructs the filter via the Fourier transform without tuning (the latter requires no sigproc toolbox).'</span>), <span class="keyword">...</span>
+0124     arg({<span class="string">'chunk_length'</span>,<span class="string">'ChunkLength'</span>},50000,[], <span class="string">'Maximum chunk length. Process the data in chunks of no larger than this (to avoid memory limitations).'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0125     arg({<span class="string">'normalize_amplitude'</span>,<span class="string">'NormalizeAmplitude'</span>},true,[], <span class="string">'Normalize amplitude. Normalizes the amplitude such that the maximum gain is as desired. This helps with the occasional erratic filter design result.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0126     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>}));
+0127 
+0128 <span class="keyword">if</span> isempty(state)
+0129     <span class="comment">% design filter kernel</span>
+0130     <span class="keyword">if</span> passripple &lt; 0
+0131         passripple = 10^(passripple/10); <span class="keyword">end</span>
+0132     <span class="keyword">if</span> stopripple &lt; 0
+0133         stopripple = 10^(stopripple/10); <span class="keyword">end</span>
+0134     
+0135     <span class="keyword">if</span> ~(iscell(fspec) &amp;&amp; isscalar(fspec))
+0136         
+0137         <span class="comment">% create a filter specification accepted by firpmord or kaiserord</span>
+0138         <span class="keyword">switch</span> fmode
+0139             <span class="keyword">case</span> {<span class="string">'freeform'</span>,<span class="string">'ff'</span>}
+0140                 <span class="comment">% a free-form frequency spec is given</span>
+0141                 <span class="keyword">if</span> iscell(fspec)
+0142                     <span class="comment">% given as a cell array of {bandfreqs,amps} or {bandfreqs, amps, ripple}</span>
+0143                     <span class="keyword">if</span> length(fspec{1}) == 2*length(fspec{2})
+0144                         error(<span class="string">'When specifying the bands for each constant-amplitude region of the filter response, the first band is assumed to begin at 0Hz and the last band is assumed to end at the Nyquist frequency -- thus, these 2 numbers in the band specification should be omitted.'</span>); 
+0145                     <span class="keyword">elseif</span> length(fspec{1}) ~= 2*length(fspec{2})-2
+0146                         error(<span class="string">'The specification of band edges does not match the specification of band amplitudes; for each band, a lower and an upper edge frequency must be listed, and both the lower edge of the first band and upper edge of the last band must be omitted (they equal 0Hz and the Nyquist frequency, respectively).'</span>);
+0147                     <span class="keyword">end</span>
+0148                 <span class="keyword">elseif</span> ~isvector(fspec)
+0149                     <span class="keyword">if</span> size(fspec,2) == 3
+0150                         bands = fspec(:,1:2)'; 
+0151                         fspec = {bands(2:end-1),fspec(:,3)'};
+0152                     <span class="keyword">elseif</span> size(fspec,1) == 4
+0153                         bands = fspec(:,1:2)'; 
+0154                         fspec = {bands(2:end-1),fspec(:,3)',fspec(:,4)'};
+0155                     <span class="keyword">else</span>
+0156                         error(<span class="string">'When specifying the piecewise-constant filter design in matrix form, a 3xB or 4xB matrix (B = number of bands) of the form [freq_lo,freq_hi,amp; freq_lo,freq_hi,amp; freq_lo,freq_hi,amp; ...] or [freq_lo,freq_hi,amp,ripple; freq_lo,freq_hi,amp,ripple; ...] must be given.'</span>);
+0157                     <span class="keyword">end</span>
+0158                 <span class="keyword">else</span>
+0159                     error(<span class="string">'When specifying the piecewise-constant filter design in matrix form, a 3xB or 4xB matrix (B = number of bands) of the form [freq_lo,freq_hi,amp; freq_lo,freq_hi,amp; freq_lo,freq_hi,amp; ...] or [freq_lo,freq_hi,amp,ripple; freq_lo,freq_hi,amp,ripple; ...] must be given.'</span>);
+0160                 <span class="keyword">end</span>
+0161             <span class="keyword">case</span> {<span class="string">'bandpass'</span>,<span class="string">'bp'</span>}
+0162                 fspec = {fspec,[0 1 0]};
+0163             <span class="keyword">case</span> {<span class="string">'bandstop'</span>,<span class="string">'bs'</span>}
+0164                 fspec = {fspec,[1 0 1]};
+0165             <span class="keyword">case</span> {<span class="string">'lowpass'</span>,<span class="string">'lp'</span>}
+0166                 fspec = {fspec,[1 0]};
+0167             <span class="keyword">case</span> {<span class="string">'highpass'</span>,<span class="string">'hp'</span>}
+0168                 fspec = {fspec,[0 1]};
+0169             <span class="keyword">otherwise</span>
+0170                 error([<span class="string">'Unrecognized filter mode: '</span> hlp_tostring(fmode)]);
+0171         <span class="keyword">end</span>
+0172         
+0173         <span class="comment">% is the filter being applied twice? correct for that.</span>
+0174         <span class="keyword">if</span> strcmp(ftype,<span class="string">'zero-phase'</span>)
+0175             fspec{2} = sqrt(fspec{2}); <span class="keyword">end</span>
+0176         <span class="comment">% derive the rippling specification from the amplitudes and passripple/stopripple</span>
+0177         <span class="keyword">if</span> length(fspec) &lt; 3        
+0178             fspec{3} = stopripple + fspec{2}*(passripple-stopripple); <span class="keyword">end</span>    
+0179 
+0180         <span class="keyword">try</span>
+0181             <span class="comment">% design the filter</span>
+0182             <span class="keyword">switch</span> designrule
+0183                 <span class="keyword">case</span> {<span class="string">'Parks-McClellan'</span>,<span class="string">'pm'</span>}
+0184                     args = hlp_diskcache(<span class="string">'filterdesign'</span>,@firpmord,fspec{:},signal.srate,<span class="string">'cell'</span>);
+0185                     b = hlp_diskcache(<span class="string">'filterdesign'</span>,@firpm,max(3,args{1}),args{2:end});
+0186                 <span class="keyword">case</span> {<span class="string">'Window Method'</span>,<span class="string">'wm'</span>}
+0187                     args = hlp_diskcache(<span class="string">'filterdesign'</span>,@kaiserord,fspec{:},signal.srate,<span class="string">'cell'</span>);
+0188                     b = hlp_diskcache(<span class="string">'filterdesign'</span>,@fir1,max(3,args{1}),args{2:end});
+0189                 <span class="keyword">case</span> {<span class="string">'Frequency Sampling'</span>,<span class="string">'fs'</span>}
+0190                     <span class="comment">% get frequencies and amplitudes</span>
+0191                     freqs = [0 fspec{1}*2/signal.srate 1];
+0192                     amps = vec([fspec{2}; fspec{2}]);
+0193                     <span class="comment">% design Kaiser window for smallest transition region</span>
+0194                     [dummy,pos] = min(diff(freqs)); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0195                     wnd = design_kaiser(freqs(pos),freqs(pos+1),-20*log10(stopripple),amps(end)~=0);
+0196                     <span class="comment">% design FIR filter with that window</span>
+0197                     b = design_fir(length(wnd)-1,freqs,amps,[],wnd);
+0198                 <span class="keyword">otherwise</span>
+0199                     error([<span class="string">'Unrecognized filter design rule: '</span> hlp_tostring(designrule)]);
+0200             <span class="keyword">end</span>
+0201         <span class="keyword">catch</span> e
+0202             <span class="keyword">if</span> strcmp(e.identifier,<span class="string">'MATLAB:UndefinedFunction'</span>)
+0203                 error(<span class="string">'A function was not found (likely from the signal processing toolbox). Consider falling back to the Frequency Sampling method.'</span>);
+0204             <span class="keyword">else</span>
+0205                 rethrow(e);
+0206             <span class="keyword">end</span>
+0207         <span class="keyword">end</span>
+0208         state.b = b;
+0209         n = length(state.b);
+0210         
+0211         <span class="comment">% use cepstral windowing to calculate a minimum-phase filter (note: the min-phase change applies</span>
+0212         <span class="keyword">if</span> strcmp(ftype,<span class="string">'minimum-phase'</span>)
+0213             wnd = [1 2*ones(1,(n+mod(n,2))/2-1) ones(1,1-mod(n,2)) zeros(1,(n+mod(n,2))/2-1)];
+0214             state.b = real(ifft(exp(fft(wnd.*real(ifft(log(abs(fft(state.b))+stopripple)))))));
+0215         <span class="keyword">end</span>
+0216         
+0217         <span class="comment">% normalize the magnitude</span>
+0218         <span class="keyword">if</span> normalize_amplitude
+0219             maxamp = max(abs(fft([state.b(:); zeros(1000,1)])));
+0220             state.b = state.b*max(fspec{2})/maxamp*(1+passripple);
+0221         <span class="keyword">end</span>
+0222     <span class="keyword">else</span>
+0223         <span class="comment">% precomputed filter coefficients</span>
+0224         state.b = fspec{1};
+0225     <span class="keyword">end</span> 
+0226 <span class="keyword">end</span>
+0227 
+0228 [b,n] = deal(state.b,length(state.b));
+0229 <span class="comment">% process each known time series field</span>
+0230 <span class="keyword">for</span> fld = {<span class="string">'data'</span>,<span class="string">'srcpot'</span>,<span class="string">'icaact'</span>}
+0231     field = fld{1};
+0232     <span class="keyword">if</span> isfield(signal,field) &amp;&amp; ~isempty(signal.(field)) &amp;&amp; ~isequal(signal.(field),1)
+0233         <span class="keyword">if</span> ~isfield(state,field)
+0234             state.(field) = []; <span class="keyword">end</span>
+0235 
+0236         <span class="comment">% phase 2: filter the data</span>
+0237         sig = double(signal.(field))';
+0238         <span class="keyword">if</span> isempty(state.(field))
+0239             <span class="comment">% no prior state: prepend the signal with a mirror section of itself, to minimize</span>
+0240             <span class="comment">% start-up transients (and if the signal is too short, we repeat it as much as we need)</span>
+0241             sig = [repmat(2*sig(1,:),n,1) - sig(1+mod(((n+1):-1:2)-1,size(sig,1)),:); sig];
+0242             <span class="keyword">if</span> strcmp(ftype,<span class="string">'zero-phase'</span>)
+0243                 <span class="comment">% to get a zero-phase filter, we run the filter backwards first</span>
+0244                 <span class="comment">% reverse the signal and prepend it with a mirror section (to minimize start-up transients)</span>
+0245                 sig = sig(end:-1:1,:); sig = [repmat(2*sig(1,:),n,1) - sig((n+1):-1:2,:); sig];
+0246                 <span class="comment">% run the filter</span>
+0247                 sig = filter_fast(b,1,sig);
+0248                 <span class="comment">% reverse and cut startup segment again</span>
+0249                 sig = sig(end:-1:(n+1),:);
+0250             <span class="keyword">end</span>
+0251             prepended = true;
+0252         <span class="keyword">else</span>
+0253             <span class="comment">% online case: check for misuses</span>
+0254             <span class="keyword">if</span> strcmp(ftype,<span class="string">'zero-phase'</span>)
+0255                 error(<span class="string">'zero-phase filters are non-causal and cannot be run online (or on continued data); use linear-phase or minimum-phase filters, or flt_iir.'</span>); <span class="keyword">end</span>
+0256             prepended = false;
+0257         <span class="keyword">end</span>
+0258         
+0259         <span class="comment">% apply the filter</span>
+0260         S = size(sig,1);
+0261         numsplits = ceil(S/chunk_length);
+0262         <span class="keyword">for</span> i=0:numsplits-1
+0263             range = 1+floor(i*S/numsplits) : min(S,floor((i+1)*S/numsplits));
+0264             [sig(range,:),state.(field)] = filter_fast(b,1,sig(range,:),state.(field),1);
+0265         <span class="keyword">end</span>
+0266         
+0267         <span class="comment">% cut off the data segment that we previously prepended</span>
+0268         <span class="keyword">if</span> prepended
+0269             sig(1:n,:) = []; <span class="keyword">end</span>
+0270         
+0271         <span class="comment">% write the data back</span>
+0272         signal.(field) = sig';
+0273     <span class="keyword">end</span>
+0274 <span class="keyword">end</span>
+0275 
+0276 exp_endfun;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

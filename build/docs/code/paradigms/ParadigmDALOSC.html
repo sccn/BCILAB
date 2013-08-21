@@ -1,0 +1,152 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmDALOSC</title>
+  <meta name="keywords" content="ParadigmDALOSC">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmDALOSC.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmDALOSC
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmDALOSC.html" class="code" title="">ParadigmDALOSC</a>	</li><li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmDALOSC.html" class="code" title="">ParadigmDALOSC</a>	</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li><li><a href="#_sub2" class="code">function defaults = machine_learning_defaults(self)</a></li><li><a href="#_sub3" class="code">function model = feature_adapt(self,varargin)</a></li><li><a href="#_sub4" class="code">function features = feature_extract(self,signal,featuremodel)</a></li><li><a href="#_sub5" class="code">function visualize_model(self,parent,fmodel,pmodel,varargin)</a></li><li><a href="#_sub6" class="code">function layout = dialog_layout_defaults(self)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmDALOSC.html" class="code" title="">ParadigmDALOSC</a> &lt; <a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>
+0002     <span class="comment">% Advanced paradigm for oscillatory processes via the Dual-Augmented Lagrange method.</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% The DAL-HF paradigm is an easy-to-use and generic method for operating on oscillatory processes.</span>
+0005     <span class="comment">% It is a special case of the general framework described in [1] (using only the &quot;second-order&quot;</span>
+0006     <span class="comment">% detector); the general variant, which can use multiple bands and time windows, as well as slow</span>
+0007     <span class="comment">% cortical potentials under a joint optimality criterion, is further explained in para_dal. DAL is</span>
+0008     <span class="comment">% the name of the optimization method [2], and not an accepted or recognized name for BCI paradigms</span>
+0009     <span class="comment">% using it (but is used here for the lack of a better name).</span>
+0010     <span class="comment">%</span>
+0011     <span class="comment">% Like CSP (para_csp), DAL-HF can be used for a wide range of oscillatory processes and should</span>
+0012     <span class="comment">% theoretically out-perform it in many cases, at the cost of much increased computation times (due</span>
+0013     <span class="comment">% to the need for regularization). Like for CSP, the frequency band and time window on which DAL-LF</span>
+0014     <span class="comment">% shall operate needs to be determined a priori. The frequency band is usually chosen to be the</span>
+0015     <span class="comment">% alpha and/or beta band for the majority of tasks, but under some circumstances, it can be chosen</span>
+0016     <span class="comment">% heuristically, as in [3].  The learner parameter is either chosen to be 'dal', to run without</span>
+0017     <span class="comment">% regularization for quick results, or {'dal',search(2.^(-6:0.5:10)} to run with full</span>
+0018     <span class="comment">% regularization, which takes much longer but is the proper way to apply the method.</span>
+0019     <span class="comment">%</span>
+0020     <span class="comment">% Example: Consider a user of an eye tracking software to control a mouse cursor. The user wants to</span>
+0021     <span class="comment">% execute a control thought (e.g., sensorimotor) in order to issue selections (i.e., a 'click'). We</span>
+0022     <span class="comment">% assume that the control signal is reflected in oscillatory processes. either in the alpha or the</span>
+0023     <span class="comment">% beta band, and that it takes approx. 2 seconds to think it. For a possible calibration design,</span>
+0024     <span class="comment">% see, e.g., [4], in which the data set contains events in which the user is either in the 'search'</span>
+0025     <span class="comment">% condition or in the 'select' condition. A predictive model can then be obtained with DAL-HF as</span>
+0026     <span class="comment">% follows:</span>
+0027     <span class="comment">%</span>
+0028     <span class="comment">%   calib = io_loadset('data sets/john/selection.eeg')</span>
+0029     <span class="comment">%   myapproach = {'DALOSC', 'SignalProcessing', {'EpochExtraction',[0 2]}};</span>
+0030     <span class="comment">%   [loss,model,stats] = bci_train('Data',calib, 'Approach',myapproach, 'TargetMarkers',{'search','select'});</span>
+0031     <span class="comment">%</span>
+0032     <span class="comment">%</span>
+0033     <span class="comment">% References:</span>
+0034     <span class="comment">%  [1] Ryota Tomioka and Klaus-Robert Mueller, &quot;A regularized discriminative framework for EEG analysis with application to brain-computer interface&quot;,</span>
+0035     <span class="comment">%      Neuroimage, 49 (1) pp. 415-432, 2010.</span>
+0036     <span class="comment">%  [2] Ryota Tomioka &amp; Masashi Sugiyama, &quot;Dual Augmented Lagrangian Method for Efficient Sparse Reconstruction&quot;,</span>
+0037     <span class="comment">%      IEEE Signal Proccesing Letters, 16 (12) pp. 1067-1070, 2009.</span>
+0038     <span class="comment">%  [3] Benjamin Blankertz, Ryota Tomioka, Steven Lemm, Motoaki Kawanabe, and Klaus-Robert Mueller.</span>
+0039     <span class="comment">%      &quot;Optimizing spatial filters for robust EEG single-trial analysis.&quot;</span>
+0040     <span class="comment">%      IEEE Signal Process Mag, 25(1):41-56, January 2008</span>
+0041     <span class="comment">%  [4] Zander T.O., Gaertner M., Kothe C., Vilimek R. &quot;Combining Eye Gaze Input with a Brain-Computer Interface for Touchless Human-Computer Interaction&quot;</span>
+0042     <span class="comment">%      International Journal of Human-Computer Interaction, in press.</span>
+0043     <span class="comment">%</span>
+0044     <span class="comment">% Name:</span>
+0045     <span class="comment">%   High-Frequency DAL</span>
+0046     <span class="comment">%</span>
+0047     <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0048     <span class="comment">%                           2010-06-25</span>
+0049     
+0050     methods
+0051       
+0052         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0053             defaults = {<span class="string">'FIRFilter'</span>,{<span class="string">'Frequencies'</span>,[6 8 28 32],<span class="string">'Type'</span>,<span class="string">'minimum-phase'</span>}, <span class="string">'EpochExtraction'</span>,[0.5 3.5], <span class="string">'Resampling'</span>,100};
+0054         <span class="keyword">end</span>
+0055 
+0056         <a name="_sub1" href="#_subfunctions" class="code">function defaults = machine_learning_defaults(self)</a>
+0057             defaults = <span class="string">'dal'</span>;
+0058         <span class="keyword">end</span>
+0059         
+0060         <a name="_sub2" href="#_subfunctions" class="code">function model = feature_adapt(self,varargin)</a>
+0061             args = arg_define(varargin, <span class="keyword">...</span>
+0062                 arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
+0063                 arg({<span class="string">'normalizers'</span>,<span class="string">'NormalizationExponents'</span>},[-0.25,-0.25],[],<span class="string">'Normalization exponents [lhs, rhs]. Two-element array of powers for the left-hand-side and right-hand-side normalization matrices that are applied to the data from the region.'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>));
+0064             
+0065             X = num2cell(args.signal.data,[1 2]);
+0066             <span class="keyword">for</span> t=1:length(X)
+0067                 X{t} = cov(X{t}'); <span class="keyword">end</span>
+0068             model.P = {hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_shrink,cat(2,X{:})')^args.normalizers(1),hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_shrink,cat(1,X{:}))^args.normalizers(2)};
+0069             model.chanlocs = args.signal.chanlocs;
+0070         <span class="keyword">end</span>
+0071         
+0072         <a name="_sub3" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
+0073             features = zeros(size(signal.data,1),size(signal.data,1),size(signal.data,3));
+0074             <span class="keyword">for</span> t=1:size(signal.data,3)
+0075                 features(:,:,t) = featuremodel.P{1}*cov(signal.data(:,:,t)')*featuremodel.P{2}; <span class="keyword">end</span>
+0076         <span class="keyword">end</span>
+0077 
+0078         <a name="_sub4" href="#_subfunctions" class="code">function visualize_model(self,parent,fmodel,pmodel,varargin) </a><span class="comment">%#ok&lt;*INUSD&gt;</span>
+0079             <span class="comment">% no parent: create new figure</span>
+0080             args = hlp_varargin2struct(varargin,<span class="string">'maxcomps'</span>,Inf,<span class="string">'regcurve'</span>,true,<span class="string">'paper'</span>,false);
+0081             <span class="keyword">if</span> isempty(parent)
+0082                 parent = figure(<span class="string">'Name'</span>,<span class="string">'Per-window weights'</span>); <span class="keyword">end</span>
+0083             <span class="comment">% get the spatial preprocessing matrix.</span>
+0084             P = fmodel.P{1};
+0085             <span class="comment">% obtain &amp; reshape the model</span>
+0086             M = reshape(pmodel.model.w,size(P,2),[]);
+0087             <span class="comment">% do an SVD to get spatial and temporal filters</span>
+0088             [U,S,V] = svd(M);
+0089             <span class="comment">% display the model contents</span>
+0090             N = min(rank(M),args.maxcomps);
+0091             topoplot_grid(P*U(1:N,:)',fmodel.chanlocs);
+0092         <span class="keyword">end</span>
+0093         
+0094         <a name="_sub5" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0095             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>, <span class="string">'SignalProcessing.FIRFilter.Frequencies'</span>, <span class="keyword">...</span>
+0096                 <span class="string">'SignalProcessing.FIRFilter.Type'</span>, <span class="string">'SignalProcessing.EpochExtraction'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0097                 <span class="string">'Prediction.MachineLearning.Learner.Lambdas'</span>,<span class="string">'Prediction.MachineLearning.Learner.LossFunction'</span>,<span class="keyword">...</span>
+0098                 <span class="string">'Prediction.MachineLearning.Learner.Regularizer'</span>};
+0099         <span class="keyword">end</span>
+0100         
+0101     <span class="keyword">end</span>
+0102 <span class="keyword">end</span>
+0103</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

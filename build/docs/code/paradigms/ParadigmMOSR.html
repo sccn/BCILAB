@@ -1,0 +1,271 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmMOSR</title>
+  <meta name="keywords" content="ParadigmMOSR">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmMOSR.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmMOSR
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmBase.html" class="code" title="">ParadigmBase</a>	</li><li><a href="ParadigmMOSR.html" class="code" title="">ParadigmMOSR</a>	</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmMOSR.html" class="code" title="">ParadigmMOSR</a>	</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li><li><a href="#_sub2" class="code">function defaults = machine_learning_defaults(self)</a></li><li><a href="#_sub3" class="code">function model = calibrate(self,varargin)</a></li><li><a href="#_sub4" class="code">function outputs = predict(self,bundle,model)</a></li><li><a href="#_sub5" class="code">function bundle = dummy_preprocess(self,bundle,onlexp)</a></li><li><a href="#_sub6" class="code">function layout = dialog_layout_defaults(self)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmMOSR.html" class="code" title="">ParadigmMOSR</a> &lt; <a href="ParadigmBase.html" class="code" title="">ParadigmBase</a>
+0002     <span class="comment">% Multi-subject Overcomplete Spectral Regression</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% This method is built for oscillations that are stationary in the time window of interest.</span>
+0005     <span class="comment">% It relies on an AMICA (or other) decomposition of the data to get spatially filtered source signals,</span>
+0006     <span class="comment">% then performs a multi-taper spectral estimation on the resulting components and a per-component PCA</span>
+0007     <span class="comment">% of the spectra (to reduce dimensionality). The actual classifier that operates on these features is</span>
+0008     <span class="comment">% by default Least-Angle regression (LARS) due to its speed. Note that this is a sparse feature-selecting</span>
+0009     <span class="comment">% classifier which can effectively deal with an arbitrary number of features (as long a subset of these contain</span>
+0010     <span class="comment">% the information of interest). The method has not yet been optimized for speed, so is relatively slow to train</span>
+0011     <span class="comment">% currently (esp. the ICA part).</span>
+0012     <span class="comment">%</span>
+0013     <span class="comment">% The multi-subject aspect amounts to using observations from a pool of other subjects and computing a prior distribution</span>
+0014     <span class="comment">% over model parameters on this pool. The resulting distribution is then used as a prior when learning from the calibration</span>
+0015     <span class="comment">% set for the specific person (or session) of interest. Thus, this is a simple hierarchical Bayesian model.</span>
+0016     <span class="comment">%</span>
+0017     <span class="comment">% References:</span>
+0018     <span class="comment">%  C. A. Kothe and S. Makeig,</span>
+0019     <span class="comment">%  “Estimation of Task Workload from EEG Data: New and Current Tools and Perspectives,”</span>
+0020     <span class="comment">%  IEEE EMBC, vol. 2011, pp. 6547-6551, 2011.</span>
+0021     <span class="comment">%</span>
+0022     <span class="comment">% Name:</span>
+0023     <span class="comment">%   Multi-subject Overcomplete Spectral Regression, work in progress</span>
+0024     <span class="comment">%</span>
+0025     
+0026     methods
+0027         
+0028         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0029             <span class="comment">% define the default pre-processing parameters for the M-OSR paradigm</span>
+0030             defaults = { <span class="keyword">...</span>
+0031                  <span class="string">'EOGRemoval'</span>,{<span class="string">'RemoveEOG'</span>,true}, <span class="keyword">...</span>
+0032                  <span class="string">'DipoleFitting'</span>,<span class="string">'on'</span>,<span class="keyword">...</span>
+0033                  <span class="string">'ICA'</span>,{{<span class="string">'amica'</span>, <span class="keyword">...</span>
+0034                          <span class="string">'version'</span>,<span class="string">'stable11'</span>, <span class="keyword">...</span>
+0035                          <span class="string">'num_models'</span>,3, <span class="keyword">...</span>
+0036                          <span class="string">'useqsub'</span>,<span class="string">'on'</span>, <span class="keyword">...</span>
+0037                          <span class="string">'max_iter'</span>,500, <span class="keyword">...</span>
+0038                          <span class="string">'max_init_waiting'</span>,2000, <span class="keyword">...</span>
+0039                          <span class="string">'max_restarts'</span>,20, <span class="keyword">...</span>
+0040                          <span class="string">'fallback_reduce'</span>,0.3}, <span class="string">'clean'</span>,{<span class="string">'noisy'</span>}}, <span class="keyword">...</span>
+0041                  <span class="string">'Projection'</span>,<span class="string">'on'</span>, <span class="keyword">...</span>
+0042                  <span class="string">'EpochExtraction'</span>,{<span class="string">'TimeWindow'</span>,[-15 15]},<span class="keyword">...</span>
+0043                  <span class="string">'SpectralTransform'</span>,{<span class="string">'Representation'</span>,{<span class="string">'multitaper'</span>,<span class="string">'bandwidth'</span>,3},<span class="string">'LogTransform'</span>,true,<span class="string">'LogSpacing'</span>,200}, <span class="keyword">...</span>
+0044                  <span class="string">'EpochPCA'</span>,{<span class="string">'RetainDimensions'</span>,20}};
+0045         <span class="keyword">end</span>
+0046         
+0047         
+0048         <a name="_sub1" href="#_subfunctions" class="code">function defaults = machine_learning_defaults(self)</a>
+0049             <span class="comment">% set up the default parameters for machine learning</span>
+0050             defaults = {<span class="string">'logreg'</span>,[],<span class="string">'variant'</span>,<span class="string">'lars'</span>};
+0051         <span class="keyword">end</span>
+0052         
+0053         
+0054         <a name="_sub2" href="#_subfunctions" class="code">function model = calibrate(self,varargin)</a>
+0055             <span class="comment">% calibrate an M-OSR model from a corpus of training sets</span>
+0056             args = arg_define(varargin, <span class="keyword">...</span>
+0057                 arg_norep({<span class="string">'collection'</span>,<span class="string">'Collection'</span>}), <span class="keyword">...</span>
+0058                 arg_norep({<span class="string">'goal_identifier'</span>,<span class="string">'GoalIdentifier'</span>}), <span class="keyword">...</span>
+0059                 arg({<span class="string">'variant'</span>,<span class="string">'Variant'</span>},<span class="string">'pool'</span>,{<span class="string">'pool'</span>,<span class="string">'weighted'</span>,<span class="string">'jointprior'</span>,<span class="string">'sparse_jointprob'</span>},<span class="string">'Variant to use.'</span>), <span class="keyword">...</span>
+0060                 arg({<span class="string">'alpha'</span>,<span class="string">'ElasticMixing'</span>},1,[0.01 1],<span class="string">'ElasticNet mixing parameter. The default is the lasso penalty.'</span>), <span class="keyword">...</span>
+0061                 arg({<span class="string">'ref_weight'</span>,<span class="string">'ReferenceWeight'</span>},1,[],<span class="string">'Reference weight. Relative weight of the reference set.'</span>), <span class="keyword">...</span>
+0062                 arg({<span class="string">'scaling'</span>,<span class="string">'Scaling'</span>}, <span class="string">'std'</span>, {<span class="string">'none'</span>,<span class="string">'center'</span>,<span class="string">'std'</span>,<span class="string">'minmax'</span>,<span class="string">'whiten'</span>}, <span class="string">'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.'</span>),<span class="keyword">...</span>
+0063                 arg({<span class="string">'subsample'</span>,<span class="string">'Subsampling'</span>}, 3, [], <span class="string">'Sub-sampling of the data. Larger means more samples/trials skipped.'</span>),<span class="keyword">...</span>
+0064                 arg({<span class="string">'testwindow'</span>,<span class="string">'TestWindow'</span>}, [-15 15], [], <span class="string">'Online window length. This is the window length used for test-set prediction.'</span>),<span class="keyword">...</span>
+0065                 arg({<span class="string">'nfolds'</span>,<span class="string">'NumFolds'</span>},<span class="string">'auto'</span>,[],<span class="string">'Cross-validation folds. The cross-validation is used to determine the best regularization parameter.'</span>),<span class="keyword">...</span>
+0066                 arg({<span class="string">'priorsolve'</span>,<span class="string">'PriorSolver'</span>}, <span class="string">'lax'</span>, {<span class="string">'lax'</span>,<span class="string">'precise'</span>,<span class="string">'sparse'</span>}, <span class="string">'Prior Solver. Determines how the prior is derived; can be lax, precise, or smooth. Precise is &gt; 30x slower than lax.'</span>),<span class="keyword">...</span>
+0067                 arg_sub({<span class="string">'flt'</span>,<span class="string">'SignalProcessing'</span>}, self.preprocessing_defaults(), @flt_pipeline, <span class="string">'Signal processing stages. These parameters control filter stages that run on the signal level; they can be enabled, disabled and configured for the given paradigm. The prediction operates on the outputs of this stage.'</span>), <span class="keyword">...</span>
+0068                 arg_sub({<span class="string">'ml'</span>,<span class="string">'MachineLearning'</span>},{<span class="string">'Learner'</span>,self.machine_learning_defaults()},@ml_train,<span class="string">'Machine learning stage of the paradigm. Operates on the feature vectors that are produced by the feature-extraction stage.'</span>),<span class="keyword">...</span>
+0069                 arg({<span class="string">'arg_dialogsel'</span>,<span class="string">'ConfigLayout'</span>},self.dialog_layout_defaults(),[],<span class="string">'Parameters displayed in the config dialog. Cell array of parameter names to display (dot-notation allowed); blanks are translated into empty rows in the dialog. Referring to a structure argument lists all parameters of that struture, except if it is a switchable structure - in this case, a pulldown menu with switch options is displayed.'</span>,<span class="string">'type'</span>,<span class="string">'cellstr'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>));
+0070             
+0071             <span class="comment">% do a full ICA decomposition on the set from the collection that is closest to the target set</span>
+0072             <span class="comment">% and keep all others that are in the &quot;closest set&quot;</span>
+0073             [reference,remaining] = utl_collection_closest(args.collection,args.goal_identifier); 
+0074             remaining_ref = reference(1:end-1); reference = reference{end};
+0075             reference.streams{1} = exp_eval_optimized(flt_pipeline(<span class="string">'signal'</span>,reference.streams{1}, args.flt)); <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0076             
+0077             <span class="comment">% apply that pipeline to all other reference sets</span>
+0078             <span class="keyword">for</span> k=1:length(remaining_ref)
+0079                 remaining_ref{k} = self.dummy_preprocess(remaining_ref{k},reference.streams{1}.tracking.online_expression); <span class="keyword">end</span>
+0080             <span class="comment">% ... and to all testing sets in the collection</span>
+0081             <span class="keyword">for</span> k=1:length(remaining)
+0082                 remaining{k} = self.dummy_preprocess(remaining{k},reference.streams{1}.tracking.online_expression); <span class="keyword">end</span>
+0083             
+0084             <span class="comment">% rebuild the reference set</span>
+0085             reference_set = [remaining_ref {reference}];
+0086             
+0087             <span class="comment">% pool all sets into one uniform corpus</span>
+0088             corpus = [reference_set remaining];
+0089             
+0090             <span class="comment">% extract features from all sets</span>
+0091             <span class="keyword">for</span> k=1:length(corpus)
+0092                 signal = corpus{k}.streams{1};
+0093                 features{k} = squeeze(reshape(signal.data,[],1,size(signal.data,3)))';
+0094                 targets{k} = set_gettarget(signal);
+0095                 <span class="keyword">if</span> k &lt;= length(reference_set)
+0096                     weights{k} = ones(size(targets{k}));  <span class="comment">% ref weights pos</span>
+0097                 <span class="keyword">else</span>
+0098                     weights{k} = -ones(size(targets{k})); <span class="comment">% otehr weights neg</span>
+0099                 <span class="keyword">end</span>
+0100             <span class="keyword">end</span>
+0101             
+0102             <span class="comment">% concatenate them, and derive what was what</span>
+0103             features = vertcat(features{:});
+0104             targets = vertcat(targets{:});
+0105             weights = vertcat(weights{:});
+0106             
+0107             <span class="comment">% sub-sample them optionally</span>
+0108             features = features(1:args.subsample:<span class="keyword">end</span>,:);
+0109             targets = targets(1:args.subsample:end);
+0110             weights = weights(1:args.subsample:end);
+0111             
+0112             refs = weights == 1;
+0113             
+0114             <span class="keyword">switch</span> args.variant
+0115                 <span class="keyword">case</span> <span class="string">'pool'</span>
+0116                     <span class="comment">% throw a machine learning method at them...</span>
+0117                     model.predictivemodel = ml_train(<span class="string">'data'</span>,{features,targets}, args.ml);
+0118                     
+0119                 <span class="keyword">case</span> <span class="string">'weighted'</span>
+0120                     <span class="comment">% compute proper weights</span>
+0121                     weights = refs/nnz(refs) * args.ref_weight + ~refs/nnz(~refs);                    
+0122             
+0123                     <span class="comment">% throw a machine learning method at them...</span>
+0124                     model.predictivemodel = ml_train(<span class="string">'data'</span>,{features,targets,weights}, <span class="string">'Learner'</span>,{<span class="string">'logreg'</span>,0.1,<span class="string">'variant'</span>,<span class="string">'l1'</span>});
+0125                             
+0126                 <span class="keyword">case</span> <span class="string">'sparse_jointprior'</span>
+0127                     <span class="comment">% find out what the reference set is sorted by</span>
+0128                     <span class="keyword">if</span> strcmp(args.nfolds,<span class="string">'auto'</span>)
+0129                         setfields = cellfun(@(x)fieldnames(x),reference_set,<span class="string">'UniformOutput'</span>,false);
+0130                         allfields = setfields{1};
+0131                         <span class="keyword">for</span> k=2:length(setfields)
+0132                             allfields = intersect(allfields,setfields{k}); <span class="keyword">end</span>
+0133                         allfields = setdiff(allfields,{<span class="string">'streams'</span>});
+0134                         <span class="keyword">for</span> f=1:length(allfields)
+0135                             fn = allfields{f};
+0136                             vals = cellfun(@(x)x.(fn),reference_set,<span class="string">'UniformOutput'</span>,false);
+0137                             <span class="keyword">if</span> all(cellfun(<span class="string">'isreal'</span>,vals))
+0138                                 vals = cell2mat(vals); <span class="keyword">end</span>
+0139                             <span class="keyword">try</span>
+0140                                 <span class="keyword">if</span> issorted(vals) &amp;&amp; length(unique(vals)) &gt; 1
+0141                                     args.nfolds = length(unique(vals)); 
+0142                                     <span class="keyword">break</span>;
+0143                                 <span class="keyword">end</span>
+0144                             <span class="keyword">catch</span>
+0145                             <span class="keyword">end</span>
+0146                         <span class="keyword">end</span>
+0147                         <span class="keyword">if</span> ischar(args.nfolds)
+0148                             args.nfolds = min(5,length(reference_set)); <span class="keyword">end</span> <span class="comment">% fall back to 5-fold</span>
+0149                     <span class="keyword">end</span>
+0150                     
+0151                     <span class="comment">% first scale the data</span>
+0152                     model.scaling = hlp_findscaling(features,args.scaling);
+0153                     features = hlp_applyscaling(features,model.scaling);
+0154                     
+0155                     <span class="comment">% compute a Gaussian prior over the other data sets' models</span>
+0156                     <span class="keyword">switch</span> args.priorsolve
+0157                         <span class="comment">% on the tractable set, the vb mode takes 44s and the vb-iter mode taketh 1388 s = 23 minutes; this is fast enough for that set, but would be prohib slow on the full set (likely &gt;10x as slow)</span>
+0158                         <span class="keyword">case</span> <span class="string">'lax'</span>
+0159                             prior = ml_train(<span class="string">'data'</span>,{features(~refs,:),targets(~refs)},<span class="string">'Learner'</span>,{<span class="string">'logreg'</span>,[],<span class="string">'variant'</span>,<span class="string">'vb'</span>,<span class="string">'scaling'</span>,<span class="string">'none'</span>}); 
+0160                         <span class="keyword">case</span> <span class="string">'precise'</span>
+0161                             prior = ml_train(<span class="string">'data'</span>,{features(~refs,:),targets(~refs)},<span class="string">'Learner'</span>,{<span class="string">'logreg'</span>,[],<span class="string">'variant'</span>,<span class="string">'vb-iter'</span>,<span class="string">'scaling'</span>,<span class="string">'none'</span>});
+0162                         <span class="keyword">case</span> <span class="string">'sparse'</span>
+0163                             prior = ml_train(<span class="string">'data'</span>,{features(~refs,:),targets(~refs)},<span class="string">'Learner'</span>,{<span class="string">'logreg'</span>,[],<span class="string">'variant'</span>,<span class="string">'vb-ard'</span>,<span class="string">'scaling'</span>,<span class="string">'none'</span>});
+0164                     <span class="keyword">end</span>
+0165                     mu0 = prior.model.w(1:end-1);
+0166                     sig0 = prior.model.V(1:end-1,1:end-1);
+0167 
+0168                     <span class="comment">% get the correct penalty factor (including the prior variance, bias and the prior mean)</span>
+0169                     penalty_factor = [1./sqrt(diag(sig0)); 0; 0];
+0170 
+0171                     <span class="comment">% expand the features by -features*mu0 and by a bias term (will be an unreg. mean term)</span>
+0172                     features = [features -features*mu0 ones(size(features,1),1)];
+0173                     
+0174                     <span class="comment">% compute the model given the prior</span>
+0175                     model.predictivemodel = ml_train(<span class="string">'data'</span>,{features,targets}, <span class="string">'Learner'</span>,{<span class="string">'logreg'</span>,1/args.ref_weight,<span class="string">'variant'</span>,{<span class="string">'lars'</span>,<span class="string">'nfolds'</span>,args.nfolds,<span class="string">'alpha'</span>,args.alpha,<span class="string">'penalty_factor'</span>,penalty_factor,<span class="string">'nlambda'</span>,100,<span class="string">'maxit'</span>,300},<span class="string">'scaling'</span>,<span class="string">'none'</span>});
+0176                     model.mu0 = mu0;
+0177             <span class="keyword">end</span>
+0178             
+0179             <span class="comment">% set the filter graph</span>
+0180             model.tracking.filter_graph = reference;
+0181             model.variant = args.variant;
+0182         <span class="keyword">end</span>
+0183         
+0184         
+0185         <a name="_sub3" href="#_subfunctions" class="code">function outputs = predict(self,bundle,model)</a>
+0186             <span class="comment">% predict given the extracted features and the model</span>
+0187             features = squeeze(reshape(bundle.streams{1}.data,[],1,size(bundle.streams{1}.data,3)))';
+0188             
+0189             <span class="keyword">if</span> isfield(model,<span class="string">'variant'</span>) &amp;&amp; (strcmp(model.variant,<span class="string">'jointprior'</span>) || strcmp(model.variant,<span class="string">'sparse_jointprior'</span>))
+0190                 <span class="comment">% apply the data standardization</span>
+0191                 features = hlp_applyscaling(features,model.scaling);
+0192                 <span class="comment">% expand feature space</span>
+0193                 features = [features -features*model.mu0 ones(size(features,1),1)];
+0194             <span class="keyword">end</span>
+0195             
+0196             outputs = ml_predict(features, model.predictivemodel);
+0197         <span class="keyword">end</span>
+0198         
+0199         
+0200         <span class="comment">% temporary preprocessing function</span>
+0201         <a name="_sub4" href="#_subfunctions" class="code">function bundle = dummy_preprocess(self,bundle,onlexp)</a>
+0202             <span class="comment">% handle only the first stream: replace the @rawdata node by the actual data</span>
+0203             bundle.streams{1} = utl_replacerepeated(onlexp,{exp_rule(exp_blank(@rawdata),bundle.streams{1})});
+0204             <span class="comment">% then evaluate it with some level of caching enabled..</span>
+0205             bundle.streams{1} = exp_eval_optimized(bundle.streams{1});
+0206         <span class="keyword">end</span>
+0207       
+0208         <a name="_sub5" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0209             <span class="comment">% define the default configuration dialog layout</span>
+0210             layout = {<span class="string">'SignalProcessing.EOGRemoval.RemoveEOG'</span>, <span class="string">''</span>, <span class="string">'SignalProcessing.ICA.CleaningLevel.DataSetting'</span>, <span class="string">''</span>,<span class="keyword">...</span>
+0211                 <span class="string">'SignalProcessing.ICA.Variant.AmicaVersion'</span>, <span class="string">'SignalProcessing.ICA.Variant.NumModels'</span>, <span class="keyword">...</span>
+0212                 <span class="string">'SignalProcessing.ICA.Variant.UseGridEngine'</span>, <span class="string">'SignalProcessing.ICA.Variant.NumProcessors'</span>, <span class="keyword">...</span>
+0213                 <span class="string">'SignalProcessing.EpochExtraction'</span>,<span class="string">'SignalProcessing.SpectralTransform.Representation.TimeBandwidth'</span>, <span class="keyword">...</span>
+0214                 <span class="string">'SignalProcessing.EpochPCA.RetainDimensions'</span>,<span class="string">''</span>, <span class="keyword">...</span>
+0215                 <span class="string">'Variant'</span>,<span class="string">'PriorSolver'</span>,<span class="string">''</span>,<span class="string">'MachineLearning.Learner'</span>};
+0216         <span class="keyword">end</span>
+0217                 
+0218     <span class="keyword">end</span>
+0219 <span class="keyword">end</span>
+0220             
+0221 <span class="comment">% (turn off a few editor warnings because some actual implementations are missing in this file)</span>
+0222 <span class="comment">%#ok&lt;*INUSD,*STOUT,*MANU&gt;</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,441 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of hlp_microcache</title>
+  <meta name="keywords" content="hlp_microcache">
+  <meta name="description" content="Cache results of functions for repeated calls with the same arguments.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">helpers</a> &gt; hlp_microcache.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>hlp_microcache
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Cache results of functions for repeated calls with the same arguments.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function varargout = hlp_microcache(dom, f, varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Cache results of functions for repeated calls with the same arguments.
+ Results... = hlp_microcache(Domain, Function, Arguments...)
+
+ This is a lightweight mechanism to memoize results of functions that are often repeatedly called
+ with the same arguments. It is indended for small-scale situations -- i.e., the function is called
+ only with a small variety of arguments, for example less than 100, and the arguments (as well as
+ results) are not too big (e.g., no large matrices or data sets). If too many different calls are
+ to be cached, hlp_microcache &quot;forgets&quot; the oldest ones. Its memory is also lost after MATLAB is
+ closed or after typing &quot;clear all&quot;. Different places of a program can independently memoize
+ results of their functions, by calling hlp_microcache with their own unique 'domain' identifier.
+ The overhead is comparable to that of MATLAB's num2str(), i.e., very low.
+
+ In:
+   Domain    : arbitrary (MATLAB-conformant) string identifier of the cache 'domain'
+               may be used to keep separate matters separate from each other
+
+   Function  : function handle to compute a result from some arguments
+
+   Arguments... : arguments to pass to the function
+
+ Out:
+   Results... : return values of the function for the given arguments
+
+
+ Notes:
+   Only *referentially transparent* functions are allowed; if a function can give different outputs
+   for the same arguments, this can lead to subtle bugs; examples include functions that refer to
+   global state. This can be fixed by turning all dependencies of the function into arguments.
+
+   A special note applies to lambda functions in the function's arguments (even deeply nested).
+   Every instance of such a lambda function is usually considered unique by MATLAB because lambdas
+   implicitly reference all variables in the scope where they were created, so hlp_microcache will
+   re-invoke the function eagerly. To ameliorate this, top-level lambda terms in the arguments can
+   be treated differently if the flag 'lambda_equality' is set to 'proper' or 'string' for the domain
+   (see Advanced section).
+
+   Special care has to be taken if a function behaves differently depending on the types of
+   arguments, especially uint and int types (which behave distinctly differently than doubles in
+   calculations): If the input values are the same numbers as for a previously cached result,
+   hlp_microcache will return that result regardless of the data type! You can work aroun this
+   where necessary by also passing the type of the affected arguments as to your function (this
+   way, matching will be type-sensitive)
+
+   This function is safe for concurrent use via timers.
+
+ Examples:
+   % if this line is executed for the first time, it is as slow as magic(2000)
+   m = hlp_microcache('test',@magic,2000);
+
+   % if it is executed a second time, it is three orders of magnitude faster than m=magic(2000)
+   m = hlp_microcache('test',@magic,2000);
+
+
+ Advanced:
+  When called as hlp_microcache(Domain, 'option1', value1, 'option2', value2, ...), the options
+  override aspects of the caching policy for the respective domain. Possible options are:
+   'resort_freq' : re-sort cached argument sets by their usage frequency every resort_freq lookups (default: 10)
+                   note: the number is not per domain but per group of equally-sized argument sets.
+   'group_size'  : retain only the group_size most-recently used argument sets (default: 100)
+                   note: the number is not per domain but per group of equally-sized argument sets.
+   'max_key_size': maximum size of keys that are cached, in bytes (larger ones are not cached) (default: 100000000)
+   'max_result_size': maximum size of results that are cached, in bytes (larger ones are not cached) (default: 100000000)
+   'lambda_equality': how the equality of lambda functions (that are not nested into data structures) is determined
+                      - false: the default MATLAB behavior will be used (fastest); this will consider
+                               lambda's to be non-equal in far more cases than strictly necessary,
+                               because they automatically bind all variables in the same scope as
+                               where they were created (default)
+                      - 'proper': the 'proper' way to handle top-level lambda functions with bound
+                                  arguments: any non-referenced variables from the same scope of
+                                  the lambda function will be excluded from comparison (which works
+                                  except for corner cases where the lambda term refers to them
+                                  using expressions like eval())
+                      - 'string': in this case, only the string representation will be compared --
+                                  ignoring any directly or indirectly bound variables (which is
+                                  fast); this works for simple expressions, but *will* give
+                                  incorrect results in more complicated cases, including
+                                  expressions such as @self.method (which MATLAB implicitly turns
+                                  into a lambda term!).
+
+ When called as hlp_microcache(Domain, 'clear'), the cached contents of the domain will be cleared,
+ and when called as hlp_microcache('clear'), the contents of *all* domains are cleared. Instead of
+ 'clear', 'reset' can be used, which in addition resets the configurations for the affected domains.
+
+ Advanced Examples:
+   % for the caching domain 'test', set a different resorting frequency and a different group size
+   hlp_microcache('test', 'resort_freq',30, 'group_size',100);
+
+   % clear the caching domain 'test' (configurations remain)
+   hlp_microcache('test', 'clear');
+
+   % reset the caching domain 'test' (including configurations)
+   hlp_microcache('test', 'reset');
+
+   % clear the contents of all caching domains (configurations remain)
+   hlp_microcache('clear');
+
+   % reset the micro-cache (including configuration)
+   hlp_microcache('reset');
+
+                                   Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                   2010-06-18</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="hlp_microcache.html" class="code" title="function varargout = hlp_microcache(dom, f, varargin)">hlp_microcache</a>	Cache results of functions for repeated calls with the same arguments.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="hlp_microcache.html" class="code" title="function varargout = hlp_microcache(dom, f, varargin)">hlp_microcache</a>	Cache results of functions for repeated calls with the same arguments.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function varargout = hlp_microcache(dom, f, varargin)</a>
+0002 <span class="comment">% Cache results of functions for repeated calls with the same arguments.</span>
+0003 <span class="comment">% Results... = hlp_microcache(Domain, Function, Arguments...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This is a lightweight mechanism to memoize results of functions that are often repeatedly called</span>
+0006 <span class="comment">% with the same arguments. It is indended for small-scale situations -- i.e., the function is called</span>
+0007 <span class="comment">% only with a small variety of arguments, for example less than 100, and the arguments (as well as</span>
+0008 <span class="comment">% results) are not too big (e.g., no large matrices or data sets). If too many different calls are</span>
+0009 <span class="comment">% to be cached, hlp_microcache &quot;forgets&quot; the oldest ones. Its memory is also lost after MATLAB is</span>
+0010 <span class="comment">% closed or after typing &quot;clear all&quot;. Different places of a program can independently memoize</span>
+0011 <span class="comment">% results of their functions, by calling hlp_microcache with their own unique 'domain' identifier.</span>
+0012 <span class="comment">% The overhead is comparable to that of MATLAB's num2str(), i.e., very low.</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">% In:</span>
+0015 <span class="comment">%   Domain    : arbitrary (MATLAB-conformant) string identifier of the cache 'domain'</span>
+0016 <span class="comment">%               may be used to keep separate matters separate from each other</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   Function  : function handle to compute a result from some arguments</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%   Arguments... : arguments to pass to the function</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">% Out:</span>
+0023 <span class="comment">%   Results... : return values of the function for the given arguments</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">% Notes:</span>
+0027 <span class="comment">%   Only *referentially transparent* functions are allowed; if a function can give different outputs</span>
+0028 <span class="comment">%   for the same arguments, this can lead to subtle bugs; examples include functions that refer to</span>
+0029 <span class="comment">%   global state. This can be fixed by turning all dependencies of the function into arguments.</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%   A special note applies to lambda functions in the function's arguments (even deeply nested).</span>
+0032 <span class="comment">%   Every instance of such a lambda function is usually considered unique by MATLAB because lambdas</span>
+0033 <span class="comment">%   implicitly reference all variables in the scope where they were created, so hlp_microcache will</span>
+0034 <span class="comment">%   re-invoke the function eagerly. To ameliorate this, top-level lambda terms in the arguments can</span>
+0035 <span class="comment">%   be treated differently if the flag 'lambda_equality' is set to 'proper' or 'string' for the domain</span>
+0036 <span class="comment">%   (see Advanced section).</span>
+0037 <span class="comment">%</span>
+0038 <span class="comment">%   Special care has to be taken if a function behaves differently depending on the types of</span>
+0039 <span class="comment">%   arguments, especially uint and int types (which behave distinctly differently than doubles in</span>
+0040 <span class="comment">%   calculations): If the input values are the same numbers as for a previously cached result,</span>
+0041 <span class="comment">%   hlp_microcache will return that result regardless of the data type! You can work aroun this</span>
+0042 <span class="comment">%   where necessary by also passing the type of the affected arguments as to your function (this</span>
+0043 <span class="comment">%   way, matching will be type-sensitive)</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">%   This function is safe for concurrent use via timers.</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">% Examples:</span>
+0048 <span class="comment">%   % if this line is executed for the first time, it is as slow as magic(2000)</span>
+0049 <span class="comment">%   m = hlp_microcache('test',@magic,2000);</span>
+0050 <span class="comment">%</span>
+0051 <span class="comment">%   % if it is executed a second time, it is three orders of magnitude faster than m=magic(2000)</span>
+0052 <span class="comment">%   m = hlp_microcache('test',@magic,2000);</span>
+0053 <span class="comment">%</span>
+0054 <span class="comment">%</span>
+0055 <span class="comment">% Advanced:</span>
+0056 <span class="comment">%  When called as hlp_microcache(Domain, 'option1', value1, 'option2', value2, ...), the options</span>
+0057 <span class="comment">%  override aspects of the caching policy for the respective domain. Possible options are:</span>
+0058 <span class="comment">%   'resort_freq' : re-sort cached argument sets by their usage frequency every resort_freq lookups (default: 10)</span>
+0059 <span class="comment">%                   note: the number is not per domain but per group of equally-sized argument sets.</span>
+0060 <span class="comment">%   'group_size'  : retain only the group_size most-recently used argument sets (default: 100)</span>
+0061 <span class="comment">%                   note: the number is not per domain but per group of equally-sized argument sets.</span>
+0062 <span class="comment">%   'max_key_size': maximum size of keys that are cached, in bytes (larger ones are not cached) (default: 100000000)</span>
+0063 <span class="comment">%   'max_result_size': maximum size of results that are cached, in bytes (larger ones are not cached) (default: 100000000)</span>
+0064 <span class="comment">%   'lambda_equality': how the equality of lambda functions (that are not nested into data structures) is determined</span>
+0065 <span class="comment">%                      - false: the default MATLAB behavior will be used (fastest); this will consider</span>
+0066 <span class="comment">%                               lambda's to be non-equal in far more cases than strictly necessary,</span>
+0067 <span class="comment">%                               because they automatically bind all variables in the same scope as</span>
+0068 <span class="comment">%                               where they were created (default)</span>
+0069 <span class="comment">%                      - 'proper': the 'proper' way to handle top-level lambda functions with bound</span>
+0070 <span class="comment">%                                  arguments: any non-referenced variables from the same scope of</span>
+0071 <span class="comment">%                                  the lambda function will be excluded from comparison (which works</span>
+0072 <span class="comment">%                                  except for corner cases where the lambda term refers to them</span>
+0073 <span class="comment">%                                  using expressions like eval())</span>
+0074 <span class="comment">%                      - 'string': in this case, only the string representation will be compared --</span>
+0075 <span class="comment">%                                  ignoring any directly or indirectly bound variables (which is</span>
+0076 <span class="comment">%                                  fast); this works for simple expressions, but *will* give</span>
+0077 <span class="comment">%                                  incorrect results in more complicated cases, including</span>
+0078 <span class="comment">%                                  expressions such as @self.method (which MATLAB implicitly turns</span>
+0079 <span class="comment">%                                  into a lambda term!).</span>
+0080 <span class="comment">%</span>
+0081 <span class="comment">% When called as hlp_microcache(Domain, 'clear'), the cached contents of the domain will be cleared,</span>
+0082 <span class="comment">% and when called as hlp_microcache('clear'), the contents of *all* domains are cleared. Instead of</span>
+0083 <span class="comment">% 'clear', 'reset' can be used, which in addition resets the configurations for the affected domains.</span>
+0084 <span class="comment">%</span>
+0085 <span class="comment">% Advanced Examples:</span>
+0086 <span class="comment">%   % for the caching domain 'test', set a different resorting frequency and a different group size</span>
+0087 <span class="comment">%   hlp_microcache('test', 'resort_freq',30, 'group_size',100);</span>
+0088 <span class="comment">%</span>
+0089 <span class="comment">%   % clear the caching domain 'test' (configurations remain)</span>
+0090 <span class="comment">%   hlp_microcache('test', 'clear');</span>
+0091 <span class="comment">%</span>
+0092 <span class="comment">%   % reset the caching domain 'test' (including configurations)</span>
+0093 <span class="comment">%   hlp_microcache('test', 'reset');</span>
+0094 <span class="comment">%</span>
+0095 <span class="comment">%   % clear the contents of all caching domains (configurations remain)</span>
+0096 <span class="comment">%   hlp_microcache('clear');</span>
+0097 <span class="comment">%</span>
+0098 <span class="comment">%   % reset the micro-cache (including configuration)</span>
+0099 <span class="comment">%   hlp_microcache('reset');</span>
+0100 <span class="comment">%</span>
+0101 <span class="comment">%                                   Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0102 <span class="comment">%                                   2010-06-18</span>
+0103 
+0104 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0105 <span class="comment">%</span>
+0106 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0107 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0108 <span class="comment">% License, or (at your option) any later version.</span>
+0109 <span class="comment">%</span>
+0110 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0111 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0112 <span class="comment">% General Public License for more details.</span>
+0113 <span class="comment">%</span>
+0114 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0115 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0116 <span class="comment">% USA</span>
+0117 
+0118 
+0119 <span class="comment">% mc (&quot;microcache&quot;): struct</span>
+0120 <span class="comment">%   domain-id --&gt; domainpool</span>
+0121 <span class="comment">% domainpool: struct</span>
+0122 <span class="comment">%   config --&gt; configuration</span>
+0123 <span class="comment">%   size-id --&gt; sizepool</span>
+0124 <span class="comment">% sizepool: struct</span>
+0125 <span class="comment">%   outs: cell array of {f's outputs}</span>
+0126 <span class="comment">%   inps: cell array of [{char(f)},varargin,{nargout}]</span>
+0127 <span class="comment">%   frqs: double array of usage frequencies</span>
+0128 <span class="comment">%   luse: double array of last use cputime</span>
+0129 <span class="comment">%   lcnt: lookup count for this pool; used to schedule resorting (by usage frequency)</span>
+0130 <span class="comment">% configuration: struct</span>
+0131 <span class="comment">%   resort_freq: re-sort a sizepool every this many lookups (into that pool)</span>
+0132 <span class="comment">%   group_size: maximum number of entries per size-pool</span>
+0133 <span class="comment">%   max_result_size: maximum size of results that are cached</span>
+0134 <span class="comment">%   max_key_size: maximum size of keys that are cached</span>
+0135 <span class="comment">%   lambda_equality: desired equality relation for lambda expressions</span>
+0136 <span class="keyword">persistent</span> mc;
+0137 
+0138 
+0139 <span class="comment">% [varargout{1:nargout}] = f(varargin{:}); return; % UNCOMMENT TO BYPASS</span>
+0140 
+0141 <span class="comment">% is this a regular call?</span>
+0142 <span class="keyword">if</span> nargin &gt; 1
+0143     <span class="keyword">if</span> isa(f,<span class="string">'function_handle'</span>)
+0144         
+0145         <span class="comment">% get the current lookup time</span>
+0146         now = cputime;
+0147         
+0148         <span class="comment">% compute the key structure</span>
+0149         cf = char(f);
+0150         <span class="keyword">if</span> cf(1) == <span class="string">'@'</span>
+0151             <span class="comment">% ignore variables only accessible via eval() / evalin() in lambda terms</span>
+0152             tmp = functions(f);
+0153             key_f = {cf,tmp.workspace{1}};
+0154         <span class="keyword">else</span>
+0155             key_f = f;
+0156         <span class="keyword">end</span>
+0157         
+0158         <span class="keyword">try</span>
+0159             <span class="comment">% optionally do some special processing of lambda terms in the function arguments</span>
+0160             args = varargin;
+0161             leq = mc.(dom).config.lambda_equality;
+0162             <span class="keyword">if</span> ischar(leq)
+0163                 <span class="keyword">for</span> k = find(cellfun(<span class="string">'isclass'</span>,argin,<span class="string">'function_handle'</span>))
+0164                     ck = char(args{k});
+0165                     <span class="keyword">if</span> ck(1) == <span class="string">'@'</span>
+0166                         <span class="keyword">if</span> strcmp(leq,<span class="string">'string'</span>)
+0167                             <span class="comment">% the fastest way to deal with them is to scrap any possible bound variables</span>
+0168                             <span class="comment">% and just consider the raw expression</span>
+0169                             args{k} = ck;
+0170                         <span class="keyword">elseif</span> strcmp(leq,<span class="string">'proper'</span>)
+0171                             <span class="comment">% the 'proper' way for most purposes is to consider both the expression and</span>
+0172                             <span class="comment">% the directly bound variables but ignore variables in the same scope</span>
+0173                             tmp = functions(args{k});
+0174                             args{k} = {ck,tmp.workspace{1}};
+0175                         <span class="keyword">else</span>
+0176                             disp(<span class="string">'hlp_microcache: unrecognized lambda_equality setting encountered; resetting to false.'</span>);
+0177                         <span class="keyword">end</span>
+0178                     <span class="keyword">end</span>
+0179                 <span class="keyword">end</span>
+0180             <span class="keyword">end</span>
+0181         <span class="keyword">catch</span>
+0182             <span class="comment">% the lambda lookup failed, so we assume that it has not yet been assigned; assign it now.</span>
+0183             mc.(dom).config.lambda_equality = false;
+0184         <span class="keyword">end</span>
+0185         key = [args,{key_f,nargout}];
+0186         
+0187         <span class="comment">% get the size id (sid) of the key (MATLAB keeps track of that for every object)</span>
+0188         keyinfo = whos(<span class="string">'key'</span>);
+0189         keysid = sprintf(<span class="string">'s%.0f'</span>,keyinfo.bytes);
+0190         
+0191         <span class="keyword">try</span>
+0192             <span class="comment">% retrieve the pool of size-equivalent objects</span>
+0193             sizepool = mc.(dom).(keysid);
+0194             <span class="comment">% search for the key in the pool (checking the most-frequently used keys first)</span>
+0195             <span class="keyword">for</span> k=1:length(sizepool.inps)
+0196                 <span class="keyword">if</span> isequalwithequalnans(key,sizepool.inps{k}) <span class="comment">% (isequalwithequalnans() is a fast builtin)</span>
+0197                     <span class="comment">% found the key, deliver outputs</span>
+0198                     varargout = sizepool.outs{k};
+0199                     <span class="comment">% update the db record...</span>
+0200                     sizepool.frqs(k) = sizepool.frqs(k)+1;
+0201                     sizepool.luse(k) = now;
+0202                     sizepool.lcnt = sizepool.lcnt+1;
+0203                     <span class="comment">% resort by lookup frequency every resort_freq lookups</span>
+0204                     <span class="keyword">if</span> sizepool.lcnt &gt; mc.(dom).config.resort_freq
+0205                         [sizepool.frqs,inds] = sort(sizepool.frqs,<span class="string">'descend'</span>);
+0206                         sizepool.inps = sizepool.inps(inds);
+0207                         sizepool.outs = sizepool.outs(inds);
+0208                         sizepool.luse = sizepool.luse(inds);
+0209                         sizepool.lcnt = 0;
+0210                     <span class="keyword">end</span>
+0211                     <span class="comment">% write back</span>
+0212                     mc.(dom).(keysid) = sizepool;
+0213                     <span class="keyword">return</span>;
+0214                 <span class="keyword">end</span>
+0215             <span class="keyword">end</span>
+0216         <span class="keyword">catch</span>
+0217             <span class="comment">% domain+keysid not yet in the cache: create appropriate structures (this is rare)</span>
+0218             sizepool = struct(<span class="string">'inps'</span>,{{}}, <span class="string">'outs'</span>,{{}}, <span class="string">'frqs'</span>,{[]}, <span class="string">'luse'</span>,{[]}, <span class="string">'lcnt'</span>,{0});
+0219         <span class="keyword">end</span>
+0220         
+0221         <span class="keyword">if</span> ~exist(<span class="string">'varargout'</span>,<span class="string">'var'</span>)
+0222             <span class="comment">% set up the default configuration for a domain, if it's not yet present</span>
+0223             <span class="keyword">if</span> ~isfield(mc,dom) || ~isfield(mc.(dom),<span class="string">'config'</span>)
+0224                 mc.(dom).config = struct(); <span class="keyword">end</span>
+0225             <span class="keyword">if</span> ~isfield(mc.(dom).config,<span class="string">'resort_freq'</span>)
+0226                 mc.(dom).config.resort_freq = 10; <span class="keyword">end</span>
+0227             <span class="keyword">if</span> ~isfield(mc.(dom).config,<span class="string">'group_size'</span>)
+0228                 mc.(dom).config.group_size = 100; <span class="keyword">end</span>
+0229             <span class="keyword">if</span> ~isfield(mc.(dom).config,<span class="string">'max_result_size'</span>)
+0230                 mc.(dom).config.max_result_size = 100000000; <span class="keyword">end</span>
+0231             <span class="keyword">if</span> ~isfield(mc.(dom).config,<span class="string">'max_key_size'</span>)
+0232                 mc.(dom).config.max_key_size = 100000000; <span class="keyword">end</span>
+0233             <span class="comment">% did not find the entry in the size pool: compute it</span>
+0234             [varargout{1:nargout}] = f(varargin{:});
+0235             iteminfo = whos(<span class="string">'varargout'</span>);
+0236             <span class="keyword">if</span> iteminfo.bytes &lt;= mc.(dom).config.max_result_size &amp;&amp; keyinfo.bytes &lt;= mc.(dom).config.max_key_size
+0237                 <span class="comment">% add to pool</span>
+0238                 sizepool.luse(end+1) = now;
+0239                 sizepool.frqs(end+1) = 1;
+0240                 sizepool.inps{end+1} = key;
+0241                 sizepool.outs{end+1} = varargout;
+0242                 sizepool.lcnt = 0;
+0243                 <span class="comment">% remove least-recently used entries if necessary</span>
+0244                 <span class="keyword">while</span> length(sizepool.inps) &gt; mc.(dom).config.group_size
+0245                     [x,idx] = min(sizepool.luse); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0246                     sizepool.luse(idx) = [];
+0247                     sizepool.frqs(idx) = [];
+0248                     sizepool.inps(idx) = [];
+0249                     sizepool.outs(idx) = [];
+0250                 <span class="keyword">end</span>
+0251                 <span class="comment">% write back</span>
+0252                 mc.(dom).(keysid) = sizepool;
+0253             <span class="keyword">end</span>
+0254         <span class="keyword">end</span>
+0255         
+0256     <span class="keyword">else</span>
+0257         <span class="comment">% a control invocation</span>
+0258         varargin = [{f} varargin];
+0259         <span class="keyword">if</span> length(varargin) &gt; 1
+0260             <span class="comment">% f and what follows are name-value pairs that define the domain configuration</span>
+0261             <span class="keyword">for</span> k=1:2:length(varargin)
+0262                 mc.(dom).config.(varargin{k}) = varargin{k+1}; <span class="keyword">end</span>
+0263         <span class="keyword">else</span>
+0264             <span class="comment">% single argument: this is a command to be applied to the domain</span>
+0265             <span class="keyword">switch</span> varargin{1}
+0266                 <span class="keyword">case</span> <span class="string">'clear'</span>
+0267                     <span class="comment">% clear the entire domain</span>
+0268                     <span class="keyword">if</span> isfield(mc,dom)
+0269                         <span class="keyword">if</span> isfield(mc.(dom),<span class="string">'config'</span>)
+0270                             <span class="comment">% retain the config if applicable</span>
+0271                             mc.(dom) = struct(<span class="string">'config'</span>,{mc.(dom).config});
+0272                         <span class="keyword">else</span>
+0273                             mc = rmfield(mc,dom);
+0274                         <span class="keyword">end</span>
+0275                     <span class="keyword">end</span>
+0276                 <span class="keyword">case</span> <span class="string">'reset'</span>
+0277                     <span class="comment">% reset the domain, including config</span>
+0278                     mc = rmfield(mc,dom);
+0279                 <span class="keyword">otherwise</span>
+0280                     error(<span class="string">'Unrecognized command.'</span>);
+0281             <span class="keyword">end</span>
+0282         <span class="keyword">end</span>
+0283     <span class="keyword">end</span>
+0284 <span class="keyword">else</span>
+0285     <span class="comment">% global command (no f specified)</span>
+0286     <span class="keyword">if</span> strcmp(dom,<span class="string">'clear'</span>) &amp;&amp; isstruct(mc)
+0287         <span class="comment">% clear all domains...</span>
+0288         <span class="keyword">for</span> d = fieldnames(mc)'
+0289             <a href="hlp_microcache.html" class="code" title="function varargout = hlp_microcache(dom, f, varargin)">hlp_microcache</a>(d{1},<span class="string">'clear'</span>); <span class="keyword">end</span>
+0290     <span class="keyword">elseif</span> strcmp(dom,<span class="string">'reset'</span>)
+0291         <span class="comment">% reset all domains</span>
+0292         mc = [];
+0293     <span class="keyword">end</span>
+0294 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

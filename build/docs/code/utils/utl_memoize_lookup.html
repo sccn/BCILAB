@@ -1,0 +1,227 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_memoize_lookup</title>
+  <meta name="keywords" content="utl_memoize_lookup">
+  <meta name="description" content="Check for memoizability and/or availability of the given expression.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_memoize_lookup.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_memoize_lookup
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Check for memoizability and/or availability of the given expression.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [action,result] = utl_memoize_lookup(exp,memo_ctrl,ctx) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Check for memoizability and/or availability of the given expression.
+ [Action,Result] = utl_memoize_lookup(Key-Expression,Memo-Locations)
+ 
+ In:
+  Key-Expression : an expression that uniquely identifies the object to be looked up;
+                   this expression is also required to be identical to the one stored in the looked-up object's .tracking.expression field
+ 
+  Memo-Locations : cell array of location specifiers, given as name-value pairs. possible names are currently 'disk' and 'memory', and the value
+                   is expected to be an expression that evaluates into 0 or 1, to indicate whether the given location is enabled for 
+                   storage/retrieval or not. The expression may use the symbol @expression to refer to the Key-Expression. The locations 
+                   are looked up in order, so the fastest locations should come first in the list.
+
+ Out:
+   Action  : the action to be taken by the caller, one of:
+             'return' : result contains the object that shall be returned as first output argument
+             'memoize': result contains a cell array of store locations to be used for storing the result, when it is eventually computed
+                        - store locations begining with the fileep indicate disk locations, relative to the appropriate memoization domain
+                        - store locations beginning with a . indicate memory locations, relative to the in-memory cache data structure
+             'skip': do not memoize the result
+ 
+   Result  : the payload to which the action applies (either the successfully looked up result or the memoization 
+             locations for a subsequent commit)
+
+ Notes:
+   If a location further down in the list has the object in question but preceding ones do not, the object is implicitly commited 
+   (copied) to these locations.
+
+ See also:
+   <a href="utl_memoize_commit.html" class="code" title="function utl_memoize_commit(obj,id,inputbytes)">utl_memoize_commit</a>
+
+                                                     Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                                     2010-05-23</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_memoize_commit.html" class="code" title="function utl_memoize_commit(obj,id,inputbytes)">utl_memoize_commit</a>	Commit an object to a memory location.</li><li><a href="utl_releasehold.html" class="code" title="function x = utl_releasehold(x)">utl_releasehold</a>	Peel off a layer of hold expressions from some expression.</li><li><a href="utl_replacerepeated.html" class="code" title="function [exp,waschanged] = utl_replacerepeated(exp,rules)">utl_replacerepeated</a>	Apply substitution rules to some expression until it no longer changes.</li><li><a href="utl_same.html" class="code" title="function r = utl_same(a,b)">utl_same</a>	Check whether two expressions are structurally identical.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function hash = hash_if_enabled(memo_exp,exp)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [action,result] = utl_memoize_lookup(exp,memo_ctrl,ctx)</a>
+0002 <span class="comment">% Check for memoizability and/or availability of the given expression.</span>
+0003 <span class="comment">% [Action,Result] = utl_memoize_lookup(Key-Expression,Memo-Locations)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%  Key-Expression : an expression that uniquely identifies the object to be looked up;</span>
+0007 <span class="comment">%                   this expression is also required to be identical to the one stored in the looked-up object's .tracking.expression field</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">%  Memo-Locations : cell array of location specifiers, given as name-value pairs. possible names are currently 'disk' and 'memory', and the value</span>
+0010 <span class="comment">%                   is expected to be an expression that evaluates into 0 or 1, to indicate whether the given location is enabled for</span>
+0011 <span class="comment">%                   storage/retrieval or not. The expression may use the symbol @expression to refer to the Key-Expression. The locations</span>
+0012 <span class="comment">%                   are looked up in order, so the fastest locations should come first in the list.</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">% Out:</span>
+0015 <span class="comment">%   Action  : the action to be taken by the caller, one of:</span>
+0016 <span class="comment">%             'return' : result contains the object that shall be returned as first output argument</span>
+0017 <span class="comment">%             'memoize': result contains a cell array of store locations to be used for storing the result, when it is eventually computed</span>
+0018 <span class="comment">%                        - store locations begining with the fileep indicate disk locations, relative to the appropriate memoization domain</span>
+0019 <span class="comment">%                        - store locations beginning with a . indicate memory locations, relative to the in-memory cache data structure</span>
+0020 <span class="comment">%             'skip': do not memoize the result</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">%   Result  : the payload to which the action applies (either the successfully looked up result or the memoization</span>
+0023 <span class="comment">%             locations for a subsequent commit)</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">% Notes:</span>
+0026 <span class="comment">%   If a location further down in the list has the object in question but preceding ones do not, the object is implicitly commited</span>
+0027 <span class="comment">%   (copied) to these locations.</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">% See also:</span>
+0030 <span class="comment">%   utl_memoize_commit</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%                                                     Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0033 <span class="comment">%                                                     2010-05-23</span>
+0034 
+0035 <span class="keyword">global</span> tracking;
+0036 
+0037 <span class="keyword">if</span> ~exist(<span class="string">'memo_ctrl'</span>,<span class="string">'var'</span>) || (isempty(memo_ctrl) &amp;&amp; ~iscell(memo_ctrl))
+0038     memo_ctrl = hlp_resolve(<span class="string">'memoize'</span>,[],ctx); <span class="keyword">end</span>
+0039 
+0040 action = <span class="string">'skip'</span>;
+0041 result = {};
+0042 <span class="comment">% first check whether the current expression is matched by anything in memoize</span>
+0043 <span class="keyword">if</span> iscell(memo_ctrl)
+0044     <span class="keyword">for</span> i=1:2:length(memo_ctrl)
+0045         <span class="comment">% evaluate whether memoization is enabled right now, and get a hash of exp, if so, and [] otherwise</span>
+0046         exp_hash = hlp_microcache(<span class="string">'cache_lookup'</span>,@<a href="#_sub1" class="code" title="subfunction hash = hash_if_enabled(memo_exp,exp)">hash_if_enabled</a>,memo_ctrl{i+1},exp);
+0047         <span class="keyword">if</span> exp_hash
+0048             <span class="comment">% memoization is enabled for the following location</span>
+0049             location = memo_ctrl{i};
+0050             <span class="keyword">if</span> strcmp(location,<span class="string">'disk'</span>)
+0051                 <span class="comment">% DISK-BASED MEMOIZATION: compute the storage location according to some path schema</span>
+0052                 memo_path = [filesep exp_hash(1:2) filesep exp_hash(3:end) <span class="string">'.mat'</span>];
+0053                 <span class="keyword">if</span> ~isfield(tracking,<span class="string">'cache'</span>)
+0054                     <span class="comment">% cache disabled...</span>
+0055                     <span class="keyword">return</span>; <span class="keyword">end</span>
+0056                 <span class="comment">% try all known disk paths for lookup</span>
+0057                 <span class="keyword">for</span> p = fieldnames(tracking.cache.disk_paths)'
+0058                     <span class="keyword">try</span>
+0059                         <span class="comment">% try to load the file</span>
+0060                         location = tracking.cache.disk_paths.(p{1});
+0061                         file_location = [location.dir memo_path];
+0062                         t0 = tic;
+0063                         
+0064                         load(file_location,<span class="string">'obj'</span>);
+0065                         disp([<span class="string">'loaded '</span> file_location <span class="string">'.'</span>]);
+0066                         
+0067                         <span class="comment">% delete the file if it is invalid for some reason (e.g. the machine crashed during saving)</span>
+0068                         <span class="keyword">if</span> ~exist(<span class="string">'obj'</span>,<span class="string">'var'</span>) &amp;&amp; strcmp(<span class="string">'.mat'</span>,file_location(end-3:end))
+0069                             delete(file_location); 
+0070                             error(<span class="string">'error'</span>);
+0071                         <span class="keyword">end</span>
+0072                         <span class="comment">% check whether the expression matches</span>
+0073                         <span class="keyword">if</span> ~iscell(obj) || isempty(obj) || ~isfield(obj{1}, <span class="string">'tracking'</span>) || ~isfield(obj{1}.tracking,<span class="string">'expression'</span>)
+0074                             warning(<span class="string">'BCILAB:exp_beginfun:memo_error'</span>,<span class="string">'memoized object is not conformat; reverting...'</span>);
+0075                             error(<span class="string">'error'</span>);
+0076                         <span class="keyword">end</span>
+0077                         <span class="keyword">if</span> ~<a href="utl_same.html" class="code" title="function r = utl_same(a,b)">utl_same</a>(obj{1}.tracking.expression,exp) &amp;&amp; ~isequal_weak(obj{1}.tracking.expression,exp)
+0078                             disp(<span class="string">'exp_beginfun: hash conflict between '</span>);
+0079                             disp([<span class="string">'* retrieved: '</span> exp_fullform(obj{1}.tracking.expression)]);
+0080                             disp([<span class="string">'* requested: '</span> exp_fullform(exp)]);
+0081                             error(<span class="string">'error'</span>);
+0082                         <span class="keyword">end</span>
+0083                         <span class="comment">% got the correct result: make the function return it</span>
+0084                         <span class="keyword">if</span> ~isempty(result) &amp;&amp; strcmp(action,<span class="string">'memoize'</span>)
+0085                             <span class="comment">% ... but first commit it to the other higher-priority memory locations that don't yet have it</span>
+0086                             <span class="keyword">for</span> r=1:length(result)
+0087                                 <a href="utl_memoize_commit.html" class="code" title="function utl_memoize_commit(obj,id,inputbytes)">utl_memoize_commit</a>(obj,result{r}); <span class="keyword">end</span>
+0088                         <span class="keyword">end</span>                        
+0089 
+0090                         result = obj;                       
+0091                         action = <span class="string">'return'</span>;
+0092                         <span class="keyword">try</span>
+0093                             <span class="comment">% ... and record some statistics on the read speed of this location...</span>
+0094                             objinfo = whos(<span class="string">'obj'</span>);
+0095                             location.readstats(end+1) = struct(<span class="string">'size'</span>,{objinfo.bytes},<span class="string">'time'</span>,{toc(t0)});
+0096                             <span class="comment">% write back the updated location record</span>
+0097                             tracking.cache.disk_paths.(p{1}) = location;
+0098                         <span class="keyword">catch</span>,<span class="keyword">end</span>
+0099                         <span class="keyword">return</span>;
+0100                     <span class="keyword">catch</span>,<span class="keyword">end</span>
+0101                 <span class="keyword">end</span>
+0102                 
+0103                 <span class="comment">% value not yet stored: we want to memoize after the function's body has been evaluated, so remember the location data</span>
+0104                 action = <span class="string">'memoize'</span>;
+0105                 result{end+1} = memo_path;
+0106             <span class="keyword">elseif</span> strcmp(location,<span class="string">'memory'</span>)
+0107                 <span class="comment">% MEMORY-BASED MEMOIZATION: compute the storage location according to a fieldname schema</span>
+0108                 memo_field = [<span class="string">'x'</span> exp_hash];
+0109                 <span class="comment">% check if the requested object is present</span>
+0110                 <span class="keyword">try</span>
+0111                     <span class="comment">% found: return</span>
+0112                     obj = tracking.cache.data.(memo_field);
+0113                     <span class="comment">% check whether the expression matches</span>
+0114                     <span class="keyword">if</span> ~iscell(obj) || isempty(obj) || ~isfield(obj{1}, <span class="string">'tracking'</span>) || ~isfield(obj{1}.tracking,<span class="string">'expression'</span>)
+0115                         warning(<span class="string">'BCILAB:exp_beginfun:memo_error'</span>,<span class="string">'memoized object is not conformat; reverting...'</span>);
+0116                         error(<span class="string">'error'</span>);
+0117                     <span class="keyword">end</span>
+0118                     <span class="keyword">if</span> ~<a href="utl_same.html" class="code" title="function r = utl_same(a,b)">utl_same</a>(obj{1}.tracking.expression,exp) &amp;&amp; ~isequal_weak(obj{1}.tracking.expression,exp)
+0119                         disp(<span class="string">'exp_beginfun: hash conflict during lookup.'</span>);
+0120                         error(<span class="string">'error'</span>);
+0121                     <span class="keyword">end</span>
+0122                     tracking.cache.times.(memo_field) = cputime; <span class="comment">% for the least-recently used policy</span>
+0123                     <span class="comment">% got the correct result: make the function return it</span>
+0124                     <span class="keyword">if</span> ~isempty(result) &amp;&amp; strcmp(action,<span class="string">'memoize'</span>)
+0125                         <span class="comment">% ... but first commit it to the other higher-priority memory locations that don't yet have it</span>
+0126                         <span class="keyword">for</span> r=1:length(result)
+0127                             <a href="utl_memoize_commit.html" class="code" title="function utl_memoize_commit(obj,id,inputbytes)">utl_memoize_commit</a>(obj,result{r}); <span class="keyword">end</span>
+0128                     <span class="keyword">end</span>
+0129                     result = obj;
+0130                     action = <span class="string">'return'</span>;
+0131                     <span class="keyword">return</span>;
+0132                 <span class="keyword">catch</span>,<span class="keyword">end</span>
+0133                 <span class="comment">% not found: remember to memoize later</span>
+0134                 action = <span class="string">'memoize'</span>;
+0135                 result{end+1} = [<span class="string">'.'</span> memo_field];
+0136             <span class="keyword">end</span>
+0137         <span class="keyword">end</span>
+0138     <span class="keyword">end</span>
+0139 <span class="keyword">end</span>
+0140 
+0141 <span class="comment">% find out whether a given memoization expression for some expression is enabled, and obtain the expression's hash if so...</span>
+0142 <a name="_sub1" href="#_subfunctions" class="code">function hash = hash_if_enabled(memo_exp,exp)</a>
+0143 <span class="keyword">if</span> exp_eval(<a href="utl_releasehold.html" class="code" title="function x = utl_releasehold(x)">utl_releasehold</a>(<a href="utl_replacerepeated.html" class="code" title="function [exp,waschanged] = utl_replacerepeated(exp,rules)">utl_replacerepeated</a>(memo_exp,{exp_rule(@expression,exp)})),inf)
+0144     hash = num2str(145342 + hlp_fingerprint(exp));
+0145 <span class="keyword">else</span>
+0146     hash = [];
+0147 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,357 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of set_fit_dipoles</title>
+  <meta name="keywords" content="set_fit_dipoles">
+  <meta name="description" content="Fit dipoles for each independent component of an IC-decomposed dataset.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">dataset_editing</a> &gt; set_fit_dipoles.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/dataset_editing&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>set_fit_dipoles
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Fit dipoles for each independent component of an IC-decomposed dataset.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function signal = set_fit_dipoles(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Fit dipoles for each independent component of an IC-decomposed dataset.
+
+ This function uses the Dipfit plugin for EEGLAB to automatically derive dipole locations
+ for all IC's in the data set. The returned coordinates are in the MNI coordinate system.
+ In addition, (probabilistic) anatomical labels can be looked up from different brain atlases [1,2].
+ 
+
+ In:
+   Signal           : data set with valid IC decomposition
+
+   HeadModel        : head model file (see pop_dipfit_settings) (default: standard BEM volume)
+
+   MRImage          : anatomical MR head image file (default: standard BEM image)
+
+   ChannelLocations : coregistered channel locations file (default: standard 10-20 locations)
+
+   LookupLabels     : whether to look up anatomical labels &amp; probabilities (default: true)
+
+   ConfusionRange   : radius (in mm) of uncertainty over which to scan for labels (default: 4)
+
+   BrainAtlas       : brain atlas to use. Talairach has a larger repertoire of areas, but is (in 
+                      this version) non-probabilistic. The LONI LBPA40 atlas is a high-quality 
+                      probabilistic atlas.
+
+ Out:
+   Signal : data set with added dipole annotations
+
+ Notes:
+   In the default settings, a standard Eurasian BEM head model amd MR image is used, and channel
+   locations are assumed to be standard 10-20 locations if not specifically given.
+
+ Examples:
+   % for a data set which is annotated with independent components, e.g. via
+   eeg = flt_ica(raw);
+
+   % ... fit dipoles for each component using default settings, and look up the nearby anatomical 
+   % structures and their hit probabilities)
+   eeg = set_fit_dipoles(eeg)
+
+   % ... fit dipoles and and look up anatomical structures within a radius of 10mm around each 
+   % dipole coordinate (passing arguments by name)
+   eeg = set_fit_dipoles('Signal',eeg,'ConfusionRange',10)
+
+   % ... fit dipoles but do not look up anatomical structures
+   eeg = set_fit_dipoles('Signal',eeg,'LookupLabels',false)
+
+   % ... fit dipoles using a (subject-) specific head model and MR file
+   eeg = set_fit_dipoles('Signal',eeg,'HeadModel','volXY.mat','MRImage','mriXY.mat')
+   
+   % ... fit dipoles using a (subject-) specific head model and MR file, as well as digitized
+   % channel locations
+   eeg = set_fit_dipoles('Signal',eeg,'HeadModel','my_vol.mat','MRImage','my_mri.mat','ChannelLocations','my_locs.mat')
+
+ References:
+   [1] Lancaster JL, Woldorff MG, Parsons LM, Liotti M, Freitas CS, Rainey L, Kochunov PV, Nickerson D, Mikiten SA, Fox PT, &quot;Automated Talairach Atlas labels for functional brain mapping&quot;. 
+       Human Brain Mapping 10:120-131, 2000
+   [2] Shattuck DW, Mirza M, Adisetiyo V, Hojatkashani C, Salamon G, Narr KL, Poldrack RA, Bilder RM, Toga AW, &quot;Construction of a 3D probabilistic atlas of human cortical structures.&quot;
+       Neuroimage. 2008 39(3):1064-80
+
+ See also:
+   flt_ica, coregister, pop_multifit
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-01-21</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function result = do_fitting(signal,mri_file,hdm_file,chan_file,lookup_labels,brain_atlas,confusion_range,var_threshold)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = set_fit_dipoles(varargin)</a>
+0002 <span class="comment">% Fit dipoles for each independent component of an IC-decomposed dataset.</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% This function uses the Dipfit plugin for EEGLAB to automatically derive dipole locations</span>
+0005 <span class="comment">% for all IC's in the data set. The returned coordinates are in the MNI coordinate system.</span>
+0006 <span class="comment">% In addition, (probabilistic) anatomical labels can be looked up from different brain atlases [1,2].</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% In:</span>
+0010 <span class="comment">%   Signal           : data set with valid IC decomposition</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%   HeadModel        : head model file (see pop_dipfit_settings) (default: standard BEM volume)</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%   MRImage          : anatomical MR head image file (default: standard BEM image)</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%   ChannelLocations : coregistered channel locations file (default: standard 10-20 locations)</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   LookupLabels     : whether to look up anatomical labels &amp; probabilities (default: true)</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%   ConfusionRange   : radius (in mm) of uncertainty over which to scan for labels (default: 4)</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">%   BrainAtlas       : brain atlas to use. Talairach has a larger repertoire of areas, but is (in</span>
+0023 <span class="comment">%                      this version) non-probabilistic. The LONI LBPA40 atlas is a high-quality</span>
+0024 <span class="comment">%                      probabilistic atlas.</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">% Out:</span>
+0027 <span class="comment">%   Signal : data set with added dipole annotations</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">% Notes:</span>
+0030 <span class="comment">%   In the default settings, a standard Eurasian BEM head model amd MR image is used, and channel</span>
+0031 <span class="comment">%   locations are assumed to be standard 10-20 locations if not specifically given.</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">% Examples:</span>
+0034 <span class="comment">%   % for a data set which is annotated with independent components, e.g. via</span>
+0035 <span class="comment">%   eeg = flt_ica(raw);</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%   % ... fit dipoles for each component using default settings, and look up the nearby anatomical</span>
+0038 <span class="comment">%   % structures and their hit probabilities)</span>
+0039 <span class="comment">%   eeg = set_fit_dipoles(eeg)</span>
+0040 <span class="comment">%</span>
+0041 <span class="comment">%   % ... fit dipoles and and look up anatomical structures within a radius of 10mm around each</span>
+0042 <span class="comment">%   % dipole coordinate (passing arguments by name)</span>
+0043 <span class="comment">%   eeg = set_fit_dipoles('Signal',eeg,'ConfusionRange',10)</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">%   % ... fit dipoles but do not look up anatomical structures</span>
+0046 <span class="comment">%   eeg = set_fit_dipoles('Signal',eeg,'LookupLabels',false)</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">%   % ... fit dipoles using a (subject-) specific head model and MR file</span>
+0049 <span class="comment">%   eeg = set_fit_dipoles('Signal',eeg,'HeadModel','volXY.mat','MRImage','mriXY.mat')</span>
+0050 <span class="comment">%</span>
+0051 <span class="comment">%   % ... fit dipoles using a (subject-) specific head model and MR file, as well as digitized</span>
+0052 <span class="comment">%   % channel locations</span>
+0053 <span class="comment">%   eeg = set_fit_dipoles('Signal',eeg,'HeadModel','my_vol.mat','MRImage','my_mri.mat','ChannelLocations','my_locs.mat')</span>
+0054 <span class="comment">%</span>
+0055 <span class="comment">% References:</span>
+0056 <span class="comment">%   [1] Lancaster JL, Woldorff MG, Parsons LM, Liotti M, Freitas CS, Rainey L, Kochunov PV, Nickerson D, Mikiten SA, Fox PT, &quot;Automated Talairach Atlas labels for functional brain mapping&quot;.</span>
+0057 <span class="comment">%       Human Brain Mapping 10:120-131, 2000</span>
+0058 <span class="comment">%   [2] Shattuck DW, Mirza M, Adisetiyo V, Hojatkashani C, Salamon G, Narr KL, Poldrack RA, Bilder RM, Toga AW, &quot;Construction of a 3D probabilistic atlas of human cortical structures.&quot;</span>
+0059 <span class="comment">%       Neuroimage. 2008 39(3):1064-80</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">% See also:</span>
+0062 <span class="comment">%   flt_ica, coregister, pop_multifit</span>
+0063 <span class="comment">%</span>
+0064 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0065 <span class="comment">%                                2011-01-21</span>
+0066 
+0067 <span class="comment">% set_fit_dipoles_version&lt;0.9&gt; -- for the cache</span>
+0068 
+0069 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0070 
+0071 <span class="comment">% declare GUI name, etc.</span>
+0072 declare_properties(<span class="string">'name'</span>,{<span class="string">'DipoleFitting'</span>,<span class="string">'dipfit'</span>}, <span class="string">'depends'</span>,<span class="string">'flt_ica'</span>, <span class="string">'precedes'</span>,<span class="string">'flt_project'</span>, <span class="string">'independent_channels'</span>,true, <span class="string">'independent_trials'</span>,true);
+0073 
+0074 <span class="comment">% define arguments...</span>
+0075 arg_define(varargin, <span class="keyword">...</span>
+0076     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0077     arg({<span class="string">'hdm_file'</span>,<span class="string">'HeadModel'</span>}, <span class="string">''</span>, [],<span class="string">'Head model file. The BEM head model that should be used by dipfit (using a standard model if empty).'</span>),<span class="keyword">...</span>
+0078     arg({<span class="string">'mri_file'</span>,<span class="string">'MRImage'</span>}, <span class="string">''</span>, [],<span class="string">'MR head image file. The MR head image that should be used by dipfit (using a standard image if empty).'</span>),<span class="keyword">...</span>
+0079     arg({<span class="string">'chan_file'</span>,<span class="string">'ReferenceLocations'</span>}, <span class="string">''</span>, [],<span class="string">'Coregistered reference chanlocs. The coregistered electrode locations that should be used as reference for alignment warping.'</span>),<span class="keyword">...</span>
+0080     arg({<span class="string">'lookup_labels'</span>,<span class="string">'LookupLabels'</span>},true,[], <span class="string">'Look up dipole labels. If enabled, look up anatomical labels from the selected brain atlas.'</span>),<span class="keyword">...</span>
+0081     arg({<span class="string">'confusion_range'</span>,<span class="string">'ConfusionRange'</span>}, 4, [1 30], <span class="string">'Confusion Radius (mm). Assumed standard deviation of uncertainty in the dipole fits, in millimeters.'</span>),<span class="keyword">...</span><span class="comment">    </span>
+0082     arg({<span class="string">'brain_atlas'</span>,<span class="string">'BrainAtlas'</span>}, <span class="string">'Talairach'</span>, {<span class="string">'Talairach'</span>,<span class="string">'LBPA40'</span>}, <span class="string">'Brain atlas to use. Talairach has a larger repertoire of areas, but is (in this version) non-probabilistic. The LONI LBPA40 atlas is a high-quality probabilistic atlas; however, you have to to download it yourself.'</span>),<span class="keyword">...</span>
+0083     arg({<span class="string">'var_threshold'</span>,<span class="string">'VarianceThreshold'</span>}, 15, [1 100], <span class="string">'Residual Variance Thresold (%). The threshold in dipole fit residual variance above which dipoles models are rejected.'</span>),<span class="keyword">...</span><span class="comment">    </span>
+0084     arg({<span class="string">'mri_constraints'</span>,<span class="string">'UseMRIConstraints'</span>}, false, [], <span class="string">'Use MRI constraints. If enabled, restricts dipole solutions to the grey-matter volume. The currently requires the SPM toolbox to be in the path.'</span>),<span class="keyword">...</span>
+0085     arg({<span class="string">'discard_nonlocalizable'</span>,<span class="string">'DiscardNonlocalizable'</span>}, false, [], <span class="string">'Discard non-localizable components.'</span>),<span class="keyword">...</span>
+0086     arg({<span class="string">'verbose'</span>,<span class="string">'VerboseOutput'</span>}, false, [], <span class="string">'Verbose output.'</span>),<span class="keyword">...</span>
+0087     arg_norep(<span class="string">'dipfit_info'</span>, unassigned));
+0088 
+0089 <span class="keyword">if</span> ~exist(<span class="string">'dipfit_info'</span>,<span class="string">'var'</span>)
+0090     <span class="comment">% use standard data if unspecified</span>
+0091     <span class="keyword">if</span> isempty(hdm_file) <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0092         hdm_file = env_translatepath(<span class="string">'resources:/standard_BEM/standard_vol.mat'</span>); <span class="keyword">end</span>
+0093     <span class="keyword">if</span> isempty(mri_file)
+0094         <span class="keyword">if</span> mri_constraints
+0095             mri_file = env_translatepath(<span class="string">'resources:/standard_BEM/standard_mri_gm.mat'</span>); 
+0096         <span class="keyword">else</span>
+0097             mri_file = <span class="string">''</span>;
+0098         <span class="keyword">end</span>
+0099     <span class="keyword">end</span>
+0100     <span class="keyword">if</span> isempty(chan_file)
+0101         <span class="comment">% figure out the labeling scheme to determine the correct coregistration...</span>
+0102         <span class="keyword">if</span> ~isfield(signal.chaninfo,<span class="string">'labelscheme'</span>)
+0103             signal.chaninfo.labelscheme = <span class="string">'10-20'</span>; <span class="keyword">end</span>
+0104         <span class="keyword">switch</span> signal.chaninfo.labelscheme
+0105             <span class="keyword">case</span> <span class="string">'10-20'</span>
+0106                 chan_file = env_translatepath(<span class="string">'resources:/standard_BEM/elec/standard_1005.elc'</span>);
+0107             <span class="keyword">case</span> <span class="string">'sccn_128_v1'</span>
+0108                 chan_file = env_translatepath(<span class="string">'resources:/sccn_BEM_coregistered_128_v1.xyz'</span>);
+0109             <span class="keyword">case</span> <span class="string">'sccn_128_v2'</span>
+0110                 chan_file = env_translatepath(<span class="string">'resources:/sccn_BEM_coregistered_128_v2.xyz'</span>);
+0111             <span class="keyword">case</span> <span class="string">'sccn_256_v1'</span>
+0112                 chan_file = env_translatepath(<span class="string">'resources:/sccn_BEM_coregistered_256_v1.xyz'</span>);
+0113             <span class="keyword">case</span> <span class="string">'sccn_256_v2'</span>
+0114                 chan_file = env_translatepath(<span class="string">'resources:/sccn_BEM_coregistered_256_v2.xyz'</span>);
+0115             <span class="keyword">otherwise</span>
+0116                 error(<span class="string">'Unknown channel labeling scheme -- please supply a chan_file argument.'</span>);
+0117         <span class="keyword">end</span>
+0118     <span class="keyword">end</span>
+0119     
+0120     disp([<span class="string">'Now fitting dipoles... (montage reference: '</span> chan_file <span class="string">')'</span>]);
+0121     <span class="comment">% fit icaweights</span>
+0122     <span class="keyword">if</span> verbose
+0123         dipfit_info = hlp_diskcache(<span class="string">'dipfits'</span>,@<a href="#_sub1" class="code" title="subfunction result = do_fitting(signal,mri_file,hdm_file,chan_file,lookup_labels,brain_atlas,confusion_range,var_threshold)">do_fitting</a>,signal,mri_file,hdm_file,chan_file,lookup_labels,brain_atlas,confusion_range,var_threshold);
+0124     <span class="keyword">else</span>
+0125         dipfit_info = evalc(<span class="string">'hlp_diskcache(''dipfits'',@do_fitting(signal,mri_file,hdm_file,chan_file,lookup_labels,brain_atlas,confusion_range,var_threshold)'</span>);
+0126     <span class="keyword">end</span>
+0127     <span class="keyword">try</span>
+0128         <span class="comment">% check if we need to fit Amica models, too...</span>
+0129         <span class="keyword">if</span> isfield(signal.etc,<span class="string">'amica'</span>)
+0130             sig = signal;
+0131             multimodel = {};
+0132             <span class="keyword">for</span> m=1:size(signal.etc.amica.W,3)
+0133                 sig.icaweights = signal.etc.amica.W(:,:,m);
+0134                 sig.icawinv = signal.etc.amica.A(:,:,m);
+0135                 sig.icasphere = signal.etc.amica.S;
+0136                 <span class="keyword">if</span> verbose
+0137                     tmp = hlp_diskcache(<span class="string">'dipfits'</span>,@<a href="#_sub1" class="code" title="subfunction result = do_fitting(signal,mri_file,hdm_file,chan_file,lookup_labels,brain_atlas,confusion_range,var_threshold)">do_fitting</a>,sig,mri_file,hdm_file,chan_file,lookup_labels,brain_atlas,confusion_range,var_threshold);
+0138                 <span class="keyword">else</span>
+0139                     tmp = evalc(<span class="string">'hlp_diskcache(''dipfits'',@do_fitting(sig,mri_file,hdm_file,chan_file,lookup_labels,brain_atlas,confusion_range,var_threshold);'</span>);
+0140                 <span class="keyword">end</span>
+0141                 multimodel{m} = tmp.model; <span class="comment">%#ok&lt;AGROW&gt;</span>
+0142             <span class="keyword">end</span>
+0143             dipfit_info.multimodel = multimodel;
+0144         <span class="keyword">end</span>
+0145     <span class="keyword">catch</span>
+0146         disp(<span class="string">'Could not compute dipfit solutions for Amica models.'</span>);
+0147     <span class="keyword">end</span>
+0148 <span class="keyword">end</span>
+0149     
+0150 signal.dipfit = dipfit_info;
+0151 <span class="keyword">if</span> discard_nonlocalizable
+0152     retain_ics = ~cellfun(@isempty,{signal.dipfit.model.posxyz});
+0153     <span class="comment">% update the dipole model</span>
+0154     signal.dipfit.model = signal.dipfit.model(retain_ics);    
+0155     <span class="comment">% restrict the ICs &amp; some derived data</span>
+0156     signal.icaweights = signal.icaweights(retain_ics,:);    
+0157     signal.icawinv = signal.icawinv(:,retain_ics);
+0158     <span class="keyword">if</span> ~isempty(signal.icaact) &amp;&amp; ~isscalar(signal.icaact)
+0159         signal.icaact = signal.icaact(retain_ics,:,:); <span class="keyword">end</span>
+0160 <span class="keyword">end</span>
+0161 
+0162 <span class="keyword">if</span> isfield(signal.etc,<span class="string">'amica'</span>)
+0163     signal.etc.amica.dipfit = dipfit_info; <span class="keyword">end</span>
+0164 
+0165 
+0166 <span class="keyword">global</span> tracking;
+0167 tracking.inspection.dipfit = dipfit_info;
+0168 
+0169 <span class="comment">% when applied online, include the dipfit info into the parameters (so it gets attached immediately)</span>
+0170 exp_endfun(<span class="string">'append_online'</span>,{<span class="string">'dipfit_info'</span>,dipfit_info});
+0171 
+0172 <a name="_sub1" href="#_subfunctions" class="code">function result = do_fitting(signal,mri_file,hdm_file,chan_file,lookup_labels,brain_atlas,confusion_range,var_threshold)</a>
+0173 
+0174 <span class="comment">% coregister chanlocs to reference channels</span>
+0175 [dummy,warping] = coregister(signal.chanlocs,chan_file,<span class="string">'warp'</span>,<span class="string">'auto'</span>,<span class="string">'manual'</span>,<span class="string">'off'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0176 <span class="comment">% generate the dipfit info</span>
+0177 <span class="comment">%nosedir needs to be set to +X here for dipfit to work</span>
+0178 signal.chaninfo.nosedir = <span class="string">'+X'</span>;
+0179 tmp = pop_multifit(pop_dipfit_settings(pop_select(signal,<span class="string">'channel'</span>,signal.icachansind),  <span class="keyword">...</span>
+0180     <span class="string">'mrifile'</span>,mri_file, <span class="string">'hdmfile'</span>,hdm_file,<span class="string">'chanfile'</span>,chan_file,<span class="string">'coordformat'</span>,<span class="string">'MNI'</span>,<span class="string">'coord_transform'</span>,warping), 1:size(signal.icaweights,1),<span class="string">'threshold'</span>,var_threshold);
+0181 <span class="comment">% optionally derive anatomical labels &amp; probabilities</span>
+0182 <span class="keyword">if</span> lookup_labels
+0183     <span class="keyword">switch</span> lower(brain_atlas)
+0184         
+0185         <span class="keyword">case</span> <span class="string">'talairach'</span>
+0186             db = org.talairach.Database;
+0187             db.load(env_translatepath(<span class="string">'resources:/talairach.nii'</span>));
+0188             <span class="keyword">for</span> k=1:length(tmp.dipfit.model)
+0189                 <span class="keyword">try</span>
+0190                     p = icbm_spm2tal(tmp.dipfit.model(k).posxyz);
+0191                     tmp.dipfit.model(k).labels = cellfun(@(d)char(d),cell(db.search_range(p(1),p(2),p(3),1.5*confusion_range)),<span class="string">'UniformOutput'</span>,false);
+0192                     <span class="comment">% and compute structure probabilities within the selected volume</span>
+0193                     [structures,x,idxs] = unique(hlp_split(sprintf(<span class="string">'%s,'</span>,tmp.dipfit.model(k).labels{:}),<span class="string">','</span>)); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0194                     probabilities = mean(bsxfun(@eq,1:max(idxs),idxs'));
+0195                     [probabilities,reindex] = sort(probabilities,<span class="string">'descend'</span>);
+0196                     structures = structures(reindex);
+0197                     mask = ~strcmp(structures,<span class="string">'*'</span>);
+0198                     tmp.dipfit.model(k).structures = structures(mask);
+0199                     tmp.dipfit.model(k).probabilities = probabilities(mask)*5; <span class="comment">% there are 5 partitions</span>
+0200                     <span class="comment">% figure('Position',[0 0 2560 900]); topoplot(tmp.icawinv(:,k),tmp.chanlocs); title([hlp_tostring(structures(mask)) 10 hlp_tostring(5*probabilities(mask))]); pop_dipplot(tmp,k);</span>
+0201                 <span class="keyword">catch</span>
+0202                     tmp.dipfit.model(k).labels = {};
+0203                     tmp.dipfit.model(k).structures = {};
+0204                     tmp.dipfit.model(k).probabilities = [];
+0205                 <span class="keyword">end</span>
+0206             <span class="keyword">end</span>
+0207             
+0208         <span class="keyword">case</span> <span class="string">'lbpa40'</span>
+0209             mask = find(~cellfun(<span class="string">'isempty'</span>,{tmp.dipfit.model.posxyz}));
+0210             <span class="comment">% build query</span>
+0211             coords = vertcat(tmp.dipfit.model.posxyz);
+0212             coords = [coords confusion_range * ones(size(coords,1),1)];
+0213             <span class="comment">% look up from atlas (note: slow!)</span>
+0214             [probs,labels] = label_dipoles(coords);
+0215             <span class="comment">% determine overlapped specialty regions to match up with Talairach's labeling scheme</span>
+0216             L = ~cellfun(<span class="string">'isempty'</span>,strfind(labels,<span class="string">' L '</span>));
+0217             R = ~cellfun(<span class="string">'isempty'</span>,strfind(labels,<span class="string">' R '</span>));
+0218             B = ~cellfun(<span class="string">'isempty'</span>,strfind(labels,<span class="string">'Brainstem'</span>));
+0219             C = ~cellfun(<span class="string">'isempty'</span>,strfind(labels,<span class="string">'Cerebellum'</span>));
+0220             allprobs = [sum(probs(:,L),2) sum(probs(:,R),2) sum(probs(:,C),2)*[0.5 0.5] sum(probs(:,B),2)];
+0221             allstructs = {<span class="string">'Left Cerebrum'</span> <span class="string">'Right Cerebrum'</span> <span class="string">'Left Cerebellum'</span> <span class="string">'Right Cerebellum'</span> <span class="string">'Brainstem'</span>};
+0222             <span class="comment">% go through all gyri and add up left &amp; right probabilities</span>
+0223             gyri = unique(cellfun(@(l)l(12:end),labels(1:end-2),<span class="string">'UniformOutput'</span>,false))';
+0224             allstructs = [allstructs gyri];
+0225             <span class="keyword">for</span> g=1:length(gyri)
+0226                 curgyrus = gyri{g};
+0227                 matches = ~cellfun(<span class="string">'isempty'</span>,strfind(labels,curgyrus));
+0228                 allprobs = [allprobs sum(probs(:,matches),2)];
+0229             <span class="keyword">end</span>
+0230             <span class="keyword">for</span> k=1:length(mask)
+0231                 <span class="comment">% retain only those with non-zero probability</span>
+0232                 sel = allprobs(k,:) ~= 0;
+0233                 probabilities = allprobs(k,sel);
+0234                 structures = allstructs(sel);
+0235                 <span class="comment">% sort probs &amp; associated structs by descending probability</span>
+0236                 [probabilities,reindex] = sort(probabilities,<span class="string">'descend'</span>);
+0237                 structures = structures(reindex);
+0238                 <span class="comment">% store in the model...</span>
+0239                 tmp.dipfit.model(mask(k)).structures = structures;
+0240                 tmp.dipfit.model(mask(k)).probabilities = probabilities;
+0241                 <span class="comment">% figure('Position',[0 0 2560 900]);topoplot(tmp.icawinv(:,k),tmp.chanlocs); title([hlp_tostring(structures) 10 hlp_tostring(probabilities)]); pop_dipplot(tmp,k);</span>
+0242             <span class="keyword">end</span>
+0243     <span class="keyword">end</span>
+0244 <span class="keyword">end</span>
+0245 result = tmp.dipfit;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

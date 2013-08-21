@@ -1,0 +1,587 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of bci_batchtrain</title>
+  <meta name="keywords" content="bci_batchtrain">
+  <meta name="description" content="Apply bci_train to multiple data sets and approaches.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">offline_analysis</a> &gt; bci_batchtrain.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/offline_analysis&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>bci_batchtrain
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Apply bci_train to multiple data sets and approaches.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function results = bci_batchtrain(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Apply bci_train to multiple data sets and approaches.
+ Results = bci_batchtrain(Datasets,Approaches,PredictSets,LoadArguments,TrainArguments,SaveArguments,StoragePattern,ResultPattern,ProcessingOrder,ReuseExisting,DefaultName,ErrorHandler,ClusterEngine,ClusterPool,ClusterPolicy)
+
+ This function is a convenience wrapper around bci_train and bci_predict. It can be used to apply
+ an approach systematically to a range of data sets (e.g. those matching a file name pattern on disk).
+ It can also be used to compare a series of approaches on one or more data sets.
+
+ Essentially all of the functionality of bci_train and bci_predict is supported also in this function,
+ so that the majority of offline analysis procedures can be applied with a single call to bci_batchtrain.
+ A special feature of this function is that it stores the final results in a standard directory
+ in a user-accessible form, and that it can optionally resume a cancelled batch computation by reusing
+ existing results -- which is the recommended way to ensure that no data is lost in case of a crash.
+
+ A streamlined approach to batch analysis involves first &quot;curating&quot; the raw source data sets in a script
+ or by hand (e.g., ensuring that the desired markers are present or that the channel locations are 
+ well-formed), then defining a series of approaches to be compared, and finally invoking bci_batchtrain
+ on the directory containing the curated data sets.
+ 
+ In:
+   --- core arguments ---
+
+   Datasets : Data sets to process (train/cross-validate). Cell array of file names, file name 
+              patterns, or dataset structs.
+
+   Approaches : Approach(es) to use. Same format as in bci_train. If multiple approaches should be
+                applied, this may also be a struct, each of whose fields specifies another approach
+                to use (where the field name identifies the name of the respective approach as
+                used in this function's output).
+
+   PredictSets : Optional data sets on which to predict BCI outputs using bci_predict; must yield 
+                 one set for each set in Datasets (if specified in the same format as Datasets),
+                 or, if multiple  predict sets are given for each data set (e.g., multiple test
+                 sessions), must be a cell array of one cell array with test sets per each training
+                 set.
+
+   --- optional data pipeline customization ---
+
+   TargetMarkers : Target markers. List of types of those markers around which data shall be used
+                   for BCI calibration; each marker type encodes a different target class (i.e.
+                   desired output value) to be learned by the resulting BCI model. 
+                   
+                   This can be specified either as a cell array of marker-value pairs, in which
+                   case each marker type of BCI interest is associated with a particular BCI output 
+                   value (e.g., -1/+1), or as a cell array of marker types (in which case each 
+                   marker will be associated with its respective index as corresponding BCI output 
+                   value, while nested cell arrays are also allowed to group markers that correspond
+                   to the same output value). See help of set_targetmarkers for further explanation.
+
+   LoadArguments : Optional load arguments. Additional arguments to io_loadset - given as a cell
+                   array (e.g. {'channels',1:32}). (default: {})
+
+   TrainArguments : Optional training arguments. Additional arguments to bci_train - given as a
+                    cell array (e.g. {'eval_scheme', {'chron',5,5}}). (default: {})
+
+   PredictArguments : Optional prediction arguments. Arguments to bci_predict - given as a cell array.
+
+   SaveArguments : Optional save arguments. Additional arguments to io_save - given as a cell array.
+                   (default: {'-makedirs'})
+
+
+   --- optional output formatting ---
+
+   StudyTag : Tag of the performed study. May be used to identify/distinguish stored results on disk 
+              (see StoragePattern). Default: 'default'.
+
+   StoragePattern : Result storage pattern. This is a filename pattern with optional placeholders
+                    %caller (subtituted by the calling function''s name), %set (substituted by
+                    the respective file name or data set number that generated the result),
+                    %approach (substituted by the respective approach name), and %study (substituted
+                    by the StudyTag). Default: 'home:/batchtrain/%caller-%study/%approach-%set.mat' 
+                    Note that home:/ is the user's home directory; consider that the disk quota in 
+                    a user's home directory may be limited.
+
+   ResultPattern : Result output pattern. This is a MATLAB expression with optional placeholders
+                   %approach (substituted with the respective approach name), %num (substituted
+                   with the number of the respective data set) and %caller (substituted by the
+                   calling function's name). (default: 'results.%approach(%num) = ')
+
+   DefaultName : Default approach name. If only a single approach was given as a cell array rather
+                 than as a struct with subfields. (default: 'default')
+
+   --- optional computation organization ---
+
+   ProcessingOrder : Processing order. Either go through all sets first for one approach, then for
+                     the next, etc. (setsfirst), or go through all approaches for the first set,
+                     then for the next set, etc. (approachesfirst). Since some approaches may take
+                     orders of magnitude longer than others (perhaps unexpectedly), it is often the 
+                     best idea to specify aproaches in order of assumed running time, and use 
+                     the 'setsfirst' order. (default: 'setsfirst')
+
+   ApproachProcessingOrder : run over approaches in the given order; can be used to ensure that k 
+                             machines work on different job, by passing the numbers 0..k-1 
+                             to different instances of bci_batchtrain (default: 0/false)
+
+   DatasetProcessingOrder : run over data sets in a different order; can be used to ensure that k 
+                             machines work on different job, by passing the numbers 0..k-1 
+                             to different instances of bci_batchtrain (default: 0/false)
+
+   ReuseExisting: reuse existing results if the respective output files already exist on disk 
+                  (default: false)
+
+   ClusterResources : Cluster computation engine. If set to local, parallel processing is effectively 
+                      turned off. If set to global, the global BCILAB setting is used
+                      (tracking.parallel.engine), if set to BLS the BCILAB scheduler is used, and if
+                      set to ParallelComputingToolbox, the MATLAB PCT is used. Reference is for
+                      testing. (default: 'local')
+
+   ClusterPool : Cluster resource pool. If set to global, the global BCILAB setting 
+                 (tracking.parallel.pool) will be used. Otherwise, this is a cell array of
+                 hostnames (and optionally ports) of remote worker processes. (default: 'global')
+
+   --- miscellaneous ---
+
+   ErrorHandler : Error handler to use. Function handle or name that takes a struct as generated by
+                  lasterror(). (default: 'env_handleerror')
+
+   LoadOnly : only load, not recompute, any results; can be used to re-load past results quickly
+              (default: false)
+
+ Out:
+   Results: result structure, as constructed by the Result pattern, with a sub-struct for each data
+            set assigned to it. The sub-struct for each data set has the following fields:
+            'loss' : same as the loss output of bci_train
+            'model': same as the model output of bci_train
+            'stats': same as the stats output of bci_train
+
+            if PredictSets were specified, additional fields will be present:
+            'pred_loss'  : same as the loss output of bci_predict
+            'pred_stats' : same as the stats output of bci_predict
+            'pred_predictions' : same as the predictions output of bci_predict
+            'pred_targets': same as the targets output of bci_predict
+
+ Notes:
+   Expect to be tempted to interrupt long-running computations. In this case, you will have to read
+   the data from disk -- so it is generally a good idea to not disable the StoragePattern.
+
+ Examples:
+   first define some approach for subsequent use
+   myapproach = {'CSP', 'SignalProcessing',{'EpochExtraction',[0 3.5]}}};
+
+   % apply the given approach to all files named subject*.vhdr, in the directory studyX (assuming 
+   % that the events of interest are called 'S1' and 'S2').
+   results = bci_batchtrain('studyX/subject*.vhdr',myapproach,[],{'S1','S2'})
+
+   % apply the given approach to a list of file names
+   results = bci_batchtrain({'studyX/subject1.vhdr','studyX/subject2.vhdr','studyX/subject3.vhdr'},myapproach,[],{'S1','S2'})
+
+   % as before, but now using name-value arguments, and passing some additional io_loadset arguments (assuming we want to process only the first 32 channels)
+   results = bci_batchtrain('Datasets',{'studyX/subject1.vhdr','studyX/subject2.vhdr','studyX/subject3.vhdr'}, 'Approaches',myapproach, 'TargetMarkers',{'S1','S2'}, 'LoadArguments',{'channels',1:32})
+
+   % apply the given approach to a list of pre-loaded data sets
+   results = bci_batchtrain({myset1,myset2,myset3},myapproach,[],{'S1','S2'})
+
+   % apply the given approach to a list of pre-loaded data sets, but pass some special bci_train arguments to expedite processing using only a 3-fold cross-validation
+   results = bci_batchtrain({myset1,myset2,myset3},myapproach,[],{'S1','S2'},{'EvaluationScheme',{'chron',3,5}})
+
+   % as before, but using name-value arguments and disabling output into the home directory
+   results = bci_batchtrain('Datasets',{myset1,myset2,myset3}, 'Approaches',myapproach, 'TargetMarkers',{'S1','S2'}, 'TrainArguments',{'EvaluationScheme',{'chron',3,5}}, 'StoragePattern','')
+
+   % as before, but instead disabling the output as a MATLAB variable (perhaps to not exhaust the memory)
+   bci_batchtrain('Datasets',{myset1,myset2,myset3}, 'Approaches',myapproach, 'TargetMarkers',{'S1','S2'}, 'TrainArguments',{'EvaluationScheme',{'chron',3,5}}, 'ResultPattern','')
+
+   % again using 3 filenames, but this time also using 3 different approaches
+   myapproaches.simpleCSP = 'CSP';
+   myapproaches.advancedSpecCSP = 'SpecCSP';
+   myapproaches.experimentalCSP = {'CSP', 'Prediction',{'FeatureExtraction'{'PatternPairs',10},'MachineLearning',{'Learner',{'logreg',[],'variant','vb-ard'}}}};
+   results = bci_batchtrain({'studyX/subject1.vhdr','studyX/subject2.vhdr','studyX/subject3.vhdr'},myapproaches,[],{'S1','S2'})
+
+ See also:
+   <a href="bci_train.html" class="code" title="function [measure,model,stats] = bci_train(varargin)">bci_train</a>, <a href="bci_predict.html" class="code" title="function [prediction, measure, stats, target] = bci_predict(varargin)">bci_predict</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-08-19</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function results = bci_batchtrain(varargin)</a>
+0002 <span class="comment">% Apply bci_train to multiple data sets and approaches.</span>
+0003 <span class="comment">% Results = bci_batchtrain(Datasets,Approaches,PredictSets,LoadArguments,TrainArguments,SaveArguments,StoragePattern,ResultPattern,ProcessingOrder,ReuseExisting,DefaultName,ErrorHandler,ClusterEngine,ClusterPool,ClusterPolicy)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This function is a convenience wrapper around bci_train and bci_predict. It can be used to apply</span>
+0006 <span class="comment">% an approach systematically to a range of data sets (e.g. those matching a file name pattern on disk).</span>
+0007 <span class="comment">% It can also be used to compare a series of approaches on one or more data sets.</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% Essentially all of the functionality of bci_train and bci_predict is supported also in this function,</span>
+0010 <span class="comment">% so that the majority of offline analysis procedures can be applied with a single call to bci_batchtrain.</span>
+0011 <span class="comment">% A special feature of this function is that it stores the final results in a standard directory</span>
+0012 <span class="comment">% in a user-accessible form, and that it can optionally resume a cancelled batch computation by reusing</span>
+0013 <span class="comment">% existing results -- which is the recommended way to ensure that no data is lost in case of a crash.</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">% A streamlined approach to batch analysis involves first &quot;curating&quot; the raw source data sets in a script</span>
+0016 <span class="comment">% or by hand (e.g., ensuring that the desired markers are present or that the channel locations are</span>
+0017 <span class="comment">% well-formed), then defining a series of approaches to be compared, and finally invoking bci_batchtrain</span>
+0018 <span class="comment">% on the directory containing the curated data sets.</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% In:</span>
+0021 <span class="comment">%   --- core arguments ---</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%   Datasets : Data sets to process (train/cross-validate). Cell array of file names, file name</span>
+0024 <span class="comment">%              patterns, or dataset structs.</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">%   Approaches : Approach(es) to use. Same format as in bci_train. If multiple approaches should be</span>
+0027 <span class="comment">%                applied, this may also be a struct, each of whose fields specifies another approach</span>
+0028 <span class="comment">%                to use (where the field name identifies the name of the respective approach as</span>
+0029 <span class="comment">%                used in this function's output).</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%   PredictSets : Optional data sets on which to predict BCI outputs using bci_predict; must yield</span>
+0032 <span class="comment">%                 one set for each set in Datasets (if specified in the same format as Datasets),</span>
+0033 <span class="comment">%                 or, if multiple  predict sets are given for each data set (e.g., multiple test</span>
+0034 <span class="comment">%                 sessions), must be a cell array of one cell array with test sets per each training</span>
+0035 <span class="comment">%                 set.</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%   --- optional data pipeline customization ---</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%   TargetMarkers : Target markers. List of types of those markers around which data shall be used</span>
+0040 <span class="comment">%                   for BCI calibration; each marker type encodes a different target class (i.e.</span>
+0041 <span class="comment">%                   desired output value) to be learned by the resulting BCI model.</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%                   This can be specified either as a cell array of marker-value pairs, in which</span>
+0044 <span class="comment">%                   case each marker type of BCI interest is associated with a particular BCI output</span>
+0045 <span class="comment">%                   value (e.g., -1/+1), or as a cell array of marker types (in which case each</span>
+0046 <span class="comment">%                   marker will be associated with its respective index as corresponding BCI output</span>
+0047 <span class="comment">%                   value, while nested cell arrays are also allowed to group markers that correspond</span>
+0048 <span class="comment">%                   to the same output value). See help of set_targetmarkers for further explanation.</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">%   LoadArguments : Optional load arguments. Additional arguments to io_loadset - given as a cell</span>
+0051 <span class="comment">%                   array (e.g. {'channels',1:32}). (default: {})</span>
+0052 <span class="comment">%</span>
+0053 <span class="comment">%   TrainArguments : Optional training arguments. Additional arguments to bci_train - given as a</span>
+0054 <span class="comment">%                    cell array (e.g. {'eval_scheme', {'chron',5,5}}). (default: {})</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">%   PredictArguments : Optional prediction arguments. Arguments to bci_predict - given as a cell array.</span>
+0057 <span class="comment">%</span>
+0058 <span class="comment">%   SaveArguments : Optional save arguments. Additional arguments to io_save - given as a cell array.</span>
+0059 <span class="comment">%                   (default: {'-makedirs'})</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">%</span>
+0062 <span class="comment">%   --- optional output formatting ---</span>
+0063 <span class="comment">%</span>
+0064 <span class="comment">%   StudyTag : Tag of the performed study. May be used to identify/distinguish stored results on disk</span>
+0065 <span class="comment">%              (see StoragePattern). Default: 'default'.</span>
+0066 <span class="comment">%</span>
+0067 <span class="comment">%   StoragePattern : Result storage pattern. This is a filename pattern with optional placeholders</span>
+0068 <span class="comment">%                    %caller (subtituted by the calling function''s name), %set (substituted by</span>
+0069 <span class="comment">%                    the respective file name or data set number that generated the result),</span>
+0070 <span class="comment">%                    %approach (substituted by the respective approach name), and %study (substituted</span>
+0071 <span class="comment">%                    by the StudyTag). Default: 'home:/batchtrain/%caller-%study/%approach-%set.mat'</span>
+0072 <span class="comment">%                    Note that home:/ is the user's home directory; consider that the disk quota in</span>
+0073 <span class="comment">%                    a user's home directory may be limited.</span>
+0074 <span class="comment">%</span>
+0075 <span class="comment">%   ResultPattern : Result output pattern. This is a MATLAB expression with optional placeholders</span>
+0076 <span class="comment">%                   %approach (substituted with the respective approach name), %num (substituted</span>
+0077 <span class="comment">%                   with the number of the respective data set) and %caller (substituted by the</span>
+0078 <span class="comment">%                   calling function's name). (default: 'results.%approach(%num) = ')</span>
+0079 <span class="comment">%</span>
+0080 <span class="comment">%   DefaultName : Default approach name. If only a single approach was given as a cell array rather</span>
+0081 <span class="comment">%                 than as a struct with subfields. (default: 'default')</span>
+0082 <span class="comment">%</span>
+0083 <span class="comment">%   --- optional computation organization ---</span>
+0084 <span class="comment">%</span>
+0085 <span class="comment">%   ProcessingOrder : Processing order. Either go through all sets first for one approach, then for</span>
+0086 <span class="comment">%                     the next, etc. (setsfirst), or go through all approaches for the first set,</span>
+0087 <span class="comment">%                     then for the next set, etc. (approachesfirst). Since some approaches may take</span>
+0088 <span class="comment">%                     orders of magnitude longer than others (perhaps unexpectedly), it is often the</span>
+0089 <span class="comment">%                     best idea to specify aproaches in order of assumed running time, and use</span>
+0090 <span class="comment">%                     the 'setsfirst' order. (default: 'setsfirst')</span>
+0091 <span class="comment">%</span>
+0092 <span class="comment">%   ApproachProcessingOrder : run over approaches in the given order; can be used to ensure that k</span>
+0093 <span class="comment">%                             machines work on different job, by passing the numbers 0..k-1</span>
+0094 <span class="comment">%                             to different instances of bci_batchtrain (default: 0/false)</span>
+0095 <span class="comment">%</span>
+0096 <span class="comment">%   DatasetProcessingOrder : run over data sets in a different order; can be used to ensure that k</span>
+0097 <span class="comment">%                             machines work on different job, by passing the numbers 0..k-1</span>
+0098 <span class="comment">%                             to different instances of bci_batchtrain (default: 0/false)</span>
+0099 <span class="comment">%</span>
+0100 <span class="comment">%   ReuseExisting: reuse existing results if the respective output files already exist on disk</span>
+0101 <span class="comment">%                  (default: false)</span>
+0102 <span class="comment">%</span>
+0103 <span class="comment">%   ClusterResources : Cluster computation engine. If set to local, parallel processing is effectively</span>
+0104 <span class="comment">%                      turned off. If set to global, the global BCILAB setting is used</span>
+0105 <span class="comment">%                      (tracking.parallel.engine), if set to BLS the BCILAB scheduler is used, and if</span>
+0106 <span class="comment">%                      set to ParallelComputingToolbox, the MATLAB PCT is used. Reference is for</span>
+0107 <span class="comment">%                      testing. (default: 'local')</span>
+0108 <span class="comment">%</span>
+0109 <span class="comment">%   ClusterPool : Cluster resource pool. If set to global, the global BCILAB setting</span>
+0110 <span class="comment">%                 (tracking.parallel.pool) will be used. Otherwise, this is a cell array of</span>
+0111 <span class="comment">%                 hostnames (and optionally ports) of remote worker processes. (default: 'global')</span>
+0112 <span class="comment">%</span>
+0113 <span class="comment">%   --- miscellaneous ---</span>
+0114 <span class="comment">%</span>
+0115 <span class="comment">%   ErrorHandler : Error handler to use. Function handle or name that takes a struct as generated by</span>
+0116 <span class="comment">%                  lasterror(). (default: 'env_handleerror')</span>
+0117 <span class="comment">%</span>
+0118 <span class="comment">%   LoadOnly : only load, not recompute, any results; can be used to re-load past results quickly</span>
+0119 <span class="comment">%              (default: false)</span>
+0120 <span class="comment">%</span>
+0121 <span class="comment">% Out:</span>
+0122 <span class="comment">%   Results: result structure, as constructed by the Result pattern, with a sub-struct for each data</span>
+0123 <span class="comment">%            set assigned to it. The sub-struct for each data set has the following fields:</span>
+0124 <span class="comment">%            'loss' : same as the loss output of bci_train</span>
+0125 <span class="comment">%            'model': same as the model output of bci_train</span>
+0126 <span class="comment">%            'stats': same as the stats output of bci_train</span>
+0127 <span class="comment">%</span>
+0128 <span class="comment">%            if PredictSets were specified, additional fields will be present:</span>
+0129 <span class="comment">%            'pred_loss'  : same as the loss output of bci_predict</span>
+0130 <span class="comment">%            'pred_stats' : same as the stats output of bci_predict</span>
+0131 <span class="comment">%            'pred_predictions' : same as the predictions output of bci_predict</span>
+0132 <span class="comment">%            'pred_targets': same as the targets output of bci_predict</span>
+0133 <span class="comment">%</span>
+0134 <span class="comment">% Notes:</span>
+0135 <span class="comment">%   Expect to be tempted to interrupt long-running computations. In this case, you will have to read</span>
+0136 <span class="comment">%   the data from disk -- so it is generally a good idea to not disable the StoragePattern.</span>
+0137 <span class="comment">%</span>
+0138 <span class="comment">% Examples:</span>
+0139 <span class="comment">%   first define some approach for subsequent use</span>
+0140 <span class="comment">%   myapproach = {'CSP', 'SignalProcessing',{'EpochExtraction',[0 3.5]}}};</span>
+0141 <span class="comment">%</span>
+0142 <span class="comment">%   % apply the given approach to all files named subject*.vhdr, in the directory studyX (assuming</span>
+0143 <span class="comment">%   % that the events of interest are called 'S1' and 'S2').</span>
+0144 <span class="comment">%   results = bci_batchtrain('studyX/subject*.vhdr',myapproach,[],{'S1','S2'})</span>
+0145 <span class="comment">%</span>
+0146 <span class="comment">%   % apply the given approach to a list of file names</span>
+0147 <span class="comment">%   results = bci_batchtrain({'studyX/subject1.vhdr','studyX/subject2.vhdr','studyX/subject3.vhdr'},myapproach,[],{'S1','S2'})</span>
+0148 <span class="comment">%</span>
+0149 <span class="comment">%   % as before, but now using name-value arguments, and passing some additional io_loadset arguments (assuming we want to process only the first 32 channels)</span>
+0150 <span class="comment">%   results = bci_batchtrain('Datasets',{'studyX/subject1.vhdr','studyX/subject2.vhdr','studyX/subject3.vhdr'}, 'Approaches',myapproach, 'TargetMarkers',{'S1','S2'}, 'LoadArguments',{'channels',1:32})</span>
+0151 <span class="comment">%</span>
+0152 <span class="comment">%   % apply the given approach to a list of pre-loaded data sets</span>
+0153 <span class="comment">%   results = bci_batchtrain({myset1,myset2,myset3},myapproach,[],{'S1','S2'})</span>
+0154 <span class="comment">%</span>
+0155 <span class="comment">%   % apply the given approach to a list of pre-loaded data sets, but pass some special bci_train arguments to expedite processing using only a 3-fold cross-validation</span>
+0156 <span class="comment">%   results = bci_batchtrain({myset1,myset2,myset3},myapproach,[],{'S1','S2'},{'EvaluationScheme',{'chron',3,5}})</span>
+0157 <span class="comment">%</span>
+0158 <span class="comment">%   % as before, but using name-value arguments and disabling output into the home directory</span>
+0159 <span class="comment">%   results = bci_batchtrain('Datasets',{myset1,myset2,myset3}, 'Approaches',myapproach, 'TargetMarkers',{'S1','S2'}, 'TrainArguments',{'EvaluationScheme',{'chron',3,5}}, 'StoragePattern','')</span>
+0160 <span class="comment">%</span>
+0161 <span class="comment">%   % as before, but instead disabling the output as a MATLAB variable (perhaps to not exhaust the memory)</span>
+0162 <span class="comment">%   bci_batchtrain('Datasets',{myset1,myset2,myset3}, 'Approaches',myapproach, 'TargetMarkers',{'S1','S2'}, 'TrainArguments',{'EvaluationScheme',{'chron',3,5}}, 'ResultPattern','')</span>
+0163 <span class="comment">%</span>
+0164 <span class="comment">%   % again using 3 filenames, but this time also using 3 different approaches</span>
+0165 <span class="comment">%   myapproaches.simpleCSP = 'CSP';</span>
+0166 <span class="comment">%   myapproaches.advancedSpecCSP = 'SpecCSP';</span>
+0167 <span class="comment">%   myapproaches.experimentalCSP = {'CSP', 'Prediction',{'FeatureExtraction'{'PatternPairs',10},'MachineLearning',{'Learner',{'logreg',[],'variant','vb-ard'}}}};</span>
+0168 <span class="comment">%   results = bci_batchtrain({'studyX/subject1.vhdr','studyX/subject2.vhdr','studyX/subject3.vhdr'},myapproaches,[],{'S1','S2'})</span>
+0169 <span class="comment">%</span>
+0170 <span class="comment">% See also:</span>
+0171 <span class="comment">%   bci_train, bci_predict</span>
+0172 <span class="comment">%</span>
+0173 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0174 <span class="comment">%                                2011-08-19</span>
+0175 
+0176 opts = arg_define(varargin, <span class="keyword">...</span>
+0177     arg_norep({<span class="string">'datasets'</span>,<span class="string">'Datasets'</span>,<span class="string">'Data'</span>},mandatory,[],<span class="string">'Data sets to process. Either a cell array of filenames, or a cell array of data sets (or collections thereof), or a path pattern string as understood by dir().'</span>), <span class="keyword">...</span>
+0178     arg_norep({<span class="string">'approaches'</span>,<span class="string">'Approaches'</span>,<span class="string">'Approach'</span>},mandatory,[],<span class="string">'Approach(es) to use. Same format as in bci_train. If multiple approaches should be applied, this may also be a struct, each of whose fields specifies another approach to use (where the field name identifies the name of the respective approach as used in this function''s output).'</span>), <span class="keyword">...</span>
+0179     arg({<span class="string">'predictsets'</span>,<span class="string">'PredictSets'</span>},{},[],<span class="string">'Optional data sets for prediction. Must yield one set for each set in Datasets (if specified in the same format as Datasets), or, if multiple  predict sets are given for each data set (e.g., multiple test sessions), must be a cell array of one cell array with test sets per each entry in Datasets.'</span>), <span class="keyword">...</span>
+0180     arg({<span class="string">'markers'</span>,<span class="string">'TargetMarkers'</span>},{},[],<span class="string">'Target markers. List of types of those markers around which data shall be used for BCI calibration &amp; prediction; each marker type encodes a different target class (i.e. desired output value) to be learned by the resulting BCI model. See help of bci_batchtrain or set_targetmarkers for further explanation.'</span>), <span class="keyword">...</span>
+0181     arg({<span class="string">'loadargs'</span>,<span class="string">'LoadArguments'</span>},{},[],<span class="string">'Optional load arguments. Arguments to io_loadset - given as a cell array.'</span>), <span class="keyword">...</span>
+0182     arg({<span class="string">'trainargs'</span>,<span class="string">'TrainArguments'</span>},{},[],<span class="string">'Optional training arguments. Arguments to bci_train - given as a cell array.'</span>), <span class="keyword">...</span>
+0183     arg({<span class="string">'predictargs'</span>,<span class="string">'PredictArguments'</span>},{},[],<span class="string">'Optional prediction arguments. Arguments to bci_predict - given as a cell array.'</span>), <span class="keyword">...</span>
+0184     arg({<span class="string">'saveargs'</span>,<span class="string">'SaveArguments'</span>},{<span class="string">'-makedirs'</span>},[],<span class="string">'Optional save arguments. Optional save arguments. Additional arguments to io_save - given as a cell array.'</span>), <span class="keyword">...</span>
+0185     arg({<span class="string">'storepatt'</span>,<span class="string">'StoragePattern'</span>},<span class="string">'home:/.bcilab/batchtrain/%caller-%study/%approach-%set.mat'</span>,[], <span class="string">'Result file name pattern. This is a filename pattern with optional placeholders caller (subtituted by the calling function''s name), %set (substituted by the respective file name or data set number that generated the result) and %approach (substituted by the respective approach name). If empty, no output is written to disk.'</span>), <span class="keyword">...</span>
+0186     arg({<span class="string">'resultpatt'</span>,<span class="string">'ResultPattern'</span>},<span class="string">'results.%approach(%num) = '</span>,[], <span class="string">'Result output pattern. This is a MATLAB expression with optional placeholders %approach (substituted with the respective approach name), %num (substituted with the number of the respective data set) and %caller (substituted by the calling function''s name).'</span>), <span class="keyword">...</span>
+0187     arg({<span class="string">'default'</span>,<span class="string">'DefaultName'</span>},<span class="string">'default'</span>,[],<span class="string">'Default approach name. If only a single approach was given as a cell array rather than as a struct with subfields.'</span>), <span class="keyword">...</span>
+0188     arg({<span class="string">'studytag'</span>,<span class="string">'StudyTag'</span>},<span class="string">'default'</span>,[],<span class="string">'Tag of the performed study. May be used to identify/distinguish stored results on disk (referred to in the StoragePattern).'</span>), <span class="keyword">...</span>
+0189     arg({<span class="string">'order'</span>,<span class="string">'ProcessingOrder'</span>},<span class="string">'setsfirst'</span>,{<span class="string">'setsfirst'</span>,<span class="string">'approachesfirst'</span>},<span class="string">'Processing order. Either go through all sets first for one approach, then for the next, etc. (setsfirst), or go through all approaches for the first set, then for the next set, etc. (approachesfirst). Since some approaches may take orders of magnitude longer than others, it is typically a good idea to specify aproaches in order of assumed running time, and use the setsfirst order.'</span>), <span class="keyword">...</span>
+0190     arg({<span class="string">'reversed_approaches'</span>,<span class="string">'ApproachProcessingOrder'</span>,<span class="string">'ApproachesMachineOrder'</span>,<span class="string">'ReversedApproaches'</span>},false,[],<span class="string">'Sequence order for approaches. Can be used to run multiple invocations of bci_batchtrain in different orders of the same set, by passing in increasingly higher numbers (starting from 0) for subsequent machines.'</span>), <span class="keyword">...</span>
+0191     arg({<span class="string">'reversed_datasets'</span>,<span class="string">'DatasetProcessingOrder'</span>,<span class="string">'DatasetsMachineOrder'</span>,<span class="string">'ReversedDatasets'</span>},false,[],<span class="string">'Sequence order for data sets. Can be used to run multiple invocations of bci_batchtrain in different orders of the same set, by passing in increasingly higher numbers (starting from 0) for subsequent machines.'</span>), <span class="keyword">...</span>
+0192     arg({<span class="string">'reuse'</span>,<span class="string">'RetainExistingResults'</span>,<span class="string">'ReuseExisting'</span>},false,[],<span class="string">'Retain existing results. If the respective output files already exist on disk, they will be loaded and returned. Note: If you change an approach but fail to rename it, you may inadvertently get old results!'</span>), <span class="keyword">...</span>
+0193     arg({<span class="string">'loadonly'</span>,<span class="string">'LoadOnly'</span>},false,[],<span class="string">'Load only existing results. Do not (re-)compute missing results.'</span>), <span class="keyword">...</span>
+0194     arg({<span class="string">'handler'</span>,<span class="string">'ErrorHandler'</span>},<span class="string">'env_handleerror'</span>,[],<span class="string">'Error handler to use. Function handle or name that takes a struct as generated by lasterror().'</span>), <span class="keyword">...</span>
+0195     arg({<span class="string">'engine'</span>,<span class="string">'ClusterResources'</span>,<span class="string">'ClusterEngine'</span>},<span class="string">'local'</span>,{<span class="string">'local'</span>,<span class="string">'global'</span>,<span class="string">'BLS'</span>,<span class="string">'ParallelComputingToolbox'</span>,<span class="string">'Reference'</span>},<span class="string">'Cluster computation engine. If set to local, parallel processing is effectively turned off. If set to global, the global BCILAB setting is used (tracking.parallel.engine), if set to BLS the BCILAB scheduler is used, and if set to ParallelComputingToolbox, the MATLAB PCT is used. Reference is for testing.'</span>), <span class="keyword">...</span>
+0196     arg({<span class="string">'pool'</span>,<span class="string">'ClusterPool'</span>},<span class="string">'global'</span>,[],<span class="string">'Cluster resource pool. If set to global, the global BCILAB setting (tracking.parallel.pool) will be used. Otherwise, this is a cell array of hostnames (and optionally ports) of remote worker processes.'</span>), <span class="keyword">...</span>
+0197     arg({<span class="string">'policy'</span>,<span class="string">'ClusterPolicy'</span>},<span class="string">'global'</span>,[],<span class="string">'Cluster scheduling policy. If set to global, the global setting (tracking.parallel.policy) will be chosen. Otherwise, this may be the name of a custom scheduling policy function.'</span>));
+0198 
+0199 <span class="comment">% --- reformat inputs ---</span>
+0200 
+0201 <span class="comment">% sanitize datasets</span>
+0202 <span class="keyword">if</span> ischar(opts.datasets) || (isstruct(opts.datasets) &amp;&amp; isscalar(opts.datasets))
+0203     opts.datasets = {opts.datasets}; <span class="keyword">end</span>
+0204     
+0205 <span class="keyword">if</span> ~iscell(opts.datasets)
+0206     error(<span class="string">'Datasets should be given as a cell array of structs and/or file names.'</span>);
+0207 <span class="keyword">else</span>
+0208     <span class="comment">% for each data set...</span>
+0209     d = 1;
+0210     <span class="keyword">while</span> d &lt;= length(opts.datasets)
+0211         ds = opts.datasets{d};
+0212         <span class="keyword">if</span> ischar(ds)
+0213             <span class="comment">% given as a string</span>
+0214             <span class="keyword">if</span> any(ds==<span class="string">'*'</span>)
+0215                 <span class="comment">% ... with path pattern: expand</span>
+0216                 infos = dir(ds);
+0217                 infos(strcmp({infos.name},<span class="string">'.'</span>) | strcmp({infos.name},<span class="string">'..'</span>)) = [];
+0218                 base = fileparts(ds);
+0219                 opts.datasets = [opts.datasets(1:d-1) cellfun(@(n)[base filesep n],{infos.name},<span class="string">'UniformOutput'</span>,false) opts.datasets(d+1:end)];
+0220                 ds = opts.datasets{d};
+0221             <span class="keyword">end</span>
+0222             <span class="comment">% try to load</span>
+0223             [dummy,setnames{d}] = fileparts(ds); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0224             opts.datasets{d} = io_loadset(ds,opts.loadargs{:});
+0225         <span class="keyword">elseif</span> iscellstr(ds)
+0226             <span class="comment">% a cell array of file names: resolve via io_loadset</span>
+0227             <span class="keyword">for</span> k=1:length(ds)
+0228                 ds{k} = io_loadset(ds{k},opts.loadargs{:}); <span class="keyword">end</span>
+0229             opts.datasets{d} = ds;
+0230             setnames{d} = num2str(d);
+0231         <span class="keyword">else</span>
+0232             <span class="comment">% already a struct (or a cell array of collections): use a number as the setname</span>
+0233             setnames{d} = num2str(d);
+0234         <span class="keyword">end</span>
+0235         d = d+1;
+0236     <span class="keyword">end</span>
+0237 <span class="keyword">end</span>
+0238 
+0239 <span class="keyword">if</span> ~isempty(opts.predictsets)
+0240     <span class="comment">% sanitize predictsets</span>
+0241     <span class="keyword">if</span> ischar(opts.predictsets) || (isstruct(opts.predictsets) &amp;&amp; isscalar(opts.predictsets))
+0242         opts.predictsets = {opts.predictsets}; <span class="keyword">end</span>
+0243     
+0244     <span class="comment">% for each (group of) predictset(s)...</span>
+0245     d = 1;
+0246     <span class="keyword">while</span> d &lt;= length(opts.predictsets)
+0247         ps = opts.predictsets{d};
+0248         <span class="keyword">if</span> ~iscell(ps)
+0249             <span class="comment">% handle non-cell entries</span>
+0250             <span class="keyword">if</span> ischar(ps) &amp;&amp; any(ps==<span class="string">'*'</span>)
+0251                 <span class="comment">% ... given as a string with path pattern expression: first expand!</span>
+0252                 infos = dir(ps);
+0253                 infos(strcmp({infos.name},<span class="string">'.'</span>) | strcmp({infos.name},<span class="string">'..'</span>)) = [];
+0254                 base = fileparts(ps);
+0255                 opts.predictsets = [opts.predictsets(1:d-1) cellfun(@(n)[base filesep n],{infos.name},<span class="string">'UniformOutput'</span>,false) opts.predictsets(d+1:end)];
+0256                 ps = opts.predictsets{d};
+0257             <span class="keyword">end</span>            
+0258             <span class="comment">% then wrap into a cell</span>
+0259             opts.predictsets{d} = {ps};
+0260         <span class="keyword">end</span>
+0261         <span class="comment">% now we are looking at cell arrays...</span>
+0262         c = 1;
+0263         <span class="keyword">while</span> c &lt;= length(opts.predictsets{d})
+0264             dps = opts.predictsets{d}{c};
+0265             <span class="keyword">if</span> ischar(dps)
+0266                 <span class="comment">% given as a string</span>
+0267                 <span class="keyword">if</span> any(dps==<span class="string">'*'</span>)
+0268                     <span class="comment">% ... with path pattern: expand</span>
+0269                     infos = dir(dps);
+0270                     infos(strcmp({infos.name},<span class="string">'.'</span>) | strcmp({infos.name},<span class="string">'..'</span>)) = [];
+0271                     base = fileparts(dps);
+0272                     opts.predictsets{d} = [opts.predictsets{d}(1:c-1) cellfun(@(n)[base filesep n],{infos.name},<span class="string">'UniformOutput'</span>,false) opts.predictsets{d}(c+1:end)];
+0273                     dps = opts.predictsets{d}{c};
+0274                 <span class="keyword">end</span>
+0275                 <span class="comment">% try to load</span>
+0276                 opts.predictsets{d}{c} = io_loadset(dps,opts.loadargs{:});
+0277             <span class="keyword">end</span>
+0278             c = c+1;
+0279         <span class="keyword">end</span>
+0280         d = d+1;
+0281     <span class="keyword">end</span>
+0282     
+0283     <span class="comment">% now, PredictSets should a cell array of cells; check length</span>
+0284     <span class="keyword">if</span> length(opts.predictsets) ~= length(opts.datasets)
+0285         error(<span class="string">'The number of PredictSets does not match the number of Datasets; there must be a 1:1 relationship between them.'</span>); <span class="keyword">end</span>
+0286 
+0287 <span class="keyword">end</span>
+0288 
+0289 <span class="keyword">if</span> iscellstr(opts.approaches) &amp;&amp; all(cellfun(@isvarname,opts.approaches))
+0290     <span class="keyword">try</span>
+0291         <span class="comment">% if all approaches are valid variable names and exist in the base workspace, resolve them from there...</span>
+0292         apps = {};
+0293         <span class="keyword">for</span> a = 1:length(opts.approaches)
+0294             apps.(opts.approaches{a}) = evalin(<span class="string">'base'</span>,opts.approaches{a}); <span class="keyword">end</span>
+0295         opts.approaches = apps;
+0296     <span class="keyword">catch</span>
+0297     <span class="keyword">end</span>
+0298 <span class="keyword">end</span>
+0299 
+0300 <span class="keyword">if</span> iscell(opts.approaches) || all(isfield(opts.approaches,{<span class="string">'paradigm'</span>,<span class="string">'parameters'</span>}))
+0301     <span class="comment">% A single approach is given</span>
+0302     <span class="keyword">if</span> ~isvarname(opts.default)
+0303         error(<span class="string">'The DefaultName must comply with the syntax rules for MATLAB variable names.'</span>); <span class="keyword">end</span>
+0304     opts.approaches = struct(opts.default,{opts.approaches});
+0305 <span class="keyword">elseif</span> ~isstruct(opts.approaches) || numel(opts.approaches) &gt; 1
+0306     error(<span class="string">'Approaches are given in an unsupported format.'</span>);
+0307 <span class="keyword">end</span>
+0308 
+0309 caller = char(hlp_getcaller);
+0310 <span class="keyword">if</span> isempty(caller)
+0311     caller = <span class="string">'commandline'</span>; <span class="keyword">end</span>
+0312 opts.storepatt = strrep(strrep(opts.storepatt,<span class="string">'%caller'</span>,caller),<span class="string">'%study'</span>,opts.studytag);
+0313 opts.resultpatt = strrep(opts.resultpatt,<span class="string">'%caller'</span>,caller);
+0314 <span class="keyword">if</span> ischar(opts.handler)
+0315     opts.handler = str2func(opts.handler); <span class="keyword">end</span>
+0316 
+0317 fprintf(<span class="string">'Found %i datasets and %i predictsets.\n'</span>,length(opts.datasets),length(opts.predictsets));
+0318 disp([<span class="string">'Now running approaches: '</span> hlp_tostring(fieldnames(opts.approaches)')]);
+0319 <span class="keyword">if</span> ~isempty(opts.pool)    
+0320     disp([<span class="string">'Running on machine pool: '</span> hlp_tostring(opts.pool)]);
+0321 <span class="keyword">else</span>
+0322     disp(<span class="string">'Running locally.'</span>);
+0323 <span class="keyword">end</span>
+0324 
+0325 <span class="comment">% --- do processing ---</span>
+0326 
+0327 <span class="comment">% make tasks</span>
+0328 tasks = {};
+0329 <span class="keyword">switch</span> opts.order
+0330     <span class="keyword">case</span> <span class="string">'setsfirst'</span>
+0331         sequence = kth_sequence(fieldnames(opts.approaches)',opts.reversed_approaches);
+0332         disp(<span class="string">'First iterating over all data sets for the first approach, then all datasets for second approach,etc.'</span>);
+0333         disp([<span class="string">'The processing sequence is: '</span> hlp_tostring(sequence)]);
+0334         <span class="keyword">for</span> appname = sequence
+0335             <span class="keyword">for</span> d = kth_sequence(1:length(opts.datasets),opts.reversed_datasets)
+0336                 tasks{end+1} = {@utl_run_batchjob,opts,d,appname{1},setnames}; <span class="keyword">end</span>
+0337         <span class="keyword">end</span>
+0338     <span class="keyword">case</span> <span class="string">'approachesfirst'</span>
+0339         sequence = kth_sequence(1:length(opts.datasets),opts.reversed_datasets);
+0340         disp(<span class="string">'First iterating over all approaches for the first data set, then all approaches for second set,etc.'</span>);
+0341         disp([<span class="string">'The processing sequence is: '</span> hlp_tostring(sequence)]);
+0342         <span class="keyword">for</span> d = sequence
+0343             <span class="keyword">for</span> appname = kth_sequence(fieldnames(opts.approaches)',opts.reversed_approaches)
+0344                 tasks{end+1} = {@utl_run_batchjob,opts,d,appname{1},setnames}; <span class="keyword">end</span>
+0345         <span class="keyword">end</span>
+0346     <span class="keyword">otherwise</span>
+0347         error(<span class="string">'Unsupported processing order specified.'</span>);
+0348 <span class="keyword">end</span>
+0349 
+0350 <span class="comment">% execute the tasks</span>
+0351 disp(<span class="string">'Now scheduling...'</span>);
+0352 [outputs,errors] = par_schedule(tasks, <span class="string">'engine'</span>,opts.engine,<span class="string">'pool'</span>,opts.pool,<span class="string">'policy'</span>,opts.policy);
+0353 
+0354 <span class="comment">% merge all outputs into the same results struct</span>
+0355 <span class="keyword">try</span>
+0356     disp(<span class="string">'done. Now merging results...'</span>);
+0357     results = hlp_superimposedata(outputs{:});
+0358 <span class="keyword">catch</span> e
+0359     disp(<span class="string">'Failed to merge outputs into the results data structure; returning a cell array of (unordered) per-job outputs; Traceback: '</span>);
+0360     env_handleerror(e);
+0361     results = outputs;
+0362 <span class="keyword">end</span>
+0363 
+0364 <span class="keyword">if</span> ~isempty(errors)
+0365     disp(<span class="string">'Got some errors:'</span>);
+0366     <span class="keyword">for</span> e=1:length(errors)
+0367         hlp_handleerror(errors{e}); <span class="keyword">end</span>
+0368 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

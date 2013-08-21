@@ -1,0 +1,1383 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of hlp_trycompile</title>
+  <meta name="keywords" content="hlp_trycompile">
+  <meta name="description" content="Try to auto-compile a set of binary files in a folder, and return the status.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">helpers</a> &gt; hlp_trycompile.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>hlp_trycompile
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Try to auto-compile a set of binary files in a folder, and return the status.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function ok = hlp_trycompile(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Try to auto-compile a set of binary files in a folder, and return the status.
+ OK = hlp_trycompile(Options...)
+
+ This function tries to ensure that a given set of functions or classes (specified by their
+ MATLAB identifier), whose source files are assumed to be located in a given directory, are
+ properly compiled.
+
+ The Style parameter determines how the function proceeds: Either compilation is always done
+ ('force'), or only if necessary ('eager', e.g. if invalid file or changed source code). The check
+ for re-compilation may be done on every call ('eager'), or once per MATLAB session ('lazy').
+
+ The most common use case is specifying a given directory (and omitting the identifiers). In this 
+ case, all source files that have a mexFunction declaration are compiled, and all other source 
+ files are also supplied to the compiler as additional files. In case of compilation errors,
+ hlp_trycompile also tries to omit all additional files during compilation. Both the list of 
+ additional files (or their file name patterns) or the considered file types can be specified. The 
+ list of identifiers to consider can also be specified.
+
+ Another possible use case is to omit both the identifiers and the directory. In this case, 
+ hlp_trycompile assumes that a mex file with the same identifier (and path) as the calling function
+ shall be compiled. This is would be used in .m files which directly implement some fallback code
+ in case that the compilation fails (or which are just stubs to trigger the on-demand compilation).
+
+
+ Since there can be many different versions of a mex binary under Linux (even with the same name),
+ .mex files are by default moved into a sub-directory (named according to the hostname) after
+ compilation. This does not apply to .class files, which are not platform-specific.
+
+ The function supports nearly all features of the underlying MEX compiler, and can thus be used
+ to compile a large variety of mex packages found in the wild (in some cases with custom defines,
+ libraries, or include directories).
+
+ If you are debugging code with it, it is best to set Verbose to true, so that you get compilation 
+ output.
+
+ Additional features of this function include:
+  * Figures out whether the -largeArrayDims switch should be used.
+  * Repeated calls of this function are very fast if used in 'lazy' mode (so that it can be used in 
+    an inner loop).
+  * Automatically rebuilds if the mex source has changed (does not apply to misc dependency files),
+    if used in 'eager' mode.
+  * By default uses the Mathworks versions of BLAS and LAPACK (if these libraries are pulled in).
+  * Supports both '/' and '\' in directory names.
+  * Behaves reasonably in deployed mode (i.e. gives warnings if files are missing).
+  * Also compiles .java files where appropriate.
+  * Supports test code.
+
+ If this function produces errors for some mex package, the most common causes are:
+  * If the platform has never been used to compile code, an appropriate compiler may have to be 
+    selected using &quot;mex -setup&quot;. If no supported compiler is installed (e.g. on Win64), it must 
+    first be doenloaded and installed (there is a free standard compiler for every platform).
+  * Some unused source files are in the directory which produce errors when they are automatically 
+    pulled in.
+    --&gt; turn on verbose output and identify &amp; remove these (or check the supplied make file for 
+        what files are actually needed)
+  * The functions require a custom define switch to work.
+    --&gt; Check the make file, and add the switch(es) using the 'Defines' parameter.
+  * The functions use non-standard C code (e.g. // comments).
+    --&gt; Tentatively rename the offending .c files into .cpp.
+  * The functions require a specific library to work.
+    --&gt; Check the make file, and add the libraries using the 'Libaries' parameter.
+  * The functions require specific include directories to work.
+    --&gt; Check the make file, and add the directories using the 'IncludeDirectories' parameter.
+  * The functions require additional files that are in a different directory.
+    --&gt; Check the make file, and add these files using the 'SupportFiles' parameter. Wildcards are 
+        allowed (in particular the special '*' string, which translates into all source files in 
+        the Directory).
+  * The package assumes that mex is used with the -output option to use a custom identifier name
+    --&gt; This type of make acrobatic is not supported by hlp_trycompile; instead, rename the source
+        file which has the mexFunction definition such that it matches the target identifier.
+  * The functions require specific library directories to work.
+    --&gt; Check the make file, and add the directories using the 'LibraryDirectories' parameter.
+
+
+ In:
+   Style : execution style, can be one of the following (default: 'lazy')
+           'force' : force compilation (regardless of whether the binaries are already there)
+           'eager' : compile only if necessary, check every time that this function is called
+           'lazy'  : compile only if necessary, and don't check again during this MATLAB session
+
+   --- target files ---
+
+   Directory : directory in which the source files are located
+               (default: directory of the calling function)
+
+   Identifiers : identifier of the target function/class, or cell array of identifiers that should
+                 be compiled (default: Calling function, if no directory given, or names of all
+                 compilable source files in the directory, if a directory is given.)
+
+   FileTypes : file type patterns to consider as sources files for the Identifiers
+               (default: {'*.f','*.c','*.cpp','*.java'})
+
+
+   --- testing conditions ---
+
+   TestCode : MATLAB code (string) which evaluates to true if the compiled code is behaving
+              correctly (and false otherwise), or alternatively a function handle which does the
+              same
+
+
+   --- additional compiler inputs ---
+
+   SupportFiles : cell array of additional / supporting source filenames to include in the compilation of all
+                  Identifiers (default: '*')
+                  Note: Any file listed here will not be considered part of the Identifiers, when
+                        all contents of a directory are to be compiled.
+                  Note: If there are support source files in sub-directories, include the full path
+                        to them.
+                  Note: If this is '*', all source files that are not mex files in the given 
+                        directory are used as support files.
+
+   Libraries : names of libraries to include in the compilation
+               (default: {})
+
+   IncludeDirectories : additional directories in which to search for included source files.
+                        (default: {})
+
+   LibraryDirectories : additional directories in which to search for referenced library files.
+                        (default: {})
+
+   Defines : list of defined symbols (either 'name' or 'name=value' strings)
+             (default: {})
+
+   Renaming : cell array of {sourcefile,identifier,sourcefile,identifier, ...} indicating that 
+              the MEX functions generated from the respective source files should be renamed to 
+              the given identifiers. Corresponds to MEX's -output option; does not apply to Java files.
+              (default: {})
+
+   Arguments : miscellaneous compiler arguments (default: {})
+               For possible arguments, type &quot;help mex&quot; in the command line
+
+   DebugBuild : whether to build binaries in debug mode (default: false)
+
+
+   --- user messages ---
+
+   ErrorMessage : the detail error message to display which describes what type of functionality
+                  will not be available (if any).
+                  Note: If you have a MATLAB fallback, mention this in the error message.
+
+   PreparationMessage : the message that will be displayed before compilation begins.
+                        (default: {})
+
+   Verbose : whether to display verbose compiler outputs (default: false)
+
+
+   --- misc options ---
+
+   MathworksLibs : whether to use the Mathworks versions of std. libraries instead of OS-supplied 
+                   ones, if present (applies to blas and lapack) (default: true)
+
+   DebugCompile : debug the compilation process; halts in the directory prior to invoking mex
+                  (default: false)
+
+
+ Examples:
+   % try to compile all mex / Java files in a given directory:
+   hlp_trycompile('Directory','/Extern/MySources');
+
+   % as before, but restrict the set of identifiers to compile to a given set
+   hlp_trycompile('Directory','/Extern/MySources','Identifiers',{'svmtrain','svmpredict'});
+
+   % try to compile mex / Java files in a given directory, and include 2 libraries in the compilation
+   hlp_trycompile('Directory','/Extern/MySources','Libraries',{'blas','lapack'});
+
+   % like before, but this time include additional source files from two other directories
+   % (the single '*' means: include non-mex sources in the specified directory)
+   hlp_trycompile('Directory','/Extern/MySources','SupportFiles',{'*','../blas/*.c','../*.cpp'});
+
+   % like before, but this time add an include directory, a library directory, and some library
+   hlp_trycompile('Directory','/Extern/MySources', 'IncludeDirectories','/boost/include','LibraryDirectories','/boost/lib','Libraries','boost_date_time-1.44');
+
+   % like before, this time specifying some custom #define's
+   hlp_trycompile('Directory','/Extern/MySources','Defines',{'DEBUG','MAX=((a)&gt;(b)?(a):(b))'});
+
+
+ Use cases:
+   1) In addition to a source file mysvd.c (compiling into mysvd.mex*), a stub .m file of the same
+   name can be placed in the same directory, which contains code to compile the binary when needed.
+
+   function [U,S,V] = mysvd(X)
+   if hlp_trycompile
+       [U,S,V] = mysvd(X);
+   else
+       % either display an error message or implement some fallback code.
+   end
+
+   2) In a MATLAB function which makes use of a few mex files, ensure compilation of these files.
+   function myprocessing(X,y)
+   if ~hlp_trycompile('Identifiers',{'svmtrain.c','svmpredict.c'})
+       error('Your binary files could not be compiled.');
+   else
+       m = svmtrain(X,y);
+       l = svmpredict(X,m);
+       ...
+   end
+
+   3) In a startup script.
+   hlp_trycompile('Directory','/Extern/MySources');
+
+ See also:
+   mex
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-03-09</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="hlp_cryptohash.html" class="code" title="function hash = hlp_cryptohash(data,fromfile)">hlp_cryptohash</a>	Compute an MD5 hash of a file, string or generic data structure.</li><li><a href="hlp_getcaller.html" class="code" title="function [name,file] = hlp_getcaller(indirection)">hlp_getcaller</a>	Find the name & file of the calling function.</li><li><a href="hlp_getresult.html" class="code" title="function varargout = hlp_getresult(idx,f,varargin)">hlp_getresult</a>	Returns the Result-Idx's output of the function, given the supplied arguments.</li><li><a href="hlp_hostname.html" class="code" title="function hostname = hlp_hostname()">hlp_hostname</a>	Find the hostname in a platform-independent fashion.</li><li><a href="hlp_matlab_version.html" class="code" title="function v = hlp_matlab_version()">hlp_matlab_version</a>	Get the MATLAB version in a numeric format that can be compared with <, >, etc.</li><li><a href="hlp_rewrite.html" class="code" title="function data = hlp_rewrite(data,varargin)">hlp_rewrite</a>	Rewrite (replace) an input data structure into an output data structure.</li><li><a href="hlp_tostring.html" class="code" title="function str = hlp_tostring(v,stringcutoff,prec)">hlp_tostring</a>	Get an human-readable string representation of a data structure.</li><li><a href="hlp_varargin2struct.html" class="code" title="function res = hlp_varargin2struct(args, varargin)">hlp_varargin2struct</a>	Convert a list of name-value pairs into a struct with values assigned to names.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function opts = javac_options(o)</a></li><li><a href="#_sub2" class="code">function opts = mex_options(o)</a></li><li><a href="#_sub3" class="code">function x = format_cellstr(x)</a></li><li><a href="#_sub4" class="code">function tf = in_ctf(ident)</a></li><li><a href="#_sub5" class="code">function dir = path_normalize(dir)</a></li><li><a href="#_sub6" class="code">function tf = is_primary(filename)</a></li><li><a href="#_sub7" class="code">function varargout = celldeal(argin)</a></li><li><a href="#_sub8" class="code">function movefile(src,dst)</a></li><li><a href="#_sub9" class="code">function res = exist(obj,type)</a></li><li><a href="#_sub10" class="code">function res = which(ident)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function ok = hlp_trycompile(varargin)</a>
+0002 <span class="comment">% Try to auto-compile a set of binary files in a folder, and return the status.</span>
+0003 <span class="comment">% OK = hlp_trycompile(Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This function tries to ensure that a given set of functions or classes (specified by their</span>
+0006 <span class="comment">% MATLAB identifier), whose source files are assumed to be located in a given directory, are</span>
+0007 <span class="comment">% properly compiled.</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% The Style parameter determines how the function proceeds: Either compilation is always done</span>
+0010 <span class="comment">% ('force'), or only if necessary ('eager', e.g. if invalid file or changed source code). The check</span>
+0011 <span class="comment">% for re-compilation may be done on every call ('eager'), or once per MATLAB session ('lazy').</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">% The most common use case is specifying a given directory (and omitting the identifiers). In this</span>
+0014 <span class="comment">% case, all source files that have a mexFunction declaration are compiled, and all other source</span>
+0015 <span class="comment">% files are also supplied to the compiler as additional files. In case of compilation errors,</span>
+0016 <span class="comment">% hlp_trycompile also tries to omit all additional files during compilation. Both the list of</span>
+0017 <span class="comment">% additional files (or their file name patterns) or the considered file types can be specified. The</span>
+0018 <span class="comment">% list of identifiers to consider can also be specified.</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% Another possible use case is to omit both the identifiers and the directory. In this case,</span>
+0021 <span class="comment">% hlp_trycompile assumes that a mex file with the same identifier (and path) as the calling function</span>
+0022 <span class="comment">% shall be compiled. This is would be used in .m files which directly implement some fallback code</span>
+0023 <span class="comment">% in case that the compilation fails (or which are just stubs to trigger the on-demand compilation).</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">% Since there can be many different versions of a mex binary under Linux (even with the same name),</span>
+0027 <span class="comment">% .mex files are by default moved into a sub-directory (named according to the hostname) after</span>
+0028 <span class="comment">% compilation. This does not apply to .class files, which are not platform-specific.</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">% The function supports nearly all features of the underlying MEX compiler, and can thus be used</span>
+0031 <span class="comment">% to compile a large variety of mex packages found in the wild (in some cases with custom defines,</span>
+0032 <span class="comment">% libraries, or include directories).</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">% If you are debugging code with it, it is best to set Verbose to true, so that you get compilation</span>
+0035 <span class="comment">% output.</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">% Additional features of this function include:</span>
+0038 <span class="comment">%  * Figures out whether the -largeArrayDims switch should be used.</span>
+0039 <span class="comment">%  * Repeated calls of this function are very fast if used in 'lazy' mode (so that it can be used in</span>
+0040 <span class="comment">%    an inner loop).</span>
+0041 <span class="comment">%  * Automatically rebuilds if the mex source has changed (does not apply to misc dependency files),</span>
+0042 <span class="comment">%    if used in 'eager' mode.</span>
+0043 <span class="comment">%  * By default uses the Mathworks versions of BLAS and LAPACK (if these libraries are pulled in).</span>
+0044 <span class="comment">%  * Supports both '/' and '\' in directory names.</span>
+0045 <span class="comment">%  * Behaves reasonably in deployed mode (i.e. gives warnings if files are missing).</span>
+0046 <span class="comment">%  * Also compiles .java files where appropriate.</span>
+0047 <span class="comment">%  * Supports test code.</span>
+0048 <span class="comment">%</span>
+0049 <span class="comment">% If this function produces errors for some mex package, the most common causes are:</span>
+0050 <span class="comment">%  * If the platform has never been used to compile code, an appropriate compiler may have to be</span>
+0051 <span class="comment">%    selected using &quot;mex -setup&quot;. If no supported compiler is installed (e.g. on Win64), it must</span>
+0052 <span class="comment">%    first be doenloaded and installed (there is a free standard compiler for every platform).</span>
+0053 <span class="comment">%  * Some unused source files are in the directory which produce errors when they are automatically</span>
+0054 <span class="comment">%    pulled in.</span>
+0055 <span class="comment">%    --&gt; turn on verbose output and identify &amp; remove these (or check the supplied make file for</span>
+0056 <span class="comment">%        what files are actually needed)</span>
+0057 <span class="comment">%  * The functions require a custom define switch to work.</span>
+0058 <span class="comment">%    --&gt; Check the make file, and add the switch(es) using the 'Defines' parameter.</span>
+0059 <span class="comment">%  * The functions use non-standard C code (e.g. // comments).</span>
+0060 <span class="comment">%    --&gt; Tentatively rename the offending .c files into .cpp.</span>
+0061 <span class="comment">%  * The functions require a specific library to work.</span>
+0062 <span class="comment">%    --&gt; Check the make file, and add the libraries using the 'Libaries' parameter.</span>
+0063 <span class="comment">%  * The functions require specific include directories to work.</span>
+0064 <span class="comment">%    --&gt; Check the make file, and add the directories using the 'IncludeDirectories' parameter.</span>
+0065 <span class="comment">%  * The functions require additional files that are in a different directory.</span>
+0066 <span class="comment">%    --&gt; Check the make file, and add these files using the 'SupportFiles' parameter. Wildcards are</span>
+0067 <span class="comment">%        allowed (in particular the special '*' string, which translates into all source files in</span>
+0068 <span class="comment">%        the Directory).</span>
+0069 <span class="comment">%  * The package assumes that mex is used with the -output option to use a custom identifier name</span>
+0070 <span class="comment">%    --&gt; This type of make acrobatic is not supported by hlp_trycompile; instead, rename the source</span>
+0071 <span class="comment">%        file which has the mexFunction definition such that it matches the target identifier.</span>
+0072 <span class="comment">%  * The functions require specific library directories to work.</span>
+0073 <span class="comment">%    --&gt; Check the make file, and add the directories using the 'LibraryDirectories' parameter.</span>
+0074 <span class="comment">%</span>
+0075 <span class="comment">%</span>
+0076 <span class="comment">% In:</span>
+0077 <span class="comment">%   Style : execution style, can be one of the following (default: 'lazy')</span>
+0078 <span class="comment">%           'force' : force compilation (regardless of whether the binaries are already there)</span>
+0079 <span class="comment">%           'eager' : compile only if necessary, check every time that this function is called</span>
+0080 <span class="comment">%           'lazy'  : compile only if necessary, and don't check again during this MATLAB session</span>
+0081 <span class="comment">%</span>
+0082 <span class="comment">%   --- target files ---</span>
+0083 <span class="comment">%</span>
+0084 <span class="comment">%   Directory : directory in which the source files are located</span>
+0085 <span class="comment">%               (default: directory of the calling function)</span>
+0086 <span class="comment">%</span>
+0087 <span class="comment">%   Identifiers : identifier of the target function/class, or cell array of identifiers that should</span>
+0088 <span class="comment">%                 be compiled (default: Calling function, if no directory given, or names of all</span>
+0089 <span class="comment">%                 compilable source files in the directory, if a directory is given.)</span>
+0090 <span class="comment">%</span>
+0091 <span class="comment">%   FileTypes : file type patterns to consider as sources files for the Identifiers</span>
+0092 <span class="comment">%               (default: {'*.f','*.c','*.cpp','*.java'})</span>
+0093 <span class="comment">%</span>
+0094 <span class="comment">%</span>
+0095 <span class="comment">%   --- testing conditions ---</span>
+0096 <span class="comment">%</span>
+0097 <span class="comment">%   TestCode : MATLAB code (string) which evaluates to true if the compiled code is behaving</span>
+0098 <span class="comment">%              correctly (and false otherwise), or alternatively a function handle which does the</span>
+0099 <span class="comment">%              same</span>
+0100 <span class="comment">%</span>
+0101 <span class="comment">%</span>
+0102 <span class="comment">%   --- additional compiler inputs ---</span>
+0103 <span class="comment">%</span>
+0104 <span class="comment">%   SupportFiles : cell array of additional / supporting source filenames to include in the compilation of all</span>
+0105 <span class="comment">%                  Identifiers (default: '*')</span>
+0106 <span class="comment">%                  Note: Any file listed here will not be considered part of the Identifiers, when</span>
+0107 <span class="comment">%                        all contents of a directory are to be compiled.</span>
+0108 <span class="comment">%                  Note: If there are support source files in sub-directories, include the full path</span>
+0109 <span class="comment">%                        to them.</span>
+0110 <span class="comment">%                  Note: If this is '*', all source files that are not mex files in the given</span>
+0111 <span class="comment">%                        directory are used as support files.</span>
+0112 <span class="comment">%</span>
+0113 <span class="comment">%   Libraries : names of libraries to include in the compilation</span>
+0114 <span class="comment">%               (default: {})</span>
+0115 <span class="comment">%</span>
+0116 <span class="comment">%   IncludeDirectories : additional directories in which to search for included source files.</span>
+0117 <span class="comment">%                        (default: {})</span>
+0118 <span class="comment">%</span>
+0119 <span class="comment">%   LibraryDirectories : additional directories in which to search for referenced library files.</span>
+0120 <span class="comment">%                        (default: {})</span>
+0121 <span class="comment">%</span>
+0122 <span class="comment">%   Defines : list of defined symbols (either 'name' or 'name=value' strings)</span>
+0123 <span class="comment">%             (default: {})</span>
+0124 <span class="comment">%</span>
+0125 <span class="comment">%   Renaming : cell array of {sourcefile,identifier,sourcefile,identifier, ...} indicating that</span>
+0126 <span class="comment">%              the MEX functions generated from the respective source files should be renamed to</span>
+0127 <span class="comment">%              the given identifiers. Corresponds to MEX's -output option; does not apply to Java files.</span>
+0128 <span class="comment">%              (default: {})</span>
+0129 <span class="comment">%</span>
+0130 <span class="comment">%   Arguments : miscellaneous compiler arguments (default: {})</span>
+0131 <span class="comment">%               For possible arguments, type &quot;help mex&quot; in the command line</span>
+0132 <span class="comment">%</span>
+0133 <span class="comment">%   DebugBuild : whether to build binaries in debug mode (default: false)</span>
+0134 <span class="comment">%</span>
+0135 <span class="comment">%</span>
+0136 <span class="comment">%   --- user messages ---</span>
+0137 <span class="comment">%</span>
+0138 <span class="comment">%   ErrorMessage : the detail error message to display which describes what type of functionality</span>
+0139 <span class="comment">%                  will not be available (if any).</span>
+0140 <span class="comment">%                  Note: If you have a MATLAB fallback, mention this in the error message.</span>
+0141 <span class="comment">%</span>
+0142 <span class="comment">%   PreparationMessage : the message that will be displayed before compilation begins.</span>
+0143 <span class="comment">%                        (default: {})</span>
+0144 <span class="comment">%</span>
+0145 <span class="comment">%   Verbose : whether to display verbose compiler outputs (default: false)</span>
+0146 <span class="comment">%</span>
+0147 <span class="comment">%</span>
+0148 <span class="comment">%   --- misc options ---</span>
+0149 <span class="comment">%</span>
+0150 <span class="comment">%   MathworksLibs : whether to use the Mathworks versions of std. libraries instead of OS-supplied</span>
+0151 <span class="comment">%                   ones, if present (applies to blas and lapack) (default: true)</span>
+0152 <span class="comment">%</span>
+0153 <span class="comment">%   DebugCompile : debug the compilation process; halts in the directory prior to invoking mex</span>
+0154 <span class="comment">%                  (default: false)</span>
+0155 <span class="comment">%</span>
+0156 <span class="comment">%</span>
+0157 <span class="comment">% Examples:</span>
+0158 <span class="comment">%   % try to compile all mex / Java files in a given directory:</span>
+0159 <span class="comment">%   hlp_trycompile('Directory','/Extern/MySources');</span>
+0160 <span class="comment">%</span>
+0161 <span class="comment">%   % as before, but restrict the set of identifiers to compile to a given set</span>
+0162 <span class="comment">%   hlp_trycompile('Directory','/Extern/MySources','Identifiers',{'svmtrain','svmpredict'});</span>
+0163 <span class="comment">%</span>
+0164 <span class="comment">%   % try to compile mex / Java files in a given directory, and include 2 libraries in the compilation</span>
+0165 <span class="comment">%   hlp_trycompile('Directory','/Extern/MySources','Libraries',{'blas','lapack'});</span>
+0166 <span class="comment">%</span>
+0167 <span class="comment">%   % like before, but this time include additional source files from two other directories</span>
+0168 <span class="comment">%   % (the single '*' means: include non-mex sources in the specified directory)</span>
+0169 <span class="comment">%   hlp_trycompile('Directory','/Extern/MySources','SupportFiles',{'*','../blas/*.c','../*.cpp'});</span>
+0170 <span class="comment">%</span>
+0171 <span class="comment">%   % like before, but this time add an include directory, a library directory, and some library</span>
+0172 <span class="comment">%   hlp_trycompile('Directory','/Extern/MySources', 'IncludeDirectories','/boost/include','LibraryDirectories','/boost/lib','Libraries','boost_date_time-1.44');</span>
+0173 <span class="comment">%</span>
+0174 <span class="comment">%   % like before, this time specifying some custom #define's</span>
+0175 <span class="comment">%   hlp_trycompile('Directory','/Extern/MySources','Defines',{'DEBUG','MAX=((a)&gt;(b)?(a):(b))'});</span>
+0176 <span class="comment">%</span>
+0177 <span class="comment">%</span>
+0178 <span class="comment">% Use cases:</span>
+0179 <span class="comment">%   1) In addition to a source file mysvd.c (compiling into mysvd.mex*), a stub .m file of the same</span>
+0180 <span class="comment">%   name can be placed in the same directory, which contains code to compile the binary when needed.</span>
+0181 <span class="comment">%</span>
+0182 <span class="comment">%   function [U,S,V] = mysvd(X)</span>
+0183 <span class="comment">%   if hlp_trycompile</span>
+0184 <span class="comment">%       [U,S,V] = mysvd(X);</span>
+0185 <span class="comment">%   else</span>
+0186 <span class="comment">%       % either display an error message or implement some fallback code.</span>
+0187 <span class="comment">%   end</span>
+0188 <span class="comment">%</span>
+0189 <span class="comment">%   2) In a MATLAB function which makes use of a few mex files, ensure compilation of these files.</span>
+0190 <span class="comment">%   function myprocessing(X,y)</span>
+0191 <span class="comment">%   if ~hlp_trycompile('Identifiers',{'svmtrain.c','svmpredict.c'})</span>
+0192 <span class="comment">%       error('Your binary files could not be compiled.');</span>
+0193 <span class="comment">%   else</span>
+0194 <span class="comment">%       m = svmtrain(X,y);</span>
+0195 <span class="comment">%       l = svmpredict(X,m);</span>
+0196 <span class="comment">%       ...</span>
+0197 <span class="comment">%   end</span>
+0198 <span class="comment">%</span>
+0199 <span class="comment">%   3) In a startup script.</span>
+0200 <span class="comment">%   hlp_trycompile('Directory','/Extern/MySources');</span>
+0201 <span class="comment">%</span>
+0202 <span class="comment">% See also:</span>
+0203 <span class="comment">%   mex</span>
+0204 <span class="comment">%</span>
+0205 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0206 <span class="comment">%                                2011-03-09</span>
+0207 
+0208 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2011, christian@sccn.ucsd.edu</span>
+0209 <span class="comment">%</span>
+0210 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0211 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0212 <span class="comment">% License, or (at your option) any later version.</span>
+0213 <span class="comment">%</span>
+0214 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0215 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0216 <span class="comment">% General Public License for more details.</span>
+0217 <span class="comment">%</span>
+0218 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0219 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0220 <span class="comment">% USA</span>
+0221 
+0222 
+0223 <span class="keyword">persistent</span> results;           <span class="comment">% a map of result-tag to OK value</span>
+0224 <span class="keyword">persistent</span> compiler_selected; <span class="comment">% whether a compiler has been selected (true/false, or [] if uncertain)</span>
+0225 
+0226 <span class="comment">% read options</span>
+0227 o = <a href="hlp_varargin2struct.html" class="code" title="function res = hlp_varargin2struct(args, varargin)">hlp_varargin2struct</a>(varargin, <span class="keyword">...</span>
+0228     <span class="keyword">...</span><span class="comment"> % overall behavior</span>
+0229     {<span class="string">'style'</span>,<span class="string">'Style'</span>}, <span class="string">'lazy'</span>, <span class="keyword">...</span>
+0230     <span class="keyword">...</span><span class="comment"> % target files</span>
+0231     {<span class="string">'dir'</span>,<span class="string">'Directory'</span>}, [], <span class="keyword">...</span>
+0232     {<span class="string">'idents'</span>,<span class="string">'Identifiers'</span>}, [], <span class="keyword">...</span>
+0233     {<span class="string">'types'</span>,<span class="string">'FileTypes'</span>}, {<span class="string">'*.c'</span>,<span class="string">'*.C'</span>,<span class="string">'*.cpp'</span>,<span class="string">'*.CPP'</span>,<span class="string">'*.f'</span>,<span class="string">'*.F'</span>,<span class="string">'*.java'</span>,<span class="string">'*.Java'</span>}, <span class="keyword">...</span>
+0234     <span class="keyword">...</span><span class="comment"> % test condition</span>
+0235     {<span class="string">'test'</span>,<span class="string">'TestCode'</span>},<span class="string">''</span>, <span class="keyword">...</span>
+0236     <span class="keyword">...</span><span class="comment"> % additional compiler inputs</span>
+0237     {<span class="string">'support'</span>,<span class="string">'SupportFiles'</span>}, {<span class="string">'*'</span>}, <span class="keyword">...</span>
+0238     {<span class="string">'libs'</span>,<span class="string">'Libraries'</span>}, {}, <span class="keyword">...</span>
+0239     {<span class="string">'includedirs'</span>,<span class="string">'IncludeDirectories'</span>}, {}, <span class="keyword">...</span>
+0240     {<span class="string">'libdirs'</span>,<span class="string">'LibraryDirectories'</span>}, {}, <span class="keyword">...</span>
+0241     {<span class="string">'defines'</span>,<span class="string">'Defines'</span>}, {}, <span class="keyword">...</span>
+0242     {<span class="string">'args'</span>,<span class="string">'Arguments'</span>}, <span class="string">''</span>, <span class="keyword">...</span>
+0243     {<span class="string">'renaming'</span>,<span class="string">'Renaming'</span>}, {}, <span class="keyword">...</span>
+0244     {<span class="string">'debug'</span>,<span class="string">'DebugBuild'</span>}, false, <span class="keyword">...</span>
+0245     <span class="keyword">...</span><span class="comment"> % messages</span>
+0246     {<span class="string">'errmsg'</span>,<span class="string">'ErrorMessage'</span>}, {<span class="string">'Some BCILAB functionality will likely not be available.'</span>}, <span class="keyword">...</span>
+0247     {<span class="string">'prepmsg'</span>,<span class="string">'PreparationMessage'</span>}, {}, <span class="keyword">...</span>
+0248     {<span class="string">'verbose'</span>,<span class="string">'Verbose'</span>}, false, <span class="keyword">...</span>
+0249     <span class="keyword">...</span><span class="comment"> % misc</span>
+0250     {<span class="string">'mwlibs'</span>,<span class="string">'MathworksLibs'</span>}, true, <span class="keyword">...</span>
+0251     {<span class="string">'debugcompile'</span>,<span class="string">'DebugCompile'</span>}, false <span class="keyword">...</span>
+0252     );
+0253 
+0254 <span class="comment">% support for parameterless calls</span>
+0255 <span class="keyword">if</span> isempty(o.dir)
+0256     <span class="comment">% if no dir given, use the calling function's directory</span>
+0257     [name,file] = <a href="hlp_getcaller.html" class="code" title="function [name,file] = hlp_getcaller(indirection)">hlp_getcaller</a>();
+0258     o.dir = fileparts(file);
+0259     <span class="keyword">if</span> isempty(file)
+0260         error(<span class="string">'If hlp_trycompile is called without a directory, it must be called from within a file.'</span>); <span class="keyword">end</span>
+0261     <span class="comment">% if neither idents nor dir given, use the calling function's identifier</span>
+0262     <span class="keyword">if</span> isempty(o.idents)
+0263         o.idents = name; <span class="keyword">end</span>
+0264 <span class="keyword">end</span>
+0265 
+0266 <span class="comment">% uniformize ident format</span>
+0267 <span class="keyword">if</span> isa(o.idents,<span class="string">'function_handle'</span>)
+0268     o.idents = char(o.idents); <span class="keyword">end</span>
+0269 <span class="keyword">if</span> ischar(o.idents)
+0270     o.idents = {o.idents}; <span class="keyword">end</span>
+0271 <span class="keyword">if</span> isempty(o.idents)
+0272     o.idents = {}; <span class="keyword">end</span>
+0273 
+0274 <span class="comment">% decide whether a re-check can be skipped based on identifiers and directory</span>
+0275 <span class="keyword">if</span> strcmp(o.style,<span class="string">'lazy'</span>) || isdeployed
+0276     str = java.lang.String(sprintf(<span class="string">'%s:'</span>,o.dir,o.idents{:}));
+0277     tag = sprintf(<span class="string">'x%.0f'</span>,str.hashCode()+3^31);
+0278     <span class="keyword">if</span> isfield(results,tag)
+0279         ok = results.(tag);
+0280         <span class="keyword">return</span>;
+0281     <span class="keyword">end</span>
+0282 <span class="keyword">end</span>
+0283 
+0284 <span class="comment">% uniformize directory format</span>
+0285 o.dir = <a href="#_sub5" class="code" title="subfunction dir = path_normalize(dir)">path_normalize</a>(o.dir);
+0286 
+0287 <span class="comment">% verify style</span>
+0288 <span class="keyword">if</span> ~any(strcmp(o.style,{<span class="string">'force'</span>,<span class="string">'eager'</span>,<span class="string">'lazy'</span>}))
+0289     error(<span class="string">'Unsupported style: %s'</span>,o.style); <span class="keyword">end</span>
+0290 
+0291 <span class="comment">% uniformize test condition</span>
+0292 <span class="keyword">if</span> isa(o.test,<span class="string">'function_handle'</span>)
+0293     o.test = char(o.test); <span class="keyword">end</span>
+0294 
+0295 <span class="comment">% uniformize user messages</span>
+0296 <span class="keyword">if</span> ischar(o.errmsg)
+0297     o.errmsg = {o.errmsg}; <span class="keyword">end</span>
+0298 <span class="keyword">if</span> ischar(o.prepmsg)
+0299     o.prepmsg = {o.prepmsg}; <span class="keyword">end</span>
+0300 
+0301 <span class="comment">% uniformize types</span>
+0302 <span class="keyword">if</span> ischar(o.types)
+0303     o.types = {o.types}; <span class="keyword">end</span>
+0304 <span class="keyword">for</span> t=1:length(o.types)
+0305     <span class="keyword">if</span> o.types{t}(1) ~= <span class="string">'*'</span>
+0306         o.types{t} = [<span class="string">'*'</span> o.types{t}]; <span class="keyword">end</span>
+0307 <span class="keyword">end</span>
+0308 
+0309 <span class="comment">% uniformize compiler inputs</span>
+0310 <span class="keyword">if</span> ischar(o.support)
+0311     o.support = {o.support}; <span class="keyword">end</span>
+0312 <span class="keyword">if</span> ischar(o.includedirs)
+0313     o.includedirs = {o.includedirs}; <span class="keyword">end</span>
+0314 <span class="keyword">if</span> ischar(o.libdirs)
+0315     o.libdirs = {o.libdirs}; <span class="keyword">end</span>
+0316 <span class="keyword">if</span> ischar(o.libs)
+0317     o.libs = {o.libs}; <span class="keyword">end</span>
+0318 <span class="keyword">if</span> ischar(o.defines)
+0319     o.defines = {o.defines}; <span class="keyword">end</span>
+0320 <span class="keyword">if</span> ischar(o.args)
+0321     o.args = {o.args}; <span class="keyword">end</span>
+0322 <span class="keyword">for</span> i=1:length(o.support)
+0323     o.support{i} = <a href="#_sub5" class="code" title="subfunction dir = path_normalize(dir)">path_normalize</a>(o.support{i}); <span class="keyword">end</span>
+0324 <span class="keyword">for</span> i=1:length(o.includedirs)
+0325     o.includedirs{i} = <a href="#_sub5" class="code" title="subfunction dir = path_normalize(dir)">path_normalize</a>(o.includedirs{i}); <span class="keyword">end</span>
+0326 <span class="keyword">for</span> i=1:length(o.libdirs)
+0327     o.libdirs{i} = <a href="#_sub5" class="code" title="subfunction dir = path_normalize(dir)">path_normalize</a>(o.libdirs{i}); <span class="keyword">end</span>
+0328 
+0329 <span class="comment">% if a support is given as '*'</span>
+0330 starred = strcmp(<span class="string">'*'</span>,o.support);
+0331 <span class="keyword">if</span> any(starred)
+0332     <span class="comment">% list all in the given directory that are not mex files</span>
+0333     infos = [];
+0334     <span class="keyword">for</span> t = 1:length(o.types)
+0335         <span class="keyword">if</span> ~isempty(infos)
+0336             infos = [infos; dir([o.dir filesep o.types{t}])]; 
+0337         <span class="keyword">else</span>
+0338             infos = dir([o.dir filesep o.types{t}]); 
+0339         <span class="keyword">end</span>
+0340     <span class="keyword">end</span>
+0341     fnames = {infos.name};
+0342     supportfiles = ~cellfun(@(n)<a href="#_sub6" class="code" title="subfunction tf = is_primary(filename)">is_primary</a>([o.dir filesep n]),fnames);
+0343     o.support = [fnames(supportfiles) o.support(~starred)];
+0344 <span class="keyword">end</span>
+0345 
+0346 <span class="comment">% infer directory, if not given (take it from the calling function)</span>
+0347 <span class="keyword">if</span> isempty(o.idents) &amp;&amp; ~isempty(o.dir)
+0348     <span class="comment">% get all the source files in the given direcctory</span>
+0349     infos = [];
+0350     <span class="keyword">for</span> t = 1:length(o.types)
+0351         <span class="keyword">if</span> ~isempty(infos)
+0352             infos = [infos; dir([o.dir filesep o.types{t}])]; 
+0353         <span class="keyword">else</span>
+0354             infos = dir([o.dir filesep o.types{t}]); 
+0355         <span class="keyword">end</span>
+0356     <span class="keyword">end</span>
+0357     fnames = {infos.name};
+0358     <span class="comment">% ... but exclude the support files</span>
+0359     fnames = setdiff(fnames,o.support);
+0360     <span class="comment">% and apply any renamings to get the corresponding identifiers</span>
+0361     <span class="keyword">if</span> ~isempty(o.renaming)
+0362         <span class="keyword">for</span> n=1:length(fnames)
+0363             fnames{n} = <a href="hlp_rewrite.html" class="code" title="function data = hlp_rewrite(data,varargin)">hlp_rewrite</a>(fnames{n},o.renaming{:}); <span class="keyword">end</span>
+0364     <span class="keyword">end</span>
+0365     <span class="comment">% ... and strip off the extensions</span>
+0366     <span class="keyword">for</span> n=1:length(fnames)
+0367         fnames{n} = <a href="hlp_getresult.html" class="code" title="function varargout = hlp_getresult(idx,f,varargin)">hlp_getresult</a>(2,@fileparts,fnames{n}); <span class="keyword">end</span>
+0368     o.idents = fnames;
+0369 <span class="keyword">end</span>
+0370 
+0371 
+0372 ok = false;
+0373 missingid = []; <span class="comment">% indices of missing identifiers (for dont-retry-next-time beacon files)</span>
+0374 <span class="keyword">if</span> isdeployed
+0375     <span class="comment">% --- deployed mode ---</span>
+0376     <span class="comment">% Can not compile, but figure out whether everything needed is present. A special consideration</span>
+0377     <span class="comment">% is that both the mex files calling functions are in a mounted .ctf archive.</span>
+0378     
+0379     <span class="comment">% check if all identifiers are present (either as mex or class)</span>
+0380     <span class="keyword">for</span> i=1:length(o.idents)
+0381         <span class="keyword">if</span> ~any(<a href="#_sub9" class="code" title="subfunction res = exist(obj,type)">exist</a>(o.idents{i}) == [2 3 8])
+0382             missingid(end+1) = i; <span class="keyword">end</span>
+0383     <span class="keyword">end</span>
+0384     ok = isempty(missingid);
+0385         
+0386     <span class="keyword">if</span> ~isempty(missingid)
+0387         <span class="comment">% not all identifiers are compiled for this platform</span>
+0388         disp([<span class="string">'Note: The MEX functions/identifiers '</span> <a href="#_sub3" class="code" title="subfunction x = format_cellstr(x)">format_cellstr</a>(o.idents(missingid)) <span class="string">' are not included for your platform.'</span>]);
+0389     <span class="keyword">elseif</span> strcmp(o.style,<span class="string">'force'</span>)
+0390         <span class="comment">% in force mode, we remark that everything is already compiled</span>
+0391         disp_once([<span class="string">'The functions '</span> <a href="#_sub3" class="code" title="subfunction x = format_cellstr(x)">format_cellstr</a>(o.idents) <span class="string">' are properly compiled.'</span>]);
+0392     <span class="keyword">end</span>
+0393     
+0394 <span class="keyword">else</span>
+0395     <span class="comment">% --- regular mode ---</span>
+0396     <span class="comment">% here, we *do* compile what needs to be compiled</span>
+0397     
+0398     <span class="comment">% find out a key configuration settings</span>
+0399     is64bit = ~isempty(strfind(computer,<span class="string">'64'</span>));
+0400     has_largearrays = is64bit &amp;&amp; <a href="hlp_matlab_version.html" class="code" title="function v = hlp_matlab_version()">hlp_matlab_version</a> &gt;= 703;
+0401     
+0402     <span class="keyword">if</span> ispc
+0403         warning off MATLAB:FILEATTRIB:SyntaxWarning; <span class="keyword">end</span>
+0404     
+0405     <span class="comment">% add a few missing defines</span>
+0406     <span class="keyword">if</span> <a href="hlp_matlab_version.html" class="code" title="function v = hlp_matlab_version()">hlp_matlab_version</a> &lt; 703
+0407         o.defines = [o.defines {<span class="string">'mwIndex=int'</span>,<span class="string">'mwSize=int'</span>,<span class="string">'mwSignedIndex=int'</span>}]; <span class="keyword">end</span>
+0408     
+0409     <span class="comment">% rewrite blas &amp; lapack libs....</span>
+0410     <span class="keyword">if</span> o.mwlibs
+0411         <span class="comment">% for each type of library</span>
+0412         <span class="keyword">for</span> l={<span class="string">'blas'</span>,<span class="string">'lapack'</span>}
+0413             lib = l{1};
+0414             <span class="comment">% note: this code is based on SeDuMi's compile script (by Michael C. Grant)</span>
+0415             in_use = strcmp(o.libs,lib);
+0416             <span class="keyword">if</span> any(in_use)
+0417                 <span class="keyword">if</span> ispc
+0418                     <span class="keyword">if</span> is64bit
+0419                         osdir = <span class="string">'win64'</span>;
+0420                     <span class="keyword">else</span>
+0421                         osdir = <span class="string">'win32'</span>;
+0422                     <span class="keyword">end</span>
+0423                     libpath = [matlabroot <span class="string">'\extern\lib\'</span> osdir <span class="string">'\microsoft\libmw'</span> lib <span class="string">'.lib'</span>];
+0424                     <span class="keyword">if</span> ~<a href="#_sub9" class="code" title="subfunction res = exist(obj,type)">exist</a>(libpath,<span class="string">'file'</span>)
+0425                         libpath = [matlabroot <span class="string">'\extern\lib\'</span> osdir <span class="string">'\microsoft\msvc60\libmw'</span> lib <span class="string">'.lib'</span>]; <span class="keyword">end</span>
+0426                     <span class="keyword">if</span> <a href="#_sub9" class="code" title="subfunction res = exist(obj,type)">exist</a>(libpath,<span class="string">'file'</span>)
+0427                         o.libs{in_use} = libpath; 
+0428                     <span class="keyword">else</span>
+0429                         disp_once(<span class="string">'Note: The Mathworks library %s was assumed to be in %s, but not found.'</span>,lib,libpath);
+0430                     <span class="keyword">end</span>
+0431                 <span class="keyword">else</span>
+0432                     o.libs{in_use} = [<span class="string">'mw'</span> lib];
+0433                 <span class="keyword">end</span>
+0434             <span class="keyword">end</span>
+0435         <span class="keyword">end</span>
+0436     <span class="keyword">end</span>
+0437     
+0438     <span class="keyword">try</span>
+0439         <span class="comment">% remember the current directory &amp; enter the target directory</span>
+0440         olddir = pwd;
+0441         <span class="keyword">if</span> <a href="hlp_matlab_version.html" class="code" title="function v = hlp_matlab_version()">hlp_matlab_version</a> &gt;= 706
+0442             go_back = onCleanup(@()cd(olddir)); <span class="keyword">end</span>
+0443         <span class="keyword">if</span> ~<a href="#_sub9" class="code" title="subfunction res = exist(obj,type)">exist</a>(o.dir,<span class="string">'dir'</span>)
+0444             error([<span class="string">'The target directory '</span> o.dir <span class="string">' does not exist.'</span>]); <span class="keyword">end</span>
+0445         cd(o.dir);
+0446         
+0447         <span class="comment">% expand regex patterns in o.support</span>
+0448         <span class="keyword">for</span> i=length(o.support):-1:1
+0449             <span class="keyword">if</span> any(o.support{i} == <span class="string">'*'</span>)
+0450                 found = dir(o.support{i});
+0451                 <span class="keyword">if</span> ~isempty(found)
+0452                     <span class="comment">% ... and splice the results in</span>
+0453                     basepath = fileparts(o.support{i});
+0454                     items = cellfun(@(x)[basepath filesep x],{found.name},<span class="string">'UniformOutput'</span>,false);
+0455                     o.support = [o.support(1:i-1) items o.support(i+1:end)];
+0456                 <span class="keyword">end</span>
+0457             <span class="keyword">end</span>
+0458         <span class="keyword">end</span>
+0459         
+0460         <span class="comment">% find all source &amp; target files for the respective identifiers...</span>
+0461         <span class="comment">% (note that there might be multiple source files for each one)</span>
+0462         sources = cell(1,length(o.idents)); <span class="comment">% list of all source file names for the corresponding identifiers (indexed like idents)</span>
+0463         targets = cell(1,length(o.idents)); <span class="comment">% list of all target file names for the corresponding identifiers (indexed like idents)</span>
+0464         <span class="keyword">for</span> i=1:length(o.idents)
+0465             <span class="keyword">if</span> ~isempty(o.renaming)
+0466                 <span class="comment">% the renaming may yield additional source file names for the given identifiers</span>
+0467                 idx = strcmp(o.idents{i},o.renaming(2:2:end));
+0468                 <span class="keyword">if</span> any(idx)
+0469                     <span class="comment">% the identifier is a renaming target: add the corresponding source file name</span>
+0470                     filename = o.renaming{find(idx)*2-1};
+0471                     <span class="comment">% if a source file with this ident &amp; type is present</span>
+0472                     <span class="keyword">if</span> <a href="#_sub9" class="code" title="subfunction res = exist(obj,type)">exist</a>([o.dir filesep filename],<span class="string">'file'</span>)
+0473                         <span class="comment">% remember it &amp; derive its respective target file name</span>
+0474                         sources{i}{end+1} = filename;
+0475                         targets{i}{end+1} = [o.idents{i} <span class="string">'.'</span> mexext];
+0476                     <span class="keyword">end</span>
+0477                 <span class="keyword">end</span>
+0478             <span class="keyword">end</span>
+0479             <span class="keyword">for</span> t=1:length(o.types)
+0480                 filename = [o.idents{i} o.types{t}(2:end)];
+0481                 <span class="comment">% if a source file with this ident &amp; type is present</span>
+0482                 <span class="keyword">if</span> <a href="#_sub9" class="code" title="subfunction res = exist(obj,type)">exist</a>([o.dir filesep filename],<span class="string">'file'</span>)
+0483                     <span class="comment">% remember it</span>
+0484                     sources{i}{end+1} = filename;
+0485                     <span class="comment">% and also derive its respective target file name</span>
+0486                     <span class="keyword">if</span> strcmp(o.types{t},<span class="string">'*.java'</span>)
+0487                         targets{i}{end+1} = [o.idents{i} <span class="string">'.class'</span>];
+0488                     <span class="keyword">else</span>
+0489                         targets{i}{end+1} = [o.idents{i} <span class="string">'.'</span> mexext];
+0490                     <span class="keyword">end</span>
+0491                 <span class="keyword">end</span>
+0492             <span class="keyword">end</span>
+0493             <span class="comment">% check whether we have all necessary source files</span>
+0494             <span class="keyword">if</span> isempty(sources{i})
+0495                 error(<span class="string">'Did not find source file for %s'</span>,o.idents{i}); <span class="keyword">end</span>
+0496             <span class="keyword">if</span> isempty(targets{i})
+0497                 error(<span class="string">'Could not determine target file for %s'</span>,o.idents{i}); <span class="keyword">end</span>
+0498         <span class="keyword">end</span>
+0499         
+0500         <span class="comment">% check for existence (either .mex* or class) of all identifiers</span>
+0501         <span class="comment">% and make a list of missing &amp; present binary files; do this in a different directory,</span>
+0502         <span class="comment">% to not shadow the mex files of interest with whatever .m files live in this directory</span>
+0503         cd ..
+0504         binaries = {}; <span class="comment">% table of existing binary file paths (indexed like idents)</span>
+0505         <span class="keyword">for</span> i=1:length(o.idents)
+0506             <span class="comment">% get current file reference to this identifier</span>
+0507             binaries{i} = <a href="#_sub10" class="code" title="subfunction res = which(ident)">which</a>(o.idents{i});
+0508             <span class="comment">% if it doesn't point to a .mex or .class file, ignore it</span>
+0509             <span class="keyword">if</span> ~any(<a href="#_sub9" class="code" title="subfunction res = exist(obj,type)">exist</a>(o.idents{i}) == [3 8])
+0510                 binaries{i} = []; <span class="keyword">end</span>
+0511             <span class="keyword">if</span> ~isempty(binaries{i})
+0512                 <span class="comment">% check whether it is correct file path</span>
+0513                 <span class="keyword">if</span> ~any(binaries{i} == filesep)
+0514                     error([<span class="string">'Could not determine the location of the mex file for: '</span> o.idents{i}]); <span class="keyword">end</span>
+0515                 <span class="comment">% check whether the referenced file actually exists in the file system</span>
+0516                 <span class="keyword">if</span> isempty(dir(binaries{i}))
+0517                     binaries{i} = []; <span class="keyword">end</span>
+0518             <span class="keyword">end</span>
+0519             <span class="comment">% if no binary found, record it as missing</span>
+0520             <span class="keyword">if</span> isempty(binaries{i})
+0521                 missingid(end+1) = i; <span class="keyword">end</span>
+0522         <span class="keyword">end</span>
+0523         cd(o.dir);
+0524         
+0525         <span class="comment">% check which of the existing binaries need to be re-compiled (if out of date)</span>
+0526         outdatedid = []; <span class="comment">% indices of identifiers (in o.idents) that need to be recompiled</span>
+0527         <span class="keyword">for</span> i=1:length(binaries)
+0528             <span class="keyword">if</span> ~isempty(binaries{i})
+0529                 <span class="comment">% get the date of the binary file</span>
+0530                 bininfo = dir(binaries{i});
+0531                 <span class="comment">% find all corresponding source files</span>
+0532                 srcinfo = [];
+0533                 <span class="keyword">for</span> s=1:length(sources{i})
+0534                     srcinfo = [srcinfo; dir([o.dir filesep sources{i}{s}])]; <span class="keyword">end</span>
+0535                 <span class="keyword">if</span> ~isfield(bininfo,<span class="string">'datenum'</span>)
+0536                     [bininfo.datenum] = <a href="#_sub7" class="code" title="subfunction varargout = celldeal(argin)">celldeal</a>(cellfun(@datenum,{bininfo.date},<span class="string">'UniformOutput'</span>,false)); <span class="keyword">end</span>
+0537                 <span class="keyword">if</span> ~isfield(srcinfo,<span class="string">'datenum'</span>)
+0538                     [srcinfo.datenum] = <a href="#_sub7" class="code" title="subfunction varargout = celldeal(argin)">celldeal</a>(cellfun(@datenum,{srcinfo.date},<span class="string">'UniformOutput'</span>,false)); <span class="keyword">end</span>
+0539                 <span class="comment">% if any of the source files has been changed</span>
+0540                 <span class="keyword">if</span> bininfo.datenum &lt; max([srcinfo.datenum])
+0541                     <span class="comment">% check if their md5 hash is still the same...</span>
+0542                     <span class="keyword">if</span> <a href="#_sub9" class="code" title="subfunction res = exist(obj,type)">exist</a>([binaries{i} <span class="string">'.md5'</span>],<span class="string">'file'</span>)
+0543                         <span class="keyword">try</span>
+0544                             contents = load([binaries{i} <span class="string">'.md5'</span>],<span class="string">'-mat'</span>,<span class="string">'srchash'</span>);
+0545                             <span class="comment">% need to do that over all source files...</span>
+0546                             srchash = [];
+0547                             sorted_sources = sort(sources{i});
+0548                             <span class="keyword">for</span> s=1:length(sorted_sources)
+0549                                 srchash = [srchash <a href="hlp_cryptohash.html" class="code" title="function hash = hlp_cryptohash(data,fromfile)">hlp_cryptohash</a>([o.dir filesep sorted_sources{s}],true)]; <span class="keyword">end</span>
+0550                             <span class="keyword">if</span> ~isequal(srchash,contents.srchash)
+0551                                 <span class="comment">% hash is different: mark binary as outdated</span>
+0552                                 outdatedid(end+1) = i;
+0553                             <span class="keyword">end</span>
+0554                         <span class="keyword">catch</span>
+0555                             <span class="comment">% there was a probblem: mark as outdated</span>
+0556                             outdatedid(end+1) = i;
+0557                         <span class="keyword">end</span>
+0558                     <span class="keyword">else</span>
+0559                         <span class="comment">% no md5 present: mark as outdated</span>
+0560                         outdatedid(end+1) = i; 
+0561                     <span class="keyword">end</span>
+0562                 <span class="keyword">end</span>
+0563             <span class="keyword">end</span>
+0564         <span class="keyword">end</span>
+0565         
+0566         <span class="comment">% we try to recompile both what's missing and what's outdated</span>
+0567         recompileid = [missingid outdatedid];
+0568         javainvolved = false; <span class="comment">% for final error/help message generation</span>
+0569         mexinvolved = false;  <span class="comment">% same</span>
+0570         
+0571         <span class="keyword">if</span> ~isempty(recompileid)
+0572             <span class="comment">% need to recompile something -- display a few preparatory messages...</span>
+0573             <span class="keyword">for</span> l=1:length(o.prepmsg)
+0574                 disp(o.prepmsg{l}); <span class="keyword">end</span>
+0575             
+0576             failedid = []; <span class="comment">% list of indices of identifier that failed the build</span>
+0577             
+0578             <span class="comment">% for each identifier, try to compile it</span>
+0579             <span class="comment">% and record whether it failed</span>
+0580             <span class="keyword">for</span> i=recompileid
+0581                 success = false;
+0582                 fprintf([<span class="string">'Compiling the function/class '</span> o.idents{i} <span class="string">'...'</span>]);
+0583                 <span class="comment">% for each source file mapping to that identifier</span>
+0584                 <span class="keyword">for</span> s=1:length(sources{i})
+0585                     <span class="comment">% check type of source</span>
+0586                     <span class="keyword">if</span> ~isempty(strfind(sources{i}{s},<span class="string">'.java'</span>))
+0587                         <span class="comment">% we have a Java source file: compile</span>
+0588                         [errcode,result] = system([<span class="string">'javac '</span> <a href="#_sub1" class="code" title="subfunction opts = javac_options(o)">javac_options</a>(o) sources{i}{s}]);
+0589                         <span class="keyword">if</span> errcode
+0590                             javainvolved = true;
+0591                             <span class="comment">% problem: show display output</span>
+0592                             fprintf(<span class="string">'\n'</span>);
+0593                             disp(result);
+0594                         <span class="keyword">else</span>
+0595                             success = true;
+0596                             <span class="keyword">break</span>;
+0597                         <span class="keyword">end</span>
+0598                     <span class="keyword">else</span>
+0599                         
+0600                         <span class="comment">% generate MEX options</span>
+0601                         opts = <a href="#_sub2" class="code" title="subfunction opts = mex_options(o)">mex_options</a>(o);
+0602                         supp = sprintf(<span class="string">' %s'</span>,o.support{:});
+0603                         
+0604                         <span class="keyword">if</span> isempty(compiler_selected)
+0605                             <span class="comment">% not clear whether a compiler has been selected yet</span>
+0606                             <span class="keyword">if</span> <a href="hlp_matlab_version.html" class="code" title="function v = hlp_matlab_version()">hlp_matlab_version</a> &gt;= 708
+0607                                 <span class="comment">% we can find it out programmatically</span>
+0608                                 <span class="keyword">try</span>
+0609                                     cconf = mex.getCompilerConfigurations; <span class="comment">%#ok&lt;NASGU&gt;</span>
+0610                                     compiler_selected = true;
+0611                                 <span class="keyword">catch</span>
+0612                                     <span class="comment">% no compiler has been selected yet...</span>
+0613                                     <span class="keyword">try</span>
+0614                                         <span class="comment">% display a few useful hints to the user</span>
+0615                                         disp(<span class="string">' to compile this feature, you first need to select'</span>);
+0616                                         disp(<span class="string">'which compiler should be used on your platform.'</span>);
+0617                                         <span class="keyword">if</span> ispc
+0618                                             <span class="keyword">if</span> is64bit
+0619                                                 disp_once(<span class="string">'As you are on 64-bit windows, you may find that no compiler is installed.'</span>);
+0620                                             <span class="keyword">else</span>
+0621                                                 disp_once(<span class="string">'On 32-bit Windows, MATLAB supplies a built-in compiler (LLC), which should'</span>);
+0622                                                 disp_once(<span class="string">'faithfully compile most C code. For broader support across C dialects (as well as C++), '</span>);
+0623                                                 disp_once(<span class="string">'you should make sure that a better compiler is installed on your system and selected in the following.'</span>);
+0624                                             <span class="keyword">end</span>
+0625                                             disp_once(<span class="string">'A good choice is the free Microsoft Visual Studio 2005/2008/2010 Express compiler suite'</span>);
+0626                                             disp_once(<span class="string">'together with the Microsoft Platform SDK (6.1 for 2008, 7.1 for 2010) for your Windows Version.'</span>);
+0627                                             disp_once(<span class="string">'See also: http://argus-home.coas.oregonstate.edu/forums/development/core-software-development/compiling-64-bit-mex-files'</span>);
+0628                                             disp_once(<span class="string">'          http://www.mathworks.com/support/compilers/R2010b/win64.html'</span>);
+0629                                             disp_once(<span class="string">'The installation is easier if a professional Intel or Microsoft compiler is used.'</span>);
+0630                                         <span class="keyword">elseif</span> isunix
+0631                                             disp_once(<span class="string">'On Linux/UNIX, the best choice is usually a supported version of the GCC compiler suite.'</span>);
+0632                                         <span class="keyword">else</span>
+0633                                             disp_once(<span class="string">'On Mac OS, you need to have a supported version of Xcode/GCC installed.'</span>);
+0634                                         <span class="keyword">end</span>
+0635                                         <span class="comment">% start the compiler selection tool</span>
+0636                                         mex -setup
+0637                                         <span class="comment">% verify that a compiler has been selected</span>
+0638                                         cconf = mex.getCompilerConfigurations; <span class="comment">%#ok&lt;NASGU&gt;</span>
+0639                                         compiler_selected = true;
+0640                                     <span class="keyword">catch</span>
+0641                                         compiler_selected = false;
+0642                                     <span class="keyword">end</span>
+0643                                 <span class="keyword">end</span>
+0644                             <span class="keyword">else</span>
+0645                                 disp(<span class="string">' you may be prompted to select a compiler in the following'</span>);
+0646                                 disp(<span class="string">'(as BCILAB cannot auto-determine whether one is selected on your platform).'</span>);
+0647                             <span class="keyword">end</span>
+0648                         <span class="keyword">end</span>
+0649                         
+0650                         <span class="keyword">if</span> ~compiler_selected
+0651                             fprintf(<span class="string">'skipped (no compiler selected).\n'</span>);
+0652                         <span class="keyword">else</span>
+0653                             
+0654                             <span class="keyword">if</span> o.verbose || isempty(compiler_selected)
+0655                                 <span class="comment">% this variant will also be brought up if not sure whether a compiler</span>
+0656                                 <span class="comment">% has already been selected...</span>
+0657                                 doeval = @eval;
+0658                             <span class="keyword">else</span>
+0659                                 doeval = @evalc;
+0660                             <span class="keyword">end</span>
+0661                             
+0662                             <span class="comment">% try to build the file</span>
+0663                             <span class="keyword">try</span>
+0664                                 mexinvolved = true;
+0665                                 <span class="comment">% check if a renaming applies...</span>
+0666                                 idx = strcmp(sources{i}{s},o.renaming);
+0667                                 <span class="keyword">if</span> any(idx)
+0668                                     rename = [<span class="string">' -output '</span> o.renaming{find(idx,1)+1} <span class="string">' '</span>];
+0669                                 <span class="keyword">else</span>
+0670                                     rename = <span class="string">''</span>;
+0671                                 <span class="keyword">end</span>
+0672                                 <span class="keyword">if</span> o.debugcompile
+0673                                     <span class="comment">% display a debug console to allow the user to debug how their file compiles</span>
+0674                                     fprintf(<span class="string">'\nExecution has been paused immediately before running mex.\n'</span>);
+0675                                     disp([<span class="string">'You are in the directory &quot;'</span> pwd <span class="string">'&quot;.'</span>]);
+0676                                     disp(<span class="string">'The mex command that will be invoked in the following is:'</span>);
+0677                                     <span class="keyword">if</span> has_largearrays
+0678                                         disp([<span class="string">' mex '</span> opts <span class="string">' -largeArrayDims '</span> rename sources{i}{s} supp]);
+0679                                     <span class="keyword">else</span>
+0680                                         disp([<span class="string">' mex '</span> opts rename sources{i}{s} supp]);
+0681                                     <span class="keyword">end</span>
+0682                                     fprintf(<span class="string">'\n\nTo proceed normally, type &quot;dbcont&quot;.\n'</span>);
+0683                                     keyboard;
+0684                                 <span class="keyword">end</span>
+0685                                 <span class="keyword">if</span> has_largearrays
+0686                                     <span class="keyword">try</span>
+0687                                         <span class="comment">% -largeArrayDims enabled</span>
+0688                                         <span class="keyword">try</span>
+0689                                             doeval([<span class="string">'mex '</span> opts <span class="string">' -largeArrayDims '</span> rename sources{i}{s} supp]); <span class="comment">% with supporting libaries</span>
+0690                                         <span class="keyword">catch</span>
+0691                                             doeval([<span class="string">'mex '</span> opts <span class="string">' -largeArrayDims '</span> rename sources{i}{s}]); <span class="comment">% without supporting libraries</span>
+0692                                         <span class="keyword">end</span>
+0693                                     <span class="keyword">catch</span>
+0694                                         <span class="comment">% -largeArrayDims disabled</span>
+0695                                         <span class="keyword">try</span>
+0696                                             doeval([<span class="string">'mex '</span> opts rename sources{i}{s} supp]); <span class="comment">% with supporting libaries</span>
+0697                                         <span class="keyword">catch</span>
+0698                                             doeval([<span class="string">'mex '</span> opts rename sources{i}{s}]); <span class="comment">% without supporting libraries</span>
+0699                                         <span class="keyword">end</span>
+0700                                     <span class="keyword">end</span>
+0701                                 <span class="keyword">else</span>
+0702                                     <span class="comment">% -largeArrayDims disabled</span>
+0703                                     <span class="keyword">try</span>
+0704                                         doeval([<span class="string">'mex '</span> opts rename sources{i}{s} supp]); <span class="comment">% with supporting libaries</span>
+0705                                     <span class="keyword">catch</span>
+0706                                         doeval([<span class="string">'mex '</span> opts rename sources{i}{s}]); <span class="comment">% without supporting libraries</span>
+0707                                     <span class="keyword">end</span>
+0708                                 <span class="keyword">end</span>
+0709                                 
+0710                                 <span class="comment">% compilation succeeded...</span>
+0711                                 <span class="keyword">if</span> any(i==outdatedid)
+0712                                     <span class="comment">% there is an outdated binary, which needs to be deleted</span>
+0713                                     <span class="keyword">try</span>
+0714                                         delete(binaries{i});
+0715                                     <span class="keyword">catch</span>
+0716                                         disp([<span class="string">'Could not delete outdated binary '</span> binaries{i}]);
+0717                                     <span class="keyword">end</span>
+0718                                 <span class="keyword">end</span>
+0719                                 <span class="comment">% check whether the file is being found now</span>
+0720                                 <span class="keyword">if</span> <a href="#_sub9" class="code" title="subfunction res = exist(obj,type)">exist</a>(o.idents{i}) == 3
+0721                                     success = true;
+0722                                     compiler_selected = true;
+0723                                     <span class="keyword">break</span>;
+0724                                 <span class="keyword">end</span>
+0725                             <span class="keyword">catch</span>
+0726                                 <span class="comment">% build failed</span>
+0727                             <span class="keyword">end</span>
+0728                         <span class="keyword">end</span>
+0729                     <span class="keyword">end</span>
+0730                 <span class="keyword">end</span>
+0731                 
+0732                 
+0733                 <span class="comment">% check if compilation of this identifier was successful</span>
+0734                 <span class="keyword">if</span> success
+0735                     <span class="comment">% if so, we sign off the binary with an md5 hash of the sources...</span>
+0736                     newbinary = <a href="#_sub10" class="code" title="subfunction res = which(ident)">which</a>(o.idents{i});
+0737                     <span class="keyword">try</span>
+0738                         srchash = [];
+0739                         sorted_sources = sort(sources{i});
+0740                         <span class="keyword">for</span> s=1:length(sorted_sources)
+0741                             srchash = [srchash <a href="hlp_cryptohash.html" class="code" title="function hash = hlp_cryptohash(data,fromfile)">hlp_cryptohash</a>([o.dir filesep sorted_sources{s}],true)]; <span class="keyword">end</span>
+0742                         save([newbinary <span class="string">'.md5'</span>],<span class="string">'srchash'</span>,<span class="string">'-mat'</span>);
+0743                         fprintf(<span class="string">'success.\n'</span>);
+0744                     <span class="keyword">catch</span>
+0745                         disp(<span class="string">'could not create md5 hash for the source files; other than that, successful.'</span>);
+0746                     <span class="keyword">end</span>
+0747                 <span class="keyword">else</span>
+0748                     fprintf(<span class="string">'failed.\n'</span>);
+0749                     failedid(end+1) = i;
+0750                 <span class="keyword">end</span>
+0751             <span class="keyword">end</span>
+0752             
+0753             embed_test = false;
+0754             <span class="keyword">if</span> isempty(failedid)
+0755                 <span class="comment">% all worked: now run the test code - if any - to verify the correctness of the build</span>
+0756                 <span class="keyword">if</span> length(recompileid) &gt; 1
+0757                     <span class="keyword">if</span> ~isempty(o.test)
+0758                         fprintf(<span class="string">'All files in %s compiled successfully; now testing the build outputs...'</span>,o.dir);
+0759                     <span class="keyword">else</span>
+0760                         fprintf(<span class="string">'All files in %s compiled successfully.\n'</span>,o.dir);
+0761                     <span class="keyword">end</span>
+0762                 <span class="keyword">elseif</span> ~isempty(o.test)
+0763                     fprintf(<span class="string">'Now testing the build outputs...'</span>);
+0764                 <span class="keyword">end</span>
+0765                 
+0766                 <span class="comment">% test the output</span>
+0767                 <span class="keyword">try</span>
+0768                     ans = true; <span class="comment">%#ok&lt;NOANS&gt;</span>
+0769                     eval(o.test);
+0770                 <span class="keyword">catch</span>
+0771                     ans = false; <span class="comment">%#ok&lt;NOANS&gt;</span>
+0772                 <span class="keyword">end</span>
+0773                 <span class="keyword">if</span> ans <span class="comment">%#ok&lt;NOANS&gt;</span>
+0774                     <span class="comment">% the test was successful; now copy the files into a platform-specific directory</span>
+0775                     <span class="keyword">if</span> ~isempty(o.test)
+0776                         <span class="comment">% only if we have a succeeding non-empty test</span>
+0777                         embed_test = true;
+0778                         fprintf(<span class="string">'success.\n'</span>); 
+0779                     <span class="keyword">end</span>
+0780                     retainid = recompileid;
+0781                     eraseid = [];
+0782                     ok = true;
+0783                 <span class="keyword">else</span>
+0784                     <span class="comment">% the test was unsuccessful: remove all newly-compiled files...</span>
+0785                     <span class="keyword">if</span> ~isempty(o.test)
+0786                         fprintf(<span class="string">'failed.\n'</span>); <span class="keyword">end</span>
+0787                     disp(<span class="string">'The code compiled correctly but failed the build tests. Reverting the build...'</span>);
+0788                     disp(<span class="string">'If this is unmodified BCILAB code, please consider reporting this issue.'</span>);
+0789                     retainid = [];
+0790                     eraseid = recompileid;
+0791                 <span class="keyword">end</span>
+0792             <span class="keyword">else</span>
+0793                 <span class="keyword">if</span> length(recompileid) &gt; 1
+0794                     <span class="keyword">if</span> isempty(setdiff(recompileid,failedid))
+0795                         fprintf(<span class="string">'All files in %s failed to build; this indicates a problem in your build environment/settings.\n'</span>,o.dir);
+0796                     <span class="keyword">else</span>
+0797                         fprintf(<span class="string">'Some files in %s failed to build. Please make sure that you have a supported compiler; otherwise, please report this issue.\n'</span>,o.dir);
+0798                     <span class="keyword">end</span>
+0799                 <span class="keyword">else</span>
+0800                     disp(<span class="string">'Please make sure that you have a supported compiler and that your build environment is set up correctly.'</span>);
+0801                     disp(<span class="string">'Also, please consider reporting this issue.'</span>);
+0802                 <span class="keyword">end</span>
+0803                 <span class="comment">% compilation failed; only a part of the binaries may be available...</span>
+0804                 retainid = setdiff(recompileid,failedid);
+0805                 eraseid = [];
+0806             <span class="keyword">end</span>
+0807             
+0808             <span class="comment">% move the mex files into their own directory</span>
+0809             moveid = retainid(cellfun(@<a href="#_sub9" class="code" title="subfunction res = exist(obj,type)">exist</a>,o.idents(retainid)) == 3);
+0810             <span class="keyword">if</span> ~isempty(moveid)
+0811                 <span class="comment">% some files to be moved</span>
+0812                 dest_path = [o.dir filesep <span class="string">'build-'</span> <a href="hlp_hostname.html" class="code" title="function hostname = hlp_hostname()">hlp_hostname</a> filesep];
+0813                 <span class="comment">% create a new directory</span>
+0814                 <span class="keyword">if</span> ~<a href="#_sub9" class="code" title="subfunction res = exist(obj,type)">exist</a>(dest_path,<span class="string">'dir'</span>)
+0815                     <span class="keyword">if</span> ~mkdir(o.dir,[<span class="string">'build-'</span> <a href="hlp_hostname.html" class="code" title="function hostname = hlp_hostname()">hlp_hostname</a>])
+0816                         error([<span class="string">'unable to create directory '</span> dest_path]); <span class="keyword">end</span>
+0817                     <span class="comment">% set permissions</span>
+0818                     <span class="keyword">try</span>
+0819                         fileattrib(dest_path,<span class="string">'+w'</span>,<span class="string">'a'</span>);
+0820                     <span class="keyword">catch</span>
+0821                         disp([<span class="string">'Note: There are permission problems for the directory '</span> dest_path]);
+0822                     <span class="keyword">end</span>
+0823                 <span class="keyword">end</span>
+0824                 <span class="comment">% create a new env_add.m there</span>
+0825                 <span class="keyword">try</span>
+0826                     filename = [dest_path <span class="string">'env_add.m'</span>];
+0827                     fid = fopen(filename,<span class="string">'w+'</span>);
+0828                     <span class="keyword">if</span> embed_test
+0829                         <span class="comment">% if we had a successful test, we use this to control inclusion of the mex files</span>
+0830                         fprintf(fid,o.test);
+0831                     <span class="keyword">else</span>
+0832                         <span class="comment">% otherwise we check whether any one of the identifiers is recognized by</span>
+0833                         <span class="comment">% MATLAB as a mex function</span>
+0834                         fprintf(fid,<span class="string">'any(cellfun(@exist,%s)==3)'</span>,<a href="hlp_tostring.html" class="code" title="function str = hlp_tostring(v,stringcutoff,prec)">hlp_tostring</a>(o.idents(moveid)));
+0835                     <span class="keyword">end</span>
+0836                     fclose(fid);
+0837                     fileattrib(filename,<span class="string">'+w'</span>,<span class="string">'a'</span>);
+0838                 <span class="keyword">catch</span>
+0839                     disp([<span class="string">'Note: There were write permission problems for the file '</span> filename]);
+0840                 <span class="keyword">end</span>                
+0841                 <span class="comment">% move the targets over there...</span>
+0842                 movefiles = unique(o.idents(moveid));
+0843                 <span class="keyword">for</span> t = 1:length(movefiles)
+0844                     [d,n,x] = fileparts(<a href="#_sub10" class="code" title="subfunction res = which(ident)">which</a>(movefiles{t}));
+0845                     <a href="#_sub8" class="code" title="subfunction movefile(src,dst)">movefile</a>([d filesep n x],[dest_path n x]);
+0846                     <span class="keyword">try</span>
+0847                         <a href="#_sub8" class="code" title="subfunction movefile(src,dst)">movefile</a>([d filesep n x <span class="string">'.md5'</span>],[dest_path n x <span class="string">'.md5'</span>]);
+0848                     <span class="keyword">catch</span>
+0849                     <span class="keyword">end</span>
+0850                 <span class="keyword">end</span>
+0851                 <span class="comment">% add the destination path</span>
+0852                 addpath(dest_path);
+0853                 <span class="comment">% and to be entirely sure, CD into that directory to verify that the files are being recognized...</span>
+0854                 <span class="comment">% (and don't get shadowed by whatever is in the directory below)</span>
+0855                 cd(dest_path);
+0856                 all_ok = all(strncmp(dest_path,cellfun(@<a href="#_sub10" class="code" title="subfunction res = which(ident)">which</a>,o.idents(moveid),<span class="string">'UniformOutput'</span>,false),length(dest_path)));
+0857                 cd(o.dir);
+0858                 <span class="comment">% make sure that they are still being found...</span>
+0859                 <span class="keyword">if</span> ~all_ok
+0860                     error(<span class="string">'It could not be verified that the MEX file records in %s were successfully updated to their new sub-directories.'</span>,o.dir); <span class="keyword">end</span>
+0861             <span class="keyword">end</span>
+0862 
+0863             <span class="comment">% move the java class files into their own directory</span>
+0864             infos = dir([o.dir filesep <span class="string">'*.class'</span>]);
+0865             movefiles = {infos.name};
+0866             moveid = retainid(cellfun(@<a href="#_sub9" class="code" title="subfunction res = exist(obj,type)">exist</a>,o.idents(retainid)) ~= 3);
+0867             <span class="keyword">if</span> ~isempty(movefiles)
+0868                 <span class="comment">% some files to be moved</span>
+0869                 dest_path = [o.dir filesep <span class="string">'build-javaclasses'</span> filesep];
+0870                 <span class="comment">% create a new directory</span>
+0871                 <span class="keyword">if</span> ~<a href="#_sub9" class="code" title="subfunction res = exist(obj,type)">exist</a>(dest_path,<span class="string">'dir'</span>)
+0872                     <span class="keyword">if</span> ~mkdir(o.dir,<span class="string">'build-javaclasses'</span>)
+0873                         error([<span class="string">'unable to create directory '</span> dest_path]); <span class="keyword">end</span>
+0874                     <span class="comment">% set permissions</span>
+0875                     <span class="keyword">try</span>
+0876                         fileattrib(dest_path,<span class="string">'+w'</span>,<span class="string">'a'</span>);
+0877                     <span class="keyword">catch</span>
+0878                         disp([<span class="string">'Note: There are permission problems for the directory '</span> dest_path]);
+0879                     <span class="keyword">end</span>
+0880                 <span class="keyword">end</span>
+0881                 <span class="comment">% create a new env_add.m there</span>
+0882                 <span class="keyword">try</span>
+0883                     filename = [dest_path <span class="string">'env_add.m'</span>];
+0884                     fid = fopen(filename,<span class="string">'w+'</span>); fclose(fid);
+0885                     fileattrib(filename,<span class="string">'+w'</span>,<span class="string">'a'</span>);
+0886                 <span class="keyword">catch</span>
+0887                     disp([<span class="string">'Note: There were write permission problems for the file '</span> filename]);
+0888                 <span class="keyword">end</span>                
+0889                 <span class="comment">% move the targets over there...</span>
+0890                 <span class="keyword">for</span> t = 1:length(movefiles)
+0891                     <a href="#_sub8" class="code" title="subfunction movefile(src,dst)">movefile</a>([o.dir filesep movefiles{t}],[dest_path movefiles{t}]); 
+0892                     <span class="keyword">try</span>
+0893                         <a href="#_sub8" class="code" title="subfunction movefile(src,dst)">movefile</a>([o.dir filesep movefiles{t} <span class="string">'.md5'</span>],[dest_path movefiles{t} <span class="string">'.md5'</span>]); 
+0894                     <span class="keyword">catch</span>
+0895                     <span class="keyword">end</span>                    
+0896                 <span class="keyword">end</span>
+0897                 <span class="comment">% add the destination path</span>
+0898                 <span class="keyword">if</span> isdeployed
+0899                     warning off MATLAB:javaclasspath:jarAlreadySpecified; <span class="keyword">end</span>
+0900                 javaaddpath(dest_path);
+0901                 
+0902                 <span class="comment">% check whether the class is found</span>
+0903                 <span class="keyword">if</span> ~all(cellfun(@<a href="#_sub9" class="code" title="subfunction res = exist(obj,type)">exist</a>,o.idents(moveid)) == 8)
+0904                     disp_once(<span class="string">'Not all Java binaries in %s could be recognized by MATLAB.'</span>,dest_path); <span class="keyword">end</span>
+0905             <span class="keyword">end</span>
+0906             
+0907             
+0908             <span class="keyword">if</span> ~isempty(eraseid)
+0909                 <span class="comment">% some files need to be erased...</span>
+0910                 <span class="keyword">for</span> k=eraseid
+0911                     <span class="keyword">for</span> t=1:length(targets{k})
+0912                         <span class="keyword">if</span> <a href="#_sub9" class="code" title="subfunction res = exist(obj,type)">exist</a>([o.dir filesep targets{k}{t}])
+0913                             <span class="keyword">try</span>
+0914                                 delete(targets{k}{t});
+0915                             <span class="keyword">catch</span>
+0916                                 disp([<span class="string">'Could not delete broken binary '</span> binaries{i}{s}]);
+0917                             <span class="keyword">end</span>
+0918                         <span class="keyword">end</span>
+0919                     <span class="keyword">end</span>
+0920                 <span class="keyword">end</span>
+0921             <span class="keyword">end</span>
+0922         <span class="keyword">else</span>
+0923             <span class="comment">% nothing to recompile</span>
+0924             ok = true;
+0925             <span class="keyword">if</span> strcmp(o.style,<span class="string">'eager'</span>) &amp;&amp; ~isempty(o.idents) &amp;&amp; o.verbose
+0926                 disp_once([<span class="string">'The functions '</span> <a href="#_sub3" class="code" title="subfunction x = format_cellstr(x)">format_cellstr</a>(o.idents) <span class="string">' are already compiled.'</span>]); <span class="keyword">end</span>
+0927         <span class="keyword">end</span>
+0928         
+0929         <span class="comment">% go back to the old directory</span>
+0930         <span class="keyword">if</span> <a href="hlp_matlab_version.html" class="code" title="function v = hlp_matlab_version()">hlp_matlab_version</a> &lt; 706
+0931             cd(olddir); <span class="keyword">end</span>
+0932     <span class="keyword">catch</span> e
+0933         ok = false; <span class="comment">%#ok&lt;NASGU&gt;</span>
+0934         <span class="comment">% go back to the old path in case of an error</span>
+0935         <span class="keyword">if</span> <a href="hlp_matlab_version.html" class="code" title="function v = hlp_matlab_version()">hlp_matlab_version</a> &lt; 706
+0936             cd(olddir); <span class="keyword">end</span>
+0937         rethrow(e);
+0938     <span class="keyword">end</span>
+0939 <span class="keyword">end</span>
+0940 
+0941 <span class="comment">% store the OK flag in the results</span>
+0942 <span class="keyword">if</span> strcmp(o.style,<span class="string">'lazy'</span>) || isdeployed
+0943     results.(tag) = ok; <span class="keyword">end</span>
+0944 
+0945 <span class="keyword">if</span> ~ok
+0946     <span class="keyword">if</span> ~isdeployed
+0947         <span class="comment">% regular error summary</span>
+0948         <span class="keyword">if</span> mexinvolved
+0949             disp_once(<span class="string">'\nIn case you need to use a better / fully supported compiler, please have a look at:'</span>);
+0950             <span class="keyword">try</span>
+0951                 v=version;
+0952                 releasename = v(find(v==<span class="string">'('</span>)+1 : find(v==<span class="string">')'</span>)-1);
+0953                 <span class="keyword">if</span> length(releasename) &gt; 3 &amp;&amp; releasename(1) == <span class="string">'R'</span>
+0954                     releasename = releasename(2:end); <span class="keyword">end</span>
+0955                 site = [<span class="string">'http://www.google.com/search?q=matlab+supported+compilers+'</span> releasename];
+0956             <span class="keyword">catch</span>
+0957                 site = <span class="string">'http://www.google.com/search?q=matlab+supported+compilers'</span>;
+0958             <span class="keyword">end</span>
+0959             disp_once(<span class="string">'  &lt;a href=&quot;%s&quot;&gt;%s&lt;/a&gt;\n'</span>,site,site);
+0960             <span class="keyword">if</span> ispc
+0961                 <span class="keyword">if</span> is64bit
+0962                     disp_once(<span class="string">'On 64-bit Windows, MATLAB comes with no built-in compiler, so you need to have one installed.'</span>);
+0963                 <span class="keyword">else</span>
+0964                     disp_once(<span class="string">'On 32-bit Windows, MATLAB supplies a built-in compiler (LLC), which is, however, not very good.'</span>);
+0965                 <span class="keyword">end</span>
+0966                 disp_once(<span class="string">'A good choice is the free Microsoft Visual Studio 2005/2008/2010 Express compiler suite'</span>);
+0967                 disp_once(<span class="string">'together with the Microsoft Platform SDK (6.1 for 2008, 7.1 for 2010) for your Windows Version.'</span>);
+0968                 disp_once(<span class="string">'See also: http://argus-home.coas.oregonstate.edu/forums/development/core-software-development/compiling-64-bit-mex-files'</span>);
+0969                 disp_once(<span class="string">'          http://www.mathworks.com/support/compilers/R2010b/win64.html'</span>);
+0970                 disp_once(<span class="string">'The installation is easier if a professional Intel or Microsoft compiler is used.'</span>);
+0971             <span class="keyword">elseif</span> isunix
+0972                 disp_once(<span class="string">'On Linux/UNIX, the best choice is usually a supported version of the GCC compiler suite.'</span>);
+0973             <span class="keyword">else</span>
+0974                 disp_once(<span class="string">'On Mac OS, you need to have a supported version of Xcode/GCC installed.'</span>);
+0975             <span class="keyword">end</span>
+0976         <span class="keyword">end</span>
+0977         <span class="keyword">if</span> javainvolved
+0978             disp_once(<span class="string">'Please make sure that your system''s java configuration matches the one used by MATLAB (see &quot;ver&quot; command).'</span>);
+0979         <span class="keyword">end</span>
+0980     <span class="keyword">end</span>
+0981 <span class="keyword">end</span>
+0982 
+0983 
+0984 
+0985 <span class="comment">% create javac options string from options struct</span>
+0986 <a name="_sub1" href="#_subfunctions" class="code">function opts = javac_options(o)</a>
+0987 verbosity = <a href="hlp_rewrite.html" class="code" title="function data = hlp_rewrite(data,varargin)">hlp_rewrite</a>(o.verbose,true,<span class="string">'-verbose'</span>,false,<span class="string">''</span>);
+0988 <span class="keyword">if</span> ~isempty(o.libdirs)
+0989     cpath = [<span class="string">'-classpath '</span> sprintf(<span class="string">'%s;'</span>,o.libdirs{:})];
+0990     cpath(end) = [];
+0991 <span class="keyword">else</span>
+0992     cpath = <span class="string">''</span>;
+0993 <span class="keyword">end</span>
+0994 <span class="keyword">if</span> ~isempty(o.includedirs)
+0995     ipath = [<span class="string">'-sourcepath '</span> sprintf(<span class="string">'%s;'</span>,o.includedirs{:})];
+0996     ipath(end) = [];
+0997 <span class="keyword">else</span>
+0998     ipath = <span class="string">''</span>;
+0999 <span class="keyword">end</span>
+1000 debugness = <a href="hlp_rewrite.html" class="code" title="function data = hlp_rewrite(data,varargin)">hlp_rewrite</a>(o.debug,true,<span class="string">'-g'</span>,false,<span class="string">'-g:none'</span>);
+1001 targetsource = <span class="string">'-target 1.6 -source 1.6'</span>;
+1002 opts = [sprintf(<span class="string">' %s'</span>,verbosity,cpath,ipath,debugness,targetsource) <span class="string">' '</span>];
+1003 
+1004 
+1005 <span class="comment">% create mex options string from options struct</span>
+1006 <a name="_sub2" href="#_subfunctions" class="code">function opts = mex_options(o)</a>
+1007 <span class="keyword">if</span> ~isempty(o.defines)
+1008     defs = sprintf(<span class="string">' -D%s'</span>,o.defines{:});
+1009 <span class="keyword">else</span>
+1010     defs = <span class="string">''</span>;
+1011 <span class="keyword">end</span>
+1012 debugness = <a href="hlp_rewrite.html" class="code" title="function data = hlp_rewrite(data,varargin)">hlp_rewrite</a>(o.debug,true,<span class="string">'-g'</span>,false,<span class="string">''</span>);
+1013 <span class="keyword">if</span> ~isempty(o.includedirs)
+1014     incdirs = sprintf(<span class="string">' -I&quot;%s&quot;'</span>,o.includedirs{:});
+1015 <span class="keyword">else</span>
+1016     incdirs = <span class="string">''</span>;
+1017 <span class="keyword">end</span>
+1018 <span class="keyword">if</span> ~isempty(o.libs)
+1019     <span class="keyword">if</span> ispc
+1020         libs = sprintf(<span class="string">' -l&quot;%s&quot;'</span>,o.libs{:});
+1021     <span class="keyword">else</span>
+1022         libs = sprintf(<span class="string">' -l%s'</span>,o.libs{:});
+1023     <span class="keyword">end</span>
+1024 <span class="keyword">else</span>
+1025     libs = <span class="string">''</span>;
+1026 <span class="keyword">end</span>
+1027 <span class="keyword">if</span> ~isempty(o.libdirs)
+1028     libdirs = sprintf(<span class="string">' -L&quot;%s&quot;'</span>,o.libdirs{:});
+1029 <span class="keyword">else</span>
+1030     libdirs = <span class="string">''</span>;
+1031 <span class="keyword">end</span>
+1032 verbosity = <a href="hlp_rewrite.html" class="code" title="function data = hlp_rewrite(data,varargin)">hlp_rewrite</a>(o.verbose,true,<span class="string">'-v'</span>,false,<span class="string">''</span>);
+1033 opts = [sprintf(<span class="string">' %s'</span>,defs,debugness,incdirs,libs,libdirs,verbosity) <span class="string">' '</span>];
+1034 
+1035 
+1036 <span class="comment">% format a non-empty cell-string array into a string</span>
+1037 <a name="_sub3" href="#_subfunctions" class="code">function x = format_cellstr(x)</a>
+1038 <span class="keyword">if</span> isempty(x)
+1039     x = <span class="string">''</span>;
+1040 <span class="keyword">else</span>
+1041     x = [<span class="string">'{'</span> sprintf(<span class="string">'%s, '</span>,x{1:end-1}) x{end} <span class="string">'}'</span>];
+1042 <span class="keyword">end</span>
+1043 
+1044 
+1045 <span class="comment">% check whether a given identifier is frozen in a ctf archive</span>
+1046 <a name="_sub4" href="#_subfunctions" class="code">function tf = in_ctf(ident) </a><span class="comment">%#ok&lt;DEFNU&gt;</span>
+1047 tf = isdeployed &amp;&amp; strncmp(ctfroot,<a href="#_sub10" class="code" title="subfunction res = which(ident)">which</a>(ident),length(ctfroot));
+1048 
+1049 
+1050 <span class="comment">% normalize a directory path</span>
+1051 <a name="_sub5" href="#_subfunctions" class="code">function dir = path_normalize(dir)</a>
+1052 <span class="keyword">if</span> filesep == <span class="string">'\'</span>;
+1053     dir(dir == <span class="string">'/'</span>) = filesep;
+1054 <span class="keyword">else</span>
+1055     dir(dir == <span class="string">'\'</span>) = filesep;
+1056 <span class="keyword">end</span>
+1057 <span class="keyword">if</span> dir(end) == filesep
+1058     dir = dir(1:end-1); <span class="keyword">end</span>
+1059 
+1060 
+1061 <span class="comment">% determine if a given file is a mex source file or a java source file</span>
+1062 <span class="comment">% (and compiles into an identifier that is seen by MATLAB)</span>
+1063 <a name="_sub6" href="#_subfunctions" class="code">function tf = is_primary(filename)</a>
+1064 <span class="keyword">if</span> length(filename)&gt;5 &amp;&amp; strcmp(filename(end-4:end),<span class="string">'.java'</span>)
+1065     tf = true;
+1066     <span class="keyword">return</span>; 
+1067 <span class="keyword">else</span>
+1068     tf = false;
+1069 <span class="keyword">end</span>
+1070 fid = fopen(filename);
+1071 <span class="keyword">if</span> fid ~= -1
+1072     <span class="keyword">try</span>
+1073         contents = fread(fid);
+1074         tf = ~isempty(strfind(char(contents)',<span class="string">'mexFunction'</span>)); <span class="comment">%#ok&lt;FREAD&gt;</span>
+1075         fclose(fid);
+1076     <span class="keyword">catch</span>
+1077         fclose(fid);
+1078     <span class="keyword">end</span>
+1079 <span class="keyword">end</span>
+1080 
+1081 
+1082 <span class="comment">% act like deal, but with a single cell array as input</span>
+1083 <a name="_sub7" href="#_subfunctions" class="code">function varargout = celldeal(argin)</a>
+1084 varargout = argin;
+1085 
+1086 
+1087 <span class="comment">% for old MATLABs that can't properly move files...</span>
+1088 <a name="_sub8" href="#_subfunctions" class="code">function movefile(src,dst)</a>
+1089 <span class="keyword">try</span>
+1090     builtin(<span class="string">'movefile'</span>,src,dst);    
+1091 <span class="keyword">catch</span> e
+1092     <span class="keyword">if</span> any([src dst]==<span class="string">'$'</span>) &amp;&amp; <a href="hlp_matlab_version.html" class="code" title="function v = hlp_matlab_version()">hlp_matlab_version</a> &lt;= 705
+1093         <span class="keyword">if</span> ispc
+1094             [errcode,text] = system(sprintf(<span class="string">'move ''%s'' ''%s'''</span>,src,dst)); <span class="comment">%#ok&lt;NASGU&gt;</span>
+1095         <span class="keyword">else</span>
+1096             [errcode,text] = system(sprintf(<span class="string">'mv ''%s'' ''%s'''</span>,src,dst)); <span class="comment">%#ok&lt;NASGU&gt;</span>
+1097         <span class="keyword">end</span>
+1098         <span class="keyword">if</span> errcode
+1099             error(<span class="string">'Failed to move %s to %s.'</span>,src,dst); <span class="keyword">end</span>
+1100     <span class="keyword">else</span>
+1101         rethrow(e);
+1102     <span class="keyword">end</span>
+1103 <span class="keyword">end</span>
+1104 
+1105 
+1106 <span class="comment">% for old MATLABs that don't handle Java classes on the dynamic path...</span>
+1107 <a name="_sub9" href="#_subfunctions" class="code">function res = exist(obj,type)</a>
+1108 <span class="keyword">if</span> nargin &gt; 1
+1109     res = builtin(<span class="string">'exist'</span>,obj,type);
+1110     <span class="keyword">if</span>  ~res &amp;&amp; (<a href="hlp_matlab_version.html" class="code" title="function v = hlp_matlab_version()">hlp_matlab_version</a> &lt;= 704) &amp;&amp; strcmp(type,<span class="string">'class'</span>) &amp;&amp; builtin(<span class="string">'exist'</span>,[obj <span class="string">'.class'</span>],<span class="string">'file'</span>)
+1111         res = 8; <span class="keyword">end</span>
+1112 <span class="keyword">else</span>
+1113     res = builtin(<span class="string">'exist'</span>,obj);
+1114     <span class="keyword">if</span>  ~res &amp;&amp; (<a href="hlp_matlab_version.html" class="code" title="function v = hlp_matlab_version()">hlp_matlab_version</a> &lt;= 704) &amp;&amp; builtin(<span class="string">'exist'</span>,[obj <span class="string">'.class'</span>])
+1115         res = 8; <span class="keyword">end</span>
+1116 <span class="keyword">end</span>
+1117 
+1118 
+1119 <span class="comment">% for old MATLABs that don't handle Java classes on the dynamic path...</span>
+1120 <a name="_sub10" href="#_subfunctions" class="code">function res = which(ident)</a>
+1121 res = builtin(<span class="string">'which'</span>,ident);
+1122 <span class="keyword">if</span> ~any(res == filesep)
+1123     <span class="keyword">if</span> <a href="hlp_matlab_version.html" class="code" title="function v = hlp_matlab_version()">hlp_matlab_version</a> &lt;= 704
+1124         <span class="keyword">if</span> isempty(res) || ~isempty(strfind(res,<span class="string">'not found'</span>)) 
+1125             res = builtin(<span class="string">'which'</span>,[ident <span class="string">'.class'</span>]); <span class="keyword">end</span>
+1126     <span class="keyword">else</span>
+1127         <span class="keyword">if</span> ~isempty(strfind(res,<span class="string">'Java'</span>)) 
+1128             res = builtin(<span class="string">'which'</span>,[ident <span class="string">'.class'</span>]); <span class="keyword">end</span>
+1129     <span class="keyword">end</span>
+1130 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

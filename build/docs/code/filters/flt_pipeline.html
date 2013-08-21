@@ -1,0 +1,1020 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_pipeline</title>
+  <meta name="keywords" content="flt_pipeline">
+  <meta name="description" content="Configurable preprocessing pipeline for most BCI paradigms.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_pipeline.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_pipeline
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Configurable preprocessing pipeline for most BCI paradigms.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function signal = flt_pipeline(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Configurable preprocessing pipeline for most BCI paradigms.
+ Signal = flt_pipeline(Signal, Stages...)
+
+ Most BCI paradigms contain a sequence of signal processing steps, many of which are common to a
+ variety of paradigms (for example, spatial and spectral filtering). The default Signal Processing
+ pipeline allows to restrict the raw sensor signals to the contents of interest, such as, for
+ example, specific frequency bands (e.g., the alpha band), or specific spatial areas (e.g. signals
+ emitted from the motor cortex). This can be viewed as a way to improve the signal-to-noise ratio
+ (for some notion of what is the signal) of the data, or as a way to express and incorporate prior
+ knowledge into the paradigm.
+
+
+ Direct Use
+ ==========
+
+ With no options, flt_pipeline returns the input signal unprocessed. By giving options, various
+ pipeline stages can be enabled. By default, the stages are automatically ordered according to 
+ whatever constraints and ordering hints they declare (which covers 99% of cases, though the order
+ can be manually and selectively overridden), and the order in which they are passed to flt_pipeline
+ does not matter. If a pipeline stage is listed multiple times, only the last assignment is 
+ effective.
+
+ Each pipeline stage can be referred to by various names (among other for backwards compatibility),
+ including a) the name of the function (without the flt_ / set_ prefix), b) the name that shows 
+ up in the GUI (e.g. SpectralTransform for flt_fourier), and c) in some cases a legacy short-cut 
+ name, e.g. 'epoch' for set_makepos).
+
+ The canonical way of enabling pipeline stages is by passing the name of the stage, followed by a
+ cell array containing the list of arguments to be passed to the respective function, excluding the
+ data set itself (which would come from whatever stage was before). Thus, the argument format is
+ determined by the respective stage function (see examples in the function's help). An example is
+ flt_pipeline('signal',eeg, 'iir',{'Frequencies',[0.5 2],'Mode','highpass'})
+ 
+ In addition, there are some shortcuts if only a single parameter that is not a cell array is
+ passed to the respective stage. In this case, the parameter can usually be passed without the
+ enclosing cell array, for example as in flt_pipeline('signal',eeg,'resample',300,'iir',[5 7 25 30]). 
+ It is also possible to turn on or off a pipeline stage by passing the string 'on' or 'off'.
+
+ The function automatically scans the filter and dataset_editing folders and passes the arguments
+ on to the respective functions.
+
+
+ Use in a BCI paradigm function
+ ==============================
+
+ As many BCI paradigms make use of a signal processing pipeline, flt_pipeline is most frequently
+ used within BCI paradigms (within their preprocessing code). BCI paradigms might expose a subset
+ of the filter pipeline's arguments as their own user parameters, or they might expose the entire
+ parameter set of flt_pipeline to the user, typically with some pre-defined paradigm-specific 
+ settings, so that the user can customize the entire pipeline. In particular, the function 
+ para_dataflow is a template BCI paradigm which exposes the entire pipeline as its 'flt' or 
+ 'SignalProcessing' argument (this is a cell array of flt_pipeline arguments), and the majority of 
+ BCI paradigms are wrappers around this function (only changing some default stages).
+
+ In this case, there is already a default assignment for a subset of the pipeline stage parameters,
+ and the user can selectively override the defaults, for example, by passing 
+ 'SignalProcessing',{'EpochExtraction',{...}} to change only the epoch extraction behavior of the
+ paradigm. To disable a stage that is by default enabled by a paradigm, simply pass [],
+ e.g. 'SignalProcessing',{'Resampling',[]} or 'off' to disable the respective stage. To turn a 
+ stage on without passing any particular parameters, pass either {} or 'on'.
+
+
+ Writing compatible stages
+ =========================
+
+ To be a compatible stage recognized by flt_pipeline, a function needs to:
+ a) be in the directory code/filters or code/dataset_editing and begin with flt_ or set_
+ b) use the argument declaration system (i.e., arg_define) to declare its arguments
+ c) declare at least one argument named 'signal', which is the signal to be processed
+    and when returning a second output (the state), accept an optional argument called 'state'
+ d) preferably use the expression system (i.e. exp_beginfun and exp_endfun)
+ e) preferably declare at least a minimal set of ordering hints (using declare_properties)
+ f) preferably declare a human-readable 'name' property in CamelCase (using declare_properties)
+
+ 
+ Filter Ordering
+ ===============
+
+ Each filter in BCILAB declares a small set of ordering hints which
+ describes its required or preferred ordering with respect to other
+ filters. This is to save users the hassle of figuring out the optimal
+ filter order themselves in the majority of cases.
+
+ For example, a filter that can only be applied on continuous but
+ not segmented data would specify that it cannot follow the filter stage
+ that turns a continuous signal into a segmented signal (which is the 
+ function set_makepos). Generally, these ordering hints are expressed
+ in the filter function (e.g. flt_iir) using a line as in the example:
+
+   declare_properties('cannot_follow','set_makepos', 'follows','flt_resample')
+  
+ Aside from the two hard ordering constraints 'cannot_follow' and
+ 'cannot_precede', a third one is the hard 'depends' constraint, which 
+ expresses that a particular filter stage must have been applied
+ beforehand -- for example, dipole fitting (for independent components) 
+ can only be performed after independent components have been derived in 
+ the first place, which is done by the filter flt_ica.
+
+ Lastly, a filter may express also &quot;soft&quot; ordering preferences (and many
+ do), for example because certain orders may be computationally more 
+ efficient or because a higher-quality result can be attained in a certain 
+ order. The two soft preferences are 'precedes' and 'follows'. For
+ example, many filters prefer to be applied after the resampling stage
+ (flt_resample) rather than before, in order to save computation time 
+ (as resampling usually reduces the amount of data to process). Another 
+ example are frequency-domain transforms (flt_fourier and flt_coherence), 
+ which are most useful when applied to data that is spatially filtered
+ rather than to the raw channel signals. Thus, these filters prefer to be
+ applied after at least flt_ica and flt_project. Because many filters
+ contribute such constraints or preferences (which can be visualized as 
+ directed edges between filter nodes), the final order is fairly well 
+ determined. 
+
+ If a different ordering is required than the default (which can be looked
+ up in the GUI edit panel of any paradigm that uses flt_pipeline -- that is
+ most of them), then one many partially override the order by passing a 
+ cell array of filter names as the parameter FilterOrdering. This is
+ interpreted as a set of additional hard ordering constraints between any
+ pair of filters in the list. Generally, the user-specified ordering and
+ the hard constraints take precedence over the preferences, but hard
+ constraints can not conflict (e.g., one cannot force a continuous-data
+ filter to be applied after set_makepos but gets an error instead). 
+
+ Lastly, only filters that specify at least one ordering hint are managed
+ by flt_pipeline (possibly a reason why a hastily written filter may not
+ show up in the GUI).
+
+
+ In:
+   Signal     : a data set to be processed (as, e.g., loaded with io_loadset)
+
+   Stages... : optional name-value pairs that enable various stages of the default preprocessing
+               pipeline. In the following, the most common default stages are listed with some 
+               examples:
+
+                'Resampling'/'resample'/'srate' (see flt_resample):
+                   resample to the given sampling rate, in Hz; 
+
+                   Example: resample to 200 Hz
+                   flt_pipeline(X,...,'resample',200,...)
+
+
+                'Rereferencing'/'reref'/'ref' (see flt_reref):
+                   re-reference the data to a set of channel(s); 
+
+                   Example: resample to the average of 'TP7' and 'TP8' channels
+                   flt_pipeline(X,...,'Rereferencing',{{'TP7','TP8'}},...)
+
+                   Example: do a common average reference
+                   flt_pipeline(X,...,'Rereferencing',{[]},...)
+
+
+                'ICA'/'ica' (see flt_ica):
+                   annonatate the data set with an independent component analysis decomposition
+
+                   Example: use the default settings
+                   flt_pipeline(X,...,'ICA','on',...), 
+
+                   Example: use a 3-models amica, and use 16 nodes on the cluster, using 'hardcore' cleaning
+                   flt_pipeline(X,...,'ICA',{'Variant',{'amica','NumModels',3,'NumProcessors',16},'CleaningLevel','hardcore'}...)
+
+
+                'ChannelSelection'/'selchans'/'channels' (see flt_selchans): 
+                   select a channel subset, typically a cell-string array 
+                   
+                   Example: select channels C3 and C4
+                   flt_pipeline(X,...,'ChannelSelection',{{'C3' 'C4'}},...)
+
+
+                'SurfaceLaplacian'/'laplace' (see flt_laplace):
+                   simple Hjorth-style surface laplacian
+
+                   Example: use the default settings
+                   flt_pipeline(X,...,'laplace','on',...)
+
+
+                'IIRFilter'/'iir' (see flt_iir): 
+                   apply an IIR-based frequency filter
+
+                   Example: implement an 8-30 Hz band-pass filter
+                   flt_pipeline(X,...,'iir',[7 8 29 31],...)
+
+                   Example: implement an 1 Hz high-pass filter (with generous transition band)
+                   flt_pipeline(X,...,'iir',{[0.5 1.5],'highpass'},...)
+
+                   Example: implement an 1 Hz high-pass filter, passing the flt_iir arguments by name
+                   flt_pipeline(X,...,'iir',{'Frequencies',[0.5 1.5], 'Mode','highpass'},...)
+
+
+                'FIRFilter'/'fir' (see flt_fir): 
+                   apply an FIR-based frequency filter
+
+                   Example: implement an 1 Hz minimum-phase high-pass filter
+                   flt_pipeline(X,...,'fir',{[0.5 1.5],'highpass','minimum-phase'}, ...)
+
+                'Standardization'/'standardize' (see flt_standardize): 
+                   standardize the channels using a window of past signal
+
+                   Example: standardize using a moving 60-second window
+                   flt_pipeline(X,...,'Standardization',60,...)
+
+                'EpochExtraction'/'makepos'/'epoch' (see set_makepos): 
+                   Extract epochs from the signal (and deduce a target variable from the time-
+                   locking event types) (see set_makepos).
+
+                   Example: extract epochs around each occurrence of marker 'keypress1' and 
+                            'keypress2', cutting out segments that begin 2s before the marker and
+                            end 1s after the marker (note: keypress1 epochs will be assigned class 1
+                            and keypress2 epochs are being assigned class 2)
+                   flt_pipeline(X,...,'epoch',{[-2 1],{'keypress1','keypress2'}},...)
+
+                   Example: as before, but assign class 1 to keypress2 and class 2 to keypress1
+                   flt_pipeline(X,...,'epoch',{[-2 1],{'keypress2','keypress1'}},...)
+
+                   Example: assign class 1 to epochs around marker 'stimulus', and class 2 to epochs
+                            around markers 'keypress1' or 'keypress2'
+                   flt_pipeline(X,...,'epoch',{[-2 1],{'stimulus',{'keypress2','keypress1'}}},...)
+           
+                'BaselineRemoval'/'rmbase'/'baseline' (see flt_rmbase): 
+                   remove a baseline window of the given epoch(s)
+
+                   Example: for each epoch, average the signal value within -250ms to +100ms around 
+                            the time-locking event, and subtract that value from the entire epoch
+                            for the respective channel
+                   flt_pipeline(X,...,'BaselineRemoval',[-0.25 0.1],...)
+
+                'WindowSelection'/'window' (see flt_window): 
+                   apply a window function
+                   
+                   Example: scale each epoch in the data by a hann time window 
+                   flt_pipeline(X,...,'window','hann',...), 
+
+                   Example: restrict each epoch to the interval within 0 to 0.5 seconds after the 
+                            respective time-locking event
+                   flt_pipeline(X,...,'window',[0 0.5],...)
+
+                'SpectralSelection'/'spectrum' (see flt_spectrum): 
+                   apply a free-form spectral filter per epoch (note: if no epochs are present, this 
+                   gives a non-causal filtering of the entire signal)
+
+                   Example: apply a 7-30 Hz band-pass filter with linear falloffs at both edges
+                   flt_pipeline(X,...,'spectrum',[6.5 7.5 27 33],...)
+
+                'SparseReconstruction'/'reconstruct' (see flt_reconstruct): 
+                   reconstruct the signal in terms of a new (possibly overcomplete) basis
+
+                   Example: reconstruct the data in a random overcomplete basis using a fast EM method
+                   flt_pipeline(X,...,'reconstruct',{randn(32,1000), 'variant','FastEM'},...)
+
+                'ProjectionMatrix'/'project' (see flt_project): 
+                   apply a custom spatial projection matrix to the signal
+
+                   Example: project the data according to a random matrix
+                   flt_pipeline(X,...,'project',randn(128),...)
+
+                'SpectralTransform'/'fourier' (see flt_fourier):
+                   transform (usually epoched) signal into a Fourier representation 
+
+                   Example: flt_pipeline(X,...,'fourier','amplitude',...)
+
+
+                In addition, flt_pipeline provides afew of its own special-purpose parameters which
+                are not pipeline stages by themselves:
+
+                'FilterOrdering' : cell string array to partially override the default order
+                                   for the given pipeline stage functions. (e.g. {'set_makepos','flt_iir'})
+
+
+ Out:
+   Signal  : the processed data set
+
+ Examples:
+   % resample, apply an IIR high-pass filter and extract epochs (here: using short param names)
+   eeg = flt_pipeline(eeg, 'resample',200, 'iir',{[0.5 1],'highpass'}, 'epoch',[-1 1]);
+
+   % apply a surface laplacian and do an ICA decomposition, keeping the defaults for both stages
+   % (here: using the long parameter names)
+   eeg = flt_pipeline(eeg, 'SurfaceLaplacian',{}, 'ICA',{});
+
+   % as before, but use the 'on' syntax, instead of the cell array syntax
+   eeg = flt_pipeline(eeg, 'SurfaceLaplacian','on', 'ICA','on');
+
+   % assuming a function that runs flt_pipeline, but pre-specifies some of its own defaults internally,
+   % while allowing to customize/override all of its pipeline stage defaults, override the IIR filter parameters,
+   % and turn off the ICA decomposition (assuming that it was on as per defaults of specialpipeline())
+   eeg = specialpipeline(eeg, 'IIRFilter',{'[0.5 2],'highpass'}, 'ICA','off')
+
+   % as before, but use the [] syntax to turn off a pipeline stage
+   eeg = specialpipeline(eeg, 'IIRFilter',{'[0.5 2],'highpass'}, 'ICA',[])
+
+   % note: specialpipeline may be implemented as follows:
+   function signal = specialpipeline(signal,varargin)
+   ...
+   signal = flt_pipeline(signal,'IIRFilter',[5 7 25 30], 'ICA','on', varargin{:})
+   ...
+
+   % special: re-parse the list of supported plugin functions (affects GUIs displayed for flt_pipeline)
+   flt_pipeline('update')
+
+ See also:
+   <a href="flt_clean_channels.html" class="code" title="function signal = flt_clean_channels(varargin)">flt_clean_channels</a>, flt_clean_peaks, flt_clean_spikes, <a href="flt_clean_windows.html" class="code" title="function [signal,sample_mask] = flt_clean_windows(varargin)">flt_clean_windows</a> (built-in Artifact Rejection)
+   flt_bandpower, <a href="flt_coherence.html" class="code" title="function signal = flt_coherence(varargin)">flt_coherence</a>, <a href="flt_fft.html" class="code" title="function signal = flt_fft(varargin)">flt_fft</a>, <a href="flt_fourier.html" class="code" title="function signal = flt_fourier(varargin)">flt_fourier</a> (built-in Spectral Transforms)
+   <a href="flt_fir.html" class="code" title="function [signal,state] = flt_fir(varargin)">flt_fir</a>, <a href="flt_iir.html" class="code" title="function [signal,state] = flt_iir(varargin)">flt_iir</a>, <a href="flt_spectrum.html" class="code" title="function signal = flt_spectrum(varargin)">flt_spectrum</a> (built-in Spectral Filtering)
+   <a href="flt_eog.html" class="code" title="function [signal,state] = flt_eog(varargin)">flt_eog</a>, <a href="flt_ica.html" class="code" title="function [signal,state] = flt_ica(varargin)">flt_ica</a>, <a href="flt_laplace.html" class="code" title="function signal = flt_laplace(varargin)">flt_laplace</a>, <a href="flt_project.html" class="code" title="function signal = flt_project(varargin)">flt_project</a>, <a href="flt_reref.html" class="code" title="function signal = flt_reref(varargin)">flt_reref</a>, <a href="flt_selchans.html" class="code" title="function signal = flt_selchans(varargin)">flt_selchans</a>, <a href="flt_seltypes.html" class="code" title="function signal = flt_seltypes(varargin)">flt_seltypes</a>, <a href="flt_selvolume.html" class="code" title="function signal = flt_selvolume(varargin)">flt_selvolume</a>, <a href="flt_stationary.html" class="code" title="function signal = flt_stationary(varargin)">flt_stationary</a> (built-in Spatial Filtering)
+   flt_epochica, <a href="flt_epochpca.html" class="code" title="function signal = flt_epochpca(varargin)">flt_epochpca</a>, <a href="flt_rmbase.html" class="code" title="function signal = flt_rmbase(varargin)">flt_rmbase</a>, <a href="flt_wavelet.html" class="code" title="function signal = flt_wavelet(varargin)">flt_wavelet</a>, <a href="flt_window.html" class="code" title="function signal = flt_window(varargin)">flt_window</a> (built-in Temporal Filtering)
+   <a href="flt_resample.html" class="code" title="function [signal,state] = flt_resample(varargin)">flt_resample</a>, <a href="flt_standardize.html" class="code" title="function [signal,state] = flt_standardize(varargin)">flt_standardize</a>, set_makepos, set_fit_dipoles (built-in Miscellaneous Filtering)
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-04-29</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function filters = list_filters(update_list)</a></li><li><a href="#_sub2" class="code">function [order,unlinked_filters] = order_filters(filters,override)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = flt_pipeline(varargin)</a>
+0002 <span class="comment">% Configurable preprocessing pipeline for most BCI paradigms.</span>
+0003 <span class="comment">% Signal = flt_pipeline(Signal, Stages...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Most BCI paradigms contain a sequence of signal processing steps, many of which are common to a</span>
+0006 <span class="comment">% variety of paradigms (for example, spatial and spectral filtering). The default Signal Processing</span>
+0007 <span class="comment">% pipeline allows to restrict the raw sensor signals to the contents of interest, such as, for</span>
+0008 <span class="comment">% example, specific frequency bands (e.g., the alpha band), or specific spatial areas (e.g. signals</span>
+0009 <span class="comment">% emitted from the motor cortex). This can be viewed as a way to improve the signal-to-noise ratio</span>
+0010 <span class="comment">% (for some notion of what is the signal) of the data, or as a way to express and incorporate prior</span>
+0011 <span class="comment">% knowledge into the paradigm.</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">% Direct Use</span>
+0015 <span class="comment">% ==========</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">% With no options, flt_pipeline returns the input signal unprocessed. By giving options, various</span>
+0018 <span class="comment">% pipeline stages can be enabled. By default, the stages are automatically ordered according to</span>
+0019 <span class="comment">% whatever constraints and ordering hints they declare (which covers 99% of cases, though the order</span>
+0020 <span class="comment">% can be manually and selectively overridden), and the order in which they are passed to flt_pipeline</span>
+0021 <span class="comment">% does not matter. If a pipeline stage is listed multiple times, only the last assignment is</span>
+0022 <span class="comment">% effective.</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">% Each pipeline stage can be referred to by various names (among other for backwards compatibility),</span>
+0025 <span class="comment">% including a) the name of the function (without the flt_ / set_ prefix), b) the name that shows</span>
+0026 <span class="comment">% up in the GUI (e.g. SpectralTransform for flt_fourier), and c) in some cases a legacy short-cut</span>
+0027 <span class="comment">% name, e.g. 'epoch' for set_makepos).</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">% The canonical way of enabling pipeline stages is by passing the name of the stage, followed by a</span>
+0030 <span class="comment">% cell array containing the list of arguments to be passed to the respective function, excluding the</span>
+0031 <span class="comment">% data set itself (which would come from whatever stage was before). Thus, the argument format is</span>
+0032 <span class="comment">% determined by the respective stage function (see examples in the function's help). An example is</span>
+0033 <span class="comment">% flt_pipeline('signal',eeg, 'iir',{'Frequencies',[0.5 2],'Mode','highpass'})</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">% In addition, there are some shortcuts if only a single parameter that is not a cell array is</span>
+0036 <span class="comment">% passed to the respective stage. In this case, the parameter can usually be passed without the</span>
+0037 <span class="comment">% enclosing cell array, for example as in flt_pipeline('signal',eeg,'resample',300,'iir',[5 7 25 30]).</span>
+0038 <span class="comment">% It is also possible to turn on or off a pipeline stage by passing the string 'on' or 'off'.</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">% The function automatically scans the filter and dataset_editing folders and passes the arguments</span>
+0041 <span class="comment">% on to the respective functions.</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">% Use in a BCI paradigm function</span>
+0045 <span class="comment">% ==============================</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">% As many BCI paradigms make use of a signal processing pipeline, flt_pipeline is most frequently</span>
+0048 <span class="comment">% used within BCI paradigms (within their preprocessing code). BCI paradigms might expose a subset</span>
+0049 <span class="comment">% of the filter pipeline's arguments as their own user parameters, or they might expose the entire</span>
+0050 <span class="comment">% parameter set of flt_pipeline to the user, typically with some pre-defined paradigm-specific</span>
+0051 <span class="comment">% settings, so that the user can customize the entire pipeline. In particular, the function</span>
+0052 <span class="comment">% para_dataflow is a template BCI paradigm which exposes the entire pipeline as its 'flt' or</span>
+0053 <span class="comment">% 'SignalProcessing' argument (this is a cell array of flt_pipeline arguments), and the majority of</span>
+0054 <span class="comment">% BCI paradigms are wrappers around this function (only changing some default stages).</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">% In this case, there is already a default assignment for a subset of the pipeline stage parameters,</span>
+0057 <span class="comment">% and the user can selectively override the defaults, for example, by passing</span>
+0058 <span class="comment">% 'SignalProcessing',{'EpochExtraction',{...}} to change only the epoch extraction behavior of the</span>
+0059 <span class="comment">% paradigm. To disable a stage that is by default enabled by a paradigm, simply pass [],</span>
+0060 <span class="comment">% e.g. 'SignalProcessing',{'Resampling',[]} or 'off' to disable the respective stage. To turn a</span>
+0061 <span class="comment">% stage on without passing any particular parameters, pass either {} or 'on'.</span>
+0062 <span class="comment">%</span>
+0063 <span class="comment">%</span>
+0064 <span class="comment">% Writing compatible stages</span>
+0065 <span class="comment">% =========================</span>
+0066 <span class="comment">%</span>
+0067 <span class="comment">% To be a compatible stage recognized by flt_pipeline, a function needs to:</span>
+0068 <span class="comment">% a) be in the directory code/filters or code/dataset_editing and begin with flt_ or set_</span>
+0069 <span class="comment">% b) use the argument declaration system (i.e., arg_define) to declare its arguments</span>
+0070 <span class="comment">% c) declare at least one argument named 'signal', which is the signal to be processed</span>
+0071 <span class="comment">%    and when returning a second output (the state), accept an optional argument called 'state'</span>
+0072 <span class="comment">% d) preferably use the expression system (i.e. exp_beginfun and exp_endfun)</span>
+0073 <span class="comment">% e) preferably declare at least a minimal set of ordering hints (using declare_properties)</span>
+0074 <span class="comment">% f) preferably declare a human-readable 'name' property in CamelCase (using declare_properties)</span>
+0075 <span class="comment">%</span>
+0076 <span class="comment">%</span>
+0077 <span class="comment">% Filter Ordering</span>
+0078 <span class="comment">% ===============</span>
+0079 <span class="comment">%</span>
+0080 <span class="comment">% Each filter in BCILAB declares a small set of ordering hints which</span>
+0081 <span class="comment">% describes its required or preferred ordering with respect to other</span>
+0082 <span class="comment">% filters. This is to save users the hassle of figuring out the optimal</span>
+0083 <span class="comment">% filter order themselves in the majority of cases.</span>
+0084 <span class="comment">%</span>
+0085 <span class="comment">% For example, a filter that can only be applied on continuous but</span>
+0086 <span class="comment">% not segmented data would specify that it cannot follow the filter stage</span>
+0087 <span class="comment">% that turns a continuous signal into a segmented signal (which is the</span>
+0088 <span class="comment">% function set_makepos). Generally, these ordering hints are expressed</span>
+0089 <span class="comment">% in the filter function (e.g. flt_iir) using a line as in the example:</span>
+0090 <span class="comment">%</span>
+0091 <span class="comment">%   declare_properties('cannot_follow','set_makepos', 'follows','flt_resample')</span>
+0092 <span class="comment">%</span>
+0093 <span class="comment">% Aside from the two hard ordering constraints 'cannot_follow' and</span>
+0094 <span class="comment">% 'cannot_precede', a third one is the hard 'depends' constraint, which</span>
+0095 <span class="comment">% expresses that a particular filter stage must have been applied</span>
+0096 <span class="comment">% beforehand -- for example, dipole fitting (for independent components)</span>
+0097 <span class="comment">% can only be performed after independent components have been derived in</span>
+0098 <span class="comment">% the first place, which is done by the filter flt_ica.</span>
+0099 <span class="comment">%</span>
+0100 <span class="comment">% Lastly, a filter may express also &quot;soft&quot; ordering preferences (and many</span>
+0101 <span class="comment">% do), for example because certain orders may be computationally more</span>
+0102 <span class="comment">% efficient or because a higher-quality result can be attained in a certain</span>
+0103 <span class="comment">% order. The two soft preferences are 'precedes' and 'follows'. For</span>
+0104 <span class="comment">% example, many filters prefer to be applied after the resampling stage</span>
+0105 <span class="comment">% (flt_resample) rather than before, in order to save computation time</span>
+0106 <span class="comment">% (as resampling usually reduces the amount of data to process). Another</span>
+0107 <span class="comment">% example are frequency-domain transforms (flt_fourier and flt_coherence),</span>
+0108 <span class="comment">% which are most useful when applied to data that is spatially filtered</span>
+0109 <span class="comment">% rather than to the raw channel signals. Thus, these filters prefer to be</span>
+0110 <span class="comment">% applied after at least flt_ica and flt_project. Because many filters</span>
+0111 <span class="comment">% contribute such constraints or preferences (which can be visualized as</span>
+0112 <span class="comment">% directed edges between filter nodes), the final order is fairly well</span>
+0113 <span class="comment">% determined.</span>
+0114 <span class="comment">%</span>
+0115 <span class="comment">% If a different ordering is required than the default (which can be looked</span>
+0116 <span class="comment">% up in the GUI edit panel of any paradigm that uses flt_pipeline -- that is</span>
+0117 <span class="comment">% most of them), then one many partially override the order by passing a</span>
+0118 <span class="comment">% cell array of filter names as the parameter FilterOrdering. This is</span>
+0119 <span class="comment">% interpreted as a set of additional hard ordering constraints between any</span>
+0120 <span class="comment">% pair of filters in the list. Generally, the user-specified ordering and</span>
+0121 <span class="comment">% the hard constraints take precedence over the preferences, but hard</span>
+0122 <span class="comment">% constraints can not conflict (e.g., one cannot force a continuous-data</span>
+0123 <span class="comment">% filter to be applied after set_makepos but gets an error instead).</span>
+0124 <span class="comment">%</span>
+0125 <span class="comment">% Lastly, only filters that specify at least one ordering hint are managed</span>
+0126 <span class="comment">% by flt_pipeline (possibly a reason why a hastily written filter may not</span>
+0127 <span class="comment">% show up in the GUI).</span>
+0128 <span class="comment">%</span>
+0129 <span class="comment">%</span>
+0130 <span class="comment">% In:</span>
+0131 <span class="comment">%   Signal     : a data set to be processed (as, e.g., loaded with io_loadset)</span>
+0132 <span class="comment">%</span>
+0133 <span class="comment">%   Stages... : optional name-value pairs that enable various stages of the default preprocessing</span>
+0134 <span class="comment">%               pipeline. In the following, the most common default stages are listed with some</span>
+0135 <span class="comment">%               examples:</span>
+0136 <span class="comment">%</span>
+0137 <span class="comment">%                'Resampling'/'resample'/'srate' (see flt_resample):</span>
+0138 <span class="comment">%                   resample to the given sampling rate, in Hz;</span>
+0139 <span class="comment">%</span>
+0140 <span class="comment">%                   Example: resample to 200 Hz</span>
+0141 <span class="comment">%                   flt_pipeline(X,...,'resample',200,...)</span>
+0142 <span class="comment">%</span>
+0143 <span class="comment">%</span>
+0144 <span class="comment">%                'Rereferencing'/'reref'/'ref' (see flt_reref):</span>
+0145 <span class="comment">%                   re-reference the data to a set of channel(s);</span>
+0146 <span class="comment">%</span>
+0147 <span class="comment">%                   Example: resample to the average of 'TP7' and 'TP8' channels</span>
+0148 <span class="comment">%                   flt_pipeline(X,...,'Rereferencing',{{'TP7','TP8'}},...)</span>
+0149 <span class="comment">%</span>
+0150 <span class="comment">%                   Example: do a common average reference</span>
+0151 <span class="comment">%                   flt_pipeline(X,...,'Rereferencing',{[]},...)</span>
+0152 <span class="comment">%</span>
+0153 <span class="comment">%</span>
+0154 <span class="comment">%                'ICA'/'ica' (see flt_ica):</span>
+0155 <span class="comment">%                   annonatate the data set with an independent component analysis decomposition</span>
+0156 <span class="comment">%</span>
+0157 <span class="comment">%                   Example: use the default settings</span>
+0158 <span class="comment">%                   flt_pipeline(X,...,'ICA','on',...),</span>
+0159 <span class="comment">%</span>
+0160 <span class="comment">%                   Example: use a 3-models amica, and use 16 nodes on the cluster, using 'hardcore' cleaning</span>
+0161 <span class="comment">%                   flt_pipeline(X,...,'ICA',{'Variant',{'amica','NumModels',3,'NumProcessors',16},'CleaningLevel','hardcore'}...)</span>
+0162 <span class="comment">%</span>
+0163 <span class="comment">%</span>
+0164 <span class="comment">%                'ChannelSelection'/'selchans'/'channels' (see flt_selchans):</span>
+0165 <span class="comment">%                   select a channel subset, typically a cell-string array</span>
+0166 <span class="comment">%</span>
+0167 <span class="comment">%                   Example: select channels C3 and C4</span>
+0168 <span class="comment">%                   flt_pipeline(X,...,'ChannelSelection',{{'C3' 'C4'}},...)</span>
+0169 <span class="comment">%</span>
+0170 <span class="comment">%</span>
+0171 <span class="comment">%                'SurfaceLaplacian'/'laplace' (see flt_laplace):</span>
+0172 <span class="comment">%                   simple Hjorth-style surface laplacian</span>
+0173 <span class="comment">%</span>
+0174 <span class="comment">%                   Example: use the default settings</span>
+0175 <span class="comment">%                   flt_pipeline(X,...,'laplace','on',...)</span>
+0176 <span class="comment">%</span>
+0177 <span class="comment">%</span>
+0178 <span class="comment">%                'IIRFilter'/'iir' (see flt_iir):</span>
+0179 <span class="comment">%                   apply an IIR-based frequency filter</span>
+0180 <span class="comment">%</span>
+0181 <span class="comment">%                   Example: implement an 8-30 Hz band-pass filter</span>
+0182 <span class="comment">%                   flt_pipeline(X,...,'iir',[7 8 29 31],...)</span>
+0183 <span class="comment">%</span>
+0184 <span class="comment">%                   Example: implement an 1 Hz high-pass filter (with generous transition band)</span>
+0185 <span class="comment">%                   flt_pipeline(X,...,'iir',{[0.5 1.5],'highpass'},...)</span>
+0186 <span class="comment">%</span>
+0187 <span class="comment">%                   Example: implement an 1 Hz high-pass filter, passing the flt_iir arguments by name</span>
+0188 <span class="comment">%                   flt_pipeline(X,...,'iir',{'Frequencies',[0.5 1.5], 'Mode','highpass'},...)</span>
+0189 <span class="comment">%</span>
+0190 <span class="comment">%</span>
+0191 <span class="comment">%                'FIRFilter'/'fir' (see flt_fir):</span>
+0192 <span class="comment">%                   apply an FIR-based frequency filter</span>
+0193 <span class="comment">%</span>
+0194 <span class="comment">%                   Example: implement an 1 Hz minimum-phase high-pass filter</span>
+0195 <span class="comment">%                   flt_pipeline(X,...,'fir',{[0.5 1.5],'highpass','minimum-phase'}, ...)</span>
+0196 <span class="comment">%</span>
+0197 <span class="comment">%                'Standardization'/'standardize' (see flt_standardize):</span>
+0198 <span class="comment">%                   standardize the channels using a window of past signal</span>
+0199 <span class="comment">%</span>
+0200 <span class="comment">%                   Example: standardize using a moving 60-second window</span>
+0201 <span class="comment">%                   flt_pipeline(X,...,'Standardization',60,...)</span>
+0202 <span class="comment">%</span>
+0203 <span class="comment">%                'EpochExtraction'/'makepos'/'epoch' (see set_makepos):</span>
+0204 <span class="comment">%                   Extract epochs from the signal (and deduce a target variable from the time-</span>
+0205 <span class="comment">%                   locking event types) (see set_makepos).</span>
+0206 <span class="comment">%</span>
+0207 <span class="comment">%                   Example: extract epochs around each occurrence of marker 'keypress1' and</span>
+0208 <span class="comment">%                            'keypress2', cutting out segments that begin 2s before the marker and</span>
+0209 <span class="comment">%                            end 1s after the marker (note: keypress1 epochs will be assigned class 1</span>
+0210 <span class="comment">%                            and keypress2 epochs are being assigned class 2)</span>
+0211 <span class="comment">%                   flt_pipeline(X,...,'epoch',{[-2 1],{'keypress1','keypress2'}},...)</span>
+0212 <span class="comment">%</span>
+0213 <span class="comment">%                   Example: as before, but assign class 1 to keypress2 and class 2 to keypress1</span>
+0214 <span class="comment">%                   flt_pipeline(X,...,'epoch',{[-2 1],{'keypress2','keypress1'}},...)</span>
+0215 <span class="comment">%</span>
+0216 <span class="comment">%                   Example: assign class 1 to epochs around marker 'stimulus', and class 2 to epochs</span>
+0217 <span class="comment">%                            around markers 'keypress1' or 'keypress2'</span>
+0218 <span class="comment">%                   flt_pipeline(X,...,'epoch',{[-2 1],{'stimulus',{'keypress2','keypress1'}}},...)</span>
+0219 <span class="comment">%</span>
+0220 <span class="comment">%                'BaselineRemoval'/'rmbase'/'baseline' (see flt_rmbase):</span>
+0221 <span class="comment">%                   remove a baseline window of the given epoch(s)</span>
+0222 <span class="comment">%</span>
+0223 <span class="comment">%                   Example: for each epoch, average the signal value within -250ms to +100ms around</span>
+0224 <span class="comment">%                            the time-locking event, and subtract that value from the entire epoch</span>
+0225 <span class="comment">%                            for the respective channel</span>
+0226 <span class="comment">%                   flt_pipeline(X,...,'BaselineRemoval',[-0.25 0.1],...)</span>
+0227 <span class="comment">%</span>
+0228 <span class="comment">%                'WindowSelection'/'window' (see flt_window):</span>
+0229 <span class="comment">%                   apply a window function</span>
+0230 <span class="comment">%</span>
+0231 <span class="comment">%                   Example: scale each epoch in the data by a hann time window</span>
+0232 <span class="comment">%                   flt_pipeline(X,...,'window','hann',...),</span>
+0233 <span class="comment">%</span>
+0234 <span class="comment">%                   Example: restrict each epoch to the interval within 0 to 0.5 seconds after the</span>
+0235 <span class="comment">%                            respective time-locking event</span>
+0236 <span class="comment">%                   flt_pipeline(X,...,'window',[0 0.5],...)</span>
+0237 <span class="comment">%</span>
+0238 <span class="comment">%                'SpectralSelection'/'spectrum' (see flt_spectrum):</span>
+0239 <span class="comment">%                   apply a free-form spectral filter per epoch (note: if no epochs are present, this</span>
+0240 <span class="comment">%                   gives a non-causal filtering of the entire signal)</span>
+0241 <span class="comment">%</span>
+0242 <span class="comment">%                   Example: apply a 7-30 Hz band-pass filter with linear falloffs at both edges</span>
+0243 <span class="comment">%                   flt_pipeline(X,...,'spectrum',[6.5 7.5 27 33],...)</span>
+0244 <span class="comment">%</span>
+0245 <span class="comment">%                'SparseReconstruction'/'reconstruct' (see flt_reconstruct):</span>
+0246 <span class="comment">%                   reconstruct the signal in terms of a new (possibly overcomplete) basis</span>
+0247 <span class="comment">%</span>
+0248 <span class="comment">%                   Example: reconstruct the data in a random overcomplete basis using a fast EM method</span>
+0249 <span class="comment">%                   flt_pipeline(X,...,'reconstruct',{randn(32,1000), 'variant','FastEM'},...)</span>
+0250 <span class="comment">%</span>
+0251 <span class="comment">%                'ProjectionMatrix'/'project' (see flt_project):</span>
+0252 <span class="comment">%                   apply a custom spatial projection matrix to the signal</span>
+0253 <span class="comment">%</span>
+0254 <span class="comment">%                   Example: project the data according to a random matrix</span>
+0255 <span class="comment">%                   flt_pipeline(X,...,'project',randn(128),...)</span>
+0256 <span class="comment">%</span>
+0257 <span class="comment">%                'SpectralTransform'/'fourier' (see flt_fourier):</span>
+0258 <span class="comment">%                   transform (usually epoched) signal into a Fourier representation</span>
+0259 <span class="comment">%</span>
+0260 <span class="comment">%                   Example: flt_pipeline(X,...,'fourier','amplitude',...)</span>
+0261 <span class="comment">%</span>
+0262 <span class="comment">%</span>
+0263 <span class="comment">%                In addition, flt_pipeline provides afew of its own special-purpose parameters which</span>
+0264 <span class="comment">%                are not pipeline stages by themselves:</span>
+0265 <span class="comment">%</span>
+0266 <span class="comment">%                'FilterOrdering' : cell string array to partially override the default order</span>
+0267 <span class="comment">%                                   for the given pipeline stage functions. (e.g. {'set_makepos','flt_iir'})</span>
+0268 <span class="comment">%</span>
+0269 <span class="comment">%</span>
+0270 <span class="comment">% Out:</span>
+0271 <span class="comment">%   Signal  : the processed data set</span>
+0272 <span class="comment">%</span>
+0273 <span class="comment">% Examples:</span>
+0274 <span class="comment">%   % resample, apply an IIR high-pass filter and extract epochs (here: using short param names)</span>
+0275 <span class="comment">%   eeg = flt_pipeline(eeg, 'resample',200, 'iir',{[0.5 1],'highpass'}, 'epoch',[-1 1]);</span>
+0276 <span class="comment">%</span>
+0277 <span class="comment">%   % apply a surface laplacian and do an ICA decomposition, keeping the defaults for both stages</span>
+0278 <span class="comment">%   % (here: using the long parameter names)</span>
+0279 <span class="comment">%   eeg = flt_pipeline(eeg, 'SurfaceLaplacian',{}, 'ICA',{});</span>
+0280 <span class="comment">%</span>
+0281 <span class="comment">%   % as before, but use the 'on' syntax, instead of the cell array syntax</span>
+0282 <span class="comment">%   eeg = flt_pipeline(eeg, 'SurfaceLaplacian','on', 'ICA','on');</span>
+0283 <span class="comment">%</span>
+0284 <span class="comment">%   % assuming a function that runs flt_pipeline, but pre-specifies some of its own defaults internally,</span>
+0285 <span class="comment">%   % while allowing to customize/override all of its pipeline stage defaults, override the IIR filter parameters,</span>
+0286 <span class="comment">%   % and turn off the ICA decomposition (assuming that it was on as per defaults of specialpipeline())</span>
+0287 <span class="comment">%   eeg = specialpipeline(eeg, 'IIRFilter',{'[0.5 2],'highpass'}, 'ICA','off')</span>
+0288 <span class="comment">%</span>
+0289 <span class="comment">%   % as before, but use the [] syntax to turn off a pipeline stage</span>
+0290 <span class="comment">%   eeg = specialpipeline(eeg, 'IIRFilter',{'[0.5 2],'highpass'}, 'ICA',[])</span>
+0291 <span class="comment">%</span>
+0292 <span class="comment">%   % note: specialpipeline may be implemented as follows:</span>
+0293 <span class="comment">%   function signal = specialpipeline(signal,varargin)</span>
+0294 <span class="comment">%   ...</span>
+0295 <span class="comment">%   signal = flt_pipeline(signal,'IIRFilter',[5 7 25 30], 'ICA','on', varargin{:})</span>
+0296 <span class="comment">%   ...</span>
+0297 <span class="comment">%</span>
+0298 <span class="comment">%   % special: re-parse the list of supported plugin functions (affects GUIs displayed for flt_pipeline)</span>
+0299 <span class="comment">%   flt_pipeline('update')</span>
+0300 <span class="comment">%</span>
+0301 <span class="comment">% See also:</span>
+0302 <span class="comment">%   flt_clean_channels, flt_clean_peaks, flt_clean_spikes, flt_clean_windows (built-in Artifact Rejection)</span>
+0303 <span class="comment">%   flt_bandpower, flt_coherence, flt_fft, flt_fourier (built-in Spectral Transforms)</span>
+0304 <span class="comment">%   flt_fir, flt_iir, flt_spectrum (built-in Spectral Filtering)</span>
+0305 <span class="comment">%   flt_eog, flt_ica, flt_laplace, flt_project, flt_reref, flt_selchans, flt_seltypes, flt_selvolume, flt_stationary (built-in Spatial Filtering)</span>
+0306 <span class="comment">%   flt_epochica, flt_epochpca, flt_rmbase, flt_wavelet, flt_window (built-in Temporal Filtering)</span>
+0307 <span class="comment">%   flt_resample, flt_standardize, set_makepos, set_fit_dipoles (built-in Miscellaneous Filtering)</span>
+0308 <span class="comment">%</span>
+0309 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0310 <span class="comment">%                                2010-04-29</span>
+0311 
+0312 
+0313 warning off BCILAB:unresolved_dep
+0314 
+0315 <span class="keyword">if</span> ~isequal(varargin,{<span class="string">'update'</span>})
+0316     
+0317     <span class="comment">% --- collect, order and parameterize filters ---</span>
+0318     
+0319     <span class="comment">% scan the directories for available filters and assemble them in a list</span>
+0320     allflt = <a href="#_sub1" class="code" title="subfunction filters = list_filters(update_list)">list_filters</a>();
+0321     
+0322     <span class="comment">% sort filters in the preferred order (and remove filters for which no preferences are known)</span>
+0323     custom_order = arg_extract(varargin,{<span class="string">'fltorder'</span>,<span class="string">'FilterOrdering'</span>,<span class="string">'order'</span>},[],{});
+0324     [ordering,unlinked] = hlp_microcache(<span class="string">'ordering'</span>,@<a href="#_sub2" class="code" title="subfunction [order,unlinked_filters] = order_filters(filters,override)">order_filters</a>,struct(<span class="string">'name'</span>,{allflt.name},<span class="string">'properties'</span>,{allflt.properties}),custom_order);
+0325     filters = allflt(ordering);
+0326     
+0327     <span class="comment">% define/expose arguments to flt_pipeline (and define an argument for each filter)</span>
+0328     args = arg_define([0 1], varargin, <span class="keyword">...</span>
+0329         arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0330         arg({<span class="string">'fltorder'</span>,<span class="string">'FilterOrdering'</span>,<span class="string">'order'</span>},{},[],<span class="string">'Override filter order. Filters listed in this cell-string array are (partially) reordered according to this list. Example: {''set_makepos'',''flt_ica'',''flt_resample''}. See also the help of flt_pipeline.'</span>,<span class="string">'type'</span>,<span class="string">'cellstr'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0331         <span class="keyword">...</span><span class="comment"> % list the argument specifications for all filters</span>
+0332         filters.spec);
+0333     
+0334     <span class="comment">% check if there were conflicts / problems</span>
+0335     <span class="keyword">if</span> ~isempty(unlinked)
+0336         <span class="comment">% there were ordering conflicts which led to the removal of filters from the chain this</span>
+0337         <span class="comment">% should be extremely rare, if it can happen at all</span>
+0338         problematic = [];
+0339         <span class="comment">% check if some of those filters are actually in use during this invocation of the filter</span>
+0340         <span class="comment">% pipeline</span>
+0341         <span class="keyword">for</span> u=unlinked
+0342             <span class="keyword">if</span> args.(allflt(u).tag).arg_selection
+0343                 problematic(end+1) = u; <span class="keyword">end</span>
+0344         <span class="keyword">end</span>
+0345         <span class="keyword">if</span> ~isempty(problematic)
+0346             <span class="comment">% if so, generate an error</span>
+0347             error(<span class="string">'BCILAB:flt_pipeline:undefined_order'</span>,[<span class="string">'The ordering relationship '</span> hlp_tostring(args.fltorder) <span class="string">' is in conflict with the preferred ordering for the following filter stages:\n'</span>, <span class="keyword">...</span>
+0348                 hlp_tostring({allflt(probleatic).name}) <span class="string">'\n'</span> <span class="keyword">...</span>
+0349                 <span class="string">'Their position in the filter chain is therefore not defined, but they are in use. Please include these filters in the filtering order definition, to specify their position.'</span>]);
+0350         <span class="keyword">end</span>
+0351         <span class="comment">% also note other conflicts (for filters that were not used in the current pipeline)</span>
+0352         disp([<span class="string">'Note: the ordering relationship '</span> hlp_tostring(args.fltorder) <span class="string">' is in conflict with the ordering preferences for the following'</span> fastif(~isempty(problematic),<span class="string">' further '</span>,<span class="string">' '</span>) <span class="string">'nodes:'</span>]);
+0353         disp(hlp_tostring({allflt(setdiff(unlinked,problematic)).name}));
+0354         disp(<span class="string">'Their position is currently not defined, but it is advisable to define it, if the filters are to be enabled eventually.'</span>);
+0355     <span class="keyword">end</span>
+0356 
+0357     
+0358     <span class="comment">% --- apply filters, as sig = flt_***(args,'signal',sig); ---</span>
+0359     
+0360     <span class="keyword">for</span> f=1:length(filters)
+0361         <span class="comment">% some new filters may have been added since the args were generated (thus we need to check)</span>
+0362         <span class="keyword">if</span> isfield(args,[<span class="string">'p'</span> filters(f).tag])            
+0363             setup = args.([<span class="string">'p'</span> filters(f).tag]);
+0364             <span class="keyword">if</span> setup.arg_selection
+0365                 <span class="comment">% also check if its dependencies are resolved</span>
+0366                 <span class="keyword">for</span> d = filters(f).properties.depends
+0367                     <span class="keyword">if</span> ~args.([<span class="string">'p'</span> d{1}(5:end)]).arg_selection
+0368                         warning(<span class="string">'BCILAB:unresolved_dep'</span>,[<span class="string">'Filter '</span> filters(f).name <span class="string">' depends on '</span> d{1} <span class="string">', which is currently disabled.'</span>]); <span class="keyword">end</span>
+0369                 <span class="keyword">end</span>
+0370                 args.signal = feval(filters(f).name,setup,<span class="string">'signal'</span>,args.signal);
+0371             <span class="keyword">end</span>
+0372         <span class="keyword">end</span>
+0373     <span class="keyword">end</span>
+0374 
+0375     signal = args.signal;
+0376 <span class="keyword">else</span>
+0377     <span class="comment">% just update the list of filters and return</span>
+0378     <a href="#_sub1" class="code" title="subfunction filters = list_filters(update_list)">list_filters</a>(true);
+0379 <span class="keyword">end</span>
+0380 
+0381 
+0382 <span class="comment">% get a list of all existing filter specifications</span>
+0383 <a name="_sub1" href="#_subfunctions" class="code">function filters = list_filters(update_list)</a>
+0384 debug = false;
+0385 <span class="keyword">persistent</span> memo;
+0386 <span class="comment">% if we need to (re-)collect the list</span>
+0387 <span class="keyword">if</span> isempty(memo) || exist(<span class="string">'update_list'</span>,<span class="string">'var'</span>) &amp;&amp; update_list
+0388     <span class="comment">% get all directory entries</span>
+0389     found = [dir(env_translatepath(<span class="string">'functions:/filters/flt_*.m'</span>)); 
+0390              dir(env_translatepath(<span class="string">'functions:/dataset_editing/set_*.m'</span>));
+0391              dir(env_translatepath(<span class="string">'functions:/filters/in_development/flt_*.m'</span>));
+0392              dir(env_translatepath(<span class="string">'functions:/dataset_editing/in_development/set_*.m'</span>))];
+0393 
+0394     <span class="comment">% get file names, function names, function handles, function tags (names without prefix)</span>
+0395     files = setdiff({found.name},{<span class="string">'flt_pipeline.m'</span>,<span class="string">'set_new.m'</span>,<span class="string">'set_chanid.m'</span>,<span class="string">'set_infer_chanlocs.m'</span>});
+0396     names = cellfun(@(n) n(1:end-2),files,<span class="string">'UniformOutput'</span>,false);
+0397     funcs = cellfun(@(n) str2func(n),names,<span class="string">'UniformOutput'</span>,false);
+0398     tags = cellfun(@(n) n(5:end),names,<span class="string">'UniformOutput'</span>,false);
+0399     <span class="comment">% obtain declared filter properties</span>
+0400     retain = true(size(funcs));
+0401     <span class="keyword">for</span> f=1:length(funcs)
+0402         <span class="keyword">try</span>
+0403             props{f} = arg_report(<span class="string">'properties'</span>,funcs{f});
+0404         <span class="keyword">catch</span> e
+0405             <span class="keyword">if</span> disp_once([<span class="string">'Cannot query properties of filter '</span> char(funcs{f}) <span class="string">': '</span> e.message])  &amp;&amp; debug
+0406                 hlp_handleerror(e); <span class="keyword">end</span>
+0407             retain(f) = false;
+0408             <span class="keyword">continue</span>;
+0409         <span class="keyword">end</span>
+0410         <span class="comment">% check/add missing properties</span>
+0411         <span class="keyword">for</span> n = {<span class="string">'name'</span>,<span class="string">'depends'</span>,<span class="string">'precedes'</span>,<span class="string">'follows'</span>,<span class="string">'cannot_precede'</span>,<span class="string">'cannot_follow'</span>}
+0412             prop = n{1};
+0413             <span class="keyword">if</span> ~isfield(props{f},prop)
+0414                 props{f}.(prop) = {}; <span class="keyword">end</span>
+0415             <span class="keyword">if</span> ischar(props{f}.(prop))
+0416                 props{f}.(prop) = {props{f}.(prop)}; <span class="keyword">end</span>
+0417             <span class="keyword">if</span> ~iscellstr(props{f}.(prop))
+0418                 error([<span class="string">'The given field must be a string or cell-string array: '</span> prop]); <span class="keyword">end</span>
+0419         <span class="keyword">end</span>
+0420         <span class="keyword">if</span> ~isfield(props{f},<span class="string">'deprecated'</span>)
+0421             props{f}.deprecated = false; <span class="keyword">end</span>
+0422         <span class="keyword">if</span> ~isfield(props{f},<span class="string">'experimental'</span>)
+0423             props{f}.experimental = false; <span class="keyword">end</span>
+0424         <span class="keyword">if</span> ~isfield(props{f},<span class="string">'guru'</span>)
+0425             props{f}.guru = false; <span class="keyword">end</span>
+0426     <span class="keyword">end</span>
+0427     
+0428     <span class="comment">% create argument specifications...</span>
+0429     <span class="keyword">for</span> f=find(retain)
+0430         <span class="comment">% take the tag as the argument's code name, and the 'name' property as additional (e.g. GUI)</span>
+0431         <span class="comment">% names</span>
+0432         nameset = [{[<span class="string">'p'</span> tags{f}]} props{f}.name tags(f)];
+0433         <span class="comment">% take the first line of the function's help text as description of the argument, followed</span>
+0434         <span class="comment">% by the function name</span>
+0435         description = [hlp_getresult(4,@utl_fileinfo,which(names{f}),names{f}) <span class="string">' ('</span> names{f} <span class="string">')'</span>];
+0436         <span class="keyword">try</span>
+0437             specs{f} = arg_subtoggle(nameset,[],funcs{f},description,<span class="string">'deprecated'</span>,props{f}.deprecated,<span class="string">'experimental'</span>,props{f}.experimental);
+0438         <span class="keyword">catch</span> e
+0439             disp_once([<span class="string">'Cannot define argument slot for function '</span> char(funcs{f}) <span class="string">' (likely an issue with the properties declaration): '</span> e.message]);
+0440             retain(f) = false;
+0441             <span class="keyword">continue</span>;
+0442         <span class="keyword">end</span>
+0443         <span class="keyword">try</span>
+0444             report = arg_report(<span class="string">'rich'</span>,funcs{f}); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0445         <span class="keyword">catch</span> e
+0446             <span class="comment">% otherwise there is an actual error</span>
+0447             <span class="keyword">if</span> disp_once([<span class="string">'Cannot query arguments of function '</span> char(funcs{f}) <span class="string">' (likely an issue with the argument definition): '</span> e.message]) &amp;&amp; debug
+0448                 hlp_handleerror(e); <span class="keyword">end</span>
+0449             retain(f) = false;
+0450             <span class="keyword">continue</span>;
+0451         <span class="keyword">end</span>
+0452     <span class="keyword">end</span>
+0453     memo = struct(<span class="string">'name'</span>,names(retain),<span class="string">'tag'</span>,tags(retain),<span class="string">'func'</span>,funcs(retain),<span class="string">'properties'</span>,props(retain),<span class="string">'spec'</span>,specs(retain));
+0454 <span class="keyword">end</span>
+0455 <span class="comment">% remember the result for the next time...</span>
+0456 filters = memo;
+0457 
+0458 
+0459 
+0460 <span class="comment">% determine the preferred order of the filters</span>
+0461 <a name="_sub2" href="#_subfunctions" class="code">function [order,unlinked_filters] = order_filters(filters,override)</a>
+0462 <span class="comment">% optionally, a part of the order can be overridden with a cell array of names (or a cell array of</span>
+0463 <span class="comment">% edges)</span>
+0464 <span class="keyword">if</span> ~exist(<span class="string">'override'</span>,<span class="string">'var'</span>)
+0465     override = {}; <span class="keyword">end</span>
+0466 
+0467 <span class="comment">% we consider only filters for which we have some ordering information ('depends', 'follows', or</span>
+0468 <span class="comment">% 'precedes')</span>
+0469 order_names = {};
+0470 <span class="keyword">for</span> f=1:length(filters)
+0471     flt = filters(f);
+0472     <span class="comment">% get a list of all filters related to flt</span>
+0473     related_filters = [flt.properties.depends flt.properties.follows flt.properties.precedes flt.properties.cannot_precede flt.properties.cannot_follow];
+0474     <span class="comment">% add to the full list</span>
+0475     order_names = [order_names related_filters];
+0476     <span class="comment">% also add the filter itself, if it relates to some other filter(s)</span>
+0477     <span class="keyword">if</span> ~isempty(related_filters)
+0478         order_names{end+1} = flt.name; <span class="keyword">end</span>
+0479 <span class="keyword">end</span>
+0480 order_names = unique(order_names);
+0481 
+0482 <span class="keyword">if</span> ~isempty(override)
+0483     <span class="comment">% also append those names that were specified in the override listing</span>
+0484     <span class="keyword">if</span> iscellstr(override)
+0485         order_names = [order_names override];
+0486     <span class="keyword">elseif</span> all(cellfun(<span class="string">'isclass'</span>,override,<span class="string">'cell'</span>))
+0487         order_names = [order_names override{:}];
+0488     <span class="keyword">else</span>
+0489         error(<span class="string">'The override order of filters must either be a cell-string array {flt_xxx,flt_yyy,flt_zzz, ...} or a cell array of 2-element cell-string arrays {{flt_xxx,flt_yyy},{flt_xxx,flt_zzz}}'</span>);
+0490     <span class="keyword">end</span>
+0491 <span class="keyword">end</span>
+0492 
+0493 <span class="comment">% retain only those filters that apppear in order_names</span>
+0494 retain = [];
+0495 <span class="keyword">for</span> f=1:length(filters)
+0496     <span class="keyword">if</span> any(strcmp(filters(f).name,order_names))
+0497         retain(end+1) = f; <span class="keyword">end</span>
+0498 <span class="keyword">end</span>
+0499 filters = filters(retain);
+0500 
+0501 <span class="comment">% create a mapping from name to index in filters...</span>
+0502 remap = struct();
+0503 <span class="keyword">for</span> f=1:length(filters)
+0504     remap.(filters(f).name) = f; <span class="keyword">end</span>
+0505 
+0506 <span class="comment">% create a graph according to the filters' ordering preferences/constraints, as an edge list (of the</span>
+0507 <span class="comment">% type 'src precedes dst')</span>
+0508 preferences = {};
+0509 constraints = {};
+0510 <span class="keyword">for</span> i = 1:length(filters)
+0511     flt = filters(i);
+0512     <span class="keyword">for</span> j = 1:length(flt.properties.depends)
+0513         constraints{end+1} = [remap.(flt.properties.depends{j}),i]; <span class="keyword">end</span>
+0514     <span class="keyword">for</span> j = 1:length(flt.properties.follows)
+0515         preferences{end+1} = [remap.(flt.properties.follows{j}),i]; <span class="keyword">end</span>
+0516     <span class="keyword">for</span> j = 1:length(flt.properties.precedes)
+0517         preferences{end+1} = [i,remap.(flt.properties.precedes{j})]; <span class="keyword">end</span>
+0518     <span class="keyword">for</span> j = 1:length(flt.properties.cannot_follow)
+0519         constraints{end+1} = [i,remap.(flt.properties.cannot_follow{j})]; <span class="keyword">end</span>
+0520     <span class="keyword">for</span> j = 1:length(flt.properties.cannot_precede)
+0521         constraints{end+1} = [remap.(flt.properties.cannot_precede{j}),i]; <span class="keyword">end</span>
+0522 <span class="keyword">end</span>
+0523 edges = [preferences constraints];
+0524 
+0525 newedges = {};
+0526 <span class="keyword">if</span> ~isempty(override)
+0527     <span class="comment">% form the transitive closure of the graph, using Warshall's algorithm</span>
+0528     <span class="comment">% (http://www.cs.nmsu.edu/~ipivkina/TransClosure/index.html)</span>
+0529     A = zeros(length(filters));
+0530     <span class="keyword">for</span> e=edges
+0531         edge = e{1};
+0532         A(edge(1),edge(2)) = 1; 
+0533     <span class="keyword">end</span>
+0534     <span class="keyword">for</span> i = 1:length(filters)
+0535         <span class="keyword">for</span> j = 1:length(filters)
+0536             t = A(i,j) == 1 &amp; A(j,:) == 1;
+0537             A(i,t) = 1;
+0538         <span class="keyword">end</span>
+0539     <span class="keyword">end</span>
+0540     <span class="comment">% convert back to edge list...</span>
+0541     edges = {};
+0542     <span class="keyword">for</span> i = 1:length(filters)
+0543         <span class="keyword">for</span> j = 1:length(filters)
+0544             <span class="keyword">if</span> A(i,j)
+0545                edges{end+1} = [i,j]; <span class="keyword">end</span>
+0546         <span class="keyword">end</span>
+0547     <span class="keyword">end</span>
+0548     
+0549     <span class="comment">% add override relationships</span>
+0550     <span class="keyword">if</span> iscellstr(override)
+0551         <span class="comment">% a total order over a subset of nodes was specified</span>
+0552         <span class="keyword">for</span> i=1:length(override)
+0553             <span class="keyword">for</span> j=i+1:length(override)
+0554                 newedges{end+1} = [remap.(override{i}) remap.(override{j})]; <span class="keyword">end</span>
+0555         <span class="keyword">end</span>
+0556     <span class="keyword">elseif</span> all(cellfun(<span class="string">'isclass'</span>,override,<span class="string">'cell'</span>))
+0557         <span class="comment">% a partial order over a subset of nodes was specified</span>
+0558         <span class="keyword">for</span> i=1:length(override)
+0559             newedges{end+1} = [remap.(override{i}{1}) remap.(override{i}{2})]; <span class="keyword">end</span>
+0560     <span class="keyword">end</span>
+0561     edges = [edges newedges];
+0562 <span class="keyword">end</span>
+0563 
+0564 <span class="comment">% remove duplicate edges</span>
+0565 [dummy,edgeretain] = unique(cellfun(@num2str,edges,<span class="string">'UniformOutput'</span>,false)); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0566 edges = edges(edgeretain);
+0567 
+0568 <span class="keyword">if</span> ~isempty(override)
+0569     <span class="comment">% find all strongly connected components (cycles) of the graph</span>
+0570     <span class="comment">% these are the conflicting ordering preferences</span>
+0571     nodes = repmat(struct(<span class="string">'in'</span>,{[]},<span class="string">'out'</span>,{[]},<span class="string">'index'</span>,{[]},<span class="string">'lowlink'</span>,{[]}),1,length(filters));
+0572     <span class="keyword">for</span> e=edges
+0573         edge = e{1};
+0574         nodes(edge(1)).out(end+1) = edge(2);
+0575         nodes(edge(2)).in(end+1) = edge(1);
+0576     <span class="keyword">end</span>       
+0577     <span class="comment">% use Tarjan's algorithm for this</span>
+0578     <span class="comment">% (http://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm)</span>
+0579     adj = sparse(cellfun(@(x)x(1),edges),cellfun(@(x)x(2),edges),true,length(retain),length(retain));
+0580     comps = tarjan(full(adj)); <span class="comment">%#ok&lt;ACCUM&gt;</span>
+0581     <span class="comment">% remove all conflicting preference relationships (graph edges) ...</span>
+0582     offending_edges = {};
+0583     <span class="keyword">for</span> e=edges
+0584         edge = e{1};
+0585         <span class="keyword">if</span> comps(edge(1)) == comps(edge(2))
+0586             offending_edges{end+1} = edge; <span class="keyword">end</span>
+0587     <span class="keyword">end</span>
+0588     <span class="comment">% ... except for the overridden ones, and the dependency edges</span>
+0589     [dummy,idx] = setdiff(cellfun(@num2str,offending_edges,<span class="string">'UniformOutput'</span>,false),cellfun(@num2str,[newedges constraints],<span class="string">'UniformOutput'</span>,false)); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0590     edges_to_remove = offending_edges(idx);
+0591     [dummy,edgeretain] = setdiff(cellfun(@num2str,edges,<span class="string">'UniformOutput'</span>,false),cellfun(@num2str,edges_to_remove,<span class="string">'UniformOutput'</span>,false)); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0592     <span class="comment">% note that this might leave some filter stages dangling in the air, as they might have been</span>
+0593     <span class="comment">% part of some relationship that was in conflict with the override preferences if so, it is</span>
+0594     <span class="comment">% strongly advisable to re-define their relationships...</span>
+0595     edges = edges(edgeretain);
+0596     
+0597     <span class="comment">% re-check if we still have cycles in there...</span>
+0598     adj = sparse(cellfun(@(x)x(1),edges),cellfun(@(x)x(2),edges),true,length(retain),length(retain));
+0599     compidx = tarjan(full(adj)); <span class="comment">%#ok&lt;ACCUM&gt;</span>
+0600     node_count = accumarray(compidx',1,[max(compidx),1]);
+0601     <span class="keyword">if</span> any(node_count &gt; 1)
+0602         <span class="comment">% yes, there are strongly connected components with more than 1 node</span>
+0603         problematic_components = {};
+0604         <span class="keyword">for</span> comp = find(node_count&gt;1)
+0605             problematic_components{end+1} = {filters(compidx == comp).name}; <span class="keyword">end</span>
+0606         <span class="comment">% list them in an error message</span>
+0607         error(<span class="string">'BCILAB:flt_pipeline:unresolvable'</span>,[<span class="string">'The specified ordering is not compatible with the dependencies/constraints of the re-ordered filters.\nProblematic groups: '</span> hlp_tostring(problematic_components)]);
+0608     <span class="keyword">end</span>
+0609 <span class="keyword">end</span>
+0610 
+0611 <span class="comment">% compute a topological order (http://en.wikipedia.org/wiki/Topological_sorting)</span>
+0612 nodes = repmat(struct(<span class="string">'in'</span>,{[]},<span class="string">'out'</span>,{[]}),1,length(retain));
+0613 <span class="keyword">for</span> e=edges
+0614     edge = e{1};
+0615     nodes(edge(1)).out(end+1) = edge(2);
+0616     nodes(edge(2)).in(end+1) = edge(1);
+0617 <span class="keyword">end</span>
+0618 
+0619 <span class="keyword">if</span> ~isempty(override)
+0620     <span class="comment">% ... and also check whether the conflict resolution has erase all ordering relationships for</span>
+0621     <span class="comment">% some of the filters; we will warn about this in flt_pipeline</span>
+0622     unlinked_filters = find(cellfun(<span class="string">'isempty'</span>,{nodes.in}) &amp; cellfun(<span class="string">'isempty'</span>,{nodes.out}));
+0623     <span class="keyword">if</span> ~isempty(unlinked_filters)
+0624         <span class="comment">% remove these from the ordered set</span>
+0625         idx_remap = 1:length(retain);
+0626         idx_remap(unlinked_filters) = 0;
+0627         idx_remap(find(idx_remap)) = 1:length(find(idx_remap)); <span class="comment">%#ok&lt;FNDSB&gt;</span>
+0628         <span class="comment">% remap the edge indices</span>
+0629         <span class="keyword">for</span> e=1:length(edges)
+0630             edges{e} = idx_remap(edges{e}); <span class="keyword">end</span>
+0631         retain(unlinked_filters) = [];
+0632         <span class="comment">% and recompute the node set</span>
+0633         nodes = repmat(struct(<span class="string">'in'</span>,{[]},<span class="string">'out'</span>,{[]}),1,length(retain));
+0634         <span class="keyword">for</span> e=edges
+0635             edge = e{1};
+0636             nodes(edge(1)).out(end+1) = edge(2);
+0637             nodes(edge(2)).in(end+1) = edge(1);
+0638         <span class="keyword">end</span>
+0639     <span class="keyword">end</span>
+0640 <span class="keyword">else</span>
+0641     unlinked_filters = [];
+0642 <span class="keyword">end</span>
+0643 
+0644 <span class="comment">% create an index set over nodes with no in-edges</span>
+0645 candidates = find(cellfun(<span class="string">'isempty'</span>,{nodes.in}));
+0646 order = [];
+0647 <span class="keyword">while</span> ~isempty(candidates)
+0648     <span class="comment">% take the first candidate</span>
+0649     [n,candidates] = deal(candidates(1),candidates(2:end));
+0650     <span class="comment">% put it into order</span>
+0651     order(end+1) = n;
+0652     <span class="comment">% for each node m with an edge from n to m...</span>
+0653     <span class="keyword">for</span> m=nodes(n).out
+0654         <span class="comment">% remove the edge from the graph</span>
+0655         nodes(m).in = nodes(m).in(n ~= nodes(m).in);
+0656         <span class="comment">% if m has no other incoming edges, insert m into S</span>
+0657         <span class="keyword">if</span> isempty(nodes(m).in)
+0658             candidates(end+1) = m; <span class="keyword">end</span>
+0659     <span class="keyword">end</span>
+0660     nodes(n).out = [];
+0661 <span class="keyword">end</span>
+0662 <span class="comment">% return the ordered &amp; reduced index set</span>
+0663 order = retain(order);</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

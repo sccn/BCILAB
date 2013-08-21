@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_run_batchjob</title>
+  <meta name="keywords" content="utl_run_batchjob">
+  <meta name="description" content="Internal: the actual processing function of bci_batchtrain">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_run_batchjob.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_run_batchjob
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Internal: the actual processing function of bci_batchtrain</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function results = utl_run_batchjob(opts,d,appname,setnames) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Internal: the actual processing function of bci_batchtrain</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function results = utl_run_batchjob(opts,d,appname,setnames)</a>
+0002 <span class="comment">% Internal: the actual processing function of bci_batchtrain</span>
+0003 <span class="keyword">try</span>
+0004     results = [];    
+0005     storename = env_translatepath(strrep(strrep(opts.storepatt,<span class="string">'%set'</span>,setnames{d}),<span class="string">'%approach'</span>,appname));
+0006     <span class="keyword">if</span> opts.reuse &amp;&amp; ~isempty(storename) &amp;&amp; exist(storename,<span class="string">'file'</span>)
+0007         disp([<span class="string">'Reusing existing result for approach &quot;'</span> appname <span class="string">'&quot; on set &quot;'</span> setnames{d} <span class="string">'&quot;.'</span>]);
+0008         load(storename);
+0009     <span class="keyword">elseif</span> ~opts.loadonly
+0010         <span class="comment">% train a model on the Dataset</span>
+0011         [res.loss,res.model,res.stats] = bci_train(opts.trainargs{:}, <span class="string">'data'</span>,opts.datasets{d}, <span class="string">'approach'</span>,opts.approaches.(appname), <span class="string">'markers'</span>,opts.markers);
+0012         
+0013         <span class="keyword">if</span> ~isempty(opts.predictsets) &amp;&amp; ~isempty(opts.predictsets{d})
+0014             <span class="comment">% optionally run bci_predict on the PredictSets</span>
+0015             <span class="keyword">for</span> k=1:length(opts.predictsets{d})
+0016                 <span class="keyword">try</span>
+0017                     [res.pred_predictions{k},res.pred_loss(k),res.pred_stats{k},res.pred_targets{k}] = bci_predict(opts.predictargs{:},<span class="string">'data'</span>,opts.predictsets{d}{k},<span class="string">'model'</span>,res.model, <span class="string">'markers'</span>,opts.markers);
+0018                 <span class="keyword">catch</span> e
+0019                     [res.pred_predictions{k},res.pred_loss(k),res.pred_stats{k},res.pred_targets{k}] = deal([],NaN,struct(),[]);
+0020                     disp([<span class="string">'Error computing predictions for set &quot;'</span> setnames{d} <span class="string">'&quot;, prediction set #'</span> num2str(k) <span class="string">' with approach &quot;'</span> appname <span class="string">'&quot;.'</span>]);
+0021                     opts.handler(e);
+0022                 <span class="keyword">end</span>
+0023             <span class="keyword">end</span>
+0024             res.pred_loss = res.pred_loss';
+0025         <span class="keyword">end</span>
+0026             
+0027         <span class="comment">% save results</span>
+0028         <span class="keyword">if</span> ~isempty(storename)
+0029             io_save(storename,opts.saveargs{:},<span class="string">'res'</span>); <span class="keyword">end</span>
+0030     <span class="keyword">end</span>
+0031     <span class="keyword">if</span> ~isempty(opts.resultpatt)
+0032         eval([strrep(strrep(opts.resultpatt,<span class="string">'%num'</span>,num2str(d)),<span class="string">'%approach'</span>,appname) <span class="string">' res;'</span>]); <span class="keyword">end</span>
+0033     <span class="keyword">try</span>
+0034         <span class="keyword">if</span> isfield(res,<span class="string">'pred_loss'</span>)
+0035             fprintf(<span class="string">'%s@%s: train loss: %.4f, prediction loss: %.4f\n'</span>,appname,setnames{d},res.loss,res.pred_loss);
+0036         <span class="keyword">else</span>
+0037             fprintf(<span class="string">'%s@%s: train loss: %.4f\n'</span>,appname,setnames{d},res.loss);
+0038         <span class="keyword">end</span>
+0039     <span class="keyword">catch</span>
+0040         disp(<span class="string">'Could not display loss estimates.'</span>);
+0041     <span class="keyword">end</span>
+0042 <span class="keyword">catch</span> e
+0043     disp([<span class="string">'Error processing data set &quot;'</span> setnames{d} <span class="string">'&quot; with approach &quot;'</span> appname <span class="string">'&quot;.'</span>]);
+0044     opts.handler(e);
+0045 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

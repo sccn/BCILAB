@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_epochpca</title>
+  <meta name="keywords" content="flt_epochpca">
+  <meta name="description" content="Apply a principal component decomposition across time (or frequency) in an epoch.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_epochpca.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_epochpca
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Apply a principal component decomposition across time (or frequency) in an epoch.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function signal = flt_epochpca(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Apply a principal component decomposition across time (or frequency) in an epoch.
+ Signal = flt_epochpca(Signal, RetainDimensions)
+
+ This allows to reduce the dimensionality of the data time course or spectrum.
+
+ In:
+   Signal     : Epoched data set to be processed
+
+   RetainDimensions : Reduce the dimensionality (per channel) to this number, or [] to retain all 
+                      dimensions (default: [])
+
+ Out: 
+   Signal  :   processed data set
+
+ See also:
+   flt_epochica
+
+ TODO:
+   Allow robust covariance
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-04-27</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = flt_epochpca(varargin)</a>
+0002 <span class="comment">% Apply a principal component decomposition across time (or frequency) in an epoch.</span>
+0003 <span class="comment">% Signal = flt_epochpca(Signal, RetainDimensions)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This allows to reduce the dimensionality of the data time course or spectrum.</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">% In:</span>
+0008 <span class="comment">%   Signal     : Epoched data set to be processed</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">%   RetainDimensions : Reduce the dimensionality (per channel) to this number, or [] to retain all</span>
+0011 <span class="comment">%                      dimensions (default: [])</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">% Out:</span>
+0014 <span class="comment">%   Signal  :   processed data set</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">% See also:</span>
+0017 <span class="comment">%   flt_epochica</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">% TODO:</span>
+0020 <span class="comment">%   Allow robust covariance</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0023 <span class="comment">%                                2011-04-27</span>
+0024 
+0025 <span class="comment">% flt_epochpca_version&lt;0.9&gt; -- for the cache</span>
+0026 
+0027 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0028 
+0029 <span class="comment">% requires epoched data, works best on spatially filtered data</span>
+0030 declare_properties(<span class="string">'name'</span>,<span class="string">'EpochPCA'</span>, <span class="string">'depends'</span>,<span class="string">'set_makepos'</span>, <span class="string">'follows'</span>,{<span class="string">'flt_fourier'</span>}, <span class="string">'independent_channels'</span>,true, <span class="string">'independent_trials'</span>,false);
+0031 
+0032 arg_define(varargin,<span class="keyword">...</span>
+0033     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0034     arg({<span class="string">'reducedim'</span>,<span class="string">'RetainDimensions'</span>}, [], [], <span class="string">'Per-channel dimensionality reduction. Reduce to this number of dimensions.'</span>), <span class="keyword">...</span>
+0035     arg_norep(<span class="string">'mapping'</span>,unassigned));
+0036 
+0037 <span class="keyword">if</span> ~exist(<span class="string">'mapping'</span>,<span class="string">'var'</span>)
+0038     <span class="keyword">if</span> isempty(reducedim)
+0039         reducedim = signal.pnts; <span class="keyword">end</span>
+0040     <span class="comment">% compute principal eigenspace for each channel</span>
+0041     mapping = cell(1,signal.nbchan);
+0042     <span class="keyword">for</span> c = 1:signal.nbchan
+0043         <span class="keyword">try</span>
+0044             [mapping{c},D] = eig(hlp_diskcache(<span class="string">'filterdesign'</span>,@cov_shrink,squeeze(signal.data(c,:,:))'));
+0045         <span class="keyword">catch</span>
+0046             mapping{c} = eye(size(signal.data,2));
+0047         <span class="keyword">end</span>
+0048         mapping{c} = mapping{c}(:,1:reducedim);
+0049     <span class="keyword">end</span>
+0050 <span class="keyword">end</span>
+0051 
+0052 <span class="comment">% transform each channel into the eigenspace and write back</span>
+0053 tmp = zeros(signal.nbchan,size(mapping{1},2),signal.trials);
+0054 <span class="keyword">for</span> c = 1:signal.nbchan
+0055     tmp(c,:,:) = (mapping{c}' * reshape(signal.data(c,:,:),size(mapping{c},1),[])); <span class="keyword">end</span>
+0056 signal.data = tmp;
+0057 signal.pnts = size(signal.data,2);
+0058 
+0059 
+0060 <span class="comment">% keep track of the mapping decomposition</span>
+0061 <span class="keyword">global</span> tracking;
+0062 tracking.inspection.epochpca = mapping;
+0063 
+0064 exp_endfun(<span class="string">'append_online'</span>,{<span class="string">'mapping'</span>,mapping});</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

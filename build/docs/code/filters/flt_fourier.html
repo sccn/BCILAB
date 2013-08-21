@@ -1,0 +1,368 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_fourier</title>
+  <meta name="keywords" content="flt_fourier">
+  <meta name="description" content="Transform an epoched data set into a fourier representation.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_fourier.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_fourier
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Transform an epoched data set into a fourier representation.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function signal = flt_fourier(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Transform an epoched data set into a fourier representation.
+ Signal = flt_fourier(Signal, Representation, Normalized, LogTransform, Decorrelate)
+
+ The fourier representation is practical if there is a highly complex (relevant) spectral structure
+ in the data. In any representation except for 'complex', it is necessary that an appropriate
+ spatial filter has been applied to the data beforehand (e.g., ICA with the 'transform' option set
+ to 1, or the surface laplacian). The complex representation can be spatially transformed after
+ running the Fourier filter, since it is a linear operator. If classifiers operate directly on the
+ fourier representation, it is usually necessary to chose a representation that can be linearly
+ mapped to a prediction, such as 'amplitude', 'polar' or 'phase'; 'complex' requires a non-linear
+ classification, which is almost certain to overfit any other random non-linear dependencies in the
+ data. Some interesting assumptions that can be imposed on Fourier data include sparsity (l1) and
+ group sparsity (if independent component activity was transformed).
+
+ The raw fourier spectrum is fairly noisy, but fast. The multitaper approaches yield a smoothed
+ (and thus less noisy) estimate -- at significant computational cost. The Welch method gives
+ very accurate and low-noise estimates, but is enormously slow.
+
+ In:
+   Signal         :   Epoched data set to be processed
+
+   Representation : desired representation; can be one of the following:
+                    'complex'   : the epoch contains the complex spectrum (default)
+                    'power'     : the epoch contains the power spectrum
+                    'amplitude' : the epoch contains the amplitude spectrum (sqrt(of power spectrum)
+                    'phase'     : the epoch contains the phase spectrum
+                    'polar'     : the epoch contains the amplitude/phase spectrum
+                                  (first N channels: amplitude, remaining N channels: phase)
+                    'welch'     : the epoch contains the Welch PSD [1] (which is really slow!); can
+                                  also be specified as a cell array 
+                                  {'welch', 'name',value, 'name',value ...} for names:
+                                  * WindowLength: the WINDOW parameter of pwelch()
+                                  * Overlapping: the NOVERLAP parameter of pwelch()
+                                  * FFTLength: the NFFT parameter of pwelch()
+                    'multitaper': use multi-taper PSD estimation [2,3] (via Chronux); like welch, 
+                                  can be specified with additional parameters: 
+                                  * TimeBandwidth: controls the smoothing
+                                  * Tapers: the number of tapers to use (&lt;= 2*TimeBandwidth-1)
+                                  * Padding: FFT padding (oversampling) factor; 0 is next power of 2
+
+   Normalized     : whether the spectrum should be normalized by 1/f (default: true)
+
+   LogTransform   : whether to transform the result into the log domain (default: false)
+
+
+ Out: 
+   Signal  :   processed data set
+
+ Notes:
+   Multi-taper estimation is relatively costly; for 32 channel data and 2-second windows, a BCI 
+   could only be updated at ~5 Hz on a typical machine.
+
+ Examples:
+   % use default settings (produces frequency-normalized power spectral density features)
+   eeg = flt_fourier(eeg)
+
+   % transform into the complex domain (requires a strong classifier)
+   eeg = flt_fourier(eeg,'complex')
+
+   % transform into the log-power domain (log(abs(fft(X))))
+   eeg = flt_fourier(eeg,'power',true,true)
+
+   % as before, but do not normalize the data by 1/f
+   eeg = flt_fourier(eeg,'power',false,true)
+
+   % as before, but pass all arguments by name
+   eeg = flt_fourier('Signal',eeg,'Representation','power','Normalized',false,'LogTransform',true)
+
+   % transform into amplitude/phase (polar) coordinates
+   eeg = flt_fourier(eeg,'polar')
+
+   % use the Welch method to get more robust estimates
+   eeg = flt_fourier(eeg,'welch')
+
+   % as before, but specify a custom window length
+   eeg = flt_fourier(eeg,{'welch','WindowLength',64})
+
+   % as before, but specify both a custom window length and a custom Overlap
+   eeg = flt_fourier(eeg,{'welch','WindowLength',64,'Overlapping,48})
+
+   % use the Multi-taper method to get highest-quality outputs, and do a log-transform
+   eeg = flt_fourier(eeg,'multitaper',true,true)
+
+   % as before, but specify a fairly large degree of smoothing
+   eeg = flt_fourier(eeg,{'multitaper','TimeBandwidth',8},true,true)
+
+ References:
+  [1] Welch, PD &quot;The Use of Fast Fourier Transform for the Estimation of Power Spectra: A Method Based on Time Averaging Over Short, Modified Periodograms&quot;, 
+      IEEE Transactions on Audio Electroacoustics, Volume AU-15 (June 1967), pages 70?73.
+  [2] Thomson, D. J. &quot;Spectrum estimation and harmonic analysis.&quot; 
+      In Proceedings of the IEEE, Volume 70 (1982), 1055?1096.
+  [3] Slepian, D. &quot;Prolate spheroidal wave functions, Fourier analysis, and uncertainty ? V: The discrete case.&quot; 
+      Bell System Technical Journal, Volume 57 (1978), 1371?430.
+
+ See also:
+   fft, mtspectrumc, pwelch
+
+ TODO:
+   Try to speed up the computation (GPU?)
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-03-28</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = flt_fourier(varargin)</a>
+0002 <span class="comment">% Transform an epoched data set into a fourier representation.</span>
+0003 <span class="comment">% Signal = flt_fourier(Signal, Representation, Normalized, LogTransform, Decorrelate)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% The fourier representation is practical if there is a highly complex (relevant) spectral structure</span>
+0006 <span class="comment">% in the data. In any representation except for 'complex', it is necessary that an appropriate</span>
+0007 <span class="comment">% spatial filter has been applied to the data beforehand (e.g., ICA with the 'transform' option set</span>
+0008 <span class="comment">% to 1, or the surface laplacian). The complex representation can be spatially transformed after</span>
+0009 <span class="comment">% running the Fourier filter, since it is a linear operator. If classifiers operate directly on the</span>
+0010 <span class="comment">% fourier representation, it is usually necessary to chose a representation that can be linearly</span>
+0011 <span class="comment">% mapped to a prediction, such as 'amplitude', 'polar' or 'phase'; 'complex' requires a non-linear</span>
+0012 <span class="comment">% classification, which is almost certain to overfit any other random non-linear dependencies in the</span>
+0013 <span class="comment">% data. Some interesting assumptions that can be imposed on Fourier data include sparsity (l1) and</span>
+0014 <span class="comment">% group sparsity (if independent component activity was transformed).</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">% The raw fourier spectrum is fairly noisy, but fast. The multitaper approaches yield a smoothed</span>
+0017 <span class="comment">% (and thus less noisy) estimate -- at significant computational cost. The Welch method gives</span>
+0018 <span class="comment">% very accurate and low-noise estimates, but is enormously slow.</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% In:</span>
+0021 <span class="comment">%   Signal         :   Epoched data set to be processed</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%   Representation : desired representation; can be one of the following:</span>
+0024 <span class="comment">%                    'complex'   : the epoch contains the complex spectrum (default)</span>
+0025 <span class="comment">%                    'power'     : the epoch contains the power spectrum</span>
+0026 <span class="comment">%                    'amplitude' : the epoch contains the amplitude spectrum (sqrt(of power spectrum)</span>
+0027 <span class="comment">%                    'phase'     : the epoch contains the phase spectrum</span>
+0028 <span class="comment">%                    'polar'     : the epoch contains the amplitude/phase spectrum</span>
+0029 <span class="comment">%                                  (first N channels: amplitude, remaining N channels: phase)</span>
+0030 <span class="comment">%                    'welch'     : the epoch contains the Welch PSD [1] (which is really slow!); can</span>
+0031 <span class="comment">%                                  also be specified as a cell array</span>
+0032 <span class="comment">%                                  {'welch', 'name',value, 'name',value ...} for names:</span>
+0033 <span class="comment">%                                  * WindowLength: the WINDOW parameter of pwelch()</span>
+0034 <span class="comment">%                                  * Overlapping: the NOVERLAP parameter of pwelch()</span>
+0035 <span class="comment">%                                  * FFTLength: the NFFT parameter of pwelch()</span>
+0036 <span class="comment">%                    'multitaper': use multi-taper PSD estimation [2,3] (via Chronux); like welch,</span>
+0037 <span class="comment">%                                  can be specified with additional parameters:</span>
+0038 <span class="comment">%                                  * TimeBandwidth: controls the smoothing</span>
+0039 <span class="comment">%                                  * Tapers: the number of tapers to use (&lt;= 2*TimeBandwidth-1)</span>
+0040 <span class="comment">%                                  * Padding: FFT padding (oversampling) factor; 0 is next power of 2</span>
+0041 <span class="comment">%</span>
+0042 <span class="comment">%   Normalized     : whether the spectrum should be normalized by 1/f (default: true)</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">%   LogTransform   : whether to transform the result into the log domain (default: false)</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">% Out:</span>
+0048 <span class="comment">%   Signal  :   processed data set</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">% Notes:</span>
+0051 <span class="comment">%   Multi-taper estimation is relatively costly; for 32 channel data and 2-second windows, a BCI</span>
+0052 <span class="comment">%   could only be updated at ~5 Hz on a typical machine.</span>
+0053 <span class="comment">%</span>
+0054 <span class="comment">% Examples:</span>
+0055 <span class="comment">%   % use default settings (produces frequency-normalized power spectral density features)</span>
+0056 <span class="comment">%   eeg = flt_fourier(eeg)</span>
+0057 <span class="comment">%</span>
+0058 <span class="comment">%   % transform into the complex domain (requires a strong classifier)</span>
+0059 <span class="comment">%   eeg = flt_fourier(eeg,'complex')</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">%   % transform into the log-power domain (log(abs(fft(X))))</span>
+0062 <span class="comment">%   eeg = flt_fourier(eeg,'power',true,true)</span>
+0063 <span class="comment">%</span>
+0064 <span class="comment">%   % as before, but do not normalize the data by 1/f</span>
+0065 <span class="comment">%   eeg = flt_fourier(eeg,'power',false,true)</span>
+0066 <span class="comment">%</span>
+0067 <span class="comment">%   % as before, but pass all arguments by name</span>
+0068 <span class="comment">%   eeg = flt_fourier('Signal',eeg,'Representation','power','Normalized',false,'LogTransform',true)</span>
+0069 <span class="comment">%</span>
+0070 <span class="comment">%   % transform into amplitude/phase (polar) coordinates</span>
+0071 <span class="comment">%   eeg = flt_fourier(eeg,'polar')</span>
+0072 <span class="comment">%</span>
+0073 <span class="comment">%   % use the Welch method to get more robust estimates</span>
+0074 <span class="comment">%   eeg = flt_fourier(eeg,'welch')</span>
+0075 <span class="comment">%</span>
+0076 <span class="comment">%   % as before, but specify a custom window length</span>
+0077 <span class="comment">%   eeg = flt_fourier(eeg,{'welch','WindowLength',64})</span>
+0078 <span class="comment">%</span>
+0079 <span class="comment">%   % as before, but specify both a custom window length and a custom Overlap</span>
+0080 <span class="comment">%   eeg = flt_fourier(eeg,{'welch','WindowLength',64,'Overlapping,48})</span>
+0081 <span class="comment">%</span>
+0082 <span class="comment">%   % use the Multi-taper method to get highest-quality outputs, and do a log-transform</span>
+0083 <span class="comment">%   eeg = flt_fourier(eeg,'multitaper',true,true)</span>
+0084 <span class="comment">%</span>
+0085 <span class="comment">%   % as before, but specify a fairly large degree of smoothing</span>
+0086 <span class="comment">%   eeg = flt_fourier(eeg,{'multitaper','TimeBandwidth',8},true,true)</span>
+0087 <span class="comment">%</span>
+0088 <span class="comment">% References:</span>
+0089 <span class="comment">%  [1] Welch, PD &quot;The Use of Fast Fourier Transform for the Estimation of Power Spectra: A Method Based on Time Averaging Over Short, Modified Periodograms&quot;,</span>
+0090 <span class="comment">%      IEEE Transactions on Audio Electroacoustics, Volume AU-15 (June 1967), pages 70?73.</span>
+0091 <span class="comment">%  [2] Thomson, D. J. &quot;Spectrum estimation and harmonic analysis.&quot;</span>
+0092 <span class="comment">%      In Proceedings of the IEEE, Volume 70 (1982), 1055?1096.</span>
+0093 <span class="comment">%  [3] Slepian, D. &quot;Prolate spheroidal wave functions, Fourier analysis, and uncertainty ? V: The discrete case.&quot;</span>
+0094 <span class="comment">%      Bell System Technical Journal, Volume 57 (1978), 1371?430.</span>
+0095 <span class="comment">%</span>
+0096 <span class="comment">% See also:</span>
+0097 <span class="comment">%   fft, mtspectrumc, pwelch</span>
+0098 <span class="comment">%</span>
+0099 <span class="comment">% TODO:</span>
+0100 <span class="comment">%   Try to speed up the computation (GPU?)</span>
+0101 <span class="comment">%</span>
+0102 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0103 <span class="comment">%                                2010-03-28</span>
+0104 
+0105 <span class="comment">% flt_fourier_version&lt;1.0&gt; -- for the cache</span>
+0106 
+0107 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0108 
+0109 <span class="comment">% requires epoched data, works best on spatially filtered data</span>
+0110 declare_properties(<span class="string">'name'</span>,<span class="string">'SpectralTransform'</span>, <span class="string">'depends'</span>,<span class="string">'set_makepos'</span>, <span class="string">'follows'</span>,{<span class="string">'flt_reconstruct'</span>,<span class="string">'flt_project'</span>,<span class="string">'flt_window'</span>}, <span class="string">'independent_channels'</span>,true, <span class="string">'independent_trials'</span>,true);
+0111 
+0112 arg_define(varargin,<span class="keyword">...</span>
+0113     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0114     arg_subswitch({<span class="string">'rep'</span>,<span class="string">'Representation'</span>},<span class="string">'power'</span>, <span class="keyword">...</span>
+0115         {<span class="string">'complex'</span>,{},<span class="string">'power'</span>,{},<span class="string">'logpower'</span>,{},<span class="string">'amplitude'</span>,{},<span class="string">'phase'</span>,{},<span class="string">'polar'</span>,{}, <span class="keyword">...</span>
+0116          <span class="string">'welch'</span>,{arg({<span class="string">'wndlen'</span>,<span class="string">'WindowLength'</span>},0.25,[],<span class="string">'Window length. Spectral density is estimated in overlapped windows of this length, and then averaged. If this is a fraction, it is implicitly multiplied by the epoch length.'</span>),<span class="keyword">...</span>
+0117                   arg({<span class="string">'noverlap'</span>,<span class="string">'Overlapping'</span>},[],[],<span class="string">'Overlap samples. Number of samples by which windows overlap. By default, this is 50% of the window length.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0118                   arg({<span class="string">'nfft'</span>,<span class="string">'FFTLength'</span>},[],[],<span class="string">'Number of FFT bins. Larger numbers give a smoother spectrum.'</span>,<span class="string">'guru'</span>,true)}, <span class="keyword">...</span>
+0119          <span class="string">'multitaper'</span>,{arg({<span class="string">'bandwidth'</span>,<span class="string">'TimeBandwidth'</span>},3,[],<span class="string">'Spectral smoothing. Controls the bias vs. variance of the spectral estimation. Reasonable values are 1 to 3 (1 being fairly noisy, and 3 being fairly smooth but 5x slower)'</span>), <span class="keyword">...</span>
+0120                        arg({<span class="string">'tapers'</span>,<span class="string">'Tapers'</span>},[],[],<span class="string">'Number of tapers. Should be an integer smaller than 2*TimeBandwith; default 2*TimeBandwidth-1'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0121                        arg({<span class="string">'padding'</span>,<span class="string">'Padding'</span>},0,[],<span class="string">'FFT padding factor. Controls the oversampling of the spectrum; 0 is the next largest power of two, 1 is 2x as much, etc.'</span>,<span class="string">'guru'</span>,true)} <span class="keyword">...</span>
+0122         }, <span class="string">'Spectral representation of the signal. Complex and polar are complete representations, the others extract some aspect of the signal. Complex is the only one that usually requires a strong non-linear classifier. Welch and Multitaper are higher-quality spectral estimation techniques. Note: Welch is very slow, be sure to test online performance before relying on it.'</span>),<span class="keyword">...</span>
+0123     arg({<span class="string">'normalized'</span>,<span class="string">'Normalized'</span>}, true, [], <span class="string">'Normalize the spectrum by 1/f. Doing this has benefits for classifiers that work best with naturally normalized features (e.g. some regularized classifiers).'</span>), <span class="keyword">...</span>
+0124     arg({<span class="string">'logtransform'</span>,<span class="string">'LogTransform'</span>}, false, [], <span class="string">'Log-Transform. Whether to transform the resulting spectral data into the log domain; can facilitates the use of simple (linear) classifiers.'</span>), <span class="keyword">...</span><span class="comment">    </span>
+0125     arg({<span class="string">'logspacing'</span>,<span class="string">'LogSpacing'</span>}, 0, [], <span class="string">'Log-Spacing. Whether to sub-sample the data in the log domain. If this is a number (&gt;1) it determines the number of samples taken. If this is a fractional number &lt; 1, it is a fraction of the number of trials.'</span>));
+0126 
+0127 [C,S,T] = size(signal.data);    
+0128 <span class="keyword">if</span> strcmp(rep.arg_selection,<span class="string">'welch'</span>)
+0129     <span class="comment">% compute the PSD using the Welch method</span>
+0130     <span class="keyword">if</span> ~isempty(rep.wndlen) &amp;&amp; rep.wndlen &lt;=1
+0131         rep.wndlen = floor(rep.wndlen*S); <span class="keyword">end</span>
+0132     [tmp,F] = pwelch(signal.data(1,:,1),rep.wndlen,rep.noverlap,rep.nfft,signal.srate);
+0133     tmp = zeros(C,length(tmp),T);
+0134     <span class="keyword">for</span> c = 1:C
+0135         <span class="keyword">for</span> t = 1:T
+0136             [tmp(c,:,t),F] = pwelch(signal.data(c,:,t),rep.wndlen,rep.noverlap,rep.nfft,signal.srate); <span class="keyword">end</span>
+0137     <span class="keyword">end</span>
+0138     signal.data = tmp;
+0139     signal.pnts = size(signal.data,2);
+0140     <span class="comment">% normalize the data</span>
+0141     <span class="keyword">if</span> normalized
+0142         signal.data = bsxfun(@times,signal.data,F([2 2:end])'); <span class="keyword">end</span>
+0143 <span class="keyword">elseif</span> strcmp(rep.arg_selection,<span class="string">'multitaper'</span>)
+0144     <span class="keyword">try</span>
+0145         <span class="comment">% compute the PSD using Slepian tapers</span>
+0146         <span class="keyword">if</span> isempty(rep.tapers)
+0147             rep.tapers = 2*rep.bandwidth-1; <span class="keyword">end</span>
+0148         <span class="keyword">if</span> T == 1
+0149             <span class="comment">% one-shot calculation</span>
+0150             [signal.data,F] = mtspectrumc(signal.data',struct(<span class="string">'tapers'</span>,[2*rep.bandwidth rep.tapers],<span class="string">'pad'</span>,rep.padding,<span class="string">'Fs'</span>,signal.srate));
+0151             signal.data = signal.data';
+0152         <span class="keyword">else</span>
+0153             <span class="comment">% process data over trials</span>
+0154             [first,F] = mtspectrumc(signal.data(:,:,1)',struct(<span class="string">'tapers'</span>,[2*rep.bandwidth rep.tapers],<span class="string">'pad'</span>,rep.padding,<span class="string">'Fs'</span>,signal.srate));
+0155             first = first';
+0156             tmp = zeros(C,size(first,2),T);
+0157             tmp(:,:,1) = first;
+0158             <span class="keyword">for</span> t = 2:size(tmp,3)
+0159                 tmp(:,:,t) = mtspectrumc(signal.data(:,:,t)',struct(<span class="string">'tapers'</span>,[2*rep.bandwidth rep.tapers],<span class="string">'pad'</span>,rep.padding,<span class="string">'Fs'</span>,signal.srate))'; <span class="keyword">end</span>
+0160             signal.data = tmp;
+0161         <span class="keyword">end</span>
+0162     <span class="keyword">catch</span> e
+0163         <span class="keyword">if</span> strcmp(e.identifier,<span class="string">'MATLAB:UndefinedFunction'</span>)
+0164             error(<span class="string">'BCILAB:flt_iir:no_license'</span>,<span class="string">'Apparently you don''t have a Signal Processing Toolbox license, so you cannot use the ''multitaper'' mode of the SpectralTransform filter.\nYou can switch to a mode that runs under vanilla MATLAB in the &quot;Review/Edit approach&quot; dialog by selecting ''power'' in the SpectralTransform&gt;Representation item instead (which is somewhat lower-quality). If you are using a standard paradigm, you may also look for an equivalent of it that does not require the SigProc toolbox (these are at the bottom of the list under &quot;New Approach&quot;).'</span>);
+0165         <span class="keyword">else</span>
+0166             rethrow(e);
+0167         <span class="keyword">end</span>
+0168     <span class="keyword">end</span>
+0169     signal.pnts = size(signal.data,2);
+0170     <span class="comment">% normalize the data</span>
+0171     <span class="keyword">if</span> normalized
+0172         signal.data = bsxfun(@times,signal.data,([1 1:size(signal.data,2)-1])/size(signal.data,2)); <span class="keyword">end</span>
+0173 <span class="keyword">else</span>
+0174     <span class="comment">% first transform into the spectrum</span>
+0175     F = (0:ceil(S/2))*(2*signal.srate/S);
+0176     signal.data = fft(signal.data,[],2);
+0177     <span class="keyword">if</span> normalized
+0178         signal.data = bsxfun(@times,signal.data,([1 1:size(signal.data,2)-1])/size(signal.data,2)); <span class="keyword">end</span>
+0179     
+0180     <span class="comment">% then map to the desired representation</span>
+0181     <span class="keyword">switch</span> rep.arg_selection
+0182         <span class="keyword">case</span> <span class="string">'power'</span>
+0183             signal.data = abs(signal.data);
+0184         <span class="keyword">case</span> <span class="string">'amplitude'</span>
+0185             signal.data = real(sqrt(abs(signal.data)));
+0186         <span class="keyword">case</span> <span class="string">'phase'</span>
+0187             signal.data = real(angle(signal.data));
+0188         <span class="keyword">case</span> <span class="string">'polar'</span>
+0189             signal.data = real([sqrt(abs(signal.data)); angle(signal.data)]);
+0190             <span class="comment">% replicate &amp; rename channels</span>
+0191             labels = [cellfun(@(s) [s <span class="string">'_a'</span>], {signal.chanlocs.labels},<span class="string">'UniformOutput'</span>,false) cellfun(@(s) [s <span class="string">'_p'</span>], {signal.chanlocs.labels},<span class="string">'UniformOutput'</span>,false)];
+0192             signal.chanlocs = signal.chanlocs([1:end 1:end]);
+0193             [signal.chanlocs.labels] = labels{:};
+0194         <span class="keyword">case</span> <span class="string">'complex'</span>
+0195             <span class="comment">% nothing to do</span>
+0196         <span class="keyword">otherwise</span>
+0197             error(<span class="string">'unsupported representation selected.'</span>);
+0198     <span class="keyword">end</span>
+0199     
+0200     <span class="comment">% restrict to the first half of the spectrum</span>
+0201     signal.data = signal.data(:,1:size(signal.data,2)/2,:);
+0202 <span class="keyword">end</span>
+0203 
+0204 <span class="keyword">if</span> logtransform
+0205     signal.data = log(signal.data); 
+0206     signal.data(~isfinite(signal.data(:))) = 0;
+0207 <span class="keyword">end</span>
+0208 
+0209 <span class="keyword">if</span> logspacing
+0210     <span class="keyword">if</span> logspacing &lt;= 1
+0211         logspacing = round(logspacing*size(signal.data,2)); <span class="keyword">end</span>
+0212     idx = unique(round(logspace(log10(3),log10(size(signal.data,2)),logspacing)));
+0213     signal.data = signal.data(:,idx,:);
+0214     F = F(idx);
+0215     signal.pnts = idx;    
+0216 <span class="keyword">end</span>
+0217 
+0218 signal.freqs = F;
+0219 
+0220 exp_endfun;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

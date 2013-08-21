@@ -1,0 +1,316 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of consensus_admm</title>
+  <meta name="keywords" content="consensus_admm">
+  <meta name="description" content="[z,y,history] = consensus_admm(x0, F, param)">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">misc</a> &gt; consensus_admm.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/misc&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>consensus_admm
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>[z,y,history] = consensus_admm(x0, F, param)</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [z,y,rho,history] = consensus_admm(z0, F, param) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> [z,y,history] = consensus_admm(x0, F, param)
+ Consensus form of ADMM [1] with optional linear operator for each term (called SDMM in [2]).
+
+ This algorithm solves the following optimization problem:
+
+       minimize sum  f_i(L_i*x)
+           s.t. L_i*x_i - z = 0
+
+       where f_i are closed, proper, convex functions
+             L_i are linear operators such that sum L_i'*L_i is invertible
+
+ In:
+   z0 : initial value for the solution; column vector
+
+   F  : the terms to optimize over; given as array of structs with field names:
+         .eval(x)          : application of the function f to x
+
+         .prox(x,gamma,x0) : prox-operator for f at x; solution to the optimization problem
+                             argmin_{z} 0.5*||x - z||_2^2 + gamma*f(z)
+                             where x0 is an optional initial guess
+
+         .L                : linear operator to apply prior to f() (default: [])
+
+         .y0               : initial value for the unscaled dual variable from previous solution
+                             (note: this is implicitly transformed by -L)
+
+   param : structure of optional parameters with the following fields:
+            .maxit   : maximum # of iterations; default=1000
+
+            .rho     : initial coupling parameter (scales the l2 term in the prox operators); default=1
+
+            .abs_tol : absolute tolerance for termination; default=1e-4
+
+            .rel_tol : relative tolerance for termination; default=1e-3
+
+            .rho_update : update rho parameter; default: true
+
+            .rho_cutoff : update rho when primal/dual residual ratio exceeds this value; default=10
+
+            .rho_incr : increase rho by this factor upon update; default=2
+
+            .rho_decr : decrease rho by this factor upon update; default=2
+
+            .verbose : verbosity level; default=1
+
+ Out:
+   z     : final solution to the optimization problem
+
+   y     : cell array of final values for the unscaled dual variables, one per function
+
+   history : history of objective-function values
+
+ Notes:
+   The interface is compatible with the prox-operators included with UnLocBox or the SPAMS toolbox.
+   The linear operators L lead to some differences between this formulation and consensus ADMM:
+   * F(i).x is F(i).L*z and F(i).u is -(F(i).L/rho)*yi
+   * the consensus variable is a more sophisticated average (using L' and 1/Q)
+
+ References:
+  [1] S. Boyd, N. Parika, E. Chu, B. Peleato, J. Eckstein, &quot;Distributed Optimization and Statistical Learning
+      via the Alternating Direction Method of Multipliers&quot;, Foundations and Trends in Machine Learning 3(1), 2011
+
+   [2] P. Combettes and J. Pesquet. &quot;A douglas-rachford splitting approach to
+       nonsmooth convex variational signal recovery.&quot; Selected Topics in Signal
+       Processing, IEEE Journal of, 1(4):564-574, 2007.
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2013-02-09</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function hash = matrix_hash(M)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [z,y,rho,history] = consensus_admm(z0, F, param)</a>
+0002 <span class="comment">% [z,y,history] = consensus_admm(x0, F, param)</span>
+0003 <span class="comment">% Consensus form of ADMM [1] with optional linear operator for each term (called SDMM in [2]).</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This algorithm solves the following optimization problem:</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">%       minimize sum  f_i(L_i*x)</span>
+0008 <span class="comment">%           s.t. L_i*x_i - z = 0</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">%       where f_i are closed, proper, convex functions</span>
+0011 <span class="comment">%             L_i are linear operators such that sum L_i'*L_i is invertible</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">% In:</span>
+0014 <span class="comment">%   z0 : initial value for the solution; column vector</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%   F  : the terms to optimize over; given as array of structs with field names:</span>
+0017 <span class="comment">%         .eval(x)          : application of the function f to x</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">%         .prox(x,gamma,x0) : prox-operator for f at x; solution to the optimization problem</span>
+0020 <span class="comment">%                             argmin_{z} 0.5*||x - z||_2^2 + gamma*f(z)</span>
+0021 <span class="comment">%                             where x0 is an optional initial guess</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%         .L                : linear operator to apply prior to f() (default: [])</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%         .y0               : initial value for the unscaled dual variable from previous solution</span>
+0026 <span class="comment">%                             (note: this is implicitly transformed by -L)</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">%   param : structure of optional parameters with the following fields:</span>
+0029 <span class="comment">%            .maxit   : maximum # of iterations; default=1000</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%            .rho     : initial coupling parameter (scales the l2 term in the prox operators); default=1</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%            .abs_tol : absolute tolerance for termination; default=1e-4</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%            .rel_tol : relative tolerance for termination; default=1e-3</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%            .rho_update : update rho parameter; default: true</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%            .rho_cutoff : update rho when primal/dual residual ratio exceeds this value; default=10</span>
+0040 <span class="comment">%</span>
+0041 <span class="comment">%            .rho_incr : increase rho by this factor upon update; default=2</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%            .rho_decr : decrease rho by this factor upon update; default=2</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">%            .verbose : verbosity level; default=1</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">% Out:</span>
+0048 <span class="comment">%   z     : final solution to the optimization problem</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">%   y     : cell array of final values for the unscaled dual variables, one per function</span>
+0051 <span class="comment">%</span>
+0052 <span class="comment">%   history : history of objective-function values</span>
+0053 <span class="comment">%</span>
+0054 <span class="comment">% Notes:</span>
+0055 <span class="comment">%   The interface is compatible with the prox-operators included with UnLocBox or the SPAMS toolbox.</span>
+0056 <span class="comment">%   The linear operators L lead to some differences between this formulation and consensus ADMM:</span>
+0057 <span class="comment">%   * F(i).x is F(i).L*z and F(i).u is -(F(i).L/rho)*yi</span>
+0058 <span class="comment">%   * the consensus variable is a more sophisticated average (using L' and 1/Q)</span>
+0059 <span class="comment">%</span>
+0060 <span class="comment">% References:</span>
+0061 <span class="comment">%  [1] S. Boyd, N. Parika, E. Chu, B. Peleato, J. Eckstein, &quot;Distributed Optimization and Statistical Learning</span>
+0062 <span class="comment">%      via the Alternating Direction Method of Multipliers&quot;, Foundations and Trends in Machine Learning 3(1), 2011</span>
+0063 <span class="comment">%</span>
+0064 <span class="comment">%   [2] P. Combettes and J. Pesquet. &quot;A douglas-rachford splitting approach to</span>
+0065 <span class="comment">%       nonsmooth convex variational signal recovery.&quot; Selected Topics in Signal</span>
+0066 <span class="comment">%       Processing, IEEE Journal of, 1(4):564-574, 2007.</span>
+0067 <span class="comment">%</span>
+0068 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0069 <span class="comment">%                                2013-02-09</span>
+0070 
+0071 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2013, christian@sccn.ucsd.edu</span>
+0072 <span class="comment">%</span>
+0073 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0074 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0075 <span class="comment">% License, or (at your option) any later version.</span>
+0076 <span class="comment">%</span>
+0077 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0078 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0079 <span class="comment">% General Public License for more details.</span>
+0080 <span class="comment">%</span>
+0081 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0082 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0083 <span class="comment">% USA</span>
+0084 
+0085 <span class="comment">% consensus_admm_version&lt;1.0&gt; -- for the cache</span>
+0086 
+0087 z = z0(:);
+0088 m = length(F);
+0089 
+0090 <span class="comment">% handle optional arguments</span>
+0091 <span class="keyword">if</span> nargin&lt;2
+0092     param=struct(); <span class="keyword">end</span>
+0093 <span class="keyword">if</span> ~isfield(param,<span class="string">'maxit'</span>)
+0094     param.maxit = 1000; <span class="keyword">end</span>
+0095 <span class="keyword">if</span> ~isfield(param,<span class="string">'rho'</span>)
+0096     param.rho = 1; <span class="keyword">end</span>
+0097 <span class="keyword">if</span> ~isfield(param,<span class="string">'abs_tol'</span>)
+0098     param.abs_tol = 10e-4; <span class="keyword">end</span>
+0099 <span class="keyword">if</span> ~isfield(param,<span class="string">'rel_tol'</span>)
+0100     param.rel_tol = 10e-3; <span class="keyword">end</span>
+0101 <span class="keyword">if</span> ~isfield(param,<span class="string">'verbose'</span>)
+0102     param.verbose = 1; <span class="keyword">end</span>
+0103 <span class="keyword">if</span> ~isfield(param,<span class="string">'rho_update'</span>)
+0104     param.rho_update = true; <span class="keyword">end</span>
+0105 <span class="keyword">if</span> ~isfield(param,<span class="string">'rho_cutoff'</span>)
+0106     param.rho_cutoff = 10; <span class="keyword">end</span>
+0107 <span class="keyword">if</span> ~isfield(param,<span class="string">'rho_incr'</span>)
+0108     param.rho_incr = 1.5; <span class="keyword">end</span>
+0109 <span class="keyword">if</span> ~isfield(param,<span class="string">'rho_decr'</span>)
+0110     param.rho_decr = 1.5; <span class="keyword">end</span>
+0111 
+0112 <span class="comment">% handle function parameters</span>
+0113 <span class="keyword">for</span> i=1:m
+0114     <span class="keyword">if</span> ~isfield(F(i),<span class="string">'L'</span>) || isempty(F(i).L)
+0115         F(i).L = speye(numel(z)); <span class="keyword">end</span>
+0116     F(i).x = F(i).L*z;
+0117     <span class="keyword">if</span> ~isfield(F(i),<span class="string">'y0'</span>) || isempty(F(i).y0)
+0118         F(i).y0 = zeros(size(F(i).x)); <span class="keyword">end</span>
+0119     F(i).u = F(i).y0/param.rho;
+0120 <span class="keyword">end</span>
+0121 
+0122 <span class="comment">% max dimensionality of involved primal and dual variables</span>
+0123 np = max([arrayfun(@(f)length(f.x),F),length(z)]);
+0124 nd = max(arrayfun(@(f)length(f.u),F));
+0125 
+0126 <span class="comment">% initialize and cache the inverse scaling matrix Q (typically diagonal)</span>
+0127 <span class="keyword">persistent</span> Q_cache;
+0128 qid = [<span class="string">'x'</span> hlp_cryptohash({F.L})]; <span class="comment">% note: use qid = matrix_hash(vertcat(F.L)); if you're using this function standalone</span>
+0129 <span class="keyword">try</span>
+0130     Q_inv = Q_cache.(qid);
+0131 <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0132     fprintf(<span class="string">'\nInverting and caching operator matrix... '</span>);
+0133     Q = sparse(0);
+0134     <span class="keyword">for</span> i=1:m
+0135         Q = Q + F(i).L' * F(i).L; <span class="keyword">end</span>
+0136     Q_inv = inv(Q);
+0137     <span class="keyword">if</span> nnz(Q_inv) &gt; numel(Q_inv)*0.25
+0138         Q_inv = full(Q_inv); <span class="keyword">end</span>
+0139     Q_cache.(qid) = Q_inv;
+0140     fprintf(<span class="string">'done.\n'</span>);
+0141 <span class="keyword">end</span>
+0142 
+0143 
+0144 <span class="keyword">if</span> param.verbose
+0145     fprintf(<span class="string">'\n%3s\t%10s\t%10s\t%10s\t%10s\t%10s\t%10s\n'</span>, <span class="string">'iter'</span>, <span class="string">'r norm'</span>, <span class="string">'eps pri'</span>, <span class="string">'s norm'</span>, <span class="string">'eps dual'</span>, <span class="string">'objective'</span>, <span class="string">'rho'</span>); <span class="keyword">end</span>
+0146 <span class="keyword">for</span> k=1:param.maxit
+0147     <span class="keyword">for</span> i=1:m
+0148         <span class="comment">% primal variable update</span>
+0149         Lz = F(i).L*z;
+0150         F(i).x = F(i).prox(Lz + F(i).u,1/param.rho,F(i).x);
+0151         <span class="comment">% dual variable update</span>
+0152         F(i).u = F(i).u + Lz - F(i).x;        
+0153     <span class="keyword">end</span>
+0154     
+0155     <span class="comment">% consensus variable update</span>
+0156     zold = z;
+0157     z = 0;
+0158     <span class="keyword">for</span> i=1:m
+0159         z = z + F(i).L'*(F(i).x-F(i).u); <span class="keyword">end</span>
+0160     z = Q_inv*z;
+0161 
+0162     <span class="comment">% diagnostics, reporting, termination checks</span>
+0163     history.rho(k)     = param.rho;
+0164     history.objval(k)  = sum(arrayfun(@(f)f.eval(z),F));
+0165     history.r_norm(k)  = sqrt(sum(arrayfun(@(f)sum((f.x-f.L*z).^2),F)));
+0166     history.s_norm(k)  = norm(-param.rho*(z - zold),<span class="string">'fro'</span>);        
+0167     history.eps_pri(k) = sqrt(np)*param.abs_tol + param.rel_tol*max([arrayfun(@(f)norm(f.x),F),norm(z)]);
+0168     history.eps_dual(k)= sqrt(nd)*param.abs_tol + param.rel_tol*param.rho*sqrt(sum(arrayfun(@(f)sum(f.u(:).^2),F)));
+0169     <span class="keyword">if</span> param.verbose
+0170         fprintf(<span class="string">'%3d\t%10.4f\t%10.4f\t%10.4f\t%10.4f\t%10.2f\t%10.2f\n'</span>, k, <span class="keyword">...</span>
+0171             history.r_norm(k), history.eps_pri(k), history.s_norm(k), history.eps_dual(k), history.objval(k), history.rho(k));
+0172     <span class="keyword">end</span>
+0173     <span class="keyword">if</span> history.r_norm(k) &lt; history.eps_pri(k) &amp;&amp; history.s_norm(k) &lt; history.eps_dual(k)
+0174         <span class="keyword">break</span>; <span class="keyword">end</span>
+0175     
+0176     <span class="comment">% optional rho update</span>
+0177     <span class="keyword">if</span> param.rho_update
+0178         <span class="keyword">if</span> history.r_norm(k) &gt; param.rho_cutoff * history.s_norm(k)
+0179             param.rho = param.rho * param.rho_incr;
+0180             <span class="keyword">for</span> i=1:length(F)
+0181                 F(i).u = F(i).u / param.rho_incr; <span class="keyword">end</span>
+0182         <span class="keyword">elseif</span> history.s_norm(k) &gt; param.rho_cutoff * history.r_norm(k)
+0183             param.rho = param.rho / param.rho_incr;
+0184             <span class="keyword">for</span> i=1:length(F)
+0185                 F(i).u = F(i).u * param.rho_incr; <span class="keyword">end</span>
+0186         <span class="keyword">end</span>
+0187     <span class="keyword">end</span>
+0188 <span class="keyword">end</span>
+0189 
+0190 <span class="comment">% calculate final unscaled dual variables</span>
+0191 y = arrayfun(@(f)f.u*param.rho,F,<span class="string">'UniformOutput'</span>,false);
+0192 rho = param.rho;
+0193 
+0194 
+0195 <a name="_sub1" href="#_subfunctions" class="code">function hash = matrix_hash(M)</a>
+0196 <span class="comment">% calculate a hash of a given matrix</span>
+0197 hasher = java.security.MessageDigest.getInstance(<span class="string">'MD5'</span>);
+0198 hasher.update(uint8(full(M(:))));
+0199 hash = dec2hex(typecast(hasher.digest,<span class="string">'uint8'</span>),2);
+0200 hash = [<span class="string">'X'</span> hash(:)'];</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

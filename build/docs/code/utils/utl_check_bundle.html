@@ -1,0 +1,157 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_check_bundle</title>
+  <meta name="keywords" content="utl_check_bundle">
+  <meta name="description" content="Check a stream bundle for consistency and fix if necessary.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_check_bundle.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_check_bundle
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Check a stream bundle for consistency and fix if necessary.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function bundle = utl_check_bundle(bundle) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Check a stream bundle for consistency and fix if necessary.
+
+ This function ensures that:
+  * all streams cover the same time interval (up to respective sample accuracy)
+  * each stream has all markers (with matching type, latency and target field; each stream may have 
+    its unique additional marker meta-data)
+  * the expression associated with each stream (if any) matches the data (via a stored fingerprint)
+ 
+ In:
+   Bundle : stream bundle to be checked; 
+            if this is an EEGLAB data set, it will be turned into a bundle
+
+ Out:
+   Bundle : adjusted bundle
+
+ See also:
+   <a href="utl_check_dataset.html" class="code" title="function sig = utl_check_dataset(sig,opts,ctx,exp)">utl_check_dataset</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-08-28</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_check_dataset.html" class="code" title="function sig = utl_check_dataset(sig,opts,ctx,exp)">utl_check_dataset</a>	Check whether the given argument is an imporperly tracked data set and fix.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function bundle = utl_check_bundle(bundle)</a>
+0002 <span class="comment">% Check a stream bundle for consistency and fix if necessary.</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% This function ensures that:</span>
+0005 <span class="comment">%  * all streams cover the same time interval (up to respective sample accuracy)</span>
+0006 <span class="comment">%  * each stream has all markers (with matching type, latency and target field; each stream may have</span>
+0007 <span class="comment">%    its unique additional marker meta-data)</span>
+0008 <span class="comment">%  * the expression associated with each stream (if any) matches the data (via a stored fingerprint)</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% In:</span>
+0011 <span class="comment">%   Bundle : stream bundle to be checked;</span>
+0012 <span class="comment">%            if this is an EEGLAB data set, it will be turned into a bundle</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">% Out:</span>
+0015 <span class="comment">%   Bundle : adjusted bundle</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">% See also:</span>
+0018 <span class="comment">%   utl_check_dataset</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0021 <span class="comment">%                                2011-08-28</span>
+0022 
+0023 <span class="comment">% turn into a bundle if necessary</span>
+0024 <span class="keyword">if</span> ~isfield(bundle,<span class="string">'streams'</span>)
+0025     bundle = struct(<span class="string">'streams'</span>,{{bundle}}); <span class="keyword">end</span>
+0026 
+0027 str = bundle.streams;
+0028 
+0029 mrk_type = {};
+0030 mrk_latency = {};
+0031 mrk_target = {};
+0032 mrk_source = [];
+0033 xmin = [];
+0034 xmax = [];
+0035 
+0036 <span class="comment">% find intervals that are covered by all streams</span>
+0037 <span class="keyword">for</span> s=1:length(str)
+0038     <span class="comment">% evaluate if necessary</span>
+0039     str{s} = exp_eval_optimized(str{s});
+0040     <span class="comment">% check if epoched</span>
+0041     epoched(s) = isempty(str{s}.epoch);
+0042     <span class="comment">% get xmin / xmax</span>
+0043     xmin(s) = str{s}.xmin;
+0044     xmax(s) = str{s}.xmax;
+0045 <span class="keyword">end</span>
+0046 
+0047 <span class="keyword">if</span> length(unique(epoched)) &gt; 1
+0048     error(<span class="string">'The streams in a bundle must either all be epoched or all be non-epoched.'</span>); <span class="keyword">end</span>
+0049 
+0050 <span class="comment">% restrict to the intervals that are covered by all streams</span>
+0051 xmin = max(xmin);
+0052 xmax = min(xmax);
+0053 <span class="keyword">for</span> s=1:length(str)    
+0054     <span class="keyword">if</span> xmin &gt; str{s}.xmin || xmax &lt; str{s}.xmax
+0055         str{s} = pop_select(str{s},<span class="string">'time'</span>,[xmin xmax]); <span class="keyword">end</span>
+0056 <span class="keyword">end</span>
+0057 
+0058 <span class="comment">% collect markers across all streams</span>
+0059 <span class="keyword">for</span> s=1:length(str)
+0060     <span class="comment">% collect marker types, latencies and target values across streams</span>
+0061     <span class="keyword">if</span> ~isempty(str{s}.event)
+0062         mrk_type = [mrk_type {str{s}.event.type}];
+0063         mrk_latency = [mrk_latency {str{s}.event.latency}];    
+0064         <span class="keyword">if</span> ~isfield(str{s}.event,<span class="string">'target'</span>)
+0065             str{s}.event(1).target = []; <span class="keyword">end</span>
+0066         mrk_target = [mrk_target {str{s}.event.target}];
+0067         mrk_source = [mrk_source s*ones(1,length(str{s}.event))];
+0068     <span class="keyword">end</span>
+0069 <span class="keyword">end</span>
+0070 
+0071 <span class="comment">% map all markers onto their unique identifier (latency_type)</span>
+0072 uids = cellfun(@(a,b)[num2str(b) <span class="string">'_'</span> a],mrk_type,mrk_latency,<span class="string">'UniformOutput'</span>,false);
+0073 <span class="comment">% for each stream..</span>
+0074 <span class="keyword">for</span> s=1:length(str)
+0075     <span class="comment">% get the list of markers indices that need to be added to it</span>
+0076     [dummy,add_idx] = setdiff(uids,uids(mrk_source==s)); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0077     <span class="comment">% append those markers to the stream</span>
+0078     evt = [str{s}.event];
+0079     range = length(evt)+1:length(evt)+length(add_idx);
+0080     [evt(range).type] = mrk_type{add_idx};
+0081     [evt(range).latency] = mrk_latency{add_idx};
+0082     [evt(range).target] = mrk_target{add_idx};
+0083     <span class="comment">% re-sort the events by latency</span>
+0084     [dummy,sort_idx] = sort([evt.latency]); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0085     str{s}.event = evt(sort_idx);
+0086     <span class="comment">% check for internal consistency of each data set</span>
+0087     str{s} = <a href="utl_check_dataset.html" class="code" title="function sig = utl_check_dataset(sig,opts,ctx,exp)">utl_check_dataset</a>(str{s});
+0088 <span class="keyword">end</span>
+0089 
+0090 <span class="comment">% finalize</span>
+0091 bundle.streams = str;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

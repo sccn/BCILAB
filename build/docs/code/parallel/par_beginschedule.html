@@ -1,0 +1,268 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of par_beginschedule</title>
+  <meta name="keywords" content="par_beginschedule">
+  <meta name="description" content="Begin the scheduling of some set of tasks across a pool of (possibly remote) workers.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">parallel</a> &gt; par_beginschedule.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/parallel&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>par_beginschedule
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Begin the scheduling of some set of tasks across a pool of (possibly remote) workers.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function sched = par_beginschedule(tasks,varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Begin the scheduling of some set of tasks across a pool of (possibly remote) workers.
+ Id = par_beginschedule(Tasks,Options...)
+
+ Returns a scheduler handle to wait for and obtain results upon completion.
+
+ In:
+   Tasks : cell array of tasks; each cell can be formatted as 
+           * (evaluatable) string
+           * {function_handle, arg1,arg2,arg3, ...}
+           * struct('head',function_handle, 'parts',{{arg1,arg2,arg3, ...}})
+
+   Options...: optional name-value pairs, with possible names:
+               'engine': parallelization engine to use, can be one of:
+                         'global': select the global setting (tracking.parallel.engine)
+                         'local': do all computations locally, skipping serialization
+                         'BLS': use the BCILAB Scheduler (uses the resources specified in the pool argument) (default)
+                         'Reference': local reference implementation for testing BLS (using the same task serialization mechanism)
+                         'ParallelComputingToolbox': use the Mathworks Parallel Computing Toolbox (tm); uses resources allocated via the matlabpool command or a configuration file
+
+               'pool': pool of workers to consider for the BLS scheduler (default: 'global')
+                       if 'global', the global setting (tracking.parallel.pool) will be chosen
+                       (with the BLS engine, an empty pool implies local computation)
+
+               'policy': name of the scheduling policy function for the BLS (default: 'global')
+                         if 'global', the global setting (tracking.parallel.policy) will be chosen
+
+               'pushscope' : whether to &quot;push&quot; the current symbol scope (see hlp_scope and hlp_resolve)
+                             over the network (default: true)
+
+ Out:
+   Id : output handle; used to collect the results
+
+ See also:
+   <a href="par_endschedule.html" class="code" title="function [results,errors] = par_endschedule(sched,varargin)">par_endschedule</a>, <a href="par_worker.html" class="code" title="function par_worker(port,portrange,timeout_heartbeat,varargin)">par_worker</a>, <a href="par_schedule.html" class="code" title="function [results,errors] = par_schedule(tasks,varargin)">par_schedule</a>
+
+ Example:
+   % schedule two computations across a pool of some IP:port addresses (assuming that MATLAB is running there,
+   % and is executing the par_worker() function
+   id = par_beginschedule({'sin(randn(10))','exp(randn(10))'}, 'pool',{'192.168.1.1:23547','192.168.1.2:23547','192.168.1.2:23548','192.168.1.3:23547'});
+   ... optionally do something in the meantime
+   results = par_endschedule(id);
+
+ Expert note:
+  The 'keep' option of <a href="par_schedule.html" class="code" title="function [results,errors] = par_schedule(tasks,varargin)">par_schedule</a> is also available here and in <a href="par_endschedule.html" class="code" title="function [results,errors] = par_endschedule(sched,varargin)">par_endschedule</a>, but it is much harder to use correctly:
+   * if passed as true to <a href="par_beginschedule.html" class="code" title="function sched = par_beginschedule(tasks,varargin)">par_beginschedule</a>, it *must* also be passed as true to <a href="par_endschedule.html" class="code" title="function [results,errors] = par_endschedule(sched,varargin)">par_endschedule</a>
+   * nested schedules are not allowed if they use the same worker pool
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-08-29</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="par_evaluate.html" class="code" title="function result = par_evaluate(task__)">par_evaluate</a>	Internal: Task processing function of the worker.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="par_schedule.html" class="code" title="function [results,errors] = par_schedule(tasks,varargin)">par_schedule</a>	Schedule the given tasks across a pool of (possibly remote) workers.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function sched = par_beginschedule(tasks,varargin)</a>
+0002 <span class="comment">% Begin the scheduling of some set of tasks across a pool of (possibly remote) workers.</span>
+0003 <span class="comment">% Id = par_beginschedule(Tasks,Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Returns a scheduler handle to wait for and obtain results upon completion.</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">% In:</span>
+0008 <span class="comment">%   Tasks : cell array of tasks; each cell can be formatted as</span>
+0009 <span class="comment">%           * (evaluatable) string</span>
+0010 <span class="comment">%           * {function_handle, arg1,arg2,arg3, ...}</span>
+0011 <span class="comment">%           * struct('head',function_handle, 'parts',{{arg1,arg2,arg3, ...}})</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">%   Options...: optional name-value pairs, with possible names:</span>
+0014 <span class="comment">%               'engine': parallelization engine to use, can be one of:</span>
+0015 <span class="comment">%                         'global': select the global setting (tracking.parallel.engine)</span>
+0016 <span class="comment">%                         'local': do all computations locally, skipping serialization</span>
+0017 <span class="comment">%                         'BLS': use the BCILAB Scheduler (uses the resources specified in the pool argument) (default)</span>
+0018 <span class="comment">%                         'Reference': local reference implementation for testing BLS (using the same task serialization mechanism)</span>
+0019 <span class="comment">%                         'ParallelComputingToolbox': use the Mathworks Parallel Computing Toolbox (tm); uses resources allocated via the matlabpool command or a configuration file</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%               'pool': pool of workers to consider for the BLS scheduler (default: 'global')</span>
+0022 <span class="comment">%                       if 'global', the global setting (tracking.parallel.pool) will be chosen</span>
+0023 <span class="comment">%                       (with the BLS engine, an empty pool implies local computation)</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%               'policy': name of the scheduling policy function for the BLS (default: 'global')</span>
+0026 <span class="comment">%                         if 'global', the global setting (tracking.parallel.policy) will be chosen</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">%               'pushscope' : whether to &quot;push&quot; the current symbol scope (see hlp_scope and hlp_resolve)</span>
+0029 <span class="comment">%                             over the network (default: true)</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">% Out:</span>
+0032 <span class="comment">%   Id : output handle; used to collect the results</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">% See also:</span>
+0035 <span class="comment">%   par_endschedule, par_worker, par_schedule</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">% Example:</span>
+0038 <span class="comment">%   % schedule two computations across a pool of some IP:port addresses (assuming that MATLAB is running there,</span>
+0039 <span class="comment">%   % and is executing the par_worker() function</span>
+0040 <span class="comment">%   id = par_beginschedule({'sin(randn(10))','exp(randn(10))'}, 'pool',{'192.168.1.1:23547','192.168.1.2:23547','192.168.1.2:23548','192.168.1.3:23547'});</span>
+0041 <span class="comment">%   ... optionally do something in the meantime</span>
+0042 <span class="comment">%   results = par_endschedule(id);</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">% Expert note:</span>
+0045 <span class="comment">%  The 'keep' option of par_schedule is also available here and in par_endschedule, but it is much harder to use correctly:</span>
+0046 <span class="comment">%   * if passed as true to par_beginschedule, it *must* also be passed as true to par_endschedule</span>
+0047 <span class="comment">%   * nested schedules are not allowed if they use the same worker pool</span>
+0048 <span class="comment">%</span>
+0049 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0050 <span class="comment">%                                2010-08-29</span>
+0051 
+0052 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0053 <span class="comment">%</span>
+0054 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0055 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0056 <span class="comment">% License, or (at your option) any later version.</span>
+0057 <span class="comment">%</span>
+0058 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0059 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0060 <span class="comment">% General Public License for more details.</span>
+0061 <span class="comment">%</span>
+0062 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0063 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0064 <span class="comment">% USA</span>
+0065 
+0066 <span class="comment">% read options</span>
+0067 opts = hlp_varargin2struct(varargin, <span class="keyword">...</span>
+0068      <span class="string">'engine'</span>,<span class="string">'global'</span>, <span class="keyword">...</span>
+0069      <span class="string">'pool'</span>, <span class="string">'global'</span>, <span class="keyword">...</span>
+0070      <span class="string">'policy'</span>, <span class="string">'global'</span>, <span class="keyword">...</span>
+0071      <span class="string">'receiver_backlog'</span>, 5, <span class="keyword">...</span>
+0072      <span class="string">'receiver_timeout'</span>, 1, <span class="keyword">...</span>
+0073      <span class="string">'reschedule_interval'</span>,5, <span class="keyword">...</span>
+0074      <span class="string">'keep'</span>, false, <span class="keyword">...</span>
+0075      <span class="string">'pushscope'</span>, true <span class="keyword">...</span>
+0076     );
+0077 
+0078 
+0079 <span class="comment">% look up global settings, if requested</span>
+0080 <span class="keyword">global</span> tracking;
+0081 <span class="keyword">if</span> strcmp(opts.engine,<span class="string">'global'</span>)
+0082     <span class="keyword">try</span>
+0083         opts.engine = tracking.parallel.engine; 
+0084     <span class="keyword">catch</span>
+0085         opts.engine = <span class="string">'BLS'</span>; tracking.parallel.engine = opts.engine;
+0086     <span class="keyword">end</span>
+0087 <span class="keyword">end</span>
+0088 <span class="keyword">if</span> strcmp(opts.pool,<span class="string">'global'</span>)
+0089     <span class="keyword">try</span>
+0090         opts.pool = tracking.parallel.pool;
+0091     <span class="keyword">catch</span>
+0092         disp(<span class="string">'No global scheduling pool (tracking.parallel.pool) defined; initializing as empty.'</span>);
+0093         opts.pool = {}; tracking.parallel.pool = opts.pool;
+0094     <span class="keyword">end</span>
+0095 <span class="keyword">end</span>
+0096 <span class="keyword">if</span> strcmp(opts.policy,<span class="string">'global'</span>)
+0097     <span class="keyword">try</span> 
+0098         opts.policy = tracking.parallel.policy;
+0099     <span class="keyword">catch</span>
+0100         opts.policy = <span class="string">'par_reschedule_policy'</span>; tracking.parallel.policy = opts.policy;
+0101     <span class="keyword">end</span>
+0102 <span class="keyword">end</span>
+0103 <span class="keyword">if</span> isa(opts.policy,<span class="string">'function_handle'</span>)
+0104     opts.policy = char(opts.policy); <span class="keyword">end</span>
+0105 <span class="keyword">if</span> strcmp(opts.engine,<span class="string">'BLS'</span>) &amp;&amp; isempty(opts.pool)
+0106     opts.engine = <span class="string">'local'</span>; <span class="keyword">end</span>
+0107 
+0108 
+0109 <span class="comment">% canonlicalize task format to {function-handle,arguments...}</span>
+0110 <span class="keyword">for</span> t=1:length(tasks)
+0111     <span class="keyword">if</span> isfield(tasks{t},{<span class="string">'head'</span>,<span class="string">'parts'</span>})
+0112         <span class="comment">% task given as Mathematica-style expression struct (see expressions/exp_*)</span>
+0113         tasks{t} = [{tasks{t}.head} tasks{t}.parts];
+0114     <span class="keyword">elseif</span> ischar(tasks{t})
+0115         <span class="comment">% task given as string</span>
+0116         tasks{t} = {@eval,tasks{t}};
+0117     <span class="keyword">elseif</span> ~(iscell(tasks{t}) &amp;&amp; ~isempty(tasks{t}) &amp;&amp; isa(tasks{t}{1},<span class="string">'function_handle'</span>))
+0118         <span class="comment">% incorrect task format...</span>
+0119         error(<span class="string">'Unsupported task format; please see documentation.'</span>);
+0120     <span class="keyword">end</span>
+0121 <span class="keyword">end</span>
+0122 
+0123 
+0124 <span class="comment">% push current symbol context over the network</span>
+0125 <span class="keyword">if</span> opts.pushscope &amp;&amp; ~strcmp(opts.engine,<span class="string">'local'</span>)
+0126     <span class="comment">% get the current scope</span>
+0127     scope = hlp_resolveall;
+0128     <span class="comment">% and wrap a hlp_scope() around the task</span>
+0129     <span class="keyword">for</span> t=1:length(tasks)
+0130         tasks{t} = [{@hlp_scope, scope} tasks{t}]; <span class="keyword">end</span>
+0131 <span class="keyword">end</span>
+0132 
+0133 
+0134 <span class="comment">% create a scheduler (Java code, see dependencies/Scheduling-*)</span>
+0135 <span class="keyword">if</span> strcmp(opts.engine,<span class="string">'BLS'</span>)
+0136     <span class="keyword">if</span> opts.keep
+0137         tmp = hlp_microcache(<span class="string">'schedulers'</span>,@(varargin)Scheduler(varargin{:}),opts.pool,opts.policy,opts.receiver_backlog,round(1000*opts.receiver_timeout),round(1000*opts.reschedule_interval));
+0138     <span class="keyword">else</span>
+0139         tmp = Scheduler(opts.pool,opts.policy,opts.receiver_backlog,round(1000*opts.receiver_timeout),round(1000*opts.reschedule_interval));
+0140     <span class="keyword">end</span>
+0141     sched = struct(<span class="string">'sched'</span>,{tmp},<span class="string">'finisher'</span>,{onCleanup(@()tmp.clear())});
+0142 <span class="keyword">end</span>
+0143 
+0144 
+0145 <span class="comment">% serialize tasks for network transmission (and prepend order id)</span>
+0146 <span class="keyword">if</span> any(strcmp(opts.engine,{<span class="string">'BLS'</span>,<span class="string">'Reference'</span>}))
+0147     <span class="keyword">for</span> t=1:length(tasks)        
+0148         tasks{t} = base64encode(hlp_serialize([{t} tasks{t}])); <span class="keyword">end</span>
+0149 <span class="keyword">end</span>
+0150 
+0151 
+0152 <span class="comment">% submit tasks for execution</span>
+0153 <span class="keyword">switch</span> opts.engine
+0154     <span class="keyword">case</span> <span class="string">'local'</span>
+0155         sched = {};
+0156         <span class="keyword">for</span> t=1:length(tasks)
+0157             sched(t) = {{t,tasks{t}{1}(tasks{t}{2:end})}}; <span class="keyword">end</span>
+0158     <span class="keyword">case</span> <span class="string">'ParallelComputingToolbox'</span>
+0159         sched = {};
+0160         parfor t=1:length(tasks)
+0161             sched(t) = {{t,tasks{t}{1}(tasks{t}{2:end})}}; <span class="keyword">end</span>
+0162     <span class="keyword">case</span> <span class="string">'BLS'</span>
+0163         <span class="comment">% over the scheduler</span>
+0164         sched.sched.submit(tasks);
+0165     <span class="keyword">case</span> <span class="string">'Reference'</span>
+0166         <span class="comment">% evaluate locally, but go through the same evaluation function as the BLS workers</span>
+0167         <span class="keyword">for</span> t=1:length(tasks)
+0168             tasks{t} = base64encode(<a href="par_evaluate.html" class="code" title="function result = par_evaluate(task__)">par_evaluate</a>(base64decode(tasks{t}))); <span class="keyword">end</span>
+0169         <span class="comment">% return the collected result in sched</span>
+0170         sched = struct(<span class="string">'ReferenceResults'</span>,{tasks});
+0171     <span class="keyword">otherwise</span>
+0172         error(<span class="string">'Unsupported parallelization engine selected.'</span>);
+0173 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

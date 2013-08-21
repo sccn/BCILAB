@@ -1,0 +1,1 @@
+[EEGDATA.smax,EEGDATA.buffer(:,1+mod(EEGDATA.smax:EEGDATA.smax+size(EEGDATA_chunk,2)-1,EEGDATA.buffer_len))] = deal(EEGDATA.smax + size(EEGDATA_chunk,2),EEGDATA_chunk);

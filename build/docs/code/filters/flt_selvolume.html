@@ -1,0 +1,251 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_selvolume</title>
+  <meta name="keywords" content="flt_selvolume">
+  <meta name="description" content="Select independent components according to what brain volumes they are in.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_selvolume.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_selvolume
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Select independent components according to what brain volumes they are in.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function signal = flt_selvolume(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Select independent components according to what brain volumes they are in.
+ Signal = flt_selvolume(...)
+
+ In:
+   Signal        : input data set, assumed to have an associated IC decomposition
+
+   Hemisphere    : Cell array of hemisphere names to retain (or empty to retain all) (default: {})
+
+   Lobe          : Cell array of lobe names to retain (or empty to retain all) (default: {})
+
+   Gyrus         : Cell array of gyrus names to retain (or empty to retain all) (default: {})
+
+   TransformData : Return the result as data (instead of as IC decomposition).
+                   This allows to use volume-based selection together with with several archaic 
+                   signal processing plugins (or paradigms) that are not aware of advanced 
+                   meta-data.
+
+ Out:
+   Signal : input data set restricted to dipoles which lie in the respective areas
+
+ Notes:
+   Requires that set_fit_dipoles (and flt_ica) have been run before.
+
+ Examples:
+   % after a data set has been annotated with an ICA decomposition, and dipoles have been
+   % fit for the components, e.g., as follows:
+   eeg = set_fit_dipoles(flt_ica(eeg));
+
+   % ... retain only components that are located in the left or right Cerebrum
+   eeg = flt_selvolume(eeg,{'Left Cerebrum','Right Cerebrum'})
+
+   % ... retain only components that are located in the Occipital lobe
+   eeg = flt_selvolume(eeg,true,{'Occipital Lobe'})
+
+   % ... retain only components that are located both in the Occipital lobe and left Cerebrum
+   eeg = flt_selvolume(eeg,{'Left Cerebrum'},{'Occipital Lobe'})
+
+   % ... retain all components that are located in the Cingulate Gyrus or Anterior Cingulate
+   % passing all arguments by their name
+   eeg = flt_selvolume('Signal',eeg,'Gyrus',{'Anterior Cingulate','Cingulate Gyrus'})
+
+   % ... retain only components that are located in the left or right Cerebrum and replace
+   % the .data field of the data set with the retained component activations
+   eeg = flt_selvolume('Signal',eeg,'Hemisphere',{'Left Cerebrum','Right Cerebrum'},'TransformData',true)
+
+   % ... retain all ICs (i.e., do noting)
+   eeg = flt_selvolume(eeg)
+
+ See also:
+   set_fit_dipoles, <a href="flt_ica.html" class="code" title="function [signal,state] = flt_ica(varargin)">flt_ica</a>
+
+ TODO:
+   Come up with a better way to find a small number of well-dispersed components in ROIs?
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-01-20</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = flt_selvolume(varargin)</a>
+0002 <span class="comment">% Select independent components according to what brain volumes they are in.</span>
+0003 <span class="comment">% Signal = flt_selvolume(...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Signal        : input data set, assumed to have an associated IC decomposition</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">%   Hemisphere    : Cell array of hemisphere names to retain (or empty to retain all) (default: {})</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">%   Lobe          : Cell array of lobe names to retain (or empty to retain all) (default: {})</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%   Gyrus         : Cell array of gyrus names to retain (or empty to retain all) (default: {})</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%   TransformData : Return the result as data (instead of as IC decomposition).</span>
+0015 <span class="comment">%                   This allows to use volume-based selection together with with several archaic</span>
+0016 <span class="comment">%                   signal processing plugins (or paradigms) that are not aware of advanced</span>
+0017 <span class="comment">%                   meta-data.</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">% Out:</span>
+0020 <span class="comment">%   Signal : input data set restricted to dipoles which lie in the respective areas</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">% Notes:</span>
+0023 <span class="comment">%   Requires that set_fit_dipoles (and flt_ica) have been run before.</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">% Examples:</span>
+0026 <span class="comment">%   % after a data set has been annotated with an ICA decomposition, and dipoles have been</span>
+0027 <span class="comment">%   % fit for the components, e.g., as follows:</span>
+0028 <span class="comment">%   eeg = set_fit_dipoles(flt_ica(eeg));</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%   % ... retain only components that are located in the left or right Cerebrum</span>
+0031 <span class="comment">%   eeg = flt_selvolume(eeg,{'Left Cerebrum','Right Cerebrum'})</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%   % ... retain only components that are located in the Occipital lobe</span>
+0034 <span class="comment">%   eeg = flt_selvolume(eeg,true,{'Occipital Lobe'})</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">%   % ... retain only components that are located both in the Occipital lobe and left Cerebrum</span>
+0037 <span class="comment">%   eeg = flt_selvolume(eeg,{'Left Cerebrum'},{'Occipital Lobe'})</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%   % ... retain all components that are located in the Cingulate Gyrus or Anterior Cingulate</span>
+0040 <span class="comment">%   % passing all arguments by their name</span>
+0041 <span class="comment">%   eeg = flt_selvolume('Signal',eeg,'Gyrus',{'Anterior Cingulate','Cingulate Gyrus'})</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%   % ... retain only components that are located in the left or right Cerebrum and replace</span>
+0044 <span class="comment">%   % the .data field of the data set with the retained component activations</span>
+0045 <span class="comment">%   eeg = flt_selvolume('Signal',eeg,'Hemisphere',{'Left Cerebrum','Right Cerebrum'},'TransformData',true)</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">%   % ... retain all ICs (i.e., do noting)</span>
+0048 <span class="comment">%   eeg = flt_selvolume(eeg)</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">% See also:</span>
+0051 <span class="comment">%   set_fit_dipoles, flt_ica</span>
+0052 <span class="comment">%</span>
+0053 <span class="comment">% TODO:</span>
+0054 <span class="comment">%   Come up with a better way to find a small number of well-dispersed components in ROIs?</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0057 <span class="comment">%                                2011-01-20</span>
+0058 
+0059 <span class="comment">% flt_selvolume_version&lt;0.85&gt; -- for the cache</span>
+0060 
+0061 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0062 
+0063 <span class="comment">% declare GUI name, etc.</span>
+0064 declare_properties(<span class="string">'name'</span>,<span class="string">'VolumeSelection'</span>, <span class="string">'depends'</span>,<span class="string">'set_fit_dipoles'</span>, <span class="string">'precedes'</span>,{<span class="string">'set_makepos'</span>,<span class="string">'flt_project'</span>}, <span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,true);
+0065 
+0066 <span class="comment">% define arguments...</span>
+0067 arg_define(varargin, <span class="keyword">...</span>
+0068     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span><span class="comment">    </span>
+0069     arg({<span class="string">'sel_hemi'</span>,<span class="string">'Hemisphere'</span>},true, {<span class="string">'Left Cerebrum'</span>,<span class="string">'Right Cerebrum'</span>,<span class="string">'Left Cerebellum'</span>,<span class="string">'Right Cerebellum'</span>,<span class="string">'Left Brainstem'</span>,<span class="string">'Right Brainstem'</span>,<span class="string">'Inter-Hemispheric'</span>}, <span class="string">'Hemisphere to retain. Restrict ICs to those that fall in the specified hemispheres.'</span>),<span class="keyword">...</span>
+0070     arg({<span class="string">'sel_lobe'</span>,<span class="string">'Lobe'</span>},true, {<span class="string">'Anterior Lobe'</span>,<span class="string">'Frontal Lobe'</span>,<span class="string">'Frontal-Temporal Space'</span>,<span class="string">'Limbic Lobe'</span>,<span class="string">'Medulla'</span>,<span class="string">'Midbrain'</span>,<span class="string">'Occipital Lobe'</span>,<span class="string">'Parietal Lobe'</span>,<span class="string">'Pons'</span>,<span class="string">'Posterior Lobe'</span>,<span class="string">'Sub-lobar'</span>,<span class="string">'Temporal Lobe'</span>}, <span class="string">'Lobe to retain. Restrict ICs to those that fall in the specified lobes.'</span>),<span class="keyword">...</span>
+0071     arg({<span class="string">'sel_gyrus'</span>,<span class="string">'Gyrus'</span>},true, {<span class="string">'Angular Gyrus'</span>,<span class="string">'Anterior Cingulate'</span>,<span class="string">'Caudate'</span>,<span class="string">'Cerebellar Lingual'</span>,<span class="string">'Cerebellar Tonsil'</span>,<span class="string">'Cingulate Gyrus'</span>,<span class="string">'Claustrum'</span>,<span class="string">'Culmen'</span>,<span class="string">'Culmen of Vermis'</span>,<span class="string">'Cuneus'</span>,<span class="string">'Declive'</span>,<span class="string">'Declive of Vermis'</span>,<span class="string">'Extra-Nuclear'</span>,<span class="string">'Fastigium'</span>,<span class="string">'Fourth Ventricle'</span>,<span class="string">'Fusiform Gyrus'</span>,<span class="string">'Inferior Frontal Gyrus'</span>,<span class="string">'Inferior Occipital Gyrus'</span>,<span class="string">'Inferior Parietal Lobule'</span>,<span class="string">'Inferior Semi-Lunar Lobule'</span>,<span class="string">'Inferior Temporal Gyrus'</span>,<span class="string">'Insula'</span>,<span class="string">'Lateral Ventricle'</span>,<span class="string">'Lentiform Nucleus'</span>,<span class="string">'Lingual Gyrus'</span>,<span class="string">'Medial Frontal Gyrus'</span>,<span class="string">'Middle Frontal Gyrus'</span>,<span class="string">'Middle Occipital Gyrus'</span>,<span class="string">'Middle Temporal Gyrus'</span>,<span class="string">'Nodule'</span>,<span class="string">'Orbital Gyrus'</span>,<span class="string">'Paracentral Lobule'</span>,<span class="string">'Parahippocampal Gyrus'</span>,<span class="string">'Postcentral Gyrus'</span>,<span class="string">'Posterior Cingulate'</span>,<span class="string">'Precentral Gyrus'</span>,<span class="string">'Precuneus'</span>,<span class="string">'Pyramis'</span>,<span class="string">'Pyramis of Vermis'</span>,<span class="string">'Rectal Gyrus'</span>,<span class="string">'Subcallosal Gyrus'</span>,<span class="string">'Sub-Gyral'</span>,<span class="string">'Superior Frontal Gyrus'</span>,<span class="string">'Superior Occipital Gyrus'</span>,<span class="string">'Superior Parietal Lobule'</span>,<span class="string">'Superior Temporal Gyrus'</span>,<span class="string">'Supramarginal Gyrus'</span>,<span class="string">'Thalamus'</span>,<span class="string">'Third Ventricle'</span>,<span class="string">'Transverse Temporal Gyrus'</span>,<span class="string">'Tuber'</span>,<span class="string">'Tuber of Vermis'</span>,<span class="string">'Uncus'</span>,<span class="string">'Uvula'</span>,<span class="string">'Uvula of Vermis'</span>}, <span class="string">'Gyri to retain. Restrict ICs to those that fall in the specified gyri.'</span>),<span class="keyword">...</span>
+0072     arg({<span class="string">'probability_cutoff'</span>,<span class="string">'ProbabilityCutoff'</span>},0.7,[],<span class="string">'Minimum probability. If a component has less than this probability of being in the selected structures, it will be removed.'</span>),<span class="keyword">...</span>
+0073     arg({<span class="string">'do_transform'</span>,<span class="string">'TransformData'</span>,<span class="string">'transform'</span>},false,[],<span class="string">'Transform the data rather than annotate. By default, ICA decompositions are maintained as annotations to the data set, but several algorithms operate by default on the raw data, and are unaware of these annotations.'</span>),<span class="keyword">...</span>
+0074     arg({<span class="string">'max_components'</span>,<span class="string">'MaxComponents'</span>},Inf,[],<span class="string">'Retain at most this many components. This allows to prune the dimensionality of the source space.'</span>,<span class="string">'experimental'</span>,true),<span class="keyword">...</span>
+0075     arg_norep(<span class="string">'retain_ics'</span>, unassigned));
+0076 
+0077 <span class="keyword">if</span> ~exist(<span class="string">'retain_ics'</span>,<span class="string">'var'</span>)    
+0078     
+0079     <span class="keyword">if</span> isfield(signal.dipfit,<span class="string">'multimodel'</span>) &amp;&amp; length(signal.dipfit.multimodel) &gt; length(signal.dipfit.model)
+0080         <span class="comment">% this is, among others, because .amica.W is currently a 3d array which</span>
+0081         <span class="comment">% cannot be pruned separately for each model</span>
+0082         error(<span class="string">'Volume selection can currently not be applied to multi-model decompositions.'</span>);
+0083     <span class="keyword">end</span>
+0084     
+0085     retain_ics = true(1,length(signal.dipfit.model));
+0086     multiplied_probs = zeros(1,length(signal.dipfit.model));
+0087     
+0088     <span class="comment">% subset ICs based on probability under retained brain volumes</span>
+0089     <span class="keyword">for</span> ic=1:length(retain_ics)
+0090         match = true;
+0091         multiplied_prob = 1;
+0092         <span class="comment">% for each of the three partitions...</span>
+0093         <span class="keyword">for</span> partition = {sel_hemi,sel_lobe,sel_gyrus}
+0094             summed_prob = 0;
+0095             <span class="comment">% for each of the checked labels in the partition...</span>
+0096             <span class="keyword">for</span> checked_label = partition{1}
+0097                 <span class="comment">% if this label shows up in any chunk of the labels for the given IC, we're okay</span>
+0098                 mask = ~cellfun(<span class="string">'isempty'</span>,strfind(signal.dipfit.model(ic).structures,checked_label{1}));
+0099                 summed_prob = summed_prob + sum(signal.dipfit.model(ic).probabilities(mask));
+0100             <span class="keyword">end</span>
+0101             multiplied_prob = multiplied_prob*summed_prob;
+0102         <span class="keyword">end</span>
+0103         <span class="comment">% if, for any of the three partitions, none of the checked labels shows up in the IC's</span>
+0104         <span class="comment">% labels, then the IC is dropped</span>
+0105         <span class="keyword">if</span> multiplied_prob &lt; probability_cutoff
+0106             retain_ics(ic) = false; <span class="keyword">end</span>
+0107         multiplied_probs(ic) = multiplied_prob;
+0108     <span class="keyword">end</span>
+0109         
+0110     <span class="comment">% optionally prune excess components</span>
+0111     <span class="keyword">if</span> max_components &lt; nnz(retain_ics)
+0112         <span class="comment">% calculate a measure of spatial isolation for each component</span>
+0113         isolation_measure = zeros(1,length(signal.dipfit.model));
+0114         <span class="keyword">for</span> ic=find(retain_ics)
+0115             isolation_measure(ic) = min(sqrt(sum((bsxfun(@minus,signal.dipfit.model(ic).posxyz,vertcat(signal.dipfit.model(setdiff(find(retain_ics),ic)).posxyz))).^2,2))); <span class="keyword">end</span>
+0116         isolation_measure(retain_ics) = log(1+isolation_measure(retain_ics));
+0117         <span class="comment">% retain the highest-probability ones</span>
+0118         [dummy,order]= sort(multiplied_probs(retain_ics),<span class="string">'descend'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0119         <span class="comment">%[dummy,order]= sort(isolation_measure(retain_ics).*multiplied_probs(retain_ics),'descend'); %#ok&lt;ASGLU&gt;</span>
+0120         retain_ics = find(retain_ics);
+0121         retain_ics = sort(retain_ics(order(1:max_components)));
+0122     <span class="keyword">end</span>
+0123 <span class="keyword">end</span>
+0124 
+0125 
+0126 <span class="comment">% update the dipole model</span>
+0127 signal.dipfit.model = signal.dipfit.model(retain_ics);
+0128 
+0129 <span class="comment">% restrict the ICs &amp; some derived data</span>
+0130 signal.icaweights = signal.icaweights(retain_ics,:);
+0131 signal.icawinv = signal.icawinv(:,retain_ics);
+0132 <span class="keyword">if</span> ~isempty(signal.icaact)
+0133     signal.icaact = signal.icaact(retain_ics,:,:); <span class="keyword">end</span>
+0134 
+0135 <span class="comment">% and transform the data itself, if desired</span>
+0136 <span class="keyword">if</span> do_transform
+0137     signal.data = (signal.icaweights*signal.icasphere)*signal.data(signal.icachansind,:);
+0138     signal.nbchan = size(signal.data,1);
+0139     signal.chanlocs = struct(<span class="string">'labels'</span>,cellfun(@num2str,num2cell(1:signal.nbchan,1),<span class="string">'UniformOutput'</span>,false));
+0140     signal.icaweights = [];
+0141     signal.icasphere = [];
+0142     signal.icawinv = [];
+0143     signal.icachansind = [];
+0144     signal.dipfit = [];
+0145 <span class="keyword">end</span>
+0146 
+0147 <span class="comment">% to replicate this processing step online, we directly append the list of IC's to be retained to the arguments of the function</span>
+0148 exp_endfun(<span class="string">'append_online'</span>,{<span class="string">'retain_ics'</span>,retain_ics});
+0149</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

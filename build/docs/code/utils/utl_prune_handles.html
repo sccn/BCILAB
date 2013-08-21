@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_prune_handles</title>
+  <meta name="keywords" content="utl_prune_handles">
+  <meta name="description" content="Prune unreferenced workspace variables from anonymous functions in the given argument.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_prune_handles.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_prune_handles
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Prune unreferenced workspace variables from anonymous functions in the given argument.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function x = utl_prune_handles(x) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Prune unreferenced workspace variables from anonymous functions in the given argument.
+
+ In:
+   Data : an arbitrary data structure
+
+ Out:
+   Data : the data structure with hidden references in anonymous functions removed
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-11-23</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_prune_handles.html" class="code" title="function x = utl_prune_handles(x)">utl_prune_handles</a>	Prune unreferenced workspace variables from anonymous functions in the given argument.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_prune_handles.html" class="code" title="function x = utl_prune_handles(x)">utl_prune_handles</a>	Prune unreferenced workspace variables from anonymous functions in the given argument.</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function f = make_function(decl__,workspace__)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function x = utl_prune_handles(x)</a>
+0002 <span class="comment">% Prune unreferenced workspace variables from anonymous functions in the given argument.</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% In:</span>
+0005 <span class="comment">%   Data : an arbitrary data structure</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">% Out:</span>
+0008 <span class="comment">%   Data : the data structure with hidden references in anonymous functions removed</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0011 <span class="comment">%                                2011-11-23</span>
+0012 
+0013 <span class="keyword">if</span> iscell(x)
+0014     <span class="comment">% recurse into cell arrays...</span>
+0015     <span class="keyword">for</span> k=1:numel(x)
+0016         x{k} = <a href="utl_prune_handles.html" class="code" title="function x = utl_prune_handles(x)">utl_prune_handles</a>(x{k}); <span class="keyword">end</span>
+0017 <span class="keyword">elseif</span> isstruct(x)
+0018     <span class="comment">% recurse into structs...</span>
+0019     <span class="keyword">for</span> f=fieldnames(x)'
+0020         <span class="keyword">if</span> ~isempty(x)
+0021             [x.(f{1})] = celldeal(<a href="utl_prune_handles.html" class="code" title="function x = utl_prune_handles(x)">utl_prune_handles</a>({x.(f{1})})); <span class="keyword">end</span>
+0022     <span class="keyword">end</span>
+0023 <span class="keyword">elseif</span> isa(x,<span class="string">'function_handle'</span>)
+0024     <span class="comment">% inspect function handles</span>
+0025     f = char(x);
+0026     <span class="keyword">if</span> f(1) == <span class="string">'@'</span>
+0027         <span class="comment">% anonymous function: take apart...</span>
+0028         parts = functions(x);
+0029         <span class="comment">% ... and put back together</span>
+0030         x = <a href="#_sub1" class="code" title="subfunction f = make_function(decl__,workspace__)">make_function</a>(f,parts.workspace{1});
+0031     <span class="keyword">end</span>
+0032 <span class="keyword">end</span>
+0033 
+0034 <span class="comment">% create a function handle</span>
+0035 <a name="_sub1" href="#_subfunctions" class="code">function f = make_function(decl__,workspace__)</a>
+0036 <span class="comment">% create workspace</span>
+0037 <span class="keyword">for</span> fn__=fieldnames(workspace__)'
+0038     eval([fn__{1} <span class="string">' = workspace__.(fn__{1}) ;'</span>]); <span class="keyword">end</span>
+0039 clear workspace__ fn__;
+0040 <span class="comment">% evaluate declaration</span>
+0041 f = eval(decl__);</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

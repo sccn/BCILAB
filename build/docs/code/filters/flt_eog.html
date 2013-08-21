@@ -1,0 +1,226 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_eog</title>
+  <meta name="keywords" content="flt_eog">
+  <meta name="description" content="Remove artifacts from EEG using artifact reference channels.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_eog.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_eog
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Remove artifacts from EEG using artifact reference channels.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [signal,state] = flt_eog(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Remove artifacts from EEG using artifact reference channels.
+ [Signal,State] = flt_eog(Signal, ReferenceChannels, ForgetFactor, KernelLength, RemoveReferenceChannels)
+
+ This is an online filter that operates on continuous data, and removes artifacts using a
+ regression technique, if artifact channels (e.g., EOG or EMG) are present (using recursive least
+ squares) [1]. Note that noise in the artifact signals may be transferred onto the EEG channels.
+
+ In:
+   Signal :  continuous data set to be filtered
+
+   ReferenceChannels : list of artifact reference channel indices or cell array of channel names
+                       (default: [] = try to auto-detect)
+
+   ForgetFactor : forgetting factor of the adaptive filter; amounts to a choice of the 
+                  effective memory length (default: 0.9995)
+
+   KernelLength : length/order of the temporal FIR filter kernel (default: 3)
+
+   RemoveReferenceChannels : whether to remove the reference channels after processing (default: false)
+
+   State : previous filter state, as obtained by a previous execution of flt_eog on an
+           immediately preceding data set (default: [])
+
+ Out:
+   Signal : filtered, continuous EEGLAB data set
+
+   State : state of the filter, can be used to continue on a subsequent portion of the data
+
+
+ Examples:
+   % using the defaults
+   eeg = flt_eog(eeg)
+
+   % manually supply EOG channels
+   eeg = flt_eog(eeg,{'veog','heog'});
+
+   % pass a specific forgetting factor (here: by name)
+   eeg = flt_eog('Signal',eeg,'ForgetFactor',0.9995)
+
+ References:
+  [1] P. He, G.F. Wilson, C. Russel, &quot;Removal of ocular artifacts from electro-encephalogram by adaptive filtering&quot;
+      Med. Biol. Eng. Comput. 42 pp. 407-412, 2004
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-04-17</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="flt_clean_settings.html" class="code" title="function signal = flt_clean_settings(varargin)">flt_clean_settings</a>	Clean EEG data according to a particular cleaning setting.</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function [X,hist,H_n,R_n] = compute(X,hist,H_n,R_n,eeg,eog,ffact)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal,state] = flt_eog(varargin)</a>
+0002 <span class="comment">% Remove artifacts from EEG using artifact reference channels.</span>
+0003 <span class="comment">% [Signal,State] = flt_eog(Signal, ReferenceChannels, ForgetFactor, KernelLength, RemoveReferenceChannels)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This is an online filter that operates on continuous data, and removes artifacts using a</span>
+0006 <span class="comment">% regression technique, if artifact channels (e.g., EOG or EMG) are present (using recursive least</span>
+0007 <span class="comment">% squares) [1]. Note that noise in the artifact signals may be transferred onto the EEG channels.</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% In:</span>
+0010 <span class="comment">%   Signal :  continuous data set to be filtered</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%   ReferenceChannels : list of artifact reference channel indices or cell array of channel names</span>
+0013 <span class="comment">%                       (default: [] = try to auto-detect)</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%   ForgetFactor : forgetting factor of the adaptive filter; amounts to a choice of the</span>
+0016 <span class="comment">%                  effective memory length (default: 0.9995)</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   KernelLength : length/order of the temporal FIR filter kernel (default: 3)</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%   RemoveReferenceChannels : whether to remove the reference channels after processing (default: false)</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">%   State : previous filter state, as obtained by a previous execution of flt_eog on an</span>
+0023 <span class="comment">%           immediately preceding data set (default: [])</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">% Out:</span>
+0026 <span class="comment">%   Signal : filtered, continuous EEGLAB data set</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">%   State : state of the filter, can be used to continue on a subsequent portion of the data</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">% Examples:</span>
+0032 <span class="comment">%   % using the defaults</span>
+0033 <span class="comment">%   eeg = flt_eog(eeg)</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%   % manually supply EOG channels</span>
+0036 <span class="comment">%   eeg = flt_eog(eeg,{'veog','heog'});</span>
+0037 <span class="comment">%</span>
+0038 <span class="comment">%   % pass a specific forgetting factor (here: by name)</span>
+0039 <span class="comment">%   eeg = flt_eog('Signal',eeg,'ForgetFactor',0.9995)</span>
+0040 <span class="comment">%</span>
+0041 <span class="comment">% References:</span>
+0042 <span class="comment">%  [1] P. He, G.F. Wilson, C. Russel, &quot;Removal of ocular artifacts from electro-encephalogram by adaptive filtering&quot;</span>
+0043 <span class="comment">%      Med. Biol. Eng. Comput. 42 pp. 407-412, 2004</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0046 <span class="comment">%                                2010-04-17</span>
+0047 
+0048 <span class="comment">% flt_eog_version&lt;1.03&gt; -- for the cache</span>
+0049 
+0050 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0051 
+0052 <span class="comment">% makes no sense on epoched data (and should precede the major spatial filters)</span>
+0053 declare_properties(<span class="string">'name'</span>,<span class="string">'EOGRemoval'</span>, <span class="string">'precedes'</span>,<span class="string">'flt_project'</span>, <span class="string">'cannot_follow'</span>,{<span class="string">'set_makepos'</span>,<span class="string">'flt_ica'</span>}, <span class="string">'independent_channels'</span>,true, <span class="string">'independent_trials'</span>,true);
+0054 
+0055 arg_define(varargin, <span class="keyword">...</span>
+0056     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0057     arg({<span class="string">'eogchans'</span>,<span class="string">'ReferenceChannels'</span>,<span class="string">'EOGChannels'</span>}, [], [], <span class="string">'Reference channels. These are the channels that carry the artifacts (e.g., EOG).'</span>), <span class="keyword">...</span>
+0058     arg({<span class="string">'ffact'</span>,<span class="string">'ForgetFactor'</span>}, 0.9995, [0.99 1], <span class="string">'Forgetting factor. Determines the memory length of the adaptive filter.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0059     arg({<span class="string">'kernellen'</span>,<span class="string">'KernelLength'</span>}, 3, [], <span class="string">'Kernel Length. The length/order of the temporal FIR filter kernel.'</span>), <span class="keyword">...</span>
+0060     arg({<span class="string">'removeeog'</span>,<span class="string">'RemoveReferenceChannels'</span>,<span class="string">'RemoveEOG'</span>}, true, [], <span class="string">'Remove reference channels. Remove the reference channels after processing.'</span>), <span class="keyword">...</span>
+0061     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>}));
+0062 
+0063 <span class="keyword">if</span> size(signal.data,3) &gt; 1
+0064     error(<span class="string">'flt_eog is supposed to be applied to continuous (non-epoched) data.'</span>); <span class="keyword">end</span>
+0065 
+0066 <span class="comment">% initialize the state, if necessary</span>
+0067 <span class="keyword">if</span> isempty(state)
+0068     <span class="comment">% figure out what the EOG channels are</span>
+0069     <span class="keyword">if</span> isempty(eogchans)
+0070         eogchans = find(strcmp({signal.chanlocs.type},<span class="string">'EOG'</span>));
+0071     <span class="keyword">else</span>
+0072         eogchans = set_chanid(signal,eogchans);
+0073     <span class="keyword">end</span>
+0074     <span class="keyword">if</span> isempty(eogchans)
+0075         disp_once(<span class="string">'flt_eog: No artifact/EOG channels found in the data.'</span>); <span class="keyword">end</span>
+0076     state.eog = eogchans;                          <span class="comment">% eog channel indices</span>
+0077     state.eeg = setdiff(1:signal.nbchan,eogchans); <span class="comment">% eeg channel indices</span>
+0078     state.neog = length(state.eog);                <span class="comment">% number of eog channel indices</span>
+0079     
+0080     <span class="comment">% initialize RLS filter state</span>
+0081     state.hist = zeros(state.neog,kernellen);     <span class="comment">% hist is the block of the M last eog samples in matrix form</span>
+0082     state.R_n = eye(state.neog * kernellen) / 0.01; <span class="comment">% R(n-1)^-1 is the inverse matrix</span>
+0083     state.H_n = zeros(state.neog*kernellen,length(state.eeg));  <span class="comment">% H(n-1) is the EOG filter kernel</span>
+0084 <span class="keyword">end</span>
+0085 
+0086 <span class="comment">% apply filter</span>
+0087 [signal.data,state.hist,state.H_n,state.R_n] = <a href="#_sub1" class="code" title="subfunction [X,hist,H_n,R_n] = compute(X,hist,H_n,R_n,eeg,eog,ffact)">compute</a>(signal.data,state.hist,state.H_n,state.R_n,state.eeg,state.eog,ffact);
+0088 
+0089 <span class="keyword">if</span> removeeog
+0090     <span class="comment">% Note: the proper way would be to use pop_select...</span>
+0091     <span class="comment">%signal.data = X(state.eeg,:);</span>
+0092     <span class="comment">%signal.nbchan = size(signal.data,1);</span>
+0093     <span class="comment">%signal.chanlocs = signal.chanlocs(state.eeg);</span>
+0094     
+0095     removed_channel_mask = true(1,size(signal.data,1));
+0096     removed_channel_mask(state.eeg) = false;
+0097     <span class="comment">% annotate the data with what was removed (for visualization)</span>
+0098     <span class="keyword">if</span> ~isfield(signal.etc,<span class="string">'clean_channel_mask'</span>)
+0099         signal.etc.clean_channel_mask = true(1,signal.nbchan); <span class="keyword">end</span>
+0100     signal.etc.clean_channel_mask(signal.etc.clean_channel_mask) = ~removed_channel_mask;
+0101     <span class="comment">% perform removal</span>
+0102     <span class="keyword">if</span> any(removed_channel_mask)
+0103         signal = pop_select(signal,<span class="string">'nochannel'</span>,find(removed_channel_mask)); <span class="keyword">end</span>
+0104 <span class="keyword">end</span>
+0105 
+0106 exp_endfun;
+0107 
+0108 
+0109 <a name="_sub1" href="#_subfunctions" class="code">function [X,hist,H_n,R_n] = compute(X,hist,H_n,R_n,eeg,eog,ffact)</a>
+0110 <span class="comment">% for each sample...</span>
+0111 <span class="keyword">for</span> n=1:size(X,2)
+0112     <span class="comment">% update the EOG history by feeding in a new sample</span>
+0113     hist = [hist(:,2:end) X(eog,n)];
+0114     <span class="comment">% vectorize the EOG history into r(n)        % Eq. 23</span>
+0115     tmp = hist';
+0116     r_n = tmp(:);
+0117     
+0118     <span class="comment">% calculate K(n)                             % Eq. 25</span>
+0119     K_n = R_n * r_n / (ffact + r_n' * R_n * r_n);
+0120     <span class="comment">% update R(n)                                % Eq. 24</span>
+0121     R_n = ffact^-1 * R_n - ffact^-1 * K_n * r_n' * R_n;
+0122     
+0123     <span class="comment">% get the current EEG samples s(n)</span>
+0124     s_n = X(eeg,n);    
+0125     <span class="comment">% calculate e(n/n-1)                         % Eq. 27</span>
+0126     e_nn = s_n - (r_n' * H_n)';    
+0127     <span class="comment">% update H(n)                                % Eq. 26</span>
+0128     H_n = H_n + K_n * e_nn';
+0129     <span class="comment">% calculate e(n), new cleaned EEG signal     % Eq. 29</span>
+0130     e_n = s_n - (r_n' * H_n)';
+0131     <span class="comment">% write back into the signal</span>
+0132     X(eeg,n) = e_n;
+0133 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

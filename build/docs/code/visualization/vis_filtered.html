@@ -1,0 +1,326 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of vis_filtered</title>
+  <meta name="keywords" content="vis_filtered">
+  <meta name="description" content="Display a filtered representation of a BCILAB stream.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">visualization</a> &gt; vis_filtered.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/visualization&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>vis_filtered
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Display a filtered representation of a BCILAB stream.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function vis_filtered(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Display a filtered representation of a BCILAB stream.
+
+ Keyboard shortcuts:
+   [up arrow]   : increase the y scale of the time series
+   [down arrow] : decrease the y scale of the time series
+   [right arrow]: increase the displayed time range
+   [left arrow] : decrease the displayed time range
+   [page up]    : go up by one page of channels
+   [page down]  : go down by one page of channels
+
+ In:
+   StreamName : Stream to display. The name of the stream that you would like to display.
+
+   TimeScale : Initial time scale in seconds. The time range of the display window;
+               can be changed with keyboard shortcuts (see help). Default=5
+
+   DataScale : Initial scale of the data. The scale of the data, in units between horizontal lines;
+               can be changed with keyboard shortcuts (see help). Default=150
+
+   ChannelRange : Channels to display. The channel range to display. Default=[1:32]
+
+   SamplingRate : Sampling rate for display. This is the sampling rate that is used for plotting, in Hz;
+                  for faster drawing. Default=100
+
+   RefreshRate : Refresh rate for display. This is the rate at which the graphics are updated, in Hz.
+                 Default=10
+
+   Rereference : Apply common-average re-referencing to the data. Useful for noisy EEG streams.
+                 Default=false
+
+   PageOffset : Channel page offset. Allows to flip forward or backward pagewise through the displayed channels.
+                Default=0
+
+   Position : Figure position. Allows to script the position at which the figures should appear.
+              This is a 4-element vector of the form [X-offset,Y-offset,Width,Height]
+              with all values in pixes.
+              Default=[]
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2012-07-10
+
+                                uses portions of vis_dataStreamViewer
+                                (c) 2012 by Tim Mullen</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function create_figure(opts)</a></li><li><a href="#_sub2" class="code">function on_timer(varargin)</a></li><li><a href="#_sub3" class="code">function on_key(key)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function vis_filtered(varargin)</a>
+0002 <span class="comment">% Display a filtered representation of a BCILAB stream.</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% Keyboard shortcuts:</span>
+0005 <span class="comment">%   [up arrow]   : increase the y scale of the time series</span>
+0006 <span class="comment">%   [down arrow] : decrease the y scale of the time series</span>
+0007 <span class="comment">%   [right arrow]: increase the displayed time range</span>
+0008 <span class="comment">%   [left arrow] : decrease the displayed time range</span>
+0009 <span class="comment">%   [page up]    : go up by one page of channels</span>
+0010 <span class="comment">%   [page down]  : go down by one page of channels</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">% In:</span>
+0013 <span class="comment">%   StreamName : Stream to display. The name of the stream that you would like to display.</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%   TimeScale : Initial time scale in seconds. The time range of the display window;</span>
+0016 <span class="comment">%               can be changed with keyboard shortcuts (see help). Default=5</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   DataScale : Initial scale of the data. The scale of the data, in units between horizontal lines;</span>
+0019 <span class="comment">%               can be changed with keyboard shortcuts (see help). Default=150</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   ChannelRange : Channels to display. The channel range to display. Default=[1:32]</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%   SamplingRate : Sampling rate for display. This is the sampling rate that is used for plotting, in Hz;</span>
+0024 <span class="comment">%                  for faster drawing. Default=100</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">%   RefreshRate : Refresh rate for display. This is the rate at which the graphics are updated, in Hz.</span>
+0027 <span class="comment">%                 Default=10</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">%   Rereference : Apply common-average re-referencing to the data. Useful for noisy EEG streams.</span>
+0030 <span class="comment">%                 Default=false</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%   PageOffset : Channel page offset. Allows to flip forward or backward pagewise through the displayed channels.</span>
+0033 <span class="comment">%                Default=0</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%   Position : Figure position. Allows to script the position at which the figures should appear.</span>
+0036 <span class="comment">%              This is a 4-element vector of the form [X-offset,Y-offset,Width,Height]</span>
+0037 <span class="comment">%              with all values in pixes.</span>
+0038 <span class="comment">%              Default=[]</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0041 <span class="comment">%                                2012-07-10</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%                                uses portions of vis_dataStreamViewer</span>
+0044 <span class="comment">%                                (c) 2012 by Tim Mullen</span>
+0045 
+0046 
+0047 streamnames = {};
+0048 pipelinenames = {};
+0049 
+0050 <span class="comment">% list the streams and pipelines in the workspace</span>
+0051 vars = evalin(<span class="string">'base'</span>,<span class="string">'whos'</span>);
+0052 <span class="keyword">for</span> vname = {vars.name}
+0053     vname = vname{1};
+0054     var = evalin(<span class="string">'base'</span>,vname);
+0055     <span class="keyword">if</span> isfield(var,<span class="string">'tracking'</span>) &amp;&amp; isfield(var.tracking,<span class="string">'online_expression'</span>)
+0056         pipelinenames{end+1} = vname; <span class="keyword">end</span>
+0057     <span class="keyword">if</span> all(isfield(var,{<span class="string">'smax'</span>,<span class="string">'buffer'</span>}))
+0058         streamnames{end+1} = vname; <span class="keyword">end</span>
+0059 <span class="keyword">end</span>
+0060 <span class="keyword">if</span> isempty(pipelinenames)
+0061     error(<span class="string">'No filter pipelines are defined in the workspace. Tip: any preprocessed data set can be used as a reference definition of a filter pipeline'</span>); <span class="keyword">end</span>
+0062 <span class="keyword">if</span> isempty(streamnames)
+0063     error(<span class="string">'No streams are currently running. Tip: you can start a new stream by executing one of the run_read* functions, e.g. run_readlsl.'</span>); <span class="keyword">end</span>
+0064 
+0065 <span class="comment">% handle input arguments</span>
+0066 opts = arg_define(varargin, <span class="keyword">...</span>
+0067     arg({<span class="string">'streamname'</span>,<span class="string">'StreamName'</span>},streamnames{1},streamnames,<span class="string">'BCILAB stream to process. The name of the stream that you would like to display.'</span>), <span class="keyword">...</span>
+0068     arg({<span class="string">'pipelinename'</span>,<span class="string">'PipelineName'</span>},pipelinenames{1},pipelinenames,<span class="string">'Filter pipeline to apply. The name of the filter pipeline that you would like to apply.'</span>), <span class="keyword">...</span>
+0069     arg({<span class="string">'datafield'</span>,<span class="string">'DataField'</span>},<span class="string">'data'</span>,{<span class="string">'data'</span>,<span class="string">'icaact'</span>,<span class="string">'srcpot'</span>},<span class="string">'Data field to plot'</span>), <span class="keyword">...</span>
+0070     arg_nogui({<span class="string">'visname'</span>,<span class="string">'VisualizationName'</span>},[],[],<span class="string">'Name of the visualization. This determines the workspace variable that holds the pipeline and settings.'</span>), <span class="keyword">...</span>
+0071     arg({<span class="string">'bufferrange'</span>,<span class="string">'BufferRange'</span>},10,[],<span class="string">'Maximum time range to buffer. Imposes an upper limit on what can be displayed.'</span>), <span class="keyword">...</span>
+0072     arg({<span class="string">'timerange'</span>,<span class="string">'TimeRange'</span>},5,[],<span class="string">'Initial time range in seconds. The time range of the display window; can be changed with keyboard shortcuts (see help).'</span>), <span class="keyword">...</span>
+0073     arg({<span class="string">'datascale'</span>,<span class="string">'DataScale'</span>},150,[],<span class="string">'Initial scale of the data. The scale of the data, in units between horizontal lines; can be changed with keyboard shortcuts (see help).'</span>), <span class="keyword">...</span>
+0074     arg({<span class="string">'channelrange'</span>,<span class="string">'ChannelRange'</span>},1:32,[],<span class="string">'Channels to display. The channel range to display.'</span>), <span class="keyword">...</span>
+0075     arg({<span class="string">'samplingrate'</span>,<span class="string">'SamplingRate'</span>},100,[],<span class="string">'Sampling rate for display. This is the sampling rate that is used for plotting; for faster drawing.'</span>), <span class="keyword">...</span>
+0076     arg({<span class="string">'refreshrate'</span>,<span class="string">'RefreshRate'</span>},5,[],<span class="string">'Refresh rate for display. This is the rate at which the graphics are updated.'</span>), <span class="keyword">...</span>
+0077     arg({<span class="string">'reref'</span>,<span class="string">'Rereference'</span>},false,[],<span class="string">'Common average reference. Enable this to view the data with a common average reference filter applied.'</span>), <span class="keyword">...</span>
+0078     arg_nogui({<span class="string">'pageoffset'</span>,<span class="string">'PageOffset'</span>},0,[],<span class="string">'Channel page offset. Allows to flip forward or backward pagewise through the displayed channels.'</span>), <span class="keyword">...</span>
+0079     arg_nogui({<span class="string">'position'</span>,<span class="string">'Position'</span>},[],[],<span class="string">'Figure position. Allows to script the position at which the figures should appear.'</span>));
+0080 
+0081 
+0082 <span class="keyword">if</span> isempty(varargin)
+0083     <span class="comment">% bring up GUI dialog if no arguments were passed</span>
+0084     arg_guidialog;
+0085 <span class="keyword">else</span>
+0086     <span class="comment">% fix up some arguments</span>
+0087     opts.bufferrange = max(opts.bufferrange,opts.timerange)*1.1;    
+0088 
+0089     <span class="comment">% init shared handles</span>
+0090     [fig,ax,lines,axscale,scaleLine] = deal([]);
+0091     
+0092     <span class="comment">% create a unique name for this visualization</span>
+0093     <span class="keyword">if</span> ~isempty(opts.visname)
+0094         visname = opts.visname;
+0095     <span class="keyword">else</span>
+0096         taken = evalin(<span class="string">'base'</span>,<span class="string">'whos(''vis_*'')'</span>);
+0097         visname = genvarname([<span class="string">'vis_'</span> opts.streamname],{taken.name});
+0098     <span class="keyword">end</span>
+0099         
+0100     <span class="comment">% and store the data in a workspace variable</span>
+0101     srate = evalin(<span class="string">'base'</span>,[opts.streamname <span class="string">'.srate'</span>]);
+0102     visinfo.pipeline = onl_newpipeline(evalin(<span class="string">'base'</span>,opts.pipelinename),opts.streamname);
+0103     visinfo.opts = opts;
+0104     assignin(<span class="string">'base'</span>,visname,visinfo);
+0105     
+0106     <span class="comment">% create the figure</span>
+0107     <a href="#_sub1" class="code" title="subfunction create_figure(opts)">create_figure</a>(opts);
+0108     
+0109     <span class="comment">% set up a timer that updates the visualization</span>
+0110     th = timer(<span class="string">'Period'</span>, 1.0/opts.refreshrate,<span class="string">'ExecutionMode'</span>,<span class="string">'fixedRate'</span>,<span class="string">'TimerFcn'</span>,@<a href="#_sub2" class="code" title="subfunction on_timer(varargin)">on_timer</a>,<span class="string">'StartDelay'</span>,0.2,<span class="string">'Tag'</span>,[visname <span class="string">'_timer'</span>]);
+0111     start(th);
+0112 <span class="keyword">end</span>
+0113 
+0114 
+0115     <span class="comment">% === nested functions (sharing some handles with each other) ===</span>
+0116 
+0117     <span class="comment">% create a new figure and axes</span>
+0118     <a name="_sub1" href="#_subfunctions" class="code">function create_figure(opts)</a>
+0119         fig = figure(<span class="string">'Tag'</span>,[<span class="string">'Fig'</span> visname],<span class="string">'Name'</span>,[<span class="string">'Stream:'</span> opts.streamname <span class="string">';Filter:'</span> opts.pipelinename],<span class="string">'CloseRequestFcn'</span>,<span class="string">'delete(gcbf)'</span>, <span class="keyword">...</span>
+0120             <span class="string">'KeyPressFcn'</span>,@(varargin)<a href="#_sub3" class="code" title="subfunction on_key(key)">on_key</a>(varargin{2}.Key));
+0121         <span class="keyword">if</span> ~isempty(opts.position)
+0122             set(fig,<span class="string">'Position'</span>,opts.position,<span class="string">'Units'</span>,<span class="string">'Normalized'</span>); <span class="keyword">end</span>
+0123         ax = axes(<span class="string">'Parent'</span>,fig, <span class="string">'Tag'</span>,<span class="string">'LSLViewer'</span>, <span class="string">'YDir'</span>,<span class="string">'reverse'</span>);
+0124     <span class="keyword">end</span>
+0125 
+0126     <a name="_sub2" href="#_subfunctions" class="code">function on_timer(varargin)</a>
+0127         <span class="keyword">try</span> 
+0128             <span class="comment">% check if the buffer is still there</span>
+0129             <span class="keyword">if</span> evalin(<span class="string">'base'</span>,[<span class="string">'exist('''</span> opts.streamname <span class="string">''',''var'') &amp;&amp; exist('''</span> visname <span class="string">''',''var'')'</span>])
+0130                 
+0131                 
+0132                 <span class="comment">% === update buffer contents (happens in the base workspace) ===</span>
+0133                 
+0134                 <span class="comment">% pull a new chunk from the stream and process it</span>
+0135                 visinfo = evalin(<span class="string">'base'</span>,visname);
+0136                 [stream,visinfo.pipeline] = onl_filtered(visinfo.pipeline,1.1*visinfo.opts.timerange*srate);
+0137                 assignin(<span class="string">'base'</span>,visname,visinfo);
+0138                 
+0139                 <span class="comment">% === data post-processing for plotting ===</span>
+0140                 
+0141                 <span class="comment">% determine channels and samples to display</span>
+0142                 plotchans = visinfo.opts.channelrange + visinfo.opts.pageoffset*length(visinfo.opts.channelrange);
+0143                 <span class="keyword">if</span> isempty(plotchans)
+0144                     plotchans = 1:size(stream.(opts.datafield),1);
+0145                 <span class="keyword">else</span>
+0146                     plotchans = intersect(1:size(stream.(opts.datafield),1),plotchans);
+0147                 <span class="keyword">end</span>
+0148                 plotdata = stream.(opts.datafield)(plotchans, round(1 : stream.srate/visinfo.opts.samplingrate : end));
+0149                 plottime = linspace(stream.xmin,stream.xmax,size(plotdata,2));
+0150                 
+0151                 <span class="comment">% re-reference</span>
+0152                 <span class="keyword">if</span> visinfo.opts.reref
+0153                     plotdata = bsxfun(@minus,plotdata,mean(plotdata)); <span class="keyword">end</span>
+0154                 
+0155                 <span class="comment">% zero-mean</span>
+0156                 plotdata = bsxfun(@minus, plotdata, mean(plotdata,2));
+0157                 
+0158                 <span class="comment">% arrange for plotting</span>
+0159                 plotoffsets = (0:size(plotdata,1)-1)*visinfo.opts.datascale;
+0160                 plotdata = bsxfun(@plus, plotdata', plotoffsets);
+0161                 
+0162                 
+0163                 <span class="comment">% === actual drawing ===</span>
+0164                 
+0165                 <span class="comment">% draw the block contents...</span>
+0166                 <span class="keyword">if</span> ~isempty(plotdata)
+0167                     <span class="keyword">if</span> ~exist(<span class="string">'lines'</span>,<span class="string">'var'</span>) || isempty(lines) || length(lines) ~= size(plotdata,2)
+0168                         lines = plot(ax,plottime,plotdata);
+0169                         title(ax,visinfo.opts.streamname);
+0170                         xlabel(ax,<span class="string">'Time (sec)'</span>,<span class="string">'FontSize'</span>,12);
+0171                         ylabel(ax,<span class="string">'Activation'</span>,<span class="string">'FontSize'</span>,12);
+0172                         <span class="comment">% update the axis tickmarks</span>
+0173                     <span class="keyword">else</span>
+0174                         <span class="keyword">for</span> k=1:length(lines)
+0175                             set(lines(k),<span class="string">'Ydata'</span>,plotdata(:,k));
+0176                             set(lines(k),<span class="string">'Xdata'</span>,plottime);
+0177                         <span class="keyword">end</span>
+0178                     <span class="keyword">end</span>
+0179                 
+0180                 <span class="keyword">end</span>
+0181                 
+0182                 <span class="comment">% update the data scale</span>
+0183                 set(ax, <span class="string">'YTick'</span>,plotoffsets, <span class="string">'YTickLabel'</span>,{stream.chanlocs(plotchans).labels});
+0184                 axis(ax,[-visinfo.opts.timerange 0 -visinfo.opts.datascale size(plotdata,2)*visinfo.opts.datascale + visinfo.opts.datascale]);                
+0185 
+0186                 drawnow;
+0187             <span class="keyword">else</span>
+0188                 <span class="keyword">try</span> 
+0189                     disp([<span class="string">'Deleting timer '</span> get(th,<span class="string">'Tag'</span>) <span class="string">'.'</span>]);
+0190                 <span class="keyword">catch</span> e
+0191                     disp(<span class="string">'Deleting timer.'</span>);
+0192                 <span class="keyword">end</span>
+0193                 <span class="comment">% delete the timer</span>
+0194                 warning off MATLAB:timer:deleterunning
+0195                 delete(th);
+0196             <span class="keyword">end</span>
+0197         <span class="keyword">catch</span> e
+0198             <span class="keyword">if</span> isempty(findobj(<span class="string">'Tag'</span>,[<span class="string">'Fig'</span> visname]))
+0199                 disp(<span class="string">'Figure was closed.'</span>);
+0200             <span class="keyword">else</span>
+0201                 disp(<span class="string">'An error occurred during the stream viewer update: '</span>);
+0202                 hlp_handleerror(e);
+0203             <span class="keyword">end</span>
+0204             warning off MATLAB:timer:deleterunning
+0205             delete(th);
+0206         <span class="keyword">end</span>
+0207     <span class="keyword">end</span>
+0208 
+0209     <a name="_sub3" href="#_subfunctions" class="code">function on_key(key)</a>
+0210         visinfo = evalin(<span class="string">'base'</span>,visname);
+0211         <span class="keyword">switch</span> lower(key)
+0212             <span class="keyword">case</span> <span class="string">'uparrow'</span>
+0213                 <span class="comment">% decrease datascale</span>
+0214                 visinfo.opts.datascale = visinfo.opts.datascale*0.9;
+0215             <span class="keyword">case</span> <span class="string">'downarrow'</span>
+0216                 <span class="comment">% increase datascale</span>
+0217                 visinfo.opts.datascale = visinfo.opts.datascale*1.1;
+0218             <span class="keyword">case</span> <span class="string">'rightarrow'</span>
+0219                 <span class="comment">% increase timerange</span>
+0220                 visinfo.opts.timerange = visinfo.opts.timerange*1.1;                
+0221             <span class="keyword">case</span> <span class="string">'leftarrow'</span>
+0222                 <span class="comment">% decrease timerange</span>
+0223                 visinfo.opts.timerange = visinfo.opts.timerange*0.9;                
+0224             <span class="keyword">case</span> <span class="string">'pagedown'</span>
+0225                 <span class="comment">% shift display page offset down</span>
+0226                 visinfo.opts.pageoffset = visinfo.opts.pageoffset+1;                
+0227             <span class="keyword">case</span> <span class="string">'pageup'</span>
+0228                 <span class="comment">% shift display page offset up</span>
+0229                 visinfo.opts.pageoffset = visinfo.opts.pageoffset-1;
+0230         <span class="keyword">end</span>
+0231         assignin(<span class="string">'base'</span>,visname,visinfo);
+0232     <span class="keyword">end</span>
+0233     
+0234 <span class="keyword">end</span>
+0235</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

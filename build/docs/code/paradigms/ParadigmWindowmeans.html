@@ -1,0 +1,221 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmWindowmeans</title>
+  <meta name="keywords" content="ParadigmWindowmeans">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmWindowmeans.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmWindowmeans
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li><li><a href="ParadigmWindowmeans.html" class="code" title="">ParadigmWindowmeans</a>	</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmWindowmeans.html" class="code" title="">ParadigmWindowmeans</a>	</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li><li><a href="#_sub2" class="code">function model = feature_adapt(self,varargin)</a></li><li><a href="#_sub3" class="code">function features = feature_extract(self,signal,featuremodel)</a></li><li><a href="#_sub4" class="code">function visualize_model(self,parent,fmodel,pmodel)</a></li><li><a href="#_sub5" class="code">function layout = dialog_layout_defaults(self)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmWindowmeans.html" class="code" title="">ParadigmWindowmeans</a> &lt; <a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>
+0002     <span class="comment">% Standard paradigm for slow cortical potentials, using per-channel multi-window signal averages.</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% The windowed means paradigm is a general method for capturing slow-changing cortical potentials,</span>
+0005     <span class="comment">% most importantly in reaction to events (then called Event-Related Potentials / ERPs). It is</span>
+0006     <span class="comment">% comprehensively described in [1]; The default parameters match one of its first applications, in</span>
+0007     <span class="comment">% [2].</span>
+0008     <span class="comment">%</span>
+0009     <span class="comment">% The paradigm is implemented as a sequence of signal (pre-)processing, feature extraction and</span>
+0010     <span class="comment">% machine learing stages. Signal processing usually includes spectral filtering (e.g., lowpass</span>
+0011     <span class="comment">% filtering) and occasionally spatial filtering, either for dimensionality reduction (e.g., by</span>
+0012     <span class="comment">% selecting channels) or for the extraction of sparsity, independence or other feature qualities</span>
+0013     <span class="comment">% (e.g., via independent component analysis). The defining property of the paradigm is the feature</span>
+0014     <span class="comment">% extraction, in which windowed averages of (pre-processed) signal data, per channel, are computed</span>
+0015     <span class="comment">% and used as features for the subsequent machine learning stage. The dimensionality of the feature</span>
+0016     <span class="comment">% space is (# of channels) x (# of windows), which can easily be high enough to exceed the</span>
+0017     <span class="comment">% capabilities of simpler classifiers or lead to over-fitting. For these reasons, either very robust</span>
+0018     <span class="comment">% classifiers need to be used (such as shrinkage LDA or logistic regression) or strong assumptions</span>
+0019     <span class="comment">% must be imposed in the machine learning stage (e.g. sparsity or group sparsity), or the number of</span>
+0020     <span class="comment">% windows and channels must be carefully controlled / optimized. The paradigm can also be applied to</span>
+0021     <span class="comment">% spectral data, by the use of the fourier filter (in one of the non-complex modes), possibly in</span>
+0022     <span class="comment">% combination with the data selection filter. A related paradigm is para_dal_lf, and its</span>
+0023     <span class="comment">% generalization para_dal, both of which do not require explicitly specified windows, but can</span>
+0024     <span class="comment">% operate on raw data by means of their powerful regularization. The paradigm usually requires a</span>
+0025     <span class="comment">% fair amount of manual (or automatic) tuning, in which the optimal window boundaries are determined</span>
+0026     <span class="comment">% based on task data. Another parameter that is usually adapted to the task is the length and</span>
+0027     <span class="comment">% location of the data epoch under consideration.</span>
+0028     <span class="comment">%</span>
+0029     <span class="comment">% The paradigm is widely applicable to event-related slow-changing brain dynamics, including, for</span>
+0030     <span class="comment">% example, the perception of self-induced errors [3], machine-induced errors and/or suprisal [4,5],</span>
+0031     <span class="comment">% prediction of movement intent [2], or (c)overt attention. It can also be used to detect brain</span>
+0032     <span class="comment">% processes without a preceding event (i.e. asynchronously) when sufficient amounts of data from the</span>
+0033     <span class="comment">% 'nothing'/'rest' condition is included in the calibration data.</span>
+0034     <span class="comment">%</span>
+0035     <span class="comment">% Simple Example: Consider the goal of predicting whether a person perceives an event as being</span>
+0036     <span class="comment">% erroneous (and possibly unexpected), or not. A typical calibration data set for this task would</span>
+0037     <span class="comment">% cover a sequence of events, some erroneous, some not, and each event is encoded in the data as an</span>
+0038     <span class="comment">% EEGLAB event with type 'err' or 'noerr'. According to the literature [6,7], the assumptions is</span>
+0039     <span class="comment">% that these types of events should be reflected in the EEG as a slow cortical potential (e.g., the</span>
+0040     <span class="comment">% f-ERN) within 250ms to 600ms following the event. An appropriate predictive model could be</span>
+0041     <span class="comment">% obtained as follows:</span>
+0042     <span class="comment">%</span>
+0043     <span class="comment">%   calib = io_loadset('data sets/john/errors.eeg')</span>
+0044     <span class="comment">%   myapproach = {'Windowmeans' 'SignalProcessing', {'EpochExtraction',[0 0.8],'SpectralSelection',[0.1 15]}, ...</span>
+0045     <span class="comment">%                 'Prediction',{'FeatureExtraction',{'TimeWindows',[0.25 0.3; 0.3 0.35; 0.35 0.4; 0.4 0.45; 0.45 0.55; 0.55 0.6]}}};</span>
+0046     <span class="comment">%   [loss,model,stats] = bci_train('Data',calib, 'Approach',myapproach, 'TargetMarkers',{'err','noerr'});</span>
+0047     <span class="comment">%</span>
+0048     <span class="comment">%</span>
+0049     <span class="comment">% Complex Example: Consider the goal of anticipating a self-paced finger movement (for simplicity</span>
+0050     <span class="comment">% only of one hand) of a person. A biological basis for this is the Bereitschaftspotential</span>
+0051     <span class="comment">% (readiness potential, [8]). This is a difficult problems, since the detection should happen as</span>
+0052     <span class="comment">% early as possible (especially before EMG onset), and because the detection should be reasonably</span>
+0053     <span class="comment">% robust against false positives in an asynchronous setting. A possible calibration data set would</span>
+0054     <span class="comment">% contain sporadic events in which the subject pressed a button ('press'), with periods of no</span>
+0055     <span class="comment">% activity of varying length in between. Surrogate events will be placed in the data to mark epoch</span>
+0056     <span class="comment">% windows of the two conditions 'no-press' and 'pre-press', using the function set_insert_markers.</span>
+0057     <span class="comment">% Epochs will only be extracted for the surrogate events. Several pre-press data epochs will be</span>
+0058     <span class="comment">% generated that end between 125ms to 100ms prior to each movement, and several no-press epochs will</span>
+0059     <span class="comment">% be generated that lie well between any two movements. An IIR low-pass filter will be used due to</span>
+0060     <span class="comment">% its low latency (replacing the paradigm's default FFT-based filter), and several fine-grained</span>
+0061     <span class="comment">% windows will be placed at the very end (the &quot;tip&quot;) of the epoch. In addition, several longer</span>
+0062     <span class="comment">% &quot;baseline&quot; windows of different lengths will be placed in earlier parts of the epoch , to serve as</span>
+0063     <span class="comment">% an adaptively chosen baseline (against which the tip of the epoch can be compared). Logistic</span>
+0064     <span class="comment">% regression will be used as a classifier.</span>
+0065     <span class="comment">%</span>
+0066     <span class="comment">%   % load data with 'press' events</span>
+0067     <span class="comment">%   calib = io_loadset('data sets/john/buttonpresses.eeg')</span>
+0068     <span class="comment">%   % insert 7 'no-press' events safely between any two 'press' events</span>
+0069     <span class="comment">%   calib = set_insert_markers(calib,'SegmentSpec',{'press' 3 -0.5 'press'}, 'Event','no-press', 'Count',7);</span>
+0070     <span class="comment">%   % insert 7 'pre-press' events shortly before any 'press' event</span>
+0071     <span class="comment">%   calib = set_insert_markers(calib,'SegmentSpec',{-0.125 -0.100 'press'}, 'Event','pre-press', 'Count',7);</span>
+0072     <span class="comment">%   % define approach</span>
+0073     <span class="comment">%   myapproach = {'Windowmeans' 'SignalProcessing', {'EpochExtraction',[-2 0],'SpectralSelection','off','IIRFilter',{[2.5 14],'lowpass'}}, ...</span>
+0074     <span class="comment">%                 'Prediction',{'FeatureExtraction',{'TimeWindows',[-1.6 -0.5; -1.2 -0.5; -0.5 0.45; -0.2 -0.175; -0.025 0]}, ...</span>
+0075     <span class="comment">%                               'MachineLearning',{'Learner',{'logreg'}}}};</span>
+0076     <span class="comment">%   % learn a model</span>
+0077     <span class="comment">%   [loss,model] = bci_train('Data',calib, 'Approach', myapproach, 'TargetMarkers',{'no-press','pre-press'})</span>
+0078     <span class="comment">%</span>
+0079     <span class="comment">%</span>
+0080     <span class="comment">% References:</span>
+0081     <span class="comment">%  [1] Benjamin Blankertz, Steven Lemm, Matthias Sebastian Treder, Stefan Haufe, and Klaus-Robert Mueller.</span>
+0082     <span class="comment">%      &quot;Single-trial analysis and classification of ERP components -- a tutorial.&quot;</span>
+0083     <span class="comment">%       Neuroimage, 2010</span>
+0084     <span class="comment">%  [2] Blankertz, B., Curio, G., Mueller, K.-R. &quot;Classifying single trial EEG: towards brain computer interfacing.&quot;</span>
+0085     <span class="comment">%      Adv Neural Inf Process Syst 14:157-164.</span>
+0086     <span class="comment">%  [3] Benjamin Blankertz, Christin Sch�fer, Guido Dornhege, and Gabriel Curio.</span>
+0087     <span class="comment">%      &quot;Single Trial Detection of EEG Error Potentials: A Tool for Increasing BCI transmission rates&quot;</span>
+0088     <span class="comment">%  [4] Pierre W. Ferrez and Jose del R. Millan, &quot;Error-Related EEG Potentials Generated during Simulated Brain-Computer Interaction&quot;,</span>
+0089     <span class="comment">%      IEEE Trans. on Biomedical Engineering, 55(3):923-929, 2008</span>
+0090     <span class="comment">%  [5] Zander T.O., Kothe C., Welke S., Roetting M. &quot;Utilizing Secondary Input from Passive Brain-Computer Interfaces for Enhancing Human-Machine Interaction&quot;</span>
+0091     <span class="comment">%      In Hofmann A. (Ed.): Lecture Notes in Computer Science, Springer, Berlin Heidelberg, 2009.</span>
+0092     <span class="comment">%  [6] Holroyd, C.B., Coles, M.G.. &quot;The neural basis of human error processing: reinforcement learning, dopamine, and the error-related negativity&quot;</span>
+0093     <span class="comment">%      Psychological Review, 109, 679-709, 2002</span>
+0094     <span class="comment">%  [7] Gehring, W.J., Coles, M.G.H., Meyer, D.E., Donchin, E.</span>
+0095     <span class="comment">%      &quot;The error-related negativity: an event-related brain potential accompanying errors.&quot;</span>
+0096     <span class="comment">%      Psychophysiology 27, 34-41.</span>
+0097     <span class="comment">%  [8] Deecke, L.; Groezinger, B.; Kornhuber H.H. &quot;Voluntary finger movement in man: Cerebral potentials and theory.&quot;</span>
+0098     <span class="comment">%      Biol Cybern 23: 99?119, 1976</span>
+0099     <span class="comment">%</span>
+0100     <span class="comment">% Name:</span>
+0101     <span class="comment">%   Windowed Means</span>
+0102     <span class="comment">%</span>
+0103     <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0104     <span class="comment">%                               2010-04-29</span>
+0105     
+0106     methods
+0107       
+0108         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0109             defaults = {<span class="string">'SpectralSelection'</span>,[0.1 5],<span class="string">'EpochExtraction'</span>,[-1.28 0],<span class="string">'Resampling'</span>,100};
+0110         <span class="keyword">end</span>
+0111                 
+0112         <a name="_sub1" href="#_subfunctions" class="code">function model = feature_adapt(self,varargin)</a>
+0113             arg_define(varargin, <span class="keyword">...</span>
+0114                 arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
+0115                 arg({<span class="string">'wnds'</span>,<span class="string">'TimeWindows'</span>},[-0.15 -0.10;-0.10 -0.05;-0.05 0],[],<span class="string">'Epoch intervals to take as features. Matrix containing one row for the start and end of each time window over which the signal mean (per every channel) is taken as a feature. Values in seconds.'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>));
+0116             model.wnds = wnds;
+0117             model.chanlocs = signal.chanlocs;
+0118             model.cov = cov(signal.data(:,:)');
+0119         <span class="keyword">end</span>
+0120         
+0121         <a name="_sub2" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
+0122             features = reshape(utl_picktimes(signal.data,(featuremodel.wnds-signal.xmin)*signal.srate),[],size(signal.data,3))';
+0123         <span class="keyword">end</span>
+0124         
+0125         <a name="_sub3" href="#_subfunctions" class="code">function visualize_model(self,parent,fmodel,pmodel) </a><span class="comment">%#ok&lt;*INUSD&gt;</span>
+0126             <span class="comment">% no parent: create new figure</span>
+0127             <span class="keyword">if</span> isempty(parent)
+0128                 parent = figure(<span class="string">'Name'</span>,<span class="string">'Per-window weights'</span>); <span class="keyword">end</span>
+0129             <span class="comment">% number of pairs, and index of pattern per subplot</span>
+0130             np = size(fmodel.wnds,1);
+0131             horz = ceil(sqrt(np));
+0132             vert = ceil(np/horz);
+0133             <span class="comment">% for each window...</span>
+0134             <span class="keyword">for</span> p=1:np
+0135                 subplot(horz,vert,p,<span class="string">'Parent'</span>,parent);
+0136                 <span class="comment">% get the weights</span>
+0137                 <span class="keyword">if</span> isfield(pmodel.model,<span class="string">'w'</span>)
+0138                     weights = pmodel.model.w;
+0139                 <span class="keyword">elseif</span> isfield(pmodel.model,<span class="string">'W'</span>)
+0140                     weights = pmodel.model.W;
+0141                 <span class="keyword">elseif</span> isfield(pmodel.model,<span class="string">'weights'</span>)
+0142                     weights = pmodel.model.weights;
+0143                 <span class="keyword">else</span>
+0144                     title(<span class="string">'Cannot find model weights.'</span>);
+0145                     weights = [];
+0146                 <span class="keyword">end</span>
+0147                 <span class="comment">% extract appropriate weights portion</span>
+0148                 <span class="keyword">if</span> ~isempty(weights)
+0149                     <span class="keyword">if</span> length(weights) == np*length(fmodel.chanlocs) || length(weights) == np*length(fmodel.chanlocs)+1
+0150                         subweights = weights(1+(p-1)*length(fmodel.chanlocs) : p*length(fmodel.chanlocs));
+0151                     <span class="keyword">else</span>
+0152                         title(<span class="string">'Model is probably not linear.'</span>);
+0153                         subweights = [];
+0154                     <span class="keyword">end</span>
+0155                 <span class="keyword">end</span>
+0156                 <span class="comment">% display</span>
+0157                 <span class="keyword">if</span> ~isempty(weights) &amp;&amp; ~isempty(subweights)
+0158                     topoplot(subweights,fmodel.chanlocs,<span class="string">'maplimits'</span>,[-max(abs(weights)) max(abs(weights))]);
+0159                     title([<span class="string">'Window'</span> num2str(p) <span class="string">' ('</span> num2str(fmodel.wnds(p,1)) <span class="string">'s to '</span> num2str(fmodel.wnds(p,2)) <span class="string">'s)'</span>]);
+0160                 <span class="keyword">end</span>
+0161             <span class="keyword">end</span>
+0162         <span class="keyword">end</span>
+0163                 
+0164         <a name="_sub4" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0165             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>, <span class="string">'SignalProcessing.EpochExtraction'</span>, <span class="keyword">...</span>
+0166                 <span class="string">'SignalProcessing.SpectralSelection.FrequencySpecification'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0167                 <span class="string">'Prediction.FeatureExtraction.TimeWindows'</span>, <span class="string">''</span>, <span class="string">'Prediction.MachineLearning.Learner'</span>};
+0168         <span class="keyword">end</span>
+0169         
+0170     <span class="keyword">end</span>
+0171 <span class="keyword">end</span>
+0172</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

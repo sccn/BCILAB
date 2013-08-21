@@ -1,0 +1,505 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of hlp_serialize</title>
+  <meta name="keywords" content="hlp_serialize">
+  <meta name="description" content="Convert a MATLAB data structure into a compact byte vector.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">helpers</a> &gt; hlp_serialize.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>hlp_serialize
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Convert a MATLAB data structure into a compact byte vector.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function m = hlp_serialize(v) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Convert a MATLAB data structure into a compact byte vector.
+ Bytes = hlp_serialize(Data)
+
+ The original data structure can be recovered from the byte vector via hlp_deserialize.
+
+ In:
+   Data : some MATLAB data structure
+
+ Out:
+   Bytes : a representation of the original data as a byte stream
+
+ Notes:
+   The code is a rewrite of Tim Hutt's serialization code. Support has been added for correct 
+   recovery of sparse, complex, single, (u)intX, function handles, anonymous functions, objects, 
+   and structures with unlimited field count. Serialize/deserialize performance is ~10x higher.
+
+ Limitations:
+   * Java objects cannot be serialized
+   * Arrays with more than 255 dimensions have their last dimensions clamped
+   * Handles to nested/scoped functions can only be deserialized when their parent functions 
+     support the BCILAB argument reporting protocol (e.g., by using arg_define).
+   * New MATLAB objects need to be reasonably friendly to serialization; either they support
+     construction from a struct, or they support saveobj/loadobj(struct), or all their important 
+     properties can be set via set(obj,'name',value)
+   * In anonymous functions, accessing unreferenced variables in the workspace of the original
+     declaration via eval(in) works only if manually enabled via the global variable
+     tracking.serialize_anonymous_fully (possibly at a significant performance hit).
+     note: this feature is currently not rock solid and can be broken either by Ctrl+C'ing
+           in the wrong moment or by concurrently serializing from MATLAB timers.
+
+ See also:
+   <a href="hlp_deserialize.html" class="code" title="function v = hlp_deserialize(m)">hlp_deserialize</a>
+
+ Examples:
+   bytes = hlp_serialize(mydata);
+   ... e.g. transfer the 'bytes' array over the network ...
+   mydata = hlp_deserialize(bytes);
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-04-02
+
+                                adapted from serialize.m
+                                (C) 2010 Tim Hutt</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>	Convert a MATLAB data structure into a compact byte vector.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="hlp_cryptohash.html" class="code" title="function hash = hlp_cryptohash(data,fromfile)">hlp_cryptohash</a>	Compute an MD5 hash of a file, string or generic data structure.</li><li><a href="hlp_diskcache.html" class="code" title="function varargout = hlp_diskcache(options, f, varargin)">hlp_diskcache</a>	Cache results of function invocations.</li><li><a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>	Convert a MATLAB data structure into a compact byte vector.</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function m = serialize_scalar(v)</a></li><li><a href="#_sub2" class="code">function m = serialize_string(v)</a></li><li><a href="#_sub3" class="code">function m = serialize_logical(v)</a></li><li><a href="#_sub4" class="code">function m = serialize_numeric_simple(v)</a></li><li><a href="#_sub5" class="code">function m = serialize_numeric(v)</a></li><li><a href="#_sub6" class="code">function m = serialize_struct(v)</a></li><li><a href="#_sub7" class="code">function m = serialize_cell_heterogenous(v)</a></li><li><a href="#_sub8" class="code">function m = serialize_cell_typed(v,serializer)</a></li><li><a href="#_sub9" class="code">function m = serialize_cell(v)</a></li><li><a href="#_sub10" class="code">function m = serialize_object(v)</a></li><li><a href="#_sub11" class="code">function m = serialize_handle(v)</a></li><li><a href="#_sub12" class="code">function b = class2tag(cls)</a></li><li><a href="#_sub13" class="code">function warn_once(varargin)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function m = hlp_serialize(v)</a>
+0002 <span class="comment">% Convert a MATLAB data structure into a compact byte vector.</span>
+0003 <span class="comment">% Bytes = hlp_serialize(Data)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% The original data structure can be recovered from the byte vector via hlp_deserialize.</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">% In:</span>
+0008 <span class="comment">%   Data : some MATLAB data structure</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% Out:</span>
+0011 <span class="comment">%   Bytes : a representation of the original data as a byte stream</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">% Notes:</span>
+0014 <span class="comment">%   The code is a rewrite of Tim Hutt's serialization code. Support has been added for correct</span>
+0015 <span class="comment">%   recovery of sparse, complex, single, (u)intX, function handles, anonymous functions, objects,</span>
+0016 <span class="comment">%   and structures with unlimited field count. Serialize/deserialize performance is ~10x higher.</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">% Limitations:</span>
+0019 <span class="comment">%   * Java objects cannot be serialized</span>
+0020 <span class="comment">%   * Arrays with more than 255 dimensions have their last dimensions clamped</span>
+0021 <span class="comment">%   * Handles to nested/scoped functions can only be deserialized when their parent functions</span>
+0022 <span class="comment">%     support the BCILAB argument reporting protocol (e.g., by using arg_define).</span>
+0023 <span class="comment">%   * New MATLAB objects need to be reasonably friendly to serialization; either they support</span>
+0024 <span class="comment">%     construction from a struct, or they support saveobj/loadobj(struct), or all their important</span>
+0025 <span class="comment">%     properties can be set via set(obj,'name',value)</span>
+0026 <span class="comment">%   * In anonymous functions, accessing unreferenced variables in the workspace of the original</span>
+0027 <span class="comment">%     declaration via eval(in) works only if manually enabled via the global variable</span>
+0028 <span class="comment">%     tracking.serialize_anonymous_fully (possibly at a significant performance hit).</span>
+0029 <span class="comment">%     note: this feature is currently not rock solid and can be broken either by Ctrl+C'ing</span>
+0030 <span class="comment">%           in the wrong moment or by concurrently serializing from MATLAB timers.</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">% See also:</span>
+0033 <span class="comment">%   hlp_deserialize</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">% Examples:</span>
+0036 <span class="comment">%   bytes = hlp_serialize(mydata);</span>
+0037 <span class="comment">%   ... e.g. transfer the 'bytes' array over the network ...</span>
+0038 <span class="comment">%   mydata = hlp_deserialize(bytes);</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0041 <span class="comment">%                                2010-04-02</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%                                adapted from serialize.m</span>
+0044 <span class="comment">%                                (C) 2010 Tim Hutt</span>
+0045 
+0046 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0049 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0050 <span class="comment">% License, or (at your option) any later version.</span>
+0051 <span class="comment">%</span>
+0052 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0053 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0054 <span class="comment">% General Public License for more details.</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0057 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0058 <span class="comment">% USA</span>
+0059 
+0060     <span class="comment">% dispatch according to type</span>
+0061     <span class="keyword">if</span> isnumeric(v) 
+0062         m = <a href="#_sub5" class="code" title="subfunction m = serialize_numeric(v)">serialize_numeric</a>(v);
+0063     <span class="keyword">elseif</span> ischar(v)
+0064         m = <a href="#_sub2" class="code" title="subfunction m = serialize_string(v)">serialize_string</a>(v);
+0065     <span class="keyword">elseif</span> iscell(v)
+0066         m = <a href="#_sub9" class="code" title="subfunction m = serialize_cell(v)">serialize_cell</a>(v);
+0067     <span class="keyword">elseif</span> isstruct(v)
+0068         m = <a href="#_sub6" class="code" title="subfunction m = serialize_struct(v)">serialize_struct</a>(v);
+0069     <span class="keyword">elseif</span> isa(v,<span class="string">'function_handle'</span>)
+0070         m = <a href="#_sub11" class="code" title="subfunction m = serialize_handle(v)">serialize_handle</a>(v);
+0071     <span class="keyword">elseif</span> islogical(v)
+0072         m = <a href="#_sub3" class="code" title="subfunction m = serialize_logical(v)">serialize_logical</a>(v);
+0073     <span class="keyword">elseif</span> isobject(v)
+0074         m = <a href="#_sub10" class="code" title="subfunction m = serialize_object(v)">serialize_object</a>(v);
+0075     <span class="keyword">elseif</span> isjava(v)
+0076         <a href="#_sub13" class="code" title="subfunction warn_once(varargin)">warn_once</a>(<span class="string">'hlp_serialize:cannot_serialize_java'</span>,<span class="string">'Cannot properly serialize Java class %s; using a placeholder instead.'</span>,class(v));
+0077         m = <a href="#_sub2" class="code" title="subfunction m = serialize_string(v)">serialize_string</a>([<span class="string">'&lt;&lt;hlp_serialize: '</span> class(v) <span class="string">' unsupported&gt;&gt;'</span>]);
+0078     <span class="keyword">else</span>
+0079         <span class="keyword">try</span>
+0080             m = <a href="#_sub10" class="code" title="subfunction m = serialize_object(v)">serialize_object</a>(v);
+0081         <span class="keyword">catch</span>
+0082             <a href="#_sub13" class="code" title="subfunction warn_once(varargin)">warn_once</a>(<span class="string">'hlp_serialize:unknown_type'</span>,<span class="string">'Cannot properly serialize object of unknown type &quot;%s&quot;; using a placeholder instead.'</span>,class(v));
+0083             m = <a href="#_sub2" class="code" title="subfunction m = serialize_string(v)">serialize_string</a>([<span class="string">'&lt;&lt;hlp_serialize: '</span> class(v) <span class="string">' unsupported&gt;&gt;'</span>]);
+0084         <span class="keyword">end</span>
+0085     <span class="keyword">end</span>
+0086 <span class="keyword">end</span>
+0087 
+0088 <span class="comment">% single scalar</span>
+0089 <a name="_sub1" href="#_subfunctions" class="code">function m = serialize_scalar(v)</a>
+0090     <span class="comment">% Data type &amp; data</span>
+0091     m = [<a href="#_sub12" class="code" title="subfunction b = class2tag(cls)">class2tag</a>(class(v)); typecast(v,<span class="string">'uint8'</span>).'];
+0092 <span class="keyword">end</span>
+0093 
+0094 <span class="comment">% char arrays</span>
+0095 <a name="_sub2" href="#_subfunctions" class="code">function m = serialize_string(v)</a>
+0096     <span class="keyword">if</span> size(v,1) == 1
+0097         <span class="comment">% horizontal string: Type, Length, and Data</span>
+0098         m = [uint8(0); typecast(uint32(length(v)),<span class="string">'uint8'</span>).'; uint8(v(:))];
+0099     <span class="keyword">elseif</span> sum(size(v)) == 0
+0100         <span class="comment">% '': special encoding</span>
+0101         m = uint8(200);
+0102     <span class="keyword">else</span>
+0103         <span class="comment">% general char array: Tag &amp; Number of dimensions, Dimensions, Data</span>
+0104         m = [uint8(132); ndims(v); typecast(uint32(size(v)),<span class="string">'uint8'</span>).'; uint8(v(:))];
+0105     <span class="keyword">end</span>
+0106 <span class="keyword">end</span>
+0107 
+0108 <span class="comment">% logical arrays</span>
+0109 <a name="_sub3" href="#_subfunctions" class="code">function m = serialize_logical(v)</a>
+0110     <span class="comment">% Tag &amp; Number of dimensions, Dimensions, Data</span>
+0111     m = [uint8(133); ndims(v); typecast(uint32(size(v)),<span class="string">'uint8'</span>).'; uint8(v(:))];
+0112 <span class="keyword">end</span>
+0113 
+0114 <span class="comment">% non-complex and non-sparse numerical matrix</span>
+0115 <a name="_sub4" href="#_subfunctions" class="code">function m = serialize_numeric_simple(v)</a>
+0116     <span class="comment">% Tag &amp; Number of dimensions, Dimensions, Data</span>
+0117     m = [16+<a href="#_sub12" class="code" title="subfunction b = class2tag(cls)">class2tag</a>(class(v)); ndims(v); typecast(uint32(size(v)),<span class="string">'uint8'</span>).'; typecast(v(:).',<span class="string">'uint8'</span>).'];
+0118 <span class="keyword">end</span>
+0119 
+0120 <span class="comment">% Numeric Matrix: can be real/complex, sparse/full, scalar</span>
+0121 <a name="_sub5" href="#_subfunctions" class="code">function m = serialize_numeric(v)</a>
+0122     <span class="keyword">if</span> issparse(v)
+0123         <span class="comment">% Data Type &amp; Dimensions</span>
+0124         m = [uint8(130); typecast(uint64(size(v,1)), <span class="string">'uint8'</span>).'; typecast(uint64(size(v,2)), <span class="string">'uint8'</span>).']; <span class="comment">% vectorize</span>
+0125         <span class="comment">% Index vectors</span>
+0126         [i,j,s] = find(v);        
+0127         <span class="comment">% Real/Complex</span>
+0128         <span class="keyword">if</span> isreal(v)
+0129             m = [m; <a href="#_sub4" class="code" title="subfunction m = serialize_numeric_simple(v)">serialize_numeric_simple</a>(i); <a href="#_sub4" class="code" title="subfunction m = serialize_numeric_simple(v)">serialize_numeric_simple</a>(j); 1; <a href="#_sub4" class="code" title="subfunction m = serialize_numeric_simple(v)">serialize_numeric_simple</a>(s)];
+0130         <span class="keyword">else</span>
+0131             m = [m; <a href="#_sub4" class="code" title="subfunction m = serialize_numeric_simple(v)">serialize_numeric_simple</a>(i); <a href="#_sub4" class="code" title="subfunction m = serialize_numeric_simple(v)">serialize_numeric_simple</a>(j); 0; <a href="#_sub4" class="code" title="subfunction m = serialize_numeric_simple(v)">serialize_numeric_simple</a>(real(s)); <a href="#_sub4" class="code" title="subfunction m = serialize_numeric_simple(v)">serialize_numeric_simple</a>(imag(s))];
+0132         <span class="keyword">end</span>
+0133     <span class="keyword">elseif</span> ~isreal(v)
+0134         <span class="comment">% Data type &amp; contents</span>
+0135         m = [uint8(131); <a href="#_sub4" class="code" title="subfunction m = serialize_numeric_simple(v)">serialize_numeric_simple</a>(real(v)); <a href="#_sub4" class="code" title="subfunction m = serialize_numeric_simple(v)">serialize_numeric_simple</a>(imag(v))];
+0136     <span class="keyword">elseif</span> isscalar(v)
+0137         <span class="comment">% Scalar</span>
+0138         m = <a href="#_sub1" class="code" title="subfunction m = serialize_scalar(v)">serialize_scalar</a>(v);
+0139     <span class="keyword">else</span>
+0140         <span class="comment">% Simple matrix</span>
+0141         m = <a href="#_sub4" class="code" title="subfunction m = serialize_numeric_simple(v)">serialize_numeric_simple</a>(v);
+0142     <span class="keyword">end</span>
+0143 <span class="keyword">end</span>
+0144 
+0145 <span class="comment">% Struct array.</span>
+0146 <a name="_sub6" href="#_subfunctions" class="code">function m = serialize_struct(v)</a>
+0147     <span class="comment">% Tag, Field Count, Field name lengths, Field name char data, #dimensions, dimensions</span>
+0148     fieldNames = fieldnames(v);
+0149     fnLengths = [length(fieldNames); cellfun(<span class="string">'length'</span>,fieldNames)];
+0150     fnChars = [fieldNames{:}];
+0151     dims = [ndims(v) size(v)];
+0152     m = [uint8(128); typecast(uint32(fnLengths(:)).',<span class="string">'uint8'</span>).'; uint8(fnChars(:)); typecast(uint32(dims), <span class="string">'uint8'</span>).'];
+0153     <span class="comment">% Content.</span>
+0154     <span class="keyword">if</span> numel(v) &gt; length(fieldNames)
+0155         <span class="comment">% more records than field names; serialize each field as a cell array to expose homogenous content</span>
+0156         tmp = cellfun(@(f)<a href="#_sub9" class="code" title="subfunction m = serialize_cell(v)">serialize_cell</a>({v.(f)}),fieldNames,<span class="string">'UniformOutput'</span>,false);
+0157         m = [m; 0; vertcat(tmp{:})];
+0158     <span class="keyword">else</span>
+0159         <span class="comment">% more field names than records; use struct2cell</span>
+0160         m = [m; 1; <a href="#_sub9" class="code" title="subfunction m = serialize_cell(v)">serialize_cell</a>(struct2cell(v))];
+0161     <span class="keyword">end</span>
+0162 <span class="keyword">end</span>
+0163 
+0164 <span class="comment">% Cell array of heterogenous contents</span>
+0165 <a name="_sub7" href="#_subfunctions" class="code">function m = serialize_cell_heterogenous(v)</a>
+0166     contents = cellfun(@<a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>,v,<span class="string">'UniformOutput'</span>,false);
+0167     m = [uint8(33); ndims(v); typecast(uint32(size(v)),<span class="string">'uint8'</span>).'; vertcat(contents{:})];
+0168 <span class="keyword">end</span>
+0169 
+0170 <span class="comment">% Cell array of homogenously-typed contents</span>
+0171 <a name="_sub8" href="#_subfunctions" class="code">function m = serialize_cell_typed(v,serializer)</a>
+0172     contents = cellfun(serializer,v,<span class="string">'UniformOutput'</span>,false);
+0173     m = [uint8(33); ndims(v); typecast(uint32(size(v)),<span class="string">'uint8'</span>).'; vertcat(contents{:})];
+0174 <span class="keyword">end</span>
+0175 
+0176 <span class="comment">% Cell array</span>
+0177 <a name="_sub9" href="#_subfunctions" class="code">function m = serialize_cell(v)</a>
+0178     sizeprod = cellfun(<span class="string">'prodofsize'</span>,v);
+0179     <span class="keyword">if</span> sizeprod == 1
+0180         <span class="comment">% all scalar elements</span>
+0181         <span class="keyword">if</span> (all(cellfun(<span class="string">'isclass'</span>,v(:),<span class="string">'double'</span>)) || all(cellfun(<span class="string">'isclass'</span>,v(:),<span class="string">'single'</span>))) &amp;&amp; all(~cellfun(@issparse,v(:)))
+0182             <span class="comment">% uniformly typed floating-point scalars (and non-sparse)</span>
+0183             reality = cellfun(<span class="string">'isreal'</span>,v);
+0184             <span class="keyword">if</span> reality
+0185                 <span class="comment">% all real</span>
+0186                 m = [uint8(34); <a href="#_sub4" class="code" title="subfunction m = serialize_numeric_simple(v)">serialize_numeric_simple</a>(reshape([v{:}],size(v)))];
+0187             <span class="keyword">elseif</span> ~reality
+0188                 <span class="comment">% all complex</span>
+0189                 m = [uint8(34); <a href="#_sub5" class="code" title="subfunction m = serialize_numeric(v)">serialize_numeric</a>(reshape([v{:}],size(v)))];
+0190             <span class="keyword">else</span>
+0191                 <span class="comment">% mixed reality</span>
+0192                 m = [uint8(35); <a href="#_sub5" class="code" title="subfunction m = serialize_numeric(v)">serialize_numeric</a>(reshape([v{:}],size(v))); <a href="#_sub3" class="code" title="subfunction m = serialize_logical(v)">serialize_logical</a>(reality(:))];
+0193             <span class="keyword">end</span>
+0194         <span class="keyword">else</span>
+0195             <span class="comment">% non-float types</span>
+0196             <span class="keyword">if</span> cellfun(<span class="string">'isclass'</span>,v,<span class="string">'struct'</span>)
+0197                 <span class="comment">% structs</span>
+0198                 m = <a href="#_sub8" class="code" title="subfunction m = serialize_cell_typed(v,serializer)">serialize_cell_typed</a>(v,@<a href="#_sub6" class="code" title="subfunction m = serialize_struct(v)">serialize_struct</a>); 
+0199             <span class="keyword">elseif</span> cellfun(<span class="string">'isclass'</span>,v,<span class="string">'cell'</span>)
+0200                 <span class="comment">% cells</span>
+0201                 m = <a href="#_sub8" class="code" title="subfunction m = serialize_cell_typed(v,serializer)">serialize_cell_typed</a>(v,@<a href="#_sub9" class="code" title="subfunction m = serialize_cell(v)">serialize_cell</a>); 
+0202             <span class="keyword">elseif</span> cellfun(<span class="string">'isclass'</span>,v,<span class="string">'logical'</span>)
+0203                 <span class="comment">% bool flags</span>
+0204                 m = [uint8(39); <a href="#_sub3" class="code" title="subfunction m = serialize_logical(v)">serialize_logical</a>(reshape([v{:}],size(v)))];
+0205             <span class="keyword">elseif</span> cellfun(<span class="string">'isclass'</span>,v,<span class="string">'function_handle'</span>)
+0206                 <span class="comment">% function handles</span>
+0207                 m = <a href="#_sub8" class="code" title="subfunction m = serialize_cell_typed(v,serializer)">serialize_cell_typed</a>(v,@<a href="#_sub11" class="code" title="subfunction m = serialize_handle(v)">serialize_handle</a>); 
+0208             <span class="keyword">else</span>
+0209                 <span class="comment">% arbitrary / mixed types</span>
+0210                 m = <a href="#_sub7" class="code" title="subfunction m = serialize_cell_heterogenous(v)">serialize_cell_heterogenous</a>(v);
+0211             <span class="keyword">end</span>
+0212         <span class="keyword">end</span>
+0213     <span class="keyword">elseif</span> isempty(v)
+0214         <span class="comment">% empty cell array</span>
+0215         m = [uint8(33); ndims(v); typecast(uint32(size(v)),<span class="string">'uint8'</span>).'];
+0216     <span class="keyword">else</span>        
+0217         <span class="comment">% some non-scalar elements</span>
+0218         dims = cellfun(<span class="string">'ndims'</span>,v);
+0219         size1 = cellfun(<span class="string">'size'</span>,v,1);
+0220         size2 = cellfun(<span class="string">'size'</span>,v,2);
+0221         <span class="keyword">if</span> cellfun(<span class="string">'isclass'</span>,v,<span class="string">'char'</span>) &amp; size1 &lt;= 1 <span class="comment">%#ok&lt;AND2&gt;</span>
+0222             <span class="comment">% all horizontal strings or proper empty strings</span>
+0223             m = [uint8(36); <a href="#_sub2" class="code" title="subfunction m = serialize_string(v)">serialize_string</a>([v{:}]); <a href="#_sub4" class="code" title="subfunction m = serialize_numeric_simple(v)">serialize_numeric_simple</a>(uint32(size2)); <a href="#_sub3" class="code" title="subfunction m = serialize_logical(v)">serialize_logical</a>(size1(:)==0)];
+0224         <span class="keyword">elseif</span> (size1+size2 == 0) &amp; (dims == 2) <span class="comment">%#ok&lt;AND2&gt;</span>
+0225             <span class="comment">% all empty and non-degenerate elements</span>
+0226             <span class="keyword">if</span> all(cellfun(<span class="string">'isclass'</span>,v(:),<span class="string">'double'</span>)) || all(cellfun(<span class="string">'isclass'</span>,v(:),<span class="string">'cell'</span>)) || all(cellfun(<span class="string">'isclass'</span>,v(:),<span class="string">'struct'</span>))
+0227                 <span class="comment">% of standard data types: Tag, Type Tag, #Dims, Dims</span>
+0228                 m = [uint8(37); <a href="#_sub12" class="code" title="subfunction b = class2tag(cls)">class2tag</a>(class(v{1})); ndims(v); typecast(uint32(size(v)),<span class="string">'uint8'</span>).'];
+0229             <span class="keyword">elseif</span> length(unique(cellfun(@class,v(:),<span class="string">'UniformOutput'</span>,false))) == 1
+0230                 <span class="comment">% of uniform class with prototype</span>
+0231                 m = [uint8(38); <a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>(class(v{1})); ndims(v); typecast(uint32(size(v)),<span class="string">'uint8'</span>).'];
+0232             <span class="keyword">else</span>
+0233                 <span class="comment">% of arbitrary classes</span>
+0234                 m = <a href="#_sub7" class="code" title="subfunction m = serialize_cell_heterogenous(v)">serialize_cell_heterogenous</a>(v);
+0235             <span class="keyword">end</span>
+0236         <span class="keyword">else</span>
+0237             <span class="comment">% arbitrary sizes (and types, etc.)</span>
+0238             m = <a href="#_sub7" class="code" title="subfunction m = serialize_cell_heterogenous(v)">serialize_cell_heterogenous</a>(v);
+0239         <span class="keyword">end</span>
+0240     <span class="keyword">end</span>
+0241 <span class="keyword">end</span>
+0242 
+0243 <span class="comment">% Object / class</span>
+0244 <a name="_sub10" href="#_subfunctions" class="code">function m = serialize_object(v)</a>
+0245     <span class="keyword">try</span>
+0246         <span class="comment">% try to use the saveobj method first to get the contents</span>
+0247         conts = saveobj(v);
+0248         <span class="keyword">if</span> isstruct(conts) || iscell(conts) || isnumeric(conts) || ischar(conts) || islogical(conts) || isa(conts,<span class="string">'function_handle'</span>)
+0249             <span class="comment">% contents is something that we can readily serialize</span>
+0250             conts = <a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>(conts);
+0251         <span class="keyword">else</span>
+0252             <span class="comment">% contents is still an object: turn into a struct now</span>
+0253             conts = <a href="#_sub6" class="code" title="subfunction m = serialize_struct(v)">serialize_struct</a>(struct(conts));
+0254         <span class="keyword">end</span>
+0255     <span class="keyword">catch</span>
+0256         <span class="comment">% saveobj failed for this object: turn into a struct</span>
+0257         conts = <a href="#_sub6" class="code" title="subfunction m = serialize_struct(v)">serialize_struct</a>(struct(v));
+0258     <span class="keyword">end</span>
+0259     <span class="comment">% Tag, Class name and Contents</span>
+0260     m = [uint8(134); <a href="#_sub2" class="code" title="subfunction m = serialize_string(v)">serialize_string</a>(class(v)); conts];
+0261 <span class="keyword">end</span>
+0262 
+0263 <span class="comment">% Function handle</span>
+0264 <a name="_sub11" href="#_subfunctions" class="code">function m = serialize_handle(v)    </a>
+0265     <span class="comment">% get the representation</span>
+0266     rep = functions(v);
+0267     <span class="keyword">switch</span> rep.type
+0268         <span class="keyword">case</span> <span class="string">'simple'</span>
+0269             <span class="comment">% simple function: Tag &amp; name</span>
+0270             m = [uint8(151); <a href="#_sub2" class="code" title="subfunction m = serialize_string(v)">serialize_string</a>(rep.function)];
+0271         <span class="keyword">case</span> <span class="string">'anonymous'</span>
+0272             <span class="keyword">global</span> tracking; <span class="comment">%#ok&lt;TLEV&gt;</span>
+0273             <span class="keyword">if</span> isfield(tracking,<span class="string">'serialize_anonymous_fully'</span>) &amp;&amp; tracking.serialize_anonymous_fully
+0274                 <span class="comment">% serialize anonymous function with their entire variable environment (for complete</span>
+0275                 <span class="comment">% eval and evalin support). Requires a stack of function id's, as function handles</span>
+0276                 <span class="comment">% can reference themselves in their full workspace.</span>
+0277                 <span class="keyword">persistent</span> handle_stack; <span class="comment">%#ok&lt;TLEV&gt;</span>
+0278                 <span class="comment">% Tag and Code</span>
+0279                 m = [uint8(152); <a href="#_sub2" class="code" title="subfunction m = serialize_string(v)">serialize_string</a>(char(v))];
+0280                 <span class="comment">% take care of self-references</span>
+0281                 str = java.lang.String(rep.function);
+0282                 func_id = str.hashCode();
+0283                 <span class="keyword">if</span> ~any(handle_stack == func_id)
+0284                     <span class="keyword">try</span>
+0285                         <span class="comment">% push the function id</span>
+0286                         handle_stack(end+1) = func_id;
+0287                         <span class="comment">% now serialize workspace</span>
+0288                         m = [m; <a href="#_sub6" class="code" title="subfunction m = serialize_struct(v)">serialize_struct</a>(rep.workspace{end})];
+0289                         <span class="comment">% pop the ID again</span>
+0290                         handle_stack(end) = [];
+0291                     <span class="keyword">catch</span> e
+0292                         <span class="comment">% note: Ctrl-C can mess up the handle stack</span>
+0293                         handle_stack(end) = []; <span class="comment">%#ok&lt;NASGU&gt;</span>
+0294                         rethrow(e);
+0295                     <span class="keyword">end</span>
+0296                 <span class="keyword">else</span>
+0297                     <span class="comment">% serialize the empty workspace</span>
+0298                     m = [m; <a href="#_sub6" class="code" title="subfunction m = serialize_struct(v)">serialize_struct</a>(struct())];
+0299                 <span class="keyword">end</span>
+0300                 <span class="keyword">if</span> length(m) &gt; 2^18
+0301                     <span class="comment">% If you are getting this warning, it is likely that one of your anonymous functions</span>
+0302                     <span class="comment">% was created in a scope that contained large variables; MATLAB will implicitly keep</span>
+0303                     <span class="comment">% these variables around (referenced by the function) just in case you refer to them.</span>
+0304                     <span class="comment">% To avoid this, you can create the anonymous function instead in a sub-function</span>
+0305                     <span class="comment">% to which you only pass the variables that you actually need.</span>
+0306                     <a href="#_sub13" class="code" title="subfunction warn_once(varargin)">warn_once</a>(<span class="string">'hlp_serialize:large_handle'</span>,<span class="string">'The function handle with code %s references variables of more than 256k bytes; this is likely very slow.'</span>,rep.function); 
+0307                 <span class="keyword">end</span>
+0308             <span class="keyword">else</span>
+0309                 <span class="comment">% anonymous function: Tag, Code, and reduced workspace</span>
+0310                 <span class="keyword">if</span> ~isempty(rep.workspace)
+0311                     m = [uint8(152); <a href="#_sub2" class="code" title="subfunction m = serialize_string(v)">serialize_string</a>(char(v)); <a href="#_sub6" class="code" title="subfunction m = serialize_struct(v)">serialize_struct</a>(rep.workspace{1})];
+0312                 <span class="keyword">else</span>
+0313                     m = [uint8(152); <a href="#_sub2" class="code" title="subfunction m = serialize_string(v)">serialize_string</a>(char(v)); <a href="#_sub6" class="code" title="subfunction m = serialize_struct(v)">serialize_struct</a>(struct())];
+0314                 <span class="keyword">end</span>
+0315             <span class="keyword">end</span>
+0316         <span class="keyword">case</span> {<span class="string">'scopedfunction'</span>,<span class="string">'nested'</span>}
+0317             <span class="comment">% scoped function: Tag and Parentage</span>
+0318             m = [uint8(153); <a href="#_sub9" class="code" title="subfunction m = serialize_cell(v)">serialize_cell</a>(rep.parentage)];
+0319         <span class="keyword">otherwise</span>
+0320             <a href="#_sub13" class="code" title="subfunction warn_once(varargin)">warn_once</a>(<span class="string">'hlp_serialize:unknown_handle_type'</span>,<span class="string">'A function handle with unsupported type &quot;%s&quot; was encountered; using a placeholder instead.'</span>,rep.type); 
+0321             m = <a href="#_sub2" class="code" title="subfunction m = serialize_string(v)">serialize_string</a>([<span class="string">'&lt;&lt;hlp_serialize: function handle of type '</span> rep.type <span class="string">' unsupported&gt;&gt;'</span>]);
+0322     <span class="keyword">end</span>
+0323 <span class="keyword">end</span>
+0324 
+0325 <span class="comment">% *container* class to byte</span>
+0326 <a name="_sub12" href="#_subfunctions" class="code">function b = class2tag(cls)</a>
+0327     <span class="keyword">switch</span> cls
+0328         <span class="keyword">case</span> <span class="string">'string'</span>
+0329             b = uint8(0);
+0330         <span class="keyword">case</span> <span class="string">'double'</span>
+0331             b = uint8(1);
+0332         <span class="keyword">case</span> <span class="string">'single'</span>
+0333             b = uint8(2);
+0334         <span class="keyword">case</span> <span class="string">'int8'</span>
+0335             b = uint8(3);
+0336         <span class="keyword">case</span> <span class="string">'uint8'</span>
+0337             b = uint8(4);
+0338         <span class="keyword">case</span> <span class="string">'int16'</span>
+0339             b = uint8(5);
+0340         <span class="keyword">case</span> <span class="string">'uint16'</span>
+0341             b = uint8(6);
+0342         <span class="keyword">case</span> <span class="string">'int32'</span>
+0343             b = uint8(7);
+0344         <span class="keyword">case</span> <span class="string">'uint32'</span>
+0345             b = uint8(8);
+0346         <span class="keyword">case</span> <span class="string">'int64'</span>
+0347             b = uint8(9);
+0348         <span class="keyword">case</span> <span class="string">'uint64'</span>
+0349             b = uint8(10);
+0350               
+0351         <span class="comment">% other tags are as follows:</span>
+0352         <span class="comment">% % offset by +16: scalar variants of these...</span>
+0353         <span class="keyword">case</span> <span class="string">'cell'</span>
+0354           b = uint8(33);
+0355         <span class="keyword">case</span> <span class="string">'cellscalars'</span>
+0356           b = uint8(34);
+0357         <span class="keyword">case</span> <span class="string">'cellscalarsmixed'</span>
+0358           b = uint8(35);
+0359         <span class="keyword">case</span> <span class="string">'cellstrings'</span>
+0360           b = uint8(36);
+0361         <span class="keyword">case</span> <span class="string">'cellempty'</span>
+0362           b = uint8(37);
+0363         <span class="keyword">case</span> <span class="string">'cellemptyprot'</span>
+0364           b = uint8(38);
+0365         <span class="keyword">case</span> <span class="string">'cellbools'</span>
+0366           b = uint8(39);
+0367         <span class="keyword">case</span> <span class="string">'struct'</span>
+0368           b = uint8(128);
+0369         <span class="keyword">case</span> <span class="string">'sparse'</span>
+0370           b = uint8(130);
+0371         <span class="keyword">case</span> <span class="string">'complex'</span>
+0372           b = uint8(131);
+0373         <span class="keyword">case</span> <span class="string">'char'</span>
+0374           b = uint8(132);
+0375         <span class="keyword">case</span> <span class="string">'logical'</span>
+0376             b = uint8(133);
+0377         <span class="keyword">case</span> <span class="string">'object'</span>
+0378           b = uint8(134);
+0379         <span class="keyword">case</span> <span class="string">'function_handle'</span>
+0380             b = uint8(150);
+0381         <span class="keyword">case</span> <span class="string">'function_simple'</span>
+0382             b = uint8(151);
+0383         <span class="keyword">case</span> <span class="string">'function_anon'</span>
+0384             b = uint8(152);
+0385         <span class="keyword">case</span> <span class="string">'function_scoped'</span>
+0386             b = uint8(153);
+0387         <span class="keyword">case</span> <span class="string">'emptystring'</span>
+0388           b = uint8(200);
+0389 
+0390         <span class="keyword">otherwise</span>
+0391             error(<span class="string">'Unknown class'</span>);
+0392     <span class="keyword">end</span>
+0393 <span class="keyword">end</span>
+0394 
+0395 <span class="comment">% emit a specific warning only once (per MATLAB session)</span>
+0396 <a name="_sub13" href="#_subfunctions" class="code">function warn_once(varargin)</a>
+0397 <span class="keyword">persistent</span> displayed_warnings;
+0398 <span class="comment">% determine the message content</span>
+0399 <span class="keyword">if</span> length(varargin) &gt; 1 &amp;&amp; any(varargin{1}==<span class="string">':'</span>) &amp;&amp; ~any(varargin{1}==<span class="string">' '</span>) &amp;&amp; ischar(varargin{2})
+0400     message_content = [varargin{1} sprintf(varargin{2:end})];
+0401 <span class="keyword">else</span>
+0402     message_content = sprintf(varargin{1:end});
+0403 <span class="keyword">end</span>
+0404 <span class="comment">% generate a hash of of the message content</span>
+0405 str = java.lang.String(message_content);
+0406 message_id = sprintf(<span class="string">'x%.0f'</span>,str.hashCode()+2^31);
+0407 <span class="comment">% and check if it had been displayed before</span>
+0408 <span class="keyword">if</span> ~isfield(displayed_warnings,message_id)
+0409     <span class="comment">% emit the warning</span>
+0410     warning(varargin{:});
+0411     <span class="comment">% remember to not display the warning again</span>
+0412     displayed_warnings.(message_id) = true;
+0413 <span class="keyword">end</span>
+0414 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

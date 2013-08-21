@@ -1,0 +1,126 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of hlp_colsrc</title>
+  <meta name="keywords" content="hlp_colsrc">
+  <meta name="description" content="collapse source matrix across groups of vertices using some rule.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">helpers</a> &gt; hlp_colsrc.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>hlp_colsrc
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>collapse source matrix across groups of vertices using some rule.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function srcmat_out = hlp_colsrc(srcmat,roiVertices,rule) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> collapse source matrix across groups of vertices using some rule.
+ rule may be one of {'mean','sum','max','maxmag','median'}
+ Author: Tim Mullen, SCCN/INC/UCSD, 2013</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function srcmat_out = hlp_colsrc(srcmat,roiVertices,rule)</a>
+0002 <span class="comment">% collapse source matrix across groups of vertices using some rule.</span>
+0003 <span class="comment">% rule may be one of {'mean','sum','max','maxmag','median'}</span>
+0004 <span class="comment">% Author: Tim Mullen, SCCN/INC/UCSD, 2013</span>
+0005 
+0006 <span class="comment">% arg_define([0 Inf],varargin, ...</span>
+0007 <span class="comment">%            arg_norep('srcmat',[],[],'Source matrix. [num_sources x dim1 x ... x dim N]'), ...</span>
+0008 <span class="comment">%            arg_norep('roiVertices',[],[],'ROI Vertices. Cell array of vertices for each group to collapse over.'), ...</span>
+0009 <span class="comment">%            arg({'rule','CollapseRule'},'mean',{'mean','sum','max','maxmag','median'},'Collapse rule'));</span>
+0010 
+0011 nrois = length(roiVertices);
+0012 szact = size(srcmat);
+0013 
+0014 <span class="comment">% initialization</span>
+0015 srcmat_out = zeros(nrois,szact(2:end));
+0016 
+0017 <span class="keyword">switch</span> rule
+0018     <span class="keyword">case</span> <span class="string">'mean'</span>
+0019         <span class="comment">% average CSD for each ROI</span>
+0020         <span class="keyword">for</span> k=1:nrois
+0021             x = roiVertices{k};
+0022             srcmat_out(k,:) = mean(srcmat(x,:),1);
+0023         <span class="keyword">end</span>
+0024     <span class="keyword">case</span> <span class="string">'sum'</span>
+0025         <span class="comment">% sum CSD for each ROI</span>
+0026         <span class="keyword">for</span> k=1:nrois
+0027             x = roiVertices{k};
+0028             srcmat_out(k,:) = sum(srcmat(x,:),1);
+0029         <span class="keyword">end</span>
+0030     <span class="keyword">case</span> <span class="string">'max'</span>
+0031         <span class="comment">% get max CSD for each ROI</span>
+0032         <span class="keyword">for</span> k=1:nrois
+0033             x = roiVertices{k};
+0034             srcmat_out(k,:) = max(srcmat(x,:),[],1);
+0035         <span class="keyword">end</span>
+0036     <span class="keyword">case</span> <span class="string">'maxmag'</span>
+0037         <span class="comment">% get CSD with maximum magnitude for each ROI</span>
+0038         <span class="keyword">for</span> k=1:nrois
+0039             x = roiVertices{k};
+0040             Q = srcmat(x,:);
+0041             [dummy idx] = max(abs(Q),[],1);
+0042             srcmat_out(k,:) = Q((0:numel(idx)-1).*size(Q,1) + idx);
+0043         <span class="keyword">end</span>
+0044     <span class="keyword">case</span> <span class="string">'median'</span>
+0045         <span class="comment">% get median CSD for each ROI</span>
+0046         <span class="keyword">for</span> k=1:nrois
+0047             x = roiVertices{k};
+0048             srcmat_out(k,:) = median(srcmat(x,:),1);
+0049         <span class="keyword">end</span>
+0050 <span class="keyword">end</span>
+0051 
+0052 
+0053 <span class="comment">% OLD METHOD (simulation shows loop is faster)</span>
+0054 <span class="comment">% switch colRoiCsd</span>
+0055 <span class="comment">%     case 'mean'</span>
+0056 <span class="comment">%         % average CSD for each ROI</span>
+0057 <span class="comment">%         roifunc_csd = @(x) mean(srcmat(x,:),1);</span>
+0058 <span class="comment">%         roifunc_inv = @(x) mean(srcweights(x,:),1);</span>
+0059 <span class="comment">%     case 'sum'</span>
+0060 <span class="comment">%         % sum CSD for each ROIs</span>
+0061 <span class="comment">%         roifunc_csd = @(x) sum(srcmat(x,:),1);</span>
+0062 <span class="comment">%         roifunc_inv = @(x) sum(srcweights(x,:),1);</span>
+0063 <span class="comment">%     case 'max'</span>
+0064 <span class="comment">%         % get max CSD for each ROI</span>
+0065 <span class="comment">%         roifunc_csd = @(x) max(srcmat(x,:),[],1);</span>
+0066 <span class="comment">%         roifunc_inv = @(x) max(srcweights(x,:),[],1);</span>
+0067 <span class="comment">% end</span>
+0068 <span class="comment">%</span>
+0069 <span class="comment">% if ~strcmp(colRoiCsd,'none')</span>
+0070 <span class="comment">%     if verb</span>
+0071 <span class="comment">%         fprintf('Computing %s CSD for each ROI \n', colRoiCsd);</span>
+0072 <span class="comment">%     end</span>
+0073 <span class="comment">%     roicsd = cellfun(roifunc_csd,state.roiVertices,'UniformOutput',false);</span>
+0074 <span class="comment">%     invcsd = cellfun(roifunc_inv,state.roiVertices,'UniformOutput',false);</span>
+0075 <span class="comment">%     srcmat         = cell2mat(roicsd');</span>
+0076 <span class="comment">%     srcweights     = cell2mat(invcsd');</span>
+0077 <span class="comment">% end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

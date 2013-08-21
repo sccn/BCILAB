@@ -1,0 +1,143 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of bci_Process</title>
+  <meta name="keywords" content="bci_Process">
+  <meta name="description" content="Handle a BCI2000 Process event: map a raw input chunk to a raw output chunk.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="#">online_plugins</a> &gt; <a href="index.html">BCI2000</a> &gt; bci_Process.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/online_plugins/BCI2000&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>bci_Process
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Handle a BCI2000 Process event: map a raw input chunk to a raw output chunk.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function out_signal = bci_Process(in_signal) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Handle a BCI2000 Process event: map a raw input chunk to a raw output chunk.
+ Out-Signal = bci_Process(In-Signal)
+
+ In:
+   In-Signal  : incoming block of raw data [Channels x Samples]
+
+ Out:
+   Out-Signal : block of BCI output data (i.e. predictions)
+
+ See also:
+   www.bci2000.org/wiki/index.php/Programming_Reference:GenericFilter_Class
+
+
+                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                               2010-09-08</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function out_signal = bci_Process(in_signal)</a>
+0002 <span class="comment">% Handle a BCI2000 Process event: map a raw input chunk to a raw output chunk.</span>
+0003 <span class="comment">% Out-Signal = bci_Process(In-Signal)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   In-Signal  : incoming block of raw data [Channels x Samples]</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% Out:</span>
+0009 <span class="comment">%   Out-Signal : block of BCI output data (i.e. predictions)</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">% See also:</span>
+0012 <span class="comment">%   www.bci2000.org/wiki/index.php/Programming_Reference:GenericFilter_Class</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0016 <span class="comment">%                               2010-09-08</span>
+0017 
+0018 <span class="keyword">global</span> meta_data in_samples out_samples next_outputs outrate maxcpu outform;
+0019 
+0020 
+0021 <span class="comment">% This implementation makes heavy use of sample replication, as we assume that the BCI signal will be sampled at a significantly lower rate (e.g. 25Hz or even 0.2Hz in some cases)</span>
+0022 <span class="comment">% than the underling EEG signal (e.g. 1000Hz).</span>
+0023 
+0024 <span class="comment">% our index into the signal block</span>
+0025 blockidx = 1;
+0026 
+0027 <span class="comment">% while we are not done with the block...</span>
+0028 <span class="keyword">while</span> 1
+0029     t0 = tic;
+0030 
+0031     <span class="comment">% the samples that we need to append to the stream</span>
+0032     to_append = {};
+0033     
+0034     <span class="comment">% while we have samples to read (from the input) and repeat (in the output) until the next output sample should be computed...</span>
+0035     <span class="keyword">while</span> round(in_samples*(outrate/meta_data.srate)) &lt;= out_samples
+0036         <span class="comment">% write (likely repeat) the next output into the out_signal</span>
+0037         out_signal(:,blockidx) = next_outputs{1};
+0038         <span class="comment">% get the next sample &amp; mark for feeding to the BCI</span>
+0039         to_append{end+1} = in_signal(:,blockidx);
+0040         in_samples = in_samples+1;
+0041         blockidx = blockidx+1;
+0042         <span class="comment">% we are done with this block</span>
+0043         <span class="keyword">if</span> blockidx &gt; size(in_signal,2)
+0044             <span class="comment">% append and quit</span>
+0045             onl_append(<span class="string">'bci2000_stream'</span>,double([to_append{:}]));
+0046             <span class="keyword">return</span>;
+0047         <span class="keyword">end</span>
+0048     <span class="keyword">end</span>
+0049 
+0050     <span class="comment">% append the block that we accumulated to the stream...</span>
+0051     onl_append(<span class="string">'bci2000_stream'</span>,double([to_append{:}]));
+0052  
+0053     <span class="comment">% we are not yet done with the block, but need to compute an output sample at this point</span>
+0054     t1 = tic;
+0055 
+0056     <span class="comment">% drop the next_output that we have just used up (over the last couple of samples)</span>
+0057     next_outputs = next_outputs(2:end);
+0058     <span class="keyword">if</span> ~isempty(next_outputs)
+0059         <span class="comment">% if there are some further queued next outputs (e.g., from the logic that can decide whether we are late and need to extrapolate (instead of compute) some samples),</span>
+0060         <span class="comment">% then pick the first one of these, instead of making an actual prediction</span>
+0061     <span class="keyword">else</span>
+0062         prediction = onl_predict(<span class="string">'bci2000_model'</span>,outform);
+0063         <span class="comment">% this prediction will be our next output (for the next couple of samples in the underlying signal's rate)</span>
+0064         next_outputs = {prediction};
+0065     <span class="keyword">end</span>
+0066     <span class="comment">% count up the number of computed (or estimated) samples</span>
+0067     out_samples = out_samples+1;
+0068     
+0069     <span class="comment">% make sure that we are not exceeding our CPU budget</span>
+0070     computation_time = toc(t1);
+0071     <span class="keyword">if</span> maxcpu &lt; 1
+0072         pause(computation_time * (1 - maxcpu) / maxcpu); <span class="keyword">end</span>
+0073     
+0074     <span class="comment">% check how much processing time is left for this output sample</span>
+0075     time_spent = toc(t0);
+0076     time_left = 1/outrate - time_spent;
+0077     <span class="keyword">if</span> time_left &lt; 0
+0078         <span class="comment">% we exceeded our time budget: replicate samples some time ahead</span>
+0079         <span class="keyword">for</span> k=1:ceil(-time_left*outrate)
+0080             next_outputs{end+1} = next_outputs{end}; <span class="keyword">end</span>
+0081     <span class="keyword">end</span>
+0082 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

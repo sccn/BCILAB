@@ -1,0 +1,161 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of set_combine</title>
+  <meta name="keywords" content="set_combine">
+  <meta name="description" content="Combine data sets into a new multi-class data set (with multiple target values).">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">dataset_editing</a> &gt; set_combine.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/dataset_editing&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>set_combine
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Combine data sets into a new multi-class data set (with multiple target values).</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function result = set_combine(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Combine data sets into a new multi-class data set (with multiple target values).
+ Result = set_combine(Set-#1, Set-#2, ...)
+
+ Combines the specified epoched data sets into a new data set, which has a target value per epoch,
+ determined by the index of the data set from which the respective epoch was taken (index as in
+ set_combine's argument list).
+
+ When data sets are recorded or imported, they are usually not annotated with a &quot;target variable&quot;
+ per trial, which is however required to calibrate predictive models so that they can make
+ predictions (of that target variable). The target variable is, thus, a variable
+ (categorical/real/multivariate) that can be assigned to a trial, and paradigms learn to predict
+ this variable for a given trial. Usually, this variable is derived from events that have been
+ recorded together with the data set, and the most direct approach is to map certain event types to
+ certain target values. This can be accomplished via the 'events' option in most paradigms and
+ filters/flt_pipeline, or directly via dataset_ops/set_makepos.
+
+ If the mapping from event types to target variable is very complex, a great deal of event
+ rewriting may be necessary until one of these methods can be applied, and the alternative is to
+ handle each condition in a separate data set, using EEGLAB functions (deleting all trials that are
+ not in the condition, depending on the events in the trial), and then doing a final merge of all
+ those data sets using set_combine, where the target variable for all trials that came from the
+ first specified set is taken to be 1, for all trials that came from the second set is set to 2,
+ etc.
+
+ In:
+   Set-#k  : epoched data set #k
+
+ Out:
+   Result  : the combined data set, containing all trials of the given sets, but with the target 
+             variable of trials from Set-#i assigned i.
+
+ Notes:
+   The epochs of both classes must have the same number of time points. Parameters cannot be passed
+   by name to this function.
+
+ Examples:
+   % concatenate the epochs of the dataset condition_A and the dataset condition_B, and assign
+   % the field eeg.epoch.target such that all epochs of the first set receive target value 1 and all
+   % epochs of the second set receive target value 2.
+   eeg = set_combine(condition_A,condition_B)
+
+ See also:
+   <a href="set_merge.html" class="code" title="function [data,idxmap] = set_merge(varargin)">set_merge</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-03-31</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="set_merge.html" class="code" title="function [data,idxmap] = set_merge(varargin)">set_merge</a>	Merge epoched EEGLAB data sets across trials or continuous data sets across time.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function result = set_combine(varargin)</a>
+0002 <span class="comment">% Combine data sets into a new multi-class data set (with multiple target values).</span>
+0003 <span class="comment">% Result = set_combine(Set-#1, Set-#2, ...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Combines the specified epoched data sets into a new data set, which has a target value per epoch,</span>
+0006 <span class="comment">% determined by the index of the data set from which the respective epoch was taken (index as in</span>
+0007 <span class="comment">% set_combine's argument list).</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% When data sets are recorded or imported, they are usually not annotated with a &quot;target variable&quot;</span>
+0010 <span class="comment">% per trial, which is however required to calibrate predictive models so that they can make</span>
+0011 <span class="comment">% predictions (of that target variable). The target variable is, thus, a variable</span>
+0012 <span class="comment">% (categorical/real/multivariate) that can be assigned to a trial, and paradigms learn to predict</span>
+0013 <span class="comment">% this variable for a given trial. Usually, this variable is derived from events that have been</span>
+0014 <span class="comment">% recorded together with the data set, and the most direct approach is to map certain event types to</span>
+0015 <span class="comment">% certain target values. This can be accomplished via the 'events' option in most paradigms and</span>
+0016 <span class="comment">% filters/flt_pipeline, or directly via dataset_ops/set_makepos.</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">% If the mapping from event types to target variable is very complex, a great deal of event</span>
+0019 <span class="comment">% rewriting may be necessary until one of these methods can be applied, and the alternative is to</span>
+0020 <span class="comment">% handle each condition in a separate data set, using EEGLAB functions (deleting all trials that are</span>
+0021 <span class="comment">% not in the condition, depending on the events in the trial), and then doing a final merge of all</span>
+0022 <span class="comment">% those data sets using set_combine, where the target variable for all trials that came from the</span>
+0023 <span class="comment">% first specified set is taken to be 1, for all trials that came from the second set is set to 2,</span>
+0024 <span class="comment">% etc.</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">% In:</span>
+0027 <span class="comment">%   Set-#k  : epoched data set #k</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">% Out:</span>
+0030 <span class="comment">%   Result  : the combined data set, containing all trials of the given sets, but with the target</span>
+0031 <span class="comment">%             variable of trials from Set-#i assigned i.</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">% Notes:</span>
+0034 <span class="comment">%   The epochs of both classes must have the same number of time points. Parameters cannot be passed</span>
+0035 <span class="comment">%   by name to this function.</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">% Examples:</span>
+0038 <span class="comment">%   % concatenate the epochs of the dataset condition_A and the dataset condition_B, and assign</span>
+0039 <span class="comment">%   % the field eeg.epoch.target such that all epochs of the first set receive target value 1 and all</span>
+0040 <span class="comment">%   % epochs of the second set receive target value 2.</span>
+0041 <span class="comment">%   eeg = set_combine(condition_A,condition_B)</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">% See also:</span>
+0044 <span class="comment">%   set_merge</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0047 <span class="comment">%                                2010-03-31</span>
+0048 
+0049 <span class="comment">% set_combine_version&lt;1.0&gt; -- for the cache</span>
+0050 
+0051 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'editing'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0052 
+0053 declare_properties(<span class="string">'name'</span>,<span class="string">'CombineSets'</span>,<span class="string">'independent_channels'</span>,true,<span class="string">'independent_trials'</span>,true);
+0054 
+0055 <span class="keyword">if</span> isempty(varargin)
+0056     result = []; 
+0057 <span class="keyword">else</span>
+0058     <span class="comment">% do a regular merge</span>
+0059     [result,indexmap] = exp_eval(<a href="set_merge.html" class="code" title="function [data,idxmap] = set_merge(varargin)">set_merge</a>(varargin{:}));
+0060 
+0061     <span class="comment">% but set each epoch's target value to the k of the respective combined set</span>
+0062     indexmap = num2cell(indexmap);
+0063     <span class="keyword">if</span> length(result.epoch) &lt; length(indexmap)
+0064         result.epoch(length(indexmap)).target = []; <span class="keyword">end</span>
+0065     [result.epoch.target] = indexmap{:};
+0066 <span class="keyword">end</span>
+0067 
+0068 <span class="comment">% take over the online expression of the merge result</span>
+0069 exp_endfun;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

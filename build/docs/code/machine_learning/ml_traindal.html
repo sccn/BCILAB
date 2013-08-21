@@ -1,0 +1,569 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ml_traindal</title>
+  <meta name="keywords" content="ml_traindal">
+  <meta name="description" content="Learn a linear probabilistic model via the Dual-Augmented Lagrangian method.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">machine_learning</a> &gt; ml_traindal.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/machine_learning&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ml_traindal
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Learn a linear probabilistic model via the Dual-Augmented Lagrangian method.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function model = ml_traindal(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Learn a linear probabilistic model via the Dual-Augmented Lagrangian method.
+ Model = ml_traindal(Trials, Targets, Lambda, Options...)
+
+ The Dual-Augmented Lagrangian method [1] is an efficient and very robust approach to learning
+ regularized linear classifiers or regressors, particularly for &quot;noisy&quot; biosignals. The
+ regularization is very effective, so that a large number of features (e.g. every channel and time
+ point) can be supplied for learning. Assumptions about how features are correlated or independent
+ w.r.t. each other can (and should) be incorporated, by specifying the appropriate type of
+ regularizer. If features are known to be all uncorrelated (e.g. derived from indepenent
+ components), 'l1' is the appropriate regularizer. If features are correlated only within blocks,
+ 'glr'/'glc' (group lasso by rows or columns) is the appropriate regularizer, e.g. time points of
+ concatenated independent components. If features are all correlated, but it is understood that
+ there when arranged in a feature matrix, the correlation structure would be low-rank, then 'ds' is
+ the appropriate regularizer. The 'ds' mode is ideally suited when features are a matrix of
+ time-points by channels, where both time-points are mutually correlated and channels are, too, or
+ when the features are covariance matrices, etc.
+
+ To inform the classifier of the block size for 'glr'/'glc' or the matrix shape for 'ds', the
+ trials should either be supplied as a 3d matrix (i.e. feature matrices instead of feature
+ vectors), or supplied in the regular fashion (2d matrix of feature vectors), but with the intended
+ feature matrix shape specified in the 'shape' option. A few methods with different
+ performance/accuracy/datasize tradeoffs are supplied. An important consideration when using DAL is
+ that the data must be appropriately normalized for the method to be most effective, that is, it
+ must be normalized across features and/or groups in 'l1' and 'glc'/'glr' modes, and normalized
+ across both the horizontal and vertical axes of the feature matrix, and/or across blocks of a
+ block-diagonal feature matrix, in the 'ds' mode.
+
+ BCI paradigms which make extensive use of this classifier, according to [2], are provided in the
+ paradigms/para_dal* functions. Among the methods provided in the toolbox, DAL is likely the best
+ applicable method if the data is linearly separable (albeit not necessarily the easiest to use).
+
+ In:
+   Trials       : training data, as in ml_train
+                  in addition, it may be specified as UxVxN 3d matrix,
+                  with UxV-formatted feature matrices per trial (N trials), or
+                  as {{U1xV1,U2xV2,...}, {U1xV1,U2xV2,...}
+
+   Targets      : target variable, as in ml_train
+
+   Lambda       : sequence of regularization parameters to evaluate; (default: 2.^(10:-1:-15))
+
+   Options  : optional name-value parameters to control the training details:
+              'loss': loss function to be used,
+                        'squared' for regression
+                        'logistic' for classification (default)
+
+              'regularizer': type of regularization to use:
+                             'l1': l1-norm on the features, gives sparse results
+                             'glr': grouped l1 norm (&quot;group lasso&quot;), gives blockwise sparse results
+                                   (groups the rows of the feature matrices)
+                             'glc': grouped l1 norm (&quot;group lasso&quot;), gives blockwise sparse results
+                                   (groups the columns of the feature matrices)
+                             'ds': dual spectral norm, gives low-rank results (default)
+                             'en': elastic net norm, employs a combination of l1 and l2 regularization
+
+              'shape': if trials is a NxF 2d matrix of vectorized matrices,
+                           this is the dimensions of the matrices (default: Fx1)
+                       if trials is specified as an UxVxN 3d matrix, shape defaults to
+                           [U,V] and trials are vectorized into the regular [N, U*V]
+                       if shape is specified with one of the values being NaN,
+                           that value is set so that prod(shape)==F==U*V
+
+              misc parameters:
+              'scaling': pre-scaling of the data (see hlp_findscaling for options) (default: 'none')
+
+              'nfolds' : Cross-validation folds. The cross-validation is used to determine the best 
+                         regularization parameter value (default: 5)
+
+              'foldmargin' : Margin (in trials) between folds. This is the number of trials omitted 
+                             between training and test sets. (default: 5)
+
+              'cvmetric' : metric to use for parameter optimization; can be any of those supported by
+                           ml_calcloss (default: '' = auto-determine)
+
+              'bias': whether to include a bias term (default: 1)
+
+              'quiet': whether to suppress diagnostic outputs (default: 1)
+
+              'solver': solver to be used:
+                         'cg'   : Newton method with preconditioned conjugate gradient descent (default)
+                         'qn'   : Quasi-Newton method (slower, but uses less flimsy code...)
+
+ Out:
+   Models   : a predictive model
+
+ Examples:
+   % assuming a 3d feature array of size UxVxT, and a label vector of size Tx1
+   % the features should be appropriately normalized (see [2] for examples)
+
+   % learn a DAL model for a given regularization parameter using the logistic loss (for classification)
+   model = ml_traindal(trials,targets,0.1)
+
+   % as before, but use the squared loss, for linear regression
+   model = ml_traindal(trials,targets,0.1,'loss','squared')
+
+   % like before, but this time use the 'l1' (LASSO) regularizer, assuming sparse features
+   model = ml_traindal(trials,targets,0.1,'regularizer','l1')
+
+   % like before, but this time use the group LASSO regularizer imposing group sparsity on the rows
+   % of the feature matrix (columns is 'glc')
+   model = ml_traindal(trials,targets,0.1,'regularizer','glr')
+
+   % like before but use the (default) dual-spectral regularizer, which learns low-rank weights
+   model = ml_traindal(trials,targets,0.1,'regularizer','ds')
+
+   % if the individual trials are not matrix-shaped but vectorized, pass in the shape manually
+   model = ml_traindal(trials,targets,0.1,'shape',[U,V])
+
+   % use a different solver (here: conjugate gradient, which is potentially more efficient)
+   model = ml_traindal(trials,targets,0.1,'solver','cg')
+
+   % learn a DAL model using a parameter search
+   model = utl_searchmodel({trials,targets},'args',{{'dal', search(2.^(10:-0.5:-6))}})
+   
+   % as before, but use a different loss
+   model = utl_searchmodel({trials,targets},'args',{{'dal', search(2.^(10:-0.5:-6)), 'loss', 'glc'}})
+
+ See also:
+   <a href="ml_predictdal.html" class="code" title="function pred = ml_predictdal(trials,model)">ml_predictdal</a>, dal
+
+ References:
+  [1] Ryota Tomioka &amp; Masashi Sugiyama, &quot;Dual Augmented Lagrangian Method for Efficient Sparse Reconstruction&quot;,
+      IEEE Signal Proccesing Letters, 16 (12) pp. 1067-1070, 2009.
+  [2] Ryota Tomioka and Klaus-Robert Mueller, &quot;A regularized discriminative framework for EEG analysis with application to brain-computer interface&quot;,
+      Neuroimage, 49 (1) pp. 415-432, 2010.
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-06-25</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ml_calcloss.html" class="code" title="function [measure,stats] = ml_calcloss(type,T,P)">ml_calcloss</a>	Calculate the loss for a set of predictions, given knowledge about the target values.</li><li><a href="ml_predictdal.html" class="code" title="function pred = ml_predictdal(trials,model)">ml_predictdal</a>	Prediction function for Dual-Augmented Lagrangian.</li><li><a href="ml_traindal.html" class="code" title="function model = ml_traindal(varargin)">ml_traindal</a>	Learn a linear probabilistic model via the Dual-Augmented Lagrangian method.</li><li><a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>	Internal meta-algorithm for voting. Used by other machine learning functions.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ml_traindal.html" class="code" title="function model = ml_traindal(varargin)">ml_traindal</a>	Learn a linear probabilistic model via the Dual-Augmented Lagrangian method.</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function ensemble = learn_ensemble(learner,lambdas,shape,trials,targets,solver,loss,verbose,regularizer)</a></li><li><a href="#_sub2" class="code">function y = spreadvec(x,idx,n)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function model = ml_traindal(varargin)</a>
+0002 <span class="comment">% Learn a linear probabilistic model via the Dual-Augmented Lagrangian method.</span>
+0003 <span class="comment">% Model = ml_traindal(Trials, Targets, Lambda, Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% The Dual-Augmented Lagrangian method [1] is an efficient and very robust approach to learning</span>
+0006 <span class="comment">% regularized linear classifiers or regressors, particularly for &quot;noisy&quot; biosignals. The</span>
+0007 <span class="comment">% regularization is very effective, so that a large number of features (e.g. every channel and time</span>
+0008 <span class="comment">% point) can be supplied for learning. Assumptions about how features are correlated or independent</span>
+0009 <span class="comment">% w.r.t. each other can (and should) be incorporated, by specifying the appropriate type of</span>
+0010 <span class="comment">% regularizer. If features are known to be all uncorrelated (e.g. derived from indepenent</span>
+0011 <span class="comment">% components), 'l1' is the appropriate regularizer. If features are correlated only within blocks,</span>
+0012 <span class="comment">% 'glr'/'glc' (group lasso by rows or columns) is the appropriate regularizer, e.g. time points of</span>
+0013 <span class="comment">% concatenated independent components. If features are all correlated, but it is understood that</span>
+0014 <span class="comment">% there when arranged in a feature matrix, the correlation structure would be low-rank, then 'ds' is</span>
+0015 <span class="comment">% the appropriate regularizer. The 'ds' mode is ideally suited when features are a matrix of</span>
+0016 <span class="comment">% time-points by channels, where both time-points are mutually correlated and channels are, too, or</span>
+0017 <span class="comment">% when the features are covariance matrices, etc.</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">% To inform the classifier of the block size for 'glr'/'glc' or the matrix shape for 'ds', the</span>
+0020 <span class="comment">% trials should either be supplied as a 3d matrix (i.e. feature matrices instead of feature</span>
+0021 <span class="comment">% vectors), or supplied in the regular fashion (2d matrix of feature vectors), but with the intended</span>
+0022 <span class="comment">% feature matrix shape specified in the 'shape' option. A few methods with different</span>
+0023 <span class="comment">% performance/accuracy/datasize tradeoffs are supplied. An important consideration when using DAL is</span>
+0024 <span class="comment">% that the data must be appropriately normalized for the method to be most effective, that is, it</span>
+0025 <span class="comment">% must be normalized across features and/or groups in 'l1' and 'glc'/'glr' modes, and normalized</span>
+0026 <span class="comment">% across both the horizontal and vertical axes of the feature matrix, and/or across blocks of a</span>
+0027 <span class="comment">% block-diagonal feature matrix, in the 'ds' mode.</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">% BCI paradigms which make extensive use of this classifier, according to [2], are provided in the</span>
+0030 <span class="comment">% paradigms/para_dal* functions. Among the methods provided in the toolbox, DAL is likely the best</span>
+0031 <span class="comment">% applicable method if the data is linearly separable (albeit not necessarily the easiest to use).</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">% In:</span>
+0034 <span class="comment">%   Trials       : training data, as in ml_train</span>
+0035 <span class="comment">%                  in addition, it may be specified as UxVxN 3d matrix,</span>
+0036 <span class="comment">%                  with UxV-formatted feature matrices per trial (N trials), or</span>
+0037 <span class="comment">%                  as {{U1xV1,U2xV2,...}, {U1xV1,U2xV2,...}</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%   Targets      : target variable, as in ml_train</span>
+0040 <span class="comment">%</span>
+0041 <span class="comment">%   Lambda       : sequence of regularization parameters to evaluate; (default: 2.^(10:-1:-15))</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%   Options  : optional name-value parameters to control the training details:</span>
+0044 <span class="comment">%              'loss': loss function to be used,</span>
+0045 <span class="comment">%                        'squared' for regression</span>
+0046 <span class="comment">%                        'logistic' for classification (default)</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">%              'regularizer': type of regularization to use:</span>
+0049 <span class="comment">%                             'l1': l1-norm on the features, gives sparse results</span>
+0050 <span class="comment">%                             'glr': grouped l1 norm (&quot;group lasso&quot;), gives blockwise sparse results</span>
+0051 <span class="comment">%                                   (groups the rows of the feature matrices)</span>
+0052 <span class="comment">%                             'glc': grouped l1 norm (&quot;group lasso&quot;), gives blockwise sparse results</span>
+0053 <span class="comment">%                                   (groups the columns of the feature matrices)</span>
+0054 <span class="comment">%                             'ds': dual spectral norm, gives low-rank results (default)</span>
+0055 <span class="comment">%                             'en': elastic net norm, employs a combination of l1 and l2 regularization</span>
+0056 <span class="comment">%</span>
+0057 <span class="comment">%              'shape': if trials is a NxF 2d matrix of vectorized matrices,</span>
+0058 <span class="comment">%                           this is the dimensions of the matrices (default: Fx1)</span>
+0059 <span class="comment">%                       if trials is specified as an UxVxN 3d matrix, shape defaults to</span>
+0060 <span class="comment">%                           [U,V] and trials are vectorized into the regular [N, U*V]</span>
+0061 <span class="comment">%                       if shape is specified with one of the values being NaN,</span>
+0062 <span class="comment">%                           that value is set so that prod(shape)==F==U*V</span>
+0063 <span class="comment">%</span>
+0064 <span class="comment">%              misc parameters:</span>
+0065 <span class="comment">%              'scaling': pre-scaling of the data (see hlp_findscaling for options) (default: 'none')</span>
+0066 <span class="comment">%</span>
+0067 <span class="comment">%              'nfolds' : Cross-validation folds. The cross-validation is used to determine the best</span>
+0068 <span class="comment">%                         regularization parameter value (default: 5)</span>
+0069 <span class="comment">%</span>
+0070 <span class="comment">%              'foldmargin' : Margin (in trials) between folds. This is the number of trials omitted</span>
+0071 <span class="comment">%                             between training and test sets. (default: 5)</span>
+0072 <span class="comment">%</span>
+0073 <span class="comment">%              'cvmetric' : metric to use for parameter optimization; can be any of those supported by</span>
+0074 <span class="comment">%                           ml_calcloss (default: '' = auto-determine)</span>
+0075 <span class="comment">%</span>
+0076 <span class="comment">%              'bias': whether to include a bias term (default: 1)</span>
+0077 <span class="comment">%</span>
+0078 <span class="comment">%              'quiet': whether to suppress diagnostic outputs (default: 1)</span>
+0079 <span class="comment">%</span>
+0080 <span class="comment">%              'solver': solver to be used:</span>
+0081 <span class="comment">%                         'cg'   : Newton method with preconditioned conjugate gradient descent (default)</span>
+0082 <span class="comment">%                         'qn'   : Quasi-Newton method (slower, but uses less flimsy code...)</span>
+0083 <span class="comment">%</span>
+0084 <span class="comment">% Out:</span>
+0085 <span class="comment">%   Models   : a predictive model</span>
+0086 <span class="comment">%</span>
+0087 <span class="comment">% Examples:</span>
+0088 <span class="comment">%   % assuming a 3d feature array of size UxVxT, and a label vector of size Tx1</span>
+0089 <span class="comment">%   % the features should be appropriately normalized (see [2] for examples)</span>
+0090 <span class="comment">%</span>
+0091 <span class="comment">%   % learn a DAL model for a given regularization parameter using the logistic loss (for classification)</span>
+0092 <span class="comment">%   model = ml_traindal(trials,targets,0.1)</span>
+0093 <span class="comment">%</span>
+0094 <span class="comment">%   % as before, but use the squared loss, for linear regression</span>
+0095 <span class="comment">%   model = ml_traindal(trials,targets,0.1,'loss','squared')</span>
+0096 <span class="comment">%</span>
+0097 <span class="comment">%   % like before, but this time use the 'l1' (LASSO) regularizer, assuming sparse features</span>
+0098 <span class="comment">%   model = ml_traindal(trials,targets,0.1,'regularizer','l1')</span>
+0099 <span class="comment">%</span>
+0100 <span class="comment">%   % like before, but this time use the group LASSO regularizer imposing group sparsity on the rows</span>
+0101 <span class="comment">%   % of the feature matrix (columns is 'glc')</span>
+0102 <span class="comment">%   model = ml_traindal(trials,targets,0.1,'regularizer','glr')</span>
+0103 <span class="comment">%</span>
+0104 <span class="comment">%   % like before but use the (default) dual-spectral regularizer, which learns low-rank weights</span>
+0105 <span class="comment">%   model = ml_traindal(trials,targets,0.1,'regularizer','ds')</span>
+0106 <span class="comment">%</span>
+0107 <span class="comment">%   % if the individual trials are not matrix-shaped but vectorized, pass in the shape manually</span>
+0108 <span class="comment">%   model = ml_traindal(trials,targets,0.1,'shape',[U,V])</span>
+0109 <span class="comment">%</span>
+0110 <span class="comment">%   % use a different solver (here: conjugate gradient, which is potentially more efficient)</span>
+0111 <span class="comment">%   model = ml_traindal(trials,targets,0.1,'solver','cg')</span>
+0112 <span class="comment">%</span>
+0113 <span class="comment">%   % learn a DAL model using a parameter search</span>
+0114 <span class="comment">%   model = utl_searchmodel({trials,targets},'args',{{'dal', search(2.^(10:-0.5:-6))}})</span>
+0115 <span class="comment">%</span>
+0116 <span class="comment">%   % as before, but use a different loss</span>
+0117 <span class="comment">%   model = utl_searchmodel({trials,targets},'args',{{'dal', search(2.^(10:-0.5:-6)), 'loss', 'glc'}})</span>
+0118 <span class="comment">%</span>
+0119 <span class="comment">% See also:</span>
+0120 <span class="comment">%   ml_predictdal, dal</span>
+0121 <span class="comment">%</span>
+0122 <span class="comment">% References:</span>
+0123 <span class="comment">%  [1] Ryota Tomioka &amp; Masashi Sugiyama, &quot;Dual Augmented Lagrangian Method for Efficient Sparse Reconstruction&quot;,</span>
+0124 <span class="comment">%      IEEE Signal Proccesing Letters, 16 (12) pp. 1067-1070, 2009.</span>
+0125 <span class="comment">%  [2] Ryota Tomioka and Klaus-Robert Mueller, &quot;A regularized discriminative framework for EEG analysis with application to brain-computer interface&quot;,</span>
+0126 <span class="comment">%      Neuroimage, 49 (1) pp. 415-432, 2010.</span>
+0127 <span class="comment">%</span>
+0128 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0129 <span class="comment">%                                2010-06-25</span>
+0130 
+0131 arg_define([0 3],varargin, <span class="keyword">...</span>
+0132     arg_norep(<span class="string">'trials'</span>), <span class="keyword">...</span>
+0133     arg_norep(<span class="string">'targets'</span>), <span class="keyword">...</span>
+0134     arg({<span class="string">'lambdas'</span>,<span class="string">'Lambdas'</span>}, 2.^(10:-0.25:-5), [], <span class="string">'Regularization parameters. Controls the sparsity/simplicity of the result. Typically, this is an interval to scan, such as 2.^(10:-1:-15).'</span>), <span class="keyword">...</span>
+0135     arg({<span class="string">'loss'</span>,<span class="string">'LossFunction'</span>}, <span class="string">'logistic'</span>, {<span class="string">'logistic'</span>,<span class="string">'squared'</span>}, <span class="string">'Loss function . The logistic loss is suited for classification problems, whereas the squared loss is suited for regression problems.'</span>), <span class="keyword">...</span>
+0136     arg({<span class="string">'regularizer'</span>,<span class="string">'Regularizer'</span>}, <span class="string">'dual-spectral'</span>, {<span class="string">'lasso'</span>,<span class="string">'grouplasso-rows'</span>,<span class="string">'grouplasso-columns'</span>,<span class="string">'dual-spectral'</span>}, <span class="string">'Type of regulariation to use. Lasso (l1) gives sparse results (e.g., on ic-spectral decompositions), the grouped l1 norms give blockwise sparse results (rows / columns of the feature matrices), e.g. for spatially or spectrally decomposed data, and the dual-spectral norm gives low-rank results (raw eeg)'</span>), <span class="keyword">...</span>
+0137     arg({<span class="string">'shape'</span>,<span class="string">'Shape'</span>}, [], [], <span class="string">'Shape of the feature matrices. If given as [X,NaN] or [NaN,X], such that X is a divisor of the number of features F, the NaN is replaced by F/X.'</span>), <span class="keyword">...</span>
+0138     arg({<span class="string">'scaling'</span>,<span class="string">'Scaling'</span>}, <span class="string">'std'</span>, {<span class="string">'none'</span>,<span class="string">'center'</span>,<span class="string">'std'</span>,<span class="string">'minmax'</span>,<span class="string">'whiten'</span>}, <span class="string">'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.'</span>), <span class="keyword">...</span>
+0139     arg({<span class="string">'nfolds'</span>,<span class="string">'NumFolds'</span>},5,[],<span class="string">'Cross-validation folds. The cross-validation is used to determine the best regularization parameter.'</span>),<span class="keyword">...</span>
+0140     arg({<span class="string">'foldmargin'</span>,<span class="string">'FoldMargin'</span>},5,[],<span class="string">'Margin between folds. This is the number of trials omitted between training and test set.'</span>), <span class="keyword">...</span><span class="comment">    </span>
+0141     arg({<span class="string">'theta'</span>,<span class="string">'Theta'</span>}, 0.5, [], <span class="string">'Elastic net blending. Blend parameter for the elastic net.'</span>), <span class="keyword">...</span><span class="comment">    </span>
+0142     arg({<span class="string">'cvmetric'</span>,<span class="string">'ParameterMetric'</span>},<span class="string">''</span>,{<span class="string">''</span>,<span class="string">'kld'</span>,<span class="string">'nll'</span>,<span class="string">'mcr'</span>,<span class="string">'mae'</span>,<span class="string">'mse'</span>,<span class="string">'max'</span>,<span class="string">'rms'</span>,<span class="string">'smse'</span>,<span class="string">'sign'</span>,<span class="string">'bias'</span>,<span class="string">'medse'</span>,<span class="string">'auc'</span>,<span class="string">'cond_entropy'</span>,<span class="string">'cross_entropy'</span>,<span class="string">'f_measure'</span>},<span class="string">'Metric for Parameter Optimization. By default auto-determined; can be any of the ml_calcloss-supported metrics. In particular, auc is a good idea if the classification task is between highly imbalanced classes.'</span>), <span class="keyword">...</span>
+0143     arg({<span class="string">'verbose'</span>,<span class="string">'Verbose'</span>},false,[],<span class="string">'Show diagnostic output.'</span>), <span class="keyword">...</span>
+0144     arg({<span class="string">'solver'</span>,<span class="string">'Solver'</span>},<span class="string">'conjugate gradient'</span>,{<span class="string">'conjugate gradient'</span>,<span class="string">'quasi-Newton'</span>},<span class="string">'Solution method. These differ in robustness, speed and memory requirements.'</span>),<span class="keyword">...</span>
+0145     arg_deprecated({<span class="string">'doinspect'</span>,<span class="string">'InspectMode'</span>},false,[],<span class="string">'Inspection Mode. Not used any more -- use a breakpoint instead.'</span>));
+0146 
+0147 
+0148 classes = unique(targets);
+0149 <span class="keyword">if</span> length(classes) &gt; 2 &amp;&amp; strcmp(loss,<span class="string">'logistic'</span>)
+0150     <span class="comment">% in the multi-class case we use the voter</span>
+0151     model = <a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>(trials, targets, <span class="string">'1v1'</span>, @<a href="ml_traindal.html" class="code" title="function model = ml_traindal(varargin)">ml_traindal</a>, @<a href="ml_predictdal.html" class="code" title="function pred = ml_predictdal(trials,model)">ml_predictdal</a>, varargin{:});
+0152 <span class="keyword">elseif</span> length(classes) == 1
+0153     error(<span class="string">'BCILAB:only_one_class'</span>,<span class="string">'Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.'</span>);
+0154 <span class="keyword">else</span>
+0155     <span class="keyword">if</span> strcmp(cvmetric,<span class="string">'mcr'</span>)
+0156         cvmetric = <span class="string">''</span>; <span class="keyword">end</span>
+0157     
+0158     <span class="comment">% get the correct feature matrix shape</span>
+0159     vectorize_trials = false;
+0160     <span class="keyword">if</span> isempty(shape) <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0161         <span class="keyword">if</span> ndims(trials) == 3
+0162             shape = [size(trials,1) size(trials,2)];
+0163             <span class="comment">% ... also make sure that the trials are vectorized</span>
+0164             trials = double(reshape(trials,[],size(trials,3))');
+0165             vectorize_trials = true;
+0166         <span class="keyword">else</span>
+0167             shape = [size(trials,2) 1];
+0168             <span class="keyword">if</span> any(strcmp(regularizer,{<span class="string">'dual-spectral'</span>,<span class="string">'ds'</span>,<span class="string">'grouplasso-rows'</span>,<span class="string">'glr'</span>,<span class="string">'grouplasso-columns'</span>,<span class="string">'glc'</span>}))
+0169                 warn_once(<span class="string">'BCILAB:DAL:ill_advised_usage'</span>,<span class="string">'You are using the DAL method with a regularizer that makes sense only on group-structured features, which are however not specified. Falling back to lasso. Consider using logreg in the LARS variant instead.'</span>);
+0170                 regularizer = <span class="string">'lasso'</span>;
+0171             <span class="keyword">end</span>
+0172         <span class="keyword">end</span>
+0173     <span class="keyword">elseif</span> size(shape,1) == 1
+0174         nf = size(trials,2);
+0175         ni = isnan(shape);
+0176         <span class="keyword">if</span> any(ni)
+0177             <span class="comment">% if necessary, set NaN shape parameters appropriately</span>
+0178             shape(ni) = nf / shape(~ni);
+0179         <span class="keyword">elseif</span> nf ~= shape(1)*shape(2)
+0180             <span class="comment">% otherwise check for consistency</span>
+0181             error(<span class="string">'shape parameter is inconsistent with feature space dimension.'</span>);
+0182         <span class="keyword">end</span>
+0183     <span class="keyword">end</span>
+0184     
+0185     <span class="keyword">if</span> isempty(lambdas)
+0186         lambdas = 2.^(10:-0.25:-5); <span class="keyword">end</span>
+0187     
+0188     <span class="comment">% optionally scale the data</span>
+0189     sc_info = hlp_findscaling(trials,scaling);
+0190     trials = hlp_applyscaling(trials,sc_info);
+0191     
+0192     <span class="comment">% rewrite the bias, regularizer &amp; solver to the format expected by DAL</span>
+0193     regularizer = hlp_rewrite(regularizer,<span class="string">'lasso'</span>,<span class="string">'l1'</span>,<span class="string">'grouplasso-rows'</span>,<span class="string">'glr'</span>,<span class="string">'grouplasso-columns'</span>,<span class="string">'glc'</span>,<span class="string">'dual-spectral'</span>,<span class="string">'ds'</span>,<span class="string">'elastic-net'</span>,<span class="string">'en'</span>);
+0194     solver = hlp_rewrite(solver,<span class="string">'conjugate gradient'</span>,<span class="string">'cg'</span>,<span class="string">'quasi-Newton'</span>,<span class="string">'qn'</span>,<span class="string">'Newton with Cholesky decomposition'</span>,<span class="string">'nt'</span>,<span class="string">'Newton with memory saving'</span>,<span class="string">'ntsv'</span>,<span class="string">'subspace trust-region'</span>,<span class="string">'fminunc'</span>);
+0195     
+0196     <span class="comment">% remap target labels to -1,+1</span>
+0197     <span class="keyword">if</span> strcmp(loss,<span class="string">'logistic'</span>)
+0198         targets(targets==classes(1)) = -1;
+0199         targets(targets==classes(2)) = +1;
+0200     <span class="keyword">end</span>
+0201     
+0202     <span class="comment">% possibly the data needs to be transposed</span>
+0203     dotranspose = strcmp(regularizer,<span class="string">'glr'</span>);
+0204     <span class="keyword">if</span> dotranspose
+0205         shape = shape([2 1]);
+0206         trials = double(reshape(trials',shape(2),shape(1),[]));
+0207         ntrials = zeros(shape(1),shape(2),size(trials,3));
+0208         <span class="keyword">for</span> t=1:size(trials,3)
+0209             ntrials(:,:,t) = trials(:,:,t)'; <span class="keyword">end</span>
+0210         trials = double(reshape(ntrials,[],size(ntrials,3))');
+0211     <span class="keyword">end</span>
+0212     
+0213     <span class="comment">% lambdas need to be sorted in descending order for the warm-starting to work...</span>
+0214     lambdas = sort(lambdas,<span class="string">'descend'</span>);
+0215 
+0216     <span class="comment">% determine the correct learning function to use, according to loss &amp; regularizer...</span>
+0217     <span class="keyword">switch</span> loss
+0218         <span class="keyword">case</span> <span class="string">'logistic'</span>
+0219             <span class="keyword">switch</span> regularizer
+0220                 <span class="keyword">case</span> <span class="string">'ds'</span>
+0221                     learner = @dallrds; <span class="comment">% dual-spectral logistic regression</span>
+0222                 <span class="keyword">case</span> {<span class="string">'glc'</span>,<span class="string">'glr'</span>}
+0223                     learner = @dallrgl; <span class="comment">% group-regularized logistic regression</span>
+0224                 <span class="keyword">case</span> <span class="string">'l1'</span>
+0225                     learner = @dallrl1; <span class="comment">% sparse logistic regression</span>
+0226                 <span class="keyword">case</span> <span class="string">'en'</span>
+0227                     learner = @(ww,bias,A,yy,lambda,varargin) dallren(ww,bias,A,yy,lambda,theta,varargin{:}); <span class="comment">% elastic-net logistic regression</span>
+0228                 <span class="keyword">otherwise</span>
+0229                     error(<span class="string">'Unsupported regularizer.'</span>);
+0230             <span class="keyword">end</span>
+0231         <span class="keyword">case</span> <span class="string">'squared'</span>
+0232             <span class="keyword">switch</span> regularizer
+0233                 <span class="keyword">case</span> <span class="string">'ds'</span>
+0234                     learner = @dalsqds; <span class="comment">% dual-spectral regularized regression</span>
+0235                 <span class="keyword">case</span> {<span class="string">'glc'</span>,<span class="string">'glr'</span>}
+0236                     learner = @dalsqgl; <span class="comment">% group LASSO</span>
+0237                 <span class="keyword">case</span> <span class="string">'l1'</span>
+0238                     learner = @dalsql1; <span class="comment">% LASSO</span>
+0239                 <span class="keyword">case</span> <span class="string">'en'</span>
+0240                     learner = @(ww,A,bb,lambda,varargin) dallren(ww,A,bb,lambda,theta,varargin{:}); <span class="comment">% elastic net</span>
+0241                 <span class="keyword">otherwise</span>
+0242                     error(<span class="string">'Unsupported regularizer.'</span>);
+0243             <span class="keyword">end</span>
+0244         <span class="keyword">otherwise</span>
+0245             error(<span class="string">'Unsupported loss function.'</span>);
+0246     <span class="keyword">end</span>
+0247     
+0248     <span class="comment">% learn an ensemble of models across the given lambda's, on all the data (i.e. the regularization path)</span>
+0249     <span class="keyword">if</span> verbose
+0250         disp(<span class="string">'Running DAL...'</span>); <span class="keyword">end</span>
+0251 
+0252     <span class="keyword">if</span> length(lambdas) &gt; 1        
+0253         <span class="comment">% cross-validate to score the lambda's</span>
+0254         foldid = 1+floor((0:length(targets)-1)/length(targets)*nfolds); 
+0255         reptargets = repmat(targets,1,length(lambdas));
+0256         predictions = zeros(length(targets),length(lambdas));
+0257         <span class="comment">% for each fold...</span>
+0258         <span class="keyword">for</span> i = 1:nfolds
+0259             <span class="keyword">if</span> verbose
+0260                 disp([<span class="string">'Fitting fold # '</span> num2str(i) <span class="string">' of '</span> num2str(nfolds)]); <span class="keyword">end</span>
+0261             
+0262             <span class="comment">% determine training and test set indices</span>
+0263             which = foldid==i;
+0264             trainids = ~which;
+0265             whichpos = find(which);
+0266             <span class="keyword">for</span> j=1:foldmargin
+0267                 trainids(max(1,whichpos-j)) = false;
+0268                 trainids(min(length(which),whichpos+j)) = false;
+0269             <span class="keyword">end</span>
+0270             
+0271             <span class="comment">% learn an ensemble of models...</span>
+0272             subensemble = hlp_diskcache(<span class="string">'predictivemodels'</span>,@<a href="#_sub1" class="code" title="subfunction ensemble = learn_ensemble(learner,lambdas,shape,trials,targets,solver,loss,verbose,regularizer)">learn_ensemble</a>,learner,lambdas,shape,trials(trainids,:),targets(trainids),solver,loss,verbose,regularizer);
+0273             
+0274             <span class="comment">% obtain test-set predictions for each model...</span>
+0275             testset = [trials(which,:) ones(length(whichpos),1)];
+0276             <span class="keyword">for</span> m=1:length(subensemble)
+0277                 curmodel = subensemble{m};
+0278                 w = full([curmodel.w(:); curmodel.b]);
+0279                 predictions(which,m) = (testset*w)';
+0280             <span class="keyword">end</span>
+0281             <span class="keyword">if</span> strcmp(loss,<span class="string">'logistic'</span>)
+0282                 predictions(which,:) = 2*(1 ./ (1 + exp(-predictions(which,:))))-1; <span class="keyword">end</span>
+0283 
+0284             <span class="comment">% evaluate the loss</span>
+0285             <span class="keyword">if</span> isempty(cvmetric)
+0286                 <span class="keyword">if</span> strcmp(loss,<span class="string">'logistic'</span>)
+0287                     loss_mean(i,:) = mean(reptargets(which,:) ~= sign(predictions(which,:)));
+0288                 <span class="keyword">else</span>
+0289                     loss_mean(i,:) = mean((reptargets(which,:) - predictions(which,:)).^2);
+0290                 <span class="keyword">end</span>
+0291             <span class="keyword">else</span>
+0292                 <span class="keyword">for</span> r=1:length(lambdas)
+0293                     loss_mean(i,r) = <a href="ml_calcloss.html" class="code" title="function [measure,stats] = ml_calcloss(type,T,P)">ml_calcloss</a>(cvmetric,reptargets(which,r),predictions(which,r)); <span class="keyword">end</span>
+0294             <span class="keyword">end</span>
+0295         <span class="keyword">end</span>
+0296         loss_mean = mean(loss_mean,1);
+0297 
+0298         <span class="comment">% legacy losses output</span>
+0299         <span class="keyword">if</span> strcmp(loss,<span class="string">'logistic'</span>)
+0300             losses = reptargets ~= sign(predictions);
+0301         <span class="keyword">else</span>
+0302             losses = (reptargets - predictions).^2;
+0303         <span class="keyword">end</span>
+0304         
+0305         <span class="comment">% if there are several minima, choose largest lambda of the smallest cvm</span>
+0306         lambda_min = max(lambdas(loss_mean &lt;= min(loss_mean)));
+0307     <span class="keyword">else</span>
+0308         lambda_min = lambdas;
+0309         losses = NaN;
+0310     <span class="keyword">end</span>
+0311     
+0312     <span class="comment">% pick the model at the minimum...</span>
+0313     ensemble = hlp_diskcache(<span class="string">'predictivemodels'</span>,@<a href="#_sub1" class="code" title="subfunction ensemble = learn_ensemble(learner,lambdas,shape,trials,targets,solver,loss,verbose,regularizer)">learn_ensemble</a>,learner,lambdas,shape,trials,targets,solver,loss,verbose,regularizer);    
+0314     model = ensemble{find(lambdas == lambda_min,1)};
+0315     model.transpose = dotranspose;
+0316     model.classes = classes;
+0317     model.sc_info = sc_info;
+0318     model.shape = shape;
+0319     model.loss = loss;
+0320     model.ensemble = ensemble;
+0321     model.losses = losses;
+0322     model.vectorize = vectorize_trials;
+0323 <span class="keyword">end</span>
+0324 
+0325 
+0326 
+0327 <span class="comment">% learn the regularization path using the DAL method...</span>
+0328 <a name="_sub1" href="#_subfunctions" class="code">function ensemble = learn_ensemble(learner,lambdas,shape,trials,targets,solver,loss,verbose,regularizer)</a>
+0329 <span class="comment">% learn_ensemble_version&lt;1.0.0&gt;</span>
+0330 disp(<span class="string">'learning ensemble...'</span>);
+0331 
+0332 <span class="comment">% derive the design matrix A &amp; label vector y from the trials...</span>
+0333 <span class="keyword">if</span> size(shape,1) == 1
+0334     mask = any(trials);
+0335     <span class="keyword">if</span> mean(mask) &lt; 0.75
+0336         [m,n] = size(trials);
+0337         <span class="comment">% check if block-diagonal</span>
+0338         tmask = double(trials(:,mask));
+0339         fA = @(x) tmask * x(mask);
+0340         fAt = @(x) <a href="#_sub2" class="code" title="subfunction y = spreadvec(x,idx,n)">spreadvec</a>(tmask'*x,mask,n);
+0341         A = {fA,fAt,m,n};
+0342     <span class="keyword">elseif</span> nnz(trials)/numel(trials) &lt; 0.25
+0343         <span class="comment">% check if reasonably sparse</span>
+0344         A = sparse(trials);
+0345     <span class="keyword">else</span>
+0346         A = double(trials);
+0347     <span class="keyword">end</span>
+0348 <span class="keyword">else</span>
+0349     A = double(trials);
+0350 <span class="keyword">end</span>
+0351 y = double(targets);
+0352 
+0353 <span class="comment">% now learn the models</span>
+0354 ensemble = cell(1,length(lambdas));
+0355 curmodel = struct(<span class="string">'w'</span>,{zeros(sum(shape(:,1).*shape(:,2)),1)},<span class="string">'b'</span>,{0});
+0356 <span class="keyword">for</span> k =1:length(lambdas)
+0357     lam = lambdas(k);
+0358     fprintf(<span class="string">'  scanning lambda = %f...'</span>,lam);
+0359     <span class="comment">% learn an updated model</span>
+0360     t0 = tic;
+0361     <span class="keyword">if</span> strcmp(loss,<span class="string">'logistic'</span>)
+0362         <span class="keyword">if</span> any(strcmp(regularizer,{<span class="string">'glc'</span>,<span class="string">'glr'</span>}))
+0363             [curmodel.w,curmodel.b] = learner(reshape(curmodel.w(:),shape),curmodel.b,A,y,lam,<span class="string">'display'</span>,verbose,<span class="string">'solver'</span>,solver);
+0364         <span class="keyword">else</span>
+0365             [curmodel.w,curmodel.b] = learner(curmodel.w(:),curmodel.b,A,y,lam,<span class="string">'display'</span>,verbose,<span class="string">'solver'</span>,solver,<span class="string">'blks'</span>,shape);
+0366         <span class="keyword">end</span>
+0367     <span class="keyword">else</span>
+0368         curmodel.w = learner(curmodel.w(:),A,y,lam,<span class="string">'display'</span>,verbose,<span class="string">'solver'</span>,solver,<span class="string">'blks'</span>,shape);
+0369     <span class="keyword">end</span>
+0370     duration = toc(t0);
+0371     <span class="keyword">try</span>
+0372         <span class="comment">% calculate the final rank...</span>
+0373         ix = 0;
+0374         modelrank = 0;
+0375         <span class="keyword">for</span> s=1:size(shape,1)
+0376             ival = shape(s,1)*shape(s,2);
+0377             modelrank = modelrank + rank(reshape(curmodel.w(ix+1:ix+ival),shape(s,:)));
+0378             ix = ix+ival;
+0379         <span class="keyword">end</span>
+0380         <span class="comment">% display diagnostics</span>
+0381         fprintf(<span class="string">' model rank = %i; t = %.1fs\n'</span>,modelrank,duration);
+0382     <span class="keyword">catch</span>
+0383         fprintf(<span class="string">'\n'</span>);
+0384     <span class="keyword">end</span>
+0385     <span class="comment">% store</span>
+0386     ensemble{k} = curmodel;
+0387 <span class="keyword">end</span>
+0388 
+0389 
+0390 <span class="comment">% spread a sparse vector out according to an index set</span>
+0391 <a name="_sub2" href="#_subfunctions" class="code">function y = spreadvec(x,idx,n)</a>
+0392 y = zeros(n,1);
+0393 y(idx) = x;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

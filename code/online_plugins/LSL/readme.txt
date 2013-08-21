@@ -1,0 +1,2 @@
+Put this folder into your code/online_plugins directory to add the plugin to BCILAB; it will be recognized the next time you start the toolbox.
+Note that you need to also put the liblsl-Matlab directory (included with any release of the library) into your dependencies folder of the toolbox.

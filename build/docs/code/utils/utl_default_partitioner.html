@@ -1,0 +1,143 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_default_partitioner</title>
+  <meta name="keywords" content="utl_default_partitioner">
+  <meta name="description" content="The default partitioner for generic data (used in cross-validations).">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_default_partitioner.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_default_partitioner
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>The default partitioner for generic data (used in cross-validations).</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function res = utl_default_partitioner(data,inds,varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> The default partitioner for generic data (used in cross-validations). 
+   if only data and no inds are given, return the number of available indices
+   otherwise return data restricted to the given index set
+
+ See also:
+   <a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(data, varargin)">utl_crossval</a>, <a href="utl_partition_bundle.html" class="code" title="function res = utl_partition_bundle(bundle,inds,varargin)">utl_partition_bundle</a>, set_partition</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_partition_bundle.html" class="code" title="function res = utl_partition_bundle(bundle,inds,varargin)">utl_partition_bundle</a>	Internal. Cross-validation partitioner for stream bundles.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(data, varargin)">utl_crossval</a>	Run a generic cross-validation over indexable data.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function res = utl_default_partitioner(data,inds,varargin)</a>
+0002 <span class="comment">% The default partitioner for generic data (used in cross-validations).</span>
+0003 <span class="comment">%   if only data and no inds are given, return the number of available indices</span>
+0004 <span class="comment">%   otherwise return data restricted to the given index set</span>
+0005 <span class="comment">%</span>
+0006 <span class="comment">% See also:</span>
+0007 <span class="comment">%   utl_crossval, utl_partition_bundle, set_partition</span>
+0008 
+0009 <span class="keyword">if</span> ~exist(<span class="string">'inds'</span>,<span class="string">'var'</span>)
+0010     inds = []; <span class="keyword">end</span>
+0011 
+0012 <span class="comment">% check supported special cases first</span>
+0013 <span class="keyword">if</span> iscell(data) &amp;&amp; length(data) == 2 &amp;&amp; isnumeric(data{1}) 
+0014     <span class="comment">% these are the std formats used by ml_train and ml_predict</span>
+0015     <span class="keyword">if</span> isnumeric(data{2}) &amp;&amp; size(data{1},1) == size(data{2},1) &amp;&amp; size(data{1},2) ~= 1 &amp;&amp; size(data{2},2) == 1
+0016         <span class="comment">% a cell array of the form {NxF,Nx1} -- indicating data and target variable; partitioned along N; F&gt;1</span>
+0017         <span class="keyword">if</span> isempty(inds)
+0018             res = length(data{2});
+0019         <span class="keyword">else</span>
+0020             res = {data{1}(inds,:),data{2}(inds,:)};
+0021         <span class="keyword">end</span>
+0022     <span class="keyword">elseif</span> iscell(data{2}) &amp;&amp; length(data{2}) &gt; 1 &amp;&amp; ischar(data{2}{1}) &amp;&amp; ((isnumeric(data{2}{2}) &amp;&amp; size(data{1},1) == size(data{2}{2},1)) || (iscell(data{2}{2}) &amp;&amp; size(data{1},1) == length(data{2}{2})))
+0023         <span class="comment">% a cell array of the form {NxF,{distrib,[NxD],...}} or {NxF,{distrib,{N},...}} --  indicating data and target variable, partitioned along N</span>
+0024         <span class="keyword">if</span> isempty(inds)
+0025             res = size(data{1},1);
+0026         <span class="keyword">else</span>
+0027             <span class="keyword">if</span> isnumeric(data{2}{2})
+0028                 res = {data{1}(inds,:), {data{2}{1},data{2}{2}(inds,:), data{2}{3:end}}};
+0029             <span class="keyword">else</span>
+0030                 res = {data{1}(inds,:), {data{2}{1},data{2}{2}(inds), data{2}{3:end}}};
+0031             <span class="keyword">end</span>
+0032         <span class="keyword">end</span>
+0033     <span class="keyword">end</span>
+0034 <span class="keyword">elseif</span> isstruct(data) &amp;&amp; isscalar(data) &amp;&amp; isfield(data,<span class="string">'X'</span>)   
+0035     <span class="comment">% a struct with fields X &amp; ...</span>
+0036     <span class="keyword">if</span> isfield(data,<span class="string">'Y'</span>) &amp;&amp; size(data.X,1) == size(data.Y,1)
+0037         <span class="comment">% ... upper-case Y: partition X and Y</span>
+0038         <span class="keyword">if</span> isempty(inds)
+0039             res = ult_default_partitioner(data.Y);
+0040         <span class="keyword">else</span>
+0041             res = data;
+0042             res.X = ult_default_partitioner(res.X,inds);
+0043             res.Y = ult_default_partitioner(res.Y,inds);
+0044         <span class="keyword">end</span>
+0045     <span class="keyword">elseif</span> isfield(data,<span class="string">'y'</span>) &amp;&amp; size(data.X,1) == size(data.y,1)
+0046         <span class="comment">% ... lower-case y: partition X and y</span>
+0047         <span class="keyword">if</span> isempty(inds)
+0048             res = ult_default_partitioner(data.y);
+0049         <span class="keyword">else</span>
+0050             res = data;
+0051             res.X = ult_default_partitioner(res.X,inds);
+0052             res.y = ult_default_partitioner(res.y,inds);
+0053         <span class="keyword">end</span>
+0054     <span class="keyword">end</span>
+0055 <span class="keyword">elseif</span> isstruct(data) &amp;&amp; isfield(data,{<span class="string">'data'</span>,<span class="string">'chanlocs'</span>})
+0056     <span class="comment">% EEGLAB data set</span>
+0057     <span class="keyword">if</span> isempty(inds)
+0058         res = exp_eval(set_partition(data,[],varargin{:}),inf);
+0059     <span class="keyword">else</span>
+0060         res = set_partition(data,inds,varargin{:});
+0061     <span class="keyword">end</span>
+0062 <span class="keyword">elseif</span> isstruct(data) &amp;&amp; isfield(data,{<span class="string">'streams'</span>})
+0063     <span class="comment">% stream bundle</span>
+0064     res = <a href="utl_partition_bundle.html" class="code" title="function res = utl_partition_bundle(bundle,inds,varargin)">utl_partition_bundle</a>(data,inds,varargin{:});
+0065 <span class="keyword">end</span>
+0066 
+0067 
+0068 <span class="keyword">if</span> ~exist(<span class="string">'res'</span>,<span class="string">'var'</span>)
+0069     <span class="comment">% no special case: get the highest non-singleton dimension in the data</span>
+0070     dim = find(size(data)~=1,1,<span class="string">'last'</span>);
+0071     <span class="keyword">if</span> isnumeric(data)
+0072         <span class="comment">% in the numeric array case, we never partition along the first dimension</span>
+0073         dim = max(2,dim); <span class="keyword">end</span>
+0074     
+0075     <span class="keyword">if</span> isempty(inds) 
+0076         res = size(data,dim);
+0077     <span class="keyword">else</span>
+0078         <span class="keyword">switch</span> dim
+0079             <span class="keyword">case</span> 1
+0080                 res = data(inds);
+0081             <span class="keyword">case</span> 2
+0082                 res = data(:,inds);                
+0083             <span class="keyword">case</span> 3
+0084                 res = data(:,:,inds);
+0085             <span class="keyword">case</span> 4
+0086                 res = data(:,:,:,inds);
+0087             <span class="keyword">otherwise</span>
+0088                 error(<span class="string">'More than 4-dimensional data is not (yet) supported.'</span>);
+0089         <span class="keyword">end</span>
+0090     <span class="keyword">end</span>
+0091 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

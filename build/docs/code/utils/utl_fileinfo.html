@@ -1,0 +1,171 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_fileinfo</title>
+  <meta name="keywords" content="utl_fileinfo">
+  <meta name="description" content="Retuns (cached) information on a file (MD5 hash, input/output argument names).">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_fileinfo.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_fileinfo
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Retuns (cached) information on a file (MD5 hash, input/output argument names).</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [version,inargs,outargs,h1,hash] = utl_fileinfo(fname,identifier) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Retuns (cached) information on a file (MD5 hash, input/output argument names).
+ [Version,InArgs,OutArgs,H1Line,Hash] = utl_fileinfo(Filename,Identifier)
+
+ In:
+   Filename   : full pathname of an m-file
+   Identifier : MATLAB identifier of the file
+
+ Out:
+   Version : version string (if present) or hash (otherwise) for the function
+   InArgs  : names of input arguments
+   OutArgs : names of output arguments
+   H1Line  : the file's H1 line
+   Hash    : MD5 hash of the function
+
+ Notes:
+   In deployed mode, this function relies on .m files being shipped separately with the binary.
+   If the global cell string tracking.paths.toolboxes exists, its contents will be used as root 
+   source directories; otherwise, env_translatepath('functions:/') will be used.
+
+ See also:
+   hlp_inoutargs
+
+                                   Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-03-28</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_funcversion.html" class="code" title="function v = utl_funcversion(func,versionformat)">utl_funcversion</a>	Get the version string of a MATLAB function, or an MD5 hash if unversioned.</li><li><a href="utl_whichfile.html" class="code" title="function filename = utl_whichfile(identifier)">utl_whichfile</a>	Find the .m file which defines the given function identifier.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [version,inargs,outargs,h1,hash] = utl_fileinfo(fname,identifier)</a>
+0002 <span class="comment">% Retuns (cached) information on a file (MD5 hash, input/output argument names).</span>
+0003 <span class="comment">% [Version,InArgs,OutArgs,H1Line,Hash] = utl_fileinfo(Filename,Identifier)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Filename   : full pathname of an m-file</span>
+0007 <span class="comment">%   Identifier : MATLAB identifier of the file</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% Out:</span>
+0010 <span class="comment">%   Version : version string (if present) or hash (otherwise) for the function</span>
+0011 <span class="comment">%   InArgs  : names of input arguments</span>
+0012 <span class="comment">%   OutArgs : names of output arguments</span>
+0013 <span class="comment">%   H1Line  : the file's H1 line</span>
+0014 <span class="comment">%   Hash    : MD5 hash of the function</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">% Notes:</span>
+0017 <span class="comment">%   In deployed mode, this function relies on .m files being shipped separately with the binary.</span>
+0018 <span class="comment">%   If the global cell string tracking.paths.toolboxes exists, its contents will be used as root</span>
+0019 <span class="comment">%   source directories; otherwise, env_translatepath('functions:/') will be used.</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">% See also:</span>
+0022 <span class="comment">%   hlp_inoutargs</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%                                   Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0025 <span class="comment">%                                2010-03-28</span>
+0026 
+0027 <span class="keyword">persistent</span> filedb;
+0028 
+0029 <span class="keyword">if</span> isdeployed
+0030     
+0031     <span class="comment">% deployed mode must use a special mechanism (the m file source tree is maintained elsewhere)</span>
+0032     <span class="comment">% no refreshing is necessary, as the function code is frozen</span>
+0033     <span class="keyword">try</span>
+0034         <span class="comment">% look up the record for this file name</span>
+0035         fileentry = filedb.(identifier);
+0036     <span class="keyword">catch</span>
+0037         <span class="comment">% not found: look up file name</span>
+0038         fname = <a href="utl_whichfile.html" class="code" title="function filename = utl_whichfile(identifier)">utl_whichfile</a>(identifier);
+0039         fileentry.version = <a href="utl_funcversion.html" class="code" title="function v = utl_funcversion(func,versionformat)">utl_funcversion</a>(identifier);
+0040         fileentry.md5 = hlp_cryptohash(fname,true);
+0041         [fileentry.inargs,fileentry.outargs,fileentry.h1] = hlp_inoutargs(fname,identifier);
+0042         filedb.(identifier) = fileentry;
+0043     <span class="keyword">end</span>
+0044     inargs = fileentry.inargs;
+0045     outargs = fileentry.outargs;
+0046     version = fileentry.version;
+0047     hash = fileentry.md5;
+0048     h1 = fileentry.h1;    
+0049     
+0050 <span class="keyword">else</span>
+0051     refresh_period = 1;  <span class="comment">% refreshing our view of the file system at most every refresh_period seconds</span>
+0052     update = false;      <span class="comment">% indicates whether the database entry for this file is valid or has to be (re)created</span>
+0053     
+0054     <span class="keyword">try</span>
+0055         <span class="comment">% look up the identifier from the DB</span>
+0056         identry = filedb.(identifier);
+0057     <span class="keyword">catch</span>
+0058         <span class="comment">% or create a blank identifier entry</span>
+0059         identry = struct(<span class="string">'names'</span>,{{}},<span class="string">'entries'</span>,{{}});
+0060         filedb.(identifier) = identry;
+0061         update = true;
+0062     <span class="keyword">end</span>
+0063     
+0064     <span class="keyword">try</span>
+0065         <span class="comment">% look up the file record for this identifier...</span>
+0066         idx = strcmp(identry.names,fname);
+0067         fileentry = identry.entries{idx};
+0068     <span class="keyword">catch</span>
+0069         <span class="comment">% or create a blank file entry</span>
+0070         idx = length(identry.names)+1;
+0071         identry.names{idx} = fname;
+0072         identry.entries{idx} = [];
+0073         fileentry = [];
+0074         update = true;
+0075     <span class="keyword">end</span>
+0076     
+0077     <span class="comment">% check if we need to recreate or update with data from the OS</span>
+0078     <span class="keyword">if</span> update || (toc(fileentry.data.last_check) &gt; refresh_period)
+0079         filedata = dir(fname);
+0080         <span class="comment">% check if the file was actually changed</span>
+0081         <span class="keyword">if</span> ~update &amp;&amp; strcmp(fileentry.data.date,filedata.date)
+0082             <span class="comment">% remember when we last checked the OS record</span>
+0083             filedb.(identifier).entries{idx}.data.last_check = tic;
+0084         <span class="keyword">else</span>
+0085             <span class="comment">% the record has to be renewed</span>
+0086             filedata.version = <a href="utl_funcversion.html" class="code" title="function v = utl_funcversion(func,versionformat)">utl_funcversion</a>(identifier);
+0087             filedata.md5 = hlp_cryptohash(fname,true);
+0088             [filedata.inargs,filedata.outargs,filedata.h1] = hlp_inoutargs(fname);
+0089             filedata.last_check = tic;
+0090             fileentry.data = filedata;
+0091             identry.entries{idx} = fileentry;
+0092             filedb.(identifier) = identry;
+0093         <span class="keyword">end</span>
+0094     <span class="keyword">end</span>
+0095     
+0096     inargs = fileentry.data.inargs;
+0097     outargs = fileentry.data.outargs;
+0098     hash = fileentry.data.md5;
+0099     version = fileentry.data.version;
+0100     h1 = fileentry.data.h1;    
+0101 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,314 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_bandpower</title>
+  <meta name="keywords" content="flt_bandpower">
+  <meta name="description" content="Compute logarithmic bandpower features.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../index.html">filters</a> &gt; <a href="index.html">in_development</a> &gt; flt_bandpower.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters/in_development&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>flt_bandpower
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Compute logarithmic bandpower features.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function [signal,state] = flt_bandpower(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Compute logarithmic bandpower features.
+ [Signal,State] = flt_bandpower(Signal, Bands, Smoothing, State)
+
+ TODO: detailed description
+
+ In:
+   Signal       :   continuous data set to be filtered
+
+   Bands        :   bands specification:
+                    * if all channels have the same bands, use a cell array containing the
+                      frequency bands, e.g. {[8, 10], [12, 16], [22, 30]} (in Hz)
+                      this example creates 3 identical bands for each channel
+                    * if you want individual bands for each channel, use a
+                      two-dimensional cell array containing the frequency bands
+                      (second dimension) of each channel (first dimension),
+                      e.g. {{[7, 11], [13, 18]}, {[6, 35]}, {[12, 15], [20, 22], [24, 35]}} (in Hz)
+                      this example creates 2 bands for the first channel, 1
+                      band for the second channel, and 3 bands for the third
+                      channel
+                    * default: {[10, 12], [16, 24]}
+
+   Smoothing    :   length of smoothing windows (in s) (default: 1)
+
+   Order        :   filter order of IIR Butterworth filter (default: 'auto')
+
+   State        :   previous filter state, as obtained by a previous execution of flt_bandpower on an
+                    immediately preceding data set (default: [])
+
+ Out:
+   Signal       :  filtered, continuous EEGLAB data set
+
+   State        :  state of the filter, can be used to continue on a subsequent portion of the data
+
+ Examples:
+   % calculate bandpower features with two identical bands per channel
+   signal = flt_bandpower(eeg,{[10, 12], [14, 22]})
+
+   % calculate bandpower features with individual bands per channel
+   signal = flt_bandpower(eeg,{{[10, 12], [14, 22]}, {[7, 35]}, {[6, 10], [12, 16], [20, 30]}})
+
+ References:
+  [1] TODO
+
+                                Clemens Brunner, Swartz Center for Computational Neuroscience, UCSD
+                                2011-06-29</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal,state] = flt_bandpower(varargin)</a>
+0002 <span class="comment">% Compute logarithmic bandpower features.</span>
+0003 <span class="comment">% [Signal,State] = flt_bandpower(Signal, Bands, Smoothing, State)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% TODO: detailed description</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">% In:</span>
+0008 <span class="comment">%   Signal       :   continuous data set to be filtered</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">%   Bands        :   bands specification:</span>
+0011 <span class="comment">%                    * if all channels have the same bands, use a cell array containing the</span>
+0012 <span class="comment">%                      frequency bands, e.g. {[8, 10], [12, 16], [22, 30]} (in Hz)</span>
+0013 <span class="comment">%                      this example creates 3 identical bands for each channel</span>
+0014 <span class="comment">%                    * if you want individual bands for each channel, use a</span>
+0015 <span class="comment">%                      two-dimensional cell array containing the frequency bands</span>
+0016 <span class="comment">%                      (second dimension) of each channel (first dimension),</span>
+0017 <span class="comment">%                      e.g. {{[7, 11], [13, 18]}, {[6, 35]}, {[12, 15], [20, 22], [24, 35]}} (in Hz)</span>
+0018 <span class="comment">%                      this example creates 2 bands for the first channel, 1</span>
+0019 <span class="comment">%                      band for the second channel, and 3 bands for the third</span>
+0020 <span class="comment">%                      channel</span>
+0021 <span class="comment">%                    * default: {[10, 12], [16, 24]}</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%   Smoothing    :   length of smoothing windows (in s) (default: 1)</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%   Order        :   filter order of IIR Butterworth filter (default: 'auto')</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">%   State        :   previous filter state, as obtained by a previous execution of flt_bandpower on an</span>
+0028 <span class="comment">%                    immediately preceding data set (default: [])</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">% Out:</span>
+0031 <span class="comment">%   Signal       :  filtered, continuous EEGLAB data set</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%   State        :  state of the filter, can be used to continue on a subsequent portion of the data</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">% Examples:</span>
+0036 <span class="comment">%   % calculate bandpower features with two identical bands per channel</span>
+0037 <span class="comment">%   signal = flt_bandpower(eeg,{[10, 12], [14, 22]})</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%   % calculate bandpower features with individual bands per channel</span>
+0040 <span class="comment">%   signal = flt_bandpower(eeg,{{[10, 12], [14, 22]}, {[7, 35]}, {[6, 10], [12, 16], [20, 30]}})</span>
+0041 <span class="comment">%</span>
+0042 <span class="comment">% References:</span>
+0043 <span class="comment">%  [1] TODO</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">%                                Clemens Brunner, Swartz Center for Computational Neuroscience, UCSD</span>
+0046 <span class="comment">%                                2011-06-29</span>
+0047 
+0048 <span class="comment">% flt_bandpower_version&lt;0.95&gt; -- for the cache</span>
+0049 
+0050 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0051 
+0052 <span class="comment">% makes no sense on epoched data</span>
+0053 declare_properties(<span class="string">'name'</span>, <span class="string">'BandPower'</span>, <span class="string">'experimental'</span>,true, <span class="string">'cannot_follow'</span>, <span class="string">'set_makepos'</span>, <span class="string">'follows'</span>, <span class="string">'flt_ica'</span>, <span class="string">'precedes'</span>, <span class="string">'flt_iir'</span>, <span class="string">'independent_channels'</span>, false, <span class="string">'independent_trials'</span>,true);
+0054 
+0055 arg_define(varargin, <span class="keyword">...</span>
+0056     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0057     arg({<span class="string">'bands'</span>,<span class="string">'Bands'</span>}, {[10,12],[16,24]}, [], <span class="string">'Frequency bands for each channel (in Hz).'</span>), <span class="keyword">...</span><span class="comment">  % TODO: Modify description</span>
+0058     arg({<span class="string">'smoothing'</span>,<span class="string">'SmoothingWindow'</span>}, 1, [], <span class="string">'Length of smoothing window (in s).'</span>), <span class="keyword">...</span>
+0059     arg({<span class="string">'logpower'</span>,<span class="string">'LogPower'</span>},true,[],<span class="string">'Return logarithm of power (dB)'</span>), <span class="keyword">...</span>
+0060     arg({<span class="string">'order'</span>, <span class="string">'FilterOrder'</span>}, <span class="string">'auto'</span>, [], <span class="string">'Filter order of IIR Butterworth filter.'</span>), <span class="keyword">...</span>
+0061     arg_norep({<span class="string">'state'</span>,<span class="string">'State'</span>},unassigned));
+0062 
+0063 <span class="keyword">if</span> size(signal.data,3) &gt; 1
+0064     error(<span class="string">'flt_bandpower is supposed to be applied to continuous (non-epoched) data.'</span>);  <span class="keyword">end</span>
+0065 
+0066 <span class="comment">% parse frequency bands parameter</span>
+0067 <span class="comment">% the goal is to reshape the bands parameter to the most generic form</span>
+0068 <span class="comment">% bands{n}{m}</span>
+0069 <span class="comment">%   n is the channel index (i = 1...signal.nbchan)</span>
+0070 <span class="comment">%   m is the band index for channel i (m = 1...n_bands_i)</span>
+0071 <span class="comment">%</span>
+0072 <span class="comment">% however, a simpler version exists when bands are identical for all channels.</span>
+0073 <span class="comment">% then, this parameter reduces to bands{m}, but the following code converts the</span>
+0074 <span class="comment">% format to the generic one described above.</span>
+0075 <span class="keyword">if</span> ~iscell(bands)
+0076     error(<span class="string">'bands must be a cell array.'</span>);
+0077 <span class="keyword">elseif</span> ~iscell(bands{1})  <span class="comment">% these frequency bands apply to all channels</span>
+0078     <span class="keyword">for</span> k = 1:signal.nbchan
+0079         temp{k} = bands;  <span class="keyword">end</span>
+0080     bands = temp;
+0081     all_channels = true;  <span class="comment">% filters applied to all channels</span>
+0082     clear(<span class="string">'temp'</span>);
+0083 <span class="keyword">else</span>  <span class="comment">% there are different frequency bands for each channel in a 2D cell array</span>
+0084     all_channels = false;  <span class="comment">% individual filters for each channel</span>
+0085 <span class="keyword">end</span>
+0086 
+0087 <span class="keyword">for</span> k = 1:length(bands)
+0088     n_bands(k) = length(bands{k});  <span class="keyword">end</span>
+0089 
+0090 <span class="comment">% loop over filters</span>
+0091 <span class="keyword">if</span> all_channels  <span class="comment">% apply filters to all channels</span>
+0092     signal_filtered = cell(1, n_bands(1));  <span class="comment">% will contain filtered signals, the bands are applied to all channels</span>
+0093     <span class="keyword">for</span> n_filter = 1:n_bands(1)
+0094         
+0095         <span class="comment">% need to create dfilt state object?</span>
+0096         <span class="keyword">if</span> ~exist(<span class="string">'state'</span>,<span class="string">'var'</span>) || length(state) &lt; n_filter
+0097             <span class="keyword">if</span> ~exist(<span class="string">'dfilt'</span>,<span class="string">'file'</span>)
+0098                 error(<span class="string">'You need the Signal Processing toolbox to make use of IIR filters in BCILAB.'</span>); <span class="keyword">end</span>
+0099             
+0100             <span class="comment">% create 1 Hz transition bands for filter order calculation</span>
+0101             [Wp,Ws,label] = deal(2 * bands{1}{n_filter}/signal.srate, 2 * [bands{1}{n_filter}(1)-1, bands{1}{n_filter}(2)+1]/signal.srate, {});
+0102             
+0103             <span class="keyword">if</span> ischar(order) &amp;&amp; strcmp(order, <span class="string">'auto'</span>)
+0104                 [n,Wn] = buttord(Wp,Ws,0.5,50);
+0105             <span class="keyword">else</span>
+0106                 n = order;
+0107                 Wn = bands{1}{n_filter} ./ (signal.srate / 2);
+0108             <span class="keyword">end</span>
+0109             
+0110             <span class="comment">% compute filter coefficients (in Zero-Pole-Gain form, to prevent instability)</span>
+0111             [z,p,k] = butter(n,Wn,label{:});
+0112             
+0113             [sos,g] = zp2sos(z,p,k);
+0114             state{n_filter} = dfilt.df2sos(sos,g);
+0115             state{n_filter} = dfilt.df2sos(sos,g/max(abs(freqz(state{n_filter}))));
+0116             set(state{n_filter},<span class="string">'PersistentMemory'</span>,true);
+0117         <span class="keyword">else</span>
+0118             <span class="comment">% make a deep copy of the state</span>
+0119             state{n_filter} = copy(state{n_filter});
+0120         <span class="keyword">end</span>
+0121 
+0122         <span class="comment">% apply the filter, smooth with moving average, and take the logarithm</span>
+0123         signal_filtered{n_filter} = filter(ones(round(smoothing*signal.srate),1),round(smoothing*signal.srate),transpose(filter(state{n_filter},double(signal.data),2).^2));
+0124         <span class="keyword">if</span> logpower
+0125             signal_filtered{n_filter} = transpose(log(signal_filtered{n_filter}));
+0126         <span class="keyword">else</span>
+0127             signal_filtered{n_filter} = transpose(signal_filtered{n_filter});
+0128         <span class="keyword">end</span>;
+0129     <span class="keyword">end</span>
+0130     
+0131     <span class="comment">% Merge filtered signals into one EEGLAB signal structure</span>
+0132     temp = signal;
+0133     temp.data = zeros(sum(n_bands), signal.pnts);
+0134     temp.data = vertcat(signal_filtered{:});
+0135     temp.nbchan = sum(n_bands);
+0136     temp.chanlocs = repmat(signal.chanlocs, 1, n_bands(1));
+0137     <span class="comment">% make channel names unique by appending '_X'</span>
+0138     counter = 1;
+0139     <span class="keyword">for</span> k = 1:n_bands(1)
+0140         <span class="keyword">for</span> l = 1:length(bands)
+0141             temp.chanlocs(counter).labels = [temp.chanlocs(counter).labels, <span class="string">'_'</span>, num2str(k)];
+0142             counter = counter + 1;
+0143         <span class="keyword">end</span>
+0144     <span class="keyword">end</span>
+0145     signal = temp;
+0146     clear(<span class="string">'temp'</span>);
+0147     
+0148 <span class="keyword">else</span>  <span class="comment">% apply filters to each channel individually</span>
+0149     signal_filtered = cell(1, length(bands));  <span class="comment">% will contain filtered signals, each channel has separate bands</span>
+0150     <span class="keyword">for</span> k = 1:length(signal_filtered)
+0151         signal_filtered{k} = cell(1, n_bands(k));  <span class="keyword">end</span>
+0152     
+0153     <span class="comment">% create empty state variable</span>
+0154     state = signal_filtered;
+0155     
+0156     <span class="keyword">for</span> n_channel = 1:length(bands)
+0157         <span class="keyword">for</span> n_filter = 1:n_bands(n_channel)
+0158             
+0159             <span class="comment">% need to create dfilt state object?</span>
+0160             <span class="keyword">if</span> isempty(state{n_channel}{n_filter})
+0161                 <span class="keyword">if</span> ~exist(<span class="string">'dfilt'</span>,<span class="string">'file'</span>)
+0162                     error(<span class="string">'You need the Signal Processing toolbox to make use of the bandpower filter in BCILAB.'</span>); <span class="keyword">end</span>
+0163                 
+0164                 <span class="comment">% create 1 Hz transition bands for filter order calculation</span>
+0165                 [Wp,Ws,label] = deal(2 * bands{n_channel}{n_filter}/signal.srate, 2 * [bands{n_channel}{n_filter}(1)-1, bands{n_channel}{n_filter}(2)+1]/signal.srate, {});
+0166                 
+0167                 <span class="keyword">if</span> ischar(order) &amp;&amp; strcmp(order, <span class="string">'auto'</span>)
+0168                     [n,Wn] = buttord(Wp,Ws,0.5,50);
+0169                 <span class="keyword">else</span>
+0170                     n = order;
+0171                     Wn = bands{n_channel}{n_filter} ./ (signal.srate / 2);
+0172                 <span class="keyword">end</span>
+0173                 
+0174                 <span class="comment">% compute filter coefficients (in Zero-Pole-Gain form, to prevent instability)</span>
+0175                 [z,p,k] = butter(n,Wn,label{:});
+0176                 
+0177                 [sos,g] = zp2sos(z,p,k);
+0178                 state{n_channel}{n_filter} = dfilt.df2sos(sos,g);
+0179                 state{n_channel}{n_filter} = dfilt.df2sos(sos,g/max(abs(freqz(state{n_channel}{n_filter}))));
+0180                 set(state{n_channel}{n_filter},<span class="string">'PersistentMemory'</span>,true);
+0181             <span class="keyword">else</span>
+0182                 <span class="comment">% make a deep copy of the state</span>
+0183                 state{n_channel}{n_filter} = copy(state{n_channel}{n_filter});
+0184             <span class="keyword">end</span>;         
+0185             
+0186             <span class="comment">% apply the filter, smooth with moving average, and take the logarithm</span>
+0187             signal_filtered{n_channel}{n_filter} = filter(ones(round(smoothing*signal.srate),1),round(smoothing*signal.srate),transpose(filter(state{n_channel}{n_filter},double(signal.data),2).^2));
+0188             <span class="keyword">if</span> logpower
+0189                 signal_filtered{n_channel}{n_filter} = transpose(log(signal_filtered{n_channel}{n_filter}));
+0190             <span class="keyword">else</span>
+0191                 signal_filtered{n_channel}{n_filter} = transpose(signal_filtered{n_channel}{n_filter});
+0192             <span class="keyword">end</span>;
+0193         <span class="keyword">end</span>;   
+0194         
+0195     <span class="keyword">end</span>;
+0196     
+0197     <span class="comment">% Merge filtered signals into one EEGLAB signal structure</span>
+0198     temp = signal;
+0199     <span class="keyword">for</span> k = 1:length(signal_filtered)
+0200         temp_data{k} = vertcat(signal_filtered{k}{:}); <span class="keyword">end</span>;
+0201     temp.data = vertcat(temp_data{:});
+0202     clear(<span class="string">'temp_data'</span>);
+0203     temp.nbchan = sum(n_bands);
+0204     <span class="keyword">for</span> k = 1:length(signal_filtered)
+0205         temp_chanlocs{k} = repmat(signal.chanlocs(k), n_bands(k), 1); <span class="keyword">end</span>;
+0206     temp.chanlocs = vertcat(temp_chanlocs{:});
+0207     <span class="comment">% make channel names unique by appending '_X'</span>
+0208     counter = 1;
+0209     <span class="keyword">for</span> k = 1:length(bands)  <span class="comment">% loop over channels</span>
+0210         <span class="keyword">for</span> l = 1:n_bands(k)  <span class="comment">% loop over bands per channel</span>
+0211             temp.chanlocs(counter).labels = [temp.chanlocs(counter).labels, <span class="string">'_'</span>, num2str(l)];
+0212             counter = counter + 1;
+0213         <span class="keyword">end</span>
+0214     <span class="keyword">end</span>
+0215     temp.chanlocs = temp.chanlocs';
+0216     clear(<span class="string">'temp_chanlocs'</span>);
+0217     signal = temp;
+0218     clear(<span class="string">'temp'</span>);
+0219     
+0220 <span class="keyword">end</span>;
+0221 
+0222 
+0223 exp_endfun;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

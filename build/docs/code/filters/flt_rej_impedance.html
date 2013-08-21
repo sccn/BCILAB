@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_rej_impedance</title>
+  <meta name="keywords" content="flt_rej_impedance">
+  <meta name="description" content="Reject channels based on an impedance threshold; requires hardware support.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_rej_impedance.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_rej_impedance
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Reject channels based on an impedance threshold; requires hardware support.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function signal = flt_rej_impedance(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Reject channels based on an impedance threshold; requires hardware support.
+ this assumes that impedence is encoded in the peak-to-peak amplitdue  
+ difference between every EncodingFactor samples
+
+ Author: Tim Mullen, SCCN/INC/UCSD 2013</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = flt_rej_impedance(varargin)</a>
+0002 <span class="comment">% Reject channels based on an impedance threshold; requires hardware support.</span>
+0003 <span class="comment">% this assumes that impedence is encoded in the peak-to-peak amplitdue</span>
+0004 <span class="comment">% difference between every EncodingFactor samples</span>
+0005 <span class="comment">%</span>
+0006 <span class="comment">% Author: Tim Mullen, SCCN/INC/UCSD 2013</span>
+0007 
+0008 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0009 
+0010 <span class="comment">% used as a tool to select channel subsets before these ops are applied</span>
+0011 declare_properties(<span class="string">'name'</span>,{<span class="string">'RejectHighImpedanceChans'</span>}, <span class="string">'experimental'</span>,false, <span class="string">'precedes'</span>,{<span class="string">'flt_laplace'</span>,<span class="string">'flt_ica'</span>,<span class="string">'flt_reref'</span>,<span class="string">'flt_movavg'</span>}, <span class="string">'independent_trials'</span>,true, <span class="string">'independent_channels'</span>,true);
+0012 
+0013 arg_define(varargin, <span class="keyword">...</span>
+0014     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>},[],[],<span class="string">'Signal structure. Must contain .data field with channel data'</span>), <span class="keyword">...</span>
+0015     arg({<span class="string">'impedanceThreshold'</span>,<span class="string">'ImpedanceThreshold'</span>},2,[0 Inf],<span class="string">'Impedance threshold (Mohms). Channels with impedence higher than this will be rejected.'</span>), <span class="keyword">...</span>
+0016     arg({<span class="string">'imp_period'</span>,<span class="string">'ImpedancePeriod'</span>},4,[],<span class="string">'Period (samples) for impedance calculation'</span>), <span class="keyword">...</span>
+0017     arg({<span class="string">'verb'</span>,<span class="string">'Verbosity'</span>},false,[],<span class="string">'Verbose output'</span>), <span class="keyword">...</span>
+0018     arg_norep(<span class="string">'removed_channels'</span>,unassigned) <span class="keyword">...</span>
+0019     );
+0020 
+0021 <span class="comment">% flag channels</span>
+0022 <span class="keyword">if</span> ~exist(<span class="string">'removed_channels'</span>,<span class="string">'var'</span>)
+0023     
+0024     <span class="keyword">if</span> signal.pnts &lt; imp_period*2
+0025         <span class="keyword">return</span>; <span class="keyword">end</span>
+0026 
+0027     ISTIM = 0.000000024;
+0028     TO_Z  = 1.4/(ISTIM*2.0);
+0029     TO_V  = (1/1e6);
+0030 
+0031     npts =  signal.pnts-mod(signal.pnts,imp_period);
+0032     nchs =  signal.nbchan;
+0033     <span class="comment">% get the peak and trough for every cycle of data</span>
+0034     datmax = max(reshape(signal.data(:,1:npts)',imp_period,nchs*(npts/imp_period)),[],1)';
+0035     datmin = min(reshape(signal.data(:,1:npts)',imp_period,nchs*(npts/imp_period)),[],1)';
+0036     datmax = reshape(datmax,(npts/imp_period),nchs);
+0037     datmin = reshape(datmin,(npts/imp_period),nchs);
+0038     <span class="comment">% convert average peak-to-peak microvoltage to impedence</span>
+0039     imped  = mean(datmax-datmin)'*TO_V*TO_Z;
+0040     removed_channels = find(imped &gt; impedanceThreshold*1e6);
+0041     
+0042     <span class="keyword">if</span> verb &amp;&amp; any(removed_channels)
+0043         labels = {signal.chanlocs.labels};
+0044         <span class="keyword">if</span> isempty(labels)
+0045             labels = 1:signal.nbchan; 
+0046         <span class="keyword">end</span>
+0047         removed_channels_lbl = labels(removed_channels);
+0048         
+0049         fprintf(<span class="string">'Impedance check:\n'</span>);
+0050         fprintf(<span class="string">'Impedances:\t%s\n'</span>,hlp_tostring(imped));
+0051         fprintf(<span class="string">'Bad channels (%d):\t%s\n'</span>,length(removed_channels_lbl),hlp_tostring(removed_channels_lbl));
+0052     <span class="keyword">end</span>
+0053 <span class="keyword">end</span>
+0054 
+0055 <span class="comment">% execute</span>
+0056 signal = pop_select(signal,<span class="string">'nochannel'</span>,removed_channels);
+0057 
+0058 exp_endfun(<span class="string">'append_online'</span>,{<span class="string">'removed_channels'</span>,removed_channels});</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

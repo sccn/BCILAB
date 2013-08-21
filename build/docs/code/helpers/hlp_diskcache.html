@@ -1,0 +1,676 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of hlp_diskcache</title>
+  <meta name="keywords" content="hlp_diskcache">
+  <meta name="description" content="Cache results of function invocations.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">helpers</a> &gt; hlp_diskcache.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>hlp_diskcache
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Cache results of function invocations.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function varargout = hlp_diskcache(options, f, varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Cache results of function invocations.
+ Results... = hlp_diskcache(Settings, Function, Arguments...)
+
+ This function maintains a disk cache of function results in a user-specified folder and 
+ if a result had already been computed before, it will be immediately looked up instead of being
+ computed again.
+
+ This function should only be used for computations that take a long enough time to justify the 
+ overhead since disk I/O can be relatively slow, since results can fill up the disk quickly, and 
+ since there are important safety considerations (see below).
+
+ In:
+   Settings : settings that determine where and what to cache (either a cell array of name-value 
+              pairs or a struct). The most important options are:
+              * folder: the folder relative to which the results are saved (default: '.')
+              * freemem: the amount of memory that should remain free on the disk (in GB if &gt; 1, 
+                otherwise a fraction of total space) (default: 80)
+              * bypass: bypass caching system (default: false)
+              See Advanced Options below for further options, and see Pre-defining and Recalling 
+              Settings for a way to separate the settings declaration from the call-site that 
+              invokes hlp_diskcache.
+
+   Function  : function handle to compute a result from some arguments
+
+   Arguments... : arguments to pass to the function
+
+ Out:
+   Results... : return values of the function for the given arguments
+
+
+ Safety Notes:
+   1) Only *referentially transparent* functions can be cached safely; if a function can give different 
+      outputs for the same arguments, this can lead to subtle bugs; examples include functions that
+      refer to global state (global variables, files on disk). This can be fixed by turning all
+      dependencies of the function into arguments. Also, if a function's desired behavior includes
+      side effects (e.g., creating or updating files), it cannot be cached safely. This can be
+      worked around by caching only the core function that performs the actual computation (if
+      any). When applying functions to &quot;smart&quot; objects, make sure that the call does not
+      inadvertently fall under these categories (e.g., reads, creates or updates files or global
+      variables).
+
+   2) If the execution of a function changes, an obsolete result might be looked up from the cache.
+      Therefore the code of the passed-in function is checksummed against the code that calculated
+      the original result, however *none* of the functions called by that function will be checksummed
+      since it cannot readily be made fast enough. Therefore, if a dependent function changes and
+      that change affects results in the cache, you will want to delete or disable the cache. This is 
+      especially important during debugging sessions.
+
+
+ Usability Notes:
+   1) If you are debugging a function whose results are being cached, *bypass* the cache temporarily
+      (you can do this either below in the first code line, or at the call site by passing in 'bypass').
+
+   2) If you do not want the cache to be invalidated when you change a function and you know what
+      you are doing, you can add a version line to your function that you increment whenever you
+      make a change that renders previous results obsolete. This requires very serious programmer 
+      discipline and cannot possibly be enforced when multiple people edit the code at random.
+
+   3) Make sure that your disk is fast enough for the caching to make sense; ideally you want an SSD.
+      Do not use hlp_diskcache for small jobs that are very fast to compute -- use hlp_microcache 
+      instead, which is in-memory (not persistent across MATLAB restarts) and extremely lightweight.
+
+
+ Advanced Options:
+      The following further settings can be passed for Settings:
+      * maxsize: don't save result files that are larger than this in bytes (default: Inf)
+      * minsize: don't save result files that are smaller than this in bytes (default: 0)
+      * mintime: don't save results that took less than this time to compute, in seconds (default: 0)
+      * versiontag: syntax of the optional version tag in your function's code (default: '$(funcname)_version&lt;\S+&gt;')
+                    code versioning can be disabled by setting the versiontag to false (discouraged)
+      * subdir: the cache sub-directory relative to the folder; created if missing (default: 'diskcache')
+      * exactmatch_cutoff: if the input is larger than this many bytes, it will not be stored with the result
+                           and will not be compared byte-for-byte during lookup, in bytes (default: 1000000)
+                           note that the hash is usually strong enough to make a byte-for-byte check unnecessary
+      * cleanup: clean up old cache entries when running out of disk space (default: true)
+      * serialize: use serialization for the result, faster than raw save/load for large files (default: true)
+      * permissions: cell array of file permissions to use for created directories and files, as in fileattrib 
+                     (default: {'+w','a'})
+      * bypass_if_folder_missing: if the given folder does not exist, the cache will be bypassed; 
+                                  otherwise the folder will be created if missing (default: false)
+                                  note: this can be useful to prevent inadvertent littering of directories 
+                                  with cache files when running from a different installation
+        overwrite_files: overwrite existing files (can create broken files when multiple processes write
+                         to the same files in parallel) (default: false)
+
+
+ Pre-defining and Recalling Settings:
+   If Settings is passed in as a string instead of a cell array of name-value pairs or a struct,
+   it is taken as the name of a settings profile (similar to a cache &quot;domain&quot; in hlp_microcache).
+   Note that the profile name should be a valid MATLAB field name.
+   
+   Pre-defining settings for a profile:
+       To assign settings for a named cache profile, call:
+       &gt; hlp_diskcache('myprofile','name',value,'name',value, ...)
+       Where myprofile is the name of the profile for which settings shall be assigned
+       and the names/values are the settings to assign to it (what would normally be passed as a 
+       cell array). Note that settings are not persistent across MATLAB runs, so you'd need to 
+       put them into an initializer or startup function. By default a &quot;clear all&quot; does not clear the 
+       settings (this can be disabled by setting clearable_settings to true in the code below).
+
+   Recalling settings from a profile:
+       To recall settings from a profile in a call of hlp_diskcache, just use the name of the
+       profile instead of the Settings cell array. It is permitted to recall from a profile that
+       has not been defined before (in this case, all defaults will be assumed).
+   
+
+ Examples:
+   % if this line is executed for the first time, it is as slow as magic(2000)
+   % the result will be written into a sub-directory of ~/myresults
+   m = hlp_diskcache({'folder','./myresults'},@magic,2000);
+
+   % if it is executed a second time, it is likely much faster than m=magic(2000)
+   % if the result is found on disk
+   m = hlp_diskcache({'folder','./myresults'},@magic,2000);
+
+   % it is also possible to assign settings separately for a named 'profile', and then later recall 
+   % them:
+   hlp_diskcache('myprofile','folder','./myresults','freemem',10);
+   m = hlp_diskcache('myprofile',@magic,2000);
+
+
+ See also:
+  <a href="hlp_microcache.html" class="code" title="function varargout = hlp_microcache(dom, f, varargin)">hlp_microcache</a>
+
+ Depends on:
+  <a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>, <a href="hlp_deserialize.html" class="code" title="function v = hlp_deserialize(m)">hlp_deserialize</a>, <a href="hlp_cryptohash.html" class="code" title="function hash = hlp_cryptohash(data,fromfile)">hlp_cryptohash</a>
+
+
+                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                 2013-04-15</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="hlp_cryptohash.html" class="code" title="function hash = hlp_cryptohash(data,fromfile)">hlp_cryptohash</a>	Compute an MD5 hash of a file, string or generic data structure.</li><li><a href="hlp_deserialize.html" class="code" title="function v = hlp_deserialize(m)">hlp_deserialize</a>	Convert a serialized byte vector back into the corresponding MATLAB data structure.</li><li><a href="hlp_handleerror.html" class="code" title="function s = hlp_handleerror(e,level)">hlp_handleerror</a>	Displays a formatted error message for some error object, including a full stack trace.</li><li><a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>	Convert a MATLAB data structure into a compact byte vector.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function options = assign_defaults(options)</a></li><li><a href="#_sub2" class="code">function x = trim_expression(x)</a></li><li><a href="#_sub3" class="code">function v = func_version(func,versiontag)</a></li><li><a href="#_sub4" class="code">function res = disk_total_space(path)</a></li><li><a href="#_sub5" class="code">function res = disk_free_space(path)</a></li><li><a href="#_sub6" class="code">function error_message(msg,e)</a></li><li><a href="#_sub7" class="code">function res = strsplit(str,delims)</a></li><li><a href="#_sub8" class="code">function make_directories(filepath,attribs)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function varargout = hlp_diskcache(options, f, varargin)</a>
+0002 <span class="comment">% Cache results of function invocations.</span>
+0003 <span class="comment">% Results... = hlp_diskcache(Settings, Function, Arguments...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This function maintains a disk cache of function results in a user-specified folder and</span>
+0006 <span class="comment">% if a result had already been computed before, it will be immediately looked up instead of being</span>
+0007 <span class="comment">% computed again.</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% This function should only be used for computations that take a long enough time to justify the</span>
+0010 <span class="comment">% overhead since disk I/O can be relatively slow, since results can fill up the disk quickly, and</span>
+0011 <span class="comment">% since there are important safety considerations (see below).</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">% In:</span>
+0014 <span class="comment">%   Settings : settings that determine where and what to cache (either a cell array of name-value</span>
+0015 <span class="comment">%              pairs or a struct). The most important options are:</span>
+0016 <span class="comment">%              * folder: the folder relative to which the results are saved (default: '.')</span>
+0017 <span class="comment">%              * freemem: the amount of memory that should remain free on the disk (in GB if &gt; 1,</span>
+0018 <span class="comment">%                otherwise a fraction of total space) (default: 80)</span>
+0019 <span class="comment">%              * bypass: bypass caching system (default: false)</span>
+0020 <span class="comment">%              See Advanced Options below for further options, and see Pre-defining and Recalling</span>
+0021 <span class="comment">%              Settings for a way to separate the settings declaration from the call-site that</span>
+0022 <span class="comment">%              invokes hlp_diskcache.</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   Function  : function handle to compute a result from some arguments</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">%   Arguments... : arguments to pass to the function</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">% Out:</span>
+0029 <span class="comment">%   Results... : return values of the function for the given arguments</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">% Safety Notes:</span>
+0033 <span class="comment">%   1) Only *referentially transparent* functions can be cached safely; if a function can give different</span>
+0034 <span class="comment">%      outputs for the same arguments, this can lead to subtle bugs; examples include functions that</span>
+0035 <span class="comment">%      refer to global state (global variables, files on disk). This can be fixed by turning all</span>
+0036 <span class="comment">%      dependencies of the function into arguments. Also, if a function's desired behavior includes</span>
+0037 <span class="comment">%      side effects (e.g., creating or updating files), it cannot be cached safely. This can be</span>
+0038 <span class="comment">%      worked around by caching only the core function that performs the actual computation (if</span>
+0039 <span class="comment">%      any). When applying functions to &quot;smart&quot; objects, make sure that the call does not</span>
+0040 <span class="comment">%      inadvertently fall under these categories (e.g., reads, creates or updates files or global</span>
+0041 <span class="comment">%      variables).</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%   2) If the execution of a function changes, an obsolete result might be looked up from the cache.</span>
+0044 <span class="comment">%      Therefore the code of the passed-in function is checksummed against the code that calculated</span>
+0045 <span class="comment">%      the original result, however *none* of the functions called by that function will be checksummed</span>
+0046 <span class="comment">%      since it cannot readily be made fast enough. Therefore, if a dependent function changes and</span>
+0047 <span class="comment">%      that change affects results in the cache, you will want to delete or disable the cache. This is</span>
+0048 <span class="comment">%      especially important during debugging sessions.</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">%</span>
+0051 <span class="comment">% Usability Notes:</span>
+0052 <span class="comment">%   1) If you are debugging a function whose results are being cached, *bypass* the cache temporarily</span>
+0053 <span class="comment">%      (you can do this either below in the first code line, or at the call site by passing in 'bypass').</span>
+0054 <span class="comment">%</span>
+0055 <span class="comment">%   2) If you do not want the cache to be invalidated when you change a function and you know what</span>
+0056 <span class="comment">%      you are doing, you can add a version line to your function that you increment whenever you</span>
+0057 <span class="comment">%      make a change that renders previous results obsolete. This requires very serious programmer</span>
+0058 <span class="comment">%      discipline and cannot possibly be enforced when multiple people edit the code at random.</span>
+0059 <span class="comment">%</span>
+0060 <span class="comment">%   3) Make sure that your disk is fast enough for the caching to make sense; ideally you want an SSD.</span>
+0061 <span class="comment">%      Do not use hlp_diskcache for small jobs that are very fast to compute -- use hlp_microcache</span>
+0062 <span class="comment">%      instead, which is in-memory (not persistent across MATLAB restarts) and extremely lightweight.</span>
+0063 <span class="comment">%</span>
+0064 <span class="comment">%</span>
+0065 <span class="comment">% Advanced Options:</span>
+0066 <span class="comment">%      The following further settings can be passed for Settings:</span>
+0067 <span class="comment">%      * maxsize: don't save result files that are larger than this in bytes (default: Inf)</span>
+0068 <span class="comment">%      * minsize: don't save result files that are smaller than this in bytes (default: 0)</span>
+0069 <span class="comment">%      * mintime: don't save results that took less than this time to compute, in seconds (default: 0)</span>
+0070 <span class="comment">%      * versiontag: syntax of the optional version tag in your function's code (default: '$(funcname)_version&lt;\S+&gt;')</span>
+0071 <span class="comment">%                    code versioning can be disabled by setting the versiontag to false (discouraged)</span>
+0072 <span class="comment">%      * subdir: the cache sub-directory relative to the folder; created if missing (default: 'diskcache')</span>
+0073 <span class="comment">%      * exactmatch_cutoff: if the input is larger than this many bytes, it will not be stored with the result</span>
+0074 <span class="comment">%                           and will not be compared byte-for-byte during lookup, in bytes (default: 1000000)</span>
+0075 <span class="comment">%                           note that the hash is usually strong enough to make a byte-for-byte check unnecessary</span>
+0076 <span class="comment">%      * cleanup: clean up old cache entries when running out of disk space (default: true)</span>
+0077 <span class="comment">%      * serialize: use serialization for the result, faster than raw save/load for large files (default: true)</span>
+0078 <span class="comment">%      * permissions: cell array of file permissions to use for created directories and files, as in fileattrib</span>
+0079 <span class="comment">%                     (default: {'+w','a'})</span>
+0080 <span class="comment">%      * bypass_if_folder_missing: if the given folder does not exist, the cache will be bypassed;</span>
+0081 <span class="comment">%                                  otherwise the folder will be created if missing (default: false)</span>
+0082 <span class="comment">%                                  note: this can be useful to prevent inadvertent littering of directories</span>
+0083 <span class="comment">%                                  with cache files when running from a different installation</span>
+0084 <span class="comment">%        overwrite_files: overwrite existing files (can create broken files when multiple processes write</span>
+0085 <span class="comment">%                         to the same files in parallel) (default: false)</span>
+0086 <span class="comment">%</span>
+0087 <span class="comment">%</span>
+0088 <span class="comment">% Pre-defining and Recalling Settings:</span>
+0089 <span class="comment">%   If Settings is passed in as a string instead of a cell array of name-value pairs or a struct,</span>
+0090 <span class="comment">%   it is taken as the name of a settings profile (similar to a cache &quot;domain&quot; in hlp_microcache).</span>
+0091 <span class="comment">%   Note that the profile name should be a valid MATLAB field name.</span>
+0092 <span class="comment">%</span>
+0093 <span class="comment">%   Pre-defining settings for a profile:</span>
+0094 <span class="comment">%       To assign settings for a named cache profile, call:</span>
+0095 <span class="comment">%       &gt; hlp_diskcache('myprofile','name',value,'name',value, ...)</span>
+0096 <span class="comment">%       Where myprofile is the name of the profile for which settings shall be assigned</span>
+0097 <span class="comment">%       and the names/values are the settings to assign to it (what would normally be passed as a</span>
+0098 <span class="comment">%       cell array). Note that settings are not persistent across MATLAB runs, so you'd need to</span>
+0099 <span class="comment">%       put them into an initializer or startup function. By default a &quot;clear all&quot; does not clear the</span>
+0100 <span class="comment">%       settings (this can be disabled by setting clearable_settings to true in the code below).</span>
+0101 <span class="comment">%</span>
+0102 <span class="comment">%   Recalling settings from a profile:</span>
+0103 <span class="comment">%       To recall settings from a profile in a call of hlp_diskcache, just use the name of the</span>
+0104 <span class="comment">%       profile instead of the Settings cell array. It is permitted to recall from a profile that</span>
+0105 <span class="comment">%       has not been defined before (in this case, all defaults will be assumed).</span>
+0106 <span class="comment">%</span>
+0107 <span class="comment">%</span>
+0108 <span class="comment">% Examples:</span>
+0109 <span class="comment">%   % if this line is executed for the first time, it is as slow as magic(2000)</span>
+0110 <span class="comment">%   % the result will be written into a sub-directory of ~/myresults</span>
+0111 <span class="comment">%   m = hlp_diskcache({'folder','./myresults'},@magic,2000);</span>
+0112 <span class="comment">%</span>
+0113 <span class="comment">%   % if it is executed a second time, it is likely much faster than m=magic(2000)</span>
+0114 <span class="comment">%   % if the result is found on disk</span>
+0115 <span class="comment">%   m = hlp_diskcache({'folder','./myresults'},@magic,2000);</span>
+0116 <span class="comment">%</span>
+0117 <span class="comment">%   % it is also possible to assign settings separately for a named 'profile', and then later recall</span>
+0118 <span class="comment">%   % them:</span>
+0119 <span class="comment">%   hlp_diskcache('myprofile','folder','./myresults','freemem',10);</span>
+0120 <span class="comment">%   m = hlp_diskcache('myprofile',@magic,2000);</span>
+0121 <span class="comment">%</span>
+0122 <span class="comment">%</span>
+0123 <span class="comment">% See also:</span>
+0124 <span class="comment">%  hlp_microcache</span>
+0125 <span class="comment">%</span>
+0126 <span class="comment">% Depends on:</span>
+0127 <span class="comment">%  hlp_serialize, hlp_deserialize, hlp_cryptohash</span>
+0128 <span class="comment">%</span>
+0129 <span class="comment">%</span>
+0130 <span class="comment">%                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0131 <span class="comment">%                                 2013-04-15</span>
+0132 
+0133 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2013, christian@sccn.ucsd.edu</span>
+0134 <span class="comment">%</span>
+0135 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0136 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0137 <span class="comment">% License, or (at your option) any later version.</span>
+0138 <span class="comment">%</span>
+0139 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0140 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0141 <span class="comment">% General Public License for more details.</span>
+0142 <span class="comment">%</span>
+0143 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0144 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0145 <span class="comment">% USA</span>
+0146 
+0147 
+0148 bypass = false;             <span class="comment">% whether to bypass caching (switch for debugging)</span>
+0149 clearable_settings = false; <span class="comment">% whether settings should be clearable by &quot;clear all&quot;</span>
+0150 
+0151 archive_version = 1.0;      <span class="comment">% version of the archive format</span>
+0152 <span class="keyword">persistent</span> settings;
+0153 
+0154 <span class="comment">% parse options</span>
+0155 <span class="keyword">if</span> iscell(options) || isstruct(options)
+0156     <span class="comment">% options are directly given as cell array or struct</span>
+0157     options = <a href="#_sub1" class="code" title="subfunction options = assign_defaults(options)">assign_defaults</a>(options);
+0158 <span class="keyword">elseif</span> ischar(options)
+0159     <span class="comment">% options is referring to the name of a profile</span>
+0160     profilename = options;
+0161     <span class="comment">% make sure that it exists</span>
+0162     <span class="keyword">if</span> ~isfield(settings,profilename)
+0163         settings.(profilename) = <a href="#_sub1" class="code" title="subfunction options = assign_defaults(options)">assign_defaults</a>({}); <span class="keyword">end</span>
+0164     <span class="keyword">if</span> isa(f,<span class="string">'function_handle'</span>)
+0165         <span class="comment">% recall options from it</span>
+0166         options = settings.(profilename);
+0167     <span class="keyword">elseif</span> ischar(f)
+0168         <span class="comment">% assign options to it</span>
+0169         varargin = [{f} varargin];
+0170         <span class="keyword">for</span> k=1:2:length(varargin)
+0171             settings.(profilename).(varargin{k}) = varargin{k+1}; <span class="keyword">end</span>
+0172         <span class="keyword">if</span> ~clearable_settings
+0173             mlock; <span class="keyword">end</span>
+0174         <span class="keyword">return</span>;
+0175     <span class="keyword">else</span>
+0176         error(<span class="string">'Unrecognized syntax.'</span>);
+0177     <span class="keyword">end</span>
+0178 <span class="keyword">else</span>
+0179     error(<span class="string">'Unrecognized syntax.'</span>);
+0180 <span class="keyword">end</span> 
+0181 
+0182 <span class="comment">% make path platform-specific</span>
+0183 <span class="keyword">if</span> ~exist(<span class="string">'env_translatepath'</span>,<span class="string">'file'</span>)
+0184     options.folder = strrep(strrep(options.folder,<span class="string">'\'</span>,filesep),<span class="string">'/'</span>,filesep);
+0185 <span class="keyword">else</span>
+0186     options.folder = env_translatepath(options.folder); 
+0187 <span class="keyword">end</span>
+0188 
+0189 <span class="comment">% optionally bypass the caching</span>
+0190 <span class="keyword">if</span> bypass || options.bypass || (options.bypass_if_folder_missing &amp;&amp; ~exist(options.folder,<span class="string">'dir'</span>))
+0191     [varargout{1:nargout}] = f(varargin{:});
+0192     <span class="keyword">return</span>;
+0193 <span class="keyword">end</span>
+0194 
+0195 <span class="comment">% get a unique identifier of the computation</span>
+0196 uid = <a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>(<a href="#_sub2" class="code" title="subfunction x = trim_expression(x)">trim_expression</a>({nargout,f,<a href="#_sub3" class="code" title="subfunction v = func_version(func,versiontag)">func_version</a>(f,options.versiontag),varargin}));
+0197 
+0198 <span class="comment">% get a short hash value of that</span>
+0199 hash = <a href="hlp_cryptohash.html" class="code" title="function hash = hlp_cryptohash(data,fromfile)">hlp_cryptohash</a>(uid);
+0200 
+0201 <span class="comment">% get the file name under which this would be cached</span>
+0202 cachedir = [options.folder filesep options.subdir];
+0203 filename = [cachedir filesep hash(1:2) filesep hash(3:end) <span class="string">'.mat'</span>];
+0204 
+0205 <span class="keyword">if</span> exist(filename,<span class="string">'file'</span>)    
+0206     <span class="keyword">try</span>
+0207         <span class="comment">% try to load from disk</span>
+0208         result = load(filename);
+0209         <span class="comment">% do some sanity checks</span>
+0210         <span class="keyword">if</span> floor(result.settings.archive_version) &gt; floor(archive_version)
+0211             disp(<span class="string">'Note: The file was saved with a newer major archive version. Performing a safe fallback...'</span>);
+0212         <span class="keyword">elseif</span> ~all(isfield(result,{<span class="string">'settings'</span>,<span class="string">'hash'</span>,<span class="string">'uid'</span>,<span class="string">'varargout'</span>}))
+0213             disp(<span class="string">'The cached file is apparently malformed (missing some required fields). Performing a safe fallback...'</span>); 
+0214         <span class="keyword">elseif</span> ~isequal(result.hash,hash)
+0215             disp(<span class="string">'Note: the hash does not match that of the file on disk. Performing a safe fallback...'</span>);
+0216         <span class="keyword">elseif</span> ~isempty(result.uid) &amp;&amp; ~isequal(result.uid,uid)
+0217             disp(<span class="string">'Note: two results yielded the same MD5 hash; this should be a very rare event. Performing a safe fallback...'</span>);
+0218         <span class="keyword">else</span>
+0219             <span class="comment">% deserialize data if necessary</span>
+0220             <span class="keyword">if</span> result.settings.is_serialized
+0221                 result.varargout = <a href="hlp_deserialize.html" class="code" title="function v = hlp_deserialize(m)">hlp_deserialize</a>(result.varargout); <span class="keyword">end</span>
+0222             <span class="comment">% all went well: return result</span>
+0223             varargout = result.varargout;
+0224             <span class="keyword">return</span>;
+0225         <span class="keyword">end</span>
+0226     <span class="keyword">catch</span> e
+0227         <a href="#_sub6" class="code" title="subfunction error_message(msg,e)">error_message</a>(<span class="string">'Could not look up result from disk'</span>,e);
+0228         disp(<span class="string">'Performing a safe fallback...'</span>);
+0229     <span class="keyword">end</span>
+0230 <span class="keyword">end</span>
+0231 
+0232 result.settings = options;
+0233 <span class="keyword">if</span> numel(uid) &lt;= result.settings.exactmatch_cutoff
+0234     result.uid = uid;
+0235 <span class="keyword">else</span>
+0236     result.uid = [];
+0237     clear uid;
+0238 <span class="keyword">end</span>
+0239 result.settings.is_serialized = result.settings.serialize;
+0240 result.settings.archive_version = archive_version;
+0241 result.hash = hash;
+0242 
+0243 <span class="comment">% (re)calculate the result</span>
+0244 start_time = tic;
+0245 [varargout{1:nargout}] = f(varargin{:});
+0246 computation_time = toc(start_time);
+0247 
+0248 <span class="comment">% prepare result for writeback</span>
+0249 <span class="keyword">if</span> result.settings.is_serialized
+0250     <span class="keyword">try</span>
+0251         result.varargout = <a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>(varargout);
+0252     <span class="keyword">catch</span> e
+0253         <a href="#_sub6" class="code" title="subfunction error_message(msg,e)">error_message</a>(<span class="string">'Could not serialize the result (try to disable the option serialize)'</span>,e);
+0254         disp(<span class="string">'Saving result in unserialized form (can be slow).'</span>)
+0255         result.varargout = varargout;
+0256     <span class="keyword">end</span>
+0257 <span class="keyword">else</span>
+0258     result.varargout = varargout;
+0259 <span class="keyword">end</span>
+0260 
+0261 <span class="comment">% do some size &amp; time checks</span>
+0262 stats = whos(<span class="string">'result'</span>);
+0263 resultsize = stats.bytes;
+0264 <span class="keyword">if</span> resultsize &gt; options.maxsize
+0265     <span class="comment">% result too big to store</span>
+0266     <span class="keyword">return</span>;
+0267 <span class="keyword">elseif</span> resultsize &lt; options.minsize
+0268     <span class="comment">% result too small to store</span>
+0269     <span class="keyword">return</span>;
+0270 <span class="keyword">elseif</span> computation_time &lt; options.mintime
+0271     <span class="comment">% computation too short to be worth it</span>
+0272     <span class="keyword">return</span>;
+0273 <span class="keyword">else</span>
+0274     
+0275     <span class="comment">% ensure that we have enough space</span>
+0276     total_space = <a href="#_sub4" class="code" title="subfunction res = disk_total_space(path)">disk_total_space</a>(filename);
+0277     <span class="keyword">if</span> options.freemem &gt; 0 &amp;&amp; total_space &gt; 0    
+0278         free_space = <a href="#_sub5" class="code" title="subfunction res = disk_free_space(path)">disk_free_space</a>(filename);
+0279         <span class="keyword">if</span> options.freemem &lt; 1
+0280             ensured_space = total_space * options.freemem;
+0281         <span class="keyword">else</span>
+0282             ensured_space = options.freemem*(2^9);
+0283         <span class="keyword">end</span>
+0284         <span class="keyword">if</span> total_space &amp;&amp; free_space-resultsize &lt; ensured_space
+0285             <span class="keyword">if</span> ~options.cleanup
+0286                 <span class="keyword">return</span>; <span class="keyword">end</span>
+0287             <span class="comment">% generate a list of all result files</span>
+0288             allfiles = struct();
+0289             records = dir(cachedir);
+0290             <span class="keyword">for</span> d = 1:length(records)
+0291                 record = records(d);
+0292                 <span class="keyword">if</span> record.isdir &amp;&amp; length(record.name) == 2 &amp;&amp; all(record.name~=<span class="string">'.'</span>)
+0293                     <span class="comment">% get a list of all MATAB files in this subdir</span>
+0294                     files = dir([cachedir filesep record.name filesep <span class="string">'*.mat'</span>]);
+0295                     <span class="keyword">for</span> f=1:length(files)
+0296                         files(f).path = [cachedir filesep record.name filesep files(f).name]; 
+0297                         allfiles(end+1) = files(f);
+0298                     <span class="keyword">end</span>
+0299                     <span class="comment">% try to remove dirs that are empty</span>
+0300                     <span class="keyword">if</span> isempty(files)
+0301                         <span class="keyword">try</span> rmdir([cachedir filesep record.name]); <span class="keyword">catch</span>,<span class="keyword">end</span>; <span class="keyword">end</span>
+0302                 <span class="keyword">end</span>
+0303             <span class="keyword">end</span>
+0304             <span class="comment">% delete old files as long as ours doesn't yet fit into memory</span>
+0305             [dummy,newest_to_oldest] = sort([allfiles.datenum],<span class="string">'descend'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0306             <span class="keyword">while</span> ~isempty(newest_to_oldest) &amp;&amp; <a href="#_sub5" class="code" title="subfunction res = disk_free_space(path)">disk_free_space</a>(filename) - resultsize &lt; ensured_space
+0307                 <span class="keyword">try</span> delete(allfiles(newest_to_oldest(end)).path); <span class="keyword">catch</span>,<span class="keyword">end</span>
+0308                 newest_to_oldest = newest_to_oldest(1:end-1);
+0309             <span class="keyword">end</span>
+0310         <span class="keyword">end</span>
+0311     <span class="keyword">else</span>
+0312         <span class="keyword">persistent</span> message_shown; <span class="comment">%#ok&lt;TLEV&gt;</span>
+0313         <span class="keyword">if</span> isempty(message_shown)
+0314             disp(<span class="string">'Note: cannot determine free disk space on your platform, trying to cache results anyway. This message will only be shown once.'</span>);
+0315             message_shown = true;
+0316         <span class="keyword">end</span>
+0317     <span class="keyword">end</span>
+0318     
+0319     <span class="comment">% save the result</span>
+0320     <span class="keyword">try</span>
+0321         <span class="comment">% ensure that the target directory exists</span>
+0322         <a href="#_sub8" class="code" title="subfunction make_directories(filepath,attribs)">make_directories</a>(filename,options.permissions);
+0323         <span class="comment">% save result file</span>
+0324         fldnames = fieldnames(result);
+0325         <span class="keyword">if</span> exist(filename,<span class="string">'file'</span>) &amp;&amp; ~options.overwrite_files
+0326             <span class="keyword">return</span>; <span class="keyword">end</span>
+0327         <span class="keyword">if</span> resultsize &gt;= (2000*1024*1024)
+0328             save(filename,<span class="string">'-struct'</span>,<span class="string">'result'</span>,fldnames{:},<span class="string">'-v7.3'</span>);
+0329         <span class="keyword">else</span>
+0330             save(filename,<span class="string">'-struct'</span>,<span class="string">'result'</span>,fldnames{:});
+0331         <span class="keyword">end</span>
+0332         <span class="comment">% finalize file permissions</span>
+0333         <span class="keyword">if</span> ~isempty(options.permissions)
+0334             warning off MATLAB:FILEATTRIB:SyntaxWarning
+0335             <span class="keyword">try</span>
+0336                 fileattrib(filename,options.permissions{:});
+0337             <span class="keyword">catch</span> e
+0338                 <a href="#_sub6" class="code" title="subfunction error_message(msg,e)">error_message</a>(<span class="string">'Note: could not set permissions for result file'</span>,e);
+0339             <span class="keyword">end</span>
+0340         <span class="keyword">end</span>
+0341     <span class="keyword">catch</span> e
+0342         <a href="#_sub6" class="code" title="subfunction error_message(msg,e)">error_message</a>(<span class="string">'Could not cache result on disk'</span>,e);
+0343     <span class="keyword">end</span>
+0344 <span class="keyword">end</span>
+0345 
+0346 
+0347 <a name="_sub1" href="#_subfunctions" class="code">function options = assign_defaults(options)</a>
+0348 <span class="comment">% Assign default settings to an options struct / name-value pair list</span>
+0349 <span class="keyword">if</span> iscell(options)
+0350     options = cell2struct(options(2:2:end),options(1:2:end),2); <span class="keyword">end</span>
+0351 <span class="keyword">if</span> ~isfield(options,<span class="string">'folder'</span>)
+0352     options.folder = <span class="string">'.'</span>; <span class="keyword">end</span>
+0353 <span class="keyword">if</span> ~isfield(options,<span class="string">'maxsize'</span>)
+0354     options.maxsize = Inf; <span class="keyword">end</span>
+0355 <span class="keyword">if</span> ~isfield(options,<span class="string">'minsize'</span>)
+0356     options.minsize = 0; <span class="keyword">end</span>
+0357 <span class="keyword">if</span> ~isfield(options,<span class="string">'mintime'</span>)
+0358     options.mintime = 0; <span class="keyword">end</span>
+0359 <span class="keyword">if</span> ~isfield(options,<span class="string">'freemem'</span>)
+0360     options.freemem = 80; <span class="keyword">end</span>
+0361 <span class="keyword">if</span> ~isfield(options,<span class="string">'versiontag'</span>)
+0362     options.versiontag = <span class="string">'$(funcname)_version&lt;\S+&gt;'</span>; <span class="keyword">end</span>
+0363 <span class="keyword">if</span> ~isfield(options,<span class="string">'serialize'</span>)
+0364     options.serialize = true; <span class="keyword">end</span>
+0365 <span class="keyword">if</span> ~isfield(options,<span class="string">'subdir'</span>)
+0366     options.subdir = <span class="string">'diskcache'</span>; <span class="keyword">end</span>
+0367 <span class="keyword">if</span> ~isfield(options,<span class="string">'exactmatch_cutoff'</span>)
+0368     options.exactmatch_cutoff = 1000000; <span class="keyword">end</span>
+0369 <span class="keyword">if</span> ~isfield(options,<span class="string">'cleanup'</span>)
+0370     options.cleanup = true; <span class="keyword">end</span>
+0371 <span class="keyword">if</span> ~isfield(options,<span class="string">'permissions'</span>)
+0372     options.permissions = {<span class="string">'+w'</span>,<span class="string">'a'</span>}; <span class="keyword">end</span>
+0373 <span class="keyword">if</span> ~isfield(options,<span class="string">'bypass'</span>)
+0374     options.bypass = false; <span class="keyword">end</span>
+0375 <span class="keyword">if</span> ~isfield(options,<span class="string">'bypass_if_folder_missing'</span>)
+0376     options.bypass_if_folder_missing = false; <span class="keyword">end</span>
+0377 <span class="keyword">if</span> ~isfield(options,<span class="string">'overwrite_files'</span>)
+0378     options.overwrite_files = false; <span class="keyword">end</span>
+0379 
+0380 
+0381 <a name="_sub2" href="#_subfunctions" class="code">function x = trim_expression(x)</a>
+0382 <span class="comment">% Recursively trim partially evaluated parts of a data structure containing expressions.</span>
+0383 <span class="comment">% In particular, x.tracking.expression is replaced by x.</span>
+0384 <span class="keyword">if</span> isfield(x,<span class="string">'tracking'</span>) &amp;&amp; isfield(x.tracking,<span class="string">'expression'</span>)
+0385     x = <a href="#_sub2" class="code" title="subfunction x = trim_expression(x)">trim_expression</a>(x.tracking.expression);
+0386 <span class="keyword">elseif</span> iscell(x)
+0387     <span class="keyword">for</span> i=1:length(x)
+0388         x{i} = <a href="#_sub2" class="code" title="subfunction x = trim_expression(x)">trim_expression</a>(x{i}); <span class="keyword">end</span>
+0389 <span class="keyword">elseif</span> isfield(x,{<span class="string">'head'</span>,<span class="string">'parts'</span>})
+0390     <span class="keyword">for</span> i=1:length(x.parts)
+0391         x.parts{i} = <a href="#_sub2" class="code" title="subfunction x = trim_expression(x)">trim_expression</a>(x.parts{i}); <span class="keyword">end</span>
+0392 <span class="keyword">end</span>
+0393 
+0394 
+0395 <a name="_sub3" href="#_subfunctions" class="code">function v = func_version(func,versiontag)</a>
+0396 <span class="comment">% Get the version string of a MATLAB function, or an MD5 hash if unversioned.</span>
+0397 <span class="comment">% Returns just the string form of the input if a version cannot be determined</span>
+0398 <span class="comment">% or if the versiontag is passed in as false.</span>
+0399 func = char(func);
+0400 <span class="keyword">if</span> isequal(versiontag,false)
+0401     v = func;
+0402 <span class="keyword">else</span>
+0403     filename = which(func);
+0404     <span class="keyword">if</span> ~isempty(filename)
+0405         <span class="comment">% open the source file</span>
+0406         f = fopen(filename,<span class="string">'r'</span>);
+0407         <span class="keyword">try</span>
+0408             <span class="comment">% read the code</span>
+0409             code = fread(f,Inf,<span class="string">'uint8=&gt;char'</span>)';
+0410             <span class="comment">% check if it contains the version descriptor tag</span>
+0411             v = regexp(code,strrep(versiontag,<span class="string">'$(funcname)'</span>,func),<span class="string">'match'</span>);
+0412             <span class="comment">% otherwise we just hash the entire code</span>
+0413             <span class="keyword">if</span> isempty(versiontag) || isempty(v)
+0414                 v = <a href="hlp_cryptohash.html" class="code" title="function hash = hlp_cryptohash(data,fromfile)">hlp_cryptohash</a>(code); <span class="keyword">end</span>
+0415             fclose(f);
+0416         <span class="keyword">catch</span>
+0417             <span class="keyword">try</span>
+0418                 fclose(f);
+0419             <span class="keyword">catch</span>,<span class="keyword">end</span>
+0420             v = func;
+0421         <span class="keyword">end</span>
+0422     <span class="keyword">else</span>
+0423         <span class="comment">% otherwise use the string representation as version</span>
+0424         v = func;
+0425     <span class="keyword">end</span>
+0426 <span class="keyword">end</span>
+0427 
+0428 <a name="_sub4" href="#_subfunctions" class="code">function res = disk_total_space(path)</a>
+0429 <span class="comment">% Get the amount of total space on the disk (can be 0 if the check fails).</span>
+0430 f = java.io.File(path);
+0431 res = f.getTotalSpace();
+0432 
+0433 
+0434 <a name="_sub5" href="#_subfunctions" class="code">function res = disk_free_space(path)</a>
+0435 <span class="comment">% Get the amount of free space on the disk (can be 0 if the check fails).</span>
+0436 f = java.io.File(path);
+0437 res = f.getFreeSpace();
+0438 
+0439 
+0440 <a name="_sub6" href="#_subfunctions" class="code">function error_message(msg,e)</a>
+0441 <span class="comment">% Display a formatted error message with traceback.</span>
+0442 <span class="keyword">if</span> exist(<span class="string">'hlp_handleerror'</span>,<span class="string">'file'</span>)
+0443     disp([msg <span class="string">': '</span>]);
+0444     <a href="hlp_handleerror.html" class="code" title="function s = hlp_handleerror(e,level)">hlp_handleerror</a>(e);
+0445 <span class="keyword">else</span>
+0446     disp([msg <span class="string">': '</span> e.message]);
+0447 <span class="keyword">end</span>
+0448 
+0449 
+0450 <a name="_sub7" href="#_subfunctions" class="code">function res = strsplit(str,delims)</a>
+0451 <span class="comment">% Split a string according to some delimiter(s).</span>
+0452 pos = find(diff([0 ~sum(bsxfun(@eq,str(:)',delims(:)),1) 0]));
+0453 res = cell(~isempty(pos),length(pos)/2);
+0454 <span class="keyword">for</span> k=1:length(res)
+0455     res{k} = str(pos(k*2-1):pos(k*2)-1); <span class="keyword">end</span>
+0456 
+0457 
+0458 <a name="_sub8" href="#_subfunctions" class="code">function make_directories(filepath,attribs)</a>
+0459 <span class="comment">% Create directories recursively for a given file path.</span>
+0460 paths = <a href="#_sub7" class="code" title="subfunction res = strsplit(str,delims)">strsplit</a>(filepath,filesep);
+0461 <span class="comment">% find the base directory where the directory creation begins</span>
+0462 <span class="keyword">if</span> filepath(1) == filesep
+0463     <span class="comment">% Unix, absolute</span>
+0464     curpath = filesep; first = 1;
+0465 <span class="keyword">elseif</span> ~isempty(strfind(paths{1},<span class="string">':'</span>)) &amp;&amp; ispc
+0466     <span class="comment">% Windows, absolute</span>
+0467     curpath = [paths{1} filesep]; first = 2;
+0468 <span class="keyword">else</span>
+0469     <span class="comment">% relative</span>
+0470     curpath = [pwd filesep]; first = 1;
+0471 <span class="keyword">end</span>
+0472 <span class="comment">% determine where to stop</span>
+0473 <span class="keyword">if</span> filepath(end) == filesep
+0474     last = length(paths);
+0475 <span class="keyword">else</span>
+0476     last = length(paths)-1;
+0477 <span class="keyword">end</span>
+0478 <span class="comment">% walk...</span>
+0479 <span class="keyword">for</span> i=first:last
+0480     <span class="keyword">if</span> ~exist([curpath paths{i}],<span class="string">'dir'</span>)
+0481         <span class="keyword">if</span> ~mkdir(curpath,paths{i})
+0482             error([<span class="string">'Unable to create directory '</span> filepath]);
+0483         <span class="keyword">else</span>
+0484             <span class="comment">% set attributes</span>
+0485             <span class="keyword">if</span> ~isempty(attribs)
+0486                 warning off MATLAB:FILEATTRIB:SyntaxWarning
+0487                 <span class="keyword">try</span>
+0488                     fileattrib([curpath paths{i}],attribs{:});
+0489                 <span class="keyword">catch</span> e
+0490                     <a href="#_sub6" class="code" title="subfunction error_message(msg,e)">error_message</a>([<span class="string">'Note: could not set permissions for created directory ('</span> filepath <span class="string">')'</span>],e);
+0491                 <span class="keyword">end</span>
+0492             <span class="keyword">end</span>
+0493         <span class="keyword">end</span>
+0494     <span class="keyword">end</span>
+0495     curpath = [curpath paths{i} filesep];
+0496 <span class="keyword">end</span>
+0497 
+0498</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

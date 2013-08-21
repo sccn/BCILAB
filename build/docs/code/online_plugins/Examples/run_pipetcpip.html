@@ -1,0 +1,218 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of run_pipetcpip</title>
+  <meta name="keywords" content="run_pipetcpip">
+  <meta name="description" content="Run BCILAB's real-time engine as a processing node via TCP/IP">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="#">online_plugins</a> &gt; <a href="index.html">Examples</a> &gt; run_pipetcpip.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/online_plugins/Examples&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>run_pipetcpip
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Run BCILAB's real-time engine as a processing node via TCP/IP</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function run_pipetcpip(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Run BCILAB's real-time engine as a processing node via TCP/IP
+ run_pipetcpip(Arguments...)
+
+ This plugin reads raw data from some source host/port and writes predictions to some output
+ host/port. This example code is implemented using MATLAB's Instrument Control Toolbox. 
+
+ The example plugin reads raw signal data from a hypothetical TCP/IP server, formatted as one
+ sample per line (and each line containing a space-separated list of floating-point values, in
+ string format). For simplicity, the sampling rate and channel names of the input data stream are
+ not communicated over the TCP link, and are therefore to be manually specified in user parameters.
+ The plugin processes the incoming data and produces outputs at a fixed rate, which are forwarded
+ to some destination TCP server. The output sampling rate is usually much lower than the raw-data
+ rate (e.g. matching the screen refresh rate), and the output data form can be specified in an
+ optional parameter. The message format is one line per output, as space-separated list of
+ floating-point values.
+
+
+ In:
+   InputHost : hostname (or IP string) of the source machine (default: '127.0.0.1')
+
+   InputPort : listening port of the source service (default: 12345)
+
+   InputMetadata : Meta-data of the input stream. This is a struct or cell array of name-value 
+                   pairs with meta-data fields to use. The mandatory fields are 'srate' and
+                   'chanlocs', where chanlocs is either a channel locations struct array, or a cell
+                   array of channel names, or the number of channels (in which case a cell array of
+                   the form {'A1','A2', ..., 'A32','B1', ...} is created). Optionally, the field
+                   'datasource' can be set to point to a dataset on disk or in a MATLAB workspace
+                   variable.
+
+   Model : a file, struct or workspace variable name that contains a predictive model, as 
+           previously computed by bci_train (default: 'lastmodel')
+
+   OutputHost : hostname (or IP string) of the destination machine (default: '127.0.0.1')
+
+   OutputPort : listening port of the destination service (default: 12346)
+
+   OutputSamplingRate : rate, in Hz, at which the output stream shall be sampled (default: 20)
+                        make sure that this rate is low enough so that BCILAB can process in real 
+                        time (otherwise it would lag)
+
+   OutputForm : format of the data sent to the output stream, can be one of the following:
+                'expectation': the expected value (= posterior mean) of the outputs; can be 
+                               multi-dimensional but is usually 1d (default) this mode is
+                               appropriate for simple applications that expect a smooth control
+                               signal, or for applications that expect a regression output
+                'distribution' : parameters of the output distribution; for discrete 
+                                 distributions, this is one probability value for each target
+                                 (adding up to 1) this mode is appropriate for more advanced
+                                 applications that use the full output distribution (e.g., for
+                                 decision-theoretical processing) (default)
+                'mode' : the most likely output value (currently only supported for discrete 
+                         distributions) this mode is appropriate for simple applications that
+                         take a non-probabilistic classifier decision (e.g., as from a Support
+                         Vector Machine)
+   
+ Example:
+   run_pipetcpip('Model','lastmodel', 'InputPort',2050, 'OuputHost','192.168.1.10','OutputPort',...
+       2051, 'InputMetadata',{'srate',256,'chanlocs',{'C3','Cz','C4'}})
+
+                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                               2011-01-18</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function run_pipetcpip(varargin)</a>
+0002 <span class="comment">% Run BCILAB's real-time engine as a processing node via TCP/IP</span>
+0003 <span class="comment">% run_pipetcpip(Arguments...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This plugin reads raw data from some source host/port and writes predictions to some output</span>
+0006 <span class="comment">% host/port. This example code is implemented using MATLAB's Instrument Control Toolbox.</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% The example plugin reads raw signal data from a hypothetical TCP/IP server, formatted as one</span>
+0009 <span class="comment">% sample per line (and each line containing a space-separated list of floating-point values, in</span>
+0010 <span class="comment">% string format). For simplicity, the sampling rate and channel names of the input data stream are</span>
+0011 <span class="comment">% not communicated over the TCP link, and are therefore to be manually specified in user parameters.</span>
+0012 <span class="comment">% The plugin processes the incoming data and produces outputs at a fixed rate, which are forwarded</span>
+0013 <span class="comment">% to some destination TCP server. The output sampling rate is usually much lower than the raw-data</span>
+0014 <span class="comment">% rate (e.g. matching the screen refresh rate), and the output data form can be specified in an</span>
+0015 <span class="comment">% optional parameter. The message format is one line per output, as space-separated list of</span>
+0016 <span class="comment">% floating-point values.</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">% In:</span>
+0020 <span class="comment">%   InputHost : hostname (or IP string) of the source machine (default: '127.0.0.1')</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">%   InputPort : listening port of the source service (default: 12345)</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   InputMetadata : Meta-data of the input stream. This is a struct or cell array of name-value</span>
+0025 <span class="comment">%                   pairs with meta-data fields to use. The mandatory fields are 'srate' and</span>
+0026 <span class="comment">%                   'chanlocs', where chanlocs is either a channel locations struct array, or a cell</span>
+0027 <span class="comment">%                   array of channel names, or the number of channels (in which case a cell array of</span>
+0028 <span class="comment">%                   the form {'A1','A2', ..., 'A32','B1', ...} is created). Optionally, the field</span>
+0029 <span class="comment">%                   'datasource' can be set to point to a dataset on disk or in a MATLAB workspace</span>
+0030 <span class="comment">%                   variable.</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%   Model : a file, struct or workspace variable name that contains a predictive model, as</span>
+0033 <span class="comment">%           previously computed by bci_train (default: 'lastmodel')</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%   OutputHost : hostname (or IP string) of the destination machine (default: '127.0.0.1')</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%   OutputPort : listening port of the destination service (default: 12346)</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%   OutputSamplingRate : rate, in Hz, at which the output stream shall be sampled (default: 20)</span>
+0040 <span class="comment">%                        make sure that this rate is low enough so that BCILAB can process in real</span>
+0041 <span class="comment">%                        time (otherwise it would lag)</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%   OutputForm : format of the data sent to the output stream, can be one of the following:</span>
+0044 <span class="comment">%                'expectation': the expected value (= posterior mean) of the outputs; can be</span>
+0045 <span class="comment">%                               multi-dimensional but is usually 1d (default) this mode is</span>
+0046 <span class="comment">%                               appropriate for simple applications that expect a smooth control</span>
+0047 <span class="comment">%                               signal, or for applications that expect a regression output</span>
+0048 <span class="comment">%                'distribution' : parameters of the output distribution; for discrete</span>
+0049 <span class="comment">%                                 distributions, this is one probability value for each target</span>
+0050 <span class="comment">%                                 (adding up to 1) this mode is appropriate for more advanced</span>
+0051 <span class="comment">%                                 applications that use the full output distribution (e.g., for</span>
+0052 <span class="comment">%                                 decision-theoretical processing) (default)</span>
+0053 <span class="comment">%                'mode' : the most likely output value (currently only supported for discrete</span>
+0054 <span class="comment">%                         distributions) this mode is appropriate for simple applications that</span>
+0055 <span class="comment">%                         take a non-probabilistic classifier decision (e.g., as from a Support</span>
+0056 <span class="comment">%                         Vector Machine)</span>
+0057 <span class="comment">%</span>
+0058 <span class="comment">% Example:</span>
+0059 <span class="comment">%   run_pipetcpip('Model','lastmodel', 'InputPort',2050, 'OuputHost','192.168.1.10','OutputPort',...</span>
+0060 <span class="comment">%       2051, 'InputMetadata',{'srate',256,'chanlocs',{'C3','Cz','C4'}})</span>
+0061 <span class="comment">%</span>
+0062 <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0063 <span class="comment">%                               2011-01-18</span>
+0064 
+0065 <span class="comment">% declare the name of this component (shown in the menu)</span>
+0066 declare_properties(<span class="string">'name'</span>,<span class="string">'TCP (Instrument Control Toolbox)'</span>);
+0067 
+0068 <span class="comment">% define arguments...</span>
+0069 arg_define(varargin, <span class="keyword">...</span>
+0070     arg({<span class="string">'in_hostname'</span>,<span class="string">'InputHost'</span>}, <span class="string">'127.0.0.1'</span>, [],<span class="string">'Source TCP hostname. Can be a computer name, URL, or IP address.'</span>), <span class="keyword">...</span>
+0071     arg({<span class="string">'in_port'</span>,<span class="string">'InputPort'</span>}, 12345, [],<span class="string">'Source TCP port. Depends on the source application, usually &gt; 1024.'</span>), <span class="keyword">...</span>
+0072     arg_sub({<span class="string">'in_metadata'</span>,<span class="string">'InputMetadata'</span>},{},@utl_parse_metadata, <span class="string">'Meta-data of the input stream. These are fields as they appear in EEGLAB data sets; only sampling rate and channel labels are mandatory.'</span>), <span class="keyword">...</span>
+0073     arg({<span class="string">'pred_model'</span>,<span class="string">'Model'</span>}, <span class="string">'lastmodel'</span>, [], <span class="string">'Predictive model. As obtained via bci_train or the Model Calibration dialog.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0074     arg({<span class="string">'out_hostname'</span>,<span class="string">'OutputHost'</span>}, <span class="string">'127.0.0.1'</span>,[],<span class="string">'Destination TCP hostname. Can be a computer name, URL, or IP address.'</span>), <span class="keyword">...</span>
+0075     arg({<span class="string">'out_port'</span>,<span class="string">'OutputPort'</span>}, 12346, [],<span class="string">'Destination TCP port. Depends on the destination application, usually &gt; 1024.'</span>), <span class="keyword">...</span>
+0076     arg({<span class="string">'out_srate'</span>,<span class="string">'OutputSamplingRate'</span>}, 20,[],<span class="string">'Output sampling rate. This is the rate at which estimate should be computed. If this value is too high, the BCI will start to lag behind.'</span>), <span class="keyword">...</span>
+0077     arg({<span class="string">'out_format'</span>,<span class="string">'OutputForm'</span>}, <span class="string">'distribution'</span>,{<span class="string">'expectation'</span>,<span class="string">'distribution'</span>,<span class="string">'mode'</span>},<span class="string">'Form of the produced output values. Can be the expected value (posterior mean) of the target variable, or the distribution over possible target values (probabilities for each outcome, or parametric distribution), or the mode (most likely value) of the target variable.'</span>));
+0078 
+0079 <span class="comment">% parse meta-data specification</span>
+0080 meta = utl_parse_metadata(in_metadata);
+0081 
+0082 <span class="comment">% set up BCILAB stream</span>
+0083 onl_newstream(<span class="string">'stream_tcpip'</span>,<span class="string">'srate'</span>,meta.srate,<span class="string">'chanlocs'</span>,meta.chanlocs);
+0084 
+0085 <span class="comment">% load the given predictor</span>
+0086 onl_newpredictor(<span class="string">'predictor_tcpip'</span>,pred_model,<span class="string">'stream_tcpip'</span>);
+0087 
+0088 <span class="comment">% connect to source</span>
+0089 src = tcpip(in_hostname,in_port);
+0090 fopen(src);
+0091 
+0092 <span class="comment">% connect to destination</span>
+0093 dst = tcpip(out_hostname,out_port);
+0094 fopen(out);
+0095 
+0096 t = 0; <span class="comment">% current stream clock</span>
+0097 <span class="keyword">while</span> 1
+0098     <span class="comment">% get a sample and append it to the BCILAB stream</span>
+0099     sample = str2num(fgetl(src))';
+0100     onl_append(<span class="string">'stream_tcpip'</span>,sample);
+0101     t = t + 1/meta.srate;
+0102     <span class="comment">% if it is time to produce an output sample...</span>
+0103     <span class="keyword">if</span> t &gt; 1/out_srate
+0104         t = t - 1/out_srate;
+0105         <span class="comment">% compute the output</span>
+0106         result = onl_predict(<span class="string">'predictor_tcpip'</span>,out_format);
+0107         <span class="comment">% and send a message</span>
+0108         fprintf(dst,<span class="string">'%s/n'</span>,sprintf(<span class="string">'%.3f '</span>,result));
+0109     <span class="keyword">end</span>
+0110 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

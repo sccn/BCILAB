@@ -1,0 +1,308 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmRSSD</title>
+  <meta name="keywords" content="ParadigmRSSD">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmRSSD.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmRSSD
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li><li><a href="ParadigmRSSD.html" class="code" title="">ParadigmRSSD</a>	</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmRSSD.html" class="code" title="">ParadigmRSSD</a>	</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li><li><a href="#_sub2" class="code">function defaults = machine_learning_defaults(self)</a></li><li><a href="#_sub3" class="code">function [featuremodel,predictivemodel] = calibrate_prediction_function(self,varargin)</a></li><li><a href="#_sub4" class="code">function features = feature_extract(self,signal,featuremodel)</a></li><li><a href="#_sub5" class="code">function [X,freqs,times] = ersp_compute(self,data,args,icrange)</a></li><li><a href="#_sub6" class="code">function data = rssd_load_overcomplete(self,data)</a></li><li><a href="#_sub7" class="code">function layout = dialog_layout_defaults(self)</a></li><li><a href="#_sub8" class="code">function result = export_model(self,model,filename)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmRSSD.html" class="code" title="">ParadigmRSSD</a> &lt; <a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>
+0002     <span class="comment">% Advanced paradigm for time-varying oscillatory processes.</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% This paradigm allows to learn the joint space/time/frequency structure in EEG, under the assumption that</span>
+0005     <span class="comment">% an overcomplete (AMICA-type) ICA decomposition can produce a reasonably complete coverage of potentially</span>
+0006     <span class="comment">% relevant sources. For each of the resulting (more or less independent) source signals, a full time/freq</span>
+0007     <span class="comment">% decomposition is computed in the time epoch of interest, and a regression model is learned which maps</span>
+0008     <span class="comment">% from the (very high-dimensional) space of these features onto the desired output variable.</span>
+0009     <span class="comment">% The regression is by default logistic, and is &quot;rank-sparse&quot; (using the trace norm regularization), meaning</span>
+0010     <span class="comment">% that the time/freq weights learned for each signal component will tend to have low rank (reducing the effective</span>
+0011     <span class="comment">% # of parameters) and also a sparse set of component signals will have non-zero weights.</span>
+0012     <span class="comment">%</span>
+0013     <span class="comment">% In addition, a prior can be imposed on the weights, which is parameterized in space (brain area), time, and</span>
+0014     <span class="comment">% frequency. This makes the overall model a fairly general-purpose approach to time-varying / non-stationary</span>
+0015     <span class="comment">% oscillations.</span>
+0016     <span class="comment">%</span>
+0017     <span class="comment">% Notes:</span>
+0018     <span class="comment">%  It takes quite a while to calibrate this type of model. We have recently changed a few things how dipole fits</span>
+0019     <span class="comment">%  and amica solutions are represented to increase compatibility with EEGLAB - which has kicked up some dust in the</span>
+0020     <span class="comment">%  code; if you get a crash here let us know so we can fix it.</span>
+0021     <span class="comment">%</span>
+0022     <span class="comment">% References:</span>
+0023     <span class="comment">%  [1] Ryota Tomioka and Klaus-Robert Mueller, &quot;A regularized discriminative framework for EEG analysis with application to brain-computer interface&quot;,</span>
+0024     <span class="comment">%      Neuroimage, 49 (1) pp. 415-432, 2010.</span>
+0025     <span class="comment">%  [2] Ryota Tomioka &amp; Masashi Sugiyama, &quot;Dual Augmented Lagrangian Method for Efficient Sparse Reconstruction&quot;,</span>
+0026     <span class="comment">%      IEEE Signal Procesing Letters, 16 (12) pp. 1067-1070, 2009.</span>
+0027     <span class="comment">%  [3] Makeig S, Debener S, Onton J, Delorme A, &quot;Mining event-related brain dynamics&quot;</span>
+0028     <span class="comment">%      Trends in Cognitive Science, 8(5):204-210, 2004.</span>
+0029     <span class="comment">%</span>
+0030     <span class="comment">% Name:</span>
+0031     <span class="comment">%   Regularized Spatio-Spectral Dynamics</span>
+0032     <span class="comment">%</span>
+0033     <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0034     <span class="comment">%                                2011-01-28</span>
+0035 
+0036     
+0037     methods
+0038    
+0039         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0040             defaults = {<span class="string">'Resampling'</span>,128, <span class="string">'FIRFilter'</span>,{[0.5 1],<span class="string">'highpass'</span>}, <span class="string">'EpochExtraction'</span>,[-2 2], <span class="string">'ICA'</span>,<span class="string">'beamica'</span>, <span class="string">'DipoleFitting'</span>,{<span class="string">'ConfusionRange'</span>,7}};
+0041         <span class="keyword">end</span>
+0042         
+0043         <a name="_sub1" href="#_subfunctions" class="code">function defaults = machine_learning_defaults(self)</a>
+0044             defaults = {<span class="string">'dal'</span>, 2.^(8:-0.25:-1), <span class="string">'scaling'</span>,<span class="string">'none'</span>};
+0045         <span class="keyword">end</span>
+0046         
+0047         <a name="_sub2" href="#_subfunctions" class="code">function [featuremodel,predictivemodel] = calibrate_prediction_function(self,varargin)</a>
+0048             args = arg_define(varargin, <span class="keyword">...</span>
+0049                 arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
+0050                 arg_sub({<span class="string">'fex'</span>,<span class="string">'FeatureExtraction'</span>},{},<span class="keyword">...</span>
+0051                     {arg({<span class="string">'spectral_prior'</span>,<span class="string">'SpectralPrior'</span>},@(f)1,[],<span class="string">'Spectral prior. Likelihood function of frequency in Hz.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0052                      arg({<span class="string">'temporal_prior'</span>,<span class="string">'TemporalPrior'</span>},@(t)1,[],<span class="string">'Temporal prior. Likelihood function of time in s.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0053                      arg({<span class="string">'spatial_prior'</span>,<span class="string">'SpatialPrior'</span>},@(p)1,[],<span class="string">'Spatial prior. Likelihood function of MNI coordinate vector.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0054                      arg({<span class="string">'anatomical_prior'</span>,<span class="string">'AnatomicalPrior'</span>},{<span class="string">'Left Cerebrum'</span>,<span class="string">'Right Cerebrum'</span>,<span class="string">'Left Cerebellum'</span>,<span class="string">'Right Cerebellum'</span>,<span class="string">'Left Brainstem'</span>,<span class="string">'Right Brainstem'</span>,<span class="string">'Inter-Hemispheric'</span>},{<span class="string">'-- Hemispheres --'</span>,<span class="string">'Left Cerebrum'</span>,<span class="string">'Right Cerebrum'</span>,<span class="string">'Left Cerebellum'</span>,<span class="string">'Right Cerebellum'</span>,<span class="string">'Left Brainstem'</span>,<span class="string">'Right Brainstem'</span>,<span class="string">'Inter-Hemispheric'</span>,<span class="string">'-- Lobes --'</span>,<span class="string">'Anterior Lobe'</span>,<span class="string">'Frontal Lobe'</span>,<span class="string">'Frontal-Temporal Space'</span>,<span class="string">'Limbic Lobe'</span>,<span class="string">'Medulla'</span>,<span class="string">'Midbrain'</span>,<span class="string">'Occipital Lobe'</span>,<span class="string">'Parietal Lobe'</span>,<span class="string">'Pons'</span>,<span class="string">'Posterior Lobe'</span>,<span class="string">'Sub-lobar'</span>,<span class="string">'Temporal Lobe'</span>,<span class="string">'-- Gyri --'</span>,<span class="string">'Angular Gyrus'</span>,<span class="string">'Anterior Cingulate'</span>,<span class="string">'Caudate'</span>,<span class="string">'Cerebellar Lingual'</span>,<span class="string">'Cerebellar Tonsil'</span>,<span class="string">'Cingulate Gyrus'</span>,<span class="string">'Claustrum'</span>,<span class="string">'Culmen'</span>,<span class="string">'Culmen of Vermis'</span>,<span class="string">'Cuneus'</span>,<span class="string">'Declive'</span>,<span class="string">'Declive of Vermis'</span>,<span class="string">'Extra-Nuclear'</span>,<span class="string">'Fastigium'</span>,<span class="string">'Fourth Ventricle'</span>,<span class="string">'Fusiform Gyrus'</span>,<span class="string">'Inferior Frontal Gyrus'</span>,<span class="string">'Inferior Occipital Gyrus'</span>,<span class="string">'Inferior Parietal Lobule'</span>,<span class="string">'Inferior Semi-Lunar Lobule'</span>,<span class="string">'Inferior Temporal Gyrus'</span>,<span class="string">'Insula'</span>,<span class="string">'Lateral Ventricle'</span>,<span class="string">'Lentiform Nucleus'</span>,<span class="string">'Lingual Gyrus'</span>,<span class="string">'Medial Frontal Gyrus'</span>,<span class="string">'Middle Frontal Gyrus'</span>,<span class="string">'Middle Occipital Gyrus'</span>,<span class="string">'Middle Temporal Gyrus'</span>,<span class="string">'Nodule'</span>,<span class="string">'Orbital Gyrus'</span>,<span class="string">'Paracentral Lobule'</span>,<span class="string">'Parahippocampal Gyrus'</span>,<span class="string">'Postcentral Gyrus'</span>,<span class="string">'Posterior Cingulate'</span>,<span class="string">'Precentral Gyrus'</span>,<span class="string">'Precuneus'</span>,<span class="string">'Pyramis'</span>,<span class="string">'Pyramis of Vermis'</span>,<span class="string">'Rectal Gyrus'</span>,<span class="string">'Subcallosal Gyrus'</span>,<span class="string">'Sub-Gyral'</span>,<span class="string">'Superior Frontal Gyrus'</span>,<span class="string">'Superior Occipital Gyrus'</span>,<span class="string">'Superior Parietal Lobule'</span>,<span class="string">'Superior Temporal Gyrus'</span>,<span class="string">'Supramarginal Gyrus'</span>,<span class="string">'Thalamus'</span>,<span class="string">'Third Ventricle'</span>,<span class="string">'Transverse Temporal Gyrus'</span>,<span class="string">'Tuber'</span>,<span class="string">'Tuber of Vermis'</span>,<span class="string">'Uncus'</span>,<span class="string">'Uvula'</span>,<span class="string">'Uvula of Vermis'</span>}, <span class="string">'Anatomical prior. Select anatomical structures that are likely to contain processes of interest.'</span>),<span class="keyword">...</span>
+0055                      <span class="keyword">...</span>
+0056                      arg({<span class="string">'freq_oversample'</span>,<span class="string">'FrequencyOversampling'</span>},2,[],<span class="string">'Frequency oversampling.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0057                      arg({<span class="string">'sample_rate'</span>,<span class="string">'SamplingRate'</span>},15,[],<span class="string">'Sampling rate of the spectrum. In Hz.'</span>), <span class="keyword">...</span>
+0058                      arg({<span class="string">'freq_range'</span>,<span class="string">'FrequencyRange'</span>},[2.5 50],[],<span class="string">'Frequency range. In Hz, automatically clipped.'</span>), <span class="keyword">...</span>
+0059                      arg({<span class="string">'freq_scale'</span>,<span class="string">'FrequencyScale'</span>},<span class="string">'log'</span>,{<span class="string">'linear'</span>,<span class="string">'log'</span>},<span class="string">'Frequency scale.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0060                      arg({<span class="string">'win_size'</span>,<span class="string">'WindowLength'</span>},0.5,[],<span class="string">'Overlapped window length. For time-frequency estimation, in seconds.'</span>), <span class="keyword">...</span>
+0061                      arg({<span class="string">'wavelet_cycles'</span>,<span class="string">'WaveletCycles'</span>},[3 0.5],[],<span class="string">'Wavelet Cycles. At lower and upper frequency band edge.'</span>,<span class="string">'guru'</span>,true) <span class="keyword">...</span>
+0062                      arg({<span class="string">'specmap'</span>,<span class="string">'SpectralMap'</span>},<span class="string">'sqrt'</span>,{<span class="string">'sqrt'</span>,<span class="string">'log'</span>,<span class="string">'linear'</span>},<span class="string">'Transform of power.'</span>,<span class="string">'guru'</span>,true) <span class="keyword">...</span>
+0063                     }, <span class="string">'Parameters for the feature-adaptation function. These parameters control how features are statistically adapted and extracted from the filtered data before they are passed int othe machine learning stage.'</span>), <span class="keyword">...</span>
+0064                 arg_sub({<span class="string">'ml'</span>,<span class="string">'MachineLearning'</span>},{<span class="string">'Learner'</span>,self.machine_learning_defaults()},@ml_train,<span class="string">'Machine learning stage of the paradigm. Operates on the feature vectors that are produced by the feature-extraction stage.'</span>));
+0065             
+0066             <span class="keyword">try</span>
+0067                 data = self.rssd_load_overcomplete(args.signal);
+0068                 multimodel_dipfits = [data.dipfit.multimodel{:}];
+0069                 <span class="keyword">if</span> ~isempty(args.fex.anatomical_prior) &amp;&amp; ~isequal(args.fex.anatomical_prior,false) &amp;&amp; ~isempty(data.dipfit)
+0070                     <span class="comment">% if an anatomical prior was given, we can pre-prune the potenial ERSPs</span>
+0071                     ersprange = [];                    
+0072                     <span class="keyword">for</span> k=1:size(data.icaweights,1)
+0073                         matches{k} = intersect(multimodel_dipfits(k).structures,args.fex.anatomical_prior);
+0074                         <span class="keyword">if</span> ~isempty(matches{k})
+0075                             ersprange(end+1) = k; <span class="keyword">end</span>
+0076                     <span class="keyword">end</span>
+0077                 <span class="keyword">else</span>
+0078                     <span class="comment">% otherwise we need to compute them all</span>
+0079                     ersprange = 1:size(data.icaweights,1);
+0080                 <span class="keyword">end</span>
+0081                 
+0082                 <span class="comment">% compute ERSPs</span>
+0083                 disp(<span class="string">'Now computing time/frequency decompositions...'</span>);
+0084                 [T,X,freqs,times] = evalc(<span class="string">'self.ersp_compute(data,args,ersprange)'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0085                 retain_ics = [];
+0086                 structures = {};
+0087                 probabilities = [];
+0088                 summed_probabilities = [];
+0089                 <span class="keyword">for</span> k = ersprange
+0090                     <span class="comment">% get left/right normalization vectors lhs/rhs</span>
+0091                     lhs = args.fex.spectral_prior(freqs) .* sum(reshape(var(X{k},[],2),size(X{k},1),[]),2).^-0.25;
+0092                     rhs = args.fex.temporal_prior(times) .* sum(reshape(var(X{k},[],1),[],size(X{k},3)),2).^-0.25;
+0093                     <span class="comment">% make sure that they are well-behaved</span>
+0094                     lhs(~isfinite(lhs)) = 0; medlhs = median(lhs); lhs(lhs&gt;3*medlhs) = medlhs;
+0095                     rhs(~isfinite(rhs)) = 0; medrhs = median(rhs); rhs(rhs&gt;3*medrhs) = medrhs;
+0096                     <span class="comment">% turn into a scaling matrix</span>
+0097                     prior{k} =  diag(lhs) * ones(length(freqs),length(times)) * diag(rhs);
+0098                     <span class="comment">% incorporate the spatial prior</span>
+0099                     <span class="keyword">if</span> ~isempty(data.dipfit)
+0100                         prior{k} = prior{k} * args.fex.spatial_prior(multimodel_dipfits(k).posxyz); <span class="keyword">end</span>
+0101                 <span class="keyword">end</span>
+0102                 <span class="keyword">for</span> k = ersprange
+0103                     <span class="comment">% incorporate the anatomical prior</span>
+0104                     <span class="keyword">if</span> ~isempty(args.fex.anatomical_prior) &amp;&amp; ~isequal(args.fex.anatomical_prior,false) &amp;&amp; ~isempty(data.dipfit)
+0105                         [matches,idx] = intersect(multimodel_dipfits(k).structures,args.fex.anatomical_prior); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0106                         <span class="comment">% sum the probabilities for being in each of the accepted structures (can be &gt; 1 as the structures are highly overlapping)</span>
+0107                         prior{k} = sum(multimodel_dipfits(k).probabilities(idx)) * prior{k};
+0108                         structures{k} = multimodel_dipfits(k).structures(idx);
+0109                         probabilities{k} = multimodel_dipfits(k).probabilities(idx);
+0110                         summed_probabilities(k) = sum(multimodel_dipfits(k).probabilities(idx));
+0111                         <span class="comment">% figure; topoplot(data.icawinv(:,k),data.chanlocs(data.icachansind),'electrodes','labels'); title([hlp_tostring(multimodel_dipfits(k).structures(idx)) ' - ' hlp_tostring(multimodel_dipfits(k).probabilities(idx))]);</span>
+0112                     <span class="keyword">end</span>
+0113                     <span class="keyword">if</span> ~all(all(prior{k}==0))
+0114                         retain_ics(end+1) = k; <span class="keyword">end</span>
+0115                 <span class="keyword">end</span>
+0116                 featuremodel.prior = prior;
+0117                 featuremodel.retain_ics = retain_ics;
+0118                 featuremodel.args = args;
+0119                 blocksizes = cellfun(@size,featuremodel.prior,<span class="string">'UniformOutput'</span>,false);
+0120                 <span class="comment">% keep track of some inspection information</span>
+0121                 <span class="keyword">global</span> tracking; <span class="comment">%#ok&lt;TLEV&gt;</span>
+0122                 tracking.inspection.rssd_prior = prior;
+0123                 tracking.inspection.rssd_mask = retain_ics;
+0124                 tracking.inspection.rssd_freqs = freqs;
+0125                 tracking.inspection.rssd_times = times;
+0126                 tracking.inspection.rssd_structures = structures;
+0127                 tracking.inspection.rssd_probabilities = probabilities;
+0128                 tracking.inspection.rssd_summed_probabilities = summed_probabilities;
+0129                 <span class="comment">% update machine learning parameters</span>
+0130                 args.ml.learner.shape = vertcat(blocksizes{retain_ics}); <span class="comment">%vertcat(blocksizes{cellfun(@prod,blocksizes)});</span>
+0131                 args.ml.learner.scaling = <span class="string">'none'</span>;
+0132                 <span class="comment">% extract features &amp; target labels</span>
+0133                 features = self.feature_extract(args.signal, featuremodel);
+0134                 targets = set_gettarget(args.signal);
+0135                 <span class="comment">% run the machine learning stage</span>
+0136                 predictivemodel = ml_train(<span class="string">'data'</span>,{features,targets}, args.ml);
+0137             <span class="keyword">catch</span>
+0138                 disp(<span class="string">'Glitch in ParadigmRSSD. halting...'</span>);
+0139                 keyboard
+0140             <span class="keyword">end</span>
+0141         <span class="keyword">end</span>        
+0142         
+0143         <a name="_sub3" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
+0144             <span class="keyword">try</span>
+0145                 data = self.rssd_load_overcomplete(signal);
+0146                 <span class="comment">% compute ERSP features</span>
+0147                 [T,features] = evalc(<span class="string">'self.ersp_compute(data,featuremodel.args,featuremodel.retain_ics)'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0148                 <span class="comment">% scale each component-ERSP by the respective prior &amp; sparsify</span>
+0149                 <span class="keyword">for</span> c=featuremodel.retain_ics
+0150                     features{c} = bsxfun(@times,features{c},featuremodel.prior{c}); <span class="keyword">end</span>
+0151                 <span class="comment">% generate block-compressed version of the data</span>
+0152                 features = reshape([features{featuremodel.retain_ics}],[],data.trials)';
+0153             <span class="keyword">catch</span>
+0154                 disp(<span class="string">'Glitch in para_rssd. halting...'</span>);
+0155                 keyboard;
+0156             <span class="keyword">end</span>
+0157         <span class="keyword">end</span>
+0158         
+0159         <span class="comment">% compute ERSP features</span>
+0160         <a name="_sub4" href="#_subfunctions" class="code">function [X,freqs,times] = ersp_compute(self,data,args,icrange)</a>
+0161             args = args.fex;
+0162             <span class="comment">% compute IC activations...</span>
+0163             sig = zeros(size(data.icaweights,1),data.pnts,data.trials);
+0164             <span class="keyword">for</span> t=1:data.trials
+0165                 sig(:,:,t) = (data.icaweights*data.icasphere)*data.data(data.icachansind,:,t); <span class="keyword">end</span>
+0166             <span class="keyword">for</span> k = icrange
+0167                 <span class="comment">% compute a time-frequency decomposition</span>
+0168                 [X{k},freqs,times] = hlp_microcache(<span class="string">'tfc'</span>,@timefreq,squeeze(sig(k,:,:)),data.srate, <span class="keyword">...</span>
+0169                     <span class="string">'winsize'</span>,data.srate*args.win_size, <span class="string">'tlimits'</span>,[data.xmin data.xmax], <span class="keyword">...</span>
+0170                     <span class="string">'detrend'</span>,<span class="string">'off'</span>, <span class="string">'itctype'</span>,<span class="string">'phasecoher'</span>, <span class="string">'wavelet'</span>,args.wavelet_cycles, <span class="keyword">...</span>
+0171                     <span class="string">'padratio'</span>,args.freq_oversample, <span class="string">'freqs'</span>,max(0,min(data.srate/2,args.freq_range)), <span class="keyword">...</span>
+0172                     <span class="string">'freqscale'</span>,args.freq_scale, <span class="string">'nfreqs'</span>,[], <span class="string">'timestretch'</span>,{[],[]}, <span class="keyword">...</span>
+0173                     <span class="string">'causal'</span>,<span class="string">'off'</span>, <span class="string">'ffttaper'</span>,<span class="string">'hanning'</span>, <span class="string">'subitc'</span>,<span class="string">'off'</span>, <span class="string">'wletmethod'</span>,<span class="string">'dftfilt3'</span>, <span class="keyword">...</span>
+0174                     <span class="string">'ntimesout'</span>,args.sample_rate*(data.xmax-data.xmin));
+0175                 <span class="comment">% turn into power</span>
+0176                 X{k} = X{k} .*conj(X{k});
+0177                 <span class="keyword">switch</span> args.specmap
+0178                     <span class="keyword">case</span> <span class="string">'sqrt'</span>
+0179                         X{k} = sqrt(X{k});
+0180                     <span class="keyword">case</span> <span class="string">'log'</span>
+0181                         X{k} = log(X{k});
+0182                     <span class="keyword">case</span> <span class="string">'linear'</span>
+0183                     <span class="keyword">otherwise</span>
+0184                         error(<span class="string">'Unknown spectral transform.'</span>);
+0185                 <span class="keyword">end</span>
+0186                 <span class="comment">% inspect: k,figure;for j=1:size(X{k},3) imagesc(X{k}(:,:,j));waitforbuttonpress; end</span>
+0187             <span class="keyword">end</span>
+0188         <span class="keyword">end</span>
+0189         
+0190         <span class="comment">% load overcomplete Amica decomposition if applicable</span>
+0191         <a name="_sub5" href="#_subfunctions" class="code">function data = rssd_load_overcomplete(self,data)</a>
+0192             <span class="keyword">if</span> isfield(data.etc,<span class="string">'amica'</span>)
+0193                 <span class="comment">% there is an amica decomposition: use it</span>
+0194                 <span class="keyword">for</span> m=1:size(data.etc.amica.W,3)
+0195                     tmpW{m} = data.etc.amica.W(:,:,m);
+0196                     tmpA{m} = data.etc.amica.A(:,:,m);
+0197                 <span class="keyword">end</span>
+0198                 data.icaweights = cat(1,tmpW{:});
+0199                 data.icawinv = cat(2,tmpA{:});
+0200                 <span class="keyword">if</span> isfield(data.etc.amica,<span class="string">'dipfit'</span>)
+0201                     data.dipfit = data.etc.amica.dipfit; <span class="keyword">end</span>
+0202             <span class="keyword">end</span>
+0203         <span class="keyword">end</span>
+0204         
+0205         <a name="_sub6" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0206             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>,<span class="string">'SignalProcessing.IIRFilter.Frequencies'</span>, <span class="string">''</span>, <span class="keyword">...</span><span class="comment">                </span>
+0207                 <span class="string">'SignalProcessing.ICA.CleaningLevel.DataSetting'</span>, <span class="string">''</span>, <span class="string">'SignalProcessing.ICA.Variant.AmicaVersion'</span>, <span class="keyword">...</span>
+0208                 <span class="string">'SignalProcessing.ICA.Variant.NumModels'</span>,<span class="string">'SignalProcessing.ICA.Variant.UseGridEngine'</span>, <span class="keyword">...</span>
+0209                 <span class="string">'SignalProcessing.ICA.Variant.NumProcessors'</span>, <span class="string">''</span>, <span class="string">'SignalProcessing.DipoleFitting.ConfusionRange'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0210                 <span class="string">'SignalProcessing.EpochExtraction'</span>,<span class="string">''</span>, <span class="keyword">...</span>
+0211                 <span class="string">'Prediction.FeatureExtraction.SpectralPrior'</span>, <span class="string">'Prediction.FeatureExtraction.TemporalPrior'</span>, <span class="keyword">...</span>
+0212                 <span class="string">'Prediction.FeatureExtraction.SpatialPrior'</span>,<span class="string">'Prediction.FeatureExtraction.AnatomicalPrior'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0213                 <span class="string">'Prediction.FeatureExtraction.FrequencyRange'</span>,<span class="string">'Prediction.FeatureExtraction.WindowLength'</span>, <span class="keyword">...</span>
+0214                 <span class="string">'Prediction.FeatureExtraction.WaveletCycles'</span>,<span class="string">'Prediction.FeatureExtraction.SamplingRate'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0215                 <span class="string">'Prediction.MachineLearning.Learner.Lambdas'</span>, <span class="string">'Prediction.MachineLearning.Learner.LossFunction'</span>,<span class="string">'Prediction.MachineLearning.Learner.Regularizer'</span>};
+0216         <span class="keyword">end</span>
+0217         
+0218         
+0219         <span class="comment">% --- helper functions for SCORD ---</span>
+0220         
+0221         <a name="_sub7" href="#_subfunctions" class="code">function result = export_model(self,model,filename)</a>
+0222             <span class="comment">% get the raw weights</span>
+0223             w = model.predictivemodel.model.w;
+0224             <span class="comment">% and the block structure of the corresponding weight matrix</span>
+0225             shape = model.predictivemodel.model.shape;
+0226             <span class="comment">% extract the blocks</span>
+0227             ix = 0;
+0228             W = {};
+0229             <span class="keyword">for</span> s=1:size(shape,1)
+0230                 ival = shape(s,1)*shape(s,2);
+0231                 W{s} = reshape(w(ix+1:ix+ival),shape(s,:));
+0232                 ix = ix+ival;
+0233             <span class="keyword">end</span>
+0234             <span class="comment">% get the IC references</span>
+0235             icidx = model.featuremodel.retain_ics;
+0236             
+0237             <span class="comment">% get the ICA filter state</span>
+0238             icastate = utl_get_argument(utl_find_filter(model.tracking.filter_graph,<span class="string">'flt_ica'</span>));
+0239             <span class="comment">% get dipoles, chanlocs and scalp maps</span>
+0240             dipoles = icastate.amica.model;
+0241             chanlocs = icastate.root_chanlocs;
+0242             scalpmaps = reshape(icastate.amica.A,size(icastate.amica.A,1),[]);
+0243 
+0244             <span class="comment">% extract the subset that is actually used</span>
+0245             dipoles = dipoles(icidx);
+0246             maps = scalpmaps(:,icidx);
+0247             
+0248             <span class="comment">% construct result</span>
+0249             dipole_weights = W;
+0250             dipole_models = dipoles;
+0251             dipole_maps = maps;
+0252             chanlocs = chanlocs;
+0253             <span class="keyword">if</span> exist(<span class="string">'filename'</span>,<span class="string">'var'</span>)
+0254                 save(filename,<span class="string">'dipole_weights'</span>,<span class="string">'dipole_models'</span>,<span class="string">'dipole_maps'</span>,<span class="string">'chanlocs'</span>); <span class="keyword">end</span>
+0255             result = struct(<span class="string">'dipole_weights'</span>,{dipole_weights},<span class="string">'dipole_models'</span>,{dipole_models},<span class="string">'dipole_maps'</span>,{dipole_maps},<span class="string">'chanlocs'</span>,{chanlocs});
+0256         <span class="keyword">end</span>
+0257                 
+0258     <span class="keyword">end</span>
+0259 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

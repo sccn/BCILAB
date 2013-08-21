@@ -1,0 +1,243 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of bci_Preflight</title>
+  <meta name="keywords" content="bci_Preflight">
+  <meta name="description" content="Check bci_Parameters variable (stored by BCI2000) for consistency.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="#">online_plugins</a> &gt; <a href="index.html">BCI2000</a> &gt; bci_Preflight.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/online_plugins/BCI2000&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>bci_Preflight
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Check bci_Parameters variable (stored by BCI2000) for consistency.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function out_signal_dim = bci_Preflight(in_signal_dim) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Check bci_Parameters variable (stored by BCI2000) for consistency.
+ Out-Signal-Dim = bci_Preflight(In-Signal-Dim)
+
+ In:
+  In-Signal-Dim  : a two-element vector of the form [#Channels, #Samples] which describes the input signal's dimensions
+
+ Out:
+  Out-Signal-Dim : a two-element vector of the form [#Channels, #Samples] which describes the input signal's dimensions
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-09-08</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function out_signal_dim = bci_Preflight(in_signal_dim)</a>
+0002 <span class="comment">% Check bci_Parameters variable (stored by BCI2000) for consistency.</span>
+0003 <span class="comment">% Out-Signal-Dim = bci_Preflight(In-Signal-Dim)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%  In-Signal-Dim  : a two-element vector of the form [#Channels, #Samples] which describes the input signal's dimensions</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% Out:</span>
+0009 <span class="comment">%  Out-Signal-Dim : a two-element vector of the form [#Channels, #Samples] which describes the input signal's dimensions</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0012 <span class="comment">%                                2010-09-08</span>
+0013 
+0014 <span class="keyword">global</span> bci_Parameters;
+0015 
+0016 <span class="comment">% these variables are shared with Initialize and Process</span>
+0017 <span class="keyword">global</span> model meta_data outrate maxcpu outdims outform;
+0018 
+0019 quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'called with in_signal_dim = [%i, %i]'</span>,in_signal_dim(1),in_signal_dim(2));
+0020 
+0021 <span class="keyword">if</span> in_signal_dim(1) &lt;= 2
+0022     quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Haha, apparently bci_Preflight is being called with its own output by BCI2000... ignoring that for now.'</span>);
+0023     out_signal_dim = in_signal_dim;
+0024     <span class="keyword">return</span>; 
+0025 <span class="keyword">end</span>
+0026 
+0027 <span class="comment">% --- model checks ---</span>
+0028 
+0029 quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'checking if model file (%s) is present ...'</span>,bci_Parameters.Model{1});
+0030 
+0031 <span class="comment">% check if the bci model is present</span>
+0032 <span class="keyword">if</span> ~exist(bci_Parameters.Model{1},<span class="string">'file'</span>)
+0033     error(<span class="string">'BCILAB:BCI2000_plugin:model_not_found'</span>,[<span class="string">'Could not find the bci model file specified as '</span> bci_Parameters.Model <span class="string">'.'</span>]); <span class="keyword">end</span>
+0034 
+0035 <span class="comment">% --- stream meta-data checks ---</span>
+0036 
+0037 quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'checking if stream parameters are present...'</span>);
+0038 quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'declared parameters: %s'</span>,hlp_tostring(fieldnames(bci_Parameters)'));
+0039 
+0040 <span class="comment">% try to get the sampling rate</span>
+0041 <span class="keyword">try</span>
+0042     srate = sscanf(bci_Parameters.SamplingRate{1},<span class="string">'%i'</span>);
+0043     <span class="keyword">if</span> ~isscalar(srate)
+0044         quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'SamplingRate is ill-formatted: %s...'</span>,hlp_tostring(srate));
+0045         error(<span class="string">'Sampling rate has the wrong size...'</span>);
+0046     <span class="keyword">end</span>
+0047     quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'SamplingRate is %.1f...'</span>,srate);
+0048 <span class="keyword">catch</span>
+0049     quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'SamplingRate is unspecified...'</span>);
+0050     srate = [];
+0051 <span class="keyword">end</span>
+0052 
+0053 <span class="comment">% try to get the channel names</span>
+0054 <span class="keyword">try</span>
+0055     channels = bci_Parameters.ChannelNames;
+0056     quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'ChannelNames are %s...'</span>,hlp_tostring(channels));
+0057 <span class="keyword">catch</span>
+0058     quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'ChannelNames are unspecified...'</span>);
+0059     channels = [];
+0060 <span class="keyword">end</span>
+0061 
+0062 quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'checking if the meta-data file (%s) is present...'</span>,bci_Parameters.MetaFile{1});
+0063 
+0064 <span class="comment">% check if the meta-data file exists</span>
+0065 <span class="keyword">if</span> exist(bci_Parameters.MetaFile{1},<span class="string">'file'</span>)
+0066     quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'found meata-data file, now loading...'</span>);
+0067     <span class="comment">% yes: use it</span>
+0068     meta_data = utl_parse_metadata(<span class="string">'datasource'</span>,bci_Parameters.MetaFile{1},<span class="string">'srate'</span>,srate,<span class="string">'chanlocs'</span>,channels);
+0069     quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'success.'</span>);
+0070 <span class="keyword">else</span>
+0071     <span class="comment">% no: check if the BCI2000 parameters are sufficient to determine the stream format</span>
+0072     quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Found no meata-data file.'</span>);
+0073     <span class="keyword">if</span> ~isempty(channels) &amp;&amp; ~isempty(srate)
+0074         quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'But ChannelNames and SamplingRate are fine, proceeding...'</span>);
+0075         <span class="comment">% we're fine...</span>
+0076         meta_data = utl_parse_metadata(<span class="string">'srate'</span>,srate,<span class="string">'chanlocs'</span>,channels);
+0077     <span class="keyword">else</span>
+0078         <span class="comment">% we're NOT fine -- take a look at the model to find out the original (source) data set</span>
+0079         quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'ChannelNames or SamplingRate parameters are not specified correctly!'</span>);
+0080         quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Now checking if the original training set was specified in the model and can be retrieved for reference.'</span>);
+0081 
+0082         <span class="comment">% try to load the model (jumping through a few hoops, if necessary....)</span>
+0083         <span class="keyword">try</span>
+0084             quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Trying to load the model file...'</span>);
+0085             model = io_load(bci_Parameters.Model{1});
+0086             quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'success.'</span>);
+0087             <span class="keyword">if</span> ~isfield(model,<span class="string">'tracking'</span>) || ~isfield(model.tracking,<span class="string">'prediction_function'</span>)
+0088                 quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'But the model file is lacking the correct properties - apparently the file contains a variable that is the model.'</span>);
+0089                 <span class="comment">% the loaded model is lacking the appropriate fields; check if there are variables</span>
+0090                 <span class="comment">% in the loaded data which are valid models</span>
+0091                 candidates = {};
+0092                 <span class="keyword">for</span> f = fieldnames(model)'
+0093                     fname = f{1};
+0094                     <span class="keyword">if</span> isfield(model.(fname),<span class="string">'tracking'</span>) &amp;&amp; isfield(model.(fname).tracking,<span class="string">'prediction_function'</span>)
+0095                         candidates{end+1} = fname; <span class="keyword">end</span> <span class="comment">%#ok&lt;AGROW&gt;</span>
+0096                 <span class="keyword">end</span>
+0097                 <span class="keyword">if</span> length(candidates) &gt; 1
+0098                     quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Model file contains multiple candidate model variables; choice is ambiguous - aborting...'</span>);
+0099                     error(<span class="string">'BCILAB:bci_Preflight:ambiguous'</span>,[<span class="string">'The file given as the model contains multiple candiate variables:\n'</span> <span class="keyword">...</span>
+0100                         hlp_tostring(candidates) <span class="string">'; please pass a file name which contains only one model variable.'</span>]);
+0101                 <span class="keyword">elseif</span> isempty(candidates)
+0102                     quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Model file contains no candidate model variable - aborting...'</span>);
+0103                     error(<span class="string">'BCILAB:bci_Preflight:load_error'</span>,<span class="string">'The given file contains no valid model.'</span>);
+0104                 <span class="keyword">else</span>
+0105                     quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Model was successfully identified.'</span>);
+0106                     model = model.(candidates{1});
+0107                 <span class="keyword">end</span>
+0108             <span class="keyword">end</span>
+0109         <span class="keyword">catch</span> le
+0110             quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Error loading the model; traceback: %s'</span>,le.message);
+0111             error(<span class="string">'BCILAB:bci_Preflight:load_error'</span>,[<span class="string">'The given model string could not be parsed; traceback: '</span> le.message]);
+0112         <span class="keyword">end</span>
+0113 
+0114         <span class="comment">% now try to load the source data...</span>
+0115         <span class="keyword">if</span> ~isfield(model,<span class="string">'source_data'</span>)
+0116             quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Model contains no source_data field, thus the source data set cannot be identified - aborting.'</span>);            
+0117             error(<span class="string">'BCILAB:bci_Preflight:load_error'</span>,<span class="string">'The given model is lacking a source_data field (which should contain the name of the training set.'</span>); 
+0118         <span class="keyword">end</span>
+0119         <span class="keyword">if</span> ~all(isfield(model.source_data,{<span class="string">'head'</span>,<span class="string">'parts'</span>}))
+0120             quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Model has a source_data field, but it does not refer to a single data set - aborting.'</span>);            
+0121             error(<span class="string">'BCILAB:bci_Preflight:load_error'</span>,<span class="string">'The source_data field of the given model does not refer to a single data set (but some structure that is unrecognized by this plugin). You will have to specify the stream meta-data either via the MetaFile field or via SamplingRate and ChannelNames parameters.'</span>); 
+0122         <span class="keyword">end</span>
+0123 
+0124         quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Successfully extracted the meta-data from the source file.'</span>);            
+0125         meta_data = exp_eval(model.source_data);
+0126         
+0127         <span class="keyword">if</span> isfield(meta_data,<span class="string">'tracking'</span>)
+0128             meta_data = rmfield(meta_data,<span class="string">'tracking'</span>); 
+0129             quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Stripped ''tracking'' field from meta-data.'</span>);
+0130         <span class="keyword">end</span>
+0131         <span class="keyword">if</span> isfield(meta_data,<span class="string">'data'</span>)
+0132             meta_data = rmfield(meta_data,<span class="string">'data'</span>); 
+0133             quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Stripped ''data'' field from meta-data.'</span>);            
+0134         <span class="keyword">end</span>
+0135         
+0136         <span class="keyword">if</span> ~isempty(srate)
+0137             quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Overriding the sampling rate with BCI2000''s %.1f'</span>,srate);
+0138             meta_data.srate = srate; 
+0139         <span class="keyword">end</span>
+0140     <span class="keyword">end</span>
+0141 <span class="keyword">end</span>
+0142 
+0143 quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Determined sampling rate is: %.1f'</span>,meta_data.srate);            
+0144 quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Determined channel count: %i'</span>,length(meta_data.chanlocs));            
+0145 quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Determined channel names are: %s'</span>,hlp_tostring({meta_data.chanlocs.labels}));            
+0146 
+0147 <span class="comment">% check that the input signal dimension matches the number of channel names</span>
+0148 <span class="keyword">if</span> length(meta_data.chanlocs) ~= in_signal_dim(1)
+0149     quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Number of channel names (%i) does not match the input signal channel # supplied by BCI2000 (%i) - aborting...'</span>,length(meta_data.chanlocs),in_signal_dim(1));
+0150     error(<span class="string">'BCILAB:BCI2000_plugin:metadata_inconsistent'</span>,[<span class="string">'The number of channel names ('</span> num2str(length(meta_data.chanlocs)) <span class="string">', specified in the ChannelNames parameter or the MetaFile) does not match the signal''s channel count ('</span> num2str(in_signal_dim(1)) <span class="string">').'</span>]); 
+0151 <span class="keyword">end</span>
+0152 
+0153 quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'successfully matched specified and supplied channel numbers.'</span>);
+0154 
+0155 <span class="comment">% --- get remaining parameters ---</span>
+0156 outforms = {<span class="string">'expectation'</span>,<span class="string">'distribution'</span>,<span class="string">'mode'</span>};
+0157 outform = outforms{str2num(bci_Parameters.OutputForm{1})};
+0158 outrate = str2num(bci_Parameters.OutputRate{1});
+0159 maxcpu = str2num(bci_Parameters.MaxCPU{1});
+0160 
+0161 quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'OutputForm is %s'</span>,outform);
+0162 quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'OutputRate is %.1f'</span>,outrate);
+0163 quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'MaxCPU is %.1f'</span>,maxcpu);
+0164 
+0165 outdims = str2num(bci_Parameters.OutputChannels{1});
+0166 <span class="keyword">if</span> outdims == 0
+0167     quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'No number of output channels was specified; assuming univariate regression or classification...'</span>);
+0168     <span class="keyword">if</span> strcmp(outform,<span class="string">'distribution'</span>)
+0169         quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Since the OutputForm is ''distribution'', assuming that the output signal has 2 channels.'</span>);
+0170         outdims = 2;
+0171     <span class="keyword">else</span>
+0172         quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Since the OutputForm is either ''mode'' or ''expectation'', assuming that the output signal has 1 channel.'</span>);
+0173         outdims = 1;
+0174     <span class="keyword">end</span>
+0175     <span class="comment">% no output channel # specified; assume that we're doing univariate regression or classification</span>
+0176     disp([<span class="string">'Number of BCI output channels was not specified; assuming it is '</span> num2str(outdims)]);
+0177 <span class="keyword">end</span>
+0178 
+0179 out_signal_dim = [outdims, in_signal_dim(2)];
+0180 
+0181 quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'Returing out_signal_dim = [%i, %i]'</span>,out_signal_dim(1),out_signal_dim(2));
+0182 
+0183 <span class="keyword">if</span> ~isempty(meta_data)
+0184     quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'global meta_data variable is properly initialized.'</span>); <span class="keyword">end</span>
+0185     
+0186 quicklog(<span class="string">'bcilab-log.txt'</span>,<span class="string">'finished successfully...'</span>);</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

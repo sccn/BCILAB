@@ -1,0 +1,170 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of onl_write_background</title>
+  <meta name="keywords" content="onl_write_background">
+  <meta name="description" content="Periodically process data using a predictive model, and write results to some external device.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">online_analysis</a> &gt; onl_write_background.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/online_analysis&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>onl_write_background
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Periodically process data using a predictive model, and write results to some external device.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function onl_write_background(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Periodically process data using a predictive model, and write results to some external device.
+ onl_write_background(ResultWriter,MatlabStream,Model,OutputFormat,UpdateFrequency,StartDelay,PredictorName)
+ 
+ This is a convenience function which simplifies the definition of components which load and
+ periodically query a predictive model, in real time, and forward the results to some external
+ device. The function is internally implemented using a timer that periodically triggers the
+ computation of updated estimates, and their transfer to the data sink.
+
+ In:
+   ResultWriter : function that receives a BCI estimate and writes it to some external device.
+
+   MatlabStream : real-time stream name to read from (in MATLAB workspace) (default: 'laststream')
+
+   Model : predictive model to use, or variable name (in MATLAB workspace)  (default: 'lastmodel')
+
+   OutputFormat : output data format, see onl_predict 
+                  (default: 'distribution')
+
+   UpdateFrequency : frequency at which the device should be queried, in Hz (default: 25)
+
+   StartDelay : Delay before real-time processing begins; grace period until user resources are 
+                created (default: 1)
+
+   PredictorName : name for new predictor, in the workspace (default: 'lastpredictor')
+
+ Examples:
+   % after a predictive model has been learned using bci_train, and a data stream supplying raw
+   % data has been established, load the model into the online system and periodically send its 
+   % outputs to a target destination
+   onl_write_background(@send_outputs_to_destination,'mystream')
+
+   % as before, but also specify a custom output format and a higher update frequency
+   onl_write_background(@send_outputs_to_destination,'mystream','lastmodel','expectation',25)
+
+   % as before, but pass all arguments by their short names
+   onl_write_background('ResultWriter',@send_outputs_to_destination,'MatlabStream','mystream','Model','lastmodel','OutputFormat','expectation','UpdateFrequency',25)
+
+ See also:
+   <a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_output)">onl_predict</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-01-18</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="onl_newpredictor.html" class="code" title="function id = onl_newpredictor(name, model, streams)">onl_newpredictor</a>	Create a new predictor from a predictive model, and tie it to some stream(s).</li><li><a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_output)">onl_predict</a>	Query a predictor given the current contents of the stream(s) referenced by it.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function write_data(predictor,stream,fmt,result_writer,pred_id,stream_id,timer_handle)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function onl_write_background(varargin)</a>
+0002 <span class="comment">% Periodically process data using a predictive model, and write results to some external device.</span>
+0003 <span class="comment">% onl_write_background(ResultWriter,MatlabStream,Model,OutputFormat,UpdateFrequency,StartDelay,PredictorName)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This is a convenience function which simplifies the definition of components which load and</span>
+0006 <span class="comment">% periodically query a predictive model, in real time, and forward the results to some external</span>
+0007 <span class="comment">% device. The function is internally implemented using a timer that periodically triggers the</span>
+0008 <span class="comment">% computation of updated estimates, and their transfer to the data sink.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% In:</span>
+0011 <span class="comment">%   ResultWriter : function that receives a BCI estimate and writes it to some external device.</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">%   MatlabStream : real-time stream name to read from (in MATLAB workspace) (default: 'laststream')</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%   Model : predictive model to use, or variable name (in MATLAB workspace)  (default: 'lastmodel')</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">%   OutputFormat : output data format, see onl_predict</span>
+0018 <span class="comment">%                  (default: 'distribution')</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%   UpdateFrequency : frequency at which the device should be queried, in Hz (default: 25)</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">%   StartDelay : Delay before real-time processing begins; grace period until user resources are</span>
+0023 <span class="comment">%                created (default: 1)</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%   PredictorName : name for new predictor, in the workspace (default: 'lastpredictor')</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">% Examples:</span>
+0028 <span class="comment">%   % after a predictive model has been learned using bci_train, and a data stream supplying raw</span>
+0029 <span class="comment">%   % data has been established, load the model into the online system and periodically send its</span>
+0030 <span class="comment">%   % outputs to a target destination</span>
+0031 <span class="comment">%   onl_write_background(@send_outputs_to_destination,'mystream')</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%   % as before, but also specify a custom output format and a higher update frequency</span>
+0034 <span class="comment">%   onl_write_background(@send_outputs_to_destination,'mystream','lastmodel','expectation',25)</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">%   % as before, but pass all arguments by their short names</span>
+0037 <span class="comment">%   onl_write_background('ResultWriter',@send_outputs_to_destination,'MatlabStream','mystream','Model','lastmodel','OutputFormat','expectation','UpdateFrequency',25)</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">% See also:</span>
+0040 <span class="comment">%   onl_predict</span>
+0041 <span class="comment">%</span>
+0042 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0043 <span class="comment">%                                2011-01-18</span>
+0044 
+0045 <span class="comment">% read options</span>
+0046 arg_define(varargin, <span class="keyword">...</span>
+0047     arg_norep({<span class="string">'result_writer'</span>,<span class="string">'ResultWriter'</span>}), <span class="keyword">...</span>
+0048     arg({<span class="string">'in_stream'</span>,<span class="string">'MatlabStream'</span>}, <span class="string">'laststream'</span>,[],<span class="string">'Input Matlab stream. This is the stream that shall be analyzed and processed. Can also be a cell array of streams, if multiple, or empty if non-ambiguous.'</span>), <span class="keyword">...</span>
+0049     arg({<span class="string">'pred_model'</span>,<span class="string">'Model'</span>}, <span class="string">'lastmodel'</span>, [], <span class="string">'Predictive model. As obtained via bci_train or the Model Calibration dialog.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0050     arg({<span class="string">'out_form'</span>,<span class="string">'OutputFormat'</span>},<span class="string">'distribution'</span>,{<span class="string">'expectation'</span>,<span class="string">'distribution'</span>,<span class="string">'mode'</span>},<span class="string">'Format of the produced output values. Can be the expected value (posterior mean) of the target variable, or the distribution over possible target values (probabilities for each outcome, or parametric distribution), or the mode (most likely value) of the target variable.'</span>), <span class="keyword">...</span>
+0051     arg({<span class="string">'update_freq'</span>,<span class="string">'UpdateFrequency'</span>},10,[],<span class="string">'Update frequency. This is the rate at which the outputs should be calculated.'</span>), <span class="keyword">...</span>
+0052     arg({<span class="string">'start_delay'</span>,<span class="string">'StartDelay'</span>}, 1, [],<span class="string">'Start-up delay. Delay before real-time processing begins; grace period to initialize everything.'</span>), <span class="keyword">...</span>
+0053     arg({<span class="string">'pred_name'</span>,<span class="string">'PredictorName'</span>}, <span class="string">'lastpredictor'</span>,[],<span class="string">'Name of new predictor. This is the workspace variable name under which a predictor will be created.'</span>));
+0054 
+0055 <span class="comment">% create new predictor</span>
+0056 predid = <a href="onl_newpredictor.html" class="code" title="function id = onl_newpredictor(name, model, streams)">onl_newpredictor</a>(pred_name,pred_model,in_stream);
+0057 streamid = evalin(<span class="string">'base'</span>,[in_stream <span class="string">'.streamid'</span>]);
+0058 
+0059 <span class="comment">% create &amp; start timer (which periodically writes to the stream)</span>
+0060 start(timer(<span class="string">'ExecutionMode'</span>,<span class="string">'fixedRate'</span>, <span class="string">'Name'</span>,[pred_name <span class="string">'_timer'</span>], <span class="string">'Period'</span>,1/update_freq, <span class="keyword">...</span>
+0061     <span class="string">'StartDelay'</span>,start_delay, <span class="string">'TimerFcn'</span>,@(timer_handle,varargin) <a href="#_sub1" class="code" title="subfunction write_data(predictor,stream,fmt,result_writer,pred_id,stream_id,timer_handle)">write_data</a>(pred_name,in_stream,out_form,result_writer,predid,streamid,timer_handle)));
+0062 
+0063 <span class="comment">% background data writer</span>
+0064 <a name="_sub1" href="#_subfunctions" class="code">function write_data(predictor,stream,fmt,result_writer,pred_id,stream_id,timer_handle)</a>
+0065 <span class="keyword">try</span>
+0066     <span class="comment">% check if the stream and the predictor are still there</span>
+0067     s = evalin(<span class="string">'base'</span>,stream);
+0068     <span class="keyword">if</span> s.streamid ~= stream_id
+0069         error(<span class="string">'Stream changed.'</span>); <span class="keyword">end</span>
+0070     p = evalin(<span class="string">'base'</span>,predictor);
+0071     <span class="keyword">if</span> p.predictorid ~= pred_id
+0072         error(<span class="string">'Predictor changed.'</span>); <span class="keyword">end</span>
+0073     <span class="comment">% make a prediction</span>
+0074     y = <a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_output)">onl_predict</a>(predictor,fmt);       
+0075     <span class="comment">% and write it out</span>
+0076     result_writer(y);
+0077 <span class="keyword">catch</span>
+0078     stop(timer_handle);
+0079     delete(timer_handle);
+0080 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,163 @@
+                     Locfit, Matlab 2.01
+                     http://locfit.herine.net/
+
+                        April  2, 2007
+
+
+
+Attaching:
+
+Make sure that you've added this directory recursively (i.e. with
+all subdirectories) to your matlab search path.
+
+Basic usage:
+
+(1) To plot of a smooth curve:
+   load ethanol;         % load the dataset.
+   fit = locfit(E,NOx)   % local regression, with x,y vectors.
+   lfplot(fit)           % plot the fitted curve.
+
+(2a) To evaluate smooth at a specified set of points:
+  load ethanol;
+  xev = [0.6 0.7 0.8 0.9]';   % note column vector.
+  fit = locfit(E,NOx,'ev',xev);
+  yhat = predict(fit)
+
+(2b) Fit and interpolate approximation; may be faster for large datasets.
+  load ethanol;
+  xev = [0.6 0.7 0.8 0.9]';   % note column vector.
+  fit = locfit(E,NOx);
+  yhat = predict(fit,xev)
+
+(3) Surface smoothing - give matrix as first input.
+   load ethanol;             % load the dataset.
+   fit = locfit([E C],NOx)   % local regression.
+   lfplot(fit)
+
+
+Most of the arguments to the S (and R) locfit() function, described
+in my book, will also work in the Matlab version. E.g,
+fit = locfit(E,NOx,'deg',1,'kern','gauss')
+       % local linear fit with the gaussian kernel.
+Smoothing parameters can be set with 'nn' and 'h', instead of the
+alpha vector used in my book. So
+fit = locfit(E,NOx,'alpha',[0 0.2])
+fit = locfit(E,NOx,'h',0.2)
+are equivalent ways to specify a constant bandwidth h=0.2.
+
+
+The Book subdirectory contains functions to reproduce most of the book
+figures. Run them, and look at the source code (many around 5 lines or less)
+for more examples.
+
+
+Some differences with the S/R version (and book documentation).
+(1) Minor renaming of functions, mainly because matlab doesn't have
+    S-style methods. e.g. lfplot() instead of plot() or plot.locfit().
+(2) Use lfband() to add confidence bands to a plot.
+(3) Functions such as aicplot(), gcvplot() sensitive to order of
+    arguments. Smoothing parameter matrix must be given first.
+(4) For 2-d predictors, lfplot() defaults to producing a surface, rather
+    than contour, plot.
+(5) The predict() function has an optional 'direct' argument, which
+    causes the fit to be recomputed at each evaluation point, rather
+    than interpolation of existing points.
+(6) A few things aren't implemented yet...
+
+
+Technical stuff. Here's the layout of the structure returned by
+the locfit() function. The first three components (data, evaluation
+structure and smoothing parameters) are what you provide, or default
+values. The last two (fit points, parametric component) are what
+locfit computes.  The expected size or format of the entry is 
+given in parentheses.
+
+
+fit.data.x (n*d)
+fit.data.y (n*1)
+fit.data.weights (n*1 or 1*1)
+fit.data.censor (n*1 or 1*1)
+fit.data.baseline (n*1 or 1*1)
+fit.data.style (string length d)
+fit.data.scales (1*d)
+fit.data.xlim (2*d)
+
+fit.evaluation_structure.type (string)
+fit.evaluation_structure.module (string)
+fit.evaluation_structure.lower_left (numeric 1*d)
+fit.evaluation_structure.upper_right (numeric 1*d)
+fit.evaluation_structure.grid (numeric 1*d)
+fit.evaluation_structure.cut (numeric 1*d)
+fit.evaluation_structure.maxk
+fit.evaluation_structure.derivative
+
+fit.smoothing_parameters.alpha = (nn h pen) vector
+fit.smoothing_parameters.adaptive_criterion (string)
+fit.smoothing_parameters.degree (numeric)
+fit.smoothing_parameters.family (string)
+fit.smoothing_parameters.link (string)
+fit.smoothing_parameters.kernel (string)
+fit.smoothing_parameters.kernel_type (string)
+fit.smoothing_parameters.deren 
+fit.smoothing_parameters.deit
+fit.smoothing_parameters.demint
+fit.smoothing_parameters.debug
+
+fit.fit_points.evaluation_points (d*nv matrix)
+fit.fit_points.fitted_values (matrix, nv rows, many columns)
+fit.fit_points.evaluation_vectors
+fit.fit_points.fit_limits (d*2 matrix)
+fit.fit_points.family_link (numeric values)
+fit.fit_points.kappa (likelihood, degrees of freedom, etc)
+
+fit.parametric_component
+
+
+
+
+
+This was the OLD format:
+
++-{1} data
+|   +-{1} xdata matrix (n*d)
+|   +-{2} ydata column vector (n*1)
+|   +-{3} wdata weight vector (n*1 or 1*1)
+|   +-{4} cdata censoring vector (n*1 or 1*1)
+|   +-{5} base  baseline vector (n*1 or 1*1)
+|   +-{6} style vector (string length d)
+|   +-{7} scales vector (1*d)
+|   +-{8} xl xlim vector (2*d)
+|
++-{2} evaluation structure
+|   +-{1} structure type (string)
+|   +-{2} module (string)
+|   +-{3} ll corner of bounding box (numeric 1*d)
+|   +-{4} ur corner of bounding box (numeric 1*d)
+|   +-{5} mg vector for grid (numeric 1*d)
+|   +-{6} cut parameter for adaptive structures (numeric 1*d)
+|   +-{7} maxk memory control parameter
+|   +-{8} derivative vector
+|
++-{3} sp smoothing parameters
+|   +-{1} alpha = (nn h pen) vector
+|   +-{2} adaptive criterion (string)
+|   +-{3} local polynomial degree (numeric)
+|   +-{4} fitting family (string)
+|   +-{5} link (string)
+|   +-{6} kernel (string)
+|   +-{7} kernel type - product, spherical (string)
+|
++-{4} fpc fit points
+|   +-{1} evaluation points, d*nv matrix.
+|   +-{2} fitted values etc, (matrix, nv rows, many columns)
+|   +-{3} cell of vectors generated by evaluation structure.
+|   |   +-{1} ce integer vector.
+|   |   +-{2} s  integer vector.
+|   |   +-{3} lo integer vector.
+|   |   +-{4} hi integer vector.
+|   |
+|   +-{4} fit limits (d*2 matrix)
+|   +-{5} [family link] (numeric values)
+|   +-{6} 'kappa' vector. (likelihood, degrees of freedom, etc)
+|
++-{5} parametric component vector.

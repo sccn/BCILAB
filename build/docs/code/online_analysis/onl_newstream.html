@@ -1,0 +1,292 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of onl_newstream</title>
+  <meta name="keywords" content="onl_newstream">
+  <meta name="description" content="Create a new data stream, and set up meta-data.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">online_analysis</a> &gt; onl_newstream.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/online_analysis&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>onl_newstream
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Create a new data stream, and set up meta-data.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function id = onl_newstream(name,varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Create a new data stream, and set up meta-data.
+ Id = onl_newstream(Name, Options...)
+
+ After a stream has been created, blocks of data can be appended to it using onl_append().
+ Predictors can be linked to the stream using onl_newpredictor(), and their predictions (given the
+ stream's most recent contents) can be queried using onl_predict(). This stream processing API is
+ the basis for all online processing plugins to real-time experimentation environments (see
+ code/online_plugins/*), as well as for the pseudo-online simulation function onl_simulate().
+
+ A data stream is essentially a buffer of data (usually EEG, but may instead contain other sampled
+ data, such as gaze coordinates, or motion capture coordinates). It has the same meta-data as a
+ regular EEGLAB dataset, containing fields such as .srate, and .chanlocs, as well as special
+ additional fields .smax, .buffer, and possibly others. All name-value pairs that are specified in
+ the Options are added as fields to this data structure. Instead of .data, it has .buffer, which is
+ a circular buffer that holds a segment of data ending with the most recently supplied sample.
+
+ In:
+   Name : name of the stream; a variable of this name will be created in the workspace to
+          hold the stream's data.
+
+   Options... : meta-data fields that are to be included in the stream, given as name-value pairs. 
+                A struct with meta-data (e.g., a dataset), may also be specified.
+
+                * 'srate' : the sampling rate, in Hz, of the stream (mandatory)
+
+                * 'chanlocs' : per-channel meta-data ('locs' is due to the EEGLAB heritage);
+                               struct array with fields
+                                 .labels : channel name (mandatory)
+                                 .type   : channel type (typical types are EEG, EMG, EOG, ECG, GSR,
+                                           Gaze, ECoG, NIRS, MoCap)
+                                 additional domain-specific fields (e.g., X,Y,Z coordinates for EEG 
+                                 channels may be added)
+                               can also be a cell array of strings, which are then assumed to 
+                               represent the channel labels
+
+                * 'xmin' : optional time, in seconds, of the first sample in some arbitrary clock 
+                           domain; if non-zero xmin's are specified for multiple streams that are 
+                           being processed by the same predictor, they must be all in the same
+                           domain. If time stamps are supplied during onl_append the xmin/xmax 
+                           are re-adapted consistently with the time stamps. (default: 0)
+
+                * 'types' : cell-string array of type(s) of the stream data (default: union of the 
+                            channel types); this can be utilized to declare that a stream carries
+                            data of some types even though no proper channel labels are available,
+                            which allows for lax fallback matching of streams and filter chains
+                            of predictors in the absence of channel labels
+
+                * domain-specific additional fields, such as icawinv, dipfit, or ref
+
+                Additional online-specific fields:
+
+                * 'timestamps_len' : number of measures that should be averaged to yield a signal 
+                                     lag estimate, if time stamps are supplied online during onl_append
+                                     (default: 25)
+
+                * 'buffer_len' : maximum length of the signal buffer, in seconds (default: 10)
+                                 data will be lost if a predictor is not queried for longer than
+                                 this period                              
+
+ Out:
+   Id : a unique id number for the predictor; same as name.predictorid
+
+
+ Notes:
+   The stream can be distinguished from a regular EEGLAB dataset by having the additional fields
+   'buffer' and 'smax'. smax indicates how many samples have been appended to the stream so far 
+   (though only the most recent subset of them is held in the buffer).
+
+   If 'clear' is run in the workspace, the stream will be erased.
+
+ Example:
+   % calibrate (or load) a model
+   mydata = io_loadset('data:/projects/attention/mason.bdf');
+   [loss,model] = bci_train({'data',mydata, 'approach',myapproach});
+   
+   % create a new online stream
+   onl_newstream('mystream','srate',200,'chanlocs',{'C3','Cz','C4'});
+   % create a new predictor from a model
+   onl_newpredictor('mypredictor',model);
+
+   while 1
+       % obtain a new block of data from some acquisition system
+       datachunk = get_new_samples();
+       % feed the block into the online stream
+       onl_append('mystream',datachunk);
+       % obtain predictions
+       outputs = onl_predict('mypredictor');
+       % display them
+       bar(outputs); drawnow; pause(0.1);
+   end
+
+ See also:
+   <a href="onl_newpredictor.html" class="code" title="function id = onl_newpredictor(name, model, streams)">onl_newpredictor</a>, <a href="onl_append.html" class="code" title="function onl_append(name, chunk, stamp)">onl_append</a>, <a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_output)">onl_predict</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-03-28</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="onl_simulate.html" class="code" title="function [predictions,predict_at,timings] = onl_simulate(varargin)">onl_simulate</a>	Apply a predictive model to some raw data set at specified time points.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function id = onl_newstream(name,varargin)</a>
+0002 <span class="comment">% Create a new data stream, and set up meta-data.</span>
+0003 <span class="comment">% Id = onl_newstream(Name, Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% After a stream has been created, blocks of data can be appended to it using onl_append().</span>
+0006 <span class="comment">% Predictors can be linked to the stream using onl_newpredictor(), and their predictions (given the</span>
+0007 <span class="comment">% stream's most recent contents) can be queried using onl_predict(). This stream processing API is</span>
+0008 <span class="comment">% the basis for all online processing plugins to real-time experimentation environments (see</span>
+0009 <span class="comment">% code/online_plugins/*), as well as for the pseudo-online simulation function onl_simulate().</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">% A data stream is essentially a buffer of data (usually EEG, but may instead contain other sampled</span>
+0012 <span class="comment">% data, such as gaze coordinates, or motion capture coordinates). It has the same meta-data as a</span>
+0013 <span class="comment">% regular EEGLAB dataset, containing fields such as .srate, and .chanlocs, as well as special</span>
+0014 <span class="comment">% additional fields .smax, .buffer, and possibly others. All name-value pairs that are specified in</span>
+0015 <span class="comment">% the Options are added as fields to this data structure. Instead of .data, it has .buffer, which is</span>
+0016 <span class="comment">% a circular buffer that holds a segment of data ending with the most recently supplied sample.</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">% In:</span>
+0019 <span class="comment">%   Name : name of the stream; a variable of this name will be created in the workspace to</span>
+0020 <span class="comment">%          hold the stream's data.</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">%   Options... : meta-data fields that are to be included in the stream, given as name-value pairs.</span>
+0023 <span class="comment">%                A struct with meta-data (e.g., a dataset), may also be specified.</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%                * 'srate' : the sampling rate, in Hz, of the stream (mandatory)</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">%                * 'chanlocs' : per-channel meta-data ('locs' is due to the EEGLAB heritage);</span>
+0028 <span class="comment">%                               struct array with fields</span>
+0029 <span class="comment">%                                 .labels : channel name (mandatory)</span>
+0030 <span class="comment">%                                 .type   : channel type (typical types are EEG, EMG, EOG, ECG, GSR,</span>
+0031 <span class="comment">%                                           Gaze, ECoG, NIRS, MoCap)</span>
+0032 <span class="comment">%                                 additional domain-specific fields (e.g., X,Y,Z coordinates for EEG</span>
+0033 <span class="comment">%                                 channels may be added)</span>
+0034 <span class="comment">%                               can also be a cell array of strings, which are then assumed to</span>
+0035 <span class="comment">%                               represent the channel labels</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%                * 'xmin' : optional time, in seconds, of the first sample in some arbitrary clock</span>
+0038 <span class="comment">%                           domain; if non-zero xmin's are specified for multiple streams that are</span>
+0039 <span class="comment">%                           being processed by the same predictor, they must be all in the same</span>
+0040 <span class="comment">%                           domain. If time stamps are supplied during onl_append the xmin/xmax</span>
+0041 <span class="comment">%                           are re-adapted consistently with the time stamps. (default: 0)</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%                * 'types' : cell-string array of type(s) of the stream data (default: union of the</span>
+0044 <span class="comment">%                            channel types); this can be utilized to declare that a stream carries</span>
+0045 <span class="comment">%                            data of some types even though no proper channel labels are available,</span>
+0046 <span class="comment">%                            which allows for lax fallback matching of streams and filter chains</span>
+0047 <span class="comment">%                            of predictors in the absence of channel labels</span>
+0048 <span class="comment">%</span>
+0049 <span class="comment">%                * domain-specific additional fields, such as icawinv, dipfit, or ref</span>
+0050 <span class="comment">%</span>
+0051 <span class="comment">%                Additional online-specific fields:</span>
+0052 <span class="comment">%</span>
+0053 <span class="comment">%                * 'timestamps_len' : number of measures that should be averaged to yield a signal</span>
+0054 <span class="comment">%                                     lag estimate, if time stamps are supplied online during onl_append</span>
+0055 <span class="comment">%                                     (default: 25)</span>
+0056 <span class="comment">%</span>
+0057 <span class="comment">%                * 'buffer_len' : maximum length of the signal buffer, in seconds (default: 10)</span>
+0058 <span class="comment">%                                 data will be lost if a predictor is not queried for longer than</span>
+0059 <span class="comment">%                                 this period</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">% Out:</span>
+0062 <span class="comment">%   Id : a unique id number for the predictor; same as name.predictorid</span>
+0063 <span class="comment">%</span>
+0064 <span class="comment">%</span>
+0065 <span class="comment">% Notes:</span>
+0066 <span class="comment">%   The stream can be distinguished from a regular EEGLAB dataset by having the additional fields</span>
+0067 <span class="comment">%   'buffer' and 'smax'. smax indicates how many samples have been appended to the stream so far</span>
+0068 <span class="comment">%   (though only the most recent subset of them is held in the buffer).</span>
+0069 <span class="comment">%</span>
+0070 <span class="comment">%   If 'clear' is run in the workspace, the stream will be erased.</span>
+0071 <span class="comment">%</span>
+0072 <span class="comment">% Example:</span>
+0073 <span class="comment">%   % calibrate (or load) a model</span>
+0074 <span class="comment">%   mydata = io_loadset('data:/projects/attention/mason.bdf');</span>
+0075 <span class="comment">%   [loss,model] = bci_train({'data',mydata, 'approach',myapproach});</span>
+0076 <span class="comment">%</span>
+0077 <span class="comment">%   % create a new online stream</span>
+0078 <span class="comment">%   onl_newstream('mystream','srate',200,'chanlocs',{'C3','Cz','C4'});</span>
+0079 <span class="comment">%   % create a new predictor from a model</span>
+0080 <span class="comment">%   onl_newpredictor('mypredictor',model);</span>
+0081 <span class="comment">%</span>
+0082 <span class="comment">%   while 1</span>
+0083 <span class="comment">%       % obtain a new block of data from some acquisition system</span>
+0084 <span class="comment">%       datachunk = get_new_samples();</span>
+0085 <span class="comment">%       % feed the block into the online stream</span>
+0086 <span class="comment">%       onl_append('mystream',datachunk);</span>
+0087 <span class="comment">%       % obtain predictions</span>
+0088 <span class="comment">%       outputs = onl_predict('mypredictor');</span>
+0089 <span class="comment">%       % display them</span>
+0090 <span class="comment">%       bar(outputs); drawnow; pause(0.1);</span>
+0091 <span class="comment">%   end</span>
+0092 <span class="comment">%</span>
+0093 <span class="comment">% See also:</span>
+0094 <span class="comment">%   onl_newpredictor, onl_append, onl_predict</span>
+0095 <span class="comment">%</span>
+0096 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0097 <span class="comment">%                                2010-03-28</span>
+0098 
+0099 <span class="comment">% check validity of name</span>
+0100 <span class="keyword">if</span> ~exist(<span class="string">'name'</span>,<span class="string">'var'</span>)
+0101     error(<span class="string">'Please specify a name for the stream.'</span>); <span class="keyword">end</span>
+0102 <span class="keyword">if</span> ~isvarname(name)
+0103     error(<span class="string">'The name of the online stream must be a valid variable name.'</span>); <span class="keyword">end</span>
+0104 
+0105 <span class="comment">% create the stream and add/reset user-specified fields</span>
+0106 stream = exp_eval(set_new(<span class="string">'buffer_len'</span>,10,<span class="string">'timestamps_len'</span>,25,<span class="string">'types'</span>,[],varargin{:}, <span class="keyword">...</span>
+0107     <span class="string">'event'</span>,[],<span class="string">'urevent'</span>,[],<span class="string">'epoch'</span>,[],<span class="string">'icaact'</span>,[],<span class="string">'tracking'</span>,[]));
+0108 
+0109 <span class="comment">% check validity of user-specified fields</span>
+0110 <span class="keyword">if</span> isempty(stream.srate)
+0111     error(<span class="string">'A sampling rate must be specified via the ''srate'' option.'</span>); <span class="keyword">end</span>
+0112 <span class="keyword">if</span> isempty(stream.chanlocs)
+0113     error(<span class="string">'Channel info must be specified via the ''chanlocs'' option.'</span>); <span class="keyword">end</span>
+0114 <span class="keyword">if</span> isempty(stream.types)
+0115     stream.types = unique({stream.chanlocs.type}); <span class="keyword">end</span>
+0116 stream.nbchan = length(stream.chanlocs);
+0117 
+0118 <span class="comment">% add buffer fields</span>
+0119 stream.buffer_len = stream.buffer_len*stream.srate;     <span class="comment">% max. number of samples in the stream's buffer (the buffer holds a running sub-range of the entire stream sample range)</span>
+0120 stream.buffer = zeros(stream.nbchan,stream.buffer_len); <span class="comment">% circular data buffer</span>
+0121 stream.smax = 0;                                        <span class="comment">% index of last sample in the stream;</span>
+0122                                                         <span class="comment">% smin = 1+max(0,smax-buffer_len)</span>
+0123                                                         <span class="comment">% # of valid samples in buffer = smax-smin+1</span>
+0124                                                         <span class="comment">% current data range:</span>
+0125                                                         <span class="comment">% buffer(:,1+mod((smin:smax)-1,buffer_len))</span>
+0126 
+0127 stream.timestamps = zeros(stream.timestamps_len,2); <span class="comment">% circular array of time stamp estimates</span>
+0128 stream.timestamps_ptr = 0;                          <span class="comment">% last write pointer into timestamps</span>
+0129 
+0130 <span class="comment">% remove fields that we do not track</span>
+0131 stream = rmfield(stream,{<span class="string">'pnts'</span>,<span class="string">'xmax'</span>,<span class="string">'data'</span>});
+0132 <span class="keyword">if</span> stream.xmin ~= 0
+0133     <span class="comment">% put xmin into timestamps so that it blends with any later time stamp updates during onl_append</span>
+0134     stream.timestamps_ptr = 1+mod(stream.timestamps_ptr,stream.timestamps_len);
+0135     stream.timestamps(stream.timestamps_ptr,:) = [stream.xmin 0];
+0136 <span class="keyword">end</span>
+0137 
+0138 <span class="comment">% assign a unique id to the stream (for users of the stream)</span>
+0139 id = fresh_id(<span class="string">'bcilab_streams'</span>);
+0140 stream.streamid = id;
+0141 
+0142 <span class="comment">% add a few different time stamps</span>
+0143 <span class="keyword">try</span>
+0144     stream.xmin_micro = tic;
+0145     stream.xmin_mili = java.lang.System.currentTimeMillis();
+0146     stream.xmin_nano = java.lang.System.nanoTime();
+0147 <span class="keyword">catch</span>, <span class="keyword">end</span>
+0148 
+0149 <span class="comment">% create a new stream and place it in the base workspace</span>
+0150 assignin(<span class="string">'base'</span>,name,stream);</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

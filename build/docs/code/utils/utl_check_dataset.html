@@ -1,0 +1,179 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_check_dataset</title>
+  <meta name="keywords" content="utl_check_dataset">
+  <meta name="description" content="Check whether the given argument is an imporperly tracked data set and fix.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_check_dataset.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_check_dataset
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Check whether the given argument is an imporperly tracked data set and fix.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function sig = utl_check_dataset(sig,opts,ctx,exp) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Check whether the given argument is an imporperly tracked data set and fix.
+ Data = utl_check_dataset(Data,Options,Context,Expressions)
+
+ The remaining arguments are used only when the function is used as an argstep in exp_beginfun.
+ There, it serves as an argstep for 'filter'/'editing' functions, to check, fix up and warn about
+ the value of inconsistent impure expressions (expressions referring to signals, in particular) and
+ data set values (without any notion of expressions).
+
+ See also:
+   exp_beginfun, exp_endfun
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-04-15</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_check_dataset.html" class="code" title="function sig = utl_check_dataset(sig,opts,ctx,exp)">utl_check_dataset</a>	Check whether the given argument is an imporperly tracked data set and fix.</li><li><a href="utl_releasehold.html" class="code" title="function x = utl_releasehold(x)">utl_releasehold</a>	Peel off a layer of hold expressions from some expression.</li><li><a href="utl_replacerepeated.html" class="code" title="function [exp,waschanged] = utl_replacerepeated(exp,rules)">utl_replacerepeated</a>	Apply substitution rules to some expression until it no longer changes.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_check_bundle.html" class="code" title="function bundle = utl_check_bundle(bundle)">utl_check_bundle</a>	Check a stream bundle for consistency and fix if necessary.</li><li><a href="utl_check_dataset.html" class="code" title="function sig = utl_check_dataset(sig,opts,ctx,exp)">utl_check_dataset</a>	Check whether the given argument is an imporperly tracked data set and fix.</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function res = is_enabled(ref_exp,subs_exp)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function sig = utl_check_dataset(sig,opts,ctx,exp)</a>
+0002 <span class="comment">% Check whether the given argument is an imporperly tracked data set and fix.</span>
+0003 <span class="comment">% Data = utl_check_dataset(Data,Options,Context,Expressions)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% The remaining arguments are used only when the function is used as an argstep in exp_beginfun.</span>
+0006 <span class="comment">% There, it serves as an argstep for 'filter'/'editing' functions, to check, fix up and warn about</span>
+0007 <span class="comment">% the value of inconsistent impure expressions (expressions referring to signals, in particular) and</span>
+0008 <span class="comment">% data set values (without any notion of expressions).</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% See also:</span>
+0011 <span class="comment">%   exp_beginfun, exp_endfun</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0014 <span class="comment">%                                2010-04-15</span>
+0015 <span class="keyword">if</span> ~exist(<span class="string">'opts'</span>,<span class="string">'var'</span>)
+0016     opts.fingerprint_check = true;
+0017     ctx = [];
+0018     exp = [];
+0019 <span class="keyword">end</span>
+0020 
+0021 <span class="comment">% check if we have a data set</span>
+0022 <span class="keyword">if</span> isfield(sig,{<span class="string">'data'</span>,<span class="string">'srate'</span>})
+0023     <span class="keyword">if</span> ~isfield(sig,<span class="string">'tracking'</span>) || ~isfield(sig.tracking,<span class="string">'expression'</span>)
+0024         <span class="comment">% the data set was imported from EEGLAB or the tracking info was ruined</span>
+0025     <span class="keyword">elseif</span> isfield(sig.tracking,<span class="string">'fingerprint'</span>)
+0026         <span class="comment">% get the fingerprint checking expression (either from the options or from the dynamic scope)</span>
+0027         <span class="keyword">if</span> isempty(opts.fingerprint_check)
+0028             opts.fingerprint_check = hlp_resolve(<span class="string">'fingerprint_check'</span>,true,ctx); <span class="keyword">end</span>
+0029         <span class="comment">% check whether it is enabled</span>
+0030         <span class="keyword">if</span> ~opts.fingerprint_check
+0031             <span class="keyword">return</span>; <span class="keyword">end</span>
+0032         <span class="keyword">if</span> isequal(opts.fingerprint_check,true) || hlp_microcache(<span class="string">'fprint_lookup'</span>,@<a href="#_sub1" class="code" title="subfunction res = is_enabled(ref_exp,subs_exp)">is_enabled</a>,opts.fingerprint_check,exp)
+0033             fprint = hlp_fingerprint(rmfield(sig,<span class="string">'tracking'</span>));
+0034             <span class="keyword">if</span> fprint ~= sig.tracking.fingerprint
+0035                 <span class="comment">% the data set has been edited according to some fingerprint check</span>
+0036             <span class="keyword">else</span>
+0037                 <span class="comment">% no problem was spotted</span>
+0038                 <span class="keyword">return</span>; 
+0039             <span class="keyword">end</span>
+0040         <span class="keyword">else</span>
+0041             <span class="comment">% fingerprinting disabled (nothing to check here...)</span>
+0042             <span class="keyword">return</span>; 
+0043         <span class="keyword">end</span>
+0044     <span class="keyword">else</span>
+0045         <span class="keyword">return</span>; <span class="comment">% the data set does hot have a fingerprint</span>
+0046     <span class="keyword">end</span>
+0047     
+0048     <span class="comment">% --- the data set has been imported from EEGLAB or has been edited with it: do an implict flush-to-disk &amp; re-import ---</span>
+0049     
+0050     <span class="keyword">if</span> isfield(sig,<span class="string">'tracking'</span>)
+0051         <span class="keyword">if</span> isfield(sig.tracking,<span class="string">'expression'</span>)
+0052             sig.tracking = rmfield(sig.tracking,<span class="string">'expression'</span>); <span class="keyword">end</span>
+0053         <span class="keyword">if</span> isfield(sig.tracking,<span class="string">'online_expression'</span>)
+0054             sig.tracking = rmfield(sig.tracking,<span class="string">'online_expression'</span>); <span class="keyword">end</span>
+0055         <span class="keyword">if</span> isfield(sig.tracking,<span class="string">'fingerprint'</span>)
+0056             sig.tracking = rmfield(sig.tracking,<span class="string">'fingerprint'</span>); <span class="keyword">end</span>
+0057     <span class="keyword">else</span>
+0058         sig.tracking = struct();
+0059     <span class="keyword">end</span>
+0060     
+0061     <span class="comment">% check for problems by scanning the history</span>
+0062     found_problem = 0;
+0063     <span class="keyword">if</span> isfield(sig,<span class="string">'history'</span>)
+0064         <span class="comment">% catch a few known to be {catastrophic,dangerous,subtle} operations in the imported data set</span>
+0065         operations = { <span class="keyword">...</span>
+0066             {{<span class="string">'pop_eegfilt'</span>,<span class="string">'pop_runica'</span>}, <span class="keyword">...</span>
+0067             <span class="string">'Note: The operation ''%s'' will neither allow to generate reliable predictions nor usable online models from the imported data set.\n'</span>}, <span class="keyword">...</span>
+0068             {{<span class="string">'pop_averef'</span>,<span class="string">'pop_interp'</span>,<span class="string">'pop_reref'</span>,<span class="string">'pop_resample'</span>,<span class="string">'pop_rmbase'</span>,<span class="string">'pop_subcomp'</span>}, <span class="keyword">...</span>
+0069             <span class="string">'Note: The operation ''%s'' will not allow to generate online models from the imported data set.\n'</span>}, <span class="keyword">...</span>
+0070             {{<span class="string">'pop_chansel'</span>,<span class="string">'pop_rejchan'</span>,<span class="string">'pop_rejchanspec'</span>,<span class="string">'pop_select'</span>}, <span class="keyword">...</span>
+0071             [<span class="string">'Note: The operation ''%s'' requires that the channels supplied during online processing (and their order) match those'</span> <span class="keyword">...</span>
+0072             <span class="string">' in the present data set.\n'</span>]}, <span class="keyword">...</span>
+0073             };
+0074         <span class="keyword">for</span> l=1:length(operations)
+0075             <span class="keyword">for</span> op=operations{l}{1}
+0076                 <span class="keyword">if</span> strfind(sig.history,[op{1} <span class="string">'('</span>])
+0077                     fprintf(operations{l}{2},op{1});
+0078                     found_problem = 1;
+0079                 <span class="keyword">end</span>
+0080             <span class="keyword">end</span>
+0081         <span class="keyword">end</span>
+0082         <span class="keyword">if</span> found_problem
+0083             fprintf([<span class="string">'\nIt is recommended that these operations be executed from BCILAB''s '</span> <span class="keyword">...</span>
+0084                 <span class="string">'processing palette,since the operations implemented there are online-capable.\n'</span>]);
+0085         <span class="keyword">end</span>
+0086     <span class="keyword">end</span>
+0087     <span class="keyword">if</span> ~found_problem
+0088         fprintf([<span class="string">'Note: The data set has been edited or imported from EEGLAB; to guarantee '</span> <span class="keyword">...</span>
+0089             <span class="string">'correctness of BCILAB''s performance estimates, ensure that the imported data had not been filtered.\n'</span>]);
+0090     <span class="keyword">end</span>
+0091     
+0092     <span class="comment">% (re-) create the fingerprint, if necessary</span>
+0093     <span class="keyword">if</span> ~exist(<span class="string">'fprint'</span>,<span class="string">'var'</span>)
+0094         fprint = hlp_fingerprint(rmfield(sig,<span class="string">'tracking'</span>)); <span class="keyword">end</span>
+0095     
+0096     <span class="comment">% flush data to disk, if not already there...</span>
+0097     filepath = [<span class="string">'temp:/flushedsets/'</span> num2str(fprint) <span class="string">'.set'</span>];
+0098     <span class="keyword">if</span> ~exist(env_translatepath(filepath),<span class="string">'file'</span>)
+0099         disp(<span class="string">'Flushing data set to disk...'</span>);
+0100         EEG = sig; <span class="comment">%#ok&lt;NASGU&gt;</span>
+0101         io_save(filepath,<span class="string">'EEG'</span>,<span class="string">'-makedirs'</span>,<span class="string">'-attributes'</span>,<span class="string">'''+w'',''a'''</span>); 
+0102     <span class="keyword">end</span>
+0103     <span class="comment">% change the expression into a re-loading</span>
+0104     sig = io_loadset(filepath);
+0105 <span class="keyword">elseif</span> isfield(sig,{<span class="string">'head'</span>,<span class="string">'parts'</span>})
+0106     <span class="comment">% we have an expression: check parts recursively...</span>
+0107     <span class="keyword">for</span> p=1:length(sig.parts)
+0108         sig.parts{p} = <a href="utl_check_dataset.html" class="code" title="function sig = utl_check_dataset(sig,opts,ctx,exp)">utl_check_dataset</a>(sig.parts{p},opts,ctx,exp); <span class="keyword">end</span>
+0109 <span class="keyword">end</span>
+0110 
+0111 
+0112 <span class="comment">% find out whether a given reference expression yields true if @expression is substituted with some substitution expression</span>
+0113 <a name="_sub1" href="#_subfunctions" class="code">function res = is_enabled(ref_exp,subs_exp)</a>
+0114 <span class="keyword">if</span> exp_eval(<a href="utl_releasehold.html" class="code" title="function x = utl_releasehold(x)">utl_releasehold</a>(<a href="utl_replacerepeated.html" class="code" title="function [exp,waschanged] = utl_replacerepeated(exp,rules)">utl_replacerepeated</a>(ref_exp,{exp_rule(@expression,subs_exp)})),inf)
+0115     res = true;
+0116 <span class="keyword">else</span>
+0117     res = false;
+0118 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

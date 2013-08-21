@@ -1,0 +1,342 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of env_load_dependencies</title>
+  <meta name="keywords" content="env_load_dependencies">
+  <meta name="description" content="Execute dependency loaders in the given directory tree.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">environment</a> &gt; env_load_dependencies.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/environment&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>env_load_dependencies
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Execute dependency loaders in the given directory tree.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function env_load_dependencies(dependency_dir,autocompile) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Execute dependency loaders in the given directory tree.
+ env_load_dependencies(Directory)
+
+ This function recognizes 3 types of dependency loader scripts in the dependencies (sub-)folders.
+  1. Scripts called env_exec.m. Each such script is executed by env_load_dependencies.
+
+  2. Scripts called env_add.m. Each such function is executed, and if the 'ans' variable is true 
+     after executing the script (it is set to true before running the script), and no exception 
+     had occured, the containing directory is added using addpath.
+
+  3. Scripts called env_compile.m. The presence of such a function indicates to the loader function
+     that any mex or Java source files in the given directory should be automatically compiled.
+     Additional compiler inputs (such as defines, libraries and include directories), if any, may 
+     be declared as Name=value; statements in the file itself; These will be passed as named arguments
+     to hlp_trycompile (examples can be found throughout the existing dependencies).
+     A special parameter is Skip, which can be set to false on platforms on which the compilation
+     shall be skipped (perhaps because it is known to fail).
+
+ In:
+   Directory : directory tree with dependencies to be loaded; by default, searches for a directory
+               named 'dependencies', relative to the current path or the path of this file.
+
+   Compile : whether to act on env_compile.m files (default: true)
+
+ Example:
+   % load the dependencies in the C:\mydependencies folder.
+   env_load_dependencies('C:\mydependencies')
+
+ Notes:
+   If you intend to compile your toolbox, you cannot use empty .m files. Therefore, your marker files
+   must contain at least a space character to satisfy the compiler.
+
+ See also:
+   <a href="env_startup.html" class="code" title="function env_startup(varargin)">env_startup</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-03-06</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="env_startup.html" class="code" title="function env_startup(varargin)">env_startup</a>	Start the BCILAB toolbox, i.e. set up global data structures and load dependency toolboxes.</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function load_dependencies(pathlist,autocompile)</a></li><li><a href="#_sub2" class="code">function ans = runscript(filename__)</a></li><li><a href="#_sub3" class="code">function settings = get_settings(filename__)</a></li><li><a href="#_sub4" class="code">function strings = strsplit(string, splitter)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function env_load_dependencies(dependency_dir,autocompile)</a>
+0002 <span class="comment">% Execute dependency loaders in the given directory tree.</span>
+0003 <span class="comment">% env_load_dependencies(Directory)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This function recognizes 3 types of dependency loader scripts in the dependencies (sub-)folders.</span>
+0006 <span class="comment">%  1. Scripts called env_exec.m. Each such script is executed by env_load_dependencies.</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">%  2. Scripts called env_add.m. Each such function is executed, and if the 'ans' variable is true</span>
+0009 <span class="comment">%     after executing the script (it is set to true before running the script), and no exception</span>
+0010 <span class="comment">%     had occured, the containing directory is added using addpath.</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%  3. Scripts called env_compile.m. The presence of such a function indicates to the loader function</span>
+0013 <span class="comment">%     that any mex or Java source files in the given directory should be automatically compiled.</span>
+0014 <span class="comment">%     Additional compiler inputs (such as defines, libraries and include directories), if any, may</span>
+0015 <span class="comment">%     be declared as Name=value; statements in the file itself; These will be passed as named arguments</span>
+0016 <span class="comment">%     to hlp_trycompile (examples can be found throughout the existing dependencies).</span>
+0017 <span class="comment">%     A special parameter is Skip, which can be set to false on platforms on which the compilation</span>
+0018 <span class="comment">%     shall be skipped (perhaps because it is known to fail).</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% In:</span>
+0021 <span class="comment">%   Directory : directory tree with dependencies to be loaded; by default, searches for a directory</span>
+0022 <span class="comment">%               named 'dependencies', relative to the current path or the path of this file.</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   Compile : whether to act on env_compile.m files (default: true)</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">% Example:</span>
+0027 <span class="comment">%   % load the dependencies in the C:\mydependencies folder.</span>
+0028 <span class="comment">%   env_load_dependencies('C:\mydependencies')</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">% Notes:</span>
+0031 <span class="comment">%   If you intend to compile your toolbox, you cannot use empty .m files. Therefore, your marker files</span>
+0032 <span class="comment">%   must contain at least a space character to satisfy the compiler.</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">% See also:</span>
+0035 <span class="comment">%   env_startup</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0038 <span class="comment">%                                2011-03-06</span>
+0039 
+0040 <span class="keyword">if</span> ~exist(<span class="string">'dependency_dir'</span>,<span class="string">'var'</span>)
+0041     <span class="comment">% other possible directories where the dependencies could be located:</span>
+0042     possible_dirs = {pwd,fileparts(mfilename(<span class="string">'fullpath'</span>))};
+0043     <span class="keyword">while</span> ~exist(<span class="string">'dependency_dir'</span>,<span class="string">'var'</span>)
+0044         <span class="comment">% for each of the possible directories...</span>
+0045         <span class="keyword">for</span> d=1:length(possible_dirs)
+0046             <span class="comment">% check whether it contains a 'dependencies' directory</span>
+0047             curdir = possible_dirs{d};
+0048             <span class="keyword">if</span> exist([curdir filesep <span class="string">'dependencies'</span>],<span class="string">'dir'</span>)
+0049                 dependency_dir = [curdir filesep <span class="string">'dependencies'</span>];
+0050                 <span class="keyword">break</span>;
+0051             <span class="keyword">end</span>
+0052             <span class="comment">% otherwise peel off the last directory</span>
+0053             fsp = find(curdir==filesep,1,<span class="string">'last'</span>);
+0054             <span class="keyword">if</span> ~isempty(fsp)
+0055                 possible_dirs{d} = curdir(1:fsp-1); <span class="keyword">end</span>
+0056         <span class="keyword">end</span>
+0057         <span class="keyword">if</span> cellfun(<span class="string">'isempty'</span>,possible_dirs)
+0058             error(<span class="string">'Did not find a directory called ''dependencies''. Please specify it.'</span>); <span class="keyword">end</span>
+0059     <span class="keyword">end</span>
+0060 <span class="keyword">end</span>
+0061 
+0062 <span class="keyword">if</span> ~exist(<span class="string">'autocompile'</span>,<span class="string">'var'</span>)
+0063     autocompile = true; <span class="keyword">end</span>
+0064 
+0065 <span class="keyword">if</span> autocompile
+0066     <span class="comment">% check if compilation is suppressed on this platform</span>
+0067     <span class="keyword">try</span>
+0068         fname = [hlp_homedir filesep <span class="string">'.bcilab'</span> filesep <span class="string">'bcilab-dont-compile'</span>];
+0069         fid = fopen(fname,<span class="string">'r'</span>);
+0070         platforms = fgetl(fid);
+0071         fclose(fid);
+0072         <span class="keyword">if</span> strfind(platforms,[hlp_hostname <span class="string">';'</span>])
+0073             autocompile = false; <span class="keyword">end</span>
+0074     <span class="keyword">catch</span>
+0075     <span class="keyword">end</span>
+0076 <span class="keyword">end</span>
+0077 
+0078 <a href="#_sub1" class="code" title="subfunction load_dependencies(pathlist,autocompile)">load_dependencies</a>(genpath(dependency_dir),autocompile);
+0079 
+0080 <span class="comment">% now, make sure that the build-* directories are included after their ancestor directories...</span>
+0081 <span class="keyword">if</span> ~isdeployed
+0082     <span class="comment">% get current path order</span>
+0083     added_paths = <a href="#_sub4" class="code" title="subfunction strings = strsplit(string, splitter)">strsplit</a>(path,pathsep)';
+0084     added_paths = added_paths(cellfun(@(s)strncmp(dependency_dir,s,length(dependency_dir)),added_paths));
+0085     
+0086     super_dirs = {}; <span class="comment">% this is a cell array of super directories with build dirs that may have to be moved</span>
+0087     sub_dirs = [];   <span class="comment">% this is an array of indices (into added_paths) of sub-directories that need</span>
+0088                      <span class="comment">% to be moved in front of the respective super dirs (indexed the same)</span>
+0089     <span class="comment">% we start from the end so that we don't have to change indices</span>
+0090     <span class="keyword">for</span> p=length(added_paths):-1:1
+0091         <span class="keyword">try</span>
+0092             cur = added_paths{p};
+0093             k = strfind(cur,[filesep <span class="string">'build-'</span>]);
+0094             <span class="keyword">if</span> ~isempty(k)
+0095                 <span class="comment">% if this is a build directory, add to the potential-move list</span>
+0096                 super_dirs{end+1} = cur(1:k(end)-1);
+0097                 sub_dirs(end+1) = p;
+0098             <span class="keyword">end</span>
+0099             <span class="comment">% check if this is one of the super dirs</span>
+0100             match = strcmp(cur,super_dirs);
+0101             <span class="keyword">if</span> any(match)
+0102                 <span class="comment">% move all the respective sub-dirs to right before this position</span>
+0103                 indices = sub_dirs(match);
+0104                 added_paths = vertcat(added_paths(1:p-1),added_paths(indices),added_paths(setdiff(p:<span class="keyword">end</span>,indices)));
+0105                 super_dirs = super_dirs(~match);
+0106                 sub_dirs = sub_dirs(~match);
+0107             <span class="keyword">end</span>
+0108         <span class="keyword">catch</span>
+0109             warning(<span class="string">'bcilab:dependency_glitch'</span>,<span class="string">'Glitch during mex/build path reordering.'</span>);
+0110             super_dirs = {};
+0111             sub_dirs = [];
+0112         <span class="keyword">end</span>
+0113     <span class="keyword">end</span>
+0114     
+0115     <span class="comment">% rebuild path</span>
+0116     rmpath(added_paths{:});
+0117     addpath(added_paths{:});
+0118 <span class="keyword">end</span>
+0119 
+0120 
+0121 
+0122 <span class="comment">% from the given path list, add all paths that contain an active env_add.m</span>
+0123 <span class="comment">% file (active: either empty or runs without exceptions and ans is not being</span>
+0124 <span class="comment">% set to false), and execute all env_exec.m files</span>
+0125 <a name="_sub1" href="#_subfunctions" class="code">function load_dependencies(pathlist,autocompile)</a>
+0126 compile_problems = {};
+0127 paths = <a href="#_sub4" class="code" title="subfunction strings = strsplit(string, splitter)">strsplit</a>(pathlist,pathsep);
+0128 <span class="keyword">for</span> px = paths(end:-1:1)
+0129     p = px{1};
+0130     <span class="keyword">if</span> exist([p filesep <span class="string">'env_add.m'</span>],<span class="string">'file'</span>)
+0131         <span class="comment">% env_add file: check if &quot;active&quot;</span>
+0132         [dummy,isactive] = evalc(<span class="string">'runscript([p filesep ''env_add.m''])'</span>);  <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0133         <span class="comment">% immediately add all java .jar packages</span>
+0134         dirinfos = dir([p filesep <span class="string">'*.jar'</span>]);
+0135         <span class="keyword">for</span> m={dirinfos.name}
+0136             <span class="keyword">if</span> isdeployed
+0137                 warning off MATLAB:javaclasspath:jarAlreadySpecified; <span class="keyword">end</span>
+0138             evalc(<span class="string">'javaaddpath([p filesep m{1}]);'</span>); 
+0139         <span class="keyword">end</span>
+0140     <span class="keyword">else</span>
+0141         isactive = false;
+0142     <span class="keyword">end</span>
+0143     <span class="comment">% env_exec file: run it</span>
+0144     <span class="keyword">if</span> exist([p filesep <span class="string">'env_exec.m'</span>],<span class="string">'file'</span>)
+0145         <a href="#_sub2" class="code" title="subfunction ans = runscript(filename__)">runscript</a>([p filesep <span class="string">'env_exec.m'</span>]); <span class="keyword">end</span>
+0146     <span class="comment">% env_compile file: invoke compilation, if necessary</span>
+0147     <span class="keyword">if</span> autocompile &amp;&amp; exist([p filesep <span class="string">'env_compile.m'</span>],<span class="string">'file'</span>)
+0148         settings = <a href="#_sub3" class="code" title="subfunction settings = get_settings(filename__)">get_settings</a>([p filesep <span class="string">'env_compile.m'</span>]);
+0149         <span class="comment">% the Skip field determines whether the current platform should be skipped</span>
+0150         <span class="keyword">if</span> isfield(settings,<span class="string">'Skip'</span>)
+0151             docompile = ~settings.Skip;
+0152         <span class="keyword">else</span>
+0153             docompile = true;
+0154         <span class="keyword">end</span>
+0155         <span class="keyword">if</span> ~isequal(settings,false) &amp;&amp; docompile
+0156             <span class="keyword">if</span> ~hlp_trycompile(<span class="string">'Directory'</span>,p, <span class="string">'Style'</span>,<span class="string">'eager'</span>, settings);
+0157                 compile_problems{end+1} = p; <span class="keyword">end</span>
+0158         <span class="keyword">end</span>
+0159     <span class="keyword">end</span>
+0160     <span class="keyword">if</span> isactive
+0161         <span class="comment">% finally add to MATLAB &amp; Java path</span>
+0162         <span class="keyword">if</span> ~isdeployed
+0163             addpath(p); <span class="keyword">end</span>
+0164         <span class="comment">% also add java files here (note: this may clear global variables)</span>
+0165         <span class="keyword">if</span> ~isempty(dir([p filesep <span class="string">'*.class'</span>]))
+0166             <span class="keyword">if</span> isdeployed
+0167                 warning off MATLAB:javaclasspath:jarAlreadySpecified; <span class="keyword">end</span>
+0168             javaaddpath(p); 
+0169         <span class="keyword">end</span>
+0170     <span class="keyword">end</span>
+0171 <span class="keyword">end</span>
+0172 
+0173 <span class="comment">% handle compilation errors gracefully</span>
+0174 <span class="keyword">if</span> ~isempty(compile_problems) &amp;&amp; ~isdeployed
+0175     disp(<span class="string">'There were compiling problems for the dependencies in:'</span>);
+0176     <span class="keyword">for</span> k=1:length(compile_problems)
+0177         disp([<span class="string">'  '</span> compile_problems{k}]); <span class="keyword">end</span>
+0178     fprintf(<span class="string">'\n'</span>);
+0179     disp(<span class="string">'This means that the affected features of BCILAB will be disabled.'</span>);
+0180     <span class="keyword">if</span> ispc
+0181         disp(<span class="string">'These issues are usually resolved by installing a (free) Microsoft Visual Studio Express version that is between five years to a half year older than your MATLAB release.'</span>);
+0182         disp(<span class="string">'If you install a new compiler, you might have to type &quot;mex -setup&quot; in the MATLAB command line, before MATLAB recognizes it.'</span>);
+0183     <span class="keyword">elseif</span> ismac
+0184         disp(<span class="string">'These issues are usually resolved by installing the Xcode application that comes with your OS (with all install options to include gcc compiler support).'</span>);
+0185     <span class="keyword">elseif</span> isunix
+0186         disp(<span class="string">'These issues are usually resolved by a installing a version of the gcc compiler package that is between three years to a half year older than your MATLAB release.'</span>);
+0187     <span class="keyword">end</span>
+0188     yn = lower(input(<span class="string">'Should BCILAB try to recompile in the future (or skip recompilation if not)? [y/n]'</span>,<span class="string">'s'</span>));
+0189     <span class="keyword">if</span> any(strcmp(yn,{<span class="string">'y'</span>,<span class="string">'n'</span>,<span class="string">'yes'</span>,<span class="string">'no'</span>}))
+0190         <span class="keyword">if</span> yn(1) == <span class="string">'n'</span>
+0191             <span class="keyword">if</span> ~exist([hlp_homedir filesep <span class="string">'.bcilab'</span>],<span class="string">'dir'</span>)
+0192                 <span class="keyword">if</span> ~mkdir(hlp_homedir,<span class="string">'.bcilab'</span>); 
+0193                     disp(<span class="string">'Cannot create directory .bcilab in your home folder.'</span>); <span class="keyword">end</span>
+0194             <span class="keyword">end</span>            
+0195             fname = [hlp_homedir filesep <span class="string">'.bcilab'</span> filesep <span class="string">'bcilab-dont-compile'</span>];
+0196             disp([<span class="string">'BCILAB will add/update a file called '</span> fname <span class="string">' which contains the names of computers on which you chose to disable compilation.'</span>]);
+0197             fid = fopen(fname,<span class="string">'a'</span>);
+0198             <span class="keyword">if</span> fid ~= -1
+0199                 <span class="keyword">try</span>
+0200                     fwrite(fid,[hlp_hostname <span class="string">';'</span>]);
+0201                     fclose(fid);
+0202                 <span class="keyword">catch</span>
+0203                     <span class="keyword">try</span> fclose(fid); <span class="keyword">catch</span>,<span class="keyword">end</span>
+0204                     disp(<span class="string">'There were permission problems while accessing this file. Did not update it.'</span>);
+0205                 <span class="keyword">end</span>
+0206             <span class="keyword">else</span>
+0207                 disp(<span class="string">'The file name appears to be invalid on your platform; did not update it.'</span>);
+0208             <span class="keyword">end</span>
+0209         <span class="keyword">end</span>
+0210     <span class="keyword">else</span>
+0211         disp(<span class="string">'Please type ''y'' or ''n'' next time.'</span>);
+0212     <span class="keyword">end</span>
+0213     fprintf(<span class="string">'\n'</span>);
+0214 <span class="keyword">end</span>
+0215 
+0216 
+0217 <span class="comment">% run the given script (in its own scope...)</span>
+0218 <span class="comment">% and return the result of the last line</span>
+0219 <a name="_sub2" href="#_subfunctions" class="code">function ans = runscript(filename__)</a>
+0220 <span class="keyword">try</span>
+0221     ans = 1; <span class="comment">%#ok&lt;NOANS&gt;</span>
+0222     fprintf(<span class="string">'Loading %s...\n'</span>,fileparts(filename__));
+0223     run_script(filename__); <span class="comment">% Note: This function is equivalent to run(), but works in deployed mode,</span>
+0224                             <span class="comment">%       too. If the code fails here, you probably don't have this</span>
+0225                             <span class="comment">%       function in your path. You may retrieve it (it's in the 'misc'</span>
+0226                             <span class="comment">%       directory of BCILAB), or replace it here by run().</span>
+0227 <span class="keyword">catch</span> e
+0228     disp([<span class="string">'Error running dependency loader '</span> filename__ <span class="string">'; reason: '</span> e.message]);
+0229     disp(<span class="string">'The dependency will likely not be fully operational.'</span>);
+0230     ans = 0; <span class="comment">%#ok&lt;NOANS&gt;</span>
+0231 <span class="keyword">end</span>
+0232 
+0233 
+0234 <span class="comment">% run the given settings script (in its own scope...)</span>
+0235 <span class="comment">% and return the collected defined variables (or false)</span>
+0236 <a name="_sub3" href="#_subfunctions" class="code">function settings = get_settings(filename__)</a>
+0237 <span class="keyword">try</span>
+0238     evalc(<span class="string">'run_script(filename__)'</span>);
+0239     infos = whos();
+0240     settings = struct();
+0241     <span class="keyword">for</span> n = {infos.name}
+0242         settings.(n{1}) = eval(n{1}); <span class="keyword">end</span>
+0243 <span class="keyword">catch</span>
+0244     disp([<span class="string">'The settings script '</span> filename__ <span class="string">' contains an error.'</span>]);
+0245     settings = false;
+0246 <span class="keyword">end</span>
+0247 
+0248 
+0249 <span class="comment">% Split a string according to some delimiter(s). Not as fast as hlp_split (and doesn't fuse</span>
+0250 <span class="comment">% delimiters), but doesn't need bsxfun().</span>
+0251 <a name="_sub4" href="#_subfunctions" class="code">function strings = strsplit(string, splitter)</a>
+0252 ix = strfind(string, splitter);
+0253 strings = cell(1,numel(ix)+1);
+0254 ix = [0 ix numel(string)+1];
+0255 <span class="keyword">for</span> k = 2 : numel(ix)
+0256     strings{k-1} = string(ix(k-1)+1:ix(k)-1); <span class="keyword">end</span>
+0257 strings = strings(~cellfun(<span class="string">'isempty'</span>,strings));</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

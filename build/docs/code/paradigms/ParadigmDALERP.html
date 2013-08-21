@@ -1,0 +1,234 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmDALERP</title>
+  <meta name="keywords" content="ParadigmDALERP">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmDALERP.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmDALERP
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmDALERP.html" class="code" title="">ParadigmDALERP</a>	</li><li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmDALERP.html" class="code" title="">ParadigmDALERP</a>	</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li><li><a href="#_sub2" class="code">function defaults = machine_learning_defaults(self)</a></li><li><a href="#_sub3" class="code">function model = feature_adapt(self,varargin)</a></li><li><a href="#_sub4" class="code">function features = feature_extract(self,signal,featuremodel)</a></li><li><a href="#_sub5" class="code">function visualize_model(self,parent,fmodel,pmodel,varargin)</a></li><li><a href="#_sub6" class="code">function layout = dialog_layout_defaults(self)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmDALERP.html" class="code" title="">ParadigmDALERP</a> &lt; <a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>
+0002     <span class="comment">% Advanced paradigm for slow cortical potentials via the Dual-Augmented Lagrange method.</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% The DAL-LF paradigm is, like para_windowmeans, a general method for operating on slow cortical</span>
+0005     <span class="comment">% potentials. It is a special case of a more general framework described in [1] (using only its</span>
+0006     <span class="comment">% &quot;first-order&quot; detector); the general variant, which can in addition capture oscillatory processes,</span>
+0007     <span class="comment">% is further explained in para_dal. DAL is the name of the optimization method, and not an accepted</span>
+0008     <span class="comment">% or recognized name for BCI paradigms using it (but is used here for the lack of a better name).</span>
+0009     <span class="comment">%</span>
+0010     <span class="comment">% The paradigm does not make a clear distinction between signal processing, feature extraction and</span>
+0011     <span class="comment">% machine learning, unlike most others, but instead is a jointly optimized mapping from raw signal</span>
+0012     <span class="comment">% (epoch) to probabilistic prediction, using an efficient regularized optimization method (further</span>
+0013     <span class="comment">% detailed in [2]). The method usually out-performs the windowed means paradigm, and in addition</span>
+0014     <span class="comment">% does not require any user parameters aside from the epoch limits and lowpass filtering band, and</span>
+0015     <span class="comment">% is therefore one of the most useful BCI paradigms. The major drawback is the required computation</span>
+0016     <span class="comment">% time (and in some cases, the required memory -- which can be ameliorated by reducing the sampling</span>
+0017     <span class="comment">% rate of the data) due to the need for regularization. For this reason, it is a good strategy to</span>
+0018     <span class="comment">% first run the paradigm without regularization to get a ball-park estimate of the attainable</span>
+0019     <span class="comment">% accuracy, and only run the complete regularization when it makes sense.</span>
+0020     <span class="comment">%</span>
+0021     <span class="comment">% Just like the windowed means paradigm, DAL-LF is applicable to a wide range of event-related and</span>
+0022     <span class="comment">% non-event-related scenarios, some of which are listed in para_windowmeans.</span>
+0023     <span class="comment">%</span>
+0024     <span class="comment">% Example: Consider the goal of predicting whether a person perceives a fixated on-screen item as</span>
+0025     <span class="comment">% being unexpected (and/or erroneous, non-rewarding) or not. A calibration data set for this task</span>
+0026     <span class="comment">% could be annotated with an event for every gaze fixation made by the user (obtained from an eye</span>
+0027     <span class="comment">% tracker) while reading short on-screen text fragments which are either semantically correct or</span>
+0028     <span class="comment">% incorrect. The two event types which identify the conditions sare 'corr' and 'err'. From the</span>
+0029     <span class="comment">% literature [4,5], it can be assumed that these events should be accompanied by a characteristic</span>
+0030     <span class="comment">% slow cortical potential in the EEG, which allows to infer the condition. The 'learner' parameter</span>
+0031     <span class="comment">% will be specified as the default (relatively fine-grained) search over possible DAL regularization</span>
+0032     <span class="comment">% parameter values.</span>
+0033     <span class="comment">%</span>
+0034     <span class="comment">%   calib = io_loadset('data sets/john/reading-errors.eeg')</span>
+0035     <span class="comment">%   myapproach = {'DALERP', 'SignalProcessing',{'EpochExtraction',[0 0.8]}};</span>
+0036     <span class="comment">%   [loss,model,stats] = bci_train('Data',calib, 'Approach',myapproach, 'TargetMarkers',{'corr','err'});</span>
+0037     <span class="comment">%</span>
+0038     <span class="comment">%</span>
+0039     <span class="comment">% References:</span>
+0040     <span class="comment">%  [1] Ryota Tomioka and Klaus-Robert Mueller, &quot;A regularized discriminative framework for EEG analysis with application to brain-computer interface&quot;,</span>
+0041     <span class="comment">%      Neuroimage, 49 (1) pp. 415-432, 2010.</span>
+0042     <span class="comment">%  [2] Ryota Tomioka &amp; Masashi Sugiyama, &quot;Dual Augmented Lagrangian Method for Efficient Sparse Reconstruction&quot;,</span>
+0043     <span class="comment">%      IEEE Signal Proccesing Letters, 16 (12) pp. 1067-1070, 2009.</span>
+0044     <span class="comment">%  [3] Marcel van Gerven, Ali Bahramisharif, Tom Heskes and Ole Jensen, &quot;Selecting features for BCI control based on a covert spatial attention paradigm.&quot;</span>
+0045     <span class="comment">%      Neural Networks 22 (9), 1271-1277, 2009</span>
+0046     <span class="comment">%  [4] Gehring, W.J., Coles, M.G.H., Meyer, D.E., Donchin, E.</span>
+0047     <span class="comment">%      &quot;The error-related negativity: an event-related brain potential accompanying errors.&quot;</span>
+0048     <span class="comment">%      Psychophysiology 27, 34-41, 1990</span>
+0049     <span class="comment">%  [5] Oliveira, F.T.P., McDonald, J.J., Goodman, D.</span>
+0050     <span class="comment">%      &quot;Performance monitoring in the anterior cingulate is not all error related: expectancy deviation and the representation of action-outcome associations&quot;</span>
+0051     <span class="comment">%      Journal of Cognitive Neuroscience. 19(12), 1994-2004, 2007</span>
+0052     <span class="comment">%</span>
+0053     <span class="comment">% Name:</span>
+0054     <span class="comment">%   Low-Frequency DAL</span>
+0055     <span class="comment">%</span>
+0056     <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0057     <span class="comment">%                           2010-06-25</span>
+0058     
+0059     methods
+0060         
+0061         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0062             defaults = {<span class="string">'IIRFilter'</span>,{[0.1 0.5],<span class="string">'highpass'</span>},<span class="string">'EpochExtraction'</span>,[-1.5 1.5],<span class="string">'Resampling'</span>,60,<span class="string">'SpectralSelection'</span>,[0.1 15]};
+0063         <span class="keyword">end</span>
+0064         
+0065         <a name="_sub1" href="#_subfunctions" class="code">function defaults = machine_learning_defaults(self)</a>
+0066             defaults = <span class="string">'dal'</span>;
+0067         <span class="keyword">end</span>
+0068         
+0069         <a name="_sub2" href="#_subfunctions" class="code">function model = feature_adapt(self,varargin)</a>
+0070             args = arg_define(varargin, <span class="keyword">...</span>
+0071                 arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
+0072                 arg({<span class="string">'normalizers'</span>,<span class="string">'NormalizationExponents'</span>},[-0.25,-0.25],[],<span class="string">'Normalization exponents [lhs, rhs]. Two-element array of powers for the left-hand-side and right-hand-side normalization matrices that are applied to the data from the region.'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>), <span class="keyword">...</span>
+0073                 arg({<span class="string">'shrinkage_cov'</span>,<span class="string">'ShrinkageCov'</span>},true,[],<span class="string">'Use shrinkage covariance. This is slower but works better in the case of few trials.'</span>), <span class="keyword">...</span>
+0074                 arg({<span class="string">'apply_to'</span>,<span class="string">'ApplyTo'</span>},<span class="string">'channels'</span>,{<span class="string">'channels'</span>,<span class="string">'sources'</span>,<span class="string">'components'</span>,<span class="string">'full CSD'</span>},<span class="string">'Apply classifier to. Allows to select the type of time series to apply this model to.'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>));
+0075             
+0076             <span class="keyword">switch</span> args.apply_to
+0077                 <span class="keyword">case</span> <span class="string">'channels'</span>
+0078                     X = num2cell(args.signal.data,[1 2]);
+0079                 <span class="keyword">case</span> <span class="string">'sources'</span>
+0080                     X = num2cell(args.signal.srcpot,[1 2]);
+0081                 <span class="keyword">case</span> <span class="string">'full CSD'</span>
+0082                     X = num2cell(args.signal.srcpot_all,[1 2]);
+0083                     <span class="comment">% compute diagonal covariance matrices right away, since it's hopeless to try to get a full cov</span>
+0084                     model.P = {diag(var(cat(2,X{:})'))^args.normalizers(1),diag(var(cat(1,X{:})))^args.normalizers(2)};
+0085                 <span class="keyword">case</span> <span class="string">'components'</span>
+0086                     <span class="keyword">if</span> isempty(args.signal.icaact) &amp;&amp; ~isempty(args.signal.icaweights)
+0087                         args.signal.icaact = reshape((args.signal.icaweights*args.signal.icasphere)*args.signal.data(args.signal.icachansind,:), [], args.signal.pnts, args.signal.trials); <span class="keyword">end</span>
+0088                      X = num2cell(args.signal.icaact,[1 2]);
+0089             <span class="keyword">end</span>
+0090             model.chanlocs = args.signal.chanlocs;
+0091             <span class="keyword">if</span> ~isfield(model,<span class="string">'P'</span>)
+0092                 <span class="keyword">if</span> args.shrinkage_cov
+0093                     model.P = {hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_shrink,cat(2,X{:})')^args.normalizers(1),hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_shrink,cat(1,X{:}))^args.normalizers(2)}; 
+0094                 <span class="keyword">else</span>
+0095                     model.P = {cov(cat(2,X{:})')^args.normalizers(1),cov(cat(1,X{:}))^args.normalizers(2)}; 
+0096                 <span class="keyword">end</span>
+0097             <span class="keyword">end</span>
+0098             model.times = args.signal.times;
+0099             model.apply_to = args.apply_to;
+0100             
+0101             <span class="comment">% store some extra info</span>
+0102             model.cov = cov(args.signal.data(:,:)');            
+0103             <span class="keyword">global</span> tracking;
+0104             tracking.inspection.dal_model = model;
+0105         <span class="keyword">end</span>
+0106         
+0107         <a name="_sub3" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
+0108             <span class="keyword">switch</span> featuremodel.apply_to
+0109                 <span class="keyword">case</span> <span class="string">'channels'</span>
+0110                     features = signal.data;
+0111                 <span class="keyword">case</span> <span class="string">'sources'</span>
+0112                     features = signal.srcpot;
+0113                 <span class="keyword">case</span> <span class="string">'full CSD'</span>
+0114                     features = signal.srcpot_all;
+0115                 <span class="keyword">case</span> <span class="string">'components'</span>
+0116                     features = signal.icaact;
+0117             <span class="keyword">end</span>
+0118             <span class="keyword">for</span> t=1:size(features,3)
+0119                 features(:,:,t) = featuremodel.P{1}*features(:,:,t)*featuremodel.P{2}; <span class="keyword">end</span>
+0120         <span class="keyword">end</span>
+0121         
+0122         <a name="_sub4" href="#_subfunctions" class="code">function visualize_model(self,parent,fmodel,pmodel,varargin) </a><span class="comment">%#ok&lt;*INUSD&gt;</span>
+0123             <span class="comment">% no parent: create new figure</span>
+0124             args = hlp_varargin2struct(varargin,<span class="string">'maxcomps'</span>,Inf,<span class="string">'regcurve'</span>,true,<span class="string">'paper'</span>,false);
+0125             <span class="keyword">if</span> isempty(parent)
+0126                 parent = figure(<span class="string">'Name'</span>,<span class="string">'Per-window weights'</span>); <span class="keyword">end</span>
+0127             <span class="comment">% [U,S,V] = svd(reshape(pmodel.model.w,size(fmodel.P{1},2),[]));</span>
+0128             <span class="comment">% SF = fmodel.P{1}*U(1:nnz(diag(S)&gt;0.0001),:)';</span>
+0129             <span class="comment">% get the spatial preprocessing matrix.</span>
+0130             P = fmodel.P{1};
+0131             Q = fmodel.P{2};
+0132             <span class="comment">% obtain &amp; reshape the model</span>
+0133             M = reshape(pmodel.model.w,size(P,2),[]);
+0134             <span class="comment">% do an SVD to get spatial and temporal filters</span>
+0135             [U,S,V] = svd(M);
+0136             <span class="comment">% display the model contents</span>
+0137             N = min(rank(M),args.maxcomps) + double(args.regcurve);
+0138             px = ceil(sqrt(N));
+0139             py = ceil(N/px);
+0140             lim = -Inf;
+0141             <span class="keyword">for</span> x=1:N
+0142                 lim = max([lim;abs(inv(Q)*V(:,x)*S(x,x))]); <span class="keyword">end</span>
+0143             <span class="keyword">for</span> x=1:N
+0144                 col = mod(x-1,px);
+0145                 row = floor((x-1) / px);
+0146                 idx = 1 + col + 2*row*px;
+0147                 <span class="keyword">if</span> x &lt; N || (x==N &amp;&amp; ~args.regcurve)
+0148                     subplot(2*py,px,idx,<span class="string">'Parent'</span>,parent);
+0149                     topoplot(P*U(x,:)',fmodel.chanlocs);
+0150                     t = title(sprintf(<span class="string">'Component %.0f'</span>,x));
+0151                     camzoom(1.2);
+0152                     subplot(2*py,px,idx+px,<span class="string">'Parent'</span>,parent);
+0153                     p1 = plot(fmodel.times,inv(Q)*V(:,x)*S(x,x),<span class="string">'black'</span>);
+0154                     ylim([-lim lim]);
+0155                     hold; p2 = plot(fmodel.times,zeros(length(Q),1),<span class="string">'black--'</span>);
+0156                     l1 = xlabel(<span class="string">'Time in ms'</span>);
+0157                     l2 = ylabel(<span class="string">'Weight'</span>);
+0158                 <span class="keyword">elseif</span> args.regcurve
+0159                     subplot(2*py,px,idx+px,<span class="string">'Parent'</span>,parent);
+0160                     t = title(<span class="string">'Regularization curve'</span>);
+0161                     p1 = plot(mean(pmodel.model.losses)); p2=[];
+0162                     l1 = xlabel(<span class="string">'Regularization parameter #'</span>);
+0163                     l2 = ylabel(<span class="string">'Prediction loss (MCR)'</span>);
+0164                 <span class="keyword">end</span>
+0165                 <span class="keyword">if</span> args.paper
+0166                     set([p1,p2],<span class="string">'LineWidth'</span>,3);
+0167                     set([l1,l2,t],<span class="string">'FontUnits'</span>,<span class="string">'normalized'</span>);
+0168                     set([l1,l2,t],<span class="string">'FontSize'</span>,0.1);
+0169                     set(gca,<span class="string">'FontUnits'</span>,<span class="string">'normalized'</span>);
+0170                     set(gca,<span class="string">'FontSize'</span>,0.1);
+0171                 <span class="keyword">end</span>
+0172             <span class="keyword">end</span>
+0173         <span class="keyword">end</span>
+0174         
+0175         <a name="_sub5" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0176             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>, <span class="string">'SignalProcessing.IIRFilter.Frequencies'</span>, <span class="keyword">...</span>
+0177                 <span class="string">'SignalProcessing.IIRFilter.Type'</span>, <span class="string">'SignalProcessing.EpochExtraction'</span>, <span class="keyword">...</span>
+0178                 <span class="string">'SignalProcessing.SpectralSelection.FrequencySpecification'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0179                 <span class="string">'Prediction.MachineLearning.Learner.Lambdas'</span>,<span class="string">'Prediction.MachineLearning.Learner.LossFunction'</span>,<span class="keyword">...</span>
+0180                 <span class="string">'Prediction.MachineLearning.Learner.Regularizer'</span>};
+0181         <span class="keyword">end</span>
+0182         
+0183     <span class="keyword">end</span>
+0184 <span class="keyword">end</span>
+0185</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

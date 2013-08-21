@@ -1,0 +1,260 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmBaseSimplified</title>
+  <meta name="keywords" content="ParadigmBaseSimplified">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmBaseSimplified.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmBaseSimplified
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmBase.html" class="code" title="">ParadigmBase</a>	</li><li><a href="ParadigmBaseSimplified.html" class="code" title="">ParadigmBaseSimplified</a>	</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmBaseSimplified.html" class="code" title="">ParadigmBaseSimplified</a>	</li><li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function model = calibrate_simple(self,varargin)</a></li><li><a href="#_sub2" class="code">function outputs = predict_simple(self,signal,model)</a></li><li><a href="#_sub3" class="code">function visualize(self,model,varargin)</a></li><li><a href="#_sub4" class="code">function model = calibrate(self,varargin)</a></li><li><a href="#_sub5" class="code">function outputs = predict(self,bundle,model)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmBaseSimplified.html" class="code" title="">ParadigmBaseSimplified</a> &lt; <a href="ParadigmBase.html" class="code" title="">ParadigmBase</a>
+0002     <span class="comment">% Simplified base class for BCI paradigms.</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% Derive from this class if in your paradigm, calibration is done based on a single data set</span>
+0005     <span class="comment">% (i.e. neither dataset collections nor stream bundles are handled meaningfully by it).</span>
+0006     <span class="comment">% * you supply a calibrate_simple() function that takes a single recording and derives a model</span>
+0007     <span class="comment">%   from it (optionally specifying a filter chain for efficient pre-processing)</span>
+0008     <span class="comment">% * you supply a predict_simple() function that takes a single data set and calculates outputs</span>
+0009     <span class="comment">%   from it</span>
+0010     <span class="comment">% * (optionally, you may specify a visualization function)</span>
+0011     <span class="comment">%</span>
+0012     <span class="comment">%</span>
+0013     <span class="comment">% If your paradigm can be understood as a dataflow model (i.e. a sequence of signal processing,</span>
+0014     <span class="comment">% feature extraction, and machine learning), consider deriving from a simpler dataflow base class</span>
+0015     <span class="comment">% instead (ParadigmDataflowSimplified).</span>
+0016     <span class="comment">%</span>
+0017     <span class="comment">% Notes:</span>
+0018     <span class="comment">%   Most BCI paradigms (e.g., almost all from before 2008) do not support the full generality of</span>
+0019     <span class="comment">%   possible inputs that are allowed by ParadigmBase (the general definition and implementation</span>
+0020     <span class="comment">%   contract of a BCI paradigm, see ParadigmBase.m). Instead, firstly, most traditional BCI</span>
+0021     <span class="comment">%   paradigms operate during online processing only on a single (multi-channel) signal instead</span>
+0022     <span class="comment">%   of multiple concurrent signals, and secondly, most paradigms are initially calibrated based</span>
+0023     <span class="comment">%   on a single calibration recording (usually a 30-60 minute recording of calibration data)</span>
+0024     <span class="comment">%   instead of a (possibly tagged) collection of multiple data sets. For any such paradigm, the</span>
+0025     <span class="comment">%   additional flexibility is useless and the corresponding organizational structure is an</span>
+0026     <span class="comment">%   unnecessary implementation burden.</span>
+0027     <span class="comment">%</span>
+0028     <span class="comment">%   This base class is a refinement of ParadigmBase which omits the additional flexibility and</span>
+0029     <span class="comment">%   provides an interface for simple paradigms. Any such paradigm should implement the</span>
+0030     <span class="comment">%   calibrate_simple() method and the predict_simple() method, which are the simplified</span>
+0031     <span class="comment">%   equivalents the calibrate() and predict() functions in ParadigmBase (without multiple</span>
+0032     <span class="comment">%   concurrent streams and without multiple calibration data sets).</span>
+0033     <span class="comment">%</span>
+0034     <span class="comment">%   There exists a further specialization of this base class, ParadigmDataflowSimplified, which</span>
+0035     <span class="comment">%   provides an additional layer of convenience for BCI paradigms that adhere to a standard</span>
+0036     <span class="comment">%   &quot;dataflow&quot; (multi-stage) structure. If a paradigm can be expressed as a sequence of signal</span>
+0037     <span class="comment">%   processing, feature extraction and machine learning, it is recommended to derive from this</span>
+0038     <span class="comment">%   more specialized class instead (see ParadigmDataflowSimplified.m).</span>
+0039     <span class="comment">%</span>
+0040     <span class="comment">% Name:</span>
+0041     <span class="comment">%   Simplified Base Paradigm (abstract)</span>
+0042     <span class="comment">%</span>
+0043     <span class="comment">%                            Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0044     <span class="comment">%                            2011-08-28</span>
+0045     
+0046     methods
+0047         
+0048         <a name="_sub0" href="#_subfunctions" class="code">function model = calibrate_simple(self,varargin)</a>
+0049             <span class="comment">% Override this function to implement your model calibration code</span>
+0050             <span class="comment">% Model = calibrate_simple(Signal,Arguments...)</span>
+0051             <span class="comment">%</span>
+0052             <span class="comment">% This function defines how a BCI is calibrated (i.e. adapted) to an individual based on</span>
+0053             <span class="comment">% a given calibration recording. The calibration recording is a single EEGLAB data set</span>
+0054             <span class="comment">% (though may contain arbitrary signal contents) annotated with target markers that</span>
+0055             <span class="comment">% contain information about the desired BCI output at various time points in the</span>
+0056             <span class="comment">% recording. Based on these markers and the data a relationship between signal contents</span>
+0057             <span class="comment">% and the value of some (assumed) 'cognitive state variable' (to be approximated by the</span>
+0058             <span class="comment">% BCI's outputs) is inferred by this function and captured in the predictive model</span>
+0059             <span class="comment">% returned by it (a struct with any parameters necessary for predict_simple).</span>
+0060             <span class="comment">%</span>
+0061             <span class="comment">% Implementations of this function should declare at least a parameter named &quot;Signal&quot;,</span>
+0062             <span class="comment">% plus any desired custom user options. These parameters should be declared using the</span>
+0063             <span class="comment">% arg_define() facility to allow the framework to query the parameter names and defaults</span>
+0064             <span class="comment">% (e.g. for GUI display). The returned model also describes any signal (pre-)processing that</span>
+0065             <span class="comment">% shall be performed by BCILAB before the predict_simple() function is called by it,</span>
+0066             <span class="comment">% by means of its .filter_graph field.</span>
+0067             <span class="comment">%</span>
+0068             <span class="comment">% In:</span>
+0069             <span class="comment">%   Signal : a single continuous EEGLAB data set (annotated with target markers; see</span>
+0070             <span class="comment">%            set_targetmarkers for more info)</span>
+0071             <span class="comment">%</span>
+0072             <span class="comment">%   Arguments : further optional user arguments</span>
+0073             <span class="comment">%</span>
+0074             <span class="comment">% Out:</span>
+0075             <span class="comment">%   Model : a model struct with a mandatory field .filter_graph and arbitrary other content</span>
+0076             <span class="comment">%           * The .filter_graph filed is a 1x1 cell array that contains the desciption of</span>
+0077             <span class="comment">%             filter steps that is to be applied to the data, and is usually passed as either</span>
+0078             <span class="comment">%             the .tracking.online_expression field of the processed Signal or the processed</span>
+0079             <span class="comment">%             Signal itself. If no signal processing is performed by this paradigm, the raw</span>
+0080             <span class="comment">%             signal may be passed.</span>
+0081             <span class="comment">%</span>
+0082             <span class="comment">%           * May have optional fields .prediction_function, .prediction_window and</span>
+0083             <span class="comment">%             .prediction_channels - though these are generally auto-deduced</span>
+0084             <span class="comment">%</span>
+0085             <span class="comment">%           The rest of the model struct is arbitrary and should contain whatever</span>
+0086             <span class="comment">%           parameters are needed by predict_simple() to perform its operation.</span>
+0087             <span class="comment">%</span>
+0088             <span class="comment">% Notes:</span>
+0089             <span class="comment">%   Overridden functions should declare their arguments using arg_define().</span>
+0090             
+0091             error(<span class="string">'This paradigm implements no calibrate_simple() function.'</span>);
+0092         <span class="keyword">end</span>
+0093         
+0094         
+0095         <a name="_sub1" href="#_subfunctions" class="code">function outputs = predict_simple(self,signal,model)</a>
+0096             <span class="comment">% Override this function to implement your prediction code</span>
+0097             <span class="comment">% Outputs = predict_simple(Signal,Model)</span>
+0098             <span class="comment">%</span>
+0099             <span class="comment">% This function defines how this BCI paradigm responds to &quot;prediction&quot; queries, i.e.</span>
+0100             <span class="comment">% how, for a given piece of signal, an estimate of (or inference about) the user's</span>
+0101             <span class="comment">% cognitive state shall be computed. It receives a segment of a pre-processed signal, as</span>
+0102             <span class="comment">% well as a predictive model and shall produce an estimate about the most recent sample</span>
+0103             <span class="comment">% in the given signal (although it may utilize any previous samples in its computation).</span>
+0104             <span class="comment">% The signal is implicitly pre-processed before the function is called as defined by the</span>
+0105             <span class="comment">% .filter_graph field of the predictive model (set by the calibrate_simple) function.</span>
+0106             <span class="comment">%</span>
+0107             <span class="comment">% The signal may also be &quot;epoched&quot;, i.e. contain multiple segments, in which case the</span>
+0108             <span class="comment">% output of this function shall be an array of predictions (one for each segment).</span>
+0109             <span class="comment">%</span>
+0110             <span class="comment">% In:</span>
+0111             <span class="comment">%   Signal : a signal pre-processed according to the model's filter graph</span>
+0112             <span class="comment">%</span>
+0113             <span class="comment">%   Model : a predictive model as created by your calibrate_simple() function</span>
+0114             <span class="comment">%</span>
+0115             <span class="comment">% Out:</span>
+0116             <span class="comment">%   Outputs : a prediction/estimate for the most recent time point in the data (or one for</span>
+0117             <span class="comment">%             every epoch if the signal is epoched); see ml_predict for the allowed formats</span>
+0118             
+0119             error(<span class="string">'This paradigm implements no predict_simple() function.'</span>);
+0120         <span class="keyword">end</span>
+0121         
+0122         
+0123         <a name="_sub2" href="#_subfunctions" class="code">function visualize(self,model,varargin)</a>
+0124             <span class="comment">% Optionally override this function to implement your visualization code</span>
+0125             <span class="comment">% visualize(Model)</span>
+0126             <span class="comment">%</span>
+0127             <span class="comment">% In:</span>
+0128             <span class="comment">%   Model: a model as created by your calibrate() function;</span>
+0129             <span class="comment">%          a plot or GUI will be produced to inspect the model</span>
+0130             <span class="comment">%</span>
+0131             
+0132             error(<span class="string">'This paradigm implements no visualize() function.'</span>);
+0133         <span class="keyword">end</span>
+0134         
+0135         
+0136         
+0137         <span class="comment">% --- implementation ----</span>
+0138         
+0139         <a name="_sub3" href="#_subfunctions" class="code">function model = calibrate(self,varargin)</a>
+0140             <span class="comment">% Implementation of the calibrate() function (see ParadigmBase)</span>
+0141             <span class="comment">% Model = calibrate(Collection,GoalIdentifier,Arguments...)</span>
+0142             <span class="comment">%</span>
+0143             <span class="comment">% This is essentially a wrapper around calibrate_simple() which peels off any unused</span>
+0144             <span class="comment">% organizational ballast (for multiple collections and stream bundles) before passing it</span>
+0145             <span class="comment">% on. If multiple data sets are passed, they are implicitly merged.</span>
+0146             <span class="comment">%</span>
+0147             <span class="comment">% In:</span>
+0148             <span class="comment">%   Collection : a collection (cell array) of stream bundles</span>
+0149             <span class="comment">%</span>
+0150             <span class="comment">%   GoalIdentifier: the goal-identifier</span>
+0151             <span class="comment">%</span>
+0152             <span class="comment">%   Arguments... : further optional user arguments</span>
+0153             <span class="comment">%</span>
+0154             <span class="comment">% Out:</span>
+0155             <span class="comment">%   Model : The returned model struct</span>
+0156             
+0157             <span class="comment">% separate the collection argument from the rest</span>
+0158             collection = arg_extract(varargin,{<span class="string">'collection'</span>,<span class="string">'Collection'</span>},[],{});
+0159             remove = find(strcmpi(varargin(1:2:end),<span class="string">'collection'</span>))-1;
+0160             retain = setdiff(1:length(varargin),[1 + 2*remove,2 + 2*remove]);
+0161             varargin = varargin(retain);
+0162             <span class="comment">% also remove the goal identifier argument</span>
+0163             remove = find(strcmpi(varargin,<span class="string">'goal_identifier'</span>));
+0164             varargin([remove remove+1]) = [];
+0165             <span class="comment">% and extract the signal argument</span>
+0166             <span class="keyword">if</span> ~isempty(collection)
+0167                 <span class="comment">% check if any of the data sets in the collection has more than one stream</span>
+0168                 <span class="keyword">if</span> any(cellfun(@(x)length(x.streams) &gt; 1,collection))
+0169                     error(<span class="string">'This paradigm does not support more than one stream in parallel.'</span>); <span class="keyword">end</span>
+0170                 <span class="keyword">if</span> length(collection) == 1
+0171                     signal = collection{1}.streams{1};
+0172                 <span class="keyword">else</span>
+0173                     <span class="comment">% merge all data sets in the collection</span>
+0174                     tmp = cellfun(@(x)x.streams{1},collection,<span class="string">'UniformOutput'</span>,false);
+0175                     signal = set_merge(tmp{:});
+0176                 <span class="keyword">end</span>
+0177             <span class="keyword">else</span>
+0178                 signal = {};
+0179             <span class="keyword">end</span>
+0180             
+0181             <span class="comment">% call calibrate_simple with the signal passed in as additional argument</span>
+0182             model = self.calibrate_simple(varargin{:}, <span class="string">'signal'</span>,signal);
+0183         <span class="keyword">end</span>
+0184         
+0185         
+0186         <a name="_sub4" href="#_subfunctions" class="code">function outputs = predict(self,bundle,model)</a>
+0187             <span class="comment">% Override this function to implement your prediction code</span>
+0188             <span class="comment">% Outputs = predict(Bundle,Model)</span>
+0189             <span class="comment">%</span>
+0190             <span class="comment">% This is a wrapper around the predict_simple() function which peels off the stream bundle</span>
+0191             <span class="comment">% representation and just passes on the contained signal.</span>
+0192             <span class="comment">%</span>
+0193             <span class="comment">% In:</span>
+0194             <span class="comment">%   Bundle : stream bundle preprocessed by the model's filter graph</span>
+0195             <span class="comment">%</span>
+0196             <span class="comment">%   Model : a predictive model</span>
+0197             <span class="comment">%</span>
+0198             <span class="comment">% Out:</span>
+0199             <span class="comment">%   Outputs : the outputs of calibrate_simple()</span>
+0200             
+0201             <span class="keyword">if</span> length(bundle.streams) &gt; 1
+0202                 error(<span class="string">'This paradigm does not support more than one stream in parallel.'</span>); <span class="keyword">end</span>
+0203             outputs = self.predict_simple(bundle.streams{1},model);
+0204         <span class="keyword">end</span>
+0205         
+0206     <span class="keyword">end</span>
+0207 <span class="keyword">end</span>
+0208 
+0209 
+0210 <span class="comment">% (turn off a few editor warnings because some actual implementations are missing in this file)</span>
+0211 <span class="comment">%#ok&lt;*INUSD,*STOUT,*MANU&gt;</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

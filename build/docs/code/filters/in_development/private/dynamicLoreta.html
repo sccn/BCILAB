@@ -1,0 +1,209 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of dynamicLoreta</title>
+  <meta name="keywords" content="dynamicLoreta">
+  <meta name="description" content="[J,varargout] = dynamicLoreta(V,varargin)">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../../index.html">filters</a> &gt; <a href="../index.html">in_development</a> &gt; <a href="index.html">private</a> &gt; dynamicLoreta.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../../index.html"><img alt="<" border="0" src="../../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters/in_development/private&nbsp;<img alt=">" border="0" src="../../../../right.png"></a></td></tr></table>-->
+
+<h1>dynamicLoreta
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+<div class="box"><strong>[J,varargout] = dynamicLoreta(V,varargin)</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+<div class="box"><strong>function [J,alpha,beta,T,history] = dynamicLoreta(Ut,Y,s2,iLV,L,options,alpha,beta) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment">[J,varargout] = dynamicLoreta(V,varargin)
+
+ Computes the posterior distribution of the parameters J given some data V. 
+ The program solves levels of inference: 1) optimization of parameters J, and
+ 2) optimization of hyperparameters alpha and beta. See Trujillo-Barreto
+ et. al. (2004) for details.
+
+ Ut,s2, and iLV are defined as follows: 
+     Y: Nsensors x time points data matrix
+     K: N x P predictor matrix
+     L: sparse P x P square root of the precision matrix 
+     [U,s,V] = svd( K*inv(L) )
+     iLV = inv(L)*V
+     s2  = s.^2
+
+ alpha, beta: hyperparameters
+ J: estimated parapeters
+ 
+                     P(V|J,alpha)*P(J|beta)
+ P(J|V,alpha,beta) = ---------------------- 
+                        P(V|alpha,beta)
+ 
+ Author: Alejandro Ojeda, SCCN/INC/UCSD, Jan-2013
+
+ References:
+   Trujillo-Barreto, N., Aubert-Vazquez, E., Valdes-Sosa, P.A., 2004.
+     Bayesian model averaging in EEG/MEG imaging. NeuroImage 21, 1300–1319</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+<ul style="list-style-image:url(../../../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function indmin = getMinima(x)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [J,alpha,beta,T,history] = dynamicLoreta(Ut,Y,s2,iLV,L,options,alpha,beta)</a>
+0002 
+0003 <span class="comment">%[J,varargout] = dynamicLoreta(V,varargin)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Computes the posterior distribution of the parameters J given some data V.</span>
+0006 <span class="comment">% The program solves levels of inference: 1) optimization of parameters J, and</span>
+0007 <span class="comment">% 2) optimization of hyperparameters alpha and beta. See Trujillo-Barreto</span>
+0008 <span class="comment">% et. al. (2004) for details.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% Ut,s2, and iLV are defined as follows:</span>
+0011 <span class="comment">%     Y: Nsensors x time points data matrix</span>
+0012 <span class="comment">%     K: N x P predictor matrix</span>
+0013 <span class="comment">%     L: sparse P x P square root of the precision matrix</span>
+0014 <span class="comment">%     [U,s,V] = svd( K*inv(L) )</span>
+0015 <span class="comment">%     iLV = inv(L)*V</span>
+0016 <span class="comment">%     s2  = s.^2</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">% alpha, beta: hyperparameters</span>
+0019 <span class="comment">% J: estimated parapeters</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%                     P(V|J,alpha)*P(J|beta)</span>
+0022 <span class="comment">% P(J|V,alpha,beta) = ----------------------</span>
+0023 <span class="comment">%                        P(V|alpha,beta)</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">% Author: Alejandro Ojeda, SCCN/INC/UCSD, Jan-2013</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">% References:</span>
+0028 <span class="comment">%   Trujillo-Barreto, N., Aubert-Vazquez, E., Valdes-Sosa, P.A., 2004.</span>
+0029 <span class="comment">%     Bayesian model averaging in EEG/MEG imaging. NeuroImage 21, 1300–1319</span>
+0030 
+0031 
+0032 <span class="keyword">if</span> nargin &lt; 5, error(<span class="string">'Not enough input arguments.'</span>);<span class="keyword">end</span>
+0033 <span class="keyword">if</span> nargin &lt; 6
+0034     options.maxTol          = 1e-3;
+0035     options.maxIter         = 100;
+0036     options.gridSize        = 100;
+0037     options.history         = true;
+0038     options.verbose         = true;
+0039     options.initNoiseFactor = 0.001;
+0040 <span class="keyword">end</span>
+0041 
+0042 <span class="keyword">if</span> options.history
+0043     [history.alpha <span class="keyword">...</span>
+0044      history.beta  <span class="keyword">...</span>
+0045      history.err] = deal(nan(1,options.maxIter));
+0046 <span class="keyword">else</span>
+0047     history = [];
+0048 <span class="keyword">end</span>
+0049 
+0050 <span class="comment">% Y = Y ./ std(Y(:));</span>
+0051 
+0052 s = s2.^(0.5);
+0053 n = size(Ut,1);
+0054 p = length(s);
+0055 
+0056 <span class="comment">% Initialize hyperparameters</span>
+0057 <span class="keyword">if</span> nargin &lt; 7 || isempty(alpha)
+0058     UtY     = Ut*Y;
+0059     tol     = max([n p])*eps(max(s));
+0060     options.gridSize = options.maxIter;
+0061     lambda2 = logspace(log10(tol),log10(max(s)),options.gridSize);
+0062     gcv     = zeros(options.gridSize,1);
+0063     <span class="keyword">for</span> k=1:options.gridSize
+0064         d = lambda2(k)./(s2+lambda2(k));
+0065         f = diag(d)*UtY(:,1);
+0066         gcv(k) = dot(f,f,1)/sum(d)^2;
+0067     <span class="keyword">end</span>
+0068     loc = <a href="#_sub1" class="code" title="subfunction indmin = getMinima(x)">getMinima</a>(gcv);
+0069     <span class="keyword">if</span> isempty(loc), loc = 1; <span class="keyword">end</span>
+0070     loc = loc(end);
+0071     lambda2 = lambda2(loc);
+0072      
+0073     alpha = options.initNoiseFactor*(Y(:)'*Y(:))/n;
+0074     beta  = alpha*lambda2;
+0075 <span class="keyword">end</span>
+0076 err = inf;
+0077 
+0078 <span class="keyword">for</span> it=1:options.maxIter
+0079     <span class="keyword">if</span> err &lt; options.maxTol, <span class="keyword">break</span>;<span class="keyword">end</span>
+0080     
+0081     <span class="comment">% updating parameters</span>
+0082     <span class="comment">% J = iLV*diag(alpha*s./(alpha*s.^2+beta))*UtY;</span>
+0083 <span class="comment">%     T = iLV*diag(alpha*s./(alpha*s2+beta))*Ut;</span>
+0084     T = iLV*spdiags((alpha*s./(alpha*s2+beta)),0,n,n)*Ut;
+0085     J = T*Y;
+0086     
+0087     <span class="comment">% updating hyperparameters</span>
+0088     alpha_old = alpha;
+0089     beta_old  = beta;
+0090     gamma     = p-beta*sum(1./(alpha*s2+beta));
+0091     alpha     = n-gamma;
+0092     beta      = gamma/norm(L*J,<span class="string">'fro'</span>);
+0093     err       = 0.5*(abs(alpha_old-alpha) + abs(beta_old-beta));
+0094     <span class="keyword">if</span> options.history
+0095         history.alpha(it) = alpha;
+0096         history.beta(it)  = beta;
+0097         history.err(it)   = err;
+0098     <span class="keyword">end</span>
+0099     <span class="keyword">if</span> options.verbose
+0100         fprintf([num2str(it) <span class="string">' =&gt; alpha: '</span> num2str(alpha) <span class="string">'  beta: '</span> num2str(beta) <span class="string">' df: '</span> num2str(gamma) <span class="string">' error: '</span> num2str(err) <span class="string">'\n'</span>]);
+0101     <span class="keyword">end</span>
+0102 <span class="keyword">end</span>
+0103 <span class="keyword">if</span> options.verbose
+0104     <span class="keyword">if</span> it == options.maxIter
+0105         fprintf(<span class="string">'Maximum iterations reached. Failed to converge.\n'</span>);
+0106     <span class="keyword">else</span>
+0107         fprintf(<span class="string">'LORETA converged in %d iterations\n'</span>,it);
+0108     <span class="keyword">end</span>
+0109 <span class="keyword">end</span>
+0110 
+0111 <span class="keyword">if</span> options.history
+0112     history.alpha(it:end) = [];
+0113     history.beta(it:end)  = [];
+0114     history.err(it:end)   = [];
+0115 <span class="keyword">end</span>
+0116 
+0117 <span class="keyword">end</span>
+0118 
+0119 <span class="comment">%---</span>
+0120 <a name="_sub1" href="#_subfunctions" class="code">function indmin = getMinima(x)</a>
+0121 fminor = diff(x)&gt;=0;
+0122 fminor = ~fminor(1:end-1, :) &amp; fminor(2:<span class="keyword">end</span>, :);
+0123 fminor = [0; fminor; 0];
+0124 indmin = find(fminor);
+0125 <span class="keyword">end</span>
+0126 
+0127 <span class="comment">% function T = standT(T,gamma,Y,L,iLV,s,Ut)</span>
+0128 <span class="comment">% H = (L*iLV*diag(s)*Ut)'*T;</span>
+0129 <span class="comment">% E = Y-H*Y;</span>
+0130 <span class="comment">% sigma = E'*E/gamma;</span>
+0131 <span class="comment">% dT = 1./sqrt(dot(T,T,2));</span>
+0132 <span class="comment">% S = 1./sigma*dT;</span>
+0133 <span class="comment">% T = bsxfun(@times,S,T);</span>
+0134 <span class="comment">% end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

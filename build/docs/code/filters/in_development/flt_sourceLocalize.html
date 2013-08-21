@@ -1,0 +1,385 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_sourceLocalize</title>
+  <meta name="keywords" content="flt_sourceLocalize">
+  <meta name="description" content="Localize sources for a given head model.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../index.html">filters</a> &gt; <a href="index.html">in_development</a> &gt; flt_sourceLocalize.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters/in_development&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>flt_sourceLocalize
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Localize sources for a given head model.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function [signal, state] = flt_sourceLocalize(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Localize sources for a given head model.
+ Estimated sources and inverse operator will be stored in 
+ signal.CSD and signal.invOperator
+ 
+ Author: Tim Mullen, Jan 2013, SCCN/INC/UCSD
+         Alejandro Ojeda, Jan 2013, SCCN/INC/UCSD
+         Christian Kothe, Jan 2013, SCCN/INC/UCSD</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+<li><a href="flt_loreta.html" class="code" title="function [signal, state] = flt_loreta(varargin)">flt_loreta</a>	Return the current source density for a given head model and data using</li><li><a href="flt_vbloreta.html" class="code" title="function [signal, state] = flt_vbloreta(varargin)">flt_vbloreta</a>	Return the current source density for a given head model and data using</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function state = build_state(hmObj,channels,sourceAtlasLabels,roiAtlasLabels,roiVertices,roiVerticesLabels,makeDipfitStruct,verb,chanlocs,combineROIs,appendROI)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal, state] = flt_sourceLocalize(varargin)</a>
+0002 <span class="comment">% Localize sources for a given head model.</span>
+0003 <span class="comment">% Estimated sources and inverse operator will be stored in</span>
+0004 <span class="comment">% signal.CSD and signal.invOperator</span>
+0005 <span class="comment">%</span>
+0006 <span class="comment">% Author: Tim Mullen, Jan 2013, SCCN/INC/UCSD</span>
+0007 <span class="comment">%         Alejandro Ojeda, Jan 2013, SCCN/INC/UCSD</span>
+0008 <span class="comment">%         Christian Kothe, Jan 2013, SCCN/INC/UCSD</span>
+0009 
+0010 <span class="comment">% FIXME: Need to add a for loop over the calls to Loreta (or add it in the</span>
+0011 <span class="comment">% flt_loreta function) which loops over sub-partitions of the data block,</span>
+0012 <span class="comment">% estimating CSD for each partition (i.e. assuming local stationarity of</span>
+0013 <span class="comment">% the inverse operator within each partition). The invOperator results are</span>
+0014 <span class="comment">% stored in a 3D array and the mean invOperator is then returned in state</span>
+0015 <span class="comment">% obj as well as in signal obj.</span>
+0016 <span class="comment">% FIXME: Implement option to only update inverse operatior infrequently,</span>
+0017 <span class="comment">% otherwise using the inv op stored in state object (i.e. mean over last</span>
+0018 <span class="comment">% block).</span>
+0019 
+0020 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>), <span class="keyword">return</span>; <span class="keyword">end</span>
+0021 
+0022 declare_properties(<span class="string">'name'</span>,<span class="string">'SourceLocalization'</span>, <span class="string">'experimental'</span>,true, <span class="string">'follows'</span>,{<span class="string">'flt_ica'</span>,<span class="string">'flt_fir'</span>,<span class="string">'flt_iir'</span>,<span class="string">'flt_project'</span>}, <span class="string">'cannot_precede'</span>,{<span class="string">'flt_clean_settings'</span>},<span class="string">'cannot_follow'</span>,{<span class="string">'set_makepos'</span>},<span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,false);
+0023 
+0024 <span class="comment">% extract some defaults</span>
+0025 headmodel_default = <span class="string">'resources:/headmodels/standard-Colin27-385ch.mat'</span>;
+0026 <span class="keyword">if</span> ~onl_isonline
+0027     hmObj = arg_extract(varargin,{<span class="string">'hmObj'</span>,<span class="string">'HeadModelObject'</span>},[],headmodel_default);
+0028     hmObj = hlp_validateHeadModelObject(hmObj);
+0029     <span class="keyword">if</span> isempty(hmObj)
+0030         ROINames = {};
+0031     <span class="keyword">else</span>
+0032         <span class="comment">% get the unique ROI names</span>
+0033         [tmp, idx] = unique(hmObj.atlas.label);
+0034         ROINames = hmObj.atlas.label(sort(idx))';
+0035     <span class="keyword">end</span>
+0036 <span class="keyword">else</span>
+0037     ROINames = {};
+0038 <span class="keyword">end</span>
+0039 
+0040 arg_define(varargin, <span class="keyword">...</span>
+0041     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>},[],[],<span class="string">'Signal structure. Must contain .data field with channel data'</span>), <span class="keyword">...</span>
+0042     arg({<span class="string">'hmObj'</span>,<span class="string">'HeadModelObject'</span>},headmodel_default,[],<span class="string">'Head model object generated by MOBILAB. See MOBILAB''s headModel class.'</span>), <span class="keyword">...</span>
+0043     arg({<span class="string">'channels'</span>,<span class="string">'Channels'</span>},[],[],<span class="string">'Cell array of channel labels to retain. If empty, all channels in signal.chanlocs.labels will be used. Channels must be a subset of hmObj.getChannelLabels()'</span>,<span class="string">'type'</span>,<span class="string">'cellstr'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0044     arg_subswitch({<span class="string">'invMethod'</span>,<span class="string">'InverseMethod'</span>},{<span class="string">'LORETA'</span>}, <span class="keyword">...</span>
+0045     {<span class="keyword">...</span>
+0046      <span class="string">'LORETA'</span>, @<a href="flt_loreta.html" class="code" title="function [signal, state] = flt_loreta(varargin)">flt_loreta</a>, <span class="keyword">...</span>
+0047      <span class="string">'Variational LORETA'</span>, @<a href="flt_vbloreta.html" class="code" title="function [signal, state] = flt_vbloreta(varargin)">flt_vbloreta</a>, <span class="keyword">...</span>
+0048      },<span class="string">'Source Localization Algorithm'</span>), <span class="keyword">...</span>
+0049     arg({<span class="string">'sourceAtlasLabels'</span>,<span class="string">'SourceAtlasLabels'</span>,<span class="string">'SourceAtlasROI'</span>},ROINames,ROINames,<span class="string">'Source regions of interest (atlas labels). This is a cell array of strings corresponding to a subset of the labels stored in hmObj.atlas.label. Current source density will be estimated only for these ROIs.'</span>,<span class="string">'type'</span>,<span class="string">'logical'</span>), <span class="keyword">...</span>
+0050     arg({<span class="string">'colRoiCsd'</span>,<span class="string">'CollapseRoiCsd'</span>},<span class="string">'sum'</span>,{<span class="string">'none'</span>,<span class="string">'mean'</span>,<span class="string">'sum'</span>,<span class="string">'max'</span>,<span class="string">'maxmag'</span>,<span class="string">'median'</span>},<span class="string">'Method for computing ROI CSD. Return the (mean, integral, max) current source density within each ROI. signal.CSD matrix will be reduced to [num_rois x num_samples].'</span>), <span class="keyword">...</span>
+0051     arg({<span class="string">'keepFullCsd'</span>,<span class="string">'KeepFullCsd'</span>},true,[],<span class="string">'Keep a copy of the csd for each vertex. This is stored in srcpot_all'</span>), <span class="keyword">...</span>
+0052     arg({<span class="string">'roiAtlasLabels'</span>,<span class="string">'ROIAtlasLabels'</span>,<span class="string">'AtlasROI'</span>,<span class="string">'ROI'</span>},ROINames,ROINames,<span class="string">'Regions of interest atlas labels. This is a cell array of strings corresponding to a subset of the labels stored in hmObj.atlas.label. If CollapseRoiCsd is set, current source density will be integrated over these ROIs. If empty the all ROIs in SourceAtlasLabels are selected.'</span>,<span class="string">'type'</span>,<span class="string">'logical'</span>), <span class="keyword">...</span>
+0053     arg({<span class="string">'combineROIs'</span>,<span class="string">'CombineROI'</span>},[],[],<span class="string">'Combine ROIs in ROIAtlasLabels. This is a cell array of (name, value) pairs. The name entry is a string denoting the name of a new ROI. The value part is a cell array of strings indicating which of the ROIs in ROIAtlasLabels should be combined to form a new ROI. Any ROIs that were merged into a new ROI are removed from the original set of ROIs. To preserve an ROI that was merged into a new ROI, specify a new ROI containing only this ROI. All new ROIs are then appended to the list of existing (unmerged) ROIs in ROIAtlasLabels. If CollapseRoiCsd is set, current source density will be integrated over all ROIs.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0054     arg({<span class="string">'appendROI'</span>,<span class="string">'AppendROI'</span>},false,[],<span class="string">'Append superROIs or replace'</span>), <span class="keyword">...</span>
+0055     arg({<span class="string">'reference'</span>,<span class="string">'Reference'</span>},[],[],<span class="string">'Reference scheme. This is a cell array of channel labels defining the reference. If more than one channel, average reference is assumed'</span>,<span class="string">'type'</span>,<span class="string">'cellstr'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0056     arg_nogui({<span class="string">'roiVertices'</span>,<span class="string">'ROIVertices'</span>},[],[],<span class="string">'Regions of interest (vertices). This is supplementary to the ''RegionsOfInterest'' option. ''roiVertices'' is a cell array where each cell contains the indices of all vertices within a region of interest. The vertex indices correspond to respective columns of the lead field matrix. These ROIs will be added to the set of ROIs defined in the ''RegionsOfInterest'' option.'</span>), <span class="keyword">...</span>
+0057     arg_nogui({<span class="string">'roiVerticesLabels'</span>},[],[],<span class="string">'Labels for the supplementary ROIs. This is a cell array of same dimension as ''roiVertices'' with labels for each ROI'</span>,<span class="string">'type'</span>,<span class="string">'cellstr'</span>), <span class="keyword">...</span>
+0058     arg({<span class="string">'makeDipfitStruct'</span>,<span class="string">'MakeDipfitStruct'</span>},true,[],<span class="string">'Make dipfit structure. If selected, a dipfit structure will be created in signal.dipfit containing the locations (.posxyz) and moments (.mom) of each dipole or center of mass of ROI.'</span>), <span class="keyword">...</span><span class="comment"> </span>
+0059     arg({<span class="string">'do_transform'</span>,<span class="string">'TransformData'</span>,<span class="string">'transform'</span>},false,[],<span class="string">'Transform the data rather than annotate. By default, source reconstructions are added as annotations (.srcpot) to the data set.'</span>),<span class="keyword">...</span>
+0060     arg({<span class="string">'verb'</span>,<span class="string">'Verbosity'</span>},false,[],<span class="string">'Verbose output'</span>), <span class="keyword">...</span>
+0061     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>}));
+0062 
+0063 <span class="keyword">if</span> isempty(roiAtlasLabels) <span class="comment">%#ok</span>
+0064     roiAtlasLabels = ROINames;
+0065 <span class="keyword">end</span>
+0066 <span class="keyword">if</span> isempty(sourceAtlasLabels) <span class="comment">%#ok</span>
+0067     sourceAtlasLabels = ROINames;
+0068 <span class="keyword">end</span>
+0069 <span class="comment">% if ~isempty(combineROIs)</span>
+0070 <span class="comment">%     % initially override roiAtlasLabels</span>
+0071 <span class="comment">%     roiAtlasLabels = sourceAtlasLabels;</span>
+0072 <span class="comment">% end</span>
+0073 
+0074 
+0075 <span class="comment">% Intialization block</span>
+0076 <span class="comment">% -------------------------------------------------------------------------</span>
+0077 <span class="keyword">if</span> isempty(state)
+0078     <span class="comment">% || (isfield(state,'roiAtlasLabels') &amp;&amp; ~isequal(state.roiAtlasLabels,roiAtlasLabels))</span>
+0079     <span class="comment">% Either we are initializing our adaptive estimator or user-specified</span>
+0080     <span class="comment">% ROIs have changed.</span>
+0081     state = hlp_microcache(<span class="string">'sourcespace'</span>,@<a href="#_sub1" class="code" title="subfunction state = build_state(hmObj,channels,sourceAtlasLabels,roiAtlasLabels,roiVertices,roiVerticesLabels,makeDipfitStruct,verb,chanlocs,combineROIs,appendROI)">build_state</a>,hmObj,channels,sourceAtlasLabels,roiAtlasLabels,roiVertices,roiVerticesLabels,makeDipfitStruct,verb,signal.chanlocs,combineROIs,appendROI);
+0082 <span class="keyword">end</span>
+0083 
+0084 <span class="comment">% Estimate Current Source Density</span>
+0085 <span class="comment">% -------------------------------------------------------------------------</span>
+0086 
+0087 <span class="comment">% Current source density is returned in signal.srcpot</span>
+0088 <span class="comment">% [num_vertices x num_samples]</span>
+0089 <span class="comment">% Inverse operator is returned in signal.srcweights</span>
+0090 <span class="comment">% [num_vertices x num_channels]</span>
+0091 
+0092 <span class="keyword">switch</span> lower(invMethod.arg_selection)
+0093     <span class="keyword">case</span> <span class="string">'loreta'</span>
+0094         <span class="keyword">if</span> isempty(state.solverState)
+0095             [signal, state.solverState] = exp_eval_optimized(<a href="flt_loreta.html" class="code" title="function [signal, state] = flt_loreta(varargin)">flt_loreta</a>(                    <span class="keyword">...</span>
+0096                                         <span class="string">'signal'</span>,signal,                <span class="keyword">...</span>
+0097                                         invMethod,                      <span class="keyword">...</span>
+0098                                         <span class="string">'state'</span>,state.solverState,      <span class="keyword">...</span>
+0099                                         <span class="string">'K'</span>,state.leadFieldMatrix,      <span class="keyword">...</span>
+0100                                         <span class="string">'L'</span>,state.laplacianOperator,    <span class="keyword">...</span>
+0101                                         <span class="string">'verb'</span>,verb));
+0102         <span class="keyword">else</span>
+0103             [signal, state.solverState] = hlp_scope({<span class="string">'disable_expressions'</span>,true}, <span class="keyword">...</span>
+0104                                         @<a href="flt_loreta.html" class="code" title="function [signal, state] = flt_loreta(varargin)">flt_loreta</a>,                    <span class="keyword">...</span>
+0105                                         <span class="string">'signal'</span>,signal,                <span class="keyword">...</span>
+0106                                         invMethod,                      <span class="keyword">...</span>
+0107                                         <span class="string">'state'</span>,state.solverState,      <span class="keyword">...</span>
+0108                                         <span class="string">'K'</span>,state.leadFieldMatrix,      <span class="keyword">...</span>
+0109                                         <span class="string">'L'</span>,state.laplacianOperator,    <span class="keyword">...</span>
+0110                                         <span class="string">'verb'</span>,verb);
+0111         <span class="keyword">end</span>
+0112         signal.srcweights = state.solverState.srcweights;
+0113     <span class="keyword">case</span> <span class="string">'variational loreta'</span>
+0114         <span class="keyword">if</span> isempty(state.solverState)
+0115             [signal, state.solverState] = exp_eval_optimized(<a href="flt_vbloreta.html" class="code" title="function [signal, state] = flt_vbloreta(varargin)">flt_vbloreta</a>(                    <span class="keyword">...</span>
+0116                                         <span class="string">'signal'</span>,signal,                <span class="keyword">...</span>
+0117                                         invMethod,                      <span class="keyword">...</span>
+0118                                         <span class="string">'state'</span>,state.solverState,      <span class="keyword">...</span>
+0119                                         <span class="string">'K'</span>,state.leadFieldMatrix,      <span class="keyword">...</span>
+0120                                         <span class="string">'L'</span>,state.laplacianOperator,    <span class="keyword">...</span>
+0121                                         <span class="string">'verb'</span>,verb));
+0122         <span class="keyword">else</span>
+0123             [signal, state.solverState] = hlp_scope({<span class="string">'disable_expressions'</span>,true}, <span class="keyword">...</span>
+0124                                         @<a href="flt_vbloreta.html" class="code" title="function [signal, state] = flt_vbloreta(varargin)">flt_vbloreta</a>,                  <span class="keyword">...</span>
+0125                                         <span class="string">'signal'</span>,signal,                <span class="keyword">...</span>
+0126                                         invMethod,                      <span class="keyword">...</span>
+0127                                         <span class="string">'state'</span>,state.solverState,      <span class="keyword">...</span>
+0128                                         <span class="string">'K'</span>,state.leadFieldMatrix,      <span class="keyword">...</span>
+0129                                         <span class="string">'L'</span>,state.laplacianOperator,    <span class="keyword">...</span>
+0130                                         <span class="string">'verb'</span>,verb);
+0131         <span class="keyword">end</span>
+0132         signal.srcweights = state.solverState.srcweights;
+0133     <span class="keyword">otherwise</span>
+0134         error(<span class="string">'flt_sourceLocalize:badInverseMethod'</span>,<span class="string">'Invalid inverse method %s'</span>,invMethod.arg_selection);
+0135 <span class="keyword">end</span>
+0136 
+0137 <span class="comment">% Collapse CSD within each ROI</span>
+0138 <span class="comment">% -------------------------------------------------------------------------</span>
+0139 <span class="comment">% FIXME: We may wish to replace avg with the surface integral over the ROI</span>
+0140 <span class="comment">% We can use numerical double integration i.e. quad2d() or more crudely:</span>
+0141 <span class="comment">% sum(signal.CSD(x,:)) * dx * dy;</span>
+0142 <span class="comment">% where dx, dy are the voxel x,y dimensions.</span>
+0143 <span class="comment">% If the csd is not constrained to the surface of a mesh, then we need to</span>
+0144 <span class="comment">% use triple integration i.e. triplequad(). Or</span>
+0145 <span class="comment">% sum(signal.CSD(x,:)) * dx * dy * dz</span>
+0146 
+0147 <span class="keyword">if</span> ~strcmp(colRoiCsd,<span class="string">'none'</span>) &amp;&amp; ~isempty(signal.srcpot)
+0148     <span class="keyword">if</span> verb
+0149         fprintf(<span class="string">'Computing %s CSD for each ROI \n'</span>, colRoiCsd); 
+0150     <span class="keyword">end</span>
+0151     
+0152     <span class="keyword">if</span> keepFullCsd
+0153         <span class="comment">% store backup with all vertices</span>
+0154         signal.srcpot_all     = signal.srcpot;
+0155         signal.srcweights_all = signal.srcweights;
+0156     <span class="keyword">end</span>
+0157         
+0158     <span class="comment">% collapse current density</span>
+0159     signal.srcpot = hlp_colsrc(signal.srcpot,state.roiVerticesReduced,colRoiCsd);
+0160     <span class="comment">% collapse weights</span>
+0161     signal.srcweights = hlp_colsrc(signal.srcweights,state.roiVerticesReduced,colRoiCsd);
+0162 <span class="keyword">else</span>
+0163     signal.srcpot_all = [];
+0164     signal.srcweights_all = [];
+0165 <span class="keyword">end</span>
+0166 
+0167 
+0168 <span class="comment">% Store additional outputs in signal</span>
+0169 <span class="comment">% -------------------------------------------------------------------------</span>
+0170 <span class="keyword">if</span> makeDipfitStruct
+0171     signal.dipfit   = state.dipfit;
+0172 <span class="keyword">end</span>
+0173 signal.roiLabels          = state.roiLabels;
+0174 signal.roiVertices        = state.roiVertices;
+0175 signal.roiVerticesReduced = state.roiVerticesReduced;
+0176 
+0177 <span class="keyword">if</span> do_transform
+0178     signal.data = signal.srcpot;
+0179     signal.nbchan = size(signal.data,1);
+0180     signal.chanlocs = struct(<span class="string">'labels'</span>,cellfun(@num2str,num2cell(1:signal.nbchan,1),<span class="string">'UniformOutput'</span>,false));
+0181 <span class="keyword">end</span>
+0182 signal.hmObj = hmObj;
+0183 signal.leadFieldMatrix = state.leadFieldMatrix;
+0184 
+0185     
+0186 exp_endfun;
+0187 
+0188 
+0189 
+0190 <a name="_sub1" href="#_subfunctions" class="code">function state = build_state(hmObj,channels,sourceAtlasLabels,roiAtlasLabels,roiVertices,roiVerticesLabels,makeDipfitStruct,verb,chanlocs,combineROIs,appendROI)</a>
+0191 <span class="comment">% validate the head model and construct the source space</span>
+0192 
+0193 orilen = length(roiAtlasLabels);
+0194 [res ia] = intersect(roiAtlasLabels,sourceAtlasLabels);
+0195 roiAtlasLabels = roiAtlasLabels(sort(ia));  <span class="comment">% FIXME: double-check this order</span>
+0196 <span class="keyword">if</span> length(roiAtlasLabels)~=orilen
+0197     warn_once(<span class="string">'BCILAB:AtlasLabelMismatch'</span>,<span class="string">'Some elements of ROIAtlasLabels were not contained in SourceAtlasLabels. These were removed.'</span>);
+0198 <span class="keyword">end</span>
+0199 
+0200 <span class="comment">% Validate Inputs</span>
+0201 hmObj     = hlp_validateHeadModelObject(hmObj);
+0202 <span class="keyword">if</span> isempty(hmObj)
+0203     error(<span class="string">'HeadModelObject was improperly defined. Exiting'</span>);
+0204 <span class="keyword">end</span>
+0205 <span class="keyword">if</span> ~isempty(roiVerticesLabels) &amp;&amp; ~isempty(roiVertices) <span class="keyword">...</span>
+0206         &amp;&amp; length(roiVertices) ~= length(roiVerticesLabels)
+0207     fprintf(<span class="string">'WARNING: The number of ROI labels in ''roiVerticesLabels'' does not match the number of ROIs in ''roiVertices''. Reverting to generic labeling scheme {''ROI1'' ''ROI2'' ... ''ROIN''}.'</span>);
+0208     roiVerticesLabels = [];
+0209 <span class="keyword">end</span>
+0210 
+0211 
+0212 <span class="keyword">if</span> verb
+0213     fprintf(<span class="string">'Initializing source reconstructor \n'</span>);
+0214 <span class="keyword">end</span>
+0215 
+0216 <span class="comment">% Prune lead field matrix and laplacian operator</span>
+0217 <span class="comment">% to contain only regions of interest</span>
+0218 <span class="comment">% If there are no specific ROIs selected, this will &quot;open&quot; the</span>
+0219 <span class="comment">% surface mesh by removing a few vertices</span>
+0220 <span class="comment">% (the surface mesh cannot be a closed surface)</span>
+0221 <span class="keyword">if</span> verb
+0222     fprintf(<span class="string">'Constructing source space \n'</span>);
+0223 <span class="keyword">end</span>
+0224 brainStructsToRemove = setdiff(unique(hmObj.atlas.label),sourceAtlasLabels);
+0225 [   reducedSpace,                      <span class="keyword">...</span>
+0226     state.leadFieldMatrix,             <span class="keyword">...</span>
+0227     state.laplacianOperator            <span class="keyword">...</span>
+0228     state.rmIndices                          <span class="keyword">...</span>
+0229     ] = getSourceSpace4PEB(hmObj,brainStructsToRemove,roiVertices);
+0230 
+0231 <span class="comment">% We also store the indices of the vertices of each ROI (in the full</span>
+0232 <span class="comment">% source space) in a cell array. This allows us to obtain dipole</span>
+0233 <span class="comment">% centroids for each ROI</span>
+0234 <span class="keyword">for</span> k=1:length(roiAtlasLabels)
+0235     state.roiVertices{k} = indices4Structure(hmObj,roiAtlasLabels{k})';
+0236     <span class="comment">%         [~,state.roiVertices{k}] = removeStructureFromSourceSpace(hmObj,state.brainStructsToRemove{k});</span>
+0237 <span class="keyword">end</span>
+0238 <span class="comment">% append any additional ROI defined by 'roiVertices' input argument</span>
+0239 state.roiVertices = [state.roiVertices roiVertices];
+0240 
+0241 <span class="comment">% get ROI indices into reduced source space. These are used for</span>
+0242 <span class="comment">% integration over current source density (CSD) within each ROI</span>
+0243 nvert   = length(hmObj.atlas.color);
+0244 LFMcols = 1:nvert;
+0245 LFMcols(state.rmIndices) = [];
+0246 <span class="keyword">for</span> k=1:length(state.roiVertices)
+0247     state.roiVerticesReduced{k} = find(ismember(LFMcols,state.roiVertices{k}));
+0248 <span class="keyword">end</span>
+0249 
+0250 <span class="comment">% set up the labeling for any vertex-index-defined ROIs</span>
+0251 <span class="keyword">if</span> isempty(roiVerticesLabels) &amp;&amp; ~isempty(roiVertices)
+0252     <span class="comment">% use generic labeling scheme {'ROI1' 'ROI2' ... 'ROIN'}</span>
+0253     roiVerticesLabels = cellstr(num2str((1:length(roiVertices))'))';
+0254     roiVerticesLabels = cellfun(@(x)[<span class="string">'ROI'</span> x],roiVerticesLabels,<span class="string">'UniformOutput'</span>,false);
+0255 <span class="keyword">end</span>
+0256 state.roiLabels = [roiAtlasLabels roiVerticesLabels];
+0257 
+0258 
+0259 <span class="comment">% if needed, combine ROIs according to rules in combineROIs</span>
+0260 <span class="keyword">if</span> ~isempty(combineROIs)
+0261     <span class="keyword">if</span> mod(length(combineROIs),2)
+0262         error(<span class="string">'BCILAB:BadNameValuePair'</span>,<span class="string">'CombineROI must be a cell array of name,value pairs'</span>);
+0263     <span class="keyword">end</span>
+0264     newRoiLabels = combineROIs(1:2:end-1);
+0265     roiSubLabels = combineROIs(2:2:end);
+0266     numroi = length(newRoiLabels);
+0267     newRoiVerticesReduced = cell(1,numroi);
+0268     newRoiVertices        = cell(1,numroi);
+0269     roiIdxInAtlas  = cell(1,numroi);
+0270     <span class="keyword">for</span> k=1:numroi
+0271         matchedLabels = ismember(roiSubLabels{k},roiAtlasLabels);
+0272         <span class="keyword">if</span> ~all(matchedLabels)
+0273             error(<span class="string">'BCILAB:BadROINames'</span>, <span class="keyword">...</span>
+0274                   <span class="string">'The following ROIs in ''CombineROIs'' are not in the ROIAtlasLabels list: %s'</span>, <span class="keyword">...</span>
+0275                           hlp_tostring(roiSubLabels{k}(~matchedLabels)));
+0276         <span class="keyword">end</span>
+0277         roiIdxInAtlas{k}  = find(ismember(roiAtlasLabels,roiSubLabels{k}));
+0278         A = cell2mat(state.roiVerticesReduced(roiIdxInAtlas{k}));
+0279         [tmp, idx] = unique(A);
+0280         newRoiVerticesReduced{k} = A(sort(idx));
+0281         <span class="comment">% do the same for roiVertices</span>
+0282         A = cell2mat(state.roiVertices(roiIdxInAtlas{k}));
+0283         [tmp, idx] = unique(A);
+0284         newRoiVertices{k} = A(sort(idx));
+0285     <span class="keyword">end</span>
+0286     
+0287     <span class="keyword">if</span> appendROI
+0288         <span class="comment">% remove all merged ROIs ...</span>
+0289         mergedROI = unique(cell2mat(roiIdxInAtlas));
+0290         state.roiVerticesReduced(mergedROI) = [];
+0291         state.roiVertices(mergedROI)        = [];
+0292         state.roiLabels(mergedROI)          = [];
+0293     <span class="keyword">end</span>
+0294     <span class="comment">% ... and append the new ROIs</span>
+0295     state.roiVerticesReduced = [state.roiVerticesReduced newRoiVerticesReduced];
+0296     state.roiVertices        = [state.roiVertices newRoiVertices];
+0297     state.roiLabels          = [state.roiLabels newRoiLabels];
+0298     
+0299     
+0300 <span class="keyword">end</span>
+0301 
+0302 
+0303 <span class="comment">% prune the lead field matrix to contain only desired channels</span>
+0304 hmChanlabels  = lower(hmObj.getChannelLabels());
+0305 <span class="keyword">if</span> isempty(channels)
+0306     channels = lower({chanlocs.labels});
+0307 <span class="keyword">end</span>
+0308 
+0309 <span class="comment">% use only selected channels that are in the head model</span>
+0310 chaninds = ismember(hmChanlabels,channels);
+0311 <span class="keyword">if</span> nnz(chaninds)~=length(channels)
+0312     error(<span class="string">'Some channels could not be matched to the headmodel'</span>);
+0313 <span class="keyword">end</span>
+0314 state.leadFieldMatrix = state.leadFieldMatrix(chaninds,:);
+0315 
+0316 <span class="comment">% load the original source space (non-reduced)</span>
+0317 tmp = load(hmObj.surfaces);
+0318 fn  = fieldnames(tmp);
+0319 state.sourceSpace = tmp.(fn{1})(3);  <span class="comment">% dim3 = cortical surface</span>
+0320 
+0321 <span class="comment">% make dipfit structure containing centroids (dipfit.model.posxyz) and</span>
+0322 <span class="comment">% surface mesh (dipfit.model.surfmesh) for each ROI as well as complete</span>
+0323 <span class="comment">% surface mesh (dipfit.surfmesh). We also store the indices of each ROI</span>
+0324 <span class="comment">% into the complete surface mesh (dipfit.model.meshVertices)</span>
+0325 <span class="keyword">if</span> makeDipfitStruct
+0326     state.dipfit = hlp_makeDipfitStruct(state.sourceSpace,state.roiVertices,reducedSpace);
+0327 <span class="keyword">end</span>
+0328 
+0329 <span class="comment">% initialize the state of the solver</span>
+0330 state.solverState = [];</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

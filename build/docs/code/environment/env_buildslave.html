@@ -1,0 +1,356 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of env_buildslave</title>
+  <meta name="keywords" content="env_buildslave">
+  <meta name="description" content="Run as a build slave: recompile the toolbox whenever it has changed.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">environment</a> &gt; env_buildslave.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/environment&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>env_buildslave
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Run as a build slave: recompile the toolbox whenever it has changed.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function env_buildslave(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Run as a build slave: recompile the toolbox whenever it has changed.
+
+ In:
+   ScanInterval : the interval at which the toolbox is scanned for changes, in seconds
+                  (default: 30)
+
+   WaitPeriod : the period that must have passed between the last change and a rebuild
+                (default: 120)
+
+   ScanDirectories : the directories and files to scan for changes
+                     (default: {'bcilab:/code', 'bcilab:/*.m'})
+
+   ProjectName : name/location of the project to monitor
+                 (default: 'bcilab:/build')
+
+   SpinInterval : interval at which the function is querying whether the build has
+                  finished (default: 5)
+
+   LogFile : name/location of the logfile, if any
+             (default: 'bcilab:/build/buildslave.log')
+
+   IssueBuild : function to be called to issue a new build (default: 'env_compile_bcilab')
+
+   PostBuild : function to be called after a successful build (default: [])
+               (called with the name of the binary)
+
+   WaitPreCompile : time to wait until we expect that the compilation has ramped up
+                    (default: 30)
+
+   WaitPostCompile : time to wait until we expect that the compilation has completed (after mcc's have finished)
+                     (default: 30)
+
+   WaitPostConflict : time to wait after we have had a failed build (e.g. due to concurrent editing)
+                      (default: 120)
+
+ Notes:
+   This function will likely not run on Win64, as it requires a process monitoring command to work.
+
+ See also:
+   <a href="env_compile_bcilab.html" class="code" title="function env_compile_bcilab">env_compile_bcilab</a>, deploytool
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-03-13</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="env_compile_bcilab.html" class="code" title="function env_compile_bcilab">env_compile_bcilab</a>	Compile a deployable BCILAB binary using the MATLAB compiler toolbox</li><li><a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>	Translates platform-independent directories into a system-specific directories.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function ts = timestamp(loc)</a></li><li><a href="#_sub2" class="code">function makefile(name)</a></li><li><a href="#_sub3" class="code">function rmfile(name)</a></li><li><a href="#_sub4" class="code">function tf = is_process_running(name)</a></li><li><a href="#_sub5" class="code">function cleanup(varargin)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function env_buildslave(varargin)</a>
+0002 <span class="comment">% Run as a build slave: recompile the toolbox whenever it has changed.</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% In:</span>
+0005 <span class="comment">%   ScanInterval : the interval at which the toolbox is scanned for changes, in seconds</span>
+0006 <span class="comment">%                  (default: 30)</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">%   WaitPeriod : the period that must have passed between the last change and a rebuild</span>
+0009 <span class="comment">%                (default: 120)</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">%   ScanDirectories : the directories and files to scan for changes</span>
+0012 <span class="comment">%                     (default: {'bcilab:/code', 'bcilab:/*.m'})</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%   ProjectName : name/location of the project to monitor</span>
+0015 <span class="comment">%                 (default: 'bcilab:/build')</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">%   SpinInterval : interval at which the function is querying whether the build has</span>
+0018 <span class="comment">%                  finished (default: 5)</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%   LogFile : name/location of the logfile, if any</span>
+0021 <span class="comment">%             (default: 'bcilab:/build/buildslave.log')</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%   IssueBuild : function to be called to issue a new build (default: 'env_compile_bcilab')</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%   PostBuild : function to be called after a successful build (default: [])</span>
+0026 <span class="comment">%               (called with the name of the binary)</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">%   WaitPreCompile : time to wait until we expect that the compilation has ramped up</span>
+0029 <span class="comment">%                    (default: 30)</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%   WaitPostCompile : time to wait until we expect that the compilation has completed (after mcc's have finished)</span>
+0032 <span class="comment">%                     (default: 30)</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">%   WaitPostConflict : time to wait after we have had a failed build (e.g. due to concurrent editing)</span>
+0035 <span class="comment">%                      (default: 120)</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">% Notes:</span>
+0038 <span class="comment">%   This function will likely not run on Win64, as it requires a process monitoring command to work.</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">% See also:</span>
+0041 <span class="comment">%   env_compile_bcilab, deploytool</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0044 <span class="comment">%                                2011-03-13</span>
+0045 
+0046 <span class="comment">% read options</span>
+0047 o = hlp_varargin2struct(varargin, <span class="keyword">...</span>
+0048     {<span class="string">'scan_interval'</span>,<span class="string">'ScanInterval'</span>},15, <span class="keyword">...</span>
+0049     {<span class="string">'wait_period'</span>,<span class="string">'WaitPeriod'</span>},120, <span class="keyword">...</span>
+0050     {<span class="string">'scan_dirs'</span>,<span class="string">'ScanDirectories'</span>},{<span class="string">'bcilab:/code'</span>,<span class="string">'bcilab:/*.m'</span>}, <span class="keyword">...</span>
+0051     {<span class="string">'project_name'</span>,<span class="string">'ProjectName'</span>},<span class="string">'bcilab:/build'</span>, <span class="keyword">...</span>
+0052     {<span class="string">'spin_interval'</span>,<span class="string">'SpinInterval'</span>},5, <span class="keyword">...</span>
+0053     {<span class="string">'log'</span>,<span class="string">'LogFile'</span>},<span class="string">'home:/.bcilab/logs/buildslave.log'</span>, <span class="keyword">...</span>
+0054     {<span class="string">'issue_build'</span>,<span class="string">'IssueBuild'</span>},@<a href="env_compile_bcilab.html" class="code" title="function env_compile_bcilab">env_compile_bcilab</a>, <span class="keyword">...</span>
+0055     {<span class="string">'post_build'</span>,<span class="string">'PostBuild'</span>},[], <span class="keyword">...</span>
+0056     {<span class="string">'wait_precompile'</span>,<span class="string">'WaitPreCompile'</span>},30, <span class="keyword">...</span>
+0057     {<span class="string">'wait_postcompile'</span>,<span class="string">'WaitPostCompile'</span>},30, <span class="keyword">...</span>
+0058     {<span class="string">'wait_postconflict'</span>,<span class="string">'WaitPostConflict'</span>},120);
+0059 
+0060 <span class="comment">% sanitize inputs</span>
+0061 <span class="keyword">if</span> ischar(o.scan_dirs)
+0062     o.scan_dirs = {o.scan_dirs}; <span class="keyword">end</span>
+0063 <span class="keyword">for</span> d=1:length(o.scan_dirs)
+0064     o.scan_dirs{d} = <a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(o.scan_dirs{d}); <span class="keyword">end</span>
+0065 o.log = <a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(o.log);
+0066 <span class="keyword">if</span> ischar(o.issue_build)
+0067     o.issue_build = str2func(o.issue_build); <span class="keyword">end</span>
+0068 <span class="keyword">if</span> ischar(o.post_build)
+0069     o.post_build = str2func(o.post_build); <span class="keyword">end</span>
+0070 
+0071 <span class="comment">% name and location of the project file</span>
+0072 o.project_name = <a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(o.project_name);
+0073 [proj_dir,proj_tag] = fileparts(o.project_name); proj_dir(end+1) = filesep;
+0074 
+0075 
+0076 <span class="comment">% name and location of the binary</span>
+0077 binary_dir = [proj_dir proj_tag filesep <span class="string">'distrib'</span> filesep];
+0078 binary_name = proj_tag;
+0079 <span class="keyword">if</span> ispc
+0080     binary_ext = <span class="string">'.exe'</span>;
+0081 <span class="keyword">else</span>
+0082     binary_ext = <span class="string">''</span>;
+0083 <span class="keyword">end</span>
+0084 binary_path = [binary_dir binary_name binary_ext];
+0085 
+0086 
+0087 <span class="comment">% names of marker files</span>
+0088 mrk_notsynched = [o.project_name filesep <span class="string">'not_synched'</span>];
+0089 mrk_synching = [o.project_name filesep  <span class="string">'synching'</span>];
+0090 mrk_synched = [o.project_name filesep  <span class="string">'synched'</span>];
+0091 
+0092 
+0093 <span class="comment">% check for status of the process monitoring tool...</span>
+0094 <span class="keyword">if</span> ~<a href="#_sub4" class="code" title="subfunction tf = is_process_running(name)">is_process_running</a>(<span class="string">'matlab'</span>)
+0095     error(<span class="string">'Process monitoring does not work on your platform.'</span>); <span class="keyword">end</span>
+0096 
+0097 <span class="comment">% turn off a few warnings</span>
+0098 <span class="keyword">if</span> ispc
+0099     warning off MATLAB:FILEATTRIB:SyntaxWarning; <span class="keyword">end</span>
+0100 warning off MATLAB:DELETE:FileNotFound;
+0101 
+0102 <span class="comment">% run...</span>
+0103 quicklog(o.log,<span class="string">'===== Now running as build slave ====='</span>);
+0104 cleaner = onCleanup(@<a href="#_sub5" class="code" title="subfunction cleanup(varargin)">cleanup</a>);
+0105 <span class="keyword">while</span> 1
+0106     <span class="comment">% get the date of the binary</span>
+0107     bindate = <a href="#_sub1" class="code" title="subfunction ts = timestamp(loc)">timestamp</a>(binary_path);
+0108     
+0109     <span class="comment">% get the most recent date of scanned directories</span>
+0110     codedate = max(cellfun(@<a href="#_sub1" class="code" title="subfunction ts = timestamp(loc)">timestamp</a>,o.scan_dirs));
+0111     
+0112     <span class="comment">% check if we are still sync'ed</span>
+0113     <span class="keyword">if</span> codedate &gt; bindate
+0114         quicklog(o.log,<span class="string">'out of sync'</span>);
+0115         <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_synched);
+0116         <a href="#_sub2" class="code" title="subfunction makefile(name)">makefile</a>(mrk_notsynched);
+0117         <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_synching);
+0118     <span class="keyword">end</span>
+0119     
+0120     <span class="comment">% check if wait period expired and there is no other compilation running...</span>
+0121     <span class="keyword">if</span> (codedate - bindate)*24*60*60 &gt; o.wait_period &amp;&amp; ~<a href="#_sub4" class="code" title="subfunction tf = is_process_running(name)">is_process_running</a>(<span class="string">'mcc'</span>)
+0122         <span class="comment">% issue a recompilation...</span>
+0123         quicklog(o.log,<span class="string">'recompiling...'</span>);
+0124         <a href="#_sub2" class="code" title="subfunction makefile(name)">makefile</a>(mrk_synching);
+0125         <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_notsynched);
+0126         <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_synched);
+0127         
+0128         <span class="comment">% rename the binary...</span>
+0129         <span class="keyword">try</span>
+0130             ds = datestr(clock); ds(ds == <span class="string">':'</span> | ds == <span class="string">' '</span>) = <span class="string">'-'</span>;
+0131             <span class="keyword">if</span> exist(binary_path,<span class="string">'file'</span>)
+0132                 movefile(binary_path,[binary_dir binary_name <span class="string">'-old-'</span> ds binary_ext]); <span class="keyword">end</span>
+0133         <span class="keyword">catch</span>
+0134             quicklog(o.log,<span class="string">'cannot move binary %s'</span>,binary_path);
+0135         <span class="keyword">end</span>
+0136         
+0137         <span class="comment">% issue a rebuild</span>
+0138         <span class="keyword">try</span>
+0139             clear functions;
+0140             o.issue_build();
+0141             <span class="comment">% wait until mcc has ramped up</span>
+0142             pause(o.wait_precompile);
+0143         <span class="keyword">catch</span> e
+0144             quicklog(o.log,evalc(<span class="string">'env_handleerror(e)'</span>));
+0145             rethrow(e);
+0146         <span class="keyword">end</span>
+0147         
+0148         <span class="comment">% wait until mcc's are done ...</span>
+0149         <span class="keyword">while</span> <a href="#_sub4" class="code" title="subfunction tf = is_process_running(name)">is_process_running</a>(<span class="string">'mcc'</span>)
+0150             pause(o.spin_interval); <span class="keyword">end</span>
+0151         
+0152         <span class="comment">% wait until the packaging has finished...</span>
+0153         pause(o.wait_postcompile);
+0154         
+0155         quicklog(o.log,<span class="string">'finished.'</span>);
+0156         
+0157         <span class="comment">% check whether the code has been edited during the build</span>
+0158         newdate = max(cellfun(@<a href="#_sub1" class="code" title="subfunction ts = timestamp(loc)">timestamp</a>,o.scan_dirs));
+0159         <span class="keyword">if</span> (newdate &gt; codedate) &amp;&amp; codedate
+0160             quicklog(o.log,<span class="string">'code has been edited concurrently.'</span>);
+0161             <span class="keyword">try</span>
+0162                 <span class="comment">% if so, delete the binary</span>
+0163                 delete(binary_path);
+0164             <span class="keyword">catch</span>
+0165                 quicklog(o.log,<span class="string">'Cannot delete failed binary. This is a serious condition; exiting...'</span>);
+0166                 <span class="keyword">return</span>;
+0167             <span class="keyword">end</span>
+0168         <span class="keyword">end</span>
+0169         
+0170         <span class="keyword">if</span> exist(binary_path,<span class="string">'file'</span>)
+0171             <span class="comment">% binary present</span>
+0172             quicklog(o.log,<span class="string">'last compilation successful.'</span>);
+0173             <span class="keyword">if</span> ~isempty(o.post_build)
+0174                 <span class="comment">% run the postbuild step</span>
+0175                 <span class="keyword">try</span>
+0176                     quicklog(o.log,<span class="string">'running post-build step...'</span>);
+0177                     o.post_build(binary_path);
+0178                     quicklog(o.log,<span class="string">'post-build step completed successfully...'</span>);
+0179                 <span class="keyword">catch</span> e
+0180                     quicklog(o.log,evalc(<span class="string">'env_handleerror(e)'</span>));
+0181                     rethrow(e);
+0182                 <span class="keyword">end</span>
+0183             <span class="keyword">end</span>
+0184             <a href="#_sub2" class="code" title="subfunction makefile(name)">makefile</a>(mrk_synched);
+0185             <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_notsynched);
+0186             <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_synching);
+0187         <span class="keyword">else</span>
+0188             <span class="comment">% compilation must have been unsucessful...</span>
+0189             quicklog(o.log,<span class="string">'last compilation failed...'</span>);
+0190             <a href="#_sub2" class="code" title="subfunction makefile(name)">makefile</a>(mrk_notsynched);
+0191             <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_synched);
+0192             <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_synching);
+0193             <span class="comment">% wait for a moment to let the dust settle</span>
+0194             pause(o.wait_postconflict);
+0195         <span class="keyword">end</span>
+0196     <span class="keyword">else</span>
+0197         <span class="keyword">if</span> codedate &gt; bindate
+0198             quicklog(o.log,<span class="string">'waiting for edits to finish...'</span>); <span class="keyword">end</span>
+0199         pause(o.scan_interval);
+0200     <span class="keyword">end</span>
+0201 <span class="keyword">end</span>
+0202 
+0203 
+0204 <span class="comment">% calc the most recent time stamp of a given file system location</span>
+0205 <a name="_sub1" href="#_subfunctions" class="code">function ts = timestamp(loc)</a>
+0206 <span class="keyword">if</span> any(loc==<span class="string">'*'</span>) || ~exist(loc,<span class="string">'dir'</span>)
+0207     <span class="comment">% assume that it's a file mask / reference</span>
+0208     infos = dir(loc);
+0209 <span class="keyword">else</span>
+0210     <span class="comment">% assume that it's a directory reference</span>
+0211     infos = cellfun(@dir,hlp_split(genpath(loc),pathsep),<span class="string">'UniformOutput'</span>,false);
+0212     infos = vertcat(infos{:});
+0213 <span class="keyword">end</span>
+0214 <span class="keyword">if</span> ~isempty(infos)
+0215     <span class="comment">% take the maximum time stamp</span>
+0216     <span class="keyword">if</span> ~isfield(infos,<span class="string">'datenum'</span>)
+0217         [infos.datenum] = celldeal(cellfun(@datenum,{infos.date},<span class="string">'UniformOutput'</span>,false)); <span class="keyword">end</span>
+0218     ts = max([infos.datenum]);
+0219 <span class="keyword">else</span>
+0220     <span class="comment">% no file: set to the beginning of time...</span>
+0221     ts = 0;
+0222 <span class="keyword">end</span>
+0223 
+0224 
+0225 <span class="comment">% create a status marker file...</span>
+0226 <a name="_sub2" href="#_subfunctions" class="code">function makefile(name)</a>
+0227 <span class="keyword">try</span>
+0228     fid = fopen(name,<span class="string">'w+'</span>);
+0229     fclose(fid);
+0230     fileattrib(name,<span class="string">'+w'</span>,<span class="string">'a'</span>);
+0231 <span class="keyword">catch</span>
+0232     <span class="keyword">if</span> fid ~= -1
+0233         <span class="keyword">try</span> fclose(fid); <span class="keyword">catch</span>,<span class="keyword">end</span>
+0234     <span class="keyword">end</span>
+0235 <span class="keyword">end</span>
+0236 
+0237 
+0238 <span class="comment">% remove a status marker file...</span>
+0239 <a name="_sub3" href="#_subfunctions" class="code">function rmfile(name)</a>
+0240 <span class="keyword">try</span>
+0241     delete(name);
+0242 <span class="keyword">catch</span>
+0243 <span class="keyword">end</span>
+0244 
+0245 
+0246 <span class="comment">% check if a process is running using OS APIs</span>
+0247 <a name="_sub4" href="#_subfunctions" class="code">function tf = is_process_running(name)</a>
+0248 <span class="keyword">if</span> ispc
+0249     cmd = <span class="string">'wmic process get description'</span>;
+0250 <span class="keyword">else</span>
+0251     cmd = <span class="string">'ps -A'</span>;
+0252 <span class="keyword">end</span>
+0253 [errcode,content] = system(cmd);
+0254 <span class="keyword">if</span> errcode
+0255     error(<span class="string">'Process monitoring non-operational on your platform. This means you''ll need to compile manually using env_compile_bcilab.'</span>); <span class="keyword">end</span>
+0256 tf = ~isempty(strfind(lower(content),lower(name)));
+0257 
+0258 
+0259 <span class="comment">% clean up any stray MCC tasks</span>
+0260 <a name="_sub5" href="#_subfunctions" class="code">function cleanup(varargin)</a>
+0261 <span class="keyword">if</span> ispc
+0262     system(<span class="string">'taskkill /F /IM mcc.exe'</span>);
+0263 <span class="keyword">else</span>
+0264     system(<span class="string">'killall mcc'</span>);
+0265 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

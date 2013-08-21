@@ -1,0 +1,337 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_repair_bursts</title>
+  <meta name="keywords" content="flt_repair_bursts">
+  <meta name="description" content="Repairs local peak artifacts using the ASR method.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_repair_bursts.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_repair_bursts
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Repairs local peak artifacts using the ASR method.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [signal,state] = flt_repair_bursts(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Repairs local peak artifacts using the ASR method.
+ [Signal,State] = flt_repair_bursts(Signal,StandardDevCutoff,WindowLength,BlockSize,ProcessingDelay,MaxDimensions,SpectralParameters,CalibPrecision,UseGPU,ReferenceExtraction,State)
+
+ This is an automated artifact rejection function that ensures that the data contains no events
+ that have abnormally strong power; the subspaces on which those events occur are reconstructed 
+ (interpolated) based on the rest of the EEG signal during these time periods.
+
+ The basic principle is to first find a section of data that represents clean &quot;reference&quot; EEG and
+ to compute statistics on there. Then, the function goes over the whole data in a sliding window
+ and finds the subspaces in which there is activity that is more than a few standard deviations
+ away from the reference EEG (this threshold is a tunable parameter). Once the function has found
+ the bad subspaces it will treat them as missing data and reconstruct their content using a mixing
+ matrix that was calculated on the clean data.
+
+
+ In:
+   Signal : Continuous data set, assumed to be appropriately high-passed (e.g. &gt;0.5Hz or with a 
+            0.5Hz - 2.0Hz transition band)
+
+   Cutoff : Standard deviation cutoff for removal of bursts (via ASR). Data portions whose variance
+            is larger than this threshold relative to the calibration data are considered missing
+            data and will be removed. The most aggressive value that can be used without losing too
+            much EEG is 2.5. A very conservative value would be 5. (default: 5)
+
+
+   The following are detail parameters that usually do not have to be tuned. If you cannot get
+   the function to do what you want, you might consider adapting these better to your data.
+
+   WindowLength : Length of the statistcs window, in seconds. This should not be much longer 
+                  than the time scale over which artifacts persist, but the number of samples in
+                  the window should not be smaller than 1.5x the number of channels. 
+                  (default: max(0.5,1.5*Signal.nbchan/Signal.srate))
+
+   StepSize : Step size for processing. The reprojection matrix will be updated every this many
+              samples and a blended matrix is used for the in-between samples. If empty this will
+              be set the WindowLength/2 in samples. (default: 1/3)
+
+   ProcessingDelay : Signal delay, in seconds. This can be anywhere between 0 and WindowLength/2;
+                     if this is too low some sharp-onset artifacts will leave brief &quot;knacks&quot; in the
+                     data. (default: 0.125).
+
+   MaxDimensions : Maximum dimensionality to reconstruct. Up to this many dimensions (or up to this 
+                   fraction of dimensions) can be reconstructed for a given data segment. This is
+                   since the lower eigenvalues are usually not estimated very well. Default: 2/3.
+
+   SpectralParameters: Parameters for the spectrum-shaping filter that reweights frequencies
+                       according to their relevance for artifact detection. This is a cell
+                       array of {Frequencies,Amplitudes,Order} for a Yule-Walker IIR filter
+                       design. Note: These settings may give you a different frequency response from
+                       what you expect, so check what you generate. Also, the default value is not 
+                       recommended for &gt;512Hz sampling rate. 
+                       (default: {[0 2 3 13 16 40 80],[3 0.75 0.33 0.33 1 1 3],8})
+
+   CalibPrecision : Block size for calculating the robust data covariance, in samples; allows to 
+                    reduce the memory requirements of the robust estimator by this factor (down to
+                    Channels x Channels x Samples x 16 / Blocksize bytes). The value is further
+                    incremented if necessary to fit the data in memory. (default: 10).
+
+   UseGPU : Whether to run on the GPU. Makes sense for offline processing if you have a GTX 780 or 
+            better. Default: false
+
+   ReferenceExtraction : Group of sub-parameters to control how clean reference data shall be extracted 
+                         for calibration of the statistics (these are arguments to flt_clean_windows).
+
+       PowerTolerances: The minimum and maximum standard deviations within which the power of a channel
+                        must lie (relative to a robust estimate of the clean EEG power distribution in 
+                        the channel) for it to be considered &quot;not bad&quot;. Default: [-3.5 5.5].
+
+       MaxBadChannels : The maximum number or fraction of bad channels that a retained window may still
+                        contain (more than this and it is removed). Reasonable range is 0.05 (very clean
+                        output) to 0.3 (very lax cleaning of only coarse artifacts). Default: 0.15.
+
+   State : previous filter state, as obtained by a previous execution of the filter on an immediately 
+           preceding data set. If this is a string of the form &quot;.fieldname&quot; for a valid field name
+           in the input data set, the function will take this as its initial state and not
+           calibrate again. This is useful for carrying resting-state calibration over into a
+           regular BCILAB analysis, e.g. a cross-validation. (default: [])
+
+ Out:
+   Signal : data set with local peaks removed
+
+   State  :  state of the filter, after it got applied
+
+ Notes:
+   When used online, this function gives slightly different results from offline processing since
+   parameters are also updated at the beginning and end of each chunk; therefore, transitions can be 
+   as short as the chunk length. The behavior should nevertheless be qualitatively equivalent to
+   offline processing.
+
+ Examples:
+   % use the defaults
+   eeg = flt_repair_bursts(eeg);
+
+   % use a 1-second window length and 0.5 seconds delay / look-ahead (e.g. for very high channel counts)
+   eeg = flt_repair_bursts('Signal',eeg, 'WindowLength',1, 'ProcessingDelay',0.5)
+
+   % use some very aggressive settings (not generally advisable)
+   eeg = flt_repair_bursts('Signal',eeg, 'StandardDevCutoff',2.5,'MaxDimensions',0.75);
+
+   % use a very conservative setting
+   eeg = flt_repair_bursts(eeg,4);
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2012-08-25</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="flt_clean_windows.html" class="code" title="function [signal,sample_mask] = flt_clean_windows(varargin)">flt_clean_windows</a>	Remove periods with abnormally high/low-amplitude content from continuous data.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="flt_clean_settings.html" class="code" title="function signal = flt_clean_settings(varargin)">flt_clean_settings</a>	Clean EEG data according to a particular cleaning setting.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal,state] = flt_repair_bursts(varargin)</a>
+0002 <span class="comment">% Repairs local peak artifacts using the ASR method.</span>
+0003 <span class="comment">% [Signal,State] = flt_repair_bursts(Signal,StandardDevCutoff,WindowLength,BlockSize,ProcessingDelay,MaxDimensions,SpectralParameters,CalibPrecision,UseGPU,ReferenceExtraction,State)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This is an automated artifact rejection function that ensures that the data contains no events</span>
+0006 <span class="comment">% that have abnormally strong power; the subspaces on which those events occur are reconstructed</span>
+0007 <span class="comment">% (interpolated) based on the rest of the EEG signal during these time periods.</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% The basic principle is to first find a section of data that represents clean &quot;reference&quot; EEG and</span>
+0010 <span class="comment">% to compute statistics on there. Then, the function goes over the whole data in a sliding window</span>
+0011 <span class="comment">% and finds the subspaces in which there is activity that is more than a few standard deviations</span>
+0012 <span class="comment">% away from the reference EEG (this threshold is a tunable parameter). Once the function has found</span>
+0013 <span class="comment">% the bad subspaces it will treat them as missing data and reconstruct their content using a mixing</span>
+0014 <span class="comment">% matrix that was calculated on the clean data.</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">% In:</span>
+0018 <span class="comment">%   Signal : Continuous data set, assumed to be appropriately high-passed (e.g. &gt;0.5Hz or with a</span>
+0019 <span class="comment">%            0.5Hz - 2.0Hz transition band)</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   Cutoff : Standard deviation cutoff for removal of bursts (via ASR). Data portions whose variance</span>
+0022 <span class="comment">%            is larger than this threshold relative to the calibration data are considered missing</span>
+0023 <span class="comment">%            data and will be removed. The most aggressive value that can be used without losing too</span>
+0024 <span class="comment">%            much EEG is 2.5. A very conservative value would be 5. (default: 5)</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">%   The following are detail parameters that usually do not have to be tuned. If you cannot get</span>
+0028 <span class="comment">%   the function to do what you want, you might consider adapting these better to your data.</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%   WindowLength : Length of the statistcs window, in seconds. This should not be much longer</span>
+0031 <span class="comment">%                  than the time scale over which artifacts persist, but the number of samples in</span>
+0032 <span class="comment">%                  the window should not be smaller than 1.5x the number of channels.</span>
+0033 <span class="comment">%                  (default: max(0.5,1.5*Signal.nbchan/Signal.srate))</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%   StepSize : Step size for processing. The reprojection matrix will be updated every this many</span>
+0036 <span class="comment">%              samples and a blended matrix is used for the in-between samples. If empty this will</span>
+0037 <span class="comment">%              be set the WindowLength/2 in samples. (default: 1/3)</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%   ProcessingDelay : Signal delay, in seconds. This can be anywhere between 0 and WindowLength/2;</span>
+0040 <span class="comment">%                     if this is too low some sharp-onset artifacts will leave brief &quot;knacks&quot; in the</span>
+0041 <span class="comment">%                     data. (default: 0.125).</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%   MaxDimensions : Maximum dimensionality to reconstruct. Up to this many dimensions (or up to this</span>
+0044 <span class="comment">%                   fraction of dimensions) can be reconstructed for a given data segment. This is</span>
+0045 <span class="comment">%                   since the lower eigenvalues are usually not estimated very well. Default: 2/3.</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">%   SpectralParameters: Parameters for the spectrum-shaping filter that reweights frequencies</span>
+0048 <span class="comment">%                       according to their relevance for artifact detection. This is a cell</span>
+0049 <span class="comment">%                       array of {Frequencies,Amplitudes,Order} for a Yule-Walker IIR filter</span>
+0050 <span class="comment">%                       design. Note: These settings may give you a different frequency response from</span>
+0051 <span class="comment">%                       what you expect, so check what you generate. Also, the default value is not</span>
+0052 <span class="comment">%                       recommended for &gt;512Hz sampling rate.</span>
+0053 <span class="comment">%                       (default: {[0 2 3 13 16 40 80],[3 0.75 0.33 0.33 1 1 3],8})</span>
+0054 <span class="comment">%</span>
+0055 <span class="comment">%   CalibPrecision : Block size for calculating the robust data covariance, in samples; allows to</span>
+0056 <span class="comment">%                    reduce the memory requirements of the robust estimator by this factor (down to</span>
+0057 <span class="comment">%                    Channels x Channels x Samples x 16 / Blocksize bytes). The value is further</span>
+0058 <span class="comment">%                    incremented if necessary to fit the data in memory. (default: 10).</span>
+0059 <span class="comment">%</span>
+0060 <span class="comment">%   UseGPU : Whether to run on the GPU. Makes sense for offline processing if you have a GTX 780 or</span>
+0061 <span class="comment">%            better. Default: false</span>
+0062 <span class="comment">%</span>
+0063 <span class="comment">%   ReferenceExtraction : Group of sub-parameters to control how clean reference data shall be extracted</span>
+0064 <span class="comment">%                         for calibration of the statistics (these are arguments to flt_clean_windows).</span>
+0065 <span class="comment">%</span>
+0066 <span class="comment">%       PowerTolerances: The minimum and maximum standard deviations within which the power of a channel</span>
+0067 <span class="comment">%                        must lie (relative to a robust estimate of the clean EEG power distribution in</span>
+0068 <span class="comment">%                        the channel) for it to be considered &quot;not bad&quot;. Default: [-3.5 5.5].</span>
+0069 <span class="comment">%</span>
+0070 <span class="comment">%       MaxBadChannels : The maximum number or fraction of bad channels that a retained window may still</span>
+0071 <span class="comment">%                        contain (more than this and it is removed). Reasonable range is 0.05 (very clean</span>
+0072 <span class="comment">%                        output) to 0.3 (very lax cleaning of only coarse artifacts). Default: 0.15.</span>
+0073 <span class="comment">%</span>
+0074 <span class="comment">%   State : previous filter state, as obtained by a previous execution of the filter on an immediately</span>
+0075 <span class="comment">%           preceding data set. If this is a string of the form &quot;.fieldname&quot; for a valid field name</span>
+0076 <span class="comment">%           in the input data set, the function will take this as its initial state and not</span>
+0077 <span class="comment">%           calibrate again. This is useful for carrying resting-state calibration over into a</span>
+0078 <span class="comment">%           regular BCILAB analysis, e.g. a cross-validation. (default: [])</span>
+0079 <span class="comment">%</span>
+0080 <span class="comment">% Out:</span>
+0081 <span class="comment">%   Signal : data set with local peaks removed</span>
+0082 <span class="comment">%</span>
+0083 <span class="comment">%   State  :  state of the filter, after it got applied</span>
+0084 <span class="comment">%</span>
+0085 <span class="comment">% Notes:</span>
+0086 <span class="comment">%   When used online, this function gives slightly different results from offline processing since</span>
+0087 <span class="comment">%   parameters are also updated at the beginning and end of each chunk; therefore, transitions can be</span>
+0088 <span class="comment">%   as short as the chunk length. The behavior should nevertheless be qualitatively equivalent to</span>
+0089 <span class="comment">%   offline processing.</span>
+0090 <span class="comment">%</span>
+0091 <span class="comment">% Examples:</span>
+0092 <span class="comment">%   % use the defaults</span>
+0093 <span class="comment">%   eeg = flt_repair_bursts(eeg);</span>
+0094 <span class="comment">%</span>
+0095 <span class="comment">%   % use a 1-second window length and 0.5 seconds delay / look-ahead (e.g. for very high channel counts)</span>
+0096 <span class="comment">%   eeg = flt_repair_bursts('Signal',eeg, 'WindowLength',1, 'ProcessingDelay',0.5)</span>
+0097 <span class="comment">%</span>
+0098 <span class="comment">%   % use some very aggressive settings (not generally advisable)</span>
+0099 <span class="comment">%   eeg = flt_repair_bursts('Signal',eeg, 'StandardDevCutoff',2.5,'MaxDimensions',0.75);</span>
+0100 <span class="comment">%</span>
+0101 <span class="comment">%   % use a very conservative setting</span>
+0102 <span class="comment">%   eeg = flt_repair_bursts(eeg,4);</span>
+0103 <span class="comment">%</span>
+0104 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0105 <span class="comment">%                                2012-08-25</span>
+0106 
+0107 <span class="comment">% flt_repair_bursts _version&lt;1.0&gt; -- for the cache</span>
+0108 
+0109 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0110 
+0111 declare_properties(<span class="string">'name'</span>,<span class="string">'BurstRepair'</span>, <span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,false);
+0112 
+0113 arg_define(varargin, <span class="keyword">...</span>
+0114     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0115     arg({<span class="string">'stddev_cutoff'</span>,<span class="string">'Cutoff'</span>,<span class="string">'StandardDevCutoff'</span>,<span class="string">'cutoff'</span>}, 5, [], <span class="string">'StdDev cutoff for rejection. Data segments whose variance is beyond this cutoff from the distribution of variance across the recording are considered missing data.'</span>), <span class="keyword">...</span>
+0116     arg({<span class="string">'window_len'</span>,<span class="string">'WindowLength'</span>}, 0.5, [], <span class="string">'Window length to compute signal power. In seconds, ideally short enough to reasonably isolate artifacts, but no shorter, to keep statistics healthy.'</span>), <span class="keyword">...</span>
+0117     arg({<span class="string">'block_size'</span>,<span class="string">'BlockSize'</span>}, 1/3, [], <span class="string">'Block granularity for processing. The reprojection matrix will be updated every this many samples. If this is below 1, it is assumed to be in seconds.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0118     arg({<span class="string">'processing_delay'</span>,<span class="string">'ProcessingDelay'</span>}, 0.125, [], <span class="string">'Signal delay, in seconds. This can be anywhere between 0 and WindowLength/2; if this is too low some sharp-onset artifacts will leave brief &quot;knacks&quot; in the data.'</span>), <span class="keyword">...</span>
+0119     arg({<span class="string">'max_dimensions'</span>,<span class="string">'MaxDimensions'</span>}, 0.66, [], <span class="string">'Maximum dimensionality to reconstruct. Up to this many dimensions (or up to this fraction of dimensions) can be reconstructed for a given data segment. This is useful because the lower eigenvalues are usually not estimated very well.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0120     arg({<span class="string">'spectral_params'</span>,<span class="string">'SpectralParameters'</span>},{[0 2 3 13 16 40 80],[3 0.75 0.33 0.33 1 1 3],8},[],<span class="string">'Spectral weighting parameters. Parameters for the spectrum-shaping filter that reweights frequencies according to their relevance for artifact detection. This is a cell array of {Frequencies,Amplitudes,Order} for a Yule-Walker IIR filter design. Note: These settings are very sensitive, do not change unless you know exactly what you''re doing; specifically, the default it not recommended for &gt;512 Hz srate.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0121     arg({<span class="string">'calib_precision'</span>,<span class="string">'CalibPrecision'</span>}, 10, [], <span class="string">'Block granularity for calibration. The data covariance will be estimated in blocks of this size and then robustly averaged (larger values admit smaller memory requirements).'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0122     arg({<span class="string">'use_gpu'</span>,<span class="string">'UseGPU'</span>}, false, [], <span class="string">'Whether to run on the GPU. Makes sense for offline processing if you have a GTX 780 or better.'</span>), <span class="keyword">...</span>
+0123     arg_sub({<span class="string">'ref_extraction'</span>,<span class="string">'ReferenceExtraction'</span>},{<span class="string">'zthresholds'</span>,[-3.5 5.5]}, @<a href="flt_clean_windows.html" class="code" title="function [signal,sample_mask] = flt_clean_windows(varargin)">flt_clean_windows</a>, <span class="string">'Reference data extraction. Group of sub-parameters to control how clean reference data shall be extracted for calibration of the statistics.'</span>), <span class="keyword">...</span>
+0124     arg_deprecated({<span class="string">'ref_wndlen'</span>,<span class="string">'ReferenceWindowLength'</span>},[],[],<span class="string">'Selection granularity for reference data. When clean data is extracted from the recording for calibrating the cutoff thresholds the data is chopped up into windows of this length. This parameters has been deprecated in favor of ReferenceExtraction.WindowLength.'</span>),<span class="keyword">...</span>
+0125     arg_deprecated({<span class="string">'ref_maxbadchannels'</span>,<span class="string">'ReferenceMaxBadChannels'</span>}, [], [], <span class="string">'Maximum bad-channel fraction on reference data. The maximum fraction of bad channels per time window of the data that is used as clean reference EEG on which statistics are based. Instead of a number one may also directly pass in a data set that contains clean reference data (for example a minute of resting EEG). A lower values makes this criterion more aggressive. Reasonable range: 0.05 (very aggressive) to 0.3 (quite lax). This parameters has been deprecated in favor of ReferenceExtraction.MaxBadChannels.'</span>), <span class="keyword">...</span>
+0126     arg_deprecated({<span class="string">'ref_tolerances'</span>,<span class="string">'ReferenceTolerances'</span>},[],[],<span class="string">'Power tolerances on reference data. These are the power tolerances beyond which a channel in the clean reference data is considered &quot;bad&quot;, in standard deviations relative to a robust EEG power distribution (lower and upper bound). This parameters has been deprecated in favor of ReferenceExtraction.PowerTolerances.'</span>), <span class="keyword">...</span>
+0127     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>}));
+0128 
+0129 <span class="comment">% handle legacy parameters</span>
+0130 <span class="keyword">if</span> ~isempty(ref_wndlen)
+0131     ref_extraction.window_length = ref_wndlen; <span class="keyword">end</span>
+0132 <span class="keyword">if</span> ~isempty(ref_maxbadchannels)
+0133     ref_extraction.max_bad_channels = ref_maxbadchannels; <span class="keyword">end</span>
+0134 <span class="keyword">if</span> ~isempty(ref_tolerances)
+0135     ref_extraction.zthresholds = ref_tolerances; <span class="keyword">end</span>
+0136 
+0137 <span class="comment">% ensure that the window length is large enough</span>
+0138 window_len = max(window_len,1.5*signal.nbchan/signal.srate); <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0139 <span class="comment">% ensure that the spectral filter does not exceed the Nyquist rate of the signal</span>
+0140 spectral_params{1} = min(spectral_params{1},signal.srate/2-1);
+0141 <span class="comment">% set a reasonable processing delay/look-ahead</span>
+0142 <span class="keyword">if</span> isempty(processing_delay)
+0143     processing_delay = 0.125; <span class="keyword">end</span>
+0144 <span class="comment">% also set a reasonable block size...</span>
+0145 <span class="keyword">if</span> isempty(block_size)
+0146     block_size = 1/3; <span class="keyword">end</span>
+0147 block_size = round(signal.srate*block_size);
+0148 
+0149 <span class="comment">% check if there is a calibration model already in a given field of the data</span>
+0150 <span class="keyword">if</span> ~isempty(state) &amp;&amp; ischar(state)
+0151     <span class="keyword">if</span> isfield(signal,state(2:end))
+0152         state = signal.(state(2:end));
+0153         disp(<span class="string">'Using cleaning model already contained in the data.'</span>);
+0154     <span class="keyword">else</span>
+0155         state = []; <span class="comment">% otherwise disregard the field</span>
+0156     <span class="keyword">end</span>
+0157 <span class="keyword">end</span>
+0158     
+0159 <span class="comment">% initialize filter state if necessary</span>
+0160 <span class="keyword">if</span> isempty(state)
+0161     <span class="comment">% design a spectral filter</span>
+0162     <span class="keyword">try</span>
+0163         [state.shaping{1:2}] = hlp_diskcache(<span class="string">'filterdesign'</span>,@yulewalk,spectral_params{3},[2*spectral_params{1}/signal.srate 1],spectral_params{2}([1:end end]));
+0164     <span class="keyword">catch</span> e
+0165         <span class="keyword">if</span> strcmp(e.identifier,<span class="string">'MATLAB:UndefinedFunction'</span>)
+0166             disp(<span class="string">'The yulewalk function was not found to design a spectral filter; trying to fall back to pre-computed filter.'</span>);            
+0167             state.shaping = {[],[]};
+0168         <span class="keyword">else</span>
+0169             rethrow(e);
+0170         <span class="keyword">end</span>
+0171     <span class="keyword">end</span>
+0172     <span class="comment">% extract reference data without gross artifacts</span>
+0173     disp(<span class="string">'Finding a clean section of the data...'</span>);
+0174     ref_section = exp_eval(<a href="flt_clean_windows.html" class="code" title="function [signal,sample_mask] = flt_clean_windows(varargin)">flt_clean_windows</a>(<span class="string">'signal'</span>,signal,ref_extraction));
+0175     <span class="comment">% calibrate on it</span>
+0176     disp(<span class="string">'Estimating statistics; this may take a while...'</span>);
+0177     state.asr = hlp_diskcache(<span class="string">'filterdesign'</span>,@asr_calibrate,ref_section.data,ref_section.srate,stddev_cutoff,calib_precision,state.shaping{:}); clear ref_section;
+0178 <span class="keyword">end</span>
+0179 
+0180 <span class="comment">% do the actual processing</span>
+0181 [signal.data,state.asr] = asr_process(signal.data,signal.srate,state.asr,window_len,processing_delay,block_size,max_dimensions,[],use_gpu);
+0182 
+0183 <span class="keyword">if</span> ~isfield(signal.etc,<span class="string">'filter_delay'</span>)
+0184     signal.etc.filter_delay = 0; <span class="keyword">end</span>
+0185 signal.etc.filter_delay = signal.etc.filter_delay+round(processing_delay*signal.srate)/signal.srate;
+0186 
+0187 exp_endfun;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

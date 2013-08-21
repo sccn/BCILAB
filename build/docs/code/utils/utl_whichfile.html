@@ -1,0 +1,150 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_whichfile</title>
+  <meta name="keywords" content="utl_whichfile">
+  <meta name="description" content="Find the .m file which defines the given function identifier.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_whichfile.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_whichfile
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Find the .m file which defines the given function identifier.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function filename = utl_whichfile(identifier) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Find the .m file which defines the given function identifier.
+ Filename = utl_whichfile(Identifier)
+
+ This is a special-purpose alternative to the builtin 'which', for use in deployed situations.
+
+ In these cases, 'which' returns the filename of only an encrypted version of the defining
+ function, so it cannot be used to access the m code. This function assumes that the source code
+ for each function ships with the release, and returns the file name for a given identifier.
+
+ In:
+   Identifier : identifier of some function
+
+ Out:
+   Filename : .m file that contains the code which implements the
+              identified function
+
+ Notes:
+   This function does not have all the facilities of which(), and assumes that there is one unique
+   source file for every looked up identifier.
+
+   If the global cell string tracking.paths.toolboxes exists, its contents will be used as root
+   directories; otherwise, env_translatepath('functions:/') will be used.
+
+ See also:
+   which
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-04-04</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_fileinfo.html" class="code" title="function [version,inargs,outargs,h1,hash] = utl_fileinfo(fname,identifier)">utl_fileinfo</a>	Retuns (cached) information on a file (MD5 hash, input/output argument names).</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function populate_records(path)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function filename = utl_whichfile(identifier)</a>
+0002 <span class="comment">% Find the .m file which defines the given function identifier.</span>
+0003 <span class="comment">% Filename = utl_whichfile(Identifier)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This is a special-purpose alternative to the builtin 'which', for use in deployed situations.</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">% In these cases, 'which' returns the filename of only an encrypted version of the defining</span>
+0008 <span class="comment">% function, so it cannot be used to access the m code. This function assumes that the source code</span>
+0009 <span class="comment">% for each function ships with the release, and returns the file name for a given identifier.</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">% In:</span>
+0012 <span class="comment">%   Identifier : identifier of some function</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">% Out:</span>
+0015 <span class="comment">%   Filename : .m file that contains the code which implements the</span>
+0016 <span class="comment">%              identified function</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">% Notes:</span>
+0019 <span class="comment">%   This function does not have all the facilities of which(), and assumes that there is one unique</span>
+0020 <span class="comment">%   source file for every looked up identifier.</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">%   If the global cell string tracking.paths.toolboxes exists, its contents will be used as root</span>
+0023 <span class="comment">%   directories; otherwise, env_translatepath('functions:/') will be used.</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">% See also:</span>
+0026 <span class="comment">%   which</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0029 <span class="comment">%                                2010-04-04</span>
+0030 
+0031 <span class="keyword">persistent</span> filenames; <span class="comment">% table of m file names, indexed by identifier</span>
+0032 
+0033 <span class="keyword">try</span>
+0034     <span class="comment">% look up the record for this file name</span>
+0035     filename = filenames.(identifier);
+0036 <span class="keyword">catch</span>
+0037     <span class="keyword">if</span> isempty(filenames)
+0038         <span class="comment">% file table is empty (first-time run): build it recursively from root directories</span>
+0039         <span class="keyword">global</span> tracking; <span class="comment">%#ok&lt;TLEV&gt;</span>
+0040         <span class="keyword">if</span> isfield(tracking,<span class="string">'paths'</span>) &amp;&amp; isfield(tracking.paths,<span class="string">'toolboxes'</span>)
+0041             root_dirs = tracking.paths.toolboxes;
+0042         <span class="keyword">else</span>
+0043             root_dirs = {env_translatepath(<span class="string">'functions:/'</span>)};
+0044         <span class="keyword">end</span>
+0045         <span class="keyword">for</span> d=1:length(root_dirs)
+0046             <a href="#_sub1" class="code" title="subfunction populate_records(path)">populate_records</a>(root_dirs{d}); <span class="keyword">end</span>
+0047     <span class="keyword">else</span>
+0048         error(<span class="string">'No record for the file %s was found. Make sure it is in the searched directories.'</span>,identifier);
+0049     <span class="keyword">end</span>
+0050     <span class="keyword">try</span>
+0051         filename = filenames.(identifier);
+0052     <span class="keyword">catch</span>
+0053         error(<span class="string">'No record for the file %s was found. Make sure it is in the searched directories.'</span>,identifier);
+0054     <span class="keyword">end</span>
+0055 <span class="keyword">end</span>
+0056 
+0057     <span class="comment">% recursively populate file table from an initial directory.</span>
+0058     <a name="_sub1" href="#_subfunctions" class="code">function populate_records(path)</a>
+0059         <span class="keyword">if</span> path(end) == filesep
+0060             path(end) = []; <span class="keyword">end</span>
+0061         <span class="keyword">for</span> info = dir(path)'
+0062             <span class="keyword">if</span> info.isdir
+0063                 <span class="comment">% found a directory: recurse</span>
+0064                 <span class="keyword">if</span> ~any(strcmp(info.name,{<span class="string">'.'</span>,<span class="string">'..'</span>}))
+0065                     <a href="#_sub1" class="code" title="subfunction populate_records(path)">populate_records</a>([path filesep info.name]); <span class="keyword">end</span>
+0066             <span class="keyword">else</span>
+0067                 <span class="comment">% found a file --? add it to the table if an .m file</span>
+0068                 <span class="keyword">if</span> length(info.name) &gt; 2 &amp;&amp; strcmp(info.name(end-1:end),<span class="string">'.m'</span>)                    
+0069                     filenames.(info.name(1:end-2)) = [path filesep info.name]; <span class="keyword">end</span>
+0070             <span class="keyword">end</span>
+0071         <span class="keyword">end</span>
+0072     <span class="keyword">end</span>
+0073 
+0074 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

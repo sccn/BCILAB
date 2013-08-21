@@ -1,0 +1,270 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of env_compile_bcilab</title>
+  <meta name="keywords" content="env_compile_bcilab">
+  <meta name="description" content="Compile a deployable BCILAB binary using the MATLAB compiler toolbox">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">environment</a> &gt; env_compile_bcilab.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/environment&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>env_compile_bcilab
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Compile a deployable BCILAB binary using the MATLAB compiler toolbox</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function env_compile_bcilab </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Compile a deployable BCILAB binary using the MATLAB compiler toolbox
+
+ The resulting binary is found in bcilab/build/distrib/. This binary
+ can be executed just like the startup function &quot;bcilab&quot;.
+
+ Notes:
+   The compilation is done by calling the deploytool function with a .prj file. This file has a few quirks:
+   * contains absolute paths (i.e. won't compile when placed in another directory)
+   * contains a 1:1 copy of the entire MATLAB path (i.e. won't compile when toolboxes move)
+   * files that only appear in eval() or feval() clauses are not found and will be omitted (unless explicitly noted somewhere)
+   * files in 'private' sub-directories that are only referenced in eval() or feval() must be added to the project to be included
+   * there is OS-specific stuff in the file
+
+   To bypass these quirks, BCILAB uses the following (currently somewhat arduous) process:
+   When a new release of BCILAB is made (new dependencies added, another MATLAB release), 
+   then for each operating system, we do the following (currently using MATLAB 2012a):
+   1. start the deploy tool as follows:
+      * cd /path/to/bcilab; bcilab
+      * cd .. (move up to the directory that contains bcilab.m)
+      * deploytool
+   2. create a new project named 'build.prj', and:
+      * add the bcilab.m file as the *main file*
+      * add the code directory as an additional file/directory
+      * add the file build/dependency_list as an additional file/directory
+      * add the path dependencies/eeglab-*/plugins/dipfit2.2/private as an additional file/directory
+      * add the path dependencies/eeglab-*/external/fieldtrip_partial/forward/private as an additional file/directory
+      * add the path dependencies/eeglab-*/external/fileio/private as an additional file/directory
+      * in Project/Settings, Toolboxes on Path, remove all toolboxes that are not needed (lengthen the compilation process unnecessarily)
+        The ones that are currently included are: Bioinformatics Toolbox, Curve Fitting Toolbox,
+        Global Optimization Toolbox, Image Procesing Toolbox, Instrument Control Toolbox,
+        Optimization Toolbox, Parallel Computing Toolbox, Signal Processing Toollbox, Statistics
+        Toolbox, Wavelet Toolbox
+      * quit the deploy tool
+   3. open the build.prj file in a text editor, and:
+      * substitute all occurrences of /your/path/to/bcilab/ or C:\your\path\to\bcilab\ (note the trailing slash) by bcilab:/ (always use a forward slash in the substitution)
+      * also substiute the one occurrence of the path without slash in the third line (after location=&quot;) by bcilab:/
+      * If you are on Windows and you would like to have console output (highly recommended), you also need to replace on the 
+        same line the string target=&quot;target.standalone.win&quot; by target=&quot;target.standalone&quot;.
+      * in MATLAB, type lower(computer) to get the identifier for your architecture
+      * Save the file, and rename it to build/build-&lt;arch&gt;.reference (where &lt;arch&gt; is your architecture identifier, e.g. pcwin64)
+   4. Run env_compile_bcilab.
+   
+   When you try to compile the result on some machine, the toolbox will grab the architecture-specific version, substitute the actual 
+   toolbox installation directory, rename it to build.prj, and run deploytool on it.
+
+ See also:
+   <a href="env_buildslave.html" class="code" title="function env_buildslave(varargin)">env_buildslave</a>, deploytool
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-03-13</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="env_handleerror.html" class="code" title="function varargout = env_handleerror(varargin)">env_handleerror</a>	Displays a formatted error message for some error object, including a full stack trace.</li><li><a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>	Translates platform-independent directories into a system-specific directories.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="env_buildslave.html" class="code" title="function env_buildslave(varargin)">env_buildslave</a>	Run as a build slave: recompile the toolbox whenever it has changed.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function env_compile_bcilab</a>
+0002 <span class="comment">% Compile a deployable BCILAB binary using the MATLAB compiler toolbox</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% The resulting binary is found in bcilab/build/distrib/. This binary</span>
+0005 <span class="comment">% can be executed just like the startup function &quot;bcilab&quot;.</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">% Notes:</span>
+0008 <span class="comment">%   The compilation is done by calling the deploytool function with a .prj file. This file has a few quirks:</span>
+0009 <span class="comment">%   * contains absolute paths (i.e. won't compile when placed in another directory)</span>
+0010 <span class="comment">%   * contains a 1:1 copy of the entire MATLAB path (i.e. won't compile when toolboxes move)</span>
+0011 <span class="comment">%   * files that only appear in eval() or feval() clauses are not found and will be omitted (unless explicitly noted somewhere)</span>
+0012 <span class="comment">%   * files in 'private' sub-directories that are only referenced in eval() or feval() must be added to the project to be included</span>
+0013 <span class="comment">%   * there is OS-specific stuff in the file</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%   To bypass these quirks, BCILAB uses the following (currently somewhat arduous) process:</span>
+0016 <span class="comment">%   When a new release of BCILAB is made (new dependencies added, another MATLAB release),</span>
+0017 <span class="comment">%   then for each operating system, we do the following (currently using MATLAB 2012a):</span>
+0018 <span class="comment">%   1. start the deploy tool as follows:</span>
+0019 <span class="comment">%      * cd /path/to/bcilab; bcilab</span>
+0020 <span class="comment">%      * cd .. (move up to the directory that contains bcilab.m)</span>
+0021 <span class="comment">%      * deploytool</span>
+0022 <span class="comment">%   2. create a new project named 'build.prj', and:</span>
+0023 <span class="comment">%      * add the bcilab.m file as the *main file*</span>
+0024 <span class="comment">%      * add the code directory as an additional file/directory</span>
+0025 <span class="comment">%      * add the file build/dependency_list as an additional file/directory</span>
+0026 <span class="comment">%      * add the path dependencies/eeglab-*/plugins/dipfit2.2/private as an additional file/directory</span>
+0027 <span class="comment">%      * add the path dependencies/eeglab-*/external/fieldtrip_partial/forward/private as an additional file/directory</span>
+0028 <span class="comment">%      * add the path dependencies/eeglab-*/external/fileio/private as an additional file/directory</span>
+0029 <span class="comment">%      * in Project/Settings, Toolboxes on Path, remove all toolboxes that are not needed (lengthen the compilation process unnecessarily)</span>
+0030 <span class="comment">%        The ones that are currently included are: Bioinformatics Toolbox, Curve Fitting Toolbox,</span>
+0031 <span class="comment">%        Global Optimization Toolbox, Image Procesing Toolbox, Instrument Control Toolbox,</span>
+0032 <span class="comment">%        Optimization Toolbox, Parallel Computing Toolbox, Signal Processing Toollbox, Statistics</span>
+0033 <span class="comment">%        Toolbox, Wavelet Toolbox</span>
+0034 <span class="comment">%      * quit the deploy tool</span>
+0035 <span class="comment">%   3. open the build.prj file in a text editor, and:</span>
+0036 <span class="comment">%      * substitute all occurrences of /your/path/to/bcilab/ or C:\your\path\to\bcilab\ (note the trailing slash) by bcilab:/ (always use a forward slash in the substitution)</span>
+0037 <span class="comment">%      * also substiute the one occurrence of the path without slash in the third line (after location=&quot;) by bcilab:/</span>
+0038 <span class="comment">%      * If you are on Windows and you would like to have console output (highly recommended), you also need to replace on the</span>
+0039 <span class="comment">%        same line the string target=&quot;target.standalone.win&quot; by target=&quot;target.standalone&quot;.</span>
+0040 <span class="comment">%      * in MATLAB, type lower(computer) to get the identifier for your architecture</span>
+0041 <span class="comment">%      * Save the file, and rename it to build/build-&lt;arch&gt;.reference (where &lt;arch&gt; is your architecture identifier, e.g. pcwin64)</span>
+0042 <span class="comment">%   4. Run env_compile_bcilab.</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">%   When you try to compile the result on some machine, the toolbox will grab the architecture-specific version, substitute the actual</span>
+0045 <span class="comment">%   toolbox installation directory, rename it to build.prj, and run deploytool on it.</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">% See also:</span>
+0048 <span class="comment">%   env_buildslave, deploytool</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0051 <span class="comment">%                                2011-03-13</span>
+0052 
+0053 
+0054 <span class="comment">% these are our additional dependencies (just in case they are not caught by the compiler)...</span>
+0055 special_dependencies = { <span class="keyword">...</span>
+0056     <span class="keyword">...</span><span class="comment"> % part of PropertyGrid</span>
+0057     <span class="string">'resolve_function'</span>, <span class="keyword">...</span>
+0058     <span class="keyword">...</span><span class="comment"> % filter functions</span>
+0059     <span class="string">'buttord'</span>,<span class="string">'cheb1ord'</span>,<span class="string">'cheb2ord'</span>,<span class="string">'ellipord'</span>, <span class="keyword">...</span>
+0060     <span class="keyword">...</span><span class="comment"> % statistics functions </span>
+0061     <span class="string">'betastat'</span>,<span class="string">'binostat'</span>,<span class="string">'chi2stat'</span>,<span class="string">'copulastat'</span>,<span class="string">'evstat'</span>,<span class="string">'expstat'</span>,<span class="string">'fstat'</span>, <span class="string">'gamstat'</span>,<span class="string">'geostat'</span>,<span class="string">'gevstat'</span>,<span class="string">'gpstat'</span>,<span class="string">'hypgestat'</span>, <span class="keyword">...</span>
+0062     <span class="string">'lognstat'</span>,<span class="string">'mnstat'</span>,<span class="string">'mvnstat'</span>,<span class="string">'mvtstat'</span>,<span class="string">'nbinstat'</span>,<span class="string">'ncfstat'</span>,<span class="string">'nctstat'</span>,<span class="string">'ncx2stat'</span>,<span class="string">'normstat'</span>,<span class="string">'poissstat'</span>,<span class="string">'raylstat'</span>,<span class="string">'tstat'</span>, <span class="keyword">...</span>
+0063     <span class="string">'unidstat'</span>,<span class="string">'unifstat'</span>,<span class="string">'wblstat'</span>,<span class="string">'betapdf'</span>,<span class="string">'binopdf'</span>,<span class="string">'chi2pdf'</span>,<span class="string">'copulapdf'</span>,<span class="string">'evpdf'</span>,<span class="string">'exppdf'</span>,<span class="string">'fpdf'</span>,<span class="string">'gampdf'</span>,<span class="string">'geopdf'</span>,<span class="string">'gevpdf'</span>, <span class="keyword">...</span>
+0064     <span class="string">'gppdf'</span>,<span class="string">'hypgepdf'</span>,<span class="string">'lognpdf'</span>,<span class="string">'mnpdf'</span>,<span class="string">'mvnpdf'</span>,<span class="string">'mvtpdf'</span>,<span class="string">'nbinpdf'</span>,<span class="string">'ncfpdf'</span>,<span class="string">'nctpdf'</span>,<span class="string">'ncx2pdf'</span>,<span class="string">'normpdf'</span>,<span class="string">'poisspdf'</span>,<span class="string">'raylpdf'</span>, <span class="keyword">...</span>
+0065     <span class="string">'tpdf'</span>,<span class="string">'unidpdf'</span>,<span class="string">'unifpdf'</span>,<span class="string">'wblpdf'</span>,<span class="keyword">...</span>
+0066     <span class="keyword">...</span><span class="comment"> % optimization functions </span>
+0067     <span class="string">'optimset'</span>, <span class="string">'fminsearch'</span>, <span class="string">'fminbnd'</span>, <span class="string">'fzero'</span>, <span class="string">'lsqnonneg'</span>, <span class="string">'optimget'</span>, <span class="keyword">...</span>
+0068     <span class="keyword">...</span><span class="comment"> % stuff that shows up inside eval() or feval() somewhere...</span>
+0069     <span class="string">'logpfun'</span>,<span class="string">'ffun'</span>,<span class="string">'cvx_s_banded'</span>,<span class="string">'cvx_s_complex'</span>,<span class="string">'cvx_s_diagonal'</span>,<span class="string">'cvx_s_hankel'</span>,<span class="string">'cvx_s_hermitian'</span>,<span class="string">'cvx_s_lower_bidiagonal'</span>, <span class="keyword">...</span>
+0070     <span class="string">'cvx_s_lower_hessenberg'</span>,<span class="string">'cvx_s_lower_triangular'</span>,<span class="string">'cvx_s_scaled_identity'</span>,<span class="string">'cvx_s_skew_symmetric'</span>,<span class="string">'cvx_s_sparse'</span>,<span class="string">'cvx_s_symmetric'</span>, <span class="keyword">...</span>
+0071     <span class="string">'cvx_s_symmetric_ut'</span>,<span class="string">'cvx_s_toeplitz'</span>,<span class="string">'cvx_s_tridiagonal'</span>,<span class="string">'cvx_s_upper_bidiagonal'</span>,<span class="string">'cvx_s_upper_hankel'</span>,<span class="string">'cvx_s_upper_hessenberg'</span>,<span class="string">'cvx_s_upper_triangular'</span>, <span class="keyword">...</span>
+0072     <span class="string">'eeg_leadfield1'</span>,<span class="string">'eeg_leadfield4'</span>,<span class="string">'print'</span>,<span class="string">'crossf'</span>,<span class="string">'spectopo'</span>,<span class="string">'timef'</span>,<span class="string">'fmrib_fastr'</span>,<span class="string">'fmrib_pas'</span>,<span class="string">'plsTN'</span>,<span class="string">'plsCGBT'</span>,<span class="string">'plsCG'</span>,<span class="string">'plsLBFGS'</span>,<span class="string">'plsSB'</span>,<span class="string">'plsBB'</span>, <span class="keyword">...</span>
+0073     <span class="string">'potCat'</span>,<span class="string">'potExpPow'</span>,<span class="string">'potGauss'</span>,<span class="string">'potLaplace'</span>,<span class="string">'potLogistic'</span>,<span class="string">'potSech2'</span>,<span class="string">'potT'</span>,<span class="string">'penAbs'</span>,<span class="string">'penAbsSmooth'</span>,<span class="string">'penLogSmooth'</span>,<span class="string">'penNegLin'</span>,<span class="string">'penNegQuad'</span>,<span class="string">'penPow'</span>,<span class="string">'penPowSmooth'</span>, <span class="keyword">...</span>
+0074     <span class="string">'penQuad'</span>,<span class="string">'penVB'</span>,<span class="string">'penVBNorm'</span>,<span class="string">'penVBnormsplit'</span>,<span class="string">'penZero'</span>,<span class="string">'phi'</span>,<span class="string">'rigidbody'</span>,<span class="string">'globalrescale'</span>,<span class="string">'traditional'</span>,<span class="string">'nonlin1'</span>,<span class="string">'nonlin2'</span>,<span class="string">'nonlin3'</span>,<span class="string">'nonlin4'</span>,<span class="string">'nonlin5'</span>, <span class="keyword">...</span>
+0075     <span class="keyword">...</span><span class="comment"> % vdpgm functions</span>
+0076     <span class="string">'mkopts_avdp'</span>,<span class="string">'mkopts_bj'</span>,<span class="string">'mkopts_bjrnd'</span>,<span class="string">'mkopts_cdp'</span>,<span class="string">'mkopts_csb'</span>,<span class="string">'mkopts_vb'</span>,<span class="string">'mkopts_vdp'</span>, <span class="keyword">...</span>
+0077     <span class="keyword">...</span><span class="comment"> % CVX keywords</span>
+0078     <span class="string">'dual'</span>,<span class="string">'epigraph'</span>,<span class="string">'expression'</span>,<span class="string">'expressions'</span>,<span class="string">'hypograph'</span>,<span class="string">'ln'</span>,<span class="string">'maximise'</span>,<span class="string">'maximize'</span>,<span class="string">'minimise'</span>,<span class="string">'minimize'</span>,<span class="string">'subject'</span>,<span class="string">'variable'</span>,<span class="string">'variables'</span>, <span class="keyword">...</span>
+0079     <span class="keyword">...</span><span class="comment"> % some mex identifiers</span>
+0080     <span class="string">'pnet'</span>,<span class="string">'libsvmread'</span>,<span class="string">'libsvmwrite'</span>,<span class="string">'lbfgs_'</span>,<span class="string">'find_existing_source_transpose'</span>,<span class="string">'find_sources_complement_grid_fast_int_c'</span>,<span class="string">'mexkernel'</span>,<span class="string">'mexsinglekernel'</span>,<span class="string">'bsb_close'</span>,<span class="string">'bsb_open'</span>,<span class="string">'bsb_read'</span>, <span class="keyword">...</span>
+0081     <span class="string">'lsl_loadlib'</span>,<span class="string">'lsl_inlet'</span>,<span class="string">'lsl_outlet'</span>,<span class="string">'lsl_streaminfo'</span>,<span class="string">'lsl_xml_element'</span>, <span class="keyword">...</span>
+0082     <span class="keyword">...</span><span class="comment"> % more stuff</span>
+0083     <span class="string">'eeg_load_xdf'</span>,<span class="string">'load_xdf'</span>,<span class="keyword">...</span>
+0084     <span class="keyword">...</span><span class="comment">% EEGLAB plugins </span>
+0085     <span class="string">'eegplugin_eepimport'</span>, <span class="string">'eegplugin_bdfimport'</span>, <span class="string">'eegplugin_brainmovie'</span>, <span class="string">'eegplugin_bva_io'</span>, <span class="string">'eegplugin_ctfimport'</span>, <span class="string">'eegplugin_dipfit'</span>, <span class="keyword">...</span>
+0086     <span class="string">'eegplugin_erpssimport'</span>, <span class="string">'eegplugin_fmrib'</span>, <span class="string">'eegplugin_iirfilt'</span>, <span class="string">'eegplugin_ascinstep'</span>, <span class="string">'eegplugin_loreta'</span>, <span class="string">'eegplugin_miclust'</span>, <span class="string">'eegplugin_4dneuroimaging'</span>,<span class="keyword">...</span>
+0087     <span class="string">'eegplugin_xdfimport'</span>};
+0088 
+0089 <span class="keyword">try</span>
+0090     <span class="comment">% create a file where we list all the dependencies that are pulled in by the loader</span>
+0091     <span class="comment">% (so that they are are found by it when compiled)</span>
+0092     listname = <a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'bcilab:/build/dependency_list.m'</span>);
+0093     io_mkdirs(listname,{<span class="string">'+w'</span>,<span class="string">'a'</span>});
+0094     disp([<span class="string">'Creating dependency list '</span> listname]);
+0095     fnew = fopen(listname,<span class="string">'w+'</span>);
+0096     fprintf(fnew,<span class="string">'exist;\n'</span>); <span class="comment">% this will make it exit immediately</span>
+0097     <span class="comment">% go through all dependency paths and add contents of all env_exec files...</span>
+0098     <span class="keyword">for</span> p = hlp_split(genpath(<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'dependencies:/'</span>)),pathsep)
+0099         fname = [p{1} filesep <span class="string">'env_exec.m'</span>];
+0100         <span class="keyword">if</span> exist(fname,<span class="string">'file'</span>)
+0101             <span class="keyword">try</span>
+0102                 <span class="comment">% env_exec file: read contents and append to fnew...</span>
+0103                 fid = fopen(fname,<span class="string">'r'</span>);
+0104                 contents = char(fread(fid))'; <span class="comment">%#ok&lt;FREAD&gt;</span>
+0105                 <span class="keyword">try</span>
+0106                     fwrite(fnew,[contents <span class="string">';'</span>]);
+0107                 <span class="keyword">catch</span>
+0108                     disp_once(<span class="string">'Error writing to the dependency list.'</span>);
+0109                 <span class="keyword">end</span>
+0110                 fclose(fid);
+0111             <span class="keyword">catch</span>
+0112                 <span class="keyword">if</span> fid ~= -1
+0113                     <span class="keyword">try</span> fclose(fid); <span class="keyword">catch</span>, <span class="keyword">end</span>
+0114                 <span class="keyword">end</span>
+0115                 disp([<span class="string">'Error reading from the dependency loader '</span> fname]);
+0116             <span class="keyword">end</span>
+0117         <span class="keyword">end</span>
+0118     <span class="keyword">end</span>
+0119     <span class="comment">% also recursively add all functions in the code directory...</span>
+0120     allfiles = cellfun(@dir,hlp_split(genpath(<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'bcilab:/code'</span>)),pathsep),<span class="string">'UniformOutput'</span>,false);
+0121     allfiles = vertcat(allfiles{:});
+0122     filenames = {allfiles(~cellfun(<span class="string">'isempty'</span>,strfind({allfiles.name},<span class="string">'.m'</span>))).name};
+0123     identifiers = cellfun(@(s)s(1:end-2),filenames,<span class="string">'UniformOutput'</span>,false);
+0124     fprintf(fnew,<span class="string">'%s;\n'</span>,identifiers{:});
+0125     fprintf(fnew,<span class="string">'%s;\n'</span>,special_dependencies{:});
+0126     fclose(fnew);
+0127 <span class="keyword">catch</span> 
+0128     <span class="keyword">if</span> fnew ~= -1
+0129         <span class="keyword">try</span> fclose(fnew); <span class="keyword">catch</span>, <span class="keyword">end</span>
+0130     <span class="keyword">end</span>
+0131     disp(<span class="string">'Error during creation of the dependency list.'</span>);
+0132 <span class="keyword">end</span>
+0133 
+0134 <span class="comment">% make writable for all</span>
+0135 <span class="keyword">try</span>
+0136     fileattrib(listname,<span class="string">'+w'</span>,<span class="string">'a'</span>);    
+0137 <span class="keyword">catch</span>
+0138     disp(<span class="string">'Error setting permissions for the dependency list.'</span>);
+0139 <span class="keyword">end</span>
+0140 
+0141 <span class="comment">% and add to the path, so that it is properly referenced</span>
+0142 <span class="keyword">if</span> ~exist(listname,<span class="string">'file'</span>)
+0143     error([<span class="string">'MATLAB did not find the dependency list '</span> listname]); <span class="keyword">end</span>
+0144 
+0145 <span class="comment">% copy the build/build-&lt;arch&gt;.reference file to build.prj and substitute</span>
+0146 <span class="comment">% bcilab:/ by the actual path to the toolbox</span>
+0147 <span class="keyword">try</span>
+0148     srcfile = fopen(<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>([<span class="string">'bcilab:/build/build-'</span> lower(computer) <span class="string">'.reference'</span>]),<span class="string">'r'</span>);
+0149     dstfile = fopen(<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'bcilab:/build.prj'</span>),<span class="string">'w+'</span>);
+0150     content = fread(srcfile, Inf, <span class="string">'uint8=&gt;char'</span>)';
+0151     content = strrep(content,<span class="string">'bcilab:/'</span>,<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'bcilab:/'</span>));
+0152     fwrite(dstfile,content);
+0153     fclose(srcfile);
+0154     fclose(dstfile);
+0155 <span class="keyword">catch</span> e
+0156     disp(<span class="string">'Encountered a problem trying to copy the build/build-&lt;arch&gt;.reference file to the build.prj file.'</span>);
+0157     disp([<span class="string">'Reason: '</span> e.message]);
+0158 <span class="keyword">end</span>
+0159 
+0160 <span class="comment">% now run the deploytool...</span>
+0161 disp(<span class="string">'Compiling BCILAB...'</span>);
+0162 clear functions;
+0163 deploytool(<span class="string">'-build'</span>,<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'bcilab:/build.prj'</span>));
+0164 disp(<span class="string">'Done.'</span>);
+0165 
+0166 <span class="comment">% also try to build the documentation (note: this runs in parallel to the deployment process)</span>
+0167 disp(<span class="string">'Generating documentation...'</span>);
+0168 <span class="keyword">try</span>
+0169     cd(<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'bcilab:/'</span>));
+0170     m2html(<span class="string">'mfiles'</span>,<span class="string">'code'</span>,<span class="string">'html'</span>,<span class="string">'build/docs'</span>,<span class="string">'recursive'</span>,<span class="string">'on'</span>);
+0171 <span class="keyword">catch</span> e
+0172     disp(<span class="string">'Error while generating documentation.'</span>);
+0173     <a href="env_handleerror.html" class="code" title="function varargout = env_handleerror(varargin)">env_handleerror</a>(e);
+0174 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

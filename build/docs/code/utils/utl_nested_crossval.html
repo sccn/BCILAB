@@ -1,0 +1,230 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_nested_crossval</title>
+  <meta name="keywords" content="utl_nested_crossval">
+  <meta name="description" content="Run a generic nested cross-validation over indexable data.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_nested_crossval.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_nested_crossval
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Run a generic nested cross-validation over indexable data.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [measure,stats] = utl_nested_crossval(data, varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Run a generic nested cross-validation over indexable data.
+ [Measure, Stats] = utl_nested_crossval(Data, Arguments...)
+
+ In:
+   Data        :   some data that can be partitioned using index sets
+
+   Arguments   :   mandatory arguments:
+                   'trainer': training function; receives a partition of the data (as produced by the partitioner),
+                              possibly some further arguments as specified in args, and returns a model (of any kind)
+
+                   'tester' : testing function; receives a model (as produced by the trainer) and a partition of the data
+                              (as produced by the partitioner), and returns a prediction for every index of the input data,
+                              in a format allowed by ml_predict
+
+                   'args': argument (ranges) for the training function, cell array (may be empty)
+                           specified as in utl_gridsearch (format controlled via argform)
+
+                   optional arguments:
+                   'opt_scheme': cross-validation scheme used while searching for the optimal model (default: 5)
+                                  uses the scheme format of utl_crossval(), see below
+                   'eval_scheme': cross-validation scheme used while evaluating the optimal model's performance (default: 10)
+                                  uses the scheme format of utl_crossval():
+                                   * 0: skip CV, return NaN and empty statistics
+                                   * k: k-fold randomized CV (or, if 0&lt;k&lt;1, k-holdhout CV)
+                                   * [r k]: r-time repartitioned k-fold randomized CV (or, if 0&lt;k&lt;1, k-holdout CV (with k a fraction))
+                                   * 'loo': leave-one-out CV
+                                   * {'chron', k} or {'block', k}: k-fold chronological/blockwise CV
+                                   * {'chron', k, m} or {'block', k, m}: k-fold chronological/blockwise CV with m indices margin width (between training and test set)
+
+                   'partitioner': partitioning function for the data, receives three parameters: (data, index vector, packed trainer args OR model)
+                                   * if the index vector is empty, should return the highest index in the data
+                                   * otherwise, it should return data subindexed by the index vector
+                                  default: provides support for cell arrays, numeric arrays, struct arrays and {Data,Target} cell arrays
+                                  note: the third parameter is for convenience and may optionally be taken into account; trainer args are passed packed into 
+                                  a cell array for both index set generation and computation of the training partition(s), and the model is passed for the
+                                  computation of testing partitions
+
+                   'target': a function to derive the target variable from a partition of the data (as produced by the partitioner),
+                             for evaluation; the allowed format is anything that may be output by ml_predict
+                             default: provides support for {Data,Target} cell arrays
+
+                   'metric': metric to be employed, applied both in each fold and the aggregated data over all folds
+                              * function handle: a custom, user-supplied loss function; receives target data in the first 
+                                argument and prediction data in the second argument; each can be in any format that can be 
+                                produced by ml_predict (but can be expected to be mutually consistent).
+                                shall return a real number indicating the summary metric over all data, and optionally 
+                                additional statistics in a struct
+                              * string: use ml_calcloss, with 'metric' determining the loss type
+                              * default: use 'mcr','mse','nll','kld', depending on supplied target &amp; prediction data formats
+
+                   'argform': format of the argument ranges, either 'direct' or 'clauses' (default: 'clauses')
+                               'direct': search ranges are directly specified as arrays
+                               'clauses': search ranges are specified using the search() clause
+
+                   further arguments (same as in par_beginschedule, listed below for convenience)
+                   'engine_ps': the parallelization engine to be used for the parameter search (default: 'local')
+
+                   'engine_cv': the parallelization engine to be used for the cross-validation (default: 'global')
+
+                   'pool'     : node pool to be used for parallelization, when using the BLS scheduler (default: 'global')
+
+                   'policy'   : scheduling policy to be used, when using the BLS scheduler (default: 'global')
+
+ Out:
+   Measure : a measure of the overall performance of the trainer/tester combination, w.r.t. to the target variable returned by gettarget,
+             computed by the metric
+
+   Stats   : additional statistics, as produced by the metric
+
+ Example:
+   % assuming a feature matrix called trials and a label vector called targets, sized as:
+   %  trials: [NxF] array of training instances
+   %  targets: [Nx1] array of labels
+
+   % cross-validate using sparse logistic regression
+   [loss,stats] = utl_nested_crossval({trials,targets}, 'args',{{'logreg' search(2.^(-6:1:10)) 'variant' 'l1'}})  
+
+ See also:
+   <a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(data, varargin)">utl_crossval</a>, <a href="utl_searchmodel.html" class="code" title="function [model,stats] = utl_searchmodel(data, varargin)">utl_searchmodel</a>
+
+                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                               2010-04-22</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(data, varargin)">utl_crossval</a>	Run a generic cross-validation over indexable data.</li><li><a href="utl_searchmodel.html" class="code" title="function [model,stats] = utl_searchmodel(data, varargin)">utl_searchmodel</a>	Find the best predictive model out of a parameterized set, via cross-validation.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [measure,stats] = utl_nested_crossval(data, varargin)</a>
+0002 <span class="comment">% Run a generic nested cross-validation over indexable data.</span>
+0003 <span class="comment">% [Measure, Stats] = utl_nested_crossval(Data, Arguments...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Data        :   some data that can be partitioned using index sets</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">%   Arguments   :   mandatory arguments:</span>
+0009 <span class="comment">%                   'trainer': training function; receives a partition of the data (as produced by the partitioner),</span>
+0010 <span class="comment">%                              possibly some further arguments as specified in args, and returns a model (of any kind)</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%                   'tester' : testing function; receives a model (as produced by the trainer) and a partition of the data</span>
+0013 <span class="comment">%                              (as produced by the partitioner), and returns a prediction for every index of the input data,</span>
+0014 <span class="comment">%                              in a format allowed by ml_predict</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%                   'args': argument (ranges) for the training function, cell array (may be empty)</span>
+0017 <span class="comment">%                           specified as in utl_gridsearch (format controlled via argform)</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">%                   optional arguments:</span>
+0020 <span class="comment">%                   'opt_scheme': cross-validation scheme used while searching for the optimal model (default: 5)</span>
+0021 <span class="comment">%                                  uses the scheme format of utl_crossval(), see below</span>
+0022 <span class="comment">%                   'eval_scheme': cross-validation scheme used while evaluating the optimal model's performance (default: 10)</span>
+0023 <span class="comment">%                                  uses the scheme format of utl_crossval():</span>
+0024 <span class="comment">%                                   * 0: skip CV, return NaN and empty statistics</span>
+0025 <span class="comment">%                                   * k: k-fold randomized CV (or, if 0&lt;k&lt;1, k-holdhout CV)</span>
+0026 <span class="comment">%                                   * [r k]: r-time repartitioned k-fold randomized CV (or, if 0&lt;k&lt;1, k-holdout CV (with k a fraction))</span>
+0027 <span class="comment">%                                   * 'loo': leave-one-out CV</span>
+0028 <span class="comment">%                                   * {'chron', k} or {'block', k}: k-fold chronological/blockwise CV</span>
+0029 <span class="comment">%                                   * {'chron', k, m} or {'block', k, m}: k-fold chronological/blockwise CV with m indices margin width (between training and test set)</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%                   'partitioner': partitioning function for the data, receives three parameters: (data, index vector, packed trainer args OR model)</span>
+0032 <span class="comment">%                                   * if the index vector is empty, should return the highest index in the data</span>
+0033 <span class="comment">%                                   * otherwise, it should return data subindexed by the index vector</span>
+0034 <span class="comment">%                                  default: provides support for cell arrays, numeric arrays, struct arrays and {Data,Target} cell arrays</span>
+0035 <span class="comment">%                                  note: the third parameter is for convenience and may optionally be taken into account; trainer args are passed packed into</span>
+0036 <span class="comment">%                                  a cell array for both index set generation and computation of the training partition(s), and the model is passed for the</span>
+0037 <span class="comment">%                                  computation of testing partitions</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%                   'target': a function to derive the target variable from a partition of the data (as produced by the partitioner),</span>
+0040 <span class="comment">%                             for evaluation; the allowed format is anything that may be output by ml_predict</span>
+0041 <span class="comment">%                             default: provides support for {Data,Target} cell arrays</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%                   'metric': metric to be employed, applied both in each fold and the aggregated data over all folds</span>
+0044 <span class="comment">%                              * function handle: a custom, user-supplied loss function; receives target data in the first</span>
+0045 <span class="comment">%                                argument and prediction data in the second argument; each can be in any format that can be</span>
+0046 <span class="comment">%                                produced by ml_predict (but can be expected to be mutually consistent).</span>
+0047 <span class="comment">%                                shall return a real number indicating the summary metric over all data, and optionally</span>
+0048 <span class="comment">%                                additional statistics in a struct</span>
+0049 <span class="comment">%                              * string: use ml_calcloss, with 'metric' determining the loss type</span>
+0050 <span class="comment">%                              * default: use 'mcr','mse','nll','kld', depending on supplied target &amp; prediction data formats</span>
+0051 <span class="comment">%</span>
+0052 <span class="comment">%                   'argform': format of the argument ranges, either 'direct' or 'clauses' (default: 'clauses')</span>
+0053 <span class="comment">%                               'direct': search ranges are directly specified as arrays</span>
+0054 <span class="comment">%                               'clauses': search ranges are specified using the search() clause</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">%                   further arguments (same as in par_beginschedule, listed below for convenience)</span>
+0057 <span class="comment">%                   'engine_ps': the parallelization engine to be used for the parameter search (default: 'local')</span>
+0058 <span class="comment">%</span>
+0059 <span class="comment">%                   'engine_cv': the parallelization engine to be used for the cross-validation (default: 'global')</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">%                   'pool'     : node pool to be used for parallelization, when using the BLS scheduler (default: 'global')</span>
+0062 <span class="comment">%</span>
+0063 <span class="comment">%                   'policy'   : scheduling policy to be used, when using the BLS scheduler (default: 'global')</span>
+0064 <span class="comment">%</span>
+0065 <span class="comment">% Out:</span>
+0066 <span class="comment">%   Measure : a measure of the overall performance of the trainer/tester combination, w.r.t. to the target variable returned by gettarget,</span>
+0067 <span class="comment">%             computed by the metric</span>
+0068 <span class="comment">%</span>
+0069 <span class="comment">%   Stats   : additional statistics, as produced by the metric</span>
+0070 <span class="comment">%</span>
+0071 <span class="comment">% Example:</span>
+0072 <span class="comment">%   % assuming a feature matrix called trials and a label vector called targets, sized as:</span>
+0073 <span class="comment">%   %  trials: [NxF] array of training instances</span>
+0074 <span class="comment">%   %  targets: [Nx1] array of labels</span>
+0075 <span class="comment">%</span>
+0076 <span class="comment">%   % cross-validate using sparse logistic regression</span>
+0077 <span class="comment">%   [loss,stats] = utl_nested_crossval({trials,targets}, 'args',{{'logreg' search(2.^(-6:1:10)) 'variant' 'l1'}})</span>
+0078 <span class="comment">%</span>
+0079 <span class="comment">% See also:</span>
+0080 <span class="comment">%   utl_crossval, utl_searchmodel</span>
+0081 <span class="comment">%</span>
+0082 <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0083 <span class="comment">%                               2010-04-22</span>
+0084 
+0085 <span class="comment">% get options struct &amp; assign some defaults as documented</span>
+0086 opts = hlp_varargin2struct(varargin, <span class="keyword">...</span>
+0087     <span class="keyword">...</span><span class="comment"> % arguments that specifically control the outer cross-validation</span>
+0088     <span class="string">'eval_scheme'</span>,10, <span class="keyword">...</span>
+0089     <span class="keyword">...</span><span class="comment"> % arguments that control the grid search</span>
+0090     <span class="string">'opt_scheme'</span>,5, <span class="keyword">...</span>
+0091     <span class="string">'argform'</span>,<span class="string">'clauses'</span>, <span class="keyword">...</span>
+0092     <span class="string">'args'</span>,{});
+0093 
+0094 <span class="comment">% if parameters are to be searched</span>
+0095 <span class="keyword">if</span> is_needing_search(opts.argform,opts.args)
+0096     <span class="comment">% use the utl_searchmodel() meta-function as the trainer in the subsequent regular CV</span>
+0097     <span class="comment">% with opts.opt_scheme as the (nested) search scheme</span>
+0098     opts.trainer = @(P,varargin) <a href="utl_searchmodel.html" class="code" title="function [model,stats] = utl_searchmodel(data, varargin)">utl_searchmodel</a>(P,opts,<span class="string">'scheme'</span>,opts.opt_scheme); 
+0099 <span class="keyword">end</span>
+0100 
+0101 <span class="comment">% run a cross-validation, with opts.eval_scheme as the search scheme</span>
+0102 [measure,stats] = <a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(data, varargin)">utl_crossval</a>(data, opts, <span class="string">'scheme'</span>,opts.eval_scheme);</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

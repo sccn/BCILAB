@@ -1,0 +1,288 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of bci_annotate</title>
+  <meta name="keywords" content="bci_annotate">
+  <meta name="description" content="Annotate a raw dataset with a bci-derived channel">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">offline_analysis</a> &gt; bci_annotate.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/offline_analysis&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>bci_annotate
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Annotate a raw dataset with a bci-derived channel</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function data = bci_annotate(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Annotate a raw dataset with a bci-derived channel
+ Signal = bci_annotate(Model,Data,OutputFormat,SamplingRate,Interpolation,SmoothingWindow,StoreOutputs)
+ 
+ This function allows to add channels (or streams) to a continuous data set which
+ contain the  estimates of a predictive model applied to the data. The resulting set can then be
+ analyzed and visualized using a variety of tools (e.g. some of EEGLAB's plot tools).
+
+ In:
+   Model : A predictive model (previously learned with bci_train).
+
+   Data : A continuous and not further filtered EEGLAB data set, or a stream bundle.
+
+   OutputFormat : Output format. The format in which each individual prediction is represented -- 
+                  can be a discrete/continuous probability distribution, the most likely value
+                  (mode), or the expected value (expectation). (default: 'distribution')
+
+   SamplingRate : Output sampling rate. The rate at which predictions are made, in Hz.
+                  (default: 10)
+
+   Interpolation : Output interpolation. Determines how the predictions are upsampled to the sampling 
+                   rate of the data set (or the first stream in a bundle). The most conservative
+                   approaches are ''constant'' and ''nans''. Resample is the only smooth output
+                   that is causal, but but can delay the BCI output significantly (esp. at low
+                   output sampling rates). The non-causal methods give a smooth output that is
+                   aligned with the time course of the predictions but exhibit &quot;false&quot; pre-ringing
+                   (and other effects) that cannot be physically realized for online execution.
+                   Among those, noncausallinear is simplest to understand and noncausalpchip
+                   results in a good-looking shape-preserving smoothing. (default: 'constant')
+
+   StoreOutputs : Output behavior. Determines whether the BCI outputs are attached to the data set or 
+                  stream as additional channels, or as an additional stream, or whether an EEGLAB
+                  set containing just the outputs should be returned. (default: 'newchannels')
+
+ Out:
+   Data: the new data, with BCI-derived predictions (or a data set that contains only the BCI 
+         predictions)
+
+ Notes:
+   if this function is applied to epoched data, there will be a period at the beginning of each
+   epoch for which there exist no meaningful predictions, because each model usually requires a 
+   minumum amount of samples to operate.
+
+ Examples:
+   % given a predictive model and a continuous data set, append a channel which encodes the BCI 
+   % model's output
+   eeg = bci_annotate(lastmodel,eeg)
+
+   % as before, but use a different output format (namely: expected value instead of probability 
+   % distribution)
+   eeg = bci_annotate(lastmodel,eeg,'OutputFormat','expectation')
+
+   % as before, but this time use a higher sampling rate (slower, but more precise)
+   eeg = bci_annotate(lastmodel,eeg,'SamplingRate',60)
+
+   % as before, but use a smooth (but lagged) interpolation method
+   eeg = bci_annotate(lastmodel,eeg,'Interpolation','resample')
+ 
+ See also:
+   <a href="bci_predict.html" class="code" title="function [prediction, measure, stats, target] = bci_predict(varargin)">bci_predict</a>, onl_simulate, <a href="bci_train.html" class="code" title="function [measure,model,stats] = bci_train(varargin)">bci_train</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-03-28</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function data = bci_annotate(varargin)</a>
+0002 <span class="comment">% Annotate a raw dataset with a bci-derived channel</span>
+0003 <span class="comment">% Signal = bci_annotate(Model,Data,OutputFormat,SamplingRate,Interpolation,SmoothingWindow,StoreOutputs)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This function allows to add channels (or streams) to a continuous data set which</span>
+0006 <span class="comment">% contain the  estimates of a predictive model applied to the data. The resulting set can then be</span>
+0007 <span class="comment">% analyzed and visualized using a variety of tools (e.g. some of EEGLAB's plot tools).</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% In:</span>
+0010 <span class="comment">%   Model : A predictive model (previously learned with bci_train).</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%   Data : A continuous and not further filtered EEGLAB data set, or a stream bundle.</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%   OutputFormat : Output format. The format in which each individual prediction is represented --</span>
+0015 <span class="comment">%                  can be a discrete/continuous probability distribution, the most likely value</span>
+0016 <span class="comment">%                  (mode), or the expected value (expectation). (default: 'distribution')</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   SamplingRate : Output sampling rate. The rate at which predictions are made, in Hz.</span>
+0019 <span class="comment">%                  (default: 10)</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   Interpolation : Output interpolation. Determines how the predictions are upsampled to the sampling</span>
+0022 <span class="comment">%                   rate of the data set (or the first stream in a bundle). The most conservative</span>
+0023 <span class="comment">%                   approaches are ''constant'' and ''nans''. Resample is the only smooth output</span>
+0024 <span class="comment">%                   that is causal, but but can delay the BCI output significantly (esp. at low</span>
+0025 <span class="comment">%                   output sampling rates). The non-causal methods give a smooth output that is</span>
+0026 <span class="comment">%                   aligned with the time course of the predictions but exhibit &quot;false&quot; pre-ringing</span>
+0027 <span class="comment">%                   (and other effects) that cannot be physically realized for online execution.</span>
+0028 <span class="comment">%                   Among those, noncausallinear is simplest to understand and noncausalpchip</span>
+0029 <span class="comment">%                   results in a good-looking shape-preserving smoothing. (default: 'constant')</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%   StoreOutputs : Output behavior. Determines whether the BCI outputs are attached to the data set or</span>
+0032 <span class="comment">%                  stream as additional channels, or as an additional stream, or whether an EEGLAB</span>
+0033 <span class="comment">%                  set containing just the outputs should be returned. (default: 'newchannels')</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">% Out:</span>
+0036 <span class="comment">%   Data: the new data, with BCI-derived predictions (or a data set that contains only the BCI</span>
+0037 <span class="comment">%         predictions)</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">% Notes:</span>
+0040 <span class="comment">%   if this function is applied to epoched data, there will be a period at the beginning of each</span>
+0041 <span class="comment">%   epoch for which there exist no meaningful predictions, because each model usually requires a</span>
+0042 <span class="comment">%   minumum amount of samples to operate.</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">% Examples:</span>
+0045 <span class="comment">%   % given a predictive model and a continuous data set, append a channel which encodes the BCI</span>
+0046 <span class="comment">%   % model's output</span>
+0047 <span class="comment">%   eeg = bci_annotate(lastmodel,eeg)</span>
+0048 <span class="comment">%</span>
+0049 <span class="comment">%   % as before, but use a different output format (namely: expected value instead of probability</span>
+0050 <span class="comment">%   % distribution)</span>
+0051 <span class="comment">%   eeg = bci_annotate(lastmodel,eeg,'OutputFormat','expectation')</span>
+0052 <span class="comment">%</span>
+0053 <span class="comment">%   % as before, but this time use a higher sampling rate (slower, but more precise)</span>
+0054 <span class="comment">%   eeg = bci_annotate(lastmodel,eeg,'SamplingRate',60)</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">%   % as before, but use a smooth (but lagged) interpolation method</span>
+0057 <span class="comment">%   eeg = bci_annotate(lastmodel,eeg,'Interpolation','resample')</span>
+0058 <span class="comment">%</span>
+0059 <span class="comment">% See also:</span>
+0060 <span class="comment">%   bci_predict, onl_simulate, bci_train</span>
+0061 <span class="comment">%</span>
+0062 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0063 <span class="comment">%                                2010-03-28</span>
+0064 
+0065 <span class="comment">% read arguments</span>
+0066 opts = arg_define([0 2],varargin, <span class="keyword">...</span>
+0067     arg({<span class="string">'model'</span>,<span class="string">'Model'</span>},mandatory,[],<span class="string">'Predictive model. This is a model as previously computed via bci_train.'</span>), <span class="keyword">...</span>
+0068     arg({<span class="string">'data'</span>,<span class="string">'Data'</span>},mandatory,[],<span class="string">'Data set. EEGLAB data set, or stream bundle, or cell array of data sets / stream bundles to use for prediction.'</span>), <span class="keyword">...</span>
+0069     arg({<span class="string">'format'</span>,<span class="string">'OutputFormat'</span>},<span class="string">'distribution'</span>,{<span class="string">'distribution'</span>,<span class="string">'expectation'</span>,<span class="string">'mode'</span>},<span class="string">'Output format. The format in which each individual prediction is represented -- can be a discrete/continuous probability distribution, the most likely value (mode), or the expected value (expectation).'</span>), <span class="keyword">...</span>
+0070     arg({<span class="string">'srate'</span>,<span class="string">'SamplingRate'</span>},10,[],<span class="string">'Output sampling rate. The rate at which predictions are made, in Hz.'</span>), <span class="keyword">...</span>
+0071     arg({<span class="string">'interpolation'</span>,<span class="string">'Interpolation'</span>},<span class="string">'constant'</span>,{<span class="string">'nans'</span>,<span class="string">'constant'</span>,<span class="string">'laggedresample'</span>,<span class="string">'noncausalpchip'</span>,<span class="string">'noncausallinear'</span>,<span class="string">'noncausalresample'</span>},<span class="string">'Output interpolation. Determines how the predictions are upsampled to the sampling rate of the data set (or the first stream in a bundle). The most conservative approaches are ''constant'' and ''nans''. Resample produces a smoothed output, but delays the BCI output significantly (esp. at low output sampling rates). The non-causal methods give a smooth output that is aligned with the time course of the predictions but exhibit &quot;false&quot; pre-ringing (etc) that cannot be physically realized for online execution. Among those, linear is simplest to understand and pchip results in a good shape-preserving smoothing.'</span>), <span class="keyword">...</span>
+0072     arg({<span class="string">'storeoutputs'</span>,<span class="string">'StoreOutputs'</span>},<span class="string">'newchannels'</span>,{<span class="string">'newchannels'</span>,<span class="string">'newstream'</span>,<span class="string">'newset'</span>},<span class="string">'Output behavior. Determines whether the BCI outputs are attached to the data set / stream as additional channels, or as an additional stream, or whether an EEGLAB set containing just the outputs should be returned.'</span>), <span class="keyword">...</span>
+0073     arg({<span class="string">'name'</span>,<span class="string">'ChannelName'</span>},<span class="string">'BCI'</span>,[],<span class="string">'Name of new channels. If there are multiple channels, they will be consecutively numbered.'</span>));
+0074 
+0075 <span class="comment">% uniformize the data</span>
+0076 data = opts.data;
+0077 was_simple = all(isfield(data,{<span class="string">'data'</span>,<span class="string">'srate'</span>})) || all(isfield(data,{<span class="string">'head'</span>,<span class="string">'parts'</span>}));  <span class="comment">% whether the data was a simple EEGLAB data set</span>
+0078 <span class="keyword">if</span> iscell(data)
+0079     data = struct(<span class="string">'streams'</span>,{data}); <span class="keyword">end</span>
+0080 <span class="keyword">if</span> was_simple
+0081     data = struct(<span class="string">'streams'</span>,{{data}}); <span class="keyword">end</span>
+0082 data = utl_check_bundle(data);
+0083 <span class="keyword">for</span> s=1:length(data.streams)
+0084     data.streams{s} = exp_eval_optimized(data.streams{s}); <span class="keyword">end</span>
+0085 
+0086 <span class="comment">% use onl_simulate to get outputs, for each epoch</span>
+0087 [preds,lats] = onl_simulate(data,opts.model,<span class="string">'sampling_rate'</span>,opts.srate,<span class="string">'format'</span>,opts.format);
+0088 preds(~isfinite(preds(:))) = 0;
+0089 lats = 1 + round(lats*data.streams{1}.srate);
+0090 
+0091 [C,S,E] = size(data.streams{1}.data);   <span class="comment">% #channels &amp; #samples of the first stream</span>
+0092 NC = size(preds,2);                     <span class="comment">% # of newly-added channels</span>
+0093 
+0094 <span class="comment">% interpolate the data at the signal's sampling rate</span>
+0095 <span class="keyword">switch</span> opts.interpolation
+0096     <span class="keyword">case</span> <span class="string">'nans'</span>
+0097         <span class="comment">% generate NaN dataset</span>
+0098         tmp = exp_eval(set_new(<span class="string">'data'</span>,nan(NC,S),<span class="string">'srate'</span>,data.streams{1}.srate));
+0099         <span class="comment">% fill in the predictions at the appropriate locations</span>
+0100         tmp.data(:,lats) = preds';
+0101     <span class="keyword">case</span> <span class="string">'constant'</span>
+0102             <span class="comment">% generate NaN dataset</span>
+0103             tmp = exp_eval(set_new(<span class="string">'data'</span>,nan(NC,S),<span class="string">'srate'</span>,data.streams{1}.srate));
+0104             <span class="comment">% fill in the predictions at the appropriate locations</span>
+0105             tmp.data(:,lats) = preds';
+0106             <span class="comment">% go replace NaNs by the last valid output</span>
+0107             last = tmp.data(:,1);
+0108             <span class="keyword">for</span> k=2:size(tmp.data,2)
+0109                 cur = tmp.data(:,k);
+0110                 <span class="keyword">if</span> all(isnan(cur))
+0111                     tmp.data(:,k) = last;
+0112                 <span class="keyword">else</span>
+0113                     last = cur;
+0114                 <span class="keyword">end</span>
+0115             <span class="keyword">end</span>
+0116     <span class="keyword">case</span> {<span class="string">'laggedresample'</span>,<span class="string">'noncausalresample'</span>}        
+0117         <span class="keyword">if</span> strcmp(opts.interpolation,<span class="string">'laggedresample'</span>)
+0118             <span class="comment">% causal version</span>
+0119             tmp = exp_eval(flt_resample(exp_eval(set_new(<span class="string">'data'</span>,preds',<span class="string">'srate'</span>,opts.srate)),data.streams{1}.srate));
+0120         <span class="keyword">else</span>
+0121             <span class="comment">% non-causal version</span>
+0122             tmp = pop_resample(exp_eval(set_new(<span class="string">'data'</span>,preds',<span class="string">'srate'</span>,opts.srate)),data.streams{1}.srate);
+0123         <span class="keyword">end</span>
+0124         <span class="comment">% fix exact sample range to align BCI outputs with the rest of the data</span>
+0125         <span class="keyword">if</span> lats(1) &gt; 1
+0126             <span class="comment">% prepend constant data, if necessary</span>
+0127             tmp.data = [repmat(tmp.data(:,1),1,lats(1)-1) tmp.data];
+0128             tmp.pnts = size(tmp.data,2);
+0129         <span class="keyword">end</span>
+0130         <span class="keyword">if</span> tmp.pnts &lt; S
+0131             <span class="comment">% pad with constant data, if necessary</span>
+0132             tmp.data = [tmp.data repmat(tmp.data(:,end),1,S - tmp.pnts)];
+0133             tmp.pnts = size(tmp.data,2);
+0134         <span class="keyword">elseif</span> tmp.pnts &gt; S
+0135             <span class="comment">% or cut samples from the end, if necessary</span>
+0136             tmp.data = tmp.data(:,1:S);
+0137             tmp.pnts = size(tmp.data,2);
+0138         <span class="keyword">end</span>
+0139     <span class="keyword">otherwise</span>
+0140         <span class="comment">% one of the other non-causal modes</span>
+0141         tmp = zeros(NC,S);
+0142         <span class="keyword">for</span> d=1:NC
+0143             <span class="comment">% interpolate using interp1</span>
+0144             tmp(d,:) = interp1(lats,preds(:,d),1:S,opts.interpolation(10:end))';
+0145             tmp(d,[1:min(lats) max(lats):end]) = 0;
+0146         <span class="keyword">end</span>
+0147         <span class="comment">% turn into a dataset</span>
+0148         tmp = exp_eval(set_new(<span class="string">'data'</span>,tmp,<span class="string">'srate'</span>,data.streams{1}.srate));
+0149 <span class="keyword">end</span>
+0150 
+0151 <span class="comment">% add chanlocs to tmp</span>
+0152 <span class="keyword">if</span> NC &gt; 1
+0153     <span class="keyword">for</span> k=1:NC
+0154         tmp.chanlocs(k).labels = [opts.name num2str(k)]; 
+0155         tmp.chanlocs(k).type = <span class="string">'Latent'</span>;
+0156     <span class="keyword">end</span>
+0157 <span class="keyword">else</span>
+0158     tmp.chanlocs.labels = opts.name;
+0159     tmp.chanlocs.type = <span class="string">'Latent'</span>;
+0160 <span class="keyword">end</span>
+0161 
+0162 <span class="keyword">switch</span> opts.storeoutputs
+0163     <span class="keyword">case</span> <span class="string">'newset'</span>
+0164         data = tmp;
+0165     <span class="keyword">case</span> <span class="string">'newchannels'</span>
+0166         <span class="comment">% append the results as new channel(s) to the data set</span>
+0167         data.streams{1}.data(C+(1:NC),:) = tmp.data;
+0168         <span class="comment">% update chanlocs, nbchan, ...</span>
+0169         data.streams{1}.nbchan = size(data.streams{1}.data,1);
+0170         <span class="keyword">for</span> k=1:NC
+0171             data.streams{1}.chanlocs(k+C).labels = tmp.chanlocs(k).labels; 
+0172             data.streams{1}.chanlocs(k+C).type = tmp.chanlocs(k).type;             
+0173         <span class="keyword">end</span>
+0174         <span class="keyword">if</span> was_simple
+0175             data = data.streams{1}; <span class="keyword">end</span>
+0176     <span class="keyword">case</span> <span class="string">'newstream'</span>
+0177         data.streams{end+1} = tmp;
+0178     <span class="keyword">otherwise</span>
+0179         error(<span class="string">'Unsupported output mode selected.'</span>);
+0180 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

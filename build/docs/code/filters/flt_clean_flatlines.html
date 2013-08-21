@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_clean_flatlines</title>
+  <meta name="keywords" content="flt_clean_flatlines">
+  <meta name="description" content="Remove channels with abnormal data from a continuous data set.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_clean_flatlines.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_clean_flatlines
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Remove channels with abnormal data from a continuous data set.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function signal = flt_clean_flatlines(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Remove channels with abnormal data from a continuous data set.
+ Signal = flt_clean_flatlines(Signal,MaxFlatlineDuration,MaxAllowedJitter)
+
+ This is an automated artifact rejection function which ensures that 
+ the data contains no flat-lined channels.
+
+ In:
+   Signal : continuous data set, assumed to be appropriately high-passed (e.g. &gt;0.5Hz or
+            with a 0.5Hz - 2.0Hz transition band)
+
+   MaxFlatlineDuration : Maximum tolerated flatline duration. In seconds. If a channel has a longer
+                         flatline than this, it will be considered abnormal. Default: 5
+
+   MaxAllowedJitter : Maximum tolerated jitter during flatlines. As a multiple of epsilon.
+                      Default: 20
+
+ Out:
+   Signal : data set with flat channels removed
+
+ Examples:
+   % use with defaults
+   eeg = flt_clean_flatlines(eeg);
+
+ See also:
+   <a href="flt_clean_windows.html" class="code" title="function [signal,sample_mask] = flt_clean_windows(varargin)">flt_clean_windows</a>, flt_clean_peaks
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-07-06</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="flt_clean_settings.html" class="code" title="function signal = flt_clean_settings(varargin)">flt_clean_settings</a>	Clean EEG data according to a particular cleaning setting.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = flt_clean_flatlines(varargin)</a>
+0002 <span class="comment">% Remove channels with abnormal data from a continuous data set.</span>
+0003 <span class="comment">% Signal = flt_clean_flatlines(Signal,MaxFlatlineDuration,MaxAllowedJitter)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This is an automated artifact rejection function which ensures that</span>
+0006 <span class="comment">% the data contains no flat-lined channels.</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% In:</span>
+0009 <span class="comment">%   Signal : continuous data set, assumed to be appropriately high-passed (e.g. &gt;0.5Hz or</span>
+0010 <span class="comment">%            with a 0.5Hz - 2.0Hz transition band)</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%   MaxFlatlineDuration : Maximum tolerated flatline duration. In seconds. If a channel has a longer</span>
+0013 <span class="comment">%                         flatline than this, it will be considered abnormal. Default: 5</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%   MaxAllowedJitter : Maximum tolerated jitter during flatlines. As a multiple of epsilon.</span>
+0016 <span class="comment">%                      Default: 20</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">% Out:</span>
+0019 <span class="comment">%   Signal : data set with flat channels removed</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">% Examples:</span>
+0022 <span class="comment">%   % use with defaults</span>
+0023 <span class="comment">%   eeg = flt_clean_flatlines(eeg);</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">% See also:</span>
+0026 <span class="comment">%   flt_clean_windows, flt_clean_peaks</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0029 <span class="comment">%                                2010-07-06</span>
+0030 
+0031 <span class="comment">% flt_clean_flatlines_version&lt;1.0&gt; -- for the cache</span>
+0032 
+0033 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>;
+0034 
+0035 declare_properties(<span class="string">'name'</span>,<span class="string">'FlatlineCleaning'</span>, <span class="string">'independent_channels'</span>,true, <span class="string">'independent_trials'</span>,false);
+0036 
+0037 arg_define(varargin, <span class="keyword">...</span>
+0038     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0039     arg({<span class="string">'max_flatline_duration'</span>,<span class="string">'MaxFlatlineDuration'</span>}, 5, [], <span class="string">'Maximum tolerated flatline duration. In seconds. If a channel has a longer flatline than this, it will be considered abnormal.'</span>), <span class="keyword">...</span>
+0040     arg({<span class="string">'max_allowed_jitter'</span>,<span class="string">'MaxAllowedJitter'</span>}, 20, [], <span class="string">'Maximum tolerated jitter during flatlines. As a multiple of epsilon.'</span>), <span class="keyword">...</span>
+0041     arg_deprecated({<span class="string">'min_stddev'</span>,<span class="string">'MinimumStdDev'</span>}, 0.0001, [], <span class="string">'This parameter has no function any more.'</span>), <span class="keyword">...</span>
+0042     arg_norep(<span class="string">'removed_channels'</span>,unassigned)); 
+0043 
+0044 <span class="comment">% flag channels</span>
+0045 <span class="keyword">if</span> ~exist(<span class="string">'removed_channels'</span>,<span class="string">'var'</span>)
+0046     removed_channels = [];
+0047     <span class="keyword">for</span> c=1:signal.nbchan
+0048         zero_intervals = reshape(find(diff([false abs(diff(signal.data(c,:)))&lt;(max_allowed_jitter*eps) false])),2,[])';
+0049         <span class="keyword">if</span> max(zero_intervals(:,2) - zero_intervals(:,1)) &gt; max_flatline_duration*signal.srate
+0050             removed_channels(end+1) = c; <span class="keyword">end</span>
+0051     <span class="keyword">end</span>
+0052 <span class="keyword">end</span>
+0053 
+0054 <span class="comment">% execute</span>
+0055 <span class="keyword">if</span> ~isempty(removed_channels)
+0056     signal = pop_select(signal,<span class="string">'nochannel'</span>,removed_channels); <span class="keyword">end</span>
+0057 
+0058 exp_endfun(<span class="string">'append_online'</span>,{<span class="string">'removed_channels'</span>,removed_channels});</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmTFR</title>
+  <meta name="keywords" content="ParadigmTFR">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmTFR.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmTFR
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li><li><a href="ParadigmTFR.html" class="code" title="">ParadigmTFR</a>	</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmTFR.html" class="code" title="">ParadigmTFR</a>	</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li><li><a href="#_sub2" class="code">function defaults = machine_learning_defaults(self)</a></li><li><a href="#_sub3" class="code">function model = feature_adapt(self,varargin)</a></li><li><a href="#_sub4" class="code">function [features,shape] = feature_extract(self,signal,featuremodel)</a></li><li><a href="#_sub5" class="code">function layout = dialog_layout_defaults(self)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmTFR.html" class="code" title="">ParadigmTFR</a> &lt; <a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>
+0002     <span class="comment">% Time/Frequency Regression. This is a new approach that is not yet published.</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% This method learns a linear classifier (or regressor) of second-order dynamics in the EEG over</span>
+0005     <span class="comment">% a particular set of time and frequency bins. The key trick lies in a set of extra assumptions</span>
+0006     <span class="comment">% that make the (very high-dimensional) solution statistically tractable. The algorithm amounts</span>
+0007     <span class="comment">% to a single convex optimization problem dependent on a small number of hyper-parameters that can</span>
+0008     <span class="comment">% be optimized using grid search. For a reasonably exhaustive grid the solution is the globally</span>
+0009     <span class="comment">% optimal second-order dynamics solution.</span>
+0010     <span class="comment">%</span>
+0011     <span class="comment">% Notes:</span>
+0012     <span class="comment">%  This implementation is not yet optimally tuned -- the spectral estimation should be replaced by a</span>
+0013     <span class="comment">%  similar approach to multi-taper CSP.</span>
+0014     <span class="comment">%</span>
+0015     <span class="comment">% Examples:</span>
+0016     <span class="comment">%   % learn a spectral classifier for features within -2 to 2 seconds relative to some marker in some standard EEG frequency bands</span>
+0017     <span class="comment">%   % here using area under curve (AUC) to optimize the regularization parameter (assuming that the number of exemplars per class is imbalanced)</span>
+0018     <span class="comment">%   % and setting the set of relative regularization term weights that should be searched over to {[1 1 1 1]}, i.e., not searching over those, for speed.</span>
+0019     <span class="comment">%   myapproach = {'TFR' 'SignalProcessing',{'EpochExtraction',[-2 2]},'Prediction',{'FeatureExtraction',{'Times',[-1.5,-1,-0.5,0,0.5,1,1.5],'Frequencies',[4 7 11 14 20 30]}, ...</span>
+0020     <span class="comment">%       'MachineLearning',{'Learner',{'proximal','LambdaSearch',{'ParameterMetric','auc'},'TermWeights',{[1 1 1 1]}}}}};</span>
+0021     <span class="comment">%</span>
+0022     <span class="comment">% Name:</span>
+0023     <span class="comment">%   Time/Frequency Regression</span>
+0024     <span class="comment">%</span>
+0025     <span class="comment">%                            Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0026     <span class="comment">%                            2013-03-08</span>
+0027     
+0028     methods
+0029       
+0030         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0031             <span class="comment">% define the default pre-processing parameters of this paradigm</span>
+0032             defaults = {<span class="string">'FIRFilter'</span>,{[0.5 1],<span class="string">'highpass'</span>}, <span class="string">'EpochExtraction'</span>,[-3 3], <span class="string">'Resampling'</span>,100};
+0033         <span class="keyword">end</span>
+0034         
+0035         <a name="_sub1" href="#_subfunctions" class="code">function defaults = machine_learning_defaults(self)</a>
+0036             <span class="comment">% global sharing approach</span>
+0037             defaults = {<span class="string">'proximal'</span>, <span class="string">'lambdaSearch'</span>,{<span class="string">'lambdas'</span>,2.^(5:-0.1:-4),<span class="string">'foldmargin'</span>,0},<span class="string">'regularizers'</span>,{ <span class="keyword">...</span>
+0038                     <span class="string">'term1'</span>,{<span class="string">'trace'</span>}, <span class="keyword">...</span><span class="comment">                                                                      % the weights are a small sum of second-order spatial filters per T/F resel</span>
+0039                     <span class="string">'term2'</span>,{<span class="string">'trace'</span>,<span class="string">'LinearOperator'</span>,<span class="string">'@(x)reshape(x,a*b,c*d)'</span>}, <span class="keyword">...</span><span class="comment">                            % across all of time/frequency we learn combinations of few latent spatial filters</span>
+0040                     <span class="string">'term3'</span>,{<span class="string">'l2'</span>, <span class="string">'LinearOperator'</span>,<span class="string">'@(x)vec(diff(x,[],4))'</span>,<span class="string">'NonorthogonalTransform'</span>,true}, <span class="keyword">...</span><span class="comment"> % temporal smoothness</span>
+0041                     <span class="string">'term4'</span>,{<span class="string">'l2'</span>, <span class="string">'LinearOperator'</span>,<span class="string">'@(x)vec(diff(x,[],3))'</span>,<span class="string">'NonorthogonalTransform'</span>,true}, <span class="keyword">...</span><span class="comment"> % spectral smoothness</span>
+0042                 }, <span class="string">'regweights'</span>,{[1 1 1 1],[1 1 0.5 0.5],[1 1 2 2],[1 1 0.25 0.25],[1 1 4 4],[1 2 1 2],[2 1 1 2],[1 2 2 1],[2 1 2 1]}};
+0043         <span class="keyword">end</span>
+0044                 
+0045         <a name="_sub2" href="#_subfunctions" class="code">function model = feature_adapt(self,varargin)</a>
+0046             <span class="comment">% adapt a feature representation using the CSP algorithm</span>
+0047             args = arg_define(varargin, <span class="keyword">...</span>
+0048                 arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
+0049                 arg({<span class="string">'freqpoints'</span>,<span class="string">'Frequencies'</span>},[4 7 11 14 20 30],[],<span class="string">'Frequency points to consider.'</span>),<span class="keyword">...</span>
+0050                 arg({<span class="string">'timepoints'</span>,<span class="string">'Times'</span>},-2.5:0.5:2.5,[],<span class="string">'Time points to consider.'</span>), <span class="keyword">...</span>
+0051                 arg({<span class="string">'from_edges'</span>,<span class="string">'FromEdges'</span>},true,[],<span class="string">'Run up to epoch edges. This is both in time and frequency.'</span>), <span class="keyword">...</span>
+0052                 arg({<span class="string">'vectorize_features'</span>,<span class="string">'VectorizeFeatures'</span>},false,[],<span class="string">'Vectorize the features. For compatibility with basic classifiers.'</span>));
+0053             model.args = rmfield(args,<span class="string">'signal'</span>);
+0054             model.chanlocs = args.signal.chanlocs;
+0055         <span class="keyword">end</span>
+0056         
+0057         <a name="_sub3" href="#_subfunctions" class="code">function [features,shape] = feature_extract(self,signal,featuremodel)</a>
+0058             <span class="comment">% first perform the time/freq decomposition</span>
+0059             args = featuremodel.args;
+0060             <span class="keyword">if</span> args.from_edges
+0061                 args.timepoints = [signal.xmin args.timepoints signal.xmax]; 
+0062                 args.freqpoints = [0 args.freqpoints signal.srate/2]; 
+0063             <span class="keyword">end</span>
+0064             time2idx = @(t) min(signal.pnts,max(1,1+round((t-signal.xmin)*signal.srate)));
+0065             half_hann = @(a,b) 0.5*(1-cos(pi*((((a+1):b) - a) / (b - a))));
+0066             shape = [size(signal.data,1),size(signal.data,1),length(args.freqpoints)-2,length(args.timepoints)-2];
+0067             features = zeros([shape signal.trials]);
+0068             <span class="keyword">for</span> t=2:length(args.timepoints)-1
+0069                 <span class="comment">% calculate time window function</span>
+0070                 last_tp = time2idx(args.timepoints(t-1));
+0071                 cur_tp = time2idx(args.timepoints(t));
+0072                 next_tp = time2idx(args.timepoints(t+1));
+0073                 wndrange = last_tp+1:next_tp;
+0074                 wndfunc = [half_hann(last_tp,cur_tp) 1-half_hann(cur_tp,next_tp)];
+0075                 <span class="comment">% window and fourier-transform the data</span>
+0076                 X = fft(bsxfun(@times,wndfunc,signal.data(:,wndrange,:)),[],2);
+0077                 <span class="comment">% multiply out the cross-spectral covariance</span>
+0078                 tmp = zeros(size(X,1),size(X,1),ceil(size(X,2)/2),size(X,3));
+0079                 freq2idx = @(f) min(size(tmp,3),max(1,1+round(f*length(wndrange)/signal.srate)));
+0080                 <span class="keyword">for</span> f=1:size(tmp,3)
+0081                     <span class="keyword">for</span> n=1:size(tmp,4)
+0082                         tmp(:,:,f,n) = 2*real(X(:,f,n)*X(:,f,n)'); 
+0083                     <span class="keyword">end</span>
+0084                 <span class="keyword">end</span>
+0085                 <span class="comment">% average around frequency centers</span>
+0086                 <span class="keyword">for</span> f=2:length(args.freqpoints)-1
+0087                     last_fp = freq2idx(args.freqpoints(f-1));
+0088                     cur_fp = freq2idx(args.freqpoints(f));
+0089                     next_fp = freq2idx(args.freqpoints(f+1));
+0090                     wndrange = last_fp+1:next_fp;
+0091                     wndfunc = [half_hann(last_fp,cur_fp) 1-half_hann(cur_fp,next_fp)];
+0092                     features(:,:,f-1,t-1,:) = mean(bsxfun(@times,tmp(:,:,wndrange,:),reshape(wndfunc,1,1,[])),3);
+0093                 <span class="keyword">end</span>
+0094             <span class="keyword">end</span>            
+0095             <span class="comment">% do final vectorization if desired</span>
+0096             <span class="keyword">if</span> featuremodel.args.vectorize_features
+0097                 features = reshape(features,[],signal.trials)'; <span class="keyword">end</span>            
+0098         <span class="keyword">end</span>
+0099         
+0100         <a name="_sub4" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0101             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>,<span class="string">'SignalProcessing.IIRFilter.Frequencies'</span>, <span class="keyword">...</span>
+0102                 <span class="string">''</span>, <span class="string">'SignalProcessing.EpochExtraction'</span>,<span class="string">''</span>, <span class="keyword">...</span>
+0103                 <span class="string">'Prediction.FeatureExtraction.Frequencies'</span>, <span class="string">'Prediction.FeatureExtraction.Times'</span>, <span class="keyword">...</span>
+0104                 <span class="string">'Prediction.FeatureExtraction.FromEdges'</span>,<span class="string">''</span>, <span class="keyword">...</span>
+0105                 <span class="string">'Prediction.MachineLearning.Learner.LossType'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0106                 <span class="string">'Prediction.MachineLearning.Learner.LambdaSearch.Lambdas'</span>, <span class="keyword">...</span>
+0107                 <span class="string">'Prediction.MachineLearning.Learner.TermWeights'</span>, <span class="keyword">...</span>
+0108                 <span class="string">'Prediction.MachineLearning.Learner.LambdaSearch.ParameterMetric'</span>};
+0109         <span class="keyword">end</span>
+0110         
+0111     <span class="keyword">end</span>
+0112 <span class="keyword">end</span>
+0113</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

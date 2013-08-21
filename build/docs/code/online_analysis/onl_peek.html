@@ -1,0 +1,169 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of onl_peek</title>
+  <meta name="keywords" content="onl_peek">
+  <meta name="description" content="Peek into an online stream (generates an EEG-set like view into it).">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">online_analysis</a> &gt; onl_peek.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/online_analysis&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>onl_peek
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Peek into an online stream (generates an EEG-set like view into it).</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function chunk = onl_peek(streamname,samples_to_get,unit,channels_to_get) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Peek into an online stream (generates an EEG-set like view into it).
+
+ An online stream is a data structure in the workspace that can be created with onl_newstream;
+ data can be appended to it by onl_append or onl_read_background.
+
+ In:
+   Streamname : Name of the online stream in the workspace
+
+   DesiredLength : length of the view that should be generated; should not be longer than the
+                   buffer capacity (default: 10)
+
+   LengthUnit : Can be one of the following options:
+                 * 'seconds': return the last PeekLength seconds (default)
+                 * 'samples': return the last PeekLength samples
+                 * 'index': return all samples newer than PeekLength (as a sample index)
+
+   DesiredChannels : range of channels to return (default: all channels)
+
+ Out:
+   Signal : An EEGLAB data set that represents contains the most recent data of a given stream
+
+ Example:
+   % get the last 5 seconds of the stream
+   EEG = onl_peek('mystream',5)
+
+   % get the last 128 samples of the stream
+   EEG = onl_peek('mystream',128,'samples')
+
+   % get all samples past the 5000'th sample in the stream
+   EEG = onl_peek('mystream',5000,'index')
+
+   % get the default amount of data, for channels 1:10
+   EEG = onl_peek('mystream',[],[],1:10)
+
+ See also:
+   <a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>, <a href="onl_append.html" class="code" title="function onl_append(name, chunk, stamp)">onl_append</a>, <a href="onl_filtered.html" class="code" title="function [chunk,pipeline] = onl_filtered(pipeline,desired_length,suppress_output,set_online_scope)">onl_filtered</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-04-03</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="onl_filtered.html" class="code" title="function [chunk,pipeline] = onl_filtered(pipeline,desired_length,suppress_output,set_online_scope)">onl_filtered</a>	Obtain processed data from a filter pipeline online.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function chunk = onl_peek(streamname,samples_to_get,unit,channels_to_get)</a>
+0002 <span class="comment">% Peek into an online stream (generates an EEG-set like view into it).</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% An online stream is a data structure in the workspace that can be created with onl_newstream;</span>
+0005 <span class="comment">% data can be appended to it by onl_append or onl_read_background.</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">% In:</span>
+0008 <span class="comment">%   Streamname : Name of the online stream in the workspace</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">%   DesiredLength : length of the view that should be generated; should not be longer than the</span>
+0011 <span class="comment">%                   buffer capacity (default: 10)</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">%   LengthUnit : Can be one of the following options:</span>
+0014 <span class="comment">%                 * 'seconds': return the last PeekLength seconds (default)</span>
+0015 <span class="comment">%                 * 'samples': return the last PeekLength samples</span>
+0016 <span class="comment">%                 * 'index': return all samples newer than PeekLength (as a sample index)</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   DesiredChannels : range of channels to return (default: all channels)</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% Out:</span>
+0021 <span class="comment">%   Signal : An EEGLAB data set that represents contains the most recent data of a given stream</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">% Example:</span>
+0024 <span class="comment">%   % get the last 5 seconds of the stream</span>
+0025 <span class="comment">%   EEG = onl_peek('mystream',5)</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">%   % get the last 128 samples of the stream</span>
+0028 <span class="comment">%   EEG = onl_peek('mystream',128,'samples')</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%   % get all samples past the 5000'th sample in the stream</span>
+0031 <span class="comment">%   EEG = onl_peek('mystream',5000,'index')</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%   % get the default amount of data, for channels 1:10</span>
+0034 <span class="comment">%   EEG = onl_peek('mystream',[],[],1:10)</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">% See also:</span>
+0037 <span class="comment">%   onl_newstream, onl_append, onl_filtered</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0040 <span class="comment">%                                2010-04-03</span>
+0041 
+0042 <span class="comment">% try to get the stream from the base workspace</span>
+0043 <span class="keyword">try</span>
+0044     chunk = evalin(<span class="string">'base'</span>,streamname);
+0045 <span class="keyword">catch</span> e
+0046     <span class="keyword">if</span> nargin &lt; 1
+0047         error(<span class="string">'You need to pass at least the name of a previously created stream.'</span>); <span class="keyword">end</span>
+0048     <span class="comment">% something went wrong...</span>
+0049     <span class="keyword">if</span> strcmp(e.identifier,<span class="string">'MATLAB:badsubscript'</span>)
+0050         error(<span class="string">'BCILAB:onl_peek:improper_resolve'</span>,<span class="string">'The raw data required by the predictor does not list the name of the needed source stream; this is likely a problem in onl_newstream/onl_newpredictor.'</span>);
+0051     <span class="keyword">else</span>
+0052         error(<span class="string">'BCILAB:onl_peek:stream_not_found'</span>,[<span class="string">'The stream named '</span> hlp_tosrting(streamname) <span class="string">' was not found in the base workspace.'</span>]);
+0053     <span class="keyword">end</span>
+0054 <span class="keyword">end</span>
+0055 
+0056 <span class="comment">% set further default arguments</span>
+0057 <span class="keyword">if</span> nargin &lt; 4
+0058     channels_to_get = size(chunk.buffer,1);
+0059     <span class="keyword">if</span> nargin &lt; 3 || isempty(unit)
+0060         unit = <span class="string">'seconds'</span>; <span class="keyword">end</span>
+0061     <span class="keyword">if</span> nargin &lt; 2 || isempty(samples_to_get)
+0062         samples_to_get = 10; <span class="keyword">end</span>
+0063 <span class="keyword">end</span>
+0064 
+0065 <span class="comment">% determine the amount of data needed</span>
+0066 <span class="keyword">switch</span> unit
+0067     <span class="keyword">case</span> <span class="string">'index'</span>
+0068         samples_to_get = min(chunk.buffer_len,chunk.smax-samples_to_get);
+0069     <span class="keyword">case</span> <span class="string">'samples'</span>
+0070         samples_to_get = min(chunk.buffer_len,samples_to_get);
+0071     <span class="keyword">case</span> <span class="string">'seconds'</span>        
+0072         samples_to_get = min(chunk.buffer_len,round(chunk.srate*samples_to_get));
+0073     <span class="keyword">otherwise</span>
+0074         error([<span class="string">'Unrecognized PeekLengthUnits specified: '</span> hlp_tostring(unit)]);
+0075 <span class="keyword">end</span>
+0076 
+0077 <span class="comment">% extract the desired interval from the .buffer field and move it to .data</span>
+0078 chunk.data = chunk.buffer(channels_to_get, 1+mod(chunk.smax-samples_to_get:chunk.smax-1,chunk.buffer_len));
+0079 
+0080 <span class="comment">% update meta-data</span>
+0081 [chunk.nbchan,chunk.pnts,chunk.trials] = size(chunk.data);
+0082 chunk.chanlocs = chunk.chanlocs(channels_to_get);
+0083 chunk.xmax = chunk.smax/chunk.srate;
+0084 chunk.xmin = chunk.xmax - (chunk.pnts-1)/chunk.srate;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

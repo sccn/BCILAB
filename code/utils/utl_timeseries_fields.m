@@ -1,0 +1,71 @@
+function fields = utl_timeseries_fields(signal)
+% Get the time-series fields of te given signal.
+% function Fields = utl_timeseries_fields(Signal)
+%
+% This function returns the field names in the given signal that are 
+% carrying time-series information (and which therefore should be filtered,
+% buffered, etc.). The result is a combination of a set of hard-coded fields
+% and the names listed in the field .tracking.timeseries_fields. Only fields
+% that are present in the signal are returned.
+%
+% In:
+%   Signal : a signal for which time-series field names shall be looked up
+%
+% Out:
+%   Fields : cell array of field names (row vector)
+%
+% See also:
+%   utl_register_fields
+%
+%                                       Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+%                                       2013-08-16
+
+% define a database of cached queries and associated results
+% (this approach is more than 10x as fast as using unique/intersect every time)
+persistent keys;
+persistent values;
+
+% generate the query (assuming that the signal usually has the right fields)
+try
+    query = [fieldnames(signal)' {'|'} signal.tracking.timeseries_fields];
+catch
+    query = fieldnames(signal)';
+end
+
+% turn into a string
+query = [query{:}];
+
+try
+    % look up from the database (assuming that it is already contained)
+    fields = values{strcmp(keys,query)};
+catch
+    % not yet in DB: actually determine the timeseries fields
+    if isfield(signal.tracking,'timeseries_fields')
+        fields = get_timeseries_fields(fieldnames(signal),signal.tracking.timeseries_fields);
+    else
+        fields = get_timeseries_fields(fieldnames(signal),[]);
+    end
+    % initialize the DB if necessary, otherwise append
+    if ~iscell(keys)
+        keys = {query};
+        values = {fields};
+    else
+        keys{end+1} = query;
+        values{end+1} = fields;
+    end
+end
+
+ 
+function fields = get_timeseries_fields(field_names,ts_fields)
+% This function performs the actual computation
+
+% generate initial list of candidates
+candidates = {'data','icaact','srcpot'};
+
+% append whatever is registered in the signal's .tracking.timeseries_fields
+candidates = unique([candidates(:); ts_fields(:)]);
+
+% restrict to those that are actually present in the signal
+fields = intersect(candidates(:),field_names);
+fields = fields(:)';
+

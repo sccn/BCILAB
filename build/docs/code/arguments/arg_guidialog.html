@@ -1,0 +1,403 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of arg_guidialog</title>
+  <meta name="keywords" content="arg_guidialog">
+  <meta name="description" content="Create an input dialog that displays input fields for a Function and Parameters.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">arguments</a> &gt; arg_guidialog.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/arguments&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>arg_guidialog
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Create an input dialog that displays input fields for a Function and Parameters.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function varargout = arg_guidialog(func,varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Create an input dialog that displays input fields for a Function and Parameters.
+ Parameters = arg_guidialog(Function, Options...)
+
+ The Parameters that are passed to the function can be used to override some of its defaults. The
+ function must declare its arguments via arg_define. In addition, only a Subset of the function's
+ specified arguments can be displayed.
+
+ In:
+   Function : the function for which to display arguments
+
+   Options... : optional name-value pairs; possible names are:
+                 'Parameters' : cell array of parameters to the Function to override some of its 
+                                defaults.
+
+                 'Subset' : Cell array of argument names to which the dialog shall be restricted;
+                            these arguments may contain . notation to index into arg_sub and the
+                            selected branch(es) of arg_subswitch/arg_subtoggle specifiers. Empty
+                            cells show up in the dialog as empty rows.
+
+                 'Title' : title of the dialog (by default: functionname())
+
+                 'Invoke' : whether to invoke the function directly; in this case, the output
+                            arguments are those of the function (default: true, unless called in 
+                            the form g = arg_guidialog; e.g., from within some function)
+
+ Out:
+   Parameters : either a struct that is a valid input to the Function or the outputs of the function
+                when Invoke is set to true (possibly multiple outputs)
+
+ Examples:
+   % bring up a configuration dialog for the given function
+   settings = arg_guidialog(@myfunction)
+
+   % bring up a config dialog with some pre-specified defaults
+   settings = arg_guidialog(@myfunction,'Parameters',{4,20,'test'})
+
+   % bring up a config dialog which displays only a subset of the function's arguments (in a particular order)
+   settings = arg_guidialog(@myfunction,'Subset',{'blah','xyz',[],'flag'})
+
+   % bring up a dialog, and invoke the function with the selected settings after the user clicks OK
+   settings = arg_guidialog(@myfunction,'Invoke',true)
+
+ See also:
+   arg_guidialog_ex, <a href="arg_guipanel.html" class="code" title="function result = arg_guipanel(varargin)">arg_guipanel</a>, <a href="arg_define.html" class="code" title="function res = arg_define(vals,varargin)">arg_define</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-10-24</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="arg_report.html" class="code" title="function res = arg_report(type,func,args)">arg_report</a>	Report information of a certain Type from the given Function.</li><li><a href="arg_tovals.html" class="code" title="function res = arg_tovals(spec,direct)">arg_tovals</a>	Convert a 'rich' argument report into a 'vals' report.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function [items,ids] = obtain_items(rawspec,requested,prefix)</a></li><li><a href="#_sub2" class="code">function [item,id] = obtain(rawspec,identifier,prefix)</a></li><li><a href="#_sub3" class="code">function s = assign(s,id,v)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function varargout = arg_guidialog(func,varargin)</a>
+0002 <span class="comment">% Create an input dialog that displays input fields for a Function and Parameters.</span>
+0003 <span class="comment">% Parameters = arg_guidialog(Function, Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% The Parameters that are passed to the function can be used to override some of its defaults. The</span>
+0006 <span class="comment">% function must declare its arguments via arg_define. In addition, only a Subset of the function's</span>
+0007 <span class="comment">% specified arguments can be displayed.</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% In:</span>
+0010 <span class="comment">%   Function : the function for which to display arguments</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%   Options... : optional name-value pairs; possible names are:</span>
+0013 <span class="comment">%                 'Parameters' : cell array of parameters to the Function to override some of its</span>
+0014 <span class="comment">%                                defaults.</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%                 'Subset' : Cell array of argument names to which the dialog shall be restricted;</span>
+0017 <span class="comment">%                            these arguments may contain . notation to index into arg_sub and the</span>
+0018 <span class="comment">%                            selected branch(es) of arg_subswitch/arg_subtoggle specifiers. Empty</span>
+0019 <span class="comment">%                            cells show up in the dialog as empty rows.</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%                 'Title' : title of the dialog (by default: functionname())</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%                 'Invoke' : whether to invoke the function directly; in this case, the output</span>
+0024 <span class="comment">%                            arguments are those of the function (default: true, unless called in</span>
+0025 <span class="comment">%                            the form g = arg_guidialog; e.g., from within some function)</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">% Out:</span>
+0028 <span class="comment">%   Parameters : either a struct that is a valid input to the Function or the outputs of the function</span>
+0029 <span class="comment">%                when Invoke is set to true (possibly multiple outputs)</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">% Examples:</span>
+0032 <span class="comment">%   % bring up a configuration dialog for the given function</span>
+0033 <span class="comment">%   settings = arg_guidialog(@myfunction)</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%   % bring up a config dialog with some pre-specified defaults</span>
+0036 <span class="comment">%   settings = arg_guidialog(@myfunction,'Parameters',{4,20,'test'})</span>
+0037 <span class="comment">%</span>
+0038 <span class="comment">%   % bring up a config dialog which displays only a subset of the function's arguments (in a particular order)</span>
+0039 <span class="comment">%   settings = arg_guidialog(@myfunction,'Subset',{'blah','xyz',[],'flag'})</span>
+0040 <span class="comment">%</span>
+0041 <span class="comment">%   % bring up a dialog, and invoke the function with the selected settings after the user clicks OK</span>
+0042 <span class="comment">%   settings = arg_guidialog(@myfunction,'Invoke',true)</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">% See also:</span>
+0045 <span class="comment">%   arg_guidialog_ex, arg_guipanel, arg_define</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0048 <span class="comment">%                                2010-10-24</span>
+0049 
+0050 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0051 <span class="comment">%</span>
+0052 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0053 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0054 <span class="comment">% License, or (at your option) any later version.</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0057 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0058 <span class="comment">% General Public License for more details.</span>
+0059 <span class="comment">%</span>
+0060 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0061 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0062 <span class="comment">% USA</span>
+0063 
+0064 <span class="keyword">if</span> ~exist(<span class="string">'func'</span>,<span class="string">'var'</span>)
+0065     <span class="comment">% called with no arguments, from inside a function: open function dialog</span>
+0066     func = hlp_getcaller;
+0067     varargin = {<span class="string">'Parameters'</span>,evalin(<span class="string">'caller'</span>,<span class="string">'varargin'</span>),<span class="string">'Invoke'</span>,nargout==0};
+0068 <span class="keyword">end</span>
+0069 
+0070 <span class="comment">% parse arguments...</span>
+0071 hlp_varargin2struct(varargin,{<span class="string">'params'</span>,<span class="string">'Parameters'</span>,<span class="string">'parameters'</span>},{}, {<span class="string">'subset'</span>,<span class="string">'Subset'</span>},{}, {<span class="string">'dialogtitle'</span>,<span class="string">'title'</span>,<span class="string">'Title'</span>}, [char(func) <span class="string">'()'</span>], {<span class="string">'buttons'</span>,<span class="string">'Buttons'</span>},[],{<span class="string">'invoke'</span>,<span class="string">'Invoke'</span>},true);
+0072 oldparams = params;
+0073 
+0074 <span class="comment">% obtain the argument specification for the function</span>
+0075 rawspec = <a href="arg_report.html" class="code" title="function res = arg_report(type,func,args)">arg_report</a>(<span class="string">'rich'</span>, func, params); <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0076         
+0077 
+0078 <span class="comment">% extract a list of sub arguments...</span>
+0079 <span class="keyword">if</span> ~isempty(subset) &amp;&amp; subset{1}==-1
+0080     <span class="comment">% user specified a set of items to *exclude*</span>
+0081     <span class="comment">% convert subset to setdiff(all-arguments,subset)</span>
+0082     allnames = fieldnames(<a href="arg_tovals.html" class="code" title="function res = arg_tovals(spec,direct)">arg_tovals</a>(rawspec));
+0083     subset(1) = [];
+0084     subset = allnames(~ismember(allnames,[subset <span class="string">'arg_direct'</span>]));
+0085 <span class="keyword">end</span>
+0086 [spec,subset] = <a href="#_sub1" class="code" title="subfunction [items,ids] = obtain_items(rawspec,requested,prefix)">obtain_items</a>(rawspec,subset);
+0087 
+0088 <span class="comment">% create an inputgui() dialog...</span>
+0089 geometry = repmat({[0.6 0.35]},1,length(spec)+length(buttons)/2);
+0090 geomvert = ones(1,length(spec)+length(buttons)/2);
+0091 <span class="comment">% turn the spec into a UI list...</span>
+0092 uilist = {};
+0093 <span class="keyword">for</span> k = 1:length(spec)
+0094      
+0095     s = spec{k};
+0096     <span class="keyword">if</span> isempty(s)
+0097         uilist(end+1:end+2) = {{} {}};
+0098     <span class="keyword">else</span>        
+0099         <span class="keyword">if</span> isempty(s.help)
+0100             error([<span class="string">'Cannot display the argument '</span> subset{k} <span class="string">' because it contains no description.'</span>]);
+0101         <span class="keyword">else</span>
+0102             
+0103             tag = subset{k};
+0104             
+0105             uilist{end+1} = {<span class="string">'Style'</span>,<span class="string">'text'</span>, <span class="string">'string'</span>,s.help{1}, <span class="string">'fontweight'</span>,<span class="string">'bold'</span>};
+0106             <span class="comment">% depending on the type, we introduce different types of input widgets here...</span>
+0107             <span class="keyword">if</span> iscell(s.range) &amp;&amp; strcmp(s.type,<span class="string">'char'</span>)
+0108                 <span class="comment">% string popup menu</span>
+0109                 uilist{end+1} = {<span class="string">'Style'</span>,<span class="string">'popupmenu'</span>, <span class="string">'string'</span>,s.range,<span class="string">'value'</span>,find(strcmp(s.value,s.range)),<span class="string">'tag'</span>,tag};
+0110             <span class="keyword">elseif</span> strcmp(s.type,<span class="string">'logical'</span>)
+0111                 <span class="keyword">if</span> iscell(s.range) <span class="comment">% length(s.range)&gt;1</span>
+0112                     <span class="comment">% multiselect</span>
+0113                     uilist{end+1} = {<span class="string">'Style'</span>,<span class="string">'listbox'</span>, <span class="string">'string'</span>,s.range, <span class="string">'value'</span>,find(ismember(s.range,s.value)),<span class="string">'tag'</span>,tag,<span class="string">'min'</span>,1,<span class="string">'max'</span>,100000}; 
+0114                     geomvert(k) = min(3.5,length(s.range));
+0115                 <span class="keyword">else</span>
+0116                     <span class="comment">% checkbox</span>
+0117                     uilist{end+1} = {<span class="string">'Style'</span>,<span class="string">'checkbox'</span>, <span class="string">'string'</span>,<span class="string">'(set)'</span>, <span class="string">'value'</span>,double(s.value),<span class="string">'tag'</span>,tag};
+0118                 <span class="keyword">end</span>
+0119             <span class="keyword">elseif</span> strcmp(s.type,<span class="string">'char'</span>)
+0120                 <span class="comment">% string edit</span>
+0121                 uilist{end+1} = {<span class="string">'Style'</span>,<span class="string">'edit'</span>, <span class="string">'string'</span>, s.value,<span class="string">'tag'</span>,tag};
+0122             <span class="keyword">else</span>
+0123                 <span class="comment">% expression edit</span>
+0124                 <span class="keyword">if</span> isinteger(s.value)
+0125                     s.value = double(s.value); <span class="keyword">end</span>
+0126                 uilist{end+1} = {<span class="string">'Style'</span>,<span class="string">'edit'</span>, <span class="string">'string'</span>, hlp_tostring(s.value),<span class="string">'tag'</span>,tag};
+0127             <span class="keyword">end</span>
+0128             <span class="comment">% append the tooltip string</span>
+0129             <span class="keyword">if</span> length(s.help) &gt; 1
+0130                 uilist{end} = [uilist{end} <span class="string">'tooltipstring'</span>, regexprep(s.help{2},<span class="string">'\.\s+(?=[A-Z])'</span>,<span class="string">'.\n'</span>)]; <span class="keyword">end</span>
+0131         <span class="keyword">end</span>
+0132     <span class="keyword">end</span>
+0133 
+0134     <span class="keyword">if</span> ~isempty(buttons) &amp;&amp; k==buttons{1}
+0135         <span class="comment">% render a command button</span>
+0136         uilist(end+1:end+2) = {{} buttons{2}};
+0137         buttons(1:2) = [];
+0138     <span class="keyword">end</span>
+0139 <span class="keyword">end</span>
+0140 
+0141 <span class="comment">% invoke the GUI, obtaining a list of output values...</span>
+0142 helptopic = char(func);
+0143 <span class="keyword">try</span>
+0144     <span class="keyword">if</span> helptopic(1) == <span class="string">'@'</span>
+0145         fn = functions(func);
+0146         tmp = struct2cell(fn.workspace{1});
+0147         helptopic = class(tmp{1});
+0148     <span class="keyword">end</span>
+0149 <span class="keyword">catch</span>
+0150     disp(<span class="string">'Cannot deduce help topic.'</span>);
+0151 <span class="keyword">end</span>
+0152 [outs,dummy,okpressed] = inputgui(<span class="string">'geometry'</span>,geometry, <span class="string">'uilist'</span>,uilist,<span class="string">'helpcom'</span>,[<span class="string">'env_doc '</span> helptopic], <span class="string">'title'</span>,dialogtitle,<span class="string">'geomvert'</span>,geomvert); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0153 
+0154 <span class="keyword">if</span> ~isempty(okpressed)
+0155 
+0156     <span class="comment">% remove blanks from the spec</span>
+0157     spec = spec(~cellfun(<span class="string">'isempty'</span>,spec));
+0158     subset = subset(~cellfun(<span class="string">'isempty'</span>,subset));
+0159     <span class="comment">% turn the raw specification into a parameter struct (a non-direct one, since we will mess with</span>
+0160     <span class="comment">% it)</span>
+0161     params = <a href="arg_tovals.html" class="code" title="function res = arg_tovals(spec,direct)">arg_tovals</a>(rawspec,false);
+0162 
+0163     <span class="comment">% for each parameter produced by the GUI...</span>
+0164     <span class="keyword">for</span> k = 1:length(outs)
+0165         s = spec{k}; <span class="comment">% current specifier</span>
+0166         v = outs{k}; <span class="comment">% current raw value</span>
+0167         <span class="comment">% do type conversion according to spec</span>
+0168         <span class="keyword">if</span> iscell(s.range) &amp;&amp; strcmp(s.type,<span class="string">'char'</span>)
+0169             v = s.range{v};
+0170         <span class="keyword">elseif</span> strcmp(s.type,<span class="string">'expression'</span>)
+0171             v = eval(v);
+0172         <span class="keyword">elseif</span> strcmp(s.type,<span class="string">'logical'</span>)
+0173             <span class="keyword">if</span> length(s.range)&gt;1
+0174                 v = s.range(v);
+0175             <span class="keyword">else</span>
+0176                 v = logical(v);
+0177             <span class="keyword">end</span>
+0178         <span class="keyword">elseif</span> strcmp(s.type,<span class="string">'char'</span>)
+0179             <span class="comment">% noting to do</span>
+0180         <span class="keyword">else</span>
+0181             <span class="keyword">if</span> ~isempty(v)
+0182                v = eval(v); <span class="comment">% convert back to numeric (or object, or cell) value</span>
+0183             <span class="keyword">end</span>
+0184         <span class="keyword">end</span>
+0185         <span class="comment">% assign the converted value to params struct...</span>
+0186         params = <a href="#_sub3" class="code" title="subfunction s = assign(s,id,v)">assign</a>(params,subset{k},v);
+0187         
+0188     <span class="keyword">end</span>
+0189     
+0190     <span class="comment">% now send the result through the function to check for errors and obtain a values structure...</span>
+0191     params = <a href="arg_report.html" class="code" title="function res = arg_report(type,func,args)">arg_report</a>(<span class="string">'rich'</span>,func,{params});
+0192     params = <a href="arg_tovals.html" class="code" title="function res = arg_tovals(spec,direct)">arg_tovals</a>(params,false);
+0193 
+0194     <span class="comment">% invoke the function, if so desired</span>
+0195     <span class="keyword">if</span> ischar(func)
+0196         func = str2func(func); <span class="keyword">end</span>
+0197     <span class="keyword">if</span> invoke
+0198         [varargout{1:nargout(func)}] = func(oldparams{:},params);
+0199     <span class="keyword">else</span>
+0200         varargout = {params};
+0201     <span class="keyword">end</span>
+0202 <span class="keyword">else</span>
+0203     varargout = {[]};
+0204 <span class="keyword">end</span>
+0205 
+0206 <span class="comment">% obtain a cell array of spec entries by name from the given specification</span>
+0207 <a name="_sub1" href="#_subfunctions" class="code">function [items,ids] = obtain_items(rawspec,requested,prefix)</a>
+0208 <span class="keyword">if</span> ~exist(<span class="string">'prefix'</span>,<span class="string">'var'</span>)
+0209     prefix = <span class="string">''</span>; <span class="keyword">end</span>
+0210 items = {}; 
+0211 ids = {};
+0212 <span class="comment">% determine what subset of (possibly nested) items is requested</span>
+0213 <span class="keyword">if</span> isempty(requested)
+0214     <span class="comment">% look for a special argument/property arg_dialogsel, which defines the standard dialog</span>
+0215     <span class="comment">% representation for the given specification</span>
+0216     dialog_sel = find(cellfun(@(x)any(strcmp(x,<span class="string">'arg_dialogsel'</span>)),{rawspec.names}));
+0217     <span class="keyword">if</span> ~isempty(dialog_sel)
+0218         requested = rawspec(dialog_sel).value; <span class="keyword">end</span>
+0219 <span class="keyword">end</span>
+0220 <span class="keyword">if</span> isempty(requested)
+0221     <span class="comment">% empty means that all items are requested</span>
+0222     <span class="keyword">for</span> k=1:length(rawspec)
+0223         items{k} = rawspec(k);
+0224         ids{k} = [prefix rawspec(k).names{1}];
+0225     <span class="keyword">end</span>
+0226 <span class="keyword">else</span>
+0227     <span class="comment">% otherwise we need to obtain those items</span>
+0228     <span class="keyword">for</span> k=1:length(requested)
+0229         <span class="keyword">if</span> ~isempty(requested{k})
+0230             <span class="keyword">try</span>
+0231                 [items{k},subid] = <a href="#_sub2" class="code" title="subfunction [item,id] = obtain(rawspec,identifier,prefix)">obtain</a>(rawspec,requested{k});
+0232             <span class="keyword">catch</span>
+0233                 error([<span class="string">'The specified identifier ('</span> prefix requested{k} <span class="string">') could not be found in the function''s declared arguments.'</span>]);
+0234             <span class="keyword">end</span>
+0235             ids{k} = [prefix subid];
+0236         <span class="keyword">end</span>
+0237     <span class="keyword">end</span>    
+0238 <span class="keyword">end</span>
+0239 <span class="comment">% splice items that have children (recursively) into this list</span>
+0240 <span class="keyword">for</span> k = length(items):-1:1
+0241     <span class="comment">% special case: switch arguments are not spliced, but instead the argument that defines the</span>
+0242     <span class="comment">% option popupmenu will be retained</span>
+0243     <span class="keyword">if</span> ~isempty(items{k}) &amp;&amp; ~isempty(items{k}.children) &amp;&amp; (~iscellstr(items{k}.range) || isempty(requested))
+0244         [subitems, subids] = <a href="#_sub1" class="code" title="subfunction [items,ids] = obtain_items(rawspec,requested,prefix)">obtain_items</a>(items{k}.children,{},[ids{k} <span class="string">'.'</span>]);
+0245         <span class="keyword">if</span> ~isempty(subitems)
+0246             <span class="comment">% and introduce blank rows around them</span>
+0247             items = [items(1:k-1) {{}} subitems {{}} items(k+1:end)];
+0248             ids = [ids(1:k-1) {{}} subids {{}} ids(k+1:end)];
+0249         <span class="keyword">end</span>
+0250     <span class="keyword">end</span>
+0251 <span class="keyword">end</span>
+0252 
+0253 <span class="comment">% remove items that cannot be displayed</span>
+0254 retain = cellfun(@(x)isempty(x)||x.displayable,items);
+0255 items = items(retain);
+0256 ids = ids(retain);
+0257 
+0258 <span class="comment">% remove double blank rows</span>
+0259 empties = cellfun(<span class="string">'isempty'</span>,ids);
+0260 items(empties(1:end-1) &amp; empties(2:end)) = [];
+0261 ids(empties(1:end-1) &amp; empties(2:end)) = [];
+0262  
+0263 
+0264 
+0265 <span class="comment">% obtain a spec entry by name from the given specification</span>
+0266 <a name="_sub2" href="#_subfunctions" class="code">function [item,id] = obtain(rawspec,identifier,prefix)</a>
+0267 <span class="keyword">if</span> ~exist(<span class="string">'prefix'</span>,<span class="string">'var'</span>)
+0268     prefix = <span class="string">''</span>; <span class="keyword">end</span>
+0269 <span class="comment">% parse the . notation</span>
+0270 dot = find(identifier==<span class="string">'.'</span>,1);
+0271 <span class="keyword">if</span> ~isempty(dot)
+0272     [head,rest] = deal(identifier(1:dot-1), identifier(dot+1:end));
+0273 <span class="keyword">else</span>
+0274     head = identifier;
+0275     rest = [];
+0276 <span class="keyword">end</span>
+0277 <span class="comment">% search for the identifier at this level</span>
+0278 names = {rawspec.names};
+0279 <span class="keyword">for</span> k=1:length(names)
+0280     <span class="keyword">if</span> any(strcmp(names{k},head))
+0281         <span class="comment">% found a match!</span>
+0282         <span class="keyword">if</span> isempty(rest)
+0283             <span class="comment">% return it</span>
+0284             item = rawspec(k);
+0285             id = [prefix names{k}{1}];
+0286         <span class="keyword">else</span>
+0287             <span class="comment">% obtain the rest of the identifier</span>
+0288             [item,id] = <a href="#_sub2" class="code" title="subfunction [item,id] = obtain(rawspec,identifier,prefix)">obtain</a>(rawspec(k).children,rest,[prefix names{k}{1} <span class="string">'.'</span>]);
+0289         <span class="keyword">end</span>
+0290         <span class="keyword">return</span>;
+0291     <span class="keyword">end</span>
+0292 <span class="keyword">end</span>
+0293 error([<span class="string">'The given identifier ('</span> head <span class="string">') was not found among the function''s declared arguments.'</span>]);
+0294 
+0295 
+0296 
+0297 <span class="comment">% assign a field with dot notation in a struct</span>
+0298 <a name="_sub3" href="#_subfunctions" class="code">function s = assign(s,id,v)</a>
+0299 <span class="comment">% parse the . notation</span>
+0300 dot = find(id==<span class="string">'.'</span>,1);
+0301 <span class="keyword">if</span> ~isempty(dot)
+0302     [head,rest] = deal(id(1:dot-1), id(dot+1:end));
+0303     <span class="keyword">if</span> ~isfield(s,head)
+0304         s.(head) = struct(); <span class="keyword">end</span>
+0305     s.(head) = <a href="#_sub3" class="code" title="subfunction s = assign(s,id,v)">assign</a>(s.(head),rest,v);
+0306 <span class="keyword">else</span>
+0307     s.(id) = v;
+0308 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

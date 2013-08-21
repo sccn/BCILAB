@@ -1,0 +1,199 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of run_writesnap</title>
+  <meta name="keywords" content="run_writesnap">
+  <meta name="description" content="Send real-time BCI outputs to a SNAP-based stimulus presentation system.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="#">online_plugins</a> &gt; <a href="index.html">SNAP</a> &gt; run_writesnap.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/online_plugins/SNAP&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>run_writesnap
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Send real-time BCI outputs to a SNAP-based stimulus presentation system.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function run_writesnap(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Send real-time BCI outputs to a SNAP-based stimulus presentation system.
+ run_writetcp(Model,SourceStream,OutputHost,OutputPort,OutputForm,MessageFormat,UpdateFrequency,PredictorName,ConnTimeout)
+
+ This function runs in the background and processes data from some MATLAB stream (created with some
+ other background input plugin, e.g., the BioSemi reader). The processed data is periodically 
+ forwarded to a program running the SNAP framework.
+
+ In:
+   Model : predictive model to use (see onl_newpredictor) (default: 'lastmodel')
+
+   SourceStream : real-time stream name to read from (in MATLAB workspace) (default: 'laststream')
+
+   OutputHost : destination host name to send results to (computer name, URL or IP address)
+                (default: 'localhost')
+
+   OutputPort : destination port to which the results are sent (default: 12345)
+
+   OutputForm : output data form, see onl_predict (default: 'distribution')
+
+   TargetVariable : name of the variable in the SNAP module which should carry the BCI predictions
+                    (default: 'bci')
+
+   UpdateFrequency : update frequency (default: 10)
+
+   PredictorName : name for new predictor, in the workspace (default: 'lastpredictor')
+
+   Verbose : whether to display verbose outputs (e.g. connection failure) (default: false)
+
+ Examples:
+   % open a new BCILAB processing stream, using the previously learned predictive model 'mymodel',
+   % and reading from a previously opened input stream named 'mystream'; send outputs to some IP:port
+   run_writesnap('mymodel','mystream','192.168.1.5')
+
+   % as before, but pass arguments by name
+   run_writetcp('Model','mymodel','SourceStream','mystream','OutputHost','192.168.1.5')
+
+   % as before, but transmit the data in a raw binary encoding
+   run_writetcp('Model','mymodel','SourceStream','mystream','OutputHost','192.168.1.5','TargetVariable','alpha')
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-11-19</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function send_message(y,verbose_output,id,host,port,varname)</a></li><li><a href="#_sub2" class="code">function newconn = connect(host,port)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function run_writesnap(varargin)</a>
+0002 <span class="comment">% Send real-time BCI outputs to a SNAP-based stimulus presentation system.</span>
+0003 <span class="comment">% run_writetcp(Model,SourceStream,OutputHost,OutputPort,OutputForm,MessageFormat,UpdateFrequency,PredictorName,ConnTimeout)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This function runs in the background and processes data from some MATLAB stream (created with some</span>
+0006 <span class="comment">% other background input plugin, e.g., the BioSemi reader). The processed data is periodically</span>
+0007 <span class="comment">% forwarded to a program running the SNAP framework.</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% In:</span>
+0010 <span class="comment">%   Model : predictive model to use (see onl_newpredictor) (default: 'lastmodel')</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%   SourceStream : real-time stream name to read from (in MATLAB workspace) (default: 'laststream')</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%   OutputHost : destination host name to send results to (computer name, URL or IP address)</span>
+0015 <span class="comment">%                (default: 'localhost')</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">%   OutputPort : destination port to which the results are sent (default: 12345)</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">%   OutputForm : output data form, see onl_predict (default: 'distribution')</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   TargetVariable : name of the variable in the SNAP module which should carry the BCI predictions</span>
+0022 <span class="comment">%                    (default: 'bci')</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   UpdateFrequency : update frequency (default: 10)</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">%   PredictorName : name for new predictor, in the workspace (default: 'lastpredictor')</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">%   Verbose : whether to display verbose outputs (e.g. connection failure) (default: false)</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">% Examples:</span>
+0031 <span class="comment">%   % open a new BCILAB processing stream, using the previously learned predictive model 'mymodel',</span>
+0032 <span class="comment">%   % and reading from a previously opened input stream named 'mystream'; send outputs to some IP:port</span>
+0033 <span class="comment">%   run_writesnap('mymodel','mystream','192.168.1.5')</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%   % as before, but pass arguments by name</span>
+0036 <span class="comment">%   run_writetcp('Model','mymodel','SourceStream','mystream','OutputHost','192.168.1.5')</span>
+0037 <span class="comment">%</span>
+0038 <span class="comment">%   % as before, but transmit the data in a raw binary encoding</span>
+0039 <span class="comment">%   run_writetcp('Model','mymodel','SourceStream','mystream','OutputHost','192.168.1.5','TargetVariable','alpha')</span>
+0040 <span class="comment">%</span>
+0041 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0042 <span class="comment">%                                2010-11-19</span>
+0043 
+0044 <span class="comment">% declare the name of this component (shown in the menu)</span>
+0045 declare_properties(<span class="string">'name'</span>,<span class="string">'SNAP'</span>);
+0046 
+0047 <span class="comment">% define arguments</span>
+0048 arg_define(varargin, <span class="keyword">...</span>
+0049     arg({<span class="string">'pred_model'</span>,<span class="string">'Model'</span>}, <span class="string">'lastmodel'</span>, [], <span class="string">'Predictive model. As obtained via bci_train or the Model Calibration dialog.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0050     arg({<span class="string">'in_stream'</span>,<span class="string">'SourceStream'</span>}, <span class="string">'laststream'</span>,[],<span class="string">'Input Matlab stream. This is the stream that shall be analyzed and processed.'</span>), <span class="keyword">...</span>
+0051     arg({<span class="string">'out_hostname'</span>,<span class="string">'OutputHost'</span>,<span class="string">'Host'</span>}, <span class="string">'localhost'</span>,[],<span class="string">'Destination TCP hostname. Can be a computer name, URL, or IP address.'</span>), <span class="keyword">...</span>
+0052     arg({<span class="string">'out_port'</span>,<span class="string">'OutputPort'</span>,<span class="string">'Port'</span>}, 7897, [],<span class="string">'Destination TCP port. Matches the SNAP default.'</span>), <span class="keyword">...</span>
+0053     arg({<span class="string">'out_form'</span>,<span class="string">'OutputForm'</span>,<span class="string">'Form'</span>},<span class="string">'expectation'</span>,{<span class="string">'expectation'</span>,<span class="string">'distribution'</span>,<span class="string">'mode'</span>},<span class="string">'Output form. Can be the expected value (posterior mean) of the target variable, or the distribution over possible target values (probabilities for each outcome, or parametric distribution), or the mode (most likely value) of the target variable.'</span>), <span class="keyword">...</span>
+0054     arg({<span class="string">'target_variable'</span>,<span class="string">'TargetVariable'</span>,<span class="string">'Target'</span>},<span class="string">'bci'</span>,[],<span class="string">'Target Variable. This is the variable name in the SNAP module that should receive the BCI value'</span>), <span class="keyword">...</span>
+0055     arg({<span class="string">'update_freq'</span>,<span class="string">'UpdateFrequency'</span>},10,[],<span class="string">'Update frequency. This is the rate at which the output is updated.'</span>), <span class="keyword">...</span>
+0056     arg({<span class="string">'pred_name'</span>,<span class="string">'PredictorName'</span>}, <span class="string">'lastpredictor'</span>,[],<span class="string">'Name of new predictor. This is the workspace variable name under which a predictor will be created.'</span>), <span class="keyword">...</span>
+0057     arg({<span class="string">'verbose_output'</span>,<span class="string">'Verbose'</span>}, false,[],<span class="string">'Verbose output. Whether to display verbose outputs (e.g., connection failure).'</span>));
+0058 
+0059 <span class="comment">% convert format strings to formatting functions</span>
+0060 <span class="keyword">if</span> ~isvarname(target_variable)
+0061     disp(<span class="string">'Note: The given target variable is likely not a valid variable name.'</span>); <span class="keyword">end</span>
+0062 
+0063 <span class="comment">% get a fresh connection id</span>
+0064 id = sprintf(<span class="string">'c%.0f'</span>,fresh_id(<span class="string">'snapsocket'</span>));
+0065 
+0066 <span class="comment">% start background writer job</span>
+0067 onl_write_background(@(y)<a href="#_sub1" class="code" title="subfunction send_message(y,verbose_output,id,host,port,varname)">send_message</a>(y,verbose_output,id,out_hostname,out_port,target_variable),in_stream,pred_model,out_form,update_freq,0,pred_name);
+0068 
+0069 <span class="comment">% background message sending function</span>
+0070 <a name="_sub1" href="#_subfunctions" class="code">function send_message(y,verbose_output,id,host,port,varname)</a>
+0071 <span class="keyword">persistent</span> conns;
+0072 <span class="keyword">try</span>
+0073     <span class="comment">% try to connect if necessary</span>
+0074     <span class="keyword">if</span> ~isfield(conns,id)
+0075         conns.(id) = <a href="#_sub2" class="code" title="subfunction newconn = connect(host,port)">connect</a>(host,port); <span class="keyword">end</span>
+0076     <span class="keyword">try</span>
+0077         strm = conns.(id).strm;
+0078         <span class="keyword">if</span> isscalar(y)
+0079             strm.writeBytes(char([sprintf(<span class="string">'setup %s=%.5f'</span>,varname,y) 10]));
+0080         <span class="keyword">elseif</span> ~isempty(y)
+0081             strm.writeBytes(char([<span class="string">'setup '</span> varname <span class="string">'=('</span> sprintf(<span class="string">'%.5f,'</span>,y) <span class="string">')'</span> 10]));
+0082         <span class="keyword">end</span>
+0083         strm.flush();
+0084     <span class="keyword">catch</span> e1
+0085         <span class="keyword">if</span> strcmp(e1.identifier, <span class="string">'MATLAB:Java:GenericException'</span>)
+0086             <span class="comment">% failed to send: try to re-connect...</span>
+0087             conns.(id) = <a href="#_sub2" class="code" title="subfunction newconn = connect(host,port)">connect</a>(host,port);
+0088         <span class="keyword">else</span>
+0089             rethrow(e1);
+0090         <span class="keyword">end</span>
+0091     <span class="keyword">end</span>
+0092 <span class="keyword">catch</span> e2
+0093     <span class="keyword">if</span> strcmp(e2.identifier, <span class="string">'MATLAB:Java:GenericException'</span>)
+0094         <span class="keyword">if</span> verbose_output
+0095             fprintf(<span class="string">'Could not connect to %s:%.0f\n'</span>,host,port); <span class="keyword">end</span>
+0096     <span class="keyword">else</span>
+0097         env_handleerror(e2);
+0098     <span class="keyword">end</span>
+0099 <span class="keyword">end</span>
+0100 
+0101 <a name="_sub2" href="#_subfunctions" class="code">function newconn = connect(host,port)</a>
+0102 import java.io.*
+0103 import java.net.*
+0104 import java.lang.*
+0105 newconn.sock = Socket();
+0106 newconn.sock.setTcpNoDelay(1);
+0107 newconn.sock.setSoTimeout(5);
+0108 newconn.sock.connect(InetSocketAddress(host,port),1);
+0109 newconn.strm = DataOutputStream(newconn.sock.getOutputStream());
+0110 disp([<span class="string">'Connection to '</span> host <span class="string">' established.'</span>]);</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

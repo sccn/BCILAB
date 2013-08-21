@@ -1,0 +1,324 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of exp_eval</title>
+  <meta name="keywords" content="exp_eval">
+  <meta name="description" content="Evaluate the given expression data structure (or short: expression).">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">expressions</a> &gt; exp_eval.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/expressions&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>exp_eval
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Evaluate the given expression data structure (or short: expression).</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function varargout = exp_eval(x,iters) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Evaluate the given expression data structure (or short: expression).
+ Out-Args = exp_eval(Expression, Iterations)
+
+ exp_eval operates on data structures that represent expressions, and evaluates them. The canonical 
+ expression data structure is of the form:
+  struct
+    .head: function_handle
+    .parts: cell array
+  
+ This structure represents the expression head(parts{:}). Expression data structures can be nested,
+ and can have their value attached, if that value is a struct (they can have a &quot;payload&quot;, in a
+ sense). In this case, they are structured in the form:
+  struct
+    .whatever_fields_belong_to_the_value
+    .tracking: struct
+      .expression: the actual expression data structure
+
+ This way, EEG and STUDY data sets can be regular value types and expressions at the same time,
+ which allows to annotate EEGLAB data sets with an expression which (uniquely) identifies them, and
+ which reproduces them. Expressions are created by some of the expressions/exp_* functions, and by
+ functions using the exp_beginfun/exp_endfun contract (i.e., BCILAB filters and data set editing
+ components). For this reason, a call like io_quickload('/data/test.set') or
+ flt_resample(eeg,[],200) do by default return an unevaluated expression data structure, which must
+ be evaluated first (using exp_eval()), to get access to its value. In other words,
+ exp_eval(io_quickload('/data/test.set')) gives the EEGLAB data set. This can be viewed as &quot;lazy&quot;
+ evaluation. BCILABs framework functions (bci_train, bci_predict, bci_preproc, etc.) do this
+ implicitly and automatically.
+
+
+ In:
+   Expression : an expression
+   Iterations : maximum number of repeated evaluations applied (default: 1)
+                for real symbolic computations, pass Inf here
+
+ Out:
+   Out-Args   : the result of the evaluation, may still be unevaluated if the expression could not
+                be completely evaluated
+
+ Notes:
+   For the purposes of exp_eval(), every data structure that can be expressed in MATLAB is an 
+   expression.
+   * Almost all data structures, however, are considered to be 'literal' (and atomic) expressions,
+     such as numbers, strings, function handles, but also recursive data structures, such as cell
+     arrays and structs. These literals cannot be further evaluated. Therefore, almost all MATLAB
+     expressions produce literal expressions, such as, for example, fft(randn(100,1)).
+
+   * A subset of expressions, however, yields by default data that represents unevaluated (or
+     partially evaluated) expressions. Such expressions are formed using either functions that
+     follow the exp_beginfun/exp_endfun protocol, or symbols introduced using exp_symbol or
+     exp_declare. The bulk of these expressions &quot;evaluate&quot; into structures with the two fields
+     'head' and 'parts', where 'head' is a function_handle and 'parts' is a cell array. The purpose
+     of exp_eval() is to fully evaluate these unevaluated expressions, by applying the head to the
+     parts (&quot;calling&quot; the function head with parts as its arguments, in MATLAB terms).
+
+   * To ease interaction with other MATLAB code, some expressions may retain, after having been
+     evaluated (into a MATLAB structure), a subfield that holds the original unevaluated expression
+     that reproduces the data when re-evaluated. These expressions are called &quot;impure&quot; expressions,
+     because they can be viewed both as an unevaluated expression and an evaluated expression. They
+     can thus be processed both by expression-oriented code, and by code that expects values.
+
+ Usage Notes:
+   * any MATLAB function can be converted into one that is not immediately evaluated, by adding the
+     two lines &quot;if ~exp_beginfun() return; end&quot;, and &quot;exp_endfun;&quot; to its definition, before and
+     after the remaining code.
+   * using exp_symbol, exp_declare_symbols, or @name_of_no_defined_function, arbitrary identifiers
+     can be introduced which are not immediately evaluated (but some of which could be evaluated by
+     exp_eval, given that function code and/or values are defined for them).
+
+ Further Reading:
+   A good way to understand symbolic expressions and the operations on them is to read the
+   Mathematica online documentation. The expression system shares some commonalities with
+   Mathematica, with the following considerations:
+    * A subset of functions is implemented with analogous semantics, where SomeFunction is called
+      exp_somefunction in MATLAB
+    * MATLAB has a larger palette of atomic expressions (in addition to String, Number, Symbol, it
+      has Value, which reflects structs, matrices, etc.) In the future, more builtin data structure
+      may be reflected as List, SparseArray, etc.
+    * () are used instead of [], and most operators, such as //., :&gt; cannot be expressed in MATLAB,
+      so that their functional forms must be used.
+    * symbols must be formally introduced before use (with exp_declare_symbols), or expressed
+      either as exp_symbol('x') or as @x
+    * expressions of the form f(a)(b) cannot be interpreted by MATLAB. The workaround is
+      x=f(a);x(b).
+    * expressions are not automatically evaluated; this must be done explicitly with exp_eval().
+      also, the evaluator implemented here is less aggressive, and can be invoked for a limited
+      number of steps.
+    * for the implementation of functions, the exp_beginfun/exp_endfun prologue-epilogue pattern is
+      available.
+
+ Examples:
+   % evaluate a dataset-loading expression
+   eeg = exp_eval(io_loadset('/data/projects/test.set'))
+
+   % write up a sequence of filter steps, and finally evalate it; note that, if this particular
+   % sequence had been executed previously, and was cached on disk, the result will be directly 
+   % retrieved from the disk cache
+   eeg = io_loadset('/data/projects/test.set')
+   eeg = flt_resample(eeg,200)
+   eeg = flt_iir(eeg,[0.5 2],'highpass')
+   eeg = exp_eval(eeg);
+
+ See also:
+   <a href="exp_beginfun.html" class="code" title="function should_evaluate = exp_beginfun(setting, varargin)">exp_beginfun</a>, <a href="exp_endfun.html" class="code" title="function exp_endfun(varargin)">exp_endfun</a>, <a href="exp_eval_optimized.html" class="code" title="function varargout = exp_eval_optimized(x,iters)">exp_eval_optimized</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-04-15</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="exp_eval.html" class="code" title="function varargout = exp_eval(x,iters)">exp_eval</a>	Evaluate the given expression data structure (or short: expression).</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="exp_beginfun.html" class="code" title="function should_evaluate = exp_beginfun(setting, varargin)">exp_beginfun</a>	Begin the definition of a function with lazy evaluation behavior.</li><li><a href="exp_block.html" class="code" title="function res = exp_block(rules, expr, iters)">exp_block</a>	Define a block with dynamically scoped values for symbols used in the contained expression.</li><li><a href="exp_endfun.html" class="code" title="function exp_endfun(varargin)">exp_endfun</a>	End the definition of an expression-aware function.</li><li><a href="exp_eval.html" class="code" title="function varargout = exp_eval(x,iters)">exp_eval</a>	Evaluate the given expression data structure (or short: expression).</li><li><a href="exp_eval_optimized.html" class="code" title="function varargout = exp_eval_optimized(x,iters)">exp_eval_optimized</a>	Evaluate the given expression using optimizations.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function varargout = exp_eval(x,iters)</a>
+0002 <span class="comment">% Evaluate the given expression data structure (or short: expression).</span>
+0003 <span class="comment">% Out-Args = exp_eval(Expression, Iterations)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% exp_eval operates on data structures that represent expressions, and evaluates them. The canonical</span>
+0006 <span class="comment">% expression data structure is of the form:</span>
+0007 <span class="comment">%  struct</span>
+0008 <span class="comment">%    .head: function_handle</span>
+0009 <span class="comment">%    .parts: cell array</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">% This structure represents the expression head(parts{:}). Expression data structures can be nested,</span>
+0012 <span class="comment">% and can have their value attached, if that value is a struct (they can have a &quot;payload&quot;, in a</span>
+0013 <span class="comment">% sense). In this case, they are structured in the form:</span>
+0014 <span class="comment">%  struct</span>
+0015 <span class="comment">%    .whatever_fields_belong_to_the_value</span>
+0016 <span class="comment">%    .tracking: struct</span>
+0017 <span class="comment">%      .expression: the actual expression data structure</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">% This way, EEG and STUDY data sets can be regular value types and expressions at the same time,</span>
+0020 <span class="comment">% which allows to annotate EEGLAB data sets with an expression which (uniquely) identifies them, and</span>
+0021 <span class="comment">% which reproduces them. Expressions are created by some of the expressions/exp_* functions, and by</span>
+0022 <span class="comment">% functions using the exp_beginfun/exp_endfun contract (i.e., BCILAB filters and data set editing</span>
+0023 <span class="comment">% components). For this reason, a call like io_quickload('/data/test.set') or</span>
+0024 <span class="comment">% flt_resample(eeg,[],200) do by default return an unevaluated expression data structure, which must</span>
+0025 <span class="comment">% be evaluated first (using exp_eval()), to get access to its value. In other words,</span>
+0026 <span class="comment">% exp_eval(io_quickload('/data/test.set')) gives the EEGLAB data set. This can be viewed as &quot;lazy&quot;</span>
+0027 <span class="comment">% evaluation. BCILABs framework functions (bci_train, bci_predict, bci_preproc, etc.) do this</span>
+0028 <span class="comment">% implicitly and automatically.</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">% In:</span>
+0032 <span class="comment">%   Expression : an expression</span>
+0033 <span class="comment">%   Iterations : maximum number of repeated evaluations applied (default: 1)</span>
+0034 <span class="comment">%                for real symbolic computations, pass Inf here</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">% Out:</span>
+0037 <span class="comment">%   Out-Args   : the result of the evaluation, may still be unevaluated if the expression could not</span>
+0038 <span class="comment">%                be completely evaluated</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">% Notes:</span>
+0041 <span class="comment">%   For the purposes of exp_eval(), every data structure that can be expressed in MATLAB is an</span>
+0042 <span class="comment">%   expression.</span>
+0043 <span class="comment">%   * Almost all data structures, however, are considered to be 'literal' (and atomic) expressions,</span>
+0044 <span class="comment">%     such as numbers, strings, function handles, but also recursive data structures, such as cell</span>
+0045 <span class="comment">%     arrays and structs. These literals cannot be further evaluated. Therefore, almost all MATLAB</span>
+0046 <span class="comment">%     expressions produce literal expressions, such as, for example, fft(randn(100,1)).</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">%   * A subset of expressions, however, yields by default data that represents unevaluated (or</span>
+0049 <span class="comment">%     partially evaluated) expressions. Such expressions are formed using either functions that</span>
+0050 <span class="comment">%     follow the exp_beginfun/exp_endfun protocol, or symbols introduced using exp_symbol or</span>
+0051 <span class="comment">%     exp_declare. The bulk of these expressions &quot;evaluate&quot; into structures with the two fields</span>
+0052 <span class="comment">%     'head' and 'parts', where 'head' is a function_handle and 'parts' is a cell array. The purpose</span>
+0053 <span class="comment">%     of exp_eval() is to fully evaluate these unevaluated expressions, by applying the head to the</span>
+0054 <span class="comment">%     parts (&quot;calling&quot; the function head with parts as its arguments, in MATLAB terms).</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">%   * To ease interaction with other MATLAB code, some expressions may retain, after having been</span>
+0057 <span class="comment">%     evaluated (into a MATLAB structure), a subfield that holds the original unevaluated expression</span>
+0058 <span class="comment">%     that reproduces the data when re-evaluated. These expressions are called &quot;impure&quot; expressions,</span>
+0059 <span class="comment">%     because they can be viewed both as an unevaluated expression and an evaluated expression. They</span>
+0060 <span class="comment">%     can thus be processed both by expression-oriented code, and by code that expects values.</span>
+0061 <span class="comment">%</span>
+0062 <span class="comment">% Usage Notes:</span>
+0063 <span class="comment">%   * any MATLAB function can be converted into one that is not immediately evaluated, by adding the</span>
+0064 <span class="comment">%     two lines &quot;if ~exp_beginfun() return; end&quot;, and &quot;exp_endfun;&quot; to its definition, before and</span>
+0065 <span class="comment">%     after the remaining code.</span>
+0066 <span class="comment">%   * using exp_symbol, exp_declare_symbols, or @name_of_no_defined_function, arbitrary identifiers</span>
+0067 <span class="comment">%     can be introduced which are not immediately evaluated (but some of which could be evaluated by</span>
+0068 <span class="comment">%     exp_eval, given that function code and/or values are defined for them).</span>
+0069 <span class="comment">%</span>
+0070 <span class="comment">% Further Reading:</span>
+0071 <span class="comment">%   A good way to understand symbolic expressions and the operations on them is to read the</span>
+0072 <span class="comment">%   Mathematica online documentation. The expression system shares some commonalities with</span>
+0073 <span class="comment">%   Mathematica, with the following considerations:</span>
+0074 <span class="comment">%    * A subset of functions is implemented with analogous semantics, where SomeFunction is called</span>
+0075 <span class="comment">%      exp_somefunction in MATLAB</span>
+0076 <span class="comment">%    * MATLAB has a larger palette of atomic expressions (in addition to String, Number, Symbol, it</span>
+0077 <span class="comment">%      has Value, which reflects structs, matrices, etc.) In the future, more builtin data structure</span>
+0078 <span class="comment">%      may be reflected as List, SparseArray, etc.</span>
+0079 <span class="comment">%    * () are used instead of [], and most operators, such as //., :&gt; cannot be expressed in MATLAB,</span>
+0080 <span class="comment">%      so that their functional forms must be used.</span>
+0081 <span class="comment">%    * symbols must be formally introduced before use (with exp_declare_symbols), or expressed</span>
+0082 <span class="comment">%      either as exp_symbol('x') or as @x</span>
+0083 <span class="comment">%    * expressions of the form f(a)(b) cannot be interpreted by MATLAB. The workaround is</span>
+0084 <span class="comment">%      x=f(a);x(b).</span>
+0085 <span class="comment">%    * expressions are not automatically evaluated; this must be done explicitly with exp_eval().</span>
+0086 <span class="comment">%      also, the evaluator implemented here is less aggressive, and can be invoked for a limited</span>
+0087 <span class="comment">%      number of steps.</span>
+0088 <span class="comment">%    * for the implementation of functions, the exp_beginfun/exp_endfun prologue-epilogue pattern is</span>
+0089 <span class="comment">%      available.</span>
+0090 <span class="comment">%</span>
+0091 <span class="comment">% Examples:</span>
+0092 <span class="comment">%   % evaluate a dataset-loading expression</span>
+0093 <span class="comment">%   eeg = exp_eval(io_loadset('/data/projects/test.set'))</span>
+0094 <span class="comment">%</span>
+0095 <span class="comment">%   % write up a sequence of filter steps, and finally evalate it; note that, if this particular</span>
+0096 <span class="comment">%   % sequence had been executed previously, and was cached on disk, the result will be directly</span>
+0097 <span class="comment">%   % retrieved from the disk cache</span>
+0098 <span class="comment">%   eeg = io_loadset('/data/projects/test.set')</span>
+0099 <span class="comment">%   eeg = flt_resample(eeg,200)</span>
+0100 <span class="comment">%   eeg = flt_iir(eeg,[0.5 2],'highpass')</span>
+0101 <span class="comment">%   eeg = exp_eval(eeg);</span>
+0102 <span class="comment">%</span>
+0103 <span class="comment">% See also:</span>
+0104 <span class="comment">%   exp_beginfun, exp_endfun, exp_eval_optimized</span>
+0105 <span class="comment">%</span>
+0106 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0107 <span class="comment">%                                2010-04-15</span>
+0108 
+0109 <span class="keyword">global</span> tracking;
+0110 <span class="keyword">if</span> ~exist(<span class="string">'iters'</span>,<span class="string">'var'</span>)
+0111     iters = 1; <span class="keyword">end</span>
+0112 
+0113 varargout = {x};
+0114 <span class="keyword">while</span> iters &gt; 0
+0115     <span class="comment">% check if we got a canonically represented expression</span>
+0116     <span class="keyword">if</span> isfield(x,{<span class="string">'head'</span>,<span class="string">'parts'</span>})
+0117         chead = char(x.head);
+0118         <span class="comment">% we did, check if it's an application of a lambda or builtin function</span>
+0119         <span class="keyword">if</span> chead(1) == <span class="string">'@'</span> || (exist(char(x.head),<span class="string">'builtin'</span>) &amp;&amp; ~exist(char(x.head),<span class="string">'file'</span>))
+0120             <span class="comment">% if so, need to pre-evaluate the parts</span>
+0121             x.parts = cellfun(@(v)<a href="exp_eval.html" class="code" title="function varargout = exp_eval(x,iters)">exp_eval</a>(v,iters),x.parts,<span class="string">'UniformOutput'</span>,false);
+0122             <span class="keyword">if</span> ~all(cellfun(@is_evaluated,x.parts))
+0123                 <span class="comment">% not all of the args could be evaluated: return unevaluated</span>
+0124                 <span class="keyword">return</span>; <span class="keyword">end</span>
+0125         <span class="keyword">end</span>
+0126         <span class="comment">% apply the function</span>
+0127         <span class="keyword">if</span> isfield(tracking,<span class="string">'debug'</span>) &amp;&amp; isfield(tracking.debug,<span class="string">'dbstop_if_error'</span>) &amp;&amp; tracking.debug.dbstop_if_error &amp;&amp; nargout &gt; 0
+0128             <span class="comment">% rare case to allow for use of &quot;dbstop if error&quot;: call the function without a surrounding try/catch</span>
+0129             [varargout{1:nargout}] = x.head(x.parts{:});
+0130         <span class="keyword">else</span>
+0131             <span class="comment">% use the regular calling mode</span>
+0132             <span class="keyword">try</span>
+0133                 varargout = hlp_wrapresults(x.head,x.parts{:});
+0134             <span class="keyword">catch</span> e
+0135                 <span class="keyword">if</span> ~(strcmp(e.identifier,<span class="string">'MATLAB:UndefinedFunction'</span>) &amp;&amp; strcmp(e.stack(1).name,<span class="string">'hlp_wrapresults'</span>))
+0136                     <span class="comment">% got a legitimate error: throw it</span>
+0137                     rethrow(e);
+0138                 <span class="keyword">else</span>
+0139                     <span class="comment">% otherwise we just return unevaluated</span>
+0140                     <span class="keyword">return</span>;
+0141                 <span class="keyword">end</span>
+0142             <span class="keyword">end</span>
+0143         <span class="keyword">end</span>
+0144     <span class="keyword">elseif</span> isa(x,<span class="string">'function_handle'</span>)
+0145         str = char(x);
+0146         <span class="keyword">if</span> str(1) ~= <span class="string">'@'</span>
+0147             <span class="comment">% regular function handle</span>
+0148             <span class="keyword">if</span> is_undefined_function(x)
+0149                 <span class="comment">% and undefined: do a lookup</span>
+0150                 varargout = {hlp_resolve(x,x)}; <span class="keyword">end</span>
+0151         <span class="keyword">else</span>
+0152             <span class="comment">% lambda function</span>
+0153             <span class="keyword">try</span>
+0154                 <span class="comment">% try to obtain the function symbol, if it's a symbolic lambda function</span>
+0155                 varargout = {hlp_resolve(get_function_symbol(x),x)};
+0156             <span class="keyword">catch</span>,<span class="keyword">end</span>
+0157         <span class="keyword">end</span>
+0158     <span class="keyword">end</span>
+0159     
+0160     iters = iters-1;
+0161     
+0162     <span class="keyword">if</span> iters == 0 || isempty(varargout) || utl_same(x,varargout{1}) || (length(varargout) &gt; 1 &amp;&amp; is_evaluated(varargout{1}))
+0163         <span class="comment">% evaluation terminates only when the expression no longer changes, or the maximum number of</span>
+0164         <span class="comment">% iterations is exceeded (or when multiple evaluated args are being returned and the first</span>
+0165         <span class="comment">% one is fully evaluated... - because we want to return these additional outputs)</span>
+0166         <span class="keyword">break</span>;
+0167     <span class="keyword">else</span>
+0168         <span class="comment">% otherwise we start over...</span>
+0169         x = varargout{1};
+0170     <span class="keyword">end</span>
+0171 <span class="keyword">end</span>
+0172</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

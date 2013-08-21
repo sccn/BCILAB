@@ -1,0 +1,232 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_complete_model</title>
+  <meta name="keywords" content="utl_complete_model">
+  <meta name="description" content="Internal. Complete the definition of a predicitive model with some meta-data.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_complete_model.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_complete_model
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Internal. Complete the definition of a predicitive model with some meta-data.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function model = utl_complete_model(model,func,bundle) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Internal. Complete the definition of a predicitive model with some meta-data.
+ utl_complete_model(Model, PredictionFunction, Bundle)
+ In:
+   Model : a predictive model that will be finalized by this function; may have the following fields:
+           .tracking.filter_graph : cell array of symbolic filter expressions, one per inlet of the
+                                    prediction function; can be used to filter streams or bundles
+
+                                    Can also be passed either as an EEGLAB data set (with .tracking
+                                    field) or as a stream bundle; in this case, the processing that
+                                    has been applied to those data sets will be used as a template
+                                    to lay out to set up the filter graph.
+
+                                    If not passed, will be filled in by the Bundle argument.
+
+           .tracking.prediction_function : function that takes a window of the output of filter graph's
+                                           output and computes a prediction from it; If not passed,
+                                           will be filled in based on the PredictionFunction argument 
+
+           .tracking.prediction_window : window length of data expected by the prediction_function, 
+                                         in samples (if 0, the most recent chunk of data will be passed);
+                                         has one element for each inlet of the prediction function;
+
+                                         If not passed, will be filled in based on the Bundle argument.
+
+           .tracking.prediction_channels : cell array of chanlocs structures expected by the prediction
+                                           function; has one element for each inlet of the prediction 
+                                           function.
+
+                                           If not passed, will be filled in based on the Bundle argument.
+
+
+   PredictionFunction : handle of the prediction function (supplied by the framework code that calls 
+                        utl_complete_model)
+
+   Bundle : a stream bundle fully preprocessed by the filter graph, used to extract some
+            meta-data (supplied by framework code)
+
+ Out:
+   Model : a completed model struct; the following fields are ensured to exist:
+           .tracking                --&gt; tracking information about the model for offline/online processing
+            .filter_graph           --&gt; a cell array of (symbolic) filter expressions, denoting the 
+                                        filter operations that yield each stream inlet that is 
+                                        accepted by the model's prediction function. Each expression
+                                        may contain leaf nodes of the type @rawdata, which are free
+                                        inlets of the filter graph (tagged with the channels expected
+                                        at that inlet)
+            .prediction_function    --&gt; a function that takes a stream bundle with one stream for 
+                                        each entry of the filter graph; produces a prediction for each
+                                        epoch/segment in the data (therefore works both online and offline)
+            .prediction_window      --&gt; an array that determines, for each inlet of the prediction function, 
+                                        the number of samples expected by it in the epochs/segments,
+                                        or 0 if the chunk of most recent data in the stream is expected.
+            .prediction_channels    --&gt; a cell array of chanlocs structs that defines that channels
+                                        expected by the prediction function at each of its inlets
+                                        (this is redundant additional information)
+
+ See also:
+   bci_train
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-08-28</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function model = utl_complete_model(model,func,bundle)</a>
+0002 <span class="comment">% Internal. Complete the definition of a predicitive model with some meta-data.</span>
+0003 <span class="comment">% utl_complete_model(Model, PredictionFunction, Bundle)</span>
+0004 <span class="comment">% In:</span>
+0005 <span class="comment">%   Model : a predictive model that will be finalized by this function; may have the following fields:</span>
+0006 <span class="comment">%           .tracking.filter_graph : cell array of symbolic filter expressions, one per inlet of the</span>
+0007 <span class="comment">%                                    prediction function; can be used to filter streams or bundles</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">%                                    Can also be passed either as an EEGLAB data set (with .tracking</span>
+0010 <span class="comment">%                                    field) or as a stream bundle; in this case, the processing that</span>
+0011 <span class="comment">%                                    has been applied to those data sets will be used as a template</span>
+0012 <span class="comment">%                                    to lay out to set up the filter graph.</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%                                    If not passed, will be filled in by the Bundle argument.</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%           .tracking.prediction_function : function that takes a window of the output of filter graph's</span>
+0017 <span class="comment">%                                           output and computes a prediction from it; If not passed,</span>
+0018 <span class="comment">%                                           will be filled in based on the PredictionFunction argument</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%           .tracking.prediction_window : window length of data expected by the prediction_function,</span>
+0021 <span class="comment">%                                         in samples (if 0, the most recent chunk of data will be passed);</span>
+0022 <span class="comment">%                                         has one element for each inlet of the prediction function;</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%                                         If not passed, will be filled in based on the Bundle argument.</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">%           .tracking.prediction_channels : cell array of chanlocs structures expected by the prediction</span>
+0027 <span class="comment">%                                           function; has one element for each inlet of the prediction</span>
+0028 <span class="comment">%                                           function.</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%                                           If not passed, will be filled in based on the Bundle argument.</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%   PredictionFunction : handle of the prediction function (supplied by the framework code that calls</span>
+0034 <span class="comment">%                        utl_complete_model)</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">%   Bundle : a stream bundle fully preprocessed by the filter graph, used to extract some</span>
+0037 <span class="comment">%            meta-data (supplied by framework code)</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">% Out:</span>
+0040 <span class="comment">%   Model : a completed model struct; the following fields are ensured to exist:</span>
+0041 <span class="comment">%           .tracking                --&gt; tracking information about the model for offline/online processing</span>
+0042 <span class="comment">%            .filter_graph           --&gt; a cell array of (symbolic) filter expressions, denoting the</span>
+0043 <span class="comment">%                                        filter operations that yield each stream inlet that is</span>
+0044 <span class="comment">%                                        accepted by the model's prediction function. Each expression</span>
+0045 <span class="comment">%                                        may contain leaf nodes of the type @rawdata, which are free</span>
+0046 <span class="comment">%                                        inlets of the filter graph (tagged with the channels expected</span>
+0047 <span class="comment">%                                        at that inlet)</span>
+0048 <span class="comment">%            .prediction_function    --&gt; a function that takes a stream bundle with one stream for</span>
+0049 <span class="comment">%                                        each entry of the filter graph; produces a prediction for each</span>
+0050 <span class="comment">%                                        epoch/segment in the data (therefore works both online and offline)</span>
+0051 <span class="comment">%            .prediction_window      --&gt; an array that determines, for each inlet of the prediction function,</span>
+0052 <span class="comment">%                                        the number of samples expected by it in the epochs/segments,</span>
+0053 <span class="comment">%                                        or 0 if the chunk of most recent data in the stream is expected.</span>
+0054 <span class="comment">%            .prediction_channels    --&gt; a cell array of chanlocs structs that defines that channels</span>
+0055 <span class="comment">%                                        expected by the prediction function at each of its inlets</span>
+0056 <span class="comment">%                                        (this is redundant additional information)</span>
+0057 <span class="comment">%</span>
+0058 <span class="comment">% See also:</span>
+0059 <span class="comment">%   bci_train</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0062 <span class="comment">%                                2011-08-28</span>
+0063 
+0064 <span class="comment">% the .tracking field holds the data that is of interest to the offline/online evaluation system</span>
+0065 <span class="comment">% it is allowed for the paradigm to fill in the following field manually, in order to yield custom behavior</span>
+0066 <span class="keyword">if</span> ~isfield(model,<span class="string">'tracking'</span>)
+0067     model.tracking = struct(); <span class="keyword">end</span>
+0068 
+0069 <span class="comment">% add the filter_graph, if necessary</span>
+0070 <span class="keyword">if</span> ~isfield(model.tracking,<span class="string">'filter_graph'</span>)
+0071     <span class="keyword">if</span> ~exist(<span class="string">'bundle'</span>,<span class="string">'var'</span>)
+0072         error(<span class="string">'Cannot automatically deduce the .tracking.filter_graph field for this model, because the data on which its state shall be initialized is not known or available; this most likely the case if your model was calibrated on a dataset collection and the framework could not decide which dataset in the collection to initialize the filters on. Your may set the field directly in your paradigm''s calibrate() function.'</span>); <span class="keyword">end</span>
+0073     <span class="keyword">for</span> s=1:length(bundle.streams)
+0074         model.tracking.filter_graph{s} = bundle.streams{s}.tracking.online_expression; <span class="keyword">end</span>
+0075 <span class="keyword">else</span>
+0076     <span class="comment">% a filter graph was passed in; check format</span>
+0077     <span class="keyword">if</span> all(isfield(model.tracking.filter_graph,{<span class="string">'data'</span>,<span class="string">'chanlocs'</span>}))
+0078         <span class="comment">% ... as a data set; override the bundle with it</span>
+0079         bundle = struct(<span class="string">'streams'</span>,{{model.tracking.filter_graph}});        
+0080         <span class="comment">% set the filter graph accordingly</span>
+0081         model.tracking.filter_graph = {bundle.streams{1}.tracking.online_expression};
+0082     <span class="keyword">elseif</span> isfield(model.tracking.filter_graph,<span class="string">'streams'</span>)
+0083         <span class="comment">% ... as a stream bundle: override the bundle with it</span>
+0084         bundle = model.tracking.filter_graph;
+0085         <span class="comment">% and initialize the filter graph accordingly</span>
+0086         model.tracking.filter_graph = {};
+0087         <span class="keyword">for</span> s=1:length(bundle.streams)
+0088             model.tracking.filter_graph{s} = bundle.streams{s}.tracking.online_expression; <span class="keyword">end</span>
+0089     <span class="keyword">else</span>
+0090         <span class="comment">% in the regular format</span>
+0091         <span class="keyword">if</span> ~iscell(model.tracking.filter_graph)
+0092             model.tracking.filter_graph = {model.tracking.filter_graph}; <span class="keyword">end</span>
+0093     <span class="keyword">end</span>
+0094 <span class="keyword">end</span>
+0095 
+0096 <span class="comment">% add the prediction function, if necessary</span>
+0097 <span class="keyword">if</span> ~isfield(model.tracking,<span class="string">'prediction_function'</span>)
+0098     model.tracking.prediction_function = func; <span class="keyword">end</span>
+0099 
+0100 <span class="keyword">try</span>
+0101     <span class="comment">% add the prediction_window, if necessary (deduced from the bundle)</span>
+0102     <span class="keyword">if</span> ~isfield(model.tracking,<span class="string">'prediction_window'</span>)
+0103         <span class="keyword">if</span> ~isempty(bundle.streams{1}.epoch) || size(bundle.streams{1}.data,3) &gt; 1
+0104             <span class="comment">% data is epoched: by default the window length is the length of the epochs of the respective streams in the bundle</span>
+0105             <span class="keyword">for</span> s=1:length(bundle.streams)
+0106                 model.tracking.prediction_window(s) = size(bundle.streams{1}.data,2); <span class="keyword">end</span>
+0107         <span class="keyword">else</span>
+0108             <span class="comment">% data is not epoched: by default the window length is the length of the most recent chunk in each stream</span>
+0109             model.tracking.prediction_window = zeros(1,length(bundle.streams));
+0110         <span class="keyword">end</span>
+0111     <span class="keyword">end</span>
+0112     
+0113     <span class="comment">% add the channel locations (these are technically redundant, as they can be derived from the preprocessing chain)</span>
+0114     <span class="comment">% (deduced from the bundle)</span>
+0115     <span class="keyword">if</span> ~isfield(model.tracking,<span class="string">'prediction_channels'</span>)
+0116         <span class="keyword">if</span> ~exist(<span class="string">'bundle'</span>,<span class="string">'var'</span>)
+0117             errore(<span class="string">'Cannot automatically assign the .tracking.prediction_channels field because the data set from which these channels shall be determined could not be deduced by the framework; consider setting this field manually in the calibrate() function of your paradigm. This is a one-time warning.'</span>); <span class="keyword">end</span>
+0118         <span class="keyword">for</span> s=1:length(bundle.streams)
+0119             model.tracking.prediction_channels{s} = bundle.streams{s}.chanlocs; <span class="keyword">end</span>
+0120     <span class="keyword">end</span>
+0121 <span class="keyword">catch</span>
+0122 <span class="keyword">end</span>
+0123 
+0124 <span class="comment">% finally add also a timestamp (so that we can sort them by creation time)</span>
+0125 model.timestamp = now;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

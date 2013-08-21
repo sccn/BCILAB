@@ -1,0 +1,273 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmSpecCSP</title>
+  <meta name="keywords" content="ParadigmSpecCSP">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmSpecCSP.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmSpecCSP
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li><li><a href="ParadigmSpecCSP.html" class="code" title="">ParadigmSpecCSP</a>	</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmSpecCSP.html" class="code" title="">ParadigmSpecCSP</a>	</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li><li><a href="#_sub2" class="code">function model = feature_adapt(self,varargin)</a></li><li><a href="#_sub3" class="code">function features = feature_extract(self,signal,featuremodel)</a></li><li><a href="#_sub4" class="code">function visualize_model(self,parent,featuremodel,predictivemodel,varargin)</a></li><li><a href="#_sub5" class="code">function layout = dialog_layout_defaults(self)</a></li><li><a href="#_sub6" class="code">function tf = needs_voting(self)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmSpecCSP.html" class="code" title="">ParadigmSpecCSP</a> &lt; <a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>
+0002     <span class="comment">% Advanced paradigm for oscillatory processes via the Spectrally weighted CSP algorithm.</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% The Spec-CSP paradigm [1] is a more advanced variant of CSP, developed for the Berlin</span>
+0005     <span class="comment">% Brain-Computer Interface (BBCI); the primary focus was motor imagery BCI, but the algorithm was</span>
+0006     <span class="comment">% designed from the outset to be applicable for a wider range of applications. The implementation</span>
+0007     <span class="comment">% closely follows the TR [2].</span>
+0008     <span class="comment">%</span>
+0009     <span class="comment">% The paradigm is applicable to the majority of oscillatory processes, and is the most advanced</span>
+0010     <span class="comment">% spatio-spectrally adaptive method that is currently provided in the toolbox. Whenever the exact</span>
+0011     <span class="comment">% frequency and location of some (conjectured) oscillatory process is not known exactly, Spec-CSP</span>
+0012     <span class="comment">% can be used, and typically gives better results than CSP with an appropriately unrestricted (e.g.,</span>
+0013     <span class="comment">% broad-band) spectral filter. Several other methods exist to adapt the spectrum to a process of</span>
+0014     <span class="comment">% interest, among others Common Spatio-Spectral Patterns [3], Common Sparse Spectral Spatial Pattern</span>
+0015     <span class="comment">% [4], r^2-based heuristics [5], automated parameter search, and manual selection based on visual</span>
+0016     <span class="comment">% inspection. Several of these methods have been shown to give approx. comparable results [2]. An</span>
+0017     <span class="comment">% alternative and competitive method, especially when there complex interactions between frequency</span>
+0018     <span class="comment">% bands and time periods are to be modeled is the Dual-Augmented Lagrange paradigm</span>
+0019     <span class="comment">% (para_dal/para_dal_hf).</span>
+0020     <span class="comment">%</span>
+0021     <span class="comment">% The method iteratively optimizes spatial and spectral filters in alternation and extracts</span>
+0022     <span class="comment">% log-variance features from the resulting (filtered) signal. These features are subsequently</span>
+0023     <span class="comment">% processed by a (typically simple) machine learning component, by default LDA. Learning is</span>
+0024     <span class="comment">% therefore significantly slower than CSP. An option is to impose custom prior knowledge on the</span>
+0025     <span class="comment">% relevant data spectrum, for example by placing a focus on the alpha rhythm, without ruling out</span>
+0026     <span class="comment">% other frequencies. Note that there are parameters which constrain the spectrum: one is the</span>
+0027     <span class="comment">% frequency prior and the other is the spectral filter that is applied before running the alorithm;</span>
+0028     <span class="comment">% both need to be adapted when the considered spectrum shall be extended (e.g. to high-gamma</span>
+0029     <span class="comment">% oscillations). Other parameters which are frequently adapted are the time window of interest and</span>
+0030     <span class="comment">% the learner component (e.g., logistic regression is a good alternative choice).</span>
+0031     <span class="comment">%</span>
+0032     <span class="comment">% Some application areas include detection of major brain rhythm modulations (e.g. theta, alpha,</span>
+0033     <span class="comment">% beta, gamma), for example related to relaxation/stress, aspects of workload, emotion,</span>
+0034     <span class="comment">% sensori-motor imagery, and in general cortical idle oscillations in various modalities.</span>
+0035     <span class="comment">%</span>
+0036     <span class="comment">% Example: Consider the goal of predicting the emotion felt by a person at a given time. A possible</span>
+0037     <span class="comment">% calibration data set for this task would contain a sequence of blocks in each of which the subject</span>
+0038     <span class="comment">% is one out of several possible emotions, indicated by events 'e1','e2','e3','e4' covering these</span>
+0039     <span class="comment">% blocks at regular rate. The data might for example be induced via guided imagery [6].</span>
+0040     <span class="comment">%</span>
+0041     <span class="comment">%   calib = io_loadset('data sets/bruce/emotions.eeg')</span>
+0042     <span class="comment">%   myapproach = {'SpecCSP' 'SignalProcessing',{'EpochExtraction',[-2.5 2.5]}};</span>
+0043     <span class="comment">%   [loss,model,stats] = bci_train('Data',calib,'Approach',myapproach, 'TargetMarkers',{'e1','e2','e3','e4'});</span>
+0044     <span class="comment">%</span>
+0045     <span class="comment">%</span>
+0046     <span class="comment">% References:</span>
+0047     <span class="comment">%  [1] Tomioka, R., Dornhege, G., Aihara, K., and Mueller, K.-R. &quot;An iterative algorithm for spatio-temporal filter optimization.&quot;</span>
+0048     <span class="comment">%      In Proceedings of the 3rd International Brain-Computer Interface Workshop and Training Course 2006.</span>
+0049     <span class="comment">%  [2] Ryota Tomioka, Guido Dornhege, Guido Nolte, Benjamin Blankertz, Kazuyuki Aihara, and Klaus-Robert Mueller</span>
+0050     <span class="comment">%      &quot;Spectrally Weighted Common Spatial Pattern Algorithm for Single Trial EEG Classification&quot;,</span>
+0051     <span class="comment">%      Mathematical Engineering Technical Reports (METR-2006-40), July 2006.</span>
+0052     <span class="comment">%  [3] Steven Lemm, Benjamin Blankertz, Gabriel Curio, and Klaus-Robert M�ller.</span>
+0053     <span class="comment">%      &quot;Spatio-spectral filters for improving classification of single trial EEG.&quot;</span>
+0054     <span class="comment">%      IEEE Trans Biomed Eng, 52(9):1541-1548, 2005.</span>
+0055     <span class="comment">%  [4] G. Dornhege, B. Blankertz, M. Krauledat, F. Losch, G. Curio, and K.-R. M�ller,</span>
+0056     <span class="comment">%      &quot;Combined optimization of spatial and temporal filters for improving brain-computer interfacing,&quot;</span>
+0057     <span class="comment">%      IEEE Transactions on Biomedical Engineering, vol. 53, no. 11, pp. 2274?2281, 2006.</span>
+0058     <span class="comment">%  [5] Benjamin Blankertz, Ryota Tomioka, Steven Lemm, Motoaki Kawanabe, and Klaus-Robert Mueller.</span>
+0059     <span class="comment">%      &quot;Optimizing spatial filters for robust EEG single-trial analysis.&quot;</span>
+0060     <span class="comment">%      IEEE Signal Process Mag, 25(1):41-56, January 2008</span>
+0061     <span class="comment">%  [6] Onton J &amp; Makeig S. &quot;Broadband high-frequency EEG dynamics during emotion imagination.&quot;</span>
+0062     <span class="comment">%      Frontiers in Human Neuroscience, 2009.</span>
+0063     <span class="comment">%</span>
+0064     <span class="comment">% Name:</span>
+0065     <span class="comment">%   Spectrally Weighted CSP</span>
+0066     <span class="comment">%</span>
+0067     <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0068     <span class="comment">%                           2010-04-29</span>
+0069 
+0070     methods
+0071       
+0072         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0073             defaults = {<span class="string">'FIRFilter'</span>,{<span class="string">'Frequencies'</span>,[6 7 33 34],<span class="string">'Type'</span>,<span class="string">'minimum-phase'</span>}, <span class="string">'EpochExtraction'</span>,[0.5 3.5], <span class="string">'Resampling'</span>,100};
+0074         <span class="keyword">end</span>
+0075                 
+0076         <a name="_sub1" href="#_subfunctions" class="code">function model = feature_adapt(self,varargin)</a>
+0077             args = arg_define(varargin, <span class="keyword">...</span>
+0078                 arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
+0079                 arg({<span class="string">'patterns'</span>,<span class="string">'PatternPairs'</span>},uint32(3),[],<span class="string">'Number of CSP patterns (times two).'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>), <span class="keyword">...</span>
+0080                 arg({<span class="string">'pp'</span>,<span class="string">'ParameterP'</span>},0,[],<span class="string">'Regularization parameter p''. Can be searched over -1:0.5:1.'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0081                 arg({<span class="string">'qp'</span>,<span class="string">'ParameterQ'</span>},1,[],<span class="string">'Regularization parameter q''. Can be searched over 0:0.5:4.'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0082                 arg({<span class="string">'prior'</span>,<span class="string">'SpectralPrior'</span>},<span class="string">'@(f) f&gt;=7 &amp; f&lt;=30'</span>,[],<span class="string">'Prior frequency weighting function.'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>, <span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0083                 arg({<span class="string">'steps'</span>,<span class="string">'MaxIterations'</span>},uint32(3),[],<span class="string">'Number of iterations. A step is spatial optimization, followed by spectral optimization.'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>));
+0084         
+0085             [signal,n_of,pp,qp,prior,steps] = deal(args.signal,args.patterns,args.pp,args.qp,args.prior,args.steps);
+0086             <span class="keyword">if</span> signal.nbchan == 1
+0087                 error(<span class="string">'Spec-CSP does intrinsically not support single-channel data (it is a spatial filter).'</span>); <span class="keyword">end</span>
+0088             <span class="keyword">if</span> signal.nbchan &lt; args.patterns
+0089                 error(<span class="string">'Spec-CSP prefers to work on at least as many channels as you request output patterns. Please reduce the number of pattern pairs.'</span>); <span class="keyword">end</span>
+0090             
+0091             
+0092             <span class="comment">% read a few parameters from the options (and re-parameterize the hyper-parameters p' and q' into p and q)</span>
+0093             p = pp+qp;
+0094             q = qp;
+0095             <span class="keyword">if</span> isnumeric(prior) &amp;&amp; length(prior) == 2
+0096                 prior = @(f) f &gt;= prior(1) &amp; f &lt;= prior(2); <span class="keyword">end</span>
+0097             <span class="comment">% number of C=Channels, S=Samples and T=Trials #ok&lt;NASGU&gt;</span>
+0098             [C,S,dum] = size(signal.data); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0099             <span class="comment">% build a frequency table (one per DFT bin)</span>
+0100             freqs = (0:S-1)*signal.srate/S;
+0101             <span class="comment">% evaluate the prior I</span>
+0102             I = prior(freqs);
+0103             <span class="comment">% and find table indices that are supported by the prior</span>
+0104             bands = find(I);
+0105             
+0106             <span class="comment">% preprocessing</span>
+0107             <span class="keyword">for</span> c=1:2
+0108                 <span class="comment">% compute the per-class epoched data X and its Fourier transform (along time), Xfft</span>
+0109                 X{c} = exp_eval_optimized(set_picktrials(signal,<span class="string">'rank'</span>,c));
+0110                 [C,S,T] = size(X{c}.data);
+0111                 Xfft{c} = fft(X{c}.data,[],2);
+0112                 <span class="comment">% the full spectrum F of covariance matrices per every DFT bin and trial of the data</span>
+0113                 F{c} = single(zeros(C,C,max(bands),T));
+0114                 <span class="keyword">for</span> k=bands
+0115                     <span class="keyword">for</span> t=1:T
+0116                         F{c}(:,:,k,t) = 2*real(Xfft{c}(:,k,t)*Xfft{c}(:,k,t)'); <span class="keyword">end</span>
+0117                 <span class="keyword">end</span>
+0118                 <span class="comment">% compute the cross-spectrum V as an average over trials</span>
+0119                 V{c} = mean(F{c},4);
+0120             <span class="keyword">end</span>
+0121             
+0122             <span class="comment">% 1. initialize the filter set alpha and the number of filters J</span>
+0123             J = 1; alpha{J}(bands) = 1;
+0124             <span class="comment">% 2. for each step</span>
+0125             <span class="keyword">for</span> step=1:steps
+0126                 <span class="comment">% 3. for each set of spectral coefficients alpha{j} (j=1,...,J)</span>
+0127                 <span class="keyword">for</span> j=1:J
+0128                     <span class="comment">% 4. calculate sensor covariance matrices for each class from alpha{j}</span>
+0129                     <span class="keyword">for</span> c = 1:2
+0130                         Sigma{c} = zeros(C);
+0131                         <span class="keyword">for</span> b=bands
+0132                             Sigma{c} = Sigma{c} + alpha{j}(b)*V{c}(:,:,b); <span class="keyword">end</span>
+0133                     <span class="keyword">end</span>
+0134                     <span class="comment">% 5. solve the generalized eigenvalue problem Eq. (2)</span>
+0135                     [VV,DD] = eig(Sigma{1},Sigma{1}+Sigma{2});
+0136                     <span class="comment">% and retain n_of top eigenvectors at both ends of the eigenvalue spectrum...</span>
+0137                     W{j} = {VV(:,1:n_of), VV(:,end-n_of+1:end)};
+0138                     iVV = inv(VV)'; P{j} = {iVV(:,1:n_of), iVV(:,end-n_of+1:end)};
+0139                     <span class="comment">% as well as the top eigenvalue for each class</span>
+0140                     lambda(j,:) = [DD(1), DD(end)];
+0141                 <span class="keyword">end</span>
+0142                 <span class="comment">% 7. set W{c} from all W{j}{c} such that lambda(j,c) is minimal/maximal over j</span>
+0143                 W = {W{argmin(lambda(:,1))}{1}, W{argmax(lambda(:,2))}{2}};
+0144                 P = {P{argmin(lambda(:,1))}{1}, P{argmax(lambda(:,2))}{2}};
+0145                 <span class="comment">% 8. for each projection w in the concatenated [W{1},W{2}]...</span>
+0146                 Wcat = [W{1} W{2}]; J = 2*n_of;
+0147                 Pcat = [P{1} P{2}];
+0148                 <span class="keyword">for</span> j=1:J
+0149                     w = Wcat(:,j);
+0150                     <span class="comment">% 9. calcualate (across trials within each class) mean and variance of the w-projected cross-spectrum components</span>
+0151                     <span class="keyword">for</span> c=1:2
+0152                         <span class="comment">% part of Eq. (3)</span>
+0153                         s{c} = zeros(size(F{c},4),max(bands));
+0154                         <span class="keyword">for</span> k=bands
+0155                             <span class="keyword">for</span> t = 1:size(s{c},1)
+0156                                 s{c}(t,k) = w'*F{c}(:,:,k,t)*w; <span class="keyword">end</span>
+0157                         <span class="keyword">end</span>
+0158                         mu_s{c} = mean(s{c});
+0159                         var_s{c} = var(s{c});
+0160                     <span class="keyword">end</span>
+0161                     <span class="comment">% 10. update alpha{j} according to Eqs. (4) and (5)</span>
+0162                     <span class="keyword">for</span> c=1:2
+0163                         <span class="keyword">for</span> k=bands
+0164                             <span class="comment">% Eq. (4)</span>
+0165                             alpha_opt{c}(k) = max(0, (mu_s{c}(k)-mu_s{3-c}(k)) / (var_s{1}(k) + var_s{2}(k)) );
+0166                             <span class="comment">% Eq. (5), with prior from Eq. (6)</span>
+0167                             alpha_tmp{c}(k) = alpha_opt{c}(k).^q * (I(k) * (mu_s{1}(k) + mu_s{2}(k))/2).^p;
+0168                         <span class="keyword">end</span>
+0169                     <span class="keyword">end</span>
+0170                     <span class="comment">% ... as the maximum for both classes</span>
+0171                     alpha{j} = max(alpha_tmp{1},alpha_tmp{2});
+0172                     <span class="comment">% and normalize alpha{j} so that it sums to unity</span>
+0173                     alpha{j} = alpha{j} / sum(alpha{j});
+0174                 <span class="keyword">end</span>
+0175             <span class="keyword">end</span>
+0176             alpha = [vertcat(alpha{:})'; zeros(S-length(alpha{1}),length(alpha))];
+0177             model = struct(<span class="string">'W'</span>,{Wcat},<span class="string">'P'</span>,{Pcat},<span class="string">'alpha'</span>,{alpha},<span class="string">'freqs'</span>,{freqs},<span class="string">'bands'</span>,{bands},<span class="string">'chanlocs'</span>,{signal.chanlocs});            
+0178         <span class="keyword">end</span>
+0179         
+0180         <a name="_sub2" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
+0181             features = zeros(size(signal.data,3),size(featuremodel.W,2));
+0182             <span class="keyword">for</span> t=1:size(signal.data,3)
+0183                 features(t,:) = log(var(2*real(ifft(featuremodel.alpha.*fft(signal.data(:,:,t)'*featuremodel.W))))); <span class="keyword">end</span>                
+0184         <span class="keyword">end</span>
+0185         
+0186         <a name="_sub3" href="#_subfunctions" class="code">function visualize_model(self,parent,featuremodel,predictivemodel,varargin) </a><span class="comment">%#ok&lt;*INUSD&gt;</span>
+0187             args = hlp_varargin2struct(varargin,<span class="string">'paper'</span>,false);
+0188             <span class="comment">% no parent: create new figure</span>
+0189             <span class="keyword">if</span> isempty(parent)
+0190                 parent = figure(<span class="string">'Name'</span>,<span class="string">'Common Spatial Patterns'</span>); <span class="keyword">end</span>
+0191             <span class="comment">% number of pairs, and index of pattern per subplot</span>
+0192             np = size(featuremodel.W,2)/2; idxp = [1:np np+(2*np:-1:np+1)]; idxf = [np+(1:np) 2*np+(2*np:-1:np+1)];
+0193             <span class="comment">% for each CSP pattern...</span>
+0194             <span class="keyword">for</span> p=1:np*2
+0195                 subplot(4,np,idxp(p),<span class="string">'Parent'</span>,parent);
+0196                 topoplot(featuremodel.P(:,p),featuremodel.chanlocs);
+0197                 subplot(4,np,idxf(p),<span class="string">'Parent'</span>,parent);
+0198                 alpha = featuremodel.alpha(:,p);
+0199                 range = 1:max(find(alpha)); <span class="comment">%#ok&lt;MXFND&gt;</span>
+0200                 pl=plot(featuremodel.freqs(range),featuremodel.alpha(range,p));
+0201                 l1 = xlabel(<span class="string">'Frequency in Hz'</span>);
+0202                 l2 = ylabel(<span class="string">'Weight'</span>);
+0203                 t=title([<span class="string">'Spec-CSP Pattern '</span> num2str(p)]);
+0204                 <span class="keyword">if</span> args.paper
+0205                     set([gca,t,l1,l2],<span class="string">'FontUnits'</span>,<span class="string">'normalized'</span>);
+0206                     set([gca,t,l1,l2],<span class="string">'FontSize'</span>,0.2);
+0207                     set(pl,<span class="string">'LineWidth'</span>,3);
+0208                 <span class="keyword">end</span>
+0209             <span class="keyword">end</span>            
+0210         <span class="keyword">end</span>
+0211         
+0212         <a name="_sub4" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0213             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>, <span class="string">'SignalProcessing.FIRFilter.Frequencies'</span>, <span class="keyword">...</span>
+0214                 <span class="string">'SignalProcessing.FIRFilter.Type'</span>, <span class="string">'SignalProcessing.EpochExtraction'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0215                 <span class="string">'Prediction.FeatureExtraction'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0216                 <span class="string">'Prediction.MachineLearning.Learner'</span>};
+0217         <span class="keyword">end</span>
+0218         
+0219         <a name="_sub5" href="#_subfunctions" class="code">function tf = needs_voting(self)</a>
+0220             tf = true;
+0221         <span class="keyword">end</span>        
+0222         
+0223     <span class="keyword">end</span>
+0224 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

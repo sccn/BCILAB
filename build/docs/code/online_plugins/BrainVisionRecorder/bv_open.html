@@ -1,0 +1,160 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of bv_open</title>
+  <meta name="keywords" content="bv_open">
+  <meta name="description" content="BV_OPEN  Opens a TCP connection to BrainVision Recorder">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="#">online_plugins</a> &gt; <a href="index.html">BrainVisionRecorder</a> &gt; bv_open.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/online_plugins/BrainVisionRecorder&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>bv_open
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>BV_OPEN  Opens a TCP connection to BrainVision Recorder</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function h = bv_open(hostname) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> BV_OPEN  Opens a TCP connection to BrainVision Recorder
+     H = BV_OPEN
+     Out:
+     h : handle to a newly opened BrainVision connection
+     Connection is automatically closed when handle is deleted</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+<li><a href="run_readbrainvision.html" class="code" title="function run_readbrainvision(varargin)">run_readbrainvision</a>	RUN_READBRAINVISION  Receives real-time data from BrainVision Recorder</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function hdr = ReadHeader(con)</a></li><li><a href="#_sub2" class="code">function [channelCount, samplingInterval, resolutions, channelNames]  = ReadStartMessage(con, hdr)</a></li><li><a href="#_sub3" class="code">function channelNames = SplitChannelNames(allChannelNames)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <span class="comment">% BV_OPEN  Opens a TCP connection to BrainVision Recorder</span>
+0002 <span class="comment">%     H = BV_OPEN</span>
+0003 <span class="comment">%     Out:</span>
+0004 <span class="comment">%     h : handle to a newly opened BrainVision connection</span>
+0005 <span class="comment">%     Connection is automatically closed when handle is deleted</span>
+0006 
+0007 <span class="comment">% Author: Hal Greenwald, The MITRE Corporation, 28-OCT-2011</span>
+0008 <span class="comment">% This software incorporates portions of the BrainVision Recorder RDA Client.  Used with permission of Brain Products GmbH.</span>
+0009    
+0010 <span class="comment">% This program is free software: you can redistribute it and/or modify</span>
+0011 <span class="comment">% it under the terms of the GNU General Public License as published by</span>
+0012 <span class="comment">% the Free Software Foundation, either version 3 of the License, or</span>
+0013 <span class="comment">% (at your option) any later version.</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">% This program is distributed in the hope that it will be useful,</span>
+0016 <span class="comment">% but WITHOUT ANY WARRANTY; without even the implied warranty of</span>
+0017 <span class="comment">% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the</span>
+0018 <span class="comment">% GNU General Public License for more details.</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% You should have received a copy of the GNU General Public License</span>
+0021 <span class="comment">% along with this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</span>
+0022 
+0023 <a name="_sub0" href="#_subfunctions" class="code">function h = bv_open(hostname)</a>
+0024 
+0025 <span class="comment">% Establish connection to BrainVision Recorder Software 32Bit RDA-Port</span>
+0026 <span class="comment">% (use 51234 to connect with 16Bit Port)</span>
+0027 h.handle = pnet(<span class="string">'tcpconnect'</span>, hostname, 51244);
+0028 h.initialized = false;
+0029 
+0030 <span class="comment">% Check established connection and display a message</span>
+0031 stat = pnet(h.handle,<span class="string">'status'</span>);
+0032 <span class="keyword">if</span> stat &gt; 0
+0033     disp(<span class="string">'BrainVision Recorder connection established'</span>);
+0034 <span class="keyword">else</span>
+0035     disp(<span class="string">'BrainVision Recorder connection failed'</span>);
+0036     <span class="keyword">return</span>;
+0037 <span class="keyword">end</span>
+0038 
+0039 <span class="comment">%Wait for start message</span>
+0040 disp(<span class="string">'Waiting for start message from Recorder...'</span>);
+0041 header_size = 24;
+0042 <span class="keyword">while</span> (~h.initialized)
+0043     <span class="keyword">try</span>
+0044         data = pnet(h.handle, <span class="string">'read'</span>, header_size, <span class="string">'byte'</span>, <span class="string">'network'</span>, <span class="string">'view'</span>, <span class="string">'noblock'</span>);
+0045         <span class="keyword">if</span> (~isempty(data))
+0046             hdr = <a href="#_sub1" class="code" title="subfunction hdr = ReadHeader(con)">ReadHeader</a>(h.handle);
+0047             <span class="keyword">if</span> (hdr.type == 1)
+0048                 disp(<span class="string">'Starting online data collection...'</span>);
+0049                 [h.channelCount, h.samplingInterval, h.resolutions, h.channelNames] = <a href="#_sub2" class="code" title="subfunction [channelCount, samplingInterval, resolutions, channelNames]  = ReadStartMessage(con, hdr)">ReadStartMessage</a>(h.handle, hdr);
+0050                 h.initialized = true;
+0051                 h.lastBlock = -1;
+0052                 h.cleanup = onCleanup(@()pnet(h.handle, <span class="string">'close'</span>));
+0053             <span class="keyword">else</span>
+0054                 pnet(h.handle, <span class="string">'read'</span>, hdr.size - header_size);
+0055             <span class="keyword">end</span>
+0056         <span class="keyword">end</span>
+0057     <span class="keyword">catch</span> er
+0058         disp(er.message);
+0059         <span class="keyword">return</span>;
+0060     <span class="keyword">end</span>
+0061 <span class="keyword">end</span>
+0062 
+0063 <a name="_sub1" href="#_subfunctions" class="code">function hdr = ReadHeader(con)</a>
+0064 <span class="comment">% con    tcpip connection object</span>
+0065 
+0066 <span class="comment">% define a struct for the header</span>
+0067 hdr = struct(<span class="string">'uid'</span>,[],<span class="string">'size'</span>,[],<span class="string">'type'</span>,[]);
+0068 
+0069 <span class="comment">% read id, size and type of the message</span>
+0070 <span class="comment">% swapbytes is important for correct byte order of MATLAB variables</span>
+0071 <span class="comment">% pnet behaves somehow strange with byte order option</span>
+0072 hdr.uid = pnet(con,<span class="string">'read'</span>, 16);
+0073 hdr.size = swapbytes(pnet(con,<span class="string">'read'</span>, 1, <span class="string">'uint32'</span>, <span class="string">'network'</span>));
+0074 hdr.type = swapbytes(pnet(con,<span class="string">'read'</span>, 1, <span class="string">'uint32'</span>, <span class="string">'network'</span>));
+0075 
+0076 <a name="_sub2" href="#_subfunctions" class="code">function [channelCount, samplingInterval, resolutions, channelNames]  = ReadStartMessage(con, hdr)</a>
+0077 <span class="comment">% con    tcpip connection object</span>
+0078 <span class="comment">% hdr    message header</span>
+0079 
+0080 <span class="comment">% read EEG properties</span>
+0081 channelCount = swapbytes(pnet(con,<span class="string">'read'</span>, 1, <span class="string">'uint32'</span>, <span class="string">'network'</span>));
+0082 samplingInterval = swapbytes(pnet(con,<span class="string">'read'</span>, 1, <span class="string">'double'</span>, <span class="string">'network'</span>));
+0083 resolutions = swapbytes(pnet(con,<span class="string">'read'</span>, channelCount, <span class="string">'double'</span>, <span class="string">'network'</span>));
+0084 allChannelNames = pnet(con,<span class="string">'read'</span>, hdr.size - 36 - channelCount * 8);
+0085 channelNames = <a href="#_sub3" class="code" title="subfunction channelNames = SplitChannelNames(allChannelNames)">SplitChannelNames</a>(allChannelNames);
+0086 
+0087 <a name="_sub3" href="#_subfunctions" class="code">function channelNames = SplitChannelNames(allChannelNames)</a>
+0088 <span class="comment">% allChannelNames   all channel names together in an array of char</span>
+0089 <span class="comment">% channelNames      channel names splitted in a cell array of strings</span>
+0090 
+0091 <span class="comment">% cell array to return</span>
+0092 channelNames = {};
+0093 
+0094 <span class="comment">% helper for actual name in loop</span>
+0095 name = [];
+0096 
+0097 <span class="comment">% loop over all chars in array</span>
+0098 <span class="keyword">for</span> i = 1:length(allChannelNames)
+0099     <span class="keyword">if</span> allChannelNames(i) ~= 0
+0100         <span class="comment">% if not a terminating zero, add char to actual name</span>
+0101         name = [name allChannelNames(i)];
+0102     <span class="keyword">else</span>
+0103         <span class="comment">% add name to cell array and clear helper for reading next name</span>
+0104         channelNames = [channelNames {name}];
+0105         name = [];
+0106     <span class="keyword">end</span>
+0107 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

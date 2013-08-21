@@ -1,0 +1,182 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ml_traingauss</title>
+  <meta name="keywords" content="ml_traingauss">
+  <meta name="description" content="Learn a predictive model via a robust Gaussian Bayes classifier (with feature selection).">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">machine_learning</a> &gt; ml_traingauss.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/machine_learning&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ml_traingauss
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Learn a predictive model via a robust Gaussian Bayes classifier (with feature selection).</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function model = ml_traingauss(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Learn a predictive model via a robust Gaussian Bayes classifier (with feature selection).
+ Model = ml_trainlda(Trials, Targets, Lambda, Options...)
+
+ In:
+   Trials       : training data, as in ml_train
+
+   Targets      : target variable, as in ml_train; 
+                  can include a per-trial weighting (if a cell array {Targets,Weights})
+
+   Options...   : optional name-value pairs, with possible names:
+                  'dimensions': if given, reduce data dimensionality to this number of dimensions using a strong feature selector (default: [])
+                  'blend' : covariance blending parameter, blends covariance matrices (default: 1 = all covs identical)
+                            can be selected by a parameter search, e.g., by specifying search(0:0.1:1)
+                  'normprobs': produce normalized probabilities (0/1) (default: 1)
+                  'scaling': data pre-scaling (default: 'center')
+
+ Out:
+   Model   : a predictive mdoel
+
+ Examples:
+   % learn a simple Gaussian Bayes classifier
+   model = ml_traingauss(trials,targets)
+
+   % as before, but reduce the dimensions of the data to 10
+   model = ml_traingauss(trials,targets,'dimensions',10)
+
+   % as before, but allow for non-identical covariance matrices
+   model = ml_traingauss(trials,targets,'dimensions',10,'blend',0.5)
+
+   % like before, but search over the dimensions and covariance blending parameter using parameter search
+   model = utl_searchmodel({trials,targets},'args',{{'gauss','dimensions',search(2:2:20),'blend',search(0:0.1:1)}})
+   
+ See also:
+   <a href="ml_predictgauss.html" class="code" title="function pred = ml_predictgauss(trials, model)">ml_predictgauss</a>
+
+                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                           2010-04-03</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ml_trainlogreg.html" class="code" title="function model = ml_trainlogreg(varargin)">ml_trainlogreg</a>	Learn a linear probabilistic predictive model by logistic regression.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function model = ml_traingauss(varargin)</a>
+0002 <span class="comment">% Learn a predictive model via a robust Gaussian Bayes classifier (with feature selection).</span>
+0003 <span class="comment">% Model = ml_trainlda(Trials, Targets, Lambda, Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Trials       : training data, as in ml_train</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">%   Targets      : target variable, as in ml_train;</span>
+0009 <span class="comment">%                  can include a per-trial weighting (if a cell array {Targets,Weights})</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">%   Options...   : optional name-value pairs, with possible names:</span>
+0012 <span class="comment">%                  'dimensions': if given, reduce data dimensionality to this number of dimensions using a strong feature selector (default: [])</span>
+0013 <span class="comment">%                  'blend' : covariance blending parameter, blends covariance matrices (default: 1 = all covs identical)</span>
+0014 <span class="comment">%                            can be selected by a parameter search, e.g., by specifying search(0:0.1:1)</span>
+0015 <span class="comment">%                  'normprobs': produce normalized probabilities (0/1) (default: 1)</span>
+0016 <span class="comment">%                  'scaling': data pre-scaling (default: 'center')</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">% Out:</span>
+0019 <span class="comment">%   Model   : a predictive mdoel</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">% Examples:</span>
+0022 <span class="comment">%   % learn a simple Gaussian Bayes classifier</span>
+0023 <span class="comment">%   model = ml_traingauss(trials,targets)</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%   % as before, but reduce the dimensions of the data to 10</span>
+0026 <span class="comment">%   model = ml_traingauss(trials,targets,'dimensions',10)</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">%   % as before, but allow for non-identical covariance matrices</span>
+0029 <span class="comment">%   model = ml_traingauss(trials,targets,'dimensions',10,'blend',0.5)</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%   % like before, but search over the dimensions and covariance blending parameter using parameter search</span>
+0032 <span class="comment">%   model = utl_searchmodel({trials,targets},'args',{{'gauss','dimensions',search(2:2:20),'blend',search(0:0.1:1)}})</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">% See also:</span>
+0035 <span class="comment">%   ml_predictgauss</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0038 <span class="comment">%                           2010-04-03</span>
+0039 
+0040 arg_define([0 2],varargin, <span class="keyword">...</span>
+0041     arg_norep(<span class="string">'trials'</span>), <span class="keyword">...</span>
+0042     arg_norep(<span class="string">'targets'</span>), <span class="keyword">...</span>
+0043     arg({<span class="string">'dimensions'</span>,<span class="string">'Dimensions'</span>}, [], [], <span class="string">'Reduce data dimentions to n. If given, reduce data dimensionality to this number of dimensions using a strong feature selector.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>), <span class="keyword">...</span>
+0044     arg({<span class="string">'blend'</span>,<span class="string">'CovBlending'</span>}, 1, [], <span class="string">'Degree of blending between per-class covariances. Blends covariance matrices (0=all covs independent, 1=all covs identical) and can be selected by a parameter search, e.g., by specifying search(0:0.1:1)'</span>), <span class="keyword">...</span>
+0045     arg({<span class="string">'normprobs'</span>,<span class="string">'NormalizedProbs'</span>}, true, [], <span class="string">'Produce normalized probabilities. If turned off, the classifier can be used for density estimation (e.g. novelty discovery).'</span>), <span class="keyword">...</span>
+0046     arg({<span class="string">'scaling'</span>,<span class="string">'Scaling'</span>}, <span class="string">'center'</span>, {<span class="string">'none'</span>,<span class="string">'center'</span>,<span class="string">'std'</span>,<span class="string">'minmax'</span>,<span class="string">'whiten'</span>}, <span class="string">'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.'</span>), <span class="keyword">...</span>
+0047     arg({<span class="string">'startcost'</span>,<span class="string">'InitialCost'</span>},2,[],<span class="string">'Initial cost for dimensionality reduction. If dimensionality reduction is requested, this is the initial cost which will be lowered until the desired number of dimensions is reached.'</span>));
+0048 
+0049 <span class="comment">% scale the data</span>
+0050 model.sc_info = hlp_findscaling(trials,scaling);
+0051 trials = hlp_applyscaling(trials,model.sc_info);
+0052 
+0053 <span class="comment">% select features</span>
+0054 <span class="keyword">if</span> ~isempty(dimensions)
+0055     <span class="comment">% start with some fairly high cost</span>
+0056     cost = startcost;
+0057     <span class="keyword">while</span> 1
+0058         model.selector = <a href="ml_trainlogreg.html" class="code" title="function model = ml_trainlogreg(varargin)">ml_trainlogreg</a>(trials,targets,cost,<span class="string">'variant'</span>,<span class="string">'l1'</span>,<span class="string">'scaling'</span>,<span class="string">''</span>);
+0059         w = sum(abs(model.selector.w(:,1:end-1)));
+0060         <span class="comment">% reduce cost until we have at last #dimensions non-zero weights</span>
+0061         <span class="keyword">if</span> nnz(w) &gt;= dimensions
+0062             <span class="keyword">break</span>; <span class="keyword">end</span>
+0063         cost = cost/2;        
+0064     <span class="keyword">end</span>
+0065     [dummy,I] = sort(w,<span class="string">'descend'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0066     model.feature_mask = full(sparse(1,I(1:dimensions),true,1,length(I)));
+0067     model.feature_weight = w;
+0068     trials = trials(:,model.feature_mask);
+0069 <span class="keyword">else</span>
+0070     model.feature_mask = true(1,size(trials,2));
+0071     model.feature_weight = ones(1,size(trials,2));
+0072 <span class="keyword">end</span>
+0073 
+0074 <span class="comment">% obtain weights</span>
+0075 <span class="keyword">if</span> iscell(targets)
+0076     [targets,weights] = deal(targets{:});
+0077 <span class="keyword">else</span>
+0078     weights = ones(size(targets,1),1);
+0079 <span class="keyword">end</span>
+0080 
+0081 <span class="comment">% estimate the distribution of each class, using a weighted estimator (with shrinkage)...</span>
+0082 model.classes = unique(targets);
+0083 <span class="keyword">if</span> length(model.classes) == 1
+0084     error(<span class="string">'BCILAB:only_one_class'</span>,<span class="string">'Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.'</span>); <span class="keyword">end</span>
+0085 <span class="keyword">for</span> c=1:length(model.classes)
+0086     w = weights(targets == model.classes(c));
+0087     X = trials(targets == model.classes(c),:);
+0088     model.mu{c} = mean_w(X,w);
+0089     model.sigma{c} = cov_shrink(X,w);
+0090 <span class="keyword">end</span>
+0091 
+0092 <span class="comment">% blend covariance matrices</span>
+0093 <span class="keyword">if</span> blend ~= 0
+0094     meansigma = mean(cat(3,model.sigma{:}),3);
+0095     <span class="keyword">for</span> c=1:length(model.classes)
+0096         model.sigma{c} = (1-blend)*model.sigma{c} + blend*meansigma; <span class="keyword">end</span>
+0097 <span class="keyword">end</span>
+0098 
+0099 model.normprobs = normprobs;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

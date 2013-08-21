@@ -1,0 +1,232 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of moving_average</title>
+  <meta name="keywords" content="moving_average">
+  <meta name="description" content="Like filter() for the special case of moving-average kernels.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">misc</a> &gt; moving_average.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/misc&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>moving_average
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Like filter() for the special case of moving-average kernels.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [X,Zf] = moving_average(N,X,Zi,dim) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Like filter() for the special case of moving-average kernels.
+ [X,Zf] = moving_average(N,X,Zi,Dim)
+
+ This is an overall very fast implementation whose running time does now grow with N (beyond
+ N=100). The algorithm does not run into numerical problems for large data sizes unlike the usual
+ cumsum-based implementations.
+
+ In:
+   N : filter length in samples
+
+   X : data matrix
+
+   Zi : initial filter conditions (default: [])
+
+   Dim : dimension along which to filter (default: first non-singleton dimension)
+
+ Out:
+   X : the filtered data
+
+   Zf : final filter conditions
+
+ See also:
+   filter
+
+                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                           2012-01-10</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [X,Zf] = moving_average(N,X,Zi,dim)</a>
+0002 <span class="comment">% Like filter() for the special case of moving-average kernels.</span>
+0003 <span class="comment">% [X,Zf] = moving_average(N,X,Zi,Dim)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This is an overall very fast implementation whose running time does now grow with N (beyond</span>
+0006 <span class="comment">% N=100). The algorithm does not run into numerical problems for large data sizes unlike the usual</span>
+0007 <span class="comment">% cumsum-based implementations.</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% In:</span>
+0010 <span class="comment">%   N : filter length in samples</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%   X : data matrix</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%   Zi : initial filter conditions (default: [])</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%   Dim : dimension along which to filter (default: first non-singleton dimension)</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">% Out:</span>
+0019 <span class="comment">%   X : the filtered data</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   Zf : final filter conditions</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">% See also:</span>
+0024 <span class="comment">%   filter</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0027 <span class="comment">%                           2012-01-10</span>
+0028 
+0029 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2012, christian@sccn.ucsd.edu</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0032 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0033 <span class="comment">% License, or (at your option) any later version.</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0036 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0037 <span class="comment">% General Public License for more details.</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0040 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0041 <span class="comment">% USA</span>
+0042 
+0043 <span class="comment">% determine the dimension along which to filter</span>
+0044 <span class="keyword">if</span> nargin &lt;= 3
+0045     <span class="keyword">if</span> isscalar(X)
+0046         dim = 1;
+0047     <span class="keyword">else</span>
+0048         dim = find(size(X)~=1,1); 
+0049     <span class="keyword">end</span>
+0050 <span class="keyword">end</span>
+0051 
+0052 <span class="comment">% empty initial state</span>
+0053 <span class="keyword">if</span> nargin &lt;= 2
+0054     Zi = []; <span class="keyword">end</span>
+0055 
+0056 lenx = size(X,dim);
+0057 <span class="keyword">if</span> lenx == 0
+0058     <span class="comment">% empty X</span>
+0059     Zf = Zi;
+0060 <span class="keyword">else</span>
+0061     <span class="keyword">if</span> N &lt; 100
+0062         <span class="comment">% small N: use filter</span>
+0063         [X,Zf] = filter(ones(N,1)/N,1,X,Zi,dim);
+0064     <span class="keyword">else</span>
+0065         <span class="comment">% we try to avoid permuting dimensions below as this would increase the running time by ~3x</span>
+0066         <span class="keyword">if</span> ndims(X) == 2
+0067             <span class="keyword">if</span> dim == 1
+0068                 <span class="comment">% --- process along 1st dimension ---</span>
+0069                 <span class="keyword">if</span> isempty(Zi)
+0070                     <span class="comment">% zero initial state</span>
+0071                     Zi = zeros(N,size(X,2));
+0072                 <span class="keyword">elseif</span> size(Zi,1) == N-1
+0073                     <span class="comment">% reverse engineer filter's initial state (assuming a moving average)</span>
+0074                     tmp = diff(Zi(end:-1:1,:),1,1);
+0075                     Zi = [tmp(end:-1:1,:); Zi(<span class="keyword">end</span>,:)]*N;
+0076                     Zi = [-sum(Zi,1); Zi];
+0077                 <span class="keyword">elseif</span> ~isequal(size(Zi),[N,size(X,2)])
+0078                     error(<span class="string">'These initial conditions do not have the correct format.'</span>);
+0079                 <span class="keyword">end</span>
+0080                 
+0081                 <span class="comment">% pre-pend initial state &amp; get dimensions</span>
+0082                 Y = [Zi; X]; M = size(Y,1);
+0083                 <span class="comment">% get alternating index vector (for additions &amp; subtractions)</span>
+0084                 I = [1:M-N; 1+N:M];
+0085                 <span class="comment">% get sign vector (also alternating, and includes the scaling)</span>
+0086                 S = [-ones(1,M-N); ones(1,M-N)]/N;
+0087                 <span class="comment">% run moving average</span>
+0088                 X = cumsum(bsxfun(@times,Y(I(:),:),S(:)),1);
+0089                 <span class="comment">% read out result</span>
+0090                 X = X(2:2:<span class="keyword">end</span>,:);
+0091                 
+0092                 <span class="comment">% construct final state</span>
+0093                 <span class="keyword">if</span> nargout &gt; 1
+0094                     Zf = [-(X(<span class="keyword">end</span>,:)*N-Y(end-N+1,:)); Y(end-N+2:<span class="keyword">end</span>,:)]; <span class="keyword">end</span>
+0095             <span class="keyword">else</span>
+0096                 <span class="comment">% --- process along 2nd dimension ---</span>
+0097                 <span class="keyword">if</span> isempty(Zi)
+0098                     <span class="comment">% zero initial state</span>
+0099                     Zi = zeros(N,size(X,1));
+0100                 <span class="keyword">elseif</span> size(Zi,1) == N-1
+0101                     <span class="comment">% reverse engineer filter's initial state (assuming a moving average)</span>
+0102                     tmp = diff(Zi(end:-1:1,:),1,1);
+0103                     Zi = [tmp(end:-1:1,:); Zi(<span class="keyword">end</span>,:)]*N;
+0104                     Zi = [-sum(Zi,1); Zi];
+0105                 <span class="keyword">elseif</span> ~isequal(size(Zi),[N,size(X,1)])
+0106                     error(<span class="string">'These initial conditions do not have the correct format.'</span>);
+0107                 <span class="keyword">end</span>
+0108                 
+0109                 <span class="comment">% pre-pend initial state &amp; get dimensions</span>
+0110                 Y = [Zi' X]; M = size(Y,2);
+0111                 <span class="comment">% get alternating index vector (for additions &amp; subtractions)</span>
+0112                 I = [1:M-N; 1+N:M];
+0113                 <span class="comment">% get sign vector (also alternating, and includes the scaling)</span>
+0114                 S = [-ones(1,M-N); ones(1,M-N)]/N;
+0115                 <span class="comment">% run moving average</span>
+0116                 X = cumsum(bsxfun(@times,Y(:,I(:)),S(:)'),2);
+0117                 <span class="comment">% read out result</span>
+0118                 X = X(:,2:2:end);
+0119                 
+0120                 <span class="comment">% construct final state</span>
+0121                 <span class="keyword">if</span> nargout &gt; 1
+0122                     Zf = [-(X(:,end)*N-Y(:,end-N+1)) Y(:,end-N+2:end)]'; <span class="keyword">end</span>
+0123             <span class="keyword">end</span>
+0124         <span class="keyword">else</span>
+0125             <span class="comment">% --- ND array ---</span>
+0126             [X,nshifts] = shiftdim(X,dim-1);
+0127             shape = size(X); X = reshape(X,size(X,1),[]);
+0128             
+0129             <span class="keyword">if</span> isempty(Zi)
+0130                 <span class="comment">% zero initial state</span>
+0131                 Zi = zeros(N,size(X,2));
+0132             <span class="keyword">elseif</span> size(Zi,1) == N-1
+0133                 <span class="comment">% reverse engineer filter's initial state (assuming a moving average)</span>
+0134                 tmp = diff(Zi(end:-1:1,:),1,1);
+0135                 Zi = [tmp(end:-1:1,:); Zi(<span class="keyword">end</span>,:)]*N;
+0136                 Zi = [-sum(Zi,1); Zi];
+0137             <span class="keyword">elseif</span> ~isequal(size(Zi),[N,size(X,2)])
+0138                 error(<span class="string">'These initial conditions do not have the correct format.'</span>);
+0139             <span class="keyword">end</span>
+0140             
+0141             <span class="comment">% pre-pend initial state &amp; get dimensions</span>
+0142             Y = [Zi; X]; M = size(Y,1);
+0143             <span class="comment">% get alternating index vector (for additions &amp; subtractions)</span>
+0144             I = [1:M-N; 1+N:M];
+0145             <span class="comment">% get sign vector (also alternating, and includes the scaling)</span>
+0146             S = [-ones(1,M-N); ones(1,M-N)]/N;
+0147             <span class="comment">% run moving average</span>
+0148             X = cumsum(bsxfun(@times,Y(I(:),:),S(:)),1);
+0149             <span class="comment">% read out result</span>
+0150             X = X(2:2:<span class="keyword">end</span>,:);
+0151             
+0152             <span class="comment">% construct final state</span>
+0153             <span class="keyword">if</span> nargout &gt; 1
+0154                 Zf = [-(X(<span class="keyword">end</span>,:)*N-Y(end-N+1,:)); Y(end-N+2:<span class="keyword">end</span>,:)]; <span class="keyword">end</span>
+0155             
+0156             X = reshape(X,shape);
+0157             X = shiftdim(X,ndims(X)-nshifts);
+0158         <span class="keyword">end</span>
+0159     <span class="keyword">end</span>
+0160 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

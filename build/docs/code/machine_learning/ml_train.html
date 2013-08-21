@@ -1,0 +1,363 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ml_train</title>
+  <meta name="keywords" content="ml_train">
+  <meta name="description" content="Learn a predictive model from the given data and parameters.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">machine_learning</a> &gt; ml_train.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/machine_learning&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ml_train
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Learn a predictive model from the given data and parameters.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function model = ml_train(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Learn a predictive model from the given data and parameters.
+ Model = ml_train(Data, Arguments)
+
+ This function dispatches, depending on the first cell in Arguments, to one of the
+ machine_learning/ml_train* functions (e.g., ml_trainlda, etc.), and may perform some additional
+ data formatting depending on inputs and outputs. It is to be preferred over calling the ml_train*
+ functions directly (especially since some callees may rely on the additional work done by
+ ml_train).
+
+ The function is the general tool to be applied when a predictive model shall be learned from a
+ (usually unstructured, but labeled) set of trials [1,3]. Each trial is typically fed to the
+ function as a vector of previously extracted features (called a feature vector), as a generic
+ format understood by a large variety of different methods [2]. Each trial typically has a label
+ (or target value), which may be categorical (a number out of a small set of numbers), real-valued
+ (or continuous: any number), multivariate (a vector of numbers), or structured (an arbitrary
+ cell). If empty labels are supplied, the goal is usually not to predict any labels, but to learn
+ the probablity distribution of the supplied data.
+
+ The resulting predictive model (usually a MATLAB struct()) is termed, depending on the label type,
+ a 'classifier', 'regressor', or 'density estimator'. It captures in its parameters the necessary
+ information to be able to predict the desired target value from a new instance of data (assumed to
+ originate from the same distribution as the training data). It is sometimes called the 'predictive
+ function', and the term 'model' is also frequently used in the literature to refer to classes of
+ such functions (with free parameters).
+
+ Chosing the right method for a given task is a difficult problem, and requires correct assumptions
+ about the structure of the data, and often further experimentation. The toolbox provides a
+ relatively broad set of methods from different branches of machine learning, among others
+ statistics (lda,qda,logreg), optimization (svm*,logreg,dal), support vector machines
+ (svmlight,svmlinear,svmperf,rvm), (Bayesian) probability theory (gmm,logreg,rvm) and meta-learning
+ (vote). Prominent fields currently not covered are neural networks, fuzzy inference, and
+ evolutionary methods.
+
+ The ml_train* functions are named according to the fundamental approach, but typically several
+ variants are provided by each, which themselves may have multiple parameters and which may be
+ implemented with different libraries. The overall approach can often be chosen based on
+ assumptions about the data, whereas some parameters may have to be selected by parameter search
+ (preferred for reasons explained in offline_analysis/bci_train), or are otherwise adapted. In the
+ context of the toolbox, it is usually not enough to select the right learning function, but
+ instead, the entire data pipeline, usually starting with signal (pre-)processing, followed by
+ feature extraction and concluded by machine learning needs to be determined. Extensive fully
+ customizable default setups (&quot;paradigms&quot;) are provided at higher levels (paradigms/para_*,
+ offline_analysis/bci_train).
+
+ In:
+   Data    :   * either a cell array of {Trials} or {Trials, Targets} or {Trials, Targets,
+                 Weights}, with 
+                 - Trials a [NxF] numeric array (N... number of training instances,
+                   F... number of feature dimensions) or a [UxVxWx...xN] Nd array in special cases 
+                   (N... number of training instances, U,V,W,... feature tensor dimensions).
+                   If not otherwise possible, it is allowed to pass trials in any custom
+                   format, as long as it is being recognized by the machine learning function of
+                   interest.
+                 - Targets one of the following:
+                    * a [NxT] array (N... number of training instances, T... number of target 
+                      dimensions, T usually 1)
+                    * a {N} cell array (N... number of training instances, contents unspecified)
+                      ... in this case, the method selected in Options must support structured 
+                      prediction
+                    * an empty array, indicating that the probability density of the input data is 
+                      to be estimated
+                    * a cell array describing a set of probability distributions, either discrete
+                      or continuous (see ml_predict for examples)
+                 - Weights a [Nx1] numeric array of non-negative per-trial trial weights (N...
+                   number of training instances)
+               * or, alternatively, a cell array of {{[N1xF],[N2xF], [N3xF], ...}}, with
+                   Ni the number of instances for class i (possibly empty)
+                   F the number of feature dimensions
+
+   Arguments :   cell array of further arguments for learning the model; The first argument in
+                 Options is considered the name of the learning method, e.g. 'lda', 'logreg', and
+                 specifies the ml_train&lt;name&gt; learning function to be called all other options are
+                 passed unmodified into the learning function
+ Out:
+   Model   : predictive model, can later be used in conjunction with ml_predict
+              Model.args is the arguments to ml_train
+              Model.model is the predictive model returned by the appropriate ml_train* function
+              where applicable,
+                 Model.model.b is the bias
+                 Model.model.w is the weights
+
+ Examples:
+   % assuming a feature matrix for 160 trials a 10 dimensions, and a corresponding label vector
+   % size(trials) -&gt; [160,10]; size(targets) -&gt; [160,1]
+
+   % learn LDA predictor from some training data
+   model = ml_train({trials,targets},{'lda'})
+
+   % learn GMM predictor with some additional parameters
+   model = ml_train({trials,targets},{'gmm' 0.4 'xxx'})
+
+   % learn SVM predictor for three-class data in trials1/2/3
+   model = ml_train({{trials1,trials2,trials3}},{'svm'})
+
+   % learn GMM density estimator
+   model = ml_train({trials,[]}, {'gmm'})
+
+   % special: re-parse the list of supported plugin functions (affects GUIs displayed for ml_train)
+   ml_train('update')
+
+   % apply the learned model to some data
+   % predictions = ml_predict(model,trials)
+
+ See also:
+   <a href="ml_predict.html" class="code" title="function pred = ml_predict(trials, model)">ml_predict</a>
+
+ Notes:
+   Weighted learning is only supported by a fraction of the ml_train* functions.
+
+ References:
+   [1] Bishop, C. M. &quot;Pattern Recognition and Machine Learning.&quot;
+       Information Science and Statistics. Springer, 2006.
+   [2] Hastie, T., Tibshirani, R., and Friedman, J. H. &quot;The elements of statistical learning (2nd Ed.).&quot;
+        Springer, 2009.
+   [3] MacKay, D. J. C. &quot;Information theory, inference, and learning algorithms.&quot;
+       Cambridge University Press, 2003.
+
+ See also:
+   <a href="ml_traindal.html" class="code" title="function model = ml_traindal(varargin)">ml_traindal</a>, <a href="ml_trainglm.html" class="code" title="function model = ml_trainglm(varargin)">ml_trainglm</a>, <a href="ml_trainhkl.html" class="code" title="function model = ml_trainhkl(varargin)">ml_trainhkl</a>, <a href="ml_trainlogreg.html" class="code" title="function model = ml_trainlogreg(varargin)">ml_trainlogreg</a>, <a href="ml_trainrvm.html" class="code" title="function model = ml_trainrvm(varargin)">ml_trainrvm</a> (built-in linear/logistic regression family),
+   <a href="ml_traingauss.html" class="code" title="function model = ml_traingauss(varargin)">ml_traingauss</a>, <a href="ml_traingmm.html" class="code" title="function model = ml_traingmm(varargin)">ml_traingmm</a> (built-in Gaussian mixture family),
+   <a href="ml_trainlda.html" class="code" title="function model = ml_trainlda(varargin)">ml_trainlda</a>, <a href="ml_trainqda.html" class="code" title="function model = ml_trainqda(varargin)">ml_trainqda</a> (built-in discriminant analysis family),
+   <a href="ml_trainsvm.html" class="code" title="function model = ml_trainsvm(varargin)">ml_trainsvm</a>, <a href="ml_trainsvmlight.html" class="code" title="function model = ml_trainsvmlight(varargin)">ml_trainsvmlight</a>, <a href="ml_trainsvmperf.html" class="code" title="function model = ml_trainsvmperf(varargin)">ml_trainsvmperf</a> (built-in Support Vector
+   Machines family), <a href="ml_predict.html" class="code" title="function pred = ml_predict(trials, model)">ml_predict</a></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function learners = list_learners(update_list)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function model = ml_train(varargin)</a>
+0002 <span class="comment">% Learn a predictive model from the given data and parameters.</span>
+0003 <span class="comment">% Model = ml_train(Data, Arguments)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This function dispatches, depending on the first cell in Arguments, to one of the</span>
+0006 <span class="comment">% machine_learning/ml_train* functions (e.g., ml_trainlda, etc.), and may perform some additional</span>
+0007 <span class="comment">% data formatting depending on inputs and outputs. It is to be preferred over calling the ml_train*</span>
+0008 <span class="comment">% functions directly (especially since some callees may rely on the additional work done by</span>
+0009 <span class="comment">% ml_train).</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">% The function is the general tool to be applied when a predictive model shall be learned from a</span>
+0012 <span class="comment">% (usually unstructured, but labeled) set of trials [1,3]. Each trial is typically fed to the</span>
+0013 <span class="comment">% function as a vector of previously extracted features (called a feature vector), as a generic</span>
+0014 <span class="comment">% format understood by a large variety of different methods [2]. Each trial typically has a label</span>
+0015 <span class="comment">% (or target value), which may be categorical (a number out of a small set of numbers), real-valued</span>
+0016 <span class="comment">% (or continuous: any number), multivariate (a vector of numbers), or structured (an arbitrary</span>
+0017 <span class="comment">% cell). If empty labels are supplied, the goal is usually not to predict any labels, but to learn</span>
+0018 <span class="comment">% the probablity distribution of the supplied data.</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% The resulting predictive model (usually a MATLAB struct()) is termed, depending on the label type,</span>
+0021 <span class="comment">% a 'classifier', 'regressor', or 'density estimator'. It captures in its parameters the necessary</span>
+0022 <span class="comment">% information to be able to predict the desired target value from a new instance of data (assumed to</span>
+0023 <span class="comment">% originate from the same distribution as the training data). It is sometimes called the 'predictive</span>
+0024 <span class="comment">% function', and the term 'model' is also frequently used in the literature to refer to classes of</span>
+0025 <span class="comment">% such functions (with free parameters).</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">% Chosing the right method for a given task is a difficult problem, and requires correct assumptions</span>
+0028 <span class="comment">% about the structure of the data, and often further experimentation. The toolbox provides a</span>
+0029 <span class="comment">% relatively broad set of methods from different branches of machine learning, among others</span>
+0030 <span class="comment">% statistics (lda,qda,logreg), optimization (svm*,logreg,dal), support vector machines</span>
+0031 <span class="comment">% (svmlight,svmlinear,svmperf,rvm), (Bayesian) probability theory (gmm,logreg,rvm) and meta-learning</span>
+0032 <span class="comment">% (vote). Prominent fields currently not covered are neural networks, fuzzy inference, and</span>
+0033 <span class="comment">% evolutionary methods.</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">% The ml_train* functions are named according to the fundamental approach, but typically several</span>
+0036 <span class="comment">% variants are provided by each, which themselves may have multiple parameters and which may be</span>
+0037 <span class="comment">% implemented with different libraries. The overall approach can often be chosen based on</span>
+0038 <span class="comment">% assumptions about the data, whereas some parameters may have to be selected by parameter search</span>
+0039 <span class="comment">% (preferred for reasons explained in offline_analysis/bci_train), or are otherwise adapted. In the</span>
+0040 <span class="comment">% context of the toolbox, it is usually not enough to select the right learning function, but</span>
+0041 <span class="comment">% instead, the entire data pipeline, usually starting with signal (pre-)processing, followed by</span>
+0042 <span class="comment">% feature extraction and concluded by machine learning needs to be determined. Extensive fully</span>
+0043 <span class="comment">% customizable default setups (&quot;paradigms&quot;) are provided at higher levels (paradigms/para_*,</span>
+0044 <span class="comment">% offline_analysis/bci_train).</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">% In:</span>
+0047 <span class="comment">%   Data    :   * either a cell array of {Trials} or {Trials, Targets} or {Trials, Targets,</span>
+0048 <span class="comment">%                 Weights}, with</span>
+0049 <span class="comment">%                 - Trials a [NxF] numeric array (N... number of training instances,</span>
+0050 <span class="comment">%                   F... number of feature dimensions) or a [UxVxWx...xN] Nd array in special cases</span>
+0051 <span class="comment">%                   (N... number of training instances, U,V,W,... feature tensor dimensions).</span>
+0052 <span class="comment">%                   If not otherwise possible, it is allowed to pass trials in any custom</span>
+0053 <span class="comment">%                   format, as long as it is being recognized by the machine learning function of</span>
+0054 <span class="comment">%                   interest.</span>
+0055 <span class="comment">%                 - Targets one of the following:</span>
+0056 <span class="comment">%                    * a [NxT] array (N... number of training instances, T... number of target</span>
+0057 <span class="comment">%                      dimensions, T usually 1)</span>
+0058 <span class="comment">%                    * a {N} cell array (N... number of training instances, contents unspecified)</span>
+0059 <span class="comment">%                      ... in this case, the method selected in Options must support structured</span>
+0060 <span class="comment">%                      prediction</span>
+0061 <span class="comment">%                    * an empty array, indicating that the probability density of the input data is</span>
+0062 <span class="comment">%                      to be estimated</span>
+0063 <span class="comment">%                    * a cell array describing a set of probability distributions, either discrete</span>
+0064 <span class="comment">%                      or continuous (see ml_predict for examples)</span>
+0065 <span class="comment">%                 - Weights a [Nx1] numeric array of non-negative per-trial trial weights (N...</span>
+0066 <span class="comment">%                   number of training instances)</span>
+0067 <span class="comment">%               * or, alternatively, a cell array of {{[N1xF],[N2xF], [N3xF], ...}}, with</span>
+0068 <span class="comment">%                   Ni the number of instances for class i (possibly empty)</span>
+0069 <span class="comment">%                   F the number of feature dimensions</span>
+0070 <span class="comment">%</span>
+0071 <span class="comment">%   Arguments :   cell array of further arguments for learning the model; The first argument in</span>
+0072 <span class="comment">%                 Options is considered the name of the learning method, e.g. 'lda', 'logreg', and</span>
+0073 <span class="comment">%                 specifies the ml_train&lt;name&gt; learning function to be called all other options are</span>
+0074 <span class="comment">%                 passed unmodified into the learning function</span>
+0075 <span class="comment">% Out:</span>
+0076 <span class="comment">%   Model   : predictive model, can later be used in conjunction with ml_predict</span>
+0077 <span class="comment">%              Model.args is the arguments to ml_train</span>
+0078 <span class="comment">%              Model.model is the predictive model returned by the appropriate ml_train* function</span>
+0079 <span class="comment">%              where applicable,</span>
+0080 <span class="comment">%                 Model.model.b is the bias</span>
+0081 <span class="comment">%                 Model.model.w is the weights</span>
+0082 <span class="comment">%</span>
+0083 <span class="comment">% Examples:</span>
+0084 <span class="comment">%   % assuming a feature matrix for 160 trials a 10 dimensions, and a corresponding label vector</span>
+0085 <span class="comment">%   % size(trials) -&gt; [160,10]; size(targets) -&gt; [160,1]</span>
+0086 <span class="comment">%</span>
+0087 <span class="comment">%   % learn LDA predictor from some training data</span>
+0088 <span class="comment">%   model = ml_train({trials,targets},{'lda'})</span>
+0089 <span class="comment">%</span>
+0090 <span class="comment">%   % learn GMM predictor with some additional parameters</span>
+0091 <span class="comment">%   model = ml_train({trials,targets},{'gmm' 0.4 'xxx'})</span>
+0092 <span class="comment">%</span>
+0093 <span class="comment">%   % learn SVM predictor for three-class data in trials1/2/3</span>
+0094 <span class="comment">%   model = ml_train({{trials1,trials2,trials3}},{'svm'})</span>
+0095 <span class="comment">%</span>
+0096 <span class="comment">%   % learn GMM density estimator</span>
+0097 <span class="comment">%   model = ml_train({trials,[]}, {'gmm'})</span>
+0098 <span class="comment">%</span>
+0099 <span class="comment">%   % special: re-parse the list of supported plugin functions (affects GUIs displayed for ml_train)</span>
+0100 <span class="comment">%   ml_train('update')</span>
+0101 <span class="comment">%</span>
+0102 <span class="comment">%   % apply the learned model to some data</span>
+0103 <span class="comment">%   % predictions = ml_predict(model,trials)</span>
+0104 <span class="comment">%</span>
+0105 <span class="comment">% See also:</span>
+0106 <span class="comment">%   ml_predict</span>
+0107 <span class="comment">%</span>
+0108 <span class="comment">% Notes:</span>
+0109 <span class="comment">%   Weighted learning is only supported by a fraction of the ml_train* functions.</span>
+0110 <span class="comment">%</span>
+0111 <span class="comment">% References:</span>
+0112 <span class="comment">%   [1] Bishop, C. M. &quot;Pattern Recognition and Machine Learning.&quot;</span>
+0113 <span class="comment">%       Information Science and Statistics. Springer, 2006.</span>
+0114 <span class="comment">%   [2] Hastie, T., Tibshirani, R., and Friedman, J. H. &quot;The elements of statistical learning (2nd Ed.).&quot;</span>
+0115 <span class="comment">%        Springer, 2009.</span>
+0116 <span class="comment">%   [3] MacKay, D. J. C. &quot;Information theory, inference, and learning algorithms.&quot;</span>
+0117 <span class="comment">%       Cambridge University Press, 2003.</span>
+0118 <span class="comment">%</span>
+0119 <span class="comment">% See also:</span>
+0120 <span class="comment">%   ml_traindal, ml_trainglm, ml_trainhkl, ml_trainlogreg, ml_trainrvm (built-in linear/logistic regression family),</span>
+0121 <span class="comment">%   ml_traingauss, ml_traingmm (built-in Gaussian mixture family),</span>
+0122 <span class="comment">%   ml_trainlda, ml_trainqda (built-in discriminant analysis family),</span>
+0123 <span class="comment">%   ml_trainsvm, ml_trainsvmlight, ml_trainsvmperf (built-in Support Vector</span>
+0124 <span class="comment">%   Machines family), ml_predict</span>
+0125 
+0126 <span class="comment">%</span>
+0127 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0128 <span class="comment">%                                2010-04-03</span>
+0129 
+0130 <span class="keyword">if</span> ~isequal(varargin,{<span class="string">'update'</span>})
+0131     
+0132     arg_define([0 2],varargin, <span class="keyword">...</span>
+0133         arg_norep(<span class="string">'data'</span>), <span class="keyword">...</span>
+0134         arg_subswitch({<span class="string">'learner'</span>,<span class="string">'Learner'</span>}, <span class="string">'lda'</span>, <a href="#_sub1" class="code" title="subfunction learners = list_learners(update_list)">list_learners</a>(), <span class="string">'Machine learning function. Applied to the data (features) produced within the paradigm; this is usually the last (and most adaptive) step in the processing from raw data to model or prediction.'</span>));
+0135     
+0136     <span class="keyword">if</span> ~iscell(data) <span class="comment">%#ok&lt;*USENS&gt;</span>
+0137         error(<span class="string">'Data must be a cell array.'</span>); <span class="keyword">end</span>
+0138     
+0139     <span class="keyword">if</span> length(data) == 3
+0140         <span class="comment">% we have the {Trials,Targets,Weights} data format</span>
+0141         <span class="comment">% this is passed on as ml_train*(trials,{targets,weights}, ...)</span>
+0142         trials = data{1};
+0143         targets = data(2:3);
+0144     <span class="keyword">elseif</span> length(data) == 2
+0145         <span class="comment">% we have the {Trials,Targets} data format</span>
+0146         <span class="comment">% this is passed on as ml_train*(trials,targets, ...)</span>
+0147         trials = data{1};
+0148         targets = data{2};
+0149     <span class="keyword">elseif</span> length(data) == 1 
+0150         <span class="keyword">if</span> iscell(data{1}) &amp;&amp; length(unique(cellfun(@(d)size(d,2),data{1}))) == 1
+0151             <span class="comment">% we have a pack of per-class cell arrays: concatenate &amp; construct labels</span>
+0152             trials = cat(1,data{1}{:});
+0153             <span class="keyword">for</span> k=1:length(data{1})
+0154                 targets{k} = k*ones(size(data{1}{k},1),1); <span class="keyword">end</span>
+0155             targets = cat(1,targets{:});
+0156         <span class="keyword">else</span>
+0157             trials = data{1};
+0158             targets = [];
+0159         <span class="keyword">end</span>
+0160     <span class="keyword">else</span>
+0161         <span class="comment">% unknown data specification</span>
+0162         error(<span class="string">'Data is specified in an unsupported format.'</span>);
+0163     <span class="keyword">end</span>
+0164     
+0165     <span class="keyword">if</span> isempty(targets)
+0166         model.model = feval([<span class="string">'ml_train'</span> learner.arg_selection],<span class="string">'trials'</span>,trials,learner);
+0167     <span class="keyword">else</span>
+0168         <span class="keyword">if</span> ~iscell(targets) &amp;&amp; length(unique(targets)) == 1
+0169             disp(<span class="string">'WARNING: This training set contains only one class - the subsequent learning phase will likely fail.'</span>); <span class="keyword">end</span>
+0170         model.model = feval([<span class="string">'ml_train'</span> learner.arg_selection],<span class="string">'trials'</span>,trials,<span class="string">'targets'</span>,targets,learner);
+0171     <span class="keyword">end</span>
+0172     model.args = learner;
+0173     
+0174 <span class="keyword">else</span>
+0175     <span class="comment">% update the list of learners</span>
+0176     <a href="#_sub1" class="code" title="subfunction learners = list_learners(update_list)">list_learners</a>(true);
+0177 <span class="keyword">end</span>
+0178 
+0179 
+0180 
+0181 <a name="_sub1" href="#_subfunctions" class="code">function learners = list_learners(update_list)</a>
+0182 <span class="comment">% list all the learning functions in code/machine_learning/</span>
+0183 <span class="keyword">persistent</span> memo;
+0184 <span class="keyword">if</span> isempty(memo) || exist(<span class="string">'update_list'</span>,<span class="string">'var'</span>) &amp;&amp; update_list
+0185     modules = dir(env_translatepath(<span class="string">'functions:/machine_learning/ml_train*.m'</span>));
+0186     names = setdiff({modules.name},{<span class="string">'ml_train.m'</span>,<span class="string">'ml_trainvote.m'</span>});
+0187     tags = cellfun(@(n) n(9:end-2),names,<span class="string">'UniformOutput'</span>,false);
+0188     funcs = cellfun(@(n) str2func(n(1:end-2)),names,<span class="string">'UniformOutput'</span>,false);
+0189     memo = [tags; funcs];
+0190     memo = memo(:)';
+0191 <span class="keyword">end</span>
+0192 learners = memo;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

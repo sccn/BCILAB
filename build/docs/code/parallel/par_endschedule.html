@@ -1,0 +1,152 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of par_endschedule</title>
+  <meta name="keywords" content="par_endschedule">
+  <meta name="description" content="Wait for completion of a scheduling operation and return results and errors.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">parallel</a> &gt; par_endschedule.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/parallel&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>par_endschedule
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Wait for completion of a scheduling operation and return results and errors.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [results,errors] = par_endschedule(sched,varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Wait for completion of a scheduling operation and return results and errors.
+ [Results, Errors] = par_endschedule(Id, Options...)
+
+ In:
+   Id : scheduler id, obtained from par_beginschedule
+
+ Out:
+   Results : cell array of results of the scheduled computations (evaluated strings)
+   Errors  : cell array of {position,exception struct} for those results that could not be evaluated
+             the position may also be unknown in case of more severe errors
+
+ See also:
+   <a href="par_beginschedule.html" class="code" title="function sched = par_beginschedule(tasks,varargin)">par_beginschedule</a>, <a href="par_worker.html" class="code" title="function par_worker(port,portrange,timeout_heartbeat,varargin)">par_worker</a>, <a href="par_schedule.html" class="code" title="function [results,errors] = par_schedule(tasks,varargin)">par_schedule</a>
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-08-29</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="par_schedule.html" class="code" title="function [results,errors] = par_schedule(tasks,varargin)">par_schedule</a>	Schedule the given tasks across a pool of (possibly remote) workers.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [results,errors] = par_endschedule(sched,varargin)</a>
+0002 <span class="comment">% Wait for completion of a scheduling operation and return results and errors.</span>
+0003 <span class="comment">% [Results, Errors] = par_endschedule(Id, Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Id : scheduler id, obtained from par_beginschedule</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% Out:</span>
+0009 <span class="comment">%   Results : cell array of results of the scheduled computations (evaluated strings)</span>
+0010 <span class="comment">%   Errors  : cell array of {position,exception struct} for those results that could not be evaluated</span>
+0011 <span class="comment">%             the position may also be unknown in case of more severe errors</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">% See also:</span>
+0014 <span class="comment">%   par_beginschedule, par_worker, par_schedule</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0017 <span class="comment">%                                2010-08-29</span>
+0018 
+0019 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0022 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0023 <span class="comment">% License, or (at your option) any later version.</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0026 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0027 <span class="comment">% General Public License for more details.</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0030 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0031 <span class="comment">% USA</span>
+0032 
+0033 results = {};
+0034 errors = {};
+0035 
+0036 <span class="comment">% read options</span>
+0037 opts = hlp_varargin2struct(varargin,<span class="string">'keep'</span>,false, <span class="string">'spin_interval'</span>,0.1);
+0038 
+0039 <span class="keyword">if</span> iscell(sched)
+0040     <span class="comment">% locally computed results</span>
+0041     results = cell(1,length(sched));
+0042     <span class="keyword">for</span> r=1:length(sched)
+0043         results{r} = sched{r}{2}; <span class="keyword">end</span>
+0044 <span class="keyword">else</span>
+0045     <span class="keyword">if</span> isfield(sched,<span class="string">'ReferenceResults'</span>)
+0046         <span class="comment">% collect results from the Reference implementation</span>
+0047         raw = sched.ReferenceResults;
+0048     <span class="keyword">else</span>
+0049         <span class="comment">% collect results from the BLS scheduler</span>
+0050         
+0051         <span class="comment">% wait for the scheduler to finish (note: we cannot wait on a condition variable here,</span>
+0052         <span class="comment">% as we need the MATLAB thread to be active for managing the reschedule policy)</span>
+0053         <span class="keyword">while</span> (~sched.sched.done())
+0054             pause(opts.spin_interval); <span class="keyword">end</span>
+0055         
+0056         <span class="comment">% obtain raw results &amp; convert to cell-string array</span>
+0057         strings = sched.sched.results();
+0058         raw = cell(1,length(strings));
+0059         <span class="keyword">for</span> k=1:length(strings)
+0060             raw{k} = char(strings(k)); <span class="keyword">end</span>
+0061         
+0062         <span class="comment">% terminate scheduler</span>
+0063         <span class="keyword">if</span> opts.keep
+0064             sched.sched.clear();
+0065         <span class="keyword">else</span>
+0066             sched.sched.terminate();
+0067         <span class="keyword">end</span>
+0068     <span class="keyword">end</span>
+0069     
+0070     <span class="comment">% deserialize &amp; reorder the string-formatted results</span>
+0071     <span class="keyword">for</span> r=1:length(raw)
+0072         <span class="keyword">try</span>
+0073             <span class="comment">% deserialize result</span>
+0074             raw{r} = hlp_deserialize(base64decode(raw{r}));
+0075             <span class="keyword">if</span> isfield(raw{r}{2},{<span class="string">'message'</span>,<span class="string">'identifier'</span>,<span class="string">'stack'</span>})
+0076                 <span class="comment">% append to errors</span>
+0077                 errors{end+1} = raw{r};
+0078             <span class="keyword">else</span>
+0079                 <span class="comment">% put into results</span>
+0080                 results{raw{r}{1}} = raw{r}{2};
+0081             <span class="keyword">end</span>
+0082         <span class="keyword">catch</span> e
+0083             errors{end+1} = {NaN,e};
+0084         <span class="keyword">end</span>
+0085     <span class="keyword">end</span>    
+0086 <span class="keyword">end</span>
+0087 
+0088 <span class="comment">% throw the first error, if not requested as cell array</span>
+0089 <span class="keyword">if</span> ~isempty(errors) &amp;&amp; nargout &lt;= 1
+0090     rethrow(errors{1}{2}); <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

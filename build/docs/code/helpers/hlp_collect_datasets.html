@@ -1,0 +1,272 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of hlp_collect_datasets</title>
+  <meta name="keywords" content="hlp_collect_datasets">
+  <meta name="description" content="Find all loadable data sets in some directory tree and collect arbitary properties.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">helpers</a> &gt; hlp_collect_datasets.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>hlp_collect_datasets
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Find all loadable data sets in some directory tree and collect arbitary properties.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function collected = hlp_collect_datasets(directory,varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Find all loadable data sets in some directory tree and collect arbitary properties.
+ Collected = hlp_collect_datasets(Directory, Options...)
+
+ In:
+   Directory    : the directory to be searched for eeg data sets
+
+   Options...   : optional name-value pairs; possible names are:
+                   'pattern': regular expression pattern of file paths considered (default: regexptranslate('wildcard','*.set'))
+                   'nopattern': cell array of regular expression patterns (for files/directories) to exclude from scan (default: {})
+                   'checkset': whether to run an eeg_checkset on the data (default: 1)
+                   'nowarnings': exclude files that give a warning when loading or running eeg_checkset (default: 1)
+                   'nodialogs': exclude files that create dialogs when loading or running eeg_checkset (default: 1)
+                                note: this requires a certain dependency directory (and uses env_translatepath to find it)
+                   'conditions': cell array of functions that check custom conditions on the data (e.g., @(EEG) ~isempty(EEG.icawinv)) (default: [])
+                   'maxsize': maximum filesize considered, in bytes (default: 5*2^20 = 5MB)
+                   'maxtime': maximum allowed file processing time, in seconds (default: Inf)
+                   'maxnumber': maximum number of entries returned (default: Inf)
+                   'collect': a function of the EEG set (and optionally file path); the function's return values are collected
+                              for every admissible data set (default: @(EEG,path) path)
+                   'fileconditions': cell array of functions that check custom conditions on the filename (e.g. @(path,name,ext) exist([path filesep name '.xxx'],'file'))
+                                     (default: @(path,name,ext) exist([path filesep name '.fdt'],'file') || exist([path filesep name '.dat'],'file'))
+
+ Out:
+   Collected : cell array of admissible file paths (or desired contents, if 'collect' was specified)
+
+ Notes:
+   If the function is terminated prematurely, the global variables collected_so_far and num_collected_so_var give the current data:
+   global collected_so_far num_collected_so_far; mydata = collected_so_far(1:num_collected_so_far)
+
+ Examples:
+   % collect .icawinv and .chanlocs fields of all data sets for which more than half of the channels have locations
+   collected = hlp_collect_datasets('/data/projects', ...
+       'conditions',@(EEG) ~isempty(EEG.icawinv) &amp;&amp; mean(cellfun('isempty',{EEG.chanlocs.X})) &lt; 0.5, ...
+       'collect',@(EEG,path){path,EEG.icawinv,EEG.chanlocs,EEG.icachansind})
+
+   % as before, but consider files that are up to 100MB large
+   collected = hlp_collect_datasets('/data/projects', 'maxsize',100*2^20, ...
+       'conditions',@(EEG) ~isempty(EEG.icawinv) &amp;&amp; mean(cellfun('isempty',{EEG.chanlocs.X})) &lt; 0.5, ...
+       'collect',@(EEG,path){path,EEG.icawinv,EEG.chanlocs,EEG.icachansind})
+
+   % like before, but this time do not scan directories which contain the strings 'christian' and 'duann'
+   collected = hlp_collect_datasets('/data/projects', 'nopattern',{'christian','duann'}, ...
+       'conditions',@(EEG) ~isempty(EEG.icawinv) &amp;&amp; mean(cellfun('isempty',{EEG.chanlocs.X})) &lt; 0.5, ...
+       'collect',@(EEG,path){path,EEG.icawinv,EEG.chanlocs,EEG.icachansind})
+
+   % like before, but stop after having gathered 200 data sets
+   collected = hlp_collect_datasets('/data/projects', 'maxnumber',200, ...
+       'conditions',@(EEG) ~isempty(EEG.icawinv) &amp;&amp; mean(cellfun('isempty',{EEG.chanlocs.X})) &lt; 0.5, ...
+       'collect',@(EEG,path){path,EEG.icawinv,EEG.chanlocs,EEG.icachansind})
+
+ Dependencies: 
+   env_translatepath.
+
+                               Laura Froelich, Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                               2010-09-10</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="hlp_collect_datasets.html" class="code" title="function collected = hlp_collect_datasets(directory,varargin)">hlp_collect_datasets</a>	Find all loadable data sets in some directory tree and collect arbitary properties.</li><li><a href="hlp_matlab_version.html" class="code" title="function v = hlp_matlab_version()">hlp_matlab_version</a>	Get the MATLAB version in a numeric format that can be compared with <, >, etc.</li><li><a href="hlp_varargin2struct.html" class="code" title="function res = hlp_varargin2struct(args, varargin)">hlp_varargin2struct</a>	Convert a list of name-value pairs into a struct with values assigned to names.</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="hlp_collect_datasets.html" class="code" title="function collected = hlp_collect_datasets(directory,varargin)">hlp_collect_datasets</a>	Find all loadable data sets in some directory tree and collect arbitary properties.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function collected = hlp_collect_datasets(directory,varargin)</a>
+0002 <span class="comment">% Find all loadable data sets in some directory tree and collect arbitary properties.</span>
+0003 <span class="comment">% Collected = hlp_collect_datasets(Directory, Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Directory    : the directory to be searched for eeg data sets</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">%   Options...   : optional name-value pairs; possible names are:</span>
+0009 <span class="comment">%                   'pattern': regular expression pattern of file paths considered (default: regexptranslate('wildcard','*.set'))</span>
+0010 <span class="comment">%                   'nopattern': cell array of regular expression patterns (for files/directories) to exclude from scan (default: {})</span>
+0011 <span class="comment">%                   'checkset': whether to run an eeg_checkset on the data (default: 1)</span>
+0012 <span class="comment">%                   'nowarnings': exclude files that give a warning when loading or running eeg_checkset (default: 1)</span>
+0013 <span class="comment">%                   'nodialogs': exclude files that create dialogs when loading or running eeg_checkset (default: 1)</span>
+0014 <span class="comment">%                                note: this requires a certain dependency directory (and uses env_translatepath to find it)</span>
+0015 <span class="comment">%                   'conditions': cell array of functions that check custom conditions on the data (e.g., @(EEG) ~isempty(EEG.icawinv)) (default: [])</span>
+0016 <span class="comment">%                   'maxsize': maximum filesize considered, in bytes (default: 5*2^20 = 5MB)</span>
+0017 <span class="comment">%                   'maxtime': maximum allowed file processing time, in seconds (default: Inf)</span>
+0018 <span class="comment">%                   'maxnumber': maximum number of entries returned (default: Inf)</span>
+0019 <span class="comment">%                   'collect': a function of the EEG set (and optionally file path); the function's return values are collected</span>
+0020 <span class="comment">%                              for every admissible data set (default: @(EEG,path) path)</span>
+0021 <span class="comment">%                   'fileconditions': cell array of functions that check custom conditions on the filename (e.g. @(path,name,ext) exist([path filesep name '.xxx'],'file'))</span>
+0022 <span class="comment">%                                     (default: @(path,name,ext) exist([path filesep name '.fdt'],'file') || exist([path filesep name '.dat'],'file'))</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">% Out:</span>
+0025 <span class="comment">%   Collected : cell array of admissible file paths (or desired contents, if 'collect' was specified)</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">% Notes:</span>
+0028 <span class="comment">%   If the function is terminated prematurely, the global variables collected_so_far and num_collected_so_var give the current data:</span>
+0029 <span class="comment">%   global collected_so_far num_collected_so_far; mydata = collected_so_far(1:num_collected_so_far)</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">% Examples:</span>
+0032 <span class="comment">%   % collect .icawinv and .chanlocs fields of all data sets for which more than half of the channels have locations</span>
+0033 <span class="comment">%   collected = hlp_collect_datasets('/data/projects', ...</span>
+0034 <span class="comment">%       'conditions',@(EEG) ~isempty(EEG.icawinv) &amp;&amp; mean(cellfun('isempty',{EEG.chanlocs.X})) &lt; 0.5, ...</span>
+0035 <span class="comment">%       'collect',@(EEG,path){path,EEG.icawinv,EEG.chanlocs,EEG.icachansind})</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%   % as before, but consider files that are up to 100MB large</span>
+0038 <span class="comment">%   collected = hlp_collect_datasets('/data/projects', 'maxsize',100*2^20, ...</span>
+0039 <span class="comment">%       'conditions',@(EEG) ~isempty(EEG.icawinv) &amp;&amp; mean(cellfun('isempty',{EEG.chanlocs.X})) &lt; 0.5, ...</span>
+0040 <span class="comment">%       'collect',@(EEG,path){path,EEG.icawinv,EEG.chanlocs,EEG.icachansind})</span>
+0041 <span class="comment">%</span>
+0042 <span class="comment">%   % like before, but this time do not scan directories which contain the strings 'christian' and 'duann'</span>
+0043 <span class="comment">%   collected = hlp_collect_datasets('/data/projects', 'nopattern',{'christian','duann'}, ...</span>
+0044 <span class="comment">%       'conditions',@(EEG) ~isempty(EEG.icawinv) &amp;&amp; mean(cellfun('isempty',{EEG.chanlocs.X})) &lt; 0.5, ...</span>
+0045 <span class="comment">%       'collect',@(EEG,path){path,EEG.icawinv,EEG.chanlocs,EEG.icachansind})</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">%   % like before, but stop after having gathered 200 data sets</span>
+0048 <span class="comment">%   collected = hlp_collect_datasets('/data/projects', 'maxnumber',200, ...</span>
+0049 <span class="comment">%       'conditions',@(EEG) ~isempty(EEG.icawinv) &amp;&amp; mean(cellfun('isempty',{EEG.chanlocs.X})) &lt; 0.5, ...</span>
+0050 <span class="comment">%       'collect',@(EEG,path){path,EEG.icawinv,EEG.chanlocs,EEG.icachansind})</span>
+0051 <span class="comment">%</span>
+0052 <span class="comment">% Dependencies:</span>
+0053 <span class="comment">%   env_translatepath.</span>
+0054 <span class="comment">%</span>
+0055 <span class="comment">%                               Laura Froelich, Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0056 <span class="comment">%                               2010-09-10</span>
+0057 
+0058 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0059 <span class="comment">%</span>
+0060 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0061 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0062 <span class="comment">% License, or (at your option) any later version.</span>
+0063 <span class="comment">%</span>
+0064 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0065 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0066 <span class="comment">% General Public License for more details.</span>
+0067 <span class="comment">%</span>
+0068 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0069 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0070 <span class="comment">% USA</span>
+0071 
+0072 <span class="keyword">global</span> collected_so_far num_collected_so_far;                                <span class="comment">% collected_so_far(1:numcollected_so_far) is what we have so far...</span>
+0073 
+0074 <span class="keyword">if</span> length(varargin)==1 &amp;&amp; isstruct(varargin{1})
+0075     opts = varargin{1};                                                     <span class="comment">% opts is already a struct: fast path</span>
+0076 <span class="keyword">else</span>
+0077     opts = <a href="hlp_varargin2struct.html" class="code" title="function res = hlp_varargin2struct(args, varargin)">hlp_varargin2struct</a>(varargin, <span class="string">'pattern'</span>,regexptranslate(<span class="string">'wildcard'</span>,<span class="string">'*.set'</span>), <span class="string">'nopattern'</span>,{}, <span class="string">'checkset'</span>,1, <span class="string">'nowarnings'</span>,1 ,<span class="string">'nodialogs'</span>,1, <span class="keyword">...</span>
+0078         <span class="string">'maxsize'</span>,5*2^20, <span class="string">'maxtime'</span>,Inf, <span class="string">'maxnumber'</span>,Inf, <span class="string">'conditions'</span>,[], <span class="string">'collect'</span>,@(EEG,path) path, <span class="keyword">...</span><span class="comment">.</span>
+0079         <span class="string">'fileconditions'</span>,@(path,name,ext) exist([path filesep  name <span class="string">'.fdt'</span>],<span class="string">'file'</span>) || exist([path filesep name <span class="string">'.dat'</span>],<span class="string">'file'</span>));
+0080     <span class="keyword">if</span> ~iscell(opts.conditions)
+0081         opts.conditions = {opts.conditions}; <span class="keyword">end</span>
+0082     <span class="keyword">if</span> ~iscell(opts.nopattern)
+0083         opts.nopattern = {opts.nopattern}; <span class="keyword">end</span>
+0084     <span class="keyword">if</span> ~iscell(opts.fileconditions)
+0085         opts.fileconditions = {opts.fileconditions}; <span class="keyword">end</span>
+0086     <span class="keyword">if</span> opts.nodialogs
+0087         <span class="comment">% the nodialogs option unfortunately requires some MATLAB hacking...</span>
+0088         <span class="keyword">if</span> isdeployed
+0089             warning(<span class="string">'Dialogs cannot be disabled in deployed mode.'</span>); <span class="keyword">end</span> <span class="comment">%#ok&lt;WNTAG&gt;</span>
+0090         <span class="keyword">if</span> <a href="hlp_matlab_version.html" class="code" title="function v = hlp_matlab_version()">hlp_matlab_version</a> &lt; 706
+0091             warning(<span class="string">'BCILAB:hlp_collect_datasets:nodialogs_pathmess'</span>,<span class="string">'With MATLABs older than 2008a, using the ''nodialogs'' option will leave you in another directory after running hlp_collect_datasets.'</span>); 
+0092         <span class="keyword">end</span>
+0093         <span class="comment">% need to be able to call this recursively after we cd'd to another path</span>
+0094         thisdir = fileparts(mfilename(<span class="string">'fullpath'</span>));
+0095         addpath(thisdir);
+0096         olddir = pwd;
+0097         <span class="keyword">if</span> exist(<span class="string">'env_translatepath'</span>,<span class="string">'file'</span>)
+0098             <span class="comment">% if this function is present, we can directly resolve the location of the folder with the disabled dialogs</span>
+0099             cd(env_translatepath(<span class="string">'dependencies:/disabled_dialogs'</span>));
+0100         <span class="keyword">elseif</span> exist([thisdir filesep <span class="string">'private'</span> filesep <span class="string">'disabled_dialogs'</span>],<span class="string">'dir'</span>)
+0101             cd([thisdir filesep <span class="string">'private'</span> filesep <span class="string">'disabled_dialogs'</span>]);
+0102         <span class="keyword">else</span>
+0103             warning(<span class="string">'BCILAB:hlp_collect_datasets:nodialogs_dysfunctional'</span>,<span class="string">'Please create a directory called ''private'' in %s and put the &quot;disabled_dialogs&quot; folder in there (which you should find in your BCILAB dependencies directory).'</span>,thisdir);
+0104         <span class="keyword">end</span>
+0105         go_back = onCleanup(@()cd(olddir));
+0106     <span class="keyword">end</span>
+0107     collected_so_far = {};
+0108     num_collected_so_far = 0;
+0109 <span class="keyword">end</span>
+0110 
+0111 disp([<span class="string">'entering '</span> directory <span class="string">'...'</span>]);
+0112 collected = [];
+0113 topfiles = dir(directory);
+0114 topfiles = topfiles([topfiles.bytes] &lt;= opts.maxsize);                      <span class="comment">% discard too large files</span>
+0115 <span class="keyword">for</span> it = {topfiles.name}                                                    <span class="comment">% for each admissible dir entry</span>
+0116     item = it{1};
+0117     whole_path = [directory filesep item];
+0118     <span class="keyword">if</span> any(cellfun(@(x) ~isempty(regexp(whole_path,x,<span class="string">'once'</span>)), opts.nopattern)) <span class="comment">% discard disallowed patterns</span>
+0119         disp([<span class="string">'skipping '</span> whole_path <span class="string">'...'</span>]);
+0120         <span class="keyword">continue</span>;
+0121     <span class="keyword">end</span>
+0122     <span class="keyword">if</span> isdir(whole_path)
+0123         <span class="keyword">if</span> ~isempty(item) &amp;&amp; item(1)~=<span class="string">'.'</span>                                   <span class="comment">% discard self &amp; parent paths, and hidden paths</span>
+0124             collected = [collected <a href="hlp_collect_datasets.html" class="code" title="function collected = hlp_collect_datasets(directory,varargin)">hlp_collect_datasets</a>(whole_path, opts)]; <span class="keyword">end</span> <span class="comment">%#ok&lt;AGROW&gt; % recurse...</span>
+0125     <span class="keyword">elseif</span> regexp(whole_path,opts.pattern)                                  <span class="comment">% discard non-matching files</span>
+0126         <span class="keyword">try</span>
+0127             fprintf([<span class="string">'testing '</span> whole_path <span class="string">'... '</span>]);
+0128             [path,name,ext] = fileparts(whole_path);
+0129             <span class="keyword">for</span> cond = opts.fileconditions                                  <span class="comment">% check for file name conditions</span>
+0130                 <span class="keyword">if</span> cond{1}(path,name,ext)
+0131                     <span class="comment">% succeeded</span>
+0132                 <span class="keyword">else</span>
+0133                     error(<span class="string">'file name condition violated'</span>);
+0134                 <span class="keyword">end</span>
+0135             <span class="keyword">end</span>
+0136             t0 = tic;                                                        <span class="comment">% measure processing time</span>
+0137             [conout,data] = evalc(sprintf(<span class="string">'pop_loadset(''filename'',''%s'', ''filepath'',''%s'', ''loadmode'',''info'', ''check'',''off'')'</span>,item,directory));
+0138             <span class="keyword">if</span> opts.nowarnings &amp;&amp; ~isempty(strfind(lower(conout),<span class="string">'warning'</span>)) <span class="comment">% discard files with load warnings</span>
+0139                 error(<span class="string">'loadset warning'</span>); <span class="keyword">end</span>
+0140             <span class="keyword">if</span> opts.checkset
+0141                 [conout,data] = evalc(<span class="string">'eeg_checkset(data)'</span>);
+0142                 <span class="keyword">if</span> opts.nowarnings &amp;&amp; ~isempty(strfind(lower(conout),<span class="string">'warning'</span>)) <span class="comment">% discard files with checkset warnings</span>
+0143                     error(<span class="string">'checkset warning'</span>); <span class="keyword">end</span>
+0144             <span class="keyword">end</span>
+0145             <span class="keyword">if</span> toc(t0) &gt;= opts.maxtime                                       <span class="comment">% discard files that take too long to process</span>
+0146                 error(<span class="string">'processing time exceeded'</span>); <span class="keyword">end</span>
+0147             <span class="keyword">for</span> cond = opts.conditions                                       <span class="comment">% check for additional conditions</span>
+0148                 <span class="keyword">if</span> cond{1}(data)
+0149                     <span class="comment">% succeeded</span>
+0150                 <span class="keyword">else</span>
+0151                     error(<span class="string">'data set condition violated'</span>);
+0152                 <span class="keyword">end</span>
+0153             <span class="keyword">end</span>
+0154             <span class="keyword">if</span> nargin(opts.collect) == 2                                    <span class="comment">% collect properties</span>
+0155                 selection = opts.collect(data,whole_path);
+0156             <span class="keyword">else</span>
+0157                 selection = opts.collect(data);
+0158             <span class="keyword">end</span>
+0159             collected{end+1} = selection; <span class="comment">%#ok&lt;AGROW&gt;</span>
+0160             num_collected_so_far = num_collected_so_far+1;
+0161             <span class="keyword">if</span> length(collected_so_far) &lt; num_collected_so_far
+0162                 collected_so_far{1+2*end} = []; <span class="keyword">end</span>                         <span class="comment">% grow this array in ~ constant time</span>
+0163             collected_so_far{num_collected_so_far} = selection;             <span class="comment">% track results globally, too</span>
+0164             disp(<span class="string">'included.'</span>);
+0165         <span class="keyword">catch</span> e
+0166             disp([<span class="string">'excluded: '</span> e.message]);
+0167         <span class="keyword">end</span>
+0168         <span class="keyword">if</span> length(collected) &gt;= opts.maxnumber
+0169             <span class="keyword">break</span>; <span class="keyword">end</span>
+0170     <span class="keyword">end</span>
+0171 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

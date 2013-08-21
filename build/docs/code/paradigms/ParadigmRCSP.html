@@ -1,0 +1,161 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmRCSP</title>
+  <meta name="keywords" content="ParadigmRCSP">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmRCSP.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmRCSP
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li><li><a href="ParadigmRCSP.html" class="code" title="">ParadigmRCSP</a>	</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmRCSP.html" class="code" title="">ParadigmRCSP</a>	</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li><li><a href="#_sub2" class="code">function model = feature_adapt(self,varargin)</a></li><li><a href="#_sub3" class="code">function features = feature_extract(self,signal,featuremodel)</a></li><li><a href="#_sub4" class="code">function visualize_model(self,parent,featuremodel,predictivemodel)</a></li><li><a href="#_sub5" class="code">function layout = dialog_layout_defaults(self)</a></li><li><a href="#_sub6" class="code">function tf = needs_voting(self)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmRCSP.html" class="code" title="">ParadigmRCSP</a> &lt; <a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>
+0002     <span class="comment">% Advanced paradigm for oscillatory processes via the Regularized Common Spatial Patterns (CSP) algorithm(s).</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% RCSP is an extension of the standard Common Spatial Patterns (CSP) algorithm [1] as defined in [2].</span>
+0005     <span class="comment">% Implements a variety of improved CSP variants.</span>
+0006     <span class="comment">%</span>
+0007     <span class="comment">%</span>
+0008     <span class="comment">% References:</span>
+0009     <span class="comment">%  [1] Ramoser, H., Gerking, M., and Pfurtscheller, G. &quot;Optimal spatial filtering of single trial EEG during imagined hand movement.&quot;</span>
+0010     <span class="comment">%      IEEE Trans. Rehab. Eng 8 (2000), 446, 441.</span>
+0011     <span class="comment">%  [2] Lotte, F., Guan, G., &quot;Regularizing Common Spatial Patterns to Improve BCI Designs: Unified Theory and New Algorithms.&quot;</span>
+0012     <span class="comment">%      IEEE Trans Biomed Eng 58, 2 (2011), 355-362.</span>
+0013     <span class="comment">%</span>
+0014     <span class="comment">% Name:</span>
+0015     <span class="comment">%   Regularized Common Spatial Patterns</span>
+0016     <span class="comment">%</span>
+0017     <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0018     <span class="comment">%                                2011-09-09</span>
+0019     
+0020     methods
+0021       
+0022         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0023             defaults = {<span class="string">'FIRFilter'</span>,{<span class="string">'Frequencies'</span>,[6 8 28 32],<span class="string">'Type'</span>,<span class="string">'minimum-phase'</span>}, <span class="string">'EpochExtraction'</span>,[0.5 3.5], <span class="string">'Resampling'</span>,100};
+0024         <span class="keyword">end</span>
+0025                 
+0026         <a name="_sub1" href="#_subfunctions" class="code">function model = feature_adapt(self,varargin)</a>
+0027             args = arg_define(varargin, <span class="keyword">...</span>
+0028                 arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
+0029                 arg({<span class="string">'patterns'</span>,<span class="string">'PatternPairs'</span>},3,[],<span class="string">'Number of CSP patterns (times two).'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0030                 arg({<span class="string">'alpha'</span>,<span class="string">'ObjectiveRegularizer'</span>},search(10.^(-10:-1)),[],<span class="string">'Objective-function regularizer. This parameter regularizes the objective function according to a particular target matrix K.'</span>), <span class="keyword">...</span>
+0031                 arg({<span class="string">'beta'</span>,<span class="string">'CovariancePrior'</span>},search(0:0.1:0.9),[],<span class="string">'Covariance prior. This is the parameter beta that blends between the raw covariance (if 0) and a user-supplied &quot;generic&quot; covariance matrix for the respective class (e.g., pooled over subjects).'</span>), <span class="keyword">...</span>
+0032                 arg({<span class="string">'gamma'</span>,<span class="string">'CovarianceShrinkage'</span>},search(0:0.1:0.9),[],<span class="string">'Covariance shrinkage. This is the shrinkage parameter gamma that blends between the empirical covariance (if 0) and the identity matrix (if 1).'</span>), <span class="keyword">...</span>
+0033                 arg({<span class="string">'priorcovs'</span>,<span class="string">'PriorCovariances'</span>},[],[],<span class="string">'Prior Covariance matrices. This is one matrix per class; needs to have the same number of channels as the data to be analyzed.'</span>), <span class="keyword">...</span>
+0034                 arg({<span class="string">'objtarget'</span>,<span class="string">'ObjectiveTarget'</span>},[],[],<span class="string">'Objective-function target matrix. This matrix controls the behavior of the penalty parameter alpha (matrix K in Lotte''s framework ([2])). If this is empty, the identity matrix will be assumed (which yields Tikhonov-regularized CSP, or TRCSP).'</span>));
+0035 
+0036             signal = args.signal;
+0037             <span class="keyword">if</span> signal.nbchan == 1
+0038                 error(<span class="string">'CSP does intrinsically not support single-channel data (it is a spatial filter).'</span>); <span class="keyword">end</span>
+0039             <span class="keyword">if</span> signal.nbchan &lt; args.patterns
+0040                 error(<span class="string">'CSP prefers to work on at least as many channels as you request output patterns. Please reduce the number of pattern pairs.'</span>); <span class="keyword">end</span>
+0041             <span class="keyword">if</span> isempty(args.objtarget)
+0042                 args.objtarget = eye(size(signal.data,1)); <span class="keyword">end</span>
+0043             
+0044             <span class="keyword">for</span> k=1:2
+0045                 trials{k} = exp_eval_optimized(set_picktrials(signal,<span class="string">'rank'</span>,k));
+0046                 <span class="keyword">if</span> strcmp(args.gamma,<span class="string">'auto'</span>)
+0047                     <span class="keyword">if</span> args.beta ~= 0
+0048                         error(<span class="string">'The ''auto'' covariance shrinkage is not compatible with a beta parameter ~= 0.'</span>); <span class="keyword">end</span>
+0049                     <span class="comment">% get raw covariance matrices</span>
+0050                     covar{k} = hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_shrink,reshape(trials{k}.data,size(trials{k}.data,1),[])');
+0051                     covar{k}(~isfinite(covar{k})) = 0;
+0052                 <span class="keyword">else</span>
+0053                     <span class="comment">% get raw covariance matrices</span>
+0054                     covar{k} = cov(reshape(trials{k}.data,size(trials{k}.data,1),[])');
+0055                     covar{k}(~isfinite(covar{k})) = 0;
+0056                     <span class="comment">% incorporate the pior covariance, if available...</span>
+0057                     <span class="keyword">if</span> ~isempty(args.priorcovs)
+0058                         covar{k} = (1-args.beta)*covar{k} + args.beta*args.priorcovs{k}; <span class="keyword">end</span>
+0059                     <span class="comment">% implement shrinkage towards identity</span>
+0060                     covar{k} = (1-args.gamma)*covar{k} + args.gamma*eye(size(signal.data,1));
+0061                 <span class="keyword">end</span>
+0062             <span class="keyword">end</span>
+0063             
+0064             <span class="keyword">for</span> k=1:2
+0065                 <span class="comment">% implement objective-function regularization</span>
+0066                 M{k} = covar{k}/(covar{3-k} + args.alpha*args.objtarget);
+0067                 [V{k},D{k}] = eig(M{k});
+0068                 <span class="comment">% invert to get forward projection</span>
+0069                 P{k} = inv(V{k});
+0070             <span class="keyword">end</span>
+0071             
+0072             <span class="comment">% wrap up</span>
+0073             model.filters = [P{2}(1:args.patterns,:); P{1}(args.patterns:-1:1,:)]';
+0074             model.patterns = [V{2}(:,1:args.patterns) V{1}(:,args.patterns:-1:1)]';
+0075             model.chanlocs = signal.chanlocs;
+0076         <span class="keyword">end</span>
+0077         
+0078         <a name="_sub2" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
+0079             features = zeros(size(signal.data,3),size(featuremodel.filters,2));
+0080             <span class="keyword">for</span> t=1:size(signal.data,3)
+0081                 features(t,:) = log(var(signal.data(:,:,t)'*featuremodel.filters)); <span class="keyword">end</span>
+0082         <span class="keyword">end</span>
+0083         
+0084         <a name="_sub3" href="#_subfunctions" class="code">function visualize_model(self,parent,featuremodel,predictivemodel) </a><span class="comment">%#ok&lt;*INUSD&gt;</span>
+0085             <span class="comment">% no parent: create new figure</span>
+0086             <span class="keyword">if</span> isempty(parent)
+0087                 parent = figure(<span class="string">'Name'</span>,<span class="string">'Common Spatial Patterns'</span>); <span class="keyword">end</span>
+0088             <span class="comment">% number of pairs, and index of pattern per subplot</span>
+0089             np = size(featuremodel.patterns,1)/2; idx = [1:np 2*np:-1:np+1];
+0090             <span class="comment">% for each CSP pattern...</span>
+0091             <span class="keyword">for</span> p=1:np*2
+0092                 subplot(2,np,p,<span class="string">'Parent'</span>,parent);
+0093                 topoplot(featuremodel.patterns(idx(p),:),featuremodel.chanlocs);
+0094                 title([<span class="string">'CSP Pattern '</span> num2str(idx(p))]);
+0095             <span class="keyword">end</span>
+0096 
+0097         <span class="keyword">end</span>
+0098         
+0099         <a name="_sub4" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0100             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>, <span class="string">'SignalProcessing.FIRFilter.Frequencies'</span>, <span class="keyword">...</span>
+0101                 <span class="string">'SignalProcessing.FIRFilter.Type'</span>, <span class="string">'SignalProcessing.EpochExtraction'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0102                 <span class="string">'Prediction.FeatureExtraction.PatternPairs'</span>, <span class="string">'Prediction.FeatureExtraction.ObjectiveRegularizer'</span>, <span class="keyword">...</span>
+0103                 <span class="string">'Prediction.FeatureExtraction.CovariancePrior'</span>, <span class="string">'Prediction.FeatureExtraction.CovarianceShrinkage'</span>,<span class="string">''</span>, <span class="keyword">...</span>
+0104                 <span class="string">'Prediction.MachineLearning.Learner'</span>};
+0105         <span class="keyword">end</span>
+0106         
+0107         <a name="_sub5" href="#_subfunctions" class="code">function tf = needs_voting(self)</a>
+0108             tf = true;
+0109         <span class="keyword">end</span>
+0110         
+0111     <span class="keyword">end</span>
+0112 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

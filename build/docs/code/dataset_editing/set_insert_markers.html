@@ -1,0 +1,500 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of set_insert_markers</title>
+  <meta name="keywords" content="set_insert_markers">
+  <meta name="description" content="Inject runs of markers into specific segments of a continuous data set.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">dataset_editing</a> &gt; set_insert_markers.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/dataset_editing&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>set_insert_markers
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Inject runs of markers into specific segments of a continuous data set.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function newsignal = set_insert_markers(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Inject runs of markers into specific segments of a continuous data set.
+ Signal = set_insert_markers(Signal, Options...)
+
+ Almost all real-time inference in BCIs is done on the basis of epochs, and epochs are most
+ conveniently created relative to certain (&quot;time-locking&quot;) events/markers in the data. This
+ function allows to cover periods of continuous data with events, at regular or random intervals,
+ so that epochs covering these ranges can subsequently be extracted. What periods shall be
+ populated with events can be flexibly specified.
+
+ In:
+   Signal      : continuous data set
+
+   SegmentSpec : segment specification. cell array of one of the following forms (lats in seconds):
+                 (default: {0 Inf})
+                 note: the ordering of time values w.r.t. event-type values and cell-array values in the subsequent 
+                       specifications is arbitrary, whereas the ordering of time values w.r.t. each other is relevant 
+                       (first time value shall be lower than second time value); the ordering of eventtypes w.r.t. each 
+                       other is also relevant.
+                 * {absolute_time absolute_time}:
+                   segment specified using two time points
+                 * {event_type relative_time relative_time} / {relative_time  event_type relative_time} / 
+                   {relative_time relative_time event_type}:
+                   here, the segment is relative to some event (of a given type), in between the time interval given by the 
+                   first and second time value
+                 * {event_type relative_time relative_time event_type} / {relative_time event_type event_type relative_time} / ...
+                   here, the segment is in between two immediately successive events of the given types (any intervals with other 
+                   events in between the specified ones are not considered for injection), constrained by the relative lats 
+                   for each event
+                 * {event_type relative_time {ignore_type1,ignore_type2,...} relative_time event_type}
+                   as above, except that intermediate events of type ignore_type1/ignore_type2/etc. are ignored
+                   (if the in-between cell array is empty, any other events are ignored)
+
+   Limits : optional time limits (in seconds) to constrain event placement (default: [-Inf Inf])
+
+   Event : the inserted event type string, or alternatively a template event struct 
+           (default: &quot;mytype_i&quot;, when injected relative to an event of type &quot;mytype&quot; or
+           &quot;mytype1_mytype2&quot;, when injected in between two events of type &quot;mytype1&quot; and &quot;mytype2&quot;)
+           * if a string is specified, all event fields besides the 'type', 'latency' and 'duration' fields 
+             contained in the data will be left empty 
+           * if a struct is specified, the 'latency' field will be substituted appropriately
+
+   Count : number of events inserted within an interval; see Counting for the counting scheme (default: 1)
+
+   Counting : what count means for any given segmentspec, either 'perinterval' or 'persecond' (default: 'perinterval')
+
+   Placement : how the injected events should be placed, either 'random' or 'equidistant' (default: 'equidistant')
+
+   Repeatable : whether the randomization procedure shall give repeatable results (default: 1); different numbers (aside from 0)
+                give different repeatable runs, i.e. the value determines the randseed
+
+   MinLength : segments that are shorter than this (in seconds) are ignored. (default: 0)
+
+   MaxLength : segments that are longer than this (in seconds) are ignored. (default: Inf)
+
+ Out:
+   Signal  : continuous data set with new events injected
+
+ Notes:
+   The only parameter that may be specified by position (instead of as name-value pair) is the first one.
+
+ Examples:
+   % place 20 events of type 'X' within the interval 1000s to 2000s into the given data set (regular placement)
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{1000 2000},'Count',20,'Event','X')
+
+   % as before, but use an event struct
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{1000 2000},'Count',20,'Event',struct('type','X'))
+
+   % place 20 events within the interval 1000s to 2000s into the given data set (random pleacement)
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{1000 2000},'Count',20,'Placement','random','Event','X')
+
+   % place 3 events per second within the interval 1000s to 2000s into the given data set (regular placement)
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{1000 2000}, 'Count',3, 'Counting','persecond','Event','X')
+ 
+   % place on average 3 events per second within the interval 1000s to 2000s into the given data set (random placement)
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{1000 2000}, 'Count',3, 'Counting','persecond','Placement','random','Event','X')
+
+   % place 20 events of type 'X' within each interval within 2s to 10s following each occurrence of the event 'A'
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{'A',2,10},'Count',20,'Event','X')
+
+   % place on average 5 events per second (typed 'X') within each interval within -5s to 10s around each occurrence of the event 'A' (random placement)
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{'A',-5,10},'Counting','persecond','Count',5,'Event','X','Placement','random')
+
+   % same as before, equivalent SegmentSpec formatting
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A',10},'Counting','persecond','Count',5,'Event','X','Placement','random')
+
+   % place 10 events (typed 'X') between each successive occurrence of event 'A' followed by event 'B' (with no other event in between),
+   % and begin the interval 5s after event 'A' and end it 3s before event 'B' (regular placement)
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{'A',5,-3,'B'},'Count',10,'Event','X')
+
+   % place 10 events (typed 'X') between each successive occurrence of event 'A' followed by event 'B' (with no other event in between),
+   % and begin the interval 5s *before* event 'A' and end it right on event 'B' (regular placement)
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A',0,'B'},'Count',10,'Event','X')
+
+   % as before, but insert 3 events per second
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A',0,'B'},'Count',3,'Counting','persecond','Event','X')
+
+   % as before, but also consider those intervals where other events of type 'p' and/or 'q' occur between the 'A' and the 'B'
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A', {'p','q'}, 0,'B'},'Count',3,'Counting','persecond','Event','X')
+ 
+   % as before, but also consider intervals where any other event occurs between the 'A' and the 'B' (except for 'B' obviously)
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A', {}, 0,'B'},'Count',3,'Counting','persecond','Event','X')
+
+   % as before, but discard segments that would be longer than 10 seconds
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A', {}, 0,'B'},'Count',3,'Counting','persecond','Event','X','MaxLength',10)
+
+   % as before, but use random placement
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A', {}, 0,'B'},'Count',3,'Counting','persecond','Event','X','Placement','random')
+
+   % as before, but use a random rand seed to obtain different placing at every call
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A', {}, 0,'B'},'Count',3,'Counting','persecond','Event','X','Placement','random','Repeatable',0)
+
+   % as before, but use a fixed specific rand seed to obtain a specific (but repeatable placing)
+   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A', {}, 0,'B'},'Count',3,'Counting','persecond','Event','X','Placement','random','Repeatable',10)
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-05-24</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function [signal,coverage] = perform_injection(signal,ival,opts)</a></li><li><a href="#_sub2" class="code">function evt = make_default_event(evts,type)</a></li><li><a href="#_sub3" class="code">function [selection,spec] = parse_segment(spec)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function newsignal = set_insert_markers(varargin)</a>
+0002 <span class="comment">% Inject runs of markers into specific segments of a continuous data set.</span>
+0003 <span class="comment">% Signal = set_insert_markers(Signal, Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Almost all real-time inference in BCIs is done on the basis of epochs, and epochs are most</span>
+0006 <span class="comment">% conveniently created relative to certain (&quot;time-locking&quot;) events/markers in the data. This</span>
+0007 <span class="comment">% function allows to cover periods of continuous data with events, at regular or random intervals,</span>
+0008 <span class="comment">% so that epochs covering these ranges can subsequently be extracted. What periods shall be</span>
+0009 <span class="comment">% populated with events can be flexibly specified.</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">% In:</span>
+0012 <span class="comment">%   Signal      : continuous data set</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%   SegmentSpec : segment specification. cell array of one of the following forms (lats in seconds):</span>
+0015 <span class="comment">%                 (default: {0 Inf})</span>
+0016 <span class="comment">%                 note: the ordering of time values w.r.t. event-type values and cell-array values in the subsequent</span>
+0017 <span class="comment">%                       specifications is arbitrary, whereas the ordering of time values w.r.t. each other is relevant</span>
+0018 <span class="comment">%                       (first time value shall be lower than second time value); the ordering of eventtypes w.r.t. each</span>
+0019 <span class="comment">%                       other is also relevant.</span>
+0020 <span class="comment">%                 * {absolute_time absolute_time}:</span>
+0021 <span class="comment">%                   segment specified using two time points</span>
+0022 <span class="comment">%                 * {event_type relative_time relative_time} / {relative_time  event_type relative_time} /</span>
+0023 <span class="comment">%                   {relative_time relative_time event_type}:</span>
+0024 <span class="comment">%                   here, the segment is relative to some event (of a given type), in between the time interval given by the</span>
+0025 <span class="comment">%                   first and second time value</span>
+0026 <span class="comment">%                 * {event_type relative_time relative_time event_type} / {relative_time event_type event_type relative_time} / ...</span>
+0027 <span class="comment">%                   here, the segment is in between two immediately successive events of the given types (any intervals with other</span>
+0028 <span class="comment">%                   events in between the specified ones are not considered for injection), constrained by the relative lats</span>
+0029 <span class="comment">%                   for each event</span>
+0030 <span class="comment">%                 * {event_type relative_time {ignore_type1,ignore_type2,...} relative_time event_type}</span>
+0031 <span class="comment">%                   as above, except that intermediate events of type ignore_type1/ignore_type2/etc. are ignored</span>
+0032 <span class="comment">%                   (if the in-between cell array is empty, any other events are ignored)</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">%   Limits : optional time limits (in seconds) to constrain event placement (default: [-Inf Inf])</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">%   Event : the inserted event type string, or alternatively a template event struct</span>
+0037 <span class="comment">%           (default: &quot;mytype_i&quot;, when injected relative to an event of type &quot;mytype&quot; or</span>
+0038 <span class="comment">%           &quot;mytype1_mytype2&quot;, when injected in between two events of type &quot;mytype1&quot; and &quot;mytype2&quot;)</span>
+0039 <span class="comment">%           * if a string is specified, all event fields besides the 'type', 'latency' and 'duration' fields</span>
+0040 <span class="comment">%             contained in the data will be left empty</span>
+0041 <span class="comment">%           * if a struct is specified, the 'latency' field will be substituted appropriately</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%   Count : number of events inserted within an interval; see Counting for the counting scheme (default: 1)</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">%   Counting : what count means for any given segmentspec, either 'perinterval' or 'persecond' (default: 'perinterval')</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">%   Placement : how the injected events should be placed, either 'random' or 'equidistant' (default: 'equidistant')</span>
+0048 <span class="comment">%</span>
+0049 <span class="comment">%   Repeatable : whether the randomization procedure shall give repeatable results (default: 1); different numbers (aside from 0)</span>
+0050 <span class="comment">%                give different repeatable runs, i.e. the value determines the randseed</span>
+0051 <span class="comment">%</span>
+0052 <span class="comment">%   MinLength : segments that are shorter than this (in seconds) are ignored. (default: 0)</span>
+0053 <span class="comment">%</span>
+0054 <span class="comment">%   MaxLength : segments that are longer than this (in seconds) are ignored. (default: Inf)</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">% Out:</span>
+0057 <span class="comment">%   Signal  : continuous data set with new events injected</span>
+0058 <span class="comment">%</span>
+0059 <span class="comment">% Notes:</span>
+0060 <span class="comment">%   The only parameter that may be specified by position (instead of as name-value pair) is the first one.</span>
+0061 <span class="comment">%</span>
+0062 <span class="comment">% Examples:</span>
+0063 <span class="comment">%   % place 20 events of type 'X' within the interval 1000s to 2000s into the given data set (regular placement)</span>
+0064 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{1000 2000},'Count',20,'Event','X')</span>
+0065 <span class="comment">%</span>
+0066 <span class="comment">%   % as before, but use an event struct</span>
+0067 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{1000 2000},'Count',20,'Event',struct('type','X'))</span>
+0068 <span class="comment">%</span>
+0069 <span class="comment">%   % place 20 events within the interval 1000s to 2000s into the given data set (random pleacement)</span>
+0070 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{1000 2000},'Count',20,'Placement','random','Event','X')</span>
+0071 <span class="comment">%</span>
+0072 <span class="comment">%   % place 3 events per second within the interval 1000s to 2000s into the given data set (regular placement)</span>
+0073 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{1000 2000}, 'Count',3, 'Counting','persecond','Event','X')</span>
+0074 <span class="comment">%</span>
+0075 <span class="comment">%   % place on average 3 events per second within the interval 1000s to 2000s into the given data set (random placement)</span>
+0076 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{1000 2000}, 'Count',3, 'Counting','persecond','Placement','random','Event','X')</span>
+0077 <span class="comment">%</span>
+0078 <span class="comment">%   % place 20 events of type 'X' within each interval within 2s to 10s following each occurrence of the event 'A'</span>
+0079 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{'A',2,10},'Count',20,'Event','X')</span>
+0080 <span class="comment">%</span>
+0081 <span class="comment">%   % place on average 5 events per second (typed 'X') within each interval within -5s to 10s around each occurrence of the event 'A' (random placement)</span>
+0082 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{'A',-5,10},'Counting','persecond','Count',5,'Event','X','Placement','random')</span>
+0083 <span class="comment">%</span>
+0084 <span class="comment">%   % same as before, equivalent SegmentSpec formatting</span>
+0085 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A',10},'Counting','persecond','Count',5,'Event','X','Placement','random')</span>
+0086 <span class="comment">%</span>
+0087 <span class="comment">%   % place 10 events (typed 'X') between each successive occurrence of event 'A' followed by event 'B' (with no other event in between),</span>
+0088 <span class="comment">%   % and begin the interval 5s after event 'A' and end it 3s before event 'B' (regular placement)</span>
+0089 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{'A',5,-3,'B'},'Count',10,'Event','X')</span>
+0090 <span class="comment">%</span>
+0091 <span class="comment">%   % place 10 events (typed 'X') between each successive occurrence of event 'A' followed by event 'B' (with no other event in between),</span>
+0092 <span class="comment">%   % and begin the interval 5s *before* event 'A' and end it right on event 'B' (regular placement)</span>
+0093 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A',0,'B'},'Count',10,'Event','X')</span>
+0094 <span class="comment">%</span>
+0095 <span class="comment">%   % as before, but insert 3 events per second</span>
+0096 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A',0,'B'},'Count',3,'Counting','persecond','Event','X')</span>
+0097 <span class="comment">%</span>
+0098 <span class="comment">%   % as before, but also consider those intervals where other events of type 'p' and/or 'q' occur between the 'A' and the 'B'</span>
+0099 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A', {'p','q'}, 0,'B'},'Count',3,'Counting','persecond','Event','X')</span>
+0100 <span class="comment">%</span>
+0101 <span class="comment">%   % as before, but also consider intervals where any other event occurs between the 'A' and the 'B' (except for 'B' obviously)</span>
+0102 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A', {}, 0,'B'},'Count',3,'Counting','persecond','Event','X')</span>
+0103 <span class="comment">%</span>
+0104 <span class="comment">%   % as before, but discard segments that would be longer than 10 seconds</span>
+0105 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A', {}, 0,'B'},'Count',3,'Counting','persecond','Event','X','MaxLength',10)</span>
+0106 <span class="comment">%</span>
+0107 <span class="comment">%   % as before, but use random placement</span>
+0108 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A', {}, 0,'B'},'Count',3,'Counting','persecond','Event','X','Placement','random')</span>
+0109 <span class="comment">%</span>
+0110 <span class="comment">%   % as before, but use a random rand seed to obtain different placing at every call</span>
+0111 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A', {}, 0,'B'},'Count',3,'Counting','persecond','Event','X','Placement','random','Repeatable',0)</span>
+0112 <span class="comment">%</span>
+0113 <span class="comment">%   % as before, but use a fixed specific rand seed to obtain a specific (but repeatable placing)</span>
+0114 <span class="comment">%   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A', {}, 0,'B'},'Count',3,'Counting','persecond','Event','X','Placement','random','Repeatable',10)</span>
+0115 <span class="comment">%</span>
+0116 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0117 <span class="comment">%                                2010-05-24</span>
+0118 
+0119 <span class="comment">% set_insert_markers_version&lt;1.0&gt; -- for the cache</span>
+0120 
+0121 <span class="keyword">global</span> tracking;
+0122 
+0123 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'editing'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0124 
+0125 declare_properties(<span class="string">'name'</span>,<span class="string">'MarkerInsertion'</span>, <span class="string">'independent_channels'</span>,true, <span class="string">'cannot_follow'</span>,<span class="string">'set_makepos'</span>, <span class="string">'independent_channels'</span>,true,<span class="string">'independent_trials'</span>,true);
+0126 
+0127 opts = arg_define([0 1],varargin, <span class="keyword">...</span>
+0128     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0129     arg_subswitch({<span class="string">'segmentspec'</span>,<span class="string">'SegmentSpec'</span>,<span class="string">'segment'</span>},<span class="string">'absoluterange'</span>, <span class="keyword">...</span>
+0130         {<span class="string">'absoluterange'</span>,{ <span class="keyword">...</span>
+0131             arg({<span class="string">'lo'</span>,<span class="string">'BeginOffset'</span>},0,[],<span class="string">'Lower bound of insertion interval. Events will be inserted beginning from this time point, in seconds.'</span>), <span class="keyword">...</span>
+0132             arg({<span class="string">'hi'</span>,<span class="string">'EndOffset'</span>},Inf,[],<span class="string">'Upper bound of insertion interval. Events will be inserted beginning from this time point, in seconds.'</span>)}, <span class="keyword">...</span>
+0133          <span class="string">'relativerange'</span>,{ <span class="keyword">...</span>
+0134             arg({<span class="string">'event'</span>,<span class="string">'EventType'</span>},<span class="string">'event1'</span>,[],<span class="string">'Reference event type. New events will be inserted in a range around each event of this type.'</span>), <span class="keyword">...</span>
+0135             arg({<span class="string">'lo'</span>,<span class="string">'BeginOffset'</span>},-0.5,[],<span class="string">'Lower bound relative to event. This is the lower boundary of insertion intervals relative to the reference events. In seconds.'</span>), <span class="keyword">...</span>
+0136             arg({<span class="string">'hi'</span>,<span class="string">'EndOffset'</span>},1,[],<span class="string">'Upper bound relative to event. This is the upper boundary of insertion intervals relative to the reference events. In seconds.'</span>)}, <span class="keyword">...</span>
+0137          <span class="string">'spannedrange'</span>,{ <span class="keyword">...</span>
+0138             arg({<span class="string">'openevent'</span>,<span class="string">'OpenEvent'</span>},<span class="string">'event1'</span>,[],<span class="string">'Type of opening reference event. New events will be inserted between each pair of successive events with types OpenEvent and CloseEvent.'</span>), <span class="keyword">...</span>
+0139             arg({<span class="string">'closeevent'</span>,<span class="string">'CloseEvent'</span>},<span class="string">'event2'</span>,[],<span class="string">'Type of closing reference event. New events will be inserted between each pair of successive events with types OpenEvent and CloseEvent.'</span>), <span class="keyword">...</span>
+0140             arg({<span class="string">'lo'</span>,<span class="string">'OpenOffset'</span>},0.5,[],<span class="string">'Offset relative to opening event. This is an offset relative to the position of the opening reference event, which shifts the beginning of a spanned insertion interval. In seconds.'</span>), <span class="keyword">...</span>
+0141             arg({<span class="string">'hi'</span>,<span class="string">'CloseOffset'</span>},-0.5,[],<span class="string">'Offset relative to closing event. This is an offset relative to the position of the closing reference event, which shifts the beginning of a spanned insertion interval. In seconds.'</span>), <span class="keyword">...</span>
+0142             arg({<span class="string">'ignored'</span>,<span class="string">'IgnoredEvents'</span>},{},[],<span class="string">'Ignored event types. This is the list of event types that may occur between the opening and closing events. If any other event appears between a pair of successive opening and closing events, this range will not be considered for event insertion (it is considered &quot;broken&quot;). If set to ''ignoreall'', any event type may appear in between.'</span>, <span class="string">'type'</span>,<span class="string">'cellstr'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>)} <span class="keyword">...</span>
+0143         },<span class="string">'Insertion interval definition. Events can be inserted either in fixed, absolute time window of the data set (absoluterange), or in time windows relative to reference events of a certain type (relativerange), or in time window spanned by two subsequent events of certain types (called the opening event and the closing event), optionally with ignored events in between (spannedrange).'</span>,<span class="string">'cat'</span>,<span class="string">'Time Ranges'</span>,<span class="string">'mapper'</span>,@<a href="#_sub3" class="code" title="subfunction [selection,spec] = parse_segment(spec)">parse_segment</a>), <span class="keyword">...</span>
+0144     arg({<span class="string">'limits'</span>,<span class="string">'Limits'</span>},[-Inf Inf],[],<span class="string">'Time limits for event placement. Events that fall outside these bounds will be skipped. Therefore, intervals that intersect these boundaries may have fewer events than others.'</span>,<span class="string">'cat'</span>,<span class="string">'Time Ranges'</span>),<span class="keyword">...</span>
+0145     arg({<span class="string">'event'</span>,<span class="string">'InsertedType'</span>,<span class="string">'Event'</span>},<span class="string">'newevent'</span>,[],<span class="string">'Type of inserted events. The event type for the newly inserted events.'</span>,<span class="string">'cat'</span>,<span class="string">'Placement'</span>), <span class="keyword">...</span>
+0146     arg({<span class="string">'count'</span>,<span class="string">'Count'</span>},uint32(1),[],<span class="string">'Number of inserted events. This is either per interval or per second, depending on the Counting argument.'</span>,<span class="string">'cat'</span>,<span class="string">'Placement'</span>), <span class="keyword">...</span>
+0147     arg({<span class="string">'counting'</span>,<span class="string">'Counting'</span>},<span class="string">'perinterval'</span>,{<span class="string">'perinterval'</span>,<span class="string">'persecond'</span>},<span class="string">'Counting measure. Events can be inserted in a certain number per interval or per second'</span>,<span class="string">'cat'</span>,<span class="string">'Placement'</span>), <span class="keyword">...</span>
+0148     arg({<span class="string">'placement'</span>,<span class="string">'Placement'</span>},<span class="string">'equidistant'</span>,{<span class="string">'equidistant'</span>,<span class="string">'random'</span>},<span class="string">'Event placement scheme. Events can be inserted at equal (regular) distance from each other, or at random positions.'</span>,<span class="string">'cat'</span>,<span class="string">'Placement'</span>), <span class="keyword">...</span>
+0149     arg({<span class="string">'repeatable'</span>,<span class="string">'Repeatable'</span>},1,[],<span class="string">'Repeatable versus random placement. If 0, placement is random, if different from 0, the number is taken as the random seed, giving a unique repeatable run per number.'</span>,<span class="string">'cat'</span>,<span class="string">'Placement'</span>), <span class="keyword">...</span>
+0150     arg({<span class="string">'minlen'</span>,<span class="string">'MinLength'</span>},0,[],<span class="string">'Minimum segment length. Ignore segments that are shorter than this, in seconds.'</span>), <span class="keyword">...</span>
+0151     arg({<span class="string">'maxlen'</span>,<span class="string">'MaxLength'</span>},Inf,[],<span class="string">'Maximum segment length. Ignore segments that are longer than this, in seconds.'</span>));
+0152 
+0153 signal = opts.signal;
+0154 <span class="keyword">if</span> isfield(signal,<span class="string">'epoch'</span>) &amp;&amp; ~isempty(signal.epoch)
+0155     error(<span class="string">'the data set appears to contain epochs: only continuous data set are supported for now.'</span>); <span class="keyword">end</span>
+0156 
+0157 <span class="comment">% refine options</span>
+0158 opts.limits = sort(max(min(opts.limits,signal.xmax),signal.xmin));
+0159 opts.limits = opts.limits*signal.srate;
+0160 opts.segmentspec.lo = opts.segmentspec.lo*signal.srate;
+0161 opts.segmentspec.hi = opts.segmentspec.hi*signal.srate;
+0162 
+0163 <span class="comment">% init randomization</span>
+0164 <span class="keyword">if</span> strcmp(opts.placement,<span class="string">'random'</span>) &amp;&amp; opts.repeatable
+0165     <span class="keyword">if</span> hlp_matlab_version &lt; 707
+0166         <span class="comment">% save &amp; override RNG state</span>
+0167         randstate = rand(<span class="string">'state'</span>); <span class="comment">%#ok&lt;RAND&gt;</span>
+0168         rand(<span class="string">'state'</span>,5182+opts.repeatable); <span class="comment">%#ok&lt;RAND&gt;</span>
+0169     <span class="keyword">else</span>
+0170         <span class="comment">% create a legacy-compatible RandStream</span>
+0171         tracking.temp.randstream_inject_events = RandStream(<span class="string">'swb2712'</span>,<span class="string">'Seed'</span>,5182+opts.repeatable);
+0172     <span class="keyword">end</span>
+0173 <span class="keyword">end</span>
+0174 
+0175 newsignal = signal;
+0176 <span class="keyword">switch</span> opts.segmentspec.arg_selection 
+0177     <span class="keyword">case</span> <span class="string">'absoluterange'</span>
+0178         <span class="keyword">if</span> opts.segmentspec.lo == -Inf
+0179             opts.segmentspec.lo = signal.xmin*signal.srate; <span class="keyword">end</span>
+0180         <span class="keyword">if</span> opts.segmentspec.hi == Inf
+0181             opts.segmentspec.hi = signal.xmax*signal.srate; <span class="keyword">end</span>
+0182         <span class="comment">% inject using absolute latencies</span>
+0183         <span class="keyword">if</span> isempty(opts.event)
+0184             error(<span class="string">'an event type must be specified'</span>); <span class="keyword">end</span>
+0185         <span class="keyword">if</span> ischar(opts.event)
+0186             opts.event = <a href="#_sub2" class="code" title="subfunction evt = make_default_event(evts,type)">make_default_event</a>(signal.event,opts.event); <span class="keyword">end</span>
+0187         newsignal = <a href="#_sub1" class="code" title="subfunction [signal,coverage] = perform_injection(signal,ival,opts)">perform_injection</a>(newsignal,[opts.segmentspec.lo opts.segmentspec.hi],opts);
+0188     <span class="keyword">case</span> <span class="string">'relativerange'</span>
+0189         <span class="comment">% inject relative to one single marker</span>
+0190         <span class="keyword">if</span> isempty(opts.event)
+0191             opts.event = [opts.segmentspec.event <span class="string">'_i'</span>]; <span class="keyword">end</span>
+0192         <span class="keyword">if</span> ischar(opts.event)
+0193             opts.event = <a href="#_sub2" class="code" title="subfunction evt = make_default_event(evts,type)">make_default_event</a>(signal.event,opts.event); <span class="keyword">end</span>
+0194         <span class="keyword">for</span> e=1:length(signal.event)
+0195             <span class="keyword">if</span> strcmp(signal.event(e).type,opts.segmentspec.event)
+0196                 newsignal = <a href="#_sub1" class="code" title="subfunction [signal,coverage] = perform_injection(signal,ival,opts)">perform_injection</a>(newsignal,signal.event(e).latency+[opts.segmentspec.lo opts.segmentspec.hi],opts); <span class="keyword">end</span>
+0197         <span class="keyword">end</span>
+0198     <span class="keyword">case</span> <span class="string">'spannedrange'</span>
+0199         <span class="comment">% inject in between two successive markersputting that</span>
+0200         <span class="keyword">if</span> isempty(opts.event)
+0201             opts.event = [opts.segmentspec.openevent <span class="string">'_'</span> opts.segmentspec.closeevent]; <span class="keyword">end</span>
+0202         <span class="keyword">if</span> ischar(opts.event)
+0203             opts.event = <a href="#_sub2" class="code" title="subfunction evt = make_default_event(evts,type)">make_default_event</a>(signal.event,opts.event); <span class="keyword">end</span>
+0204         startlat = [];
+0205         <span class="keyword">for</span> e=1:length(signal.event)
+0206             <span class="comment">% ignorance turned off but intermediate marker found?</span>
+0207             <span class="keyword">if</span> ~iscell(opts.segmentspec.ignored) &amp;&amp; ~strcmp(signal.event(e).type,opts.segmentspec.closeevent)
+0208                 startlat = []; <span class="keyword">end</span>
+0209             <span class="comment">% selective ignorance turned on but non-ignored intermediate marker found?</span>
+0210             <span class="keyword">if</span> ~isequal(opts.segmentspec.ignored,{<span class="string">'ignoreall'</span>}) &amp;&amp; ~any(strcmp(signal.event(e).type,[opts.segmentspec.ignored {opts.segmentspec.closeevent}]))
+0211                 startlat = []; <span class="keyword">end</span>
+0212             <span class="comment">% found the begin-marker: open a new segmentspec</span>
+0213             <span class="keyword">if</span> strcmp(signal.event(e).type,opts.segmentspec.openevent)
+0214                 startlat = signal.event(e).latency; <span class="keyword">end</span>
+0215             <span class="comment">% reached the end-marker &amp; have an open segmentspec: inject.</span>
+0216             <span class="keyword">if</span> ~isempty(startlat) &amp;&amp; strcmp(signal.event(e).type,opts.segmentspec.closeevent)
+0217                 newsignal = <a href="#_sub1" class="code" title="subfunction [signal,coverage] = perform_injection(signal,ival,opts)">perform_injection</a>(newsignal,[startlat+opts.segmentspec.lo,signal.event(e).latency+opts.segmentspec.hi],opts); <span class="keyword">end</span>
+0218         <span class="keyword">end</span>
+0219 <span class="keyword">end</span>
+0220 <span class="comment">% sort the events by latency...</span>
+0221 newsignal.event = newsignal.event(hlp_getresult(2,@sort,[newsignal.event.latency]));
+0222 <span class="comment">% reproduce urevents if necessary</span>
+0223 <span class="keyword">if</span> isempty(newsignal.urevent)
+0224     newsignal = eeg_checkset(newsignal,<span class="string">'makeur'</span>); <span class="keyword">end</span>
+0225 
+0226 
+0227 <span class="comment">% conclude randomization</span>
+0228 <span class="keyword">if</span> strcmp(opts.placement,<span class="string">'random'</span>) &amp;&amp; opts.repeatable &amp;&amp; hlp_matlab_version &lt; 707
+0229     <span class="comment">% restore saved RNG state</span>
+0230     rand(<span class="string">'state'</span>,randstate); <span class="comment">%#ok&lt;RAND&gt;</span>
+0231 <span class="keyword">end</span>
+0232 
+0233 exp_endfun;
+0234 
+0235 
+0236 
+0237 <a name="_sub1" href="#_subfunctions" class="code">function [signal,coverage] = perform_injection(signal,ival,opts)</a>
+0238 <span class="keyword">global</span> tracking;
+0239 coverage = 0;
+0240 <span class="comment">% sanity check</span>
+0241 <span class="keyword">if</span> length(ival) == 2 &amp;&amp; ival(1) &lt;= ival(2)
+0242     coverage = ival(2)-ival(1);
+0243     <span class="comment">% check the segment length</span>
+0244     seg_length = coverage/signal.srate;
+0245     <span class="keyword">if</span> seg_length &lt; opts.minlen || seg_length &gt; opts.maxlen
+0246         <span class="keyword">return</span>; <span class="keyword">end</span>
+0247     <span class="comment">% hande the spacing method</span>
+0248     <span class="keyword">if</span> strcmp(opts.counting,<span class="string">'persecond'</span>)
+0249         opts.count = max(1,round(opts.count*(ival(2)-ival(1))/signal.srate)); <span class="keyword">end</span>
+0250     <span class="comment">% handle the placement method</span>
+0251     <span class="keyword">if</span> strcmp(opts.placement,<span class="string">'equidistant'</span>)
+0252         <span class="keyword">if</span> coverage ~= 0
+0253             stepsize = (ival(2)-ival(1))/(opts.count-1);
+0254             ival = round(ival(1):stepsize:ival(2));
+0255         <span class="keyword">else</span>
+0256             ival = ival(1)*ones(1,opts.count);
+0257         <span class="keyword">end</span>
+0258     <span class="keyword">elseif</span> strcmp(opts.placement,<span class="string">'random'</span>)        
+0259         <span class="keyword">if</span> ival(1) &lt; ival(2)            
+0260             <span class="keyword">if</span> hlp_matlab_version &lt; 707
+0261                 positions = rand(1,opts.count);
+0262             <span class="keyword">else</span>
+0263                 positions = rand(tracking.temp.randstream_inject_events,1,opts.count);
+0264             <span class="keyword">end</span>
+0265             ival = round(positions*(ival(2)-ival(1))+ival(1));
+0266         <span class="keyword">elseif</span> ival(1) == ival(2)
+0267             ival = ival(1)*ones(1,opts.count);
+0268         <span class="keyword">else</span>
+0269             ival = [];
+0270         <span class="keyword">end</span>
+0271     <span class="keyword">else</span>
+0272         error(<span class="string">'unsupported placement scheme specified'</span>);
+0273     <span class="keyword">end</span>
+0274     <span class="keyword">if</span> ~isempty(ival)
+0275         <span class="comment">% compute the individual latencies</span>
+0276         lats = ival(ival&gt;=opts.limits(1) &amp; ival&lt;=opts.limits(2));
+0277         <span class="keyword">if</span> ~isempty(signal.urevent)
+0278             signal.urevent = []; <span class="keyword">end</span>
+0279         <span class="keyword">if</span> isempty(signal.event)
+0280             signal.event = setfield(setfield(opts.event,<span class="string">'latency'</span>,1),<span class="string">'type'</span>,<span class="string">'dummy'</span>); <span class="keyword">end</span>; <span class="comment">%#ok&lt;SFLD&gt;</span>
+0281         <span class="keyword">for</span> l = lats
+0282             signal.event(end+1) = setfield(opts.event,<span class="string">'latency'</span>,l); <span class="keyword">end</span> <span class="comment">%#ok&lt;SFLD&gt;</span>
+0283     <span class="keyword">end</span>
+0284 <span class="keyword">end</span>
+0285 
+0286 <span class="comment">% create a default event from an event array</span>
+0287 <a name="_sub2" href="#_subfunctions" class="code">function evt = make_default_event(evts,type)</a>
+0288 <span class="keyword">if</span> isempty(evts)
+0289     evt = struct(<span class="string">'type'</span>,{type},<span class="string">'latency'</span>,{[]},<span class="string">'duration'</span>,{1},<span class="string">'urevent'</span>,{[]});
+0290 <span class="keyword">else</span>
+0291     evt = evts(1);
+0292     <span class="keyword">for</span> fn=fieldnames(evt)'
+0293         evt.(fn{1}) = []; <span class="keyword">end</span>
+0294     evt.type = type;
+0295     <span class="keyword">if</span> isfield(evt,<span class="string">'duration'</span>)
+0296         evt.duration = 1; <span class="keyword">end</span>
+0297 <span class="keyword">end</span>
+0298 
+0299 
+0300 <span class="comment">% parse a segmentspec specification into a cell array {tag,name,value,name,value,...}</span>
+0301 <a name="_sub3" href="#_subfunctions" class="code">function [selection,spec] = parse_segment(spec)</a>
+0302 <span class="keyword">if</span> isempty(spec)
+0303     selection = <span class="string">'absoluterange'</span>;
+0304 <span class="keyword">elseif</span> isfield(spec{1},<span class="string">'arg_selection'</span>)
+0305     selection = spec{1}.arg_selection;
+0306 <span class="keyword">elseif</span> any(strcmp(spec{1},{<span class="string">'absoluterange'</span>,<span class="string">'relativerange'</span>,<span class="string">'spannedrange'</span>}))
+0307     [selection,spec] = deal(spec{1},spec(2:end));
+0308 <span class="keyword">else</span>
+0309     <span class="comment">% we have a custom segmentspec specification (as indicated in the function's help text)</span>
+0310     <span class="comment">% parse it.</span>
+0311     mrks = {};
+0312     lats = [];
+0313     ignored = [];
+0314     <span class="keyword">for</span> i=1:length(spec)
+0315         <span class="keyword">if</span> ischar(spec{i})
+0316             mrks{end+1} = spec{i};
+0317         <span class="keyword">elseif</span> iscell(spec{i})
+0318             ignored = [ignored spec{i}];
+0319         <span class="keyword">else</span>
+0320             lats(end+1) = spec{i};
+0321         <span class="keyword">end</span>
+0322     <span class="keyword">end</span>
+0323     <span class="comment">% and configure parameters</span>
+0324     <span class="keyword">if</span> isempty(mrks)
+0325         selection = <span class="string">'absoluterange'</span>; spec = {<span class="string">'lo'</span> min(lats) <span class="string">'hi'</span> max(lats)};
+0326     <span class="keyword">elseif</span> length(mrks) == 1
+0327         selection = <span class="string">'relativerange'</span>; spec = {<span class="string">'event'</span> mrks{1} <span class="string">'lo'</span> min(lats) <span class="string">'hi'</span> max(lats)};
+0328     <span class="keyword">elseif</span> length(mrks) == 2
+0329         <span class="keyword">if</span> isequal(ignored,{})
+0330             ignored = {<span class="string">'ignoreall'</span>};
+0331         <span class="keyword">elseif</span> isequal(ignored,[])
+0332             ignored = {};
+0333         <span class="keyword">end</span>
+0334         selection = <span class="string">'spannedrange'</span>; spec = {<span class="string">'openevent'</span> mrks{1} <span class="string">'closeevent'</span> mrks{2} <span class="string">'lo'</span> lats(1) <span class="string">'hi'</span> lats(2) <span class="string">'ignored'</span> ignored};
+0335     <span class="keyword">end</span>
+0336 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

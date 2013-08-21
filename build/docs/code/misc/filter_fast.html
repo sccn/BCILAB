@@ -1,0 +1,252 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of filter_fast</title>
+  <meta name="keywords" content="filter_fast">
+  <meta name="description" content="Like filter(), but faster when both the filter and the signal are long.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">misc</a> &gt; filter_fast.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/misc&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>filter_fast
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Like filter(), but faster when both the filter and the signal are long.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [X,Zf] = filter_fast(B,A,X,Zi,dim) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Like filter(), but faster when both the filter and the signal are long.
+ [Y,Zf] = filter_fast(B,A,X,Zi,Dim)
+
+ Uses FFT convolution. The function is faster than filter when approx. length(B)&gt;256 and
+ size(X,Dim)&gt;1024, otherwise slower (due size-testing overhead).
+
+ See also:
+   filter, fftfilt
+
+                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                           2010-07-09
+
+                           contains fftfilt.m from Octave:
+                           Copyright (C) 1996-1997 John W. Eaton</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="filtfilt_fast.html" class="code" title="function X = filtfilt_fast(varargin)">filtfilt_fast</a>	Like filtfilt(), but faster when filter and signal are long (and A=1).</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function X = flip(X,dim)</a></li><li><a href="#_sub2" class="code">function X = unflip(X,dim)</a></li><li><a href="#_sub3" class="code">function y = oct_fftfilt(b, x, N)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [X,Zf] = filter_fast(B,A,X,Zi,dim)</a>
+0002 <span class="comment">% Like filter(), but faster when both the filter and the signal are long.</span>
+0003 <span class="comment">% [Y,Zf] = filter_fast(B,A,X,Zi,Dim)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Uses FFT convolution. The function is faster than filter when approx. length(B)&gt;256 and</span>
+0006 <span class="comment">% size(X,Dim)&gt;1024, otherwise slower (due size-testing overhead).</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% See also:</span>
+0009 <span class="comment">%   filter, fftfilt</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0012 <span class="comment">%                           2010-07-09</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%                           contains fftfilt.m from Octave:</span>
+0015 <span class="comment">%                           Copyright (C) 1996-1997 John W. Eaton</span>
+0016 
+0017 
+0018 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0021 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0022 <span class="comment">% License, or (at your option) any later version.</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0025 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0026 <span class="comment">% General Public License for more details.</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0029 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0030 <span class="comment">% USA</span>
+0031 
+0032 
+0033 <span class="keyword">if</span> nargin &lt;= 4
+0034     dim = find(size(X)~=1,1); <span class="keyword">end</span>
+0035 <span class="keyword">if</span> nargin &lt;= 3
+0036     Zi = []; <span class="keyword">end</span>
+0037 
+0038 lenx = size(X,dim);
+0039 lenb = length(B);
+0040 <span class="keyword">if</span> lenx == 0
+0041     <span class="comment">% empty X</span>
+0042     Zf = Zi;
+0043 <span class="keyword">elseif</span> lenb &lt; 256 || lenx&lt;1024 || lenx &lt;= lenb || lenx*lenb &lt; 4000000 || ~isequal(A,1)
+0044     <span class="comment">% use the regular filter</span>
+0045     <span class="keyword">if</span> nargout &gt; 1
+0046         [X,Zf] = filter(B,A,X,Zi,dim);
+0047     <span class="keyword">else</span>
+0048         X = filter(B,A,X,Zi,dim);
+0049     <span class="keyword">end</span>
+0050 <span class="keyword">else</span>
+0051     was_single = strcmp(class(X),<span class="string">'single'</span>);
+0052     <span class="comment">% fftfilt can be used</span>
+0053     <span class="keyword">if</span> isempty(Zi)
+0054         <span class="comment">% no initial conditions to take care of</span>
+0055         <span class="keyword">if</span> nargout &lt; 2
+0056             <span class="comment">% and no final ones</span>
+0057             X = <a href="#_sub2" class="code" title="subfunction X = unflip(X,dim)">unflip</a>(<a href="#_sub3" class="code" title="subfunction y = oct_fftfilt(b, x, N)">oct_fftfilt</a>(B,<a href="#_sub1" class="code" title="subfunction X = flip(X,dim)">flip</a>(double(X),dim)),dim);
+0058         <span class="keyword">else</span>
+0059             <span class="comment">% final conditions needed</span>
+0060             X = <a href="#_sub1" class="code" title="subfunction X = flip(X,dim)">flip</a>(X,dim);
+0061             [dummy,Zf] = filter(B,1,X(end-length(B)+1:<span class="keyword">end</span>,:),Zi,1); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0062             X = <a href="#_sub3" class="code" title="subfunction y = oct_fftfilt(b, x, N)">oct_fftfilt</a>(B,double(X));
+0063             X = <a href="#_sub2" class="code" title="subfunction X = unflip(X,dim)">unflip</a>(X,dim);
+0064         <span class="keyword">end</span>
+0065     <span class="keyword">else</span>
+0066         <span class="comment">% initial conditions available</span>
+0067         X = <a href="#_sub1" class="code" title="subfunction X = flip(X,dim)">flip</a>(X,dim);
+0068         <span class="comment">% get a Zi-informed piece</span>
+0069         tmp = filter(B,1,X(1:length(B),:),Zi,1);
+0070         <span class="keyword">if</span> nargout &gt; 1
+0071             <span class="comment">% also need final conditions</span>
+0072             [dummy,Zf] = filter(B,1,X(end-length(B)+1:<span class="keyword">end</span>,:),Zi,1); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0073         <span class="keyword">end</span>
+0074         X = <a href="#_sub3" class="code" title="subfunction y = oct_fftfilt(b, x, N)">oct_fftfilt</a>(B,double(X));
+0075         <span class="comment">% incorporate the piece</span>
+0076         X(1:length(B),:) = tmp;
+0077         X = <a href="#_sub2" class="code" title="subfunction X = unflip(X,dim)">unflip</a>(X,dim);
+0078     <span class="keyword">end</span>
+0079     <span class="keyword">if</span> was_single
+0080         X = single(X); <span class="keyword">end</span>
+0081 <span class="keyword">end</span>
+0082 
+0083 <a name="_sub1" href="#_subfunctions" class="code">function X = flip(X,dim)</a>
+0084 <span class="keyword">if</span> dim ~= 1
+0085     order = 1:ndims(X);
+0086     order = order([dim 1]);
+0087     X = permute(X,order);
+0088 <span class="keyword">end</span>
+0089 
+0090 <a name="_sub2" href="#_subfunctions" class="code">function X = unflip(X,dim)</a>
+0091 <span class="keyword">if</span> dim ~= 1
+0092     order = 1:ndims(X);
+0093     order = order([dim 1]);
+0094     X = ipermute(X,order);
+0095 <span class="keyword">end</span>
+0096 
+0097 
+0098 <a name="_sub3" href="#_subfunctions" class="code">function y = oct_fftfilt(b, x, N)</a>
+0099 <span class="comment">% Copyright (C) 1996, 1997 John W. Eaton</span>
+0100 <span class="comment">%</span>
+0101 <span class="comment">% This file is part of Octave.</span>
+0102 <span class="comment">%</span>
+0103 <span class="comment">% Octave is free software; you can redistribute it and/or modify it</span>
+0104 <span class="comment">% under the terms of the GNU General Public License as published by</span>
+0105 <span class="comment">% the Free Software Foundation; either version 2, or (at your option)</span>
+0106 <span class="comment">% any later version.</span>
+0107 <span class="comment">%</span>
+0108 <span class="comment">% Octave is distributed in the hope that it will be useful, but</span>
+0109 <span class="comment">% WITHOUT ANY WARRANTY; without even the implied warranty of</span>
+0110 <span class="comment">% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0111 <span class="comment">% General Public License for more details.</span>
+0112 <span class="comment">%</span>
+0113 <span class="comment">% You should have received a copy of the GNU General Public License</span>
+0114 <span class="comment">% along with Octave; see the file COPYING.  If not, write to the Free</span>
+0115 <span class="comment">% Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA</span>
+0116 <span class="comment">% 02110-1301, USA.</span>
+0117 <span class="comment">%</span>
+0118 <span class="comment">% -*- texinfo -*-</span>
+0119 <span class="comment">% @deftypefn {Function File} {} fftfilt (@var{b}, @var{x}, @var{n})</span>
+0120 <span class="comment">%</span>
+0121 <span class="comment">% With two arguments, @code{fftfilt} filters @var{x} with the FIR filter</span>
+0122 <span class="comment">% @var{b} using the FFT.</span>
+0123 <span class="comment">%</span>
+0124 <span class="comment">% Given the optional third argument, @var{n}, @code{fftfilt} uses the</span>
+0125 <span class="comment">% overlap-add method to filter @var{x} with @var{b} using an N-point FFT.</span>
+0126 <span class="comment">%</span>
+0127 <span class="comment">% If @var{x} is a matrix, filter each column of the matrix.</span>
+0128 <span class="comment">% @end deftypefn</span>
+0129 <span class="comment">%</span>
+0130 <span class="comment">% Author: Kurt Hornik &lt;Kurt.Hornik@wu-wien.ac.at&gt;</span>
+0131 <span class="comment">% Created: 3 September 1994</span>
+0132 <span class="comment">% Adapted-By: jwe</span>
+0133 
+0134 <span class="comment">% If N is not specified explicitly, we do not use the overlap-add</span>
+0135 <span class="comment">% method at all because loops are really slow.  Otherwise, we only</span>
+0136 <span class="comment">% ensure that the number of points in the FFT is the smallest power</span>
+0137 <span class="comment">% of two larger than N and length(b).  This could result in length</span>
+0138 <span class="comment">% one blocks, but if the user knows better ...</span>
+0139 transpose = (size(x,1) == 1);
+0140 
+0141 <span class="keyword">if</span> transpose
+0142     x = x.'; <span class="keyword">end</span>
+0143 
+0144 [r_x,c_x] = size(x);
+0145 [r_b,c_b] = size(b);
+0146 <span class="keyword">if</span> min([r_b, c_b]) ~= 1
+0147     error(<span class="string">'octave:fftfilt'</span>,<span class="string">'fftfilt: b should be a vector'</span>); <span class="keyword">end</span>
+0148 
+0149 l_b = r_b*c_b;
+0150 b = reshape(b,l_b,1);
+0151 
+0152 <span class="keyword">if</span> nargin == 2
+0153     <span class="comment">% Use FFT with the smallest power of 2 which is &gt;= length (x) +</span>
+0154     <span class="comment">% length (b) - 1 as number of points ...</span>
+0155     N = 2^(ceil(log(r_x+l_b-1)/log(2)));
+0156     B = fft(b,N);
+0157     y = ifft(fft(x,N).*B(:,ones(1,c_x)));
+0158 <span class="keyword">else</span>
+0159     <span class="comment">% Use overlap-add method ...</span>
+0160     <span class="keyword">if</span> ~isscalar(N)
+0161         error (<span class="string">'octave:fftfilt'</span>,<span class="string">'fftfilt: N has to be a scalar'</span>); <span class="keyword">end</span>
+0162     N = 2^(ceil(log(max([N,l_b]))/log(2)));
+0163     L = N - l_b + 1;
+0164     B = fft(b, N);
+0165     B = B(:,ones(c_x,1));
+0166     R = ceil(r_x / L);
+0167     y = zeros(r_x, c_x);
+0168     <span class="keyword">for</span> r = 1:R
+0169         lo = (r - 1) * L + 1;
+0170         hi = min(r * L, r_x);
+0171         tmp = zeros(N, c_x);
+0172         tmp(1:(hi-lo+1),:) = x(lo:hi,:);
+0173         tmp = ifft(fft(tmp).*B);
+0174         hi = min(lo+N-1, r_x);
+0175         y(lo:hi,:) = y(lo:hi,:) + tmp(1:(hi-lo+1),:);
+0176     <span class="keyword">end</span>
+0177 <span class="keyword">end</span>
+0178 
+0179 y = y(1:r_x,:);
+0180 <span class="keyword">if</span> transpose
+0181     y = y.'; <span class="keyword">end</span>
+0182 
+0183 <span class="comment">% Final cleanups: if both x and b are real respectively integer, y</span>
+0184 <span class="comment">% should also be</span>
+0185 <span class="keyword">if</span> isreal(b) &amp;&amp; isreal(x)
+0186     y = real(y); <span class="keyword">end</span>
+0187 <span class="keyword">if</span> ~any(b - round(b))
+0188     idx = ~any(x - round(x));
+0189     y(:,idx) = round(y(:,idx));
+0190 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

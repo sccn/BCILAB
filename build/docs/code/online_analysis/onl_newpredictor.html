@@ -1,0 +1,250 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of onl_newpredictor</title>
+  <meta name="keywords" content="onl_newpredictor">
+  <meta name="description" content="Create a new predictor from a predictive model, and tie it to some stream(s).">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">online_analysis</a> &gt; onl_newpredictor.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/online_analysis&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>onl_newpredictor
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Create a new predictor from a predictive model, and tie it to some stream(s).</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function id = onl_newpredictor(name, model, streams) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Create a new predictor from a predictive model, and tie it to some stream(s).
+ Id = onl_newpredictor(Name, Model, Streams)
+
+ A predictor is created from a predictive model (which was previously calibrated via bci_train or
+ the GUI), and linked to streams, from which it reads data. Once data is available (after some data
+ was supplied via onl_append()), the predictor can be queried for its prediction, given the most
+ recently supplied data.
+ 
+ In:
+   Name : name of the predictor to be created; a variable of this name will be created in the base
+          workspace to hold the predictor's data; calling 'clear' in the workspace will erase the
+          predictor.
+
+   Model : A model to be turned into a predictor; this can be a model struct, or a base workspace 
+           variable name, or a file name, or a cell array of {file name, variable name} to refer
+           to a variable inside a file. Models are calibrated via bci_train or the GUI.
+
+   Streams : optional names of streams (previously created with onl_newstream) to consider as
+             possible data sources; any stream that contains channels that are needed by the
+             predictor will be linked to it (assuming that the choice of stream to use is not
+             ambiguous). 
+
+             The identification of needed channels is primarily done on the basis of the channel
+             labels -- if a stream has channels with labels that are required by a filter pipeline,
+             it will be used as a source for this pipeline. The framework attempts to gracefully
+             handle cases where a stream only provides a subset of the channels that were in the 
+             training set and the model only effectively operates on this subset via flt_selchans.
+
+ Out:
+   Id : a unique id number for the predictor; same as name.predictorid
+
+ Notes:
+   When a detector gets linked to a stream, it will stop to function after the stream has been 
+   deleted. 
+   
+   Appends the following fields to the model: 
+    .pipelines --&gt; a cell array of filter chains (with buffers), each formatted as a recursive 
+                   filter expression 
+    .name --&gt; name of the predictor
+
+   Resolves the rawdata(...) expression into the form rawdata(stream_name) where 
+   stream_name is the name of the stream that is the source.
+ 
+ See also:
+   <a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>, <a href="onl_append.html" class="code" title="function onl_append(name, chunk, stamp)">onl_append</a>, <a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_output)">onl_predict</a>
+
+ Examples:
+   % assuming that the required channels are present in some previously created online stream,
+   % and that a model has been computed previously, create a new predictor from it for online processing
+   onl_newpredictor('mypredictor',lastmodel)
+
+   % if there are multiple applicable streams, directly pass the set of data streams that should be
+   % used as source data
+   onl_newpredictor('mypredictor',lastmodel,{'mystream1','mystream2'})
+
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-06-21</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="onl_simulate.html" class="code" title="function [predictions,predict_at,timings] = onl_simulate(varargin)">onl_simulate</a>	Apply a predictive model to some raw data set at specified time points.</li><li><a href="onl_write_background.html" class="code" title="function onl_write_background(varargin)">onl_write_background</a>	Periodically process data using a predictive model, and write results to some external device.</li></ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function id = onl_newpredictor(name, model, streams)</a>
+0002 <span class="comment">% Create a new predictor from a predictive model, and tie it to some stream(s).</span>
+0003 <span class="comment">% Id = onl_newpredictor(Name, Model, Streams)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% A predictor is created from a predictive model (which was previously calibrated via bci_train or</span>
+0006 <span class="comment">% the GUI), and linked to streams, from which it reads data. Once data is available (after some data</span>
+0007 <span class="comment">% was supplied via onl_append()), the predictor can be queried for its prediction, given the most</span>
+0008 <span class="comment">% recently supplied data.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% In:</span>
+0011 <span class="comment">%   Name : name of the predictor to be created; a variable of this name will be created in the base</span>
+0012 <span class="comment">%          workspace to hold the predictor's data; calling 'clear' in the workspace will erase the</span>
+0013 <span class="comment">%          predictor.</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%   Model : A model to be turned into a predictor; this can be a model struct, or a base workspace</span>
+0016 <span class="comment">%           variable name, or a file name, or a cell array of {file name, variable name} to refer</span>
+0017 <span class="comment">%           to a variable inside a file. Models are calibrated via bci_train or the GUI.</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">%   Streams : optional names of streams (previously created with onl_newstream) to consider as</span>
+0020 <span class="comment">%             possible data sources; any stream that contains channels that are needed by the</span>
+0021 <span class="comment">%             predictor will be linked to it (assuming that the choice of stream to use is not</span>
+0022 <span class="comment">%             ambiguous).</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%             The identification of needed channels is primarily done on the basis of the channel</span>
+0025 <span class="comment">%             labels -- if a stream has channels with labels that are required by a filter pipeline,</span>
+0026 <span class="comment">%             it will be used as a source for this pipeline. The framework attempts to gracefully</span>
+0027 <span class="comment">%             handle cases where a stream only provides a subset of the channels that were in the</span>
+0028 <span class="comment">%             training set and the model only effectively operates on this subset via flt_selchans.</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">% Out:</span>
+0031 <span class="comment">%   Id : a unique id number for the predictor; same as name.predictorid</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">% Notes:</span>
+0034 <span class="comment">%   When a detector gets linked to a stream, it will stop to function after the stream has been</span>
+0035 <span class="comment">%   deleted.</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%   Appends the following fields to the model:</span>
+0038 <span class="comment">%    .pipelines --&gt; a cell array of filter chains (with buffers), each formatted as a recursive</span>
+0039 <span class="comment">%                   filter expression</span>
+0040 <span class="comment">%    .name --&gt; name of the predictor</span>
+0041 <span class="comment">%</span>
+0042 <span class="comment">%   Resolves the rawdata(...) expression into the form rawdata(stream_name) where</span>
+0043 <span class="comment">%   stream_name is the name of the stream that is the source.</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">% See also:</span>
+0046 <span class="comment">%   onl_newstream, onl_append, onl_predict</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">% Examples:</span>
+0049 <span class="comment">%   % assuming that the required channels are present in some previously created online stream,</span>
+0050 <span class="comment">%   % and that a model has been computed previously, create a new predictor from it for online processing</span>
+0051 <span class="comment">%   onl_newpredictor('mypredictor',lastmodel)</span>
+0052 <span class="comment">%</span>
+0053 <span class="comment">%   % if there are multiple applicable streams, directly pass the set of data streams that should be</span>
+0054 <span class="comment">%   % used as source data</span>
+0055 <span class="comment">%   onl_newpredictor('mypredictor',lastmodel,{'mystream1','mystream2'})</span>
+0056 <span class="comment">%</span>
+0057 <span class="comment">%</span>
+0058 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0059 <span class="comment">%                                2010-06-21</span>
+0060 
+0061 <span class="keyword">if</span> ~exist(<span class="string">'name'</span>,<span class="string">'var'</span>)
+0062     error(<span class="string">'Please specify a name for the predictor.'</span>); <span class="keyword">end</span>
+0063 <span class="keyword">if</span> ~isvarname(name)
+0064     error(<span class="string">'The name of the predictor must be a valid variable name.'</span>); <span class="keyword">end</span>
+0065 <span class="keyword">if</span> ~exist(<span class="string">'model'</span>,<span class="string">'var'</span>)
+0066     error(<span class="string">'Please specify a model for the predictor.'</span>); <span class="keyword">end</span>
+0067 
+0068 <span class="comment">% parse the model</span>
+0069 <span class="keyword">if</span> ischar(model)
+0070     <span class="comment">% try to evaluate in the workspace</span>
+0071     <span class="keyword">try</span>
+0072         model = evalin(<span class="string">'base'</span>,model);
+0073     <span class="keyword">catch</span>
+0074         <span class="comment">% if that fails, try to load it as a file name</span>
+0075         <span class="keyword">try</span>
+0076             model = io_load(model);
+0077             <span class="keyword">if</span> ~isfield(model,<span class="string">'tracking'</span>) || ~isfield(model.tracking,<span class="string">'prediction_function'</span>)
+0078                 <span class="comment">% the loaded model is lacking the appropriate fields; check if there are variables</span>
+0079                 <span class="comment">% in the loaded data which are valid models</span>
+0080                 candidates = {};
+0081                 <span class="keyword">for</span> f = fieldnames(model)'
+0082                     fname = f{1};
+0083                     <span class="keyword">if</span> isfield(model.(fname),<span class="string">'tracking'</span>) &amp;&amp; isfield(model.(fname).tracking,<span class="string">'prediction_function'</span>)
+0084                         candidates{end+1} = fname; <span class="keyword">end</span> <span class="comment">%#ok&lt;AGROW&gt;</span>
+0085                 <span class="keyword">end</span>
+0086                 <span class="keyword">if</span> length(candidates) &gt; 1
+0087                     error(<span class="string">'BCILAB:onl_newpredictor:ambiguous'</span>,[<span class="string">'The file given as the model contains multiple candiate variables:\n'</span> <span class="keyword">...</span>
+0088                         hlp_tostring(candidates) <span class="string">'; please pass a file or model structure which is non-ambiguous.'</span>]); 
+0089                 <span class="keyword">elseif</span> isempty(candidates)
+0090                     error(<span class="string">'BCILAB:onl_newpredictor:load_error'</span>,<span class="string">'The given file contains no valid model.'</span>);
+0091                 <span class="keyword">else</span>
+0092                     model = model.(candidates{1});
+0093                 <span class="keyword">end</span>
+0094             <span class="keyword">end</span>
+0095         <span class="keyword">catch</span>
+0096             error(<span class="string">'BCILAB:onl_newpredictor:load_error'</span>,<span class="string">'The given model string could not be interpreted (neither as a file name nor as a workspace variable).'</span>);
+0097         <span class="keyword">end</span>
+0098     <span class="keyword">end</span>
+0099 <span class="keyword">elseif</span> iscell(model) &amp;&amp; length(model) == 2 &amp;&amp; iscellstr(model)
+0100     <span class="comment">% two-element cell-string arrays are interpreted as {filename varname}.</span>
+0101     <span class="keyword">try</span>
+0102         model = getfield(io_load(model{1},model{2}),model{2}); <span class="comment">%#ok&lt;GFLD&gt;</span>
+0103     <span class="keyword">catch</span>
+0104         error(<span class="string">'BCILAB:onl_loaddetector:load_error'</span>,[<span class="string">'The file '</span> model{1} <span class="string">' and/or its variable '</span> model{2} <span class="string">' could not be loaded.'</span>]);
+0105     <span class="keyword">end</span>
+0106 <span class="keyword">elseif</span> ~isstruct(model) || isempty(model)
+0107     error(<span class="string">'BCILAB:onl_newpredictor:invalid_model'</span>,<span class="string">'The given data is not a valid model.'</span>);
+0108 <span class="keyword">elseif</span> ~isfield(model,<span class="string">'tracking'</span>) || ~isfield(model.tracking,<span class="string">'prediction_function'</span>) || ~isfield(model.tracking,<span class="string">'filter_graph'</span>) || ~isfield(model.tracking,<span class="string">'prediction_window'</span>)
+0109     error(<span class="string">'BCILAB:onl_newpredictor:invalid_model'</span>,<span class="string">'The given data structure is not a valid model (lacking required fields).'</span>);
+0110 <span class="keyword">end</span>
+0111 
+0112 
+0113 <span class="comment">% get the streams</span>
+0114 <span class="keyword">if</span> ~exist(<span class="string">'streams'</span>,<span class="string">'var'</span>) || isempty(streams)
+0115     <span class="comment">% find all admissible streams in the workspace....</span>
+0116     vars = evalin(<span class="string">'base'</span>,<span class="string">'whos'</span>);
+0117     vars = vars(strcmp({vars.class},<span class="string">'struct'</span>));
+0118     streams = {vars(cellfun(@(x)all(isfield(evalin(<span class="string">'base'</span>,x),{<span class="string">'buffer'</span>,<span class="string">'smax'</span>})),{vars.name})).name};
+0119 <span class="keyword">end</span>
+0120 
+0121 <span class="keyword">if</span> ~iscell(streams)
+0122     streams = {streams}; <span class="keyword">end</span>
+0123 
+0124 <span class="keyword">for</span> s=1:length(streams)
+0125     <span class="keyword">if</span> ~ischar(streams{s})
+0126         error(<span class="string">'BCILAB:onl_newpredictor:invalid_streams'</span>,<span class="string">'The Streams argument must be passed as the names under which the streams were loaded, instead of as structs.'</span>); <span class="keyword">end</span>
+0127     <span class="keyword">if</span> ~isvarname(streams{s})
+0128         error(<span class="string">'BCILAB:onl_newpredictor:invalid_streams'</span>,<span class="string">'One of the supplied stream names is not a valid matlab variable name (and thus cannot refer to a stream): %s.'</span>,streams{s}); <span class="keyword">end</span>
+0129 <span class="keyword">end</span>
+0130 
+0131 <span class="keyword">try</span>
+0132     <span class="comment">% create the predictor</span>
+0133     predictor = model;
+0134     predictor.name = name;
+0135     predictor.pipelines = predictor.tracking.filter_graph;
+0136     <span class="comment">% resolve the rawdata nodes into the correct stream</span>
+0137     predictor.pipelines = utl_resolve_streams(predictor.pipelines,streams,predictor.tracking.prediction_channels);
+0138     <span class="comment">% assign a unique id</span>
+0139     id = fresh_id(<span class="string">'bcilab_predictors'</span>);
+0140     predictor.predictorid = id;
+0141     <span class="comment">% assign to base workspace</span>
+0142     assignin(<span class="string">'base'</span>,name,predictor);
+0143 <span class="keyword">catch</span> e
+0144     env_handleerror(e);
+0145     error(<span class="string">'BCILAB:onl_newpredictor:unexpected'</span>,<span class="string">'The given model has an unexpected structure.'</span>);
+0146 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,350 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_reconstruct</title>
+  <meta name="keywords" content="flt_reconstruct">
+  <meta name="description" content="Reconstruct the given data in a new (possibly overcomplete) basis.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../index.html">filters</a> &gt; <a href="index.html">in_development</a> &gt; flt_reconstruct.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters/in_development&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>flt_reconstruct
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Reconstruct the given data in a new (possibly overcomplete) basis.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function signal = flt_reconstruct(signal, dict, varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Reconstruct the given data in a new (possibly overcomplete) basis.
+ Signal = flt_reconstruct(Signal, Dictionary, Arguments...)
+
+ Sparse Reconstruction is an approach to re-representing a signal in a new basis, which may have
+ (far) more basis vectors than the signal has channels [5,7]; in these cases, a unique solution can
+ only be found if the additional assumption is incorporated that at any given time there is only a
+ small (sparse) set of basis vectors active. Possible use cases include obtaining a sparse
+ reconstruction of cortical surface area activation (in terms of a basis of surface patch
+ activities).
+
+ In:
+   Signal      : epoched or continuous EEGLAB data set
+
+   Dictionary  : [#Channels x #BasisVectors] dictionary of basis vectors in terms of which
+                 the signal shall be reconstructed
+
+   Variant     : reconstruction method to use and parameters; can be one of the following:
+                 'MacKay' : sparse Bayesian Learning using the original MacKay update rule [1,2]
+                 'FastEM' : sparse Bayesian Learning using the fast EM method by Wipf et al. [3]
+                 'TradEM' : sparse Bayesian Learning using a traditional EM method (quite slow) [2]
+                 'FOCUSS' : FOCUSS method for sparse recovery [4]
+                 'l1'     : sparse recovery using standard l1 norm regularization, as in
+                            Compressive Sensing [5]
+                 'tv'     : sparse erecovery using the total-variation norm [6]
+                 'l2'     : simple non-sparse least-squares reconstruction
+                  Note that these variants have optional sub-parameters, which can be passed if 
+                  variant is specified as cell array, e.g., {'MacKay','Lambda',1,'WindowLength',0.5}
+                  (default: 'FastEM')
+
+   BasisInfo   : new channel locations, with one entry per basis vector can either be a cell array 
+                 of channel names or a struct  with field 'labels' and possibly other fields
+                 (default: {'1','2','3',...})
+
+   TransformData : whether to place the result in the .data field of the output signal, or in some
+                   other field (note: currently always true) (default: true)
+
+   Verbose      : whether to show verbose outputs (default: true)
+
+ Out:
+   Signal : the signal reconstructed in terms of the dictionary.
+
+ Notes:
+   The only parameters that may be specified by position (instead of as name-value pair) are the first two.
+   This function is experimental in nature and currently too slow for online processing.
+
+ Examples:
+   % reconstruct the signal in terms of a random dictionary using the default settings
+   eeg = flt_reconstruct(eeg,randn(32,1000))
+
+   % as before, but use the sparse Bayesian Learning using the MacKay update rules
+   eeg = flt_reconstruct(eeg,randn(32,1000),'Variant','MacKay')
+   
+   % as before, but override the default Lambda value to obtain a different sparsity/accuracy tradeoff
+   eeg = flt_reconstruct(eeg,randn(32,1000),'Variant',{'MacKay','Lambda',2})
+
+   % as before, but reconstruct smaller windows at the same time and use more iterations
+   eeg = flt_reconstruct(eeg,randn(32,1000),'Variant',{'MacKay','WindowLength',0.5,'MaxIterations',500})
+
+   % reconstruct the signal in terms of a random dictionary and specify some custom channel labels
+   eeg = flt_reconstruct(eeg,randn(32,1000),'BasisInfo',{'A','B','C','D', ...})
+
+   % reconstruct using l1 norm regularization (standard compressive sensing) and specify a custom noise level
+   eeg = flt_reconstruct(eeg,randn(32,1000),'Variant',{'l1','NoiseLevel',0.05})
+   
+   % use a (non-sparse) least-squares reconstruction
+   eeg = flt_reconstruct(eeg,randn(32,1000),'Variant'l2')
+
+ References:
+   [1] MacKay D.J.C. &quot;Bayesian Interpolation&quot;
+       Neural Computation 4(3):415-447 (1992)
+   [2] Tipping M.E. and Smola A., &quot;Sparse Bayesian Learning and the Relevance Vector Machine&quot;. 
+       Journal of Machine Learning Research 1: 211?244. (2001)
+   [3] Wipf D.P. and Nagarajan S., &quot;A New View of Automatic Relevance Determination,&quot;
+       In J.C. Platt, D. Koller, Y. Singer, and S. Roweis, editors, Advances in Neural Information Processing Systems 20, MIT Press, 2008.
+   [4] Gorodnitsky I.F., George J.S., Rao B.D., &quot;Neuromagnetic source imaging with FOCUSS: A recursive weighted minimum norm algorithm&quot;
+       J. Electroencephalography and Clinical Neurophysiology, 95(4) (1995).
+   [5] Candes E. J.. &quot;Compressive sampling&quot; 
+       Proceedings of the International Congress of Mathematicians, Madrid, Spain, (2006).
+   [6] Chambolle A., &quot;An algorithm for total-variation minimization and applications&quot;
+       Journal of Mathematical Imaging and Vision, 20 pp. 89-97 (2004)
+   [7] Wipf D.P., Owen J.P., Attias H.T., Sekihara K., and Nagarajan S. &quot;Robust Bayesian Estimation of the Location, Orientation, and Timecourse of Multiple Correlated Neural Sources using MEG&quot; 
+       NeuroImage, vol. 49(1) (2010)
+
+ See also:
+   NESTA_UP, sparse_learning
+
+ TODO:
+   Upgrade to ICSD method by Ozgur.
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-11-10</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = flt_reconstruct(signal, dict, varargin)</a>
+0002 <span class="comment">% Reconstruct the given data in a new (possibly overcomplete) basis.</span>
+0003 <span class="comment">% Signal = flt_reconstruct(Signal, Dictionary, Arguments...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Sparse Reconstruction is an approach to re-representing a signal in a new basis, which may have</span>
+0006 <span class="comment">% (far) more basis vectors than the signal has channels [5,7]; in these cases, a unique solution can</span>
+0007 <span class="comment">% only be found if the additional assumption is incorporated that at any given time there is only a</span>
+0008 <span class="comment">% small (sparse) set of basis vectors active. Possible use cases include obtaining a sparse</span>
+0009 <span class="comment">% reconstruction of cortical surface area activation (in terms of a basis of surface patch</span>
+0010 <span class="comment">% activities).</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">% In:</span>
+0013 <span class="comment">%   Signal      : epoched or continuous EEGLAB data set</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%   Dictionary  : [#Channels x #BasisVectors] dictionary of basis vectors in terms of which</span>
+0016 <span class="comment">%                 the signal shall be reconstructed</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   Variant     : reconstruction method to use and parameters; can be one of the following:</span>
+0019 <span class="comment">%                 'MacKay' : sparse Bayesian Learning using the original MacKay update rule [1,2]</span>
+0020 <span class="comment">%                 'FastEM' : sparse Bayesian Learning using the fast EM method by Wipf et al. [3]</span>
+0021 <span class="comment">%                 'TradEM' : sparse Bayesian Learning using a traditional EM method (quite slow) [2]</span>
+0022 <span class="comment">%                 'FOCUSS' : FOCUSS method for sparse recovery [4]</span>
+0023 <span class="comment">%                 'l1'     : sparse recovery using standard l1 norm regularization, as in</span>
+0024 <span class="comment">%                            Compressive Sensing [5]</span>
+0025 <span class="comment">%                 'tv'     : sparse erecovery using the total-variation norm [6]</span>
+0026 <span class="comment">%                 'l2'     : simple non-sparse least-squares reconstruction</span>
+0027 <span class="comment">%                  Note that these variants have optional sub-parameters, which can be passed if</span>
+0028 <span class="comment">%                  variant is specified as cell array, e.g., {'MacKay','Lambda',1,'WindowLength',0.5}</span>
+0029 <span class="comment">%                  (default: 'FastEM')</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%   BasisInfo   : new channel locations, with one entry per basis vector can either be a cell array</span>
+0032 <span class="comment">%                 of channel names or a struct  with field 'labels' and possibly other fields</span>
+0033 <span class="comment">%                 (default: {'1','2','3',...})</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%   TransformData : whether to place the result in the .data field of the output signal, or in some</span>
+0036 <span class="comment">%                   other field (note: currently always true) (default: true)</span>
+0037 <span class="comment">%</span>
+0038 <span class="comment">%   Verbose      : whether to show verbose outputs (default: true)</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">% Out:</span>
+0041 <span class="comment">%   Signal : the signal reconstructed in terms of the dictionary.</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">% Notes:</span>
+0044 <span class="comment">%   The only parameters that may be specified by position (instead of as name-value pair) are the first two.</span>
+0045 <span class="comment">%   This function is experimental in nature and currently too slow for online processing.</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">% Examples:</span>
+0048 <span class="comment">%   % reconstruct the signal in terms of a random dictionary using the default settings</span>
+0049 <span class="comment">%   eeg = flt_reconstruct(eeg,randn(32,1000))</span>
+0050 <span class="comment">%</span>
+0051 <span class="comment">%   % as before, but use the sparse Bayesian Learning using the MacKay update rules</span>
+0052 <span class="comment">%   eeg = flt_reconstruct(eeg,randn(32,1000),'Variant','MacKay')</span>
+0053 <span class="comment">%</span>
+0054 <span class="comment">%   % as before, but override the default Lambda value to obtain a different sparsity/accuracy tradeoff</span>
+0055 <span class="comment">%   eeg = flt_reconstruct(eeg,randn(32,1000),'Variant',{'MacKay','Lambda',2})</span>
+0056 <span class="comment">%</span>
+0057 <span class="comment">%   % as before, but reconstruct smaller windows at the same time and use more iterations</span>
+0058 <span class="comment">%   eeg = flt_reconstruct(eeg,randn(32,1000),'Variant',{'MacKay','WindowLength',0.5,'MaxIterations',500})</span>
+0059 <span class="comment">%</span>
+0060 <span class="comment">%   % reconstruct the signal in terms of a random dictionary and specify some custom channel labels</span>
+0061 <span class="comment">%   eeg = flt_reconstruct(eeg,randn(32,1000),'BasisInfo',{'A','B','C','D', ...})</span>
+0062 <span class="comment">%</span>
+0063 <span class="comment">%   % reconstruct using l1 norm regularization (standard compressive sensing) and specify a custom noise level</span>
+0064 <span class="comment">%   eeg = flt_reconstruct(eeg,randn(32,1000),'Variant',{'l1','NoiseLevel',0.05})</span>
+0065 <span class="comment">%</span>
+0066 <span class="comment">%   % use a (non-sparse) least-squares reconstruction</span>
+0067 <span class="comment">%   eeg = flt_reconstruct(eeg,randn(32,1000),'Variant'l2')</span>
+0068 <span class="comment">%</span>
+0069 <span class="comment">% References:</span>
+0070 <span class="comment">%   [1] MacKay D.J.C. &quot;Bayesian Interpolation&quot;</span>
+0071 <span class="comment">%       Neural Computation 4(3):415-447 (1992)</span>
+0072 <span class="comment">%   [2] Tipping M.E. and Smola A., &quot;Sparse Bayesian Learning and the Relevance Vector Machine&quot;.</span>
+0073 <span class="comment">%       Journal of Machine Learning Research 1: 211?244. (2001)</span>
+0074 <span class="comment">%   [3] Wipf D.P. and Nagarajan S., &quot;A New View of Automatic Relevance Determination,&quot;</span>
+0075 <span class="comment">%       In J.C. Platt, D. Koller, Y. Singer, and S. Roweis, editors, Advances in Neural Information Processing Systems 20, MIT Press, 2008.</span>
+0076 <span class="comment">%   [4] Gorodnitsky I.F., George J.S., Rao B.D., &quot;Neuromagnetic source imaging with FOCUSS: A recursive weighted minimum norm algorithm&quot;</span>
+0077 <span class="comment">%       J. Electroencephalography and Clinical Neurophysiology, 95(4) (1995).</span>
+0078 <span class="comment">%   [5] Candes E. J.. &quot;Compressive sampling&quot;</span>
+0079 <span class="comment">%       Proceedings of the International Congress of Mathematicians, Madrid, Spain, (2006).</span>
+0080 <span class="comment">%   [6] Chambolle A., &quot;An algorithm for total-variation minimization and applications&quot;</span>
+0081 <span class="comment">%       Journal of Mathematical Imaging and Vision, 20 pp. 89-97 (2004)</span>
+0082 <span class="comment">%   [7] Wipf D.P., Owen J.P., Attias H.T., Sekihara K., and Nagarajan S. &quot;Robust Bayesian Estimation of the Location, Orientation, and Timecourse of Multiple Correlated Neural Sources using MEG&quot;</span>
+0083 <span class="comment">%       NeuroImage, vol. 49(1) (2010)</span>
+0084 <span class="comment">%</span>
+0085 <span class="comment">% See also:</span>
+0086 <span class="comment">%   NESTA_UP, sparse_learning</span>
+0087 <span class="comment">%</span>
+0088 <span class="comment">% TODO:</span>
+0089 <span class="comment">%   Upgrade to ICSD method by Ozgur.</span>
+0090 <span class="comment">%</span>
+0091 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0092 <span class="comment">%                                2010-11-10</span>
+0093 
+0094 <span class="comment">% flt_reconstruct_version&lt;0.8&gt; -- for the cache</span>
+0095 
+0096 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'offline'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>;
+0097 
+0098 <span class="comment">% requires relatively clean data, cannot be used as a basis for ICA</span>
+0099 declare_properties(<span class="string">'name'</span>,<span class="string">'SparseReconstruction'</span>, <span class="string">'experimental'</span>,true, <span class="string">'follows'</span>,{<span class="string">'flt_ica'</span>,<span class="string">'flt_iir'</span>,<span class="string">'flt_fir'</span>}, <span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,true);
+0100 
+0101 arg_define([0 2],varargin, <span class="keyword">...</span>
+0102     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0103     arg({<span class="string">'dict'</span>,<span class="string">'Dictionary'</span>},[],[],<span class="string">'Dictionary of basis vectors. The signal is reconstructed in terms of these basis vectors; formatted as [#Channels x #BasisVectors].'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0104     arg_subswitch({<span class="string">'variant'</span>,<span class="string">'Variant'</span>},<span class="string">'FastEM'</span>, {<span class="keyword">...</span>
+0105         {<span class="string">'MacKay'</span>,{<span class="keyword">...</span>
+0106             arg({<span class="string">'lambda'</span>,<span class="string">'Lambda'</span>},1,[],<span class="string">'Regularization parameter. Controls the sparsity-accuracy tradeoff.'</span>), <span class="keyword">...</span>
+0107             arg({<span class="string">'hyperprior'</span>,<span class="string">'HyperPrior'</span>},[],[],<span class="string">'Hyper-parameter gamma per basis vector. This is the prior probability of each basis vector. If empty, amounts to the minimum-norm solution.'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0108             arg({<span class="string">'window_len'</span>,<span class="string">'WindowLength'</span>},1,[],<span class="string">'Window length. Overlapped windows of this length will be decomposed, in seconds.'</span>), <span class="keyword">...</span>
+0109             arg({<span class="string">'maxiter'</span>,<span class="string">'MaxIterations'</span>},100,[],<span class="string">'Maximum number of iterations.'</span>)}}, <span class="keyword">...</span>
+0110         {<span class="string">'FastEM'</span>,{<span class="keyword">...</span>
+0111             arg({<span class="string">'lambda'</span>,<span class="string">'Lambda'</span>},1,[],<span class="string">'Regularization parameter. Controls the sparsity-accuracy tradeoff.'</span>), <span class="keyword">...</span>
+0112             arg({<span class="string">'hyperprior'</span>,<span class="string">'HyperPrior'</span>},[],[],<span class="string">'Hyper-parameter gamma per basis vector. This is the prior probability of each basis vector. If empty, amounts to the minimum-norm solution.'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0113             arg({<span class="string">'window_len'</span>,<span class="string">'WindowLength'</span>},1,[],<span class="string">'Window length. Overlapped windows of this length will be decomposed, in seconds.'</span>), <span class="keyword">...</span>
+0114             arg({<span class="string">'maxiter'</span>,<span class="string">'MaxIterations'</span>},100,[],<span class="string">'Maximum number of iterations.'</span>)}}, <span class="keyword">...</span>
+0115         {<span class="string">'TradEM'</span>,{<span class="keyword">...</span>
+0116             arg({<span class="string">'lambda'</span>,<span class="string">'Lambda'</span>},1,[],<span class="string">'Regularization parameter. Controls the sparsity-accuracy tradeoff.'</span>), <span class="keyword">...</span>
+0117             arg({<span class="string">'hyperprior'</span>,<span class="string">'HyperPrior'</span>},[],[],<span class="string">'Hyper-parameter gamma per basis vector. This is the prior probability of each basis vector. If empty, amounts to the minimum-norm solution.'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0118             arg({<span class="string">'window_len'</span>,<span class="string">'WindowLength'</span>},1,[],<span class="string">'Window length. Overlapped windows of this length will be decomposed, in seconds.'</span>), <span class="keyword">...</span>
+0119             arg({<span class="string">'maxiter'</span>,<span class="string">'MaxIterations'</span>},1000,[],<span class="string">'Maximum number of iterations.'</span>)}}, <span class="keyword">...</span>
+0120         {<span class="string">'FOCUSS'</span>,{<span class="keyword">...</span>
+0121             arg({<span class="string">'lambda'</span>,<span class="string">'Lambda'</span>},1,[],<span class="string">'Regularization parameter. Controls the sparsity-accuracy tradeoff.'</span>), <span class="keyword">...</span>
+0122             arg({<span class="string">'p'</span>,<span class="string">'QuasiNorm'</span>},1,[],<span class="string">'p-valued quasi-norm. Smaller values yield sparser solutions One yields the l1 norm.'</span>), <span class="keyword">...</span>
+0123             arg({<span class="string">'window_len'</span>,<span class="string">'WindowLength'</span>},1,[],<span class="string">'Window length. Overlapped windows of this length will be decomposed, in seconds.'</span>), <span class="keyword">...</span>
+0124             arg({<span class="string">'maxiter'</span>,<span class="string">'MaxIterations'</span>},10,[],<span class="string">'Maximum number of iterations.'</span>)}}, <span class="keyword">...</span>
+0125         {<span class="string">'l1'</span>,{<span class="keyword">...</span>
+0126             arg({<span class="string">'noiselev'</span>,<span class="string">'NoiseLevel'</span>,<span class="string">'sigma'</span>},0.1,[],<span class="string">'Noise std dev estimate.'</span>), <span class="keyword">...</span>
+0127             arg({<span class="string">'mufinal'</span>,<span class="string">'Tolerance'</span>},[],[],<span class="string">'Solution accuracy tolerance. If empty, a heuristic will be used.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>), <span class="keyword">...</span>
+0128             arg({<span class="string">'maxiter'</span>,<span class="string">'MaxIterations'</span>},3000,[],<span class="string">'Maximum number of iterations.'</span>), <span class="keyword">...</span>
+0129             arg({<span class="string">'maxintiter'</span>,<span class="string">'MaxContinuations'</span>},5,[],<span class="string">'Maximum number of continuation steps.'</span>)}}, <span class="keyword">...</span>
+0130         {<span class="string">'l2'</span>,{}}}, <span class="string">'Optimization method to use. MacKay is Sparse Bayesian Learning with MacKay update rules (from the paper Bayesian Interpolation), FastEM is a fast Expectation-Maximization (EM) based update rule (from David Wipf), TradEM is the traditional EM rule (from Mike Tipping''s SBL papers), FOCUSS is the FOCUSS algorithm from Bhaskar Rao, Kreutz-Delgado and Gorodnitsky, l1 is the traditional l1-norm recovery, tv is recovery using the total variation norm, and l2 is a non-sparse pseudoinverse-based approach.'</span>), <span class="keyword">...</span><span class="comment">            </span>
+0131     arg({<span class="string">'basisinfo'</span>,<span class="string">'BasisInfo'</span>},[],[],<span class="string">'Chanlocs for new signal basis. This is either a cell array of channel names or a struct array with a field ''labels''. If unspecified, defaults to {''1'',''2'',''3'',...}.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0132     arg({<span class="string">'dotransform'</span>,<span class="string">'TransformData'</span>},true,[],<span class="string">'Transform data into new representation. If false, the data set will be annotated with the field sparseact, which contains the activity.'</span>), <span class="keyword">...</span>
+0133     arg({<span class="string">'verbose'</span>,<span class="string">'Verbose'</span>},true,[],<span class="string">'Report progress of algorithm.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>));
+0134 
+0135 [C,S,T] = size(signal.data);
+0136 <span class="keyword">if</span> isempty(dict) 
+0137     dict = eye(C); <span class="keyword">end</span>
+0138 
+0139 <span class="comment">% reconstruct data</span>
+0140 signal.data = reshape(signal.data,C,[]);
+0141 <span class="keyword">switch</span> lower(variant)
+0142     <span class="keyword">case</span> <span class="string">'l1'</span>
+0143         <span class="comment">% use l1 reconstruction</span>
+0144         data = double(signal.data);
+0145         signal.data = zeros(size(dict,2),S*T);
+0146         <span class="keyword">try</span>
+0147             <span class="comment">% use NESTA</span>
+0148             dictnorm = norm(dict*dict');            
+0149             lambda = variant.noiselev * sqrt(2*log(C));
+0150             <span class="keyword">if</span> isempty(variant.mufinal)
+0151                 variant.mufinal = 0.1*variant.noiselev/dictnorm; <span class="keyword">end</span>            
+0152             <span class="keyword">for</span> t=1:S*T
+0153                 signal.data(:,t) = NESTA_UP(dict,[],data(:,t),lambda,dictnorm,variant.mufinal,struct(<span class="string">'MaxIntIter'</span>,variant.maxintiter,<span class="string">'Verbose'</span>,verbose,<span class="string">'TypeMin'</span>,hlp_rewrite(variant,<span class="string">'l1'</span>,<span class="string">'L1'</span>))); <span class="keyword">end</span>
+0154         <span class="keyword">catch</span>
+0155             <span class="comment">% use the CVX fallback</span>
+0156             N = size(dict,2);
+0157             <span class="keyword">for</span> t=1:S*T
+0158                 cvx_begin
+0159                     variables X(N)
+0160                     minimize(norm(X,1))
+0161                     subject to
+0162                         norm(dict*X - data(:,t)) &lt;= variant.noiselev;
+0163                 cvx_end
+0164                 signal.data(:,t) = X;
+0165             <span class="keyword">end</span>
+0166         <span class="keyword">end</span>
+0167     <span class="keyword">case</span> {<span class="string">'mackay'</span>,<span class="string">'fastem'</span>,<span class="string">'tradem'</span>,<span class="string">'focuss'</span>}        
+0168         <span class="comment">% use sparse Bayesian learning</span>
+0169         mode = struct(<span class="string">'mackay'</span>,0,<span class="string">'fastem'</span>,1,<span class="string">'tradem'</span>,2,<span class="string">'focuss'</span>,[3 variant.p]);
+0170         <span class="keyword">if</span> isempty(variant.hyperprior)
+0171             variant.hyperprior = 0; <span class="keyword">end</span>        
+0172         <span class="comment">% process the signal in overlapped windows</span>
+0173         window_len = variant.window_len*signal.srate;
+0174         wnd = 0:window_len-1;
+0175         wnd_weight = repmat(hann(length(wnd))',C,1);
+0176         offsets = 1 + floor(0:window_len/2:(S*T)-window_len);
+0177         W = length(offsets);
+0178         X = signal.data;
+0179         signal.data = zeros(size(dict,2),S*T);
+0180         <span class="keyword">for</span> o=1:W
+0181             S = X(:,offsets(o) + wnd).*wnd_weight;
+0182             signal.data(:,offsets(o)+wnd) = signal.data(:,offsets(o)+wnd) + sparse_learning_fast(dict,S,variant.lambda,variant.maxiter,mode.(variant),variant.hyperprior,variant.verbose);
+0183         <span class="keyword">end</span>
+0184     <span class="keyword">case</span> <span class="string">'l2'</span>
+0185         <span class="comment">% use the pseudoinverse</span>
+0186         signal.data = dict\signal.data;
+0187     <span class="keyword">otherwise</span>
+0188         error([<span class="string">'unsupported variant selected: '</span> variant]);
+0189 <span class="keyword">end</span>
+0190 
+0191 <span class="keyword">if</span> dotransform
+0192     <span class="comment">% override data</span>
+0193     signal.data = reshape(signal.data,[],S,T);
+0194     signal.nbchan = size(signal.data,1);
+0195     <span class="comment">% rewrite chanlocs</span>
+0196     <span class="keyword">if</span> isempty(basisinfo)
+0197         signal.chanlocs = struct(<span class="string">'labels'</span>,cellfun(@num2str,num2cell(1:signal.nbchan,1),<span class="string">'UniformOutput'</span>,false));
+0198     <span class="keyword">elseif</span> length(basisinfo) == signal.nbchan
+0199         <span class="keyword">if</span> isfield(basisinfo,<span class="string">'labels'</span>)
+0200             signal.chanlocs = basisinfo;
+0201         <span class="keyword">elseif</span> iscellstr(basisinfo)
+0202             signal.chanlocs = pop_chanedit(struct(<span class="string">'labels'</span>,basisinfo),<span class="string">'lookup'</span>,[]);
+0203         <span class="keyword">else</span>
+0204             error(<span class="string">'unsupported format for the ''basisinfo'' parameter'</span>);
+0205         <span class="keyword">end</span>        
+0206     <span class="keyword">else</span>
+0207         error(<span class="string">'length of ''basisinfo'' parameter does not match number of basis vectors'</span>);
+0208     <span class="keyword">end</span>
+0209 <span class="keyword">else</span>
+0210     error(<span class="string">'dotransform is currently required to be 1'</span>);
+0211 <span class="keyword">end</span>
+0212 
+0213 exp_endfun;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

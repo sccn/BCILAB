@@ -1,0 +1,392 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_collection_partition</title>
+  <meta name="keywords" content="utl_collection_partition">
+  <meta name="description" content="Partition a dataset collection according to some settings">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_collection_partition.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_collection_partition
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Partition a dataset collection according to some settings</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function res = utl_collection_partition(collection,inds,settings) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Partition a dataset collection according to some settings
+ Result = utl_collection_partition(Collection,IndexSet,Settings)
+
+ In:
+   Collection : a dataset collection, i.e. cell array of structs with meta-data
+
+   IndexSet : the index set to use for partitioning; this partitioner is somewhat special;
+              * if this is [], the function generates the partitioning, i.e. returns
+                a cell array of partitions, each of which is a cell array of:
+                {training collection, test collection, {'goal_identifier',identifier for test collection}}
+
+              * otherwise, we assume that this is one of the partitioned collections that we 
+                generated, and just return it unmodified
+
+   Settings : the settings for the partitioning; may have the following fields (or names, if given 
+              as a cell array of NvPs):
+
+               'restrict_to' : struct with properties to which the test sets under consideration are 
+                               restricted (default: blank / no restriction)
+               'exclude'       struct with a property signature to exclude from the test sets
+                               or a cell array of multiple signatures to exclude
+               'test_on'     : identifier that determines the items to use as test sets (default:
+                               coarsest granularity out of the known identifiers or element-by-element, 
+                               if none known)
+               'consider'    : modifier that determines how to pack and optionally prune the test 
+                               items ('each', 'all', 'last', or 'allexceptfirst')
+                               (default: 'each')
+               'per'         : if consider is not each, determines the context to which the 
+                               packing and pruning operation of 'consider' refers 
+                               (default: next coarser granularity than test_on)
+
+               'scope_order' : odering of partitioning-relevant properties from coarsest granularity 
+                               to finest (default: {'group','subject','day','montage','session','recording'} 
+
+                               This expresses, among others, that there exist multiple sessions
+                               (say 1,2,3) for each subject -- i.e. the session property is *per
+                               subject*, and thus two sets tagged with session 3 do not
+                               necessarily refer to the same unique session (unless the subject,
+                               day, montage (if present) are also the same. If any such nesting
+                               relationship is properly expressed, the 'test_on' and 'per' settings
+                               will work as expected.
+
+ Out:
+   Result : result of the partitioning; depends on the IndexSet
+
+ See also:
+   set_partition, bci_train
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-08-29</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function y = getprops_as_string(x,props)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function res = utl_collection_partition(collection,inds,settings)</a>
+0002 <span class="comment">% Partition a dataset collection according to some settings</span>
+0003 <span class="comment">% Result = utl_collection_partition(Collection,IndexSet,Settings)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Collection : a dataset collection, i.e. cell array of structs with meta-data</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">%   IndexSet : the index set to use for partitioning; this partitioner is somewhat special;</span>
+0009 <span class="comment">%              * if this is [], the function generates the partitioning, i.e. returns</span>
+0010 <span class="comment">%                a cell array of partitions, each of which is a cell array of:</span>
+0011 <span class="comment">%                {training collection, test collection, {'goal_identifier',identifier for test collection}}</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">%              * otherwise, we assume that this is one of the partitioned collections that we</span>
+0014 <span class="comment">%                generated, and just return it unmodified</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%   Settings : the settings for the partitioning; may have the following fields (or names, if given</span>
+0017 <span class="comment">%              as a cell array of NvPs):</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">%               'restrict_to' : struct with properties to which the test sets under consideration are</span>
+0020 <span class="comment">%                               restricted (default: blank / no restriction)</span>
+0021 <span class="comment">%               'exclude'       struct with a property signature to exclude from the test sets</span>
+0022 <span class="comment">%                               or a cell array of multiple signatures to exclude</span>
+0023 <span class="comment">%               'test_on'     : identifier that determines the items to use as test sets (default:</span>
+0024 <span class="comment">%                               coarsest granularity out of the known identifiers or element-by-element,</span>
+0025 <span class="comment">%                               if none known)</span>
+0026 <span class="comment">%               'consider'    : modifier that determines how to pack and optionally prune the test</span>
+0027 <span class="comment">%                               items ('each', 'all', 'last', or 'allexceptfirst')</span>
+0028 <span class="comment">%                               (default: 'each')</span>
+0029 <span class="comment">%               'per'         : if consider is not each, determines the context to which the</span>
+0030 <span class="comment">%                               packing and pruning operation of 'consider' refers</span>
+0031 <span class="comment">%                               (default: next coarser granularity than test_on)</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%               'scope_order' : odering of partitioning-relevant properties from coarsest granularity</span>
+0034 <span class="comment">%                               to finest (default: {'group','subject','day','montage','session','recording'}</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">%                               This expresses, among others, that there exist multiple sessions</span>
+0037 <span class="comment">%                               (say 1,2,3) for each subject -- i.e. the session property is *per</span>
+0038 <span class="comment">%                               subject*, and thus two sets tagged with session 3 do not</span>
+0039 <span class="comment">%                               necessarily refer to the same unique session (unless the subject,</span>
+0040 <span class="comment">%                               day, montage (if present) are also the same. If any such nesting</span>
+0041 <span class="comment">%                               relationship is properly expressed, the 'test_on' and 'per' settings</span>
+0042 <span class="comment">%                               will work as expected.</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">% Out:</span>
+0045 <span class="comment">%   Result : result of the partitioning; depends on the IndexSet</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">% See also:</span>
+0048 <span class="comment">%   set_partition, bci_train</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0051 <span class="comment">%                                2011-08-29</span>
+0052 
+0053 
+0054 <span class="keyword">if</span> isempty(inds)
+0055     settings = hlp_varargin2struct(settings, <span class="keyword">...</span>
+0056         {<span class="string">'scope_order'</span>,<span class="string">'ScopeOrdering'</span>}, {<span class="string">'group'</span>,<span class="string">'subject'</span>,<span class="string">'day'</span>,<span class="string">'montage'</span>,<span class="string">'session'</span>,<span class="string">'recording'</span>}, <span class="keyword">...</span><span class="comment"> % the known granularities ordered from coarsest to finest</span>
+0057         {<span class="string">'restrict_to'</span>,<span class="string">'RestrictTo'</span>}, [], <span class="keyword">...</span><span class="comment"> % struct with properties to which restrict test considered test sets (default: blank)</span>
+0058         {<span class="string">'exclude'</span>,<span class="string">'Exclude'</span>}, {}, <span class="keyword">...</span><span class="comment">        % struct with a property signature to exclude from the test sets, or cell array of such structs) (default: blank)</span>
+0059         {<span class="string">'test_on'</span>,<span class="string">'TestOn'</span>}, [], <span class="keyword">...</span><span class="comment">         % identifier that determines the items to use as test sets (default: coarsest known granularity)</span>
+0060         {<span class="string">'consider'</span>,<span class="string">'Consider'</span>},<span class="string">'each'</span>, <span class="keyword">...</span><span class="comment">   % specifier that determines which items to consider (options: 'each','all','last','allexceptfirst')</span>
+0061         {<span class="string">'per'</span>,<span class="string">'Per'</span>},[] <span class="keyword">...</span><span class="comment">                  % if consider is not each, determines the context to which the last/allbutfirst refers (default: next coarsest granularity)</span>
+0062         );
+0063 
+0064     known_granularities = settings.scope_order;
+0065     <span class="keyword">if</span> length(unique(known_granularities)) &lt; length(known_granularities)
+0066         error(<span class="string">'Please do not pass duplicates in the scope_order parameter.'</span>); <span class="keyword">end</span>
+0067     
+0068     <span class="comment">% first tag all items in the collection with a unique tracking id</span>
+0069     <span class="comment">% (will be used towards the end to determine the contents of the respective training sets)</span>
+0070     <span class="keyword">for</span> k=1:length(collection)
+0071         collection{k}.tracking_index = k; <span class="keyword">end</span>
+0072     
+0073     <span class="comment">% restrict the collection of test set material according to the restrict_to property</span>
+0074     test_material = collection;
+0075     <span class="keyword">if</span> ~isempty(settings.restrict_to)
+0076         <span class="keyword">for</span> fn = fieldnames(settings.restrict_to)'
+0077             field = fn{1};
+0078             present = find(cellfun(@(x)isfield(x,field),test_material));
+0079             <span class="keyword">if</span> isempty(present)
+0080                 fprintf(<span class="string">'None of the sets in the collection has the property &quot;%s&quot;; ignoring this restriction.\n'</span>,field); 
+0081             <span class="keyword">else</span>
+0082                 test_material = test_material(present);
+0083             <span class="keyword">end</span>
+0084             restrictor = settings.restrict_to.(field);
+0085             retain = cellfun(isequal_weak(@(x)x.(field),restrictor),test_material,<span class="string">'UniformOutput'</span>,false);
+0086             <span class="keyword">if</span> ~any(retain)
+0087                 fprintf(<span class="string">'None of the sets in the collection has value &quot;%s&quot; for property &quot;%s&quot;; ignoring this restriction.\n'</span>,hlp_tostring(restrictor),field); 
+0088             <span class="keyword">else</span>
+0089                 test_material = test_material(retain);
+0090             <span class="keyword">end</span>
+0091         <span class="keyword">end</span>
+0092     <span class="keyword">end</span>
+0093     
+0094     <span class="comment">% implement the exclusion</span>
+0095     <span class="keyword">if</span> isstruct(settings.exclude)
+0096         settings.exclude = {settings.exclude}; <span class="keyword">end</span>
+0097     <span class="comment">% for each excluder...</span>
+0098     <span class="keyword">for</span> e=1:length(settings.exclude)
+0099         ex = settings.exclude{e};        
+0100         <span class="comment">% go through all fields and identify matches</span>
+0101         potential_match = true(1,length(test_material));
+0102         <span class="keyword">for</span> fn=fieldnames(ex)'
+0103             field = fn{1};
+0104             val = ex.(field);
+0105             present = cellfun(@(x)isfield(x,field),test_material);
+0106             matching_value = true(1,length(test_material));
+0107             matching_value(present) = cellfun(@(x)isequal_weak(x.(field),val),test_material(present));
+0108             potential_match = potential_match &amp; present &amp; matching_value;            
+0109         <span class="keyword">end</span>
+0110         <span class="comment">% retain only the non-matching test items</span>
+0111         test_material = test_material(~potential_match);
+0112     <span class="keyword">end</span>
+0113     
+0114     <span class="comment">% remove all entries from known_granularities which are not contained in the test material and</span>
+0115     <span class="comment">% remove all elements from the test material which are lacking one of the remaining granularity properties</span>
+0116     retain = [];
+0117     <span class="keyword">for</span> k=1:length(known_granularities)
+0118         gran = known_granularities{k};
+0119         present = cellfun(@(x)isfield(x,gran),test_material);
+0120         <span class="keyword">if</span> any(present)
+0121             test_material = test_material(present);
+0122             retain(end+1) = k;
+0123         <span class="keyword">end</span>
+0124     <span class="keyword">end</span>
+0125     known_granularities = known_granularities(retain);
+0126         
+0127     <span class="keyword">if</span> isempty(settings.test_on)
+0128         <span class="comment">% use coarsest granularity to test on</span>
+0129         <span class="keyword">if</span> ~isempty(known_granularities)
+0130             settings.test_on = known_granularities{1}; <span class="keyword">end</span>
+0131     <span class="keyword">end</span>
+0132     
+0133     <span class="keyword">if</span> ~strcmp(settings.consider,<span class="string">'each'</span>)         
+0134         <span class="keyword">if</span> isempty(settings.per)
+0135             <span class="comment">% need to determine the granularity at which to pack test items</span>
+0136             <span class="keyword">if</span> isempty(settings.test_on)
+0137                 <span class="comment">% we're testing on individual data items, so the finest known granularity in the</span>
+0138                 <span class="comment">% data will be used for grouping</span>
+0139                 <span class="keyword">if</span> ~isempty(known_granularities)
+0140                     settings.per = known_granularities{end}; <span class="keyword">end</span>
+0141             <span class="keyword">else</span>
+0142                 <span class="comment">% see if we can find the next-coarser granularity</span>
+0143                 known_gran = find(strcmp(settings.test_on,known_granularities),1);
+0144                 <span class="keyword">if</span> ~isempty(known_gran)
+0145                     <span class="keyword">if</span> known_gran == 1
+0146                         error(<span class="string">'The testing is already performed at the coarsest known granularity; cannot determine a coarser granularity to group data into. You may specify the ''per'' property manually.'</span>);
+0147                     <span class="keyword">else</span>
+0148                         settings.per = known_granularities{known_gran-1};
+0149                     <span class="keyword">end</span>
+0150                 <span class="keyword">end</span>
+0151             <span class="keyword">end</span>
+0152             <span class="keyword">if</span> isempty(settings.per)
+0153                 error(<span class="string">'Please specify a granularity (i.e. a property) over which the ''consider'' clause should apply.'</span>); <span class="keyword">end</span>
+0154         <span class="keyword">end</span>
+0155         <span class="comment">% prune the test material appropriately</span>
+0156         present = find(cellfun(@(x)isfield(x,settings.per),test_material));
+0157         <span class="keyword">if</span> isempty(present)
+0158             error(<span class="string">'None of the sets in the collection has the ''per'' property &quot;%s&quot;.\n'</span>,settings.per);
+0159         <span class="keyword">else</span>
+0160             <span class="comment">% exclude all items that are lacking the given field</span>
+0161             test_material = test_material(present);
+0162         <span class="keyword">end</span>
+0163     <span class="keyword">end</span>
+0164 
+0165     
+0166     <span class="comment">% build the test sets, which is a cell array of collections -- one per test set</span>
+0167     test_sets = {};
+0168     <span class="keyword">if</span> isempty(settings.test_on)
+0169         <span class="comment">% test at the granularity of data sets in the collection (finest)</span>
+0170         <span class="keyword">for</span> k=1:length(test_material)
+0171             test_sets{k} = {test_material{k}}; <span class="keyword">end</span>
+0172     <span class="keyword">else</span>
+0173         <span class="comment">% test at the given granularity</span>
+0174         present = find(cellfun(@(x)isfield(x,settings.test_on),test_material));
+0175         <span class="keyword">if</span> isempty(present)
+0176             error(<span class="string">'None of the sets in the collection has the ''test_on'' property &quot;%s&quot;.\n'</span>,settings.test_on);
+0177         <span class="keyword">else</span>
+0178             <span class="comment">% exclude all items that are lacking the given field</span>
+0179             test_material = test_material(present);
+0180         <span class="keyword">end</span>
+0181 
+0182         <span class="comment">% we partition the test material into test sets by unique elements of the 'test_on' property</span>
+0183         <span class="comment">% and all coarser properties, if any; next: build the list of these properties</span>
+0184         pos = find(strcmp(settings.test_on,known_granularities));
+0185         <span class="keyword">if</span> ~isempty(pos)
+0186             partition_properties = known_granularities(1:pos);
+0187         <span class="keyword">else</span>
+0188             partition_properties = {settings.test_on};
+0189         <span class="keyword">end</span>
+0190 
+0191         <span class="comment">% now partition</span>
+0192         values = cellfun(@(x)<a href="#_sub1" class="code" title="subfunction y = getprops_as_string(x,props)">getprops_as_string</a>(x,partition_properties),test_material,<span class="string">'UniformOutput'</span>,false);
+0193         uniquevals = unique(values);
+0194         <span class="keyword">for</span> v=1:length(uniquevals)
+0195             matches = strcmp(values,uniquevals{v});
+0196             test_sets{v} = test_material(matches);
+0197         <span class="keyword">end</span>
+0198     <span class="keyword">end</span>
+0199     
+0200     <span class="comment">% optionally re-pack and/or prune the test sets according to the consider clause</span>
+0201     <span class="keyword">if</span> ~strcmp(settings.consider,<span class="string">'each'</span>)
+0202         <span class="comment">% we repack the test sets into groups by unique elements of the 'per' property</span>
+0203         <span class="comment">% and all coarser properties, if any; next: build the list of these properties</span>
+0204         pos = find(strcmp(settings.per,known_granularities));
+0205         <span class="keyword">if</span> ~isempty(pos)
+0206             partition_properties = known_granularities(1:pos);
+0207         <span class="keyword">else</span>
+0208             partition_properties = {settings.per};
+0209         <span class="keyword">end</span>
+0210         
+0211         <span class="comment">% sanity check: make sure that each test set has only one unique 'per' identifier</span>
+0212         <span class="keyword">for</span> k=1:length(test_sets)
+0213             <span class="keyword">if</span> length(unique(cellfun(@(x)<a href="#_sub1" class="code" title="subfunction y = getprops_as_string(x,props)">getprops_as_string</a>(x,partition_properties),test_sets{k},<span class="string">'UniformOutput'</span>,false))) &gt; 1
+0214                 error(<span class="string">'You are trying to operate on your %s''s in groups per %s, but some of the %s''s consist of items in multiple groups. You can likely avoid this problem by specifying including both properties in the ''scope_order'' list at the appropriate place.'</span>); <span class="keyword">end</span>
+0215         <span class="keyword">end</span>
+0216 
+0217         <span class="comment">% now partition by 'per'</span>
+0218         test_groups = {};
+0219         values = cellfun(@(x)<a href="#_sub1" class="code" title="subfunction y = getprops_as_string(x,props)">getprops_as_string</a>(x{1},partition_properties),test_sets,<span class="string">'UniformOutput'</span>,false);
+0220         uniquevals = unique(values);
+0221         <span class="keyword">for</span> v=1:length(uniquevals)
+0222             matches = strcmp(values,uniquevals{v});
+0223             test_groups{v} = test_sets(matches);
+0224         <span class="keyword">end</span>
+0225         
+0226         <span class="comment">% and re-pack/prune to get the final test sets</span>
+0227         test_sets = {};
+0228         <span class="keyword">switch</span> settings.consider
+0229             <span class="keyword">case</span> <span class="string">'all'</span>
+0230                 <span class="comment">% flatten the test groups</span>
+0231                 <span class="keyword">for</span> g=1:length(test_groups)
+0232                     test_sets{g} = [test_groups{g}{:}]; <span class="keyword">end</span>
+0233             <span class="keyword">case</span> <span class="string">'last'</span>
+0234                 <span class="comment">% take only the last set per group (= the one with the highest value for the test_on property)</span>
+0235                 <span class="keyword">for</span> g=1:length(test_groups)
+0236                     idx = argmax(cellfun(@(x)x{1}.(settings.test_on),test_groups{g}));
+0237                     test_sets{g} = [test_groups{g}{idx}];
+0238                 <span class="keyword">end</span>
+0239             <span class="keyword">case</span> <span class="string">'allexceptfirst'</span>
+0240                 <span class="comment">% take all except for the first set per group (= all except for those with the lowest value for the test_on property)</span>
+0241                 <span class="keyword">for</span> g=1:length(test_groups)
+0242                     idx = argmin(cellfun(@(x)x{1}.(settings.test_on),test_groups{g}));
+0243                     test_sets{g} = [test_groups{g}{setdiff(1:<span class="keyword">end</span>,idx)}]; 
+0244                 <span class="keyword">end</span>
+0245             <span class="keyword">otherwise</span>
+0246                 error(<span class="string">'Unsupported ''consider'' clause specified.'</span>);
+0247         <span class="keyword">end</span>
+0248     <span class="keyword">end</span>
+0249     
+0250     
+0251     <span class="comment">% build the final partition</span>
+0252     res = {};
+0253     <span class="keyword">for</span> s=1:length(test_sets)
+0254         testset = test_sets{s};
+0255         <span class="comment">% derive the corresponding training sets</span>
+0256         test_indices = cellfun(@(x)x.tracking_index,testset);
+0257         not_in_test = cellfun(@(x)~ismember(x.tracking_index,test_indices),collection);
+0258         trainset = collection(not_in_test);
+0259         <span class="comment">% get rid of tracking indices</span>
+0260         <span class="keyword">for</span> k=1:length(trainset)
+0261             trainset{k} = rmfield(trainset{k},<span class="string">'tracking_index'</span>); <span class="keyword">end</span>
+0262         <span class="keyword">for</span> k=1:length(testset)
+0263             testset{k} = rmfield(testset{k},<span class="string">'tracking_index'</span>); <span class="keyword">end</span>
+0264         <span class="comment">% also derive the common identifying information of the test sets:</span>
+0265         common_fields = setdiff(fieldnames(testset{1}),{<span class="string">'streams'</span>});
+0266         <span class="keyword">for</span> k=2:length(testset)
+0267             common_fields = intersect(common_fields,fieldnames(testset{k})); <span class="keyword">end</span>
+0268         <span class="keyword">if</span> length(testset) &gt; 1
+0269             <span class="comment">% restrict to those fields that are unique across all test sets</span>
+0270             retain = [];
+0271             <span class="keyword">for</span> c=1:length(common_fields)
+0272                 field = common_fields{c};
+0273                 val = testset{1}.(field);
+0274                 <span class="keyword">if</span> all(cellfun(@(x)isequal_weak(x.(field),val),testset(2:end)))
+0275                     retain(end+1) = c; <span class="keyword">end</span>
+0276             <span class="keyword">end</span>
+0277             common_fields = common_fields(retain);
+0278         <span class="keyword">end</span>
+0279         <span class="comment">% form an identifier struct for the test set; the cross-validation will append the contents</span>
+0280         <span class="comment">% of this cell array as additional arguments into the trainer function</span>
+0281         identifier = [];
+0282         <span class="keyword">for</span> f=1:length(common_fields)
+0283             identifier.(common_fields{f}) = testset{1}.(common_fields{f}); <span class="keyword">end</span>
+0284         <span class="comment">% combine</span>
+0285         res{s} = {trainset,testset,{<span class="string">'goal_identifier'</span>,identifier}};
+0286     <span class="keyword">end</span>
+0287 <span class="keyword">else</span>
+0288     <span class="comment">% otherwise just pass through the index set</span>
+0289     res = inds;
+0290 <span class="keyword">end</span>
+0291 
+0292 <span class="comment">% obtain a string version of values from a struct, for a given cell array of properties</span>
+0293 <a name="_sub1" href="#_subfunctions" class="code">function y = getprops_as_string(x,props)</a>
+0294 y = hlp_tostring(cellfun(@(p)x.(p),props,<span class="string">'UniformOutput'</span>,false));</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

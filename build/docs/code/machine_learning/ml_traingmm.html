@@ -1,0 +1,290 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ml_traingmm</title>
+  <meta name="keywords" content="ml_traingmm">
+  <meta name="description" content="Learn a probabilistic non-linear predictive model using Gaussian Mixture Models.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">machine_learning</a> &gt; ml_traingmm.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/machine_learning&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ml_traingmm
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Learn a probabilistic non-linear predictive model using Gaussian Mixture Models.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function model = ml_traingmm(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Learn a probabilistic non-linear predictive model using Gaussian Mixture Models.
+ Model = ml_traingmm(Trials, Targets, Clusters, Options...)
+ 
+ Gaussian Mixture Models [1] are well-known generative statistical models that can be used for
+ clustering, classification, and density estimation, whereas the provided implementation is
+ primarily targeted at classification. The basics assumption of Gaussian mixture models is that the
+ data (in each class) is a mixture of (relatively few) approximately gaussian-distributed distinct
+ clusters. The optimization methods used for finding these clusters are usually very fragile
+ (compared to, e.g., SVMs, where this problem is bypassed) and give reasonable results when the
+ data is in fact a collection of distinct clusters, each of which deviates not too much from being
+ gaussian, and when there are sufficient samples per cluster, w.r.t. to the total dimensionality of
+ the data. These assumptions are usually only fulfilled when the data of one (or more) class(es)
+ was derived from multiple distinct situations (e.g. walking, driving, waiting) and when either a
+ large number of trials is available, or the dimensionality of the feature space is relatively low,
+ i.e. the features come from a an effective adaptive feature-extraction stage.
+
+ Several variants are supplied, among others &quot;conventional&quot; approaches using, e.g., expectation
+ maximization, which require that the number of clusters is approximately known in advance. These
+ are implemented via the GMMBAYES library [2]. Further, there are &quot;advanced&quot; implementations, where
+ the number of clusters is not needed in advance, but learned from the data, usually using a
+ variant of the Dirichlet process prior, which are implemented using the VDPGM [3] library.
+
+ A benefit of GMMs is that the produced probability are of the highest quality among all methods
+ implemented by the toolbox. For example, data points which are not in any of the previously
+ learned classes typically receive equal probabilities under all classes (which cannot be expected
+ from logistic regression or relevance vector machines). However, due to their restrictions,
+ gaussian mixture models should be viewed as rather specialized classifiers, which should only be
+ relied on when the assumptions are fulfilled.
+
+ In:
+   Trials       : training data, as in ml_train
+
+   Targets      : target variable, as in ml_train
+
+   Clusters     : expected/maximum number of clusters (required for some variants)
+                  default: 3
+
+   Options  : optional name-value parameters to control the training details:
+              'variant': one of several variants, including
+                        &quot;nonparametric&quot; methods:
+                        'avdp': accelerated variational Dirichlet process, ignores Clusters
+                        'vdp' : variational Dirichlet process iterative, using a per-weight prior, 
+                                   more or less uninformative, but numerically more robust than the 'vb' variant
+                        'bj'  : Blei &amp; Jordan
+                        'cdp' : collapsed Dirichlet prior
+                        'csp' : collapsed stick-breaking
+                        conventional parametric methods:
+                        'vb'  : variational Bayes (exact # clusters)
+                        'em'  : expectation-maximization (exact # cluster)
+                        'fj'  : Figueiredo-Jain (max. # clusters)
+                        'gem' : greedy expectation-maximization (max. # clusters)
+              
+              'scaling': pre-scaling of the data (see hlp_findscaling for options) (default: 'std') 
+
+ Out:
+   Model   : a multi-class gaussian mixture model; 
+             classes indicates the class labels which the model predicts
+
+ Examples:
+   % learn a simple Gaussian Mixture model classifier (using an advanced method which learns the 
+   % number of clusters from the data)
+   model = ml_traingmm(trials,targets)
+
+   % use the variational Dirichlet process Gaussian mixture model classifier
+   model = ml_traingmm(trials,targets,[],'variant','vdp')
+
+   % use the simple Expectation-Maximization method, and assume 3 clusters of data points per class
+   model = ml_traingmm(trials,targets,3,'variant','em')
+
+   % like before, but search over possible values for the number of clusters
+   model = utl_searchmodel({trials,targets},'args',{{'gmm',search(1:5),'variant','em'}})
+
+   
+ See also:
+   <a href="ml_predictgmm.html" class="code" title="function pred = ml_predictgmm(trials, model)">ml_predictgmm</a>, gmmb_create
+
+ References:
+   [1] Trevor Hastie and Robert Tibshirani, &quot;Discriminant Analysis by Gaussian Mixtures&quot;
+       Journal of the Royal Statistical Society. Series B (Methodological), Vol. 58, No. 1 (1996), pp. 155..176
+   [2] Nico Vlassis and A. Likas, &quot;A greedy EM algorithm for gaussian mixture learning.&quot;
+       Neural Process. Lett. 15, 1 (2002), 77?87.
+   [3] Kenichi Kurihara, Max Welling and Nikos Vlassis &quot;Accelerated Variational Dirichlet Mixture Models&quot;
+       Advances in Neural Information Processing Systems 19 (NIPS 2006).
+
+                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                           2010-04-05</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function model = ml_traingmm(varargin)</a>
+0002 <span class="comment">% Learn a probabilistic non-linear predictive model using Gaussian Mixture Models.</span>
+0003 <span class="comment">% Model = ml_traingmm(Trials, Targets, Clusters, Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Gaussian Mixture Models [1] are well-known generative statistical models that can be used for</span>
+0006 <span class="comment">% clustering, classification, and density estimation, whereas the provided implementation is</span>
+0007 <span class="comment">% primarily targeted at classification. The basics assumption of Gaussian mixture models is that the</span>
+0008 <span class="comment">% data (in each class) is a mixture of (relatively few) approximately gaussian-distributed distinct</span>
+0009 <span class="comment">% clusters. The optimization methods used for finding these clusters are usually very fragile</span>
+0010 <span class="comment">% (compared to, e.g., SVMs, where this problem is bypassed) and give reasonable results when the</span>
+0011 <span class="comment">% data is in fact a collection of distinct clusters, each of which deviates not too much from being</span>
+0012 <span class="comment">% gaussian, and when there are sufficient samples per cluster, w.r.t. to the total dimensionality of</span>
+0013 <span class="comment">% the data. These assumptions are usually only fulfilled when the data of one (or more) class(es)</span>
+0014 <span class="comment">% was derived from multiple distinct situations (e.g. walking, driving, waiting) and when either a</span>
+0015 <span class="comment">% large number of trials is available, or the dimensionality of the feature space is relatively low,</span>
+0016 <span class="comment">% i.e. the features come from a an effective adaptive feature-extraction stage.</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">% Several variants are supplied, among others &quot;conventional&quot; approaches using, e.g., expectation</span>
+0019 <span class="comment">% maximization, which require that the number of clusters is approximately known in advance. These</span>
+0020 <span class="comment">% are implemented via the GMMBAYES library [2]. Further, there are &quot;advanced&quot; implementations, where</span>
+0021 <span class="comment">% the number of clusters is not needed in advance, but learned from the data, usually using a</span>
+0022 <span class="comment">% variant of the Dirichlet process prior, which are implemented using the VDPGM [3] library.</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">% A benefit of GMMs is that the produced probability are of the highest quality among all methods</span>
+0025 <span class="comment">% implemented by the toolbox. For example, data points which are not in any of the previously</span>
+0026 <span class="comment">% learned classes typically receive equal probabilities under all classes (which cannot be expected</span>
+0027 <span class="comment">% from logistic regression or relevance vector machines). However, due to their restrictions,</span>
+0028 <span class="comment">% gaussian mixture models should be viewed as rather specialized classifiers, which should only be</span>
+0029 <span class="comment">% relied on when the assumptions are fulfilled.</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">% In:</span>
+0032 <span class="comment">%   Trials       : training data, as in ml_train</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">%   Targets      : target variable, as in ml_train</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">%   Clusters     : expected/maximum number of clusters (required for some variants)</span>
+0037 <span class="comment">%                  default: 3</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%   Options  : optional name-value parameters to control the training details:</span>
+0040 <span class="comment">%              'variant': one of several variants, including</span>
+0041 <span class="comment">%                        &quot;nonparametric&quot; methods:</span>
+0042 <span class="comment">%                        'avdp': accelerated variational Dirichlet process, ignores Clusters</span>
+0043 <span class="comment">%                        'vdp' : variational Dirichlet process iterative, using a per-weight prior,</span>
+0044 <span class="comment">%                                   more or less uninformative, but numerically more robust than the 'vb' variant</span>
+0045 <span class="comment">%                        'bj'  : Blei &amp; Jordan</span>
+0046 <span class="comment">%                        'cdp' : collapsed Dirichlet prior</span>
+0047 <span class="comment">%                        'csp' : collapsed stick-breaking</span>
+0048 <span class="comment">%                        conventional parametric methods:</span>
+0049 <span class="comment">%                        'vb'  : variational Bayes (exact # clusters)</span>
+0050 <span class="comment">%                        'em'  : expectation-maximization (exact # cluster)</span>
+0051 <span class="comment">%                        'fj'  : Figueiredo-Jain (max. # clusters)</span>
+0052 <span class="comment">%                        'gem' : greedy expectation-maximization (max. # clusters)</span>
+0053 <span class="comment">%</span>
+0054 <span class="comment">%              'scaling': pre-scaling of the data (see hlp_findscaling for options) (default: 'std')</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">% Out:</span>
+0057 <span class="comment">%   Model   : a multi-class gaussian mixture model;</span>
+0058 <span class="comment">%             classes indicates the class labels which the model predicts</span>
+0059 <span class="comment">%</span>
+0060 <span class="comment">% Examples:</span>
+0061 <span class="comment">%   % learn a simple Gaussian Mixture model classifier (using an advanced method which learns the</span>
+0062 <span class="comment">%   % number of clusters from the data)</span>
+0063 <span class="comment">%   model = ml_traingmm(trials,targets)</span>
+0064 <span class="comment">%</span>
+0065 <span class="comment">%   % use the variational Dirichlet process Gaussian mixture model classifier</span>
+0066 <span class="comment">%   model = ml_traingmm(trials,targets,[],'variant','vdp')</span>
+0067 <span class="comment">%</span>
+0068 <span class="comment">%   % use the simple Expectation-Maximization method, and assume 3 clusters of data points per class</span>
+0069 <span class="comment">%   model = ml_traingmm(trials,targets,3,'variant','em')</span>
+0070 <span class="comment">%</span>
+0071 <span class="comment">%   % like before, but search over possible values for the number of clusters</span>
+0072 <span class="comment">%   model = utl_searchmodel({trials,targets},'args',{{'gmm',search(1:5),'variant','em'}})</span>
+0073 <span class="comment">%</span>
+0074 <span class="comment">%</span>
+0075 <span class="comment">% See also:</span>
+0076 <span class="comment">%   ml_predictgmm, gmmb_create</span>
+0077 <span class="comment">%</span>
+0078 <span class="comment">% References:</span>
+0079 <span class="comment">%   [1] Trevor Hastie and Robert Tibshirani, &quot;Discriminant Analysis by Gaussian Mixtures&quot;</span>
+0080 <span class="comment">%       Journal of the Royal Statistical Society. Series B (Methodological), Vol. 58, No. 1 (1996), pp. 155..176</span>
+0081 <span class="comment">%   [2] Nico Vlassis and A. Likas, &quot;A greedy EM algorithm for gaussian mixture learning.&quot;</span>
+0082 <span class="comment">%       Neural Process. Lett. 15, 1 (2002), 77?87.</span>
+0083 <span class="comment">%   [3] Kenichi Kurihara, Max Welling and Nikos Vlassis &quot;Accelerated Variational Dirichlet Mixture Models&quot;</span>
+0084 <span class="comment">%       Advances in Neural Information Processing Systems 19 (NIPS 2006).</span>
+0085 <span class="comment">%</span>
+0086 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0087 <span class="comment">%                           2010-04-05</span>
+0088 
+0089 arg_define([0 3],varargin, <span class="keyword">...</span>
+0090     arg_norep(<span class="string">'trials'</span>), <span class="keyword">...</span>
+0091     arg_norep(<span class="string">'targets'</span>), <span class="keyword">...</span>
+0092     arg({<span class="string">'clusters'</span>,<span class="string">'NumClusters'</span>}, 3, [], <span class="string">'Expected/maximum number of clusters. Required for some variants (vb,em,fj,gem).'</span>), <span class="keyword">...</span>
+0093     arg({<span class="string">'variant'</span>,<span class="string">'Variant'</span>}, <span class="string">'Accelerated Variational Dirichlet Process'</span>, {<span class="string">'Accelerated Variational Dirichlet Process'</span>,<span class="string">'Variational Dirichlet Process'</span>,<span class="string">'Blei-Jordan'</span>,<span class="string">'Collapsed Dirichlet Process'</span>,<span class="string">'Collapsed Stick-Breaking'</span>,<span class="string">'Variational Bayes'</span>,<span class="string">'Expectation-Maximization'</span>,<span class="string">'Figuriedo-Jain'</span>,<span class="string">'Greedy Expectation=Maximization'</span>}, [<span class="string">'Variant to use. Non-parametric methods: Accelerated Variational Dirichlet Process, Variational Dirichlet Process, Blei &amp; Jordan''s method, Collapsed Dirichlet Prior, '</span> <span class="keyword">...</span>
+0094                                                                                               <span class="string">'Collasped Stick-Breaking construction. Conventional Methods: Variational Bayes, Expectation-Maximiation, Figuriedo-Jain, Greedy Expectation-Maximization.'</span>]), <span class="keyword">...</span>
+0095     arg({<span class="string">'scaling'</span>,<span class="string">'Scaling'</span>}, <span class="string">'std'</span>, {<span class="string">'none'</span>,<span class="string">'center'</span>,<span class="string">'std'</span>,<span class="string">'minmax'</span>,<span class="string">'whiten'</span>}, <span class="string">'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.'</span>), <span class="keyword">...</span>
+0096     arg({<span class="string">'is_verbose'</span>,<span class="string">'Verbose'</span>,<span class="string">'verbose'</span>},false,[],<span class="string">'Verbose outputs.'</span>));
+0097 
+0098 <span class="comment">% scale the data</span>
+0099 sc_info = hlp_findscaling(trials,scaling); <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0100 trials = hlp_applyscaling(trials,sc_info);
+0101 
+0102 <span class="comment">% identify and remap the classes</span>
+0103 classes = unique(targets);
+0104 <span class="comment">% remap target labels to 1..k (bias is added later)</span>
+0105 targ = targets;
+0106 <span class="keyword">for</span> c=1:length(classes)
+0107     targets(targ==classes(c)) = c; <span class="keyword">end</span>
+0108 <span class="keyword">if</span> length(classes) == 1
+0109     error(<span class="string">'BCILAB:only_one_class'</span>,<span class="string">'Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.'</span>); <span class="keyword">end</span>
+0110 
+0111 variant = hlp_rewrite(variant,<span class="string">'Accelerated Variational Dirichlet Process'</span>,<span class="string">'avdp'</span>,<span class="string">'Variational Dirichlet Process'</span>,<span class="string">'vdp'</span>,<span class="string">'Blei-Jordan'</span>,<span class="string">'bj'</span>,<span class="string">'Collapsed Dirichlet Process'</span>,<span class="string">'cdp'</span>,<span class="string">'Collapsed Stick-Breaking'</span>,<span class="string">'csb'</span>,<span class="string">'Variational Bayes'</span>,<span class="string">'vb'</span>,<span class="string">'Expectation-Maximization'</span>,<span class="string">'em'</span>,<span class="string">'Figuriedo-Jain'</span>,<span class="string">'fj'</span>,<span class="string">'Greedy Expectation=Maximization'</span>,<span class="string">'gem'</span>);
+0112 
+0113 
+0114 <span class="comment">% back up the rand state</span>
+0115 <span class="keyword">if</span> any(strcmp(variant,{<span class="string">'em'</span>,<span class="string">'gem'</span>,<span class="string">'fj'</span>}))
+0116     oldstate = rand(<span class="string">'state'</span>); <span class="comment">%#ok&lt;RAND&gt;</span>
+0117     c = onCleanup(@() rand(<span class="string">'state'</span>,oldstate)); <span class="comment">%#ok&lt;RAND&gt;</span>
+0118     rand(<span class="string">'seed'</span>,1337); <span class="comment">%#ok&lt;RAND&gt;</span>
+0119 <span class="keyword">end</span>
+0120 
+0121 <span class="keyword">switch</span> variant
+0122     <span class="keyword">case</span> {<span class="string">'avdp'</span>,<span class="string">'vdp'</span>,<span class="string">'bj'</span>,<span class="string">'bjrnd'</span>,<span class="string">'cdp'</span>,<span class="string">'csb'</span>,<span class="string">'vb'</span>}
+0123         warning off MATLAB:divideByZero
+0124         <span class="keyword">if</span> any(strcmp(variant,{<span class="string">'avdp'</span>,<span class="string">'vdp'</span>}))
+0125             opts = hlp_diskcache(<span class="string">'predictivemodels'</span>,@feval,[<span class="string">'mkopts_'</span> variant]);
+0126         <span class="keyword">else</span>
+0127             opts = hlp_diskcache(<span class="string">'predictivemodels'</span>,@feval,[<span class="string">'mkopts_'</span> variant], clusters);
+0128         <span class="keyword">end</span>
+0129         opts.get_q_of_z = 1;
+0130         opts.seed = 1337;
+0131         <span class="keyword">for</span> c=1:length(classes)
+0132             model.data{c} = trials(targets==c,:);
+0133             <span class="keyword">if</span> is_verbose
+0134                 model.class{c} = hlp_diskcache(<span class="string">'predictivemodels'</span>,@vdpgm,model.data{c}',opts);
+0135             <span class="keyword">else</span>
+0136                 [t,model.class{c}] = evalc(<span class="string">'hlp_diskcache(''predictivemodels'',@vdpgm,model.data{c}'',opts)'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0137             <span class="keyword">end</span>
+0138         <span class="keyword">end</span>
+0139     <span class="keyword">case</span> <span class="string">'em'</span>
+0140         warning off gmmb_em:data_amount
+0141         model.class = hlp_diskcache(<span class="string">'predictivemodels'</span>,@gmmb_create,trials, targets, <span class="string">'EM'</span>, <span class="string">'components'</span>, clusters);
+0142     <span class="keyword">case</span> <span class="string">'fj'</span>
+0143         warning off gmmb_fj:data_amount
+0144         model.class = hlp_diskcache(<span class="string">'predictivemodels'</span>,@gmmb_create,trials, targets, <span class="string">'FJ'</span>, <span class="string">'Cmax'</span>, clusters);
+0145     <span class="keyword">case</span> <span class="string">'gem'</span>
+0146         warning off gmmb_gem:data_amount
+0147         model.class = hlp_diskcache(<span class="string">'predictivemodels'</span>,@gmmb_create,trials, targets, <span class="string">'GEM'</span>, <span class="string">'Cmax'</span>, clusters);
+0148     <span class="keyword">otherwise</span>
+0149         error(<span class="string">'unknown variant specified'</span>);
+0150 <span class="keyword">end</span>
+0151 
+0152 <span class="comment">% recover the rand state</span>
+0153 <span class="keyword">if</span> exist(<span class="string">'oldstate'</span>,<span class="string">'var'</span>)
+0154     rand(<span class="string">'state'</span>,oldstate); <span class="keyword">end</span> <span class="comment">%#ok&lt;RAND&gt;</span>
+0155 
+0156 model.classes = classes;
+0157 model.sc_info = sc_info;
+0158 model.variant = variant;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

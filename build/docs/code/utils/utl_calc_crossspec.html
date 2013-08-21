@@ -1,0 +1,222 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_calc_crossspec</title>
+  <meta name="keywords" content="utl_calc_crossspec">
+  <meta name="description" content="Compute (average) multi-taper cross-spectrum (frequencies x channels x channels) across trials">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_calc_crossspec.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_calc_crossspec
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Compute (average) multi-taper cross-spectrum (frequencies x channels x channels) across trials</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [result,result2] = utl_calc_crossspec(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Compute (average) multi-taper cross-spectrum (frequencies x channels x channels) across trials
+ [CrossSpec,WeightedCrossSpec] = utl_calc_crossspec(Signal,FrequencyRange,TimeBandwidth,Tapers,Padding,SubsampleSpectrum,RobustEstimation,SumWeights,FilteredSubsampling,FeatureFilters)
+
+ In:
+   Signal : epoched EEGLAB data set struct to analyze
+
+   FrequencyRange : Frequency range of interest. This is the overall frequency range within which
+                    to compute the cross spectrum. (default: [1 45])
+
+   TimeBandwidth : Spectral smoothing. Controls the bias vs. variance of the spectral estimation.
+                   Reasonable values are 1 to 3 (1 being fairly noisy, and 3 being fairly smooth 
+                   but 5x slower) (default: 5)
+
+   Tapers : Number of tapers. Should be an integer smaller than 2*TimeBandwith; 
+            (default: 2*TimeBandwidth-1)
+
+   Padding : FFT padding factor. Controls the oversampling of the spectrum; 0 is the next largest
+             power of two, 1 is 2x as much, etc. (default: 0)
+
+   SubsampleSpectrum : Sub-sample the spectrum. This is the factor by which to sub-sample.
+                       (default: 1)
+
+   RobustEstimation : Robust cross-spectral estimation. Whether cross-spectral matrices should be
+                      aggregated across trials in a robust manner (default: false)
+
+   SumWeights : Weights for weighted averaging. If passed, the weighted average cross-spectrum will
+                be returned as a second output. (default: [])
+
+   FilteredSubsampling : Use a filter prior to sub-sampling. Slower but yields a better spectral
+                         estimate. (default: false)
+
+   FeatureFilters : Filter tensor for feature extraction. If empty, average cross-spectra are
+                    computed. If false, the raw cross-spectra are returned.
+
+ Out:
+   CrossSpec : the resulting cross-spectrum
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2013-04-15</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [result,result2] = utl_calc_crossspec(varargin)</a>
+0002 <span class="comment">% Compute (average) multi-taper cross-spectrum (frequencies x channels x channels) across trials</span>
+0003 <span class="comment">% [CrossSpec,WeightedCrossSpec] = utl_calc_crossspec(Signal,FrequencyRange,TimeBandwidth,Tapers,Padding,SubsampleSpectrum,RobustEstimation,SumWeights,FilteredSubsampling,FeatureFilters)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Signal : epoched EEGLAB data set struct to analyze</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">%   FrequencyRange : Frequency range of interest. This is the overall frequency range within which</span>
+0009 <span class="comment">%                    to compute the cross spectrum. (default: [1 45])</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">%   TimeBandwidth : Spectral smoothing. Controls the bias vs. variance of the spectral estimation.</span>
+0012 <span class="comment">%                   Reasonable values are 1 to 3 (1 being fairly noisy, and 3 being fairly smooth</span>
+0013 <span class="comment">%                   but 5x slower) (default: 5)</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%   Tapers : Number of tapers. Should be an integer smaller than 2*TimeBandwith;</span>
+0016 <span class="comment">%            (default: 2*TimeBandwidth-1)</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   Padding : FFT padding factor. Controls the oversampling of the spectrum; 0 is the next largest</span>
+0019 <span class="comment">%             power of two, 1 is 2x as much, etc. (default: 0)</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   SubsampleSpectrum : Sub-sample the spectrum. This is the factor by which to sub-sample.</span>
+0022 <span class="comment">%                       (default: 1)</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   RobustEstimation : Robust cross-spectral estimation. Whether cross-spectral matrices should be</span>
+0025 <span class="comment">%                      aggregated across trials in a robust manner (default: false)</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">%   SumWeights : Weights for weighted averaging. If passed, the weighted average cross-spectrum will</span>
+0028 <span class="comment">%                be returned as a second output. (default: [])</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%   FilteredSubsampling : Use a filter prior to sub-sampling. Slower but yields a better spectral</span>
+0031 <span class="comment">%                         estimate. (default: false)</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%   FeatureFilters : Filter tensor for feature extraction. If empty, average cross-spectra are</span>
+0034 <span class="comment">%                    computed. If false, the raw cross-spectra are returned.</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">% Out:</span>
+0037 <span class="comment">%   CrossSpec : the resulting cross-spectrum</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0040 <span class="comment">%                                2013-04-15</span>
+0041 
+0042 <span class="comment">% utl_calc_crossspec_version&lt;1.2&gt; -- for the cache</span>
+0043 
+0044 args = arg_define(varargin, <span class="keyword">...</span>
+0045     arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
+0046     arg({<span class="string">'freqwnd'</span>,<span class="string">'FrequencyRange'</span>},[1 45],[],<span class="string">'Frequency range of interest. This is the overall frequency range within which to compute the cross spectrum.'</span>), <span class="keyword">...</span>
+0047     arg({<span class="string">'bandwidth'</span>,<span class="string">'TimeBandwidth'</span>},5,[],<span class="string">'Spectral smoothing. Controls the bias vs. variance of the spectral estimation. Reasonable values are 1 to 3 (1 being fairly noisy, and 3 being fairly smooth but 5x slower)'</span>), <span class="keyword">...</span>
+0048     arg({<span class="string">'tapers'</span>,<span class="string">'Tapers'</span>},[],[],<span class="string">'Number of tapers. Should be an integer smaller than 2*TimeBandwith; default 2*TimeBandwidth-1'</span>), <span class="keyword">...</span>
+0049     arg({<span class="string">'padding'</span>,<span class="string">'Padding'</span>},0,[],<span class="string">'FFT padding factor. Controls the oversampling of the spectrum; 0 is the next largest power of two, 1 is 2x as much, etc.'</span>), <span class="keyword">...</span>
+0050     arg({<span class="string">'subsample_spectrum'</span>,<span class="string">'SubsampleSpectrum'</span>},1,[],<span class="string">'Sub-sample the spectrum. This is according to the TimeBandwidth parameter.'</span>), <span class="keyword">...</span>
+0051     arg({<span class="string">'robust_estimation'</span>,<span class="string">'RobustEstimation'</span>},false,[],<span class="string">'Robust cross-spectral estimation. Whether cross-spectral matrices should be aggregated across trials in a robust manner.'</span>), <span class="keyword">...</span>
+0052     arg({<span class="string">'sum_weights'</span>,<span class="string">'SumWeights'</span>}, [],[],<span class="string">'Weights for weighted averaging. If passed, the weighted average cross-spectrum will be returned as a second output.'</span>), <span class="keyword">...</span>
+0053     arg({<span class="string">'filtered_subsampling'</span>,<span class="string">'FilteredSubsampling'</span>},false,[],<span class="string">'Use a filter prior to sub-sampling. Slower but yields a better spectral estimate.'</span>), <span class="keyword">...</span>
+0054     arg_nogui({<span class="string">'feature_filters'</span>,<span class="string">'FeatureFilters'</span>}, [],[],<span class="string">'Filter tensor for feature extraction. If empty, average cross-spectra are computed. If false, the raw cross-spectra are returned.'</span>));
+0055 
+0056 signal = args.signal;
+0057 signal.data = double(signal.data);
+0058 <span class="keyword">if</span> isempty(args.tapers)    
+0059     args.tapers = 2*args.bandwidth-1; <span class="keyword">end</span>
+0060 <span class="keyword">if</span> args.subsample_spectrum &gt; 1
+0061     N = 2 * args.subsample_spectrum;
+0062     wnd = 0.5 * (1-cos(2*pi*(0:(N-1))/(N-1)));
+0063 <span class="keyword">end</span>
+0064 
+0065 [C,S,T] = size(signal.data); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0066 <span class="keyword">if</span> ~isempty(args.feature_filters)
+0067     <span class="keyword">if</span> ~isequal(args.feature_filters,false)
+0068         <span class="comment">% apply feature-extraction filters</span>
+0069         flts = permute(args.feature_filters,[2 3 1]);
+0070         <span class="keyword">for</span> t = T:-1:1
+0071             <span class="comment">% calculate single-trial cross-spectrum</span>
+0072             cs = abs(CrossSpecMatc(signal.data(:,:,t)',signal.pnts/signal.srate,struct(<span class="string">'tapers'</span>,[2*args.bandwidth args.tapers],<span class="string">'pad'</span>,args.padding,<span class="string">'Fs'</span>,signal.srate,<span class="string">'fpass'</span>,args.freqwnd)));
+0073             <span class="comment">% filter and sub-sample</span>
+0074             <span class="keyword">if</span> args.subsample_spectrum &gt; 1 &amp;&amp; args. filtered_subsampling
+0075                 cs = filter(wnd,1,cs,1); <span class="keyword">end</span>
+0076             cs = permute(cs(1:args.subsample_spectrum:<span class="keyword">end</span>,:,:),[2 3 1]);
+0077             <span class="comment">% extract spectral features</span>
+0078             <span class="keyword">for</span> f=size(cs,3):-1:1
+0079                 result(f,:,t) = log(diag(flts(:,:,f)' * cs(:,:,f) * flts(:,:,f))); <span class="keyword">end</span>
+0080         <span class="keyword">end</span>
+0081     <span class="keyword">else</span>
+0082         <span class="comment">% emit raw cross-spectra</span>
+0083         <span class="keyword">for</span> t = T:-1:1
+0084             cs = abs(CrossSpecMatc(signal.data(:,:,t)',signal.pnts/signal.srate,struct(<span class="string">'tapers'</span>,[2*args.bandwidth args.tapers],<span class="string">'pad'</span>,args.padding,<span class="string">'Fs'</span>,signal.srate,<span class="string">'fpass'</span>,args.freqwnd)));
+0085             <span class="keyword">if</span> args.subsample_spectrum &gt; 1 &amp;&amp; args.filtered_subsampling
+0086                 cs = filter(wnd,1,cs); <span class="keyword">end</span>
+0087             spec(:,:,:,t) = cs(1:args.subsample_spectrum:<span class="keyword">end</span>,:,:);
+0088         <span class="keyword">end</span>
+0089         result = spec;
+0090     <span class="keyword">end</span>
+0091 <span class="keyword">else</span>
+0092     <span class="keyword">if</span> ~args.robust_estimation
+0093         <span class="comment">% average the resampled cross-spectra on the fly</span>
+0094         <span class="keyword">if</span> ~isempty(args.sum_weights) &amp;&amp; length(args.sum_weights) ~= T
+0095             error(<span class="string">'BCILAB:utl_calc_crossspec:incompatible_lengths'</span>,<span class="string">'The length of the SumWeights parameter needs to be equal to the number of trials in the data'</span>); <span class="keyword">end</span>            
+0096         meanspec = [];
+0097         weightedspec = [];
+0098         <span class="keyword">for</span> t = 1:T
+0099             cs = abs(CrossSpecMatc(signal.data(:,:,t)',signal.pnts/signal.srate,struct(<span class="string">'tapers'</span>,[2*args.bandwidth args.tapers],<span class="string">'pad'</span>,args.padding,<span class="string">'Fs'</span>,signal.srate,<span class="string">'fpass'</span>,args.freqwnd)));
+0100             <span class="comment">% filter and sub-sample</span>
+0101             <span class="keyword">if</span> args.subsample_spectrum &gt; 1 &amp;&amp; args. filtered_subsampling
+0102                 cs = filter(wnd,1,cs,1); <span class="keyword">end</span>
+0103             cs = cs(1:args.subsample_spectrum:<span class="keyword">end</span>,:,:);
+0104             <span class="keyword">if</span> isempty(meanspec)
+0105                 meanspec = cs;
+0106             <span class="keyword">else</span>
+0107                 meanspec = meanspec + cs;
+0108             <span class="keyword">end</span>
+0109             <span class="keyword">if</span> ~isempty(args.sum_weights)
+0110                 <span class="keyword">if</span> isempty(weightedspec)
+0111                     weightedspec = cs*args.sum_weights(t);
+0112                 <span class="keyword">else</span>
+0113                     weightedspec = weightedspec + cs*args.sum_weights(t);
+0114                 <span class="keyword">end</span>
+0115             <span class="keyword">end</span>
+0116         <span class="keyword">end</span>
+0117         result = meanspec/size(signal.data,3);
+0118         <span class="keyword">if</span> ~isempty(args.sum_weights)
+0119             result2 = weightedspec; <span class="keyword">end</span>
+0120     <span class="keyword">else</span>
+0121         <span class="keyword">if</span> ~isempty(args.sum_weights)
+0122             error(<span class="string">'Robust weighted averaging is not yet implemented.'</span>); <span class="keyword">end</span>
+0123         <span class="comment">% first generate the cross-spectra, then take a geometric median over them</span>
+0124         <span class="keyword">for</span> t = T:-1:1
+0125             cs = abs(CrossSpecMatc(signal.data(:,:,t)',signal.pnts/signal.srate,struct(<span class="string">'tapers'</span>,[2*args.bandwidth args.tapers],<span class="string">'pad'</span>,args.padding,<span class="string">'Fs'</span>,signal.srate,<span class="string">'fpass'</span>,args.freqwnd)));
+0126             <span class="comment">% filter and sub-sample</span>
+0127             <span class="keyword">if</span> args.subsample_spectrum &gt; 1 &amp;&amp; args. filtered_subsampling
+0128                 cs = filter(wnd,1,cs,1); <span class="keyword">end</span>
+0129             spec(:,:,:,t) = cs(1:args.subsample_spectrum:<span class="keyword">end</span>,:,:);
+0130         <span class="keyword">end</span>
+0131         <span class="keyword">for</span> f=size(spec,1):-1:1
+0132             fspec = reshape(permute(spec(f,:,:,:),[4 2 3 1]),T,C*C);
+0133             medspec(f,:,:) = reshape(geometric_median(fspec,1.e-5,mean(fspec)),C,C);
+0134         <span class="keyword">end</span>
+0135         result = medspec;
+0136     <span class="keyword">end</span>
+0137 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

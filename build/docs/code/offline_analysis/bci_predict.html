@@ -1,0 +1,435 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of bci_predict</title>
+  <meta name="keywords" content="bci_predict">
+  <meta name="description" content="Apply a predictive model to some data and optionally measure its performance.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">offline_analysis</a> &gt; bci_predict.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/offline_analysis&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>bci_predict
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Apply a predictive model to some data and optionally measure its performance.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [prediction, measure, stats, target] = bci_predict(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Apply a predictive model to some data and optionally measure its performance.
+ [Prediction, Loss, Statistics, Target] = bci_predict(Model,Data,TargetMarkers,EvaluationMetric)
+
+ Let a model make predictions of cognitive state on a data set (usually with known target values),
+ yielding one prediction per trial in the data, as well as the average empirical loss, if the data
+ set has an attached target variable.
+
+ bci_predict is used to obtain and/or evaluate the outputs of a predictive model on a recorded
+ (usually raw) data set. Predictions are made for every trial in the data set, where trials are
+ derived from the data in the same way as was used when the model was originally calibrated. For
+ example, if the model was calibrated w.r.t. events of certain types in the calibration set (using
+ the 'events' parameter of the paradigm), trials will be extracted for these same events in the
+ supplied data set, as well. In the typical case where a target variable can be derived from the
+ data set in this way (e.g. via the 'event' clause passed to bci_train - see bci_train), then the
+ predictions of the model are compared with the defined target values, and an average loss is
+ computed (and returned as the second output). This loss measure has the same meaning as in
+ bci_train, and can be customized via the 'metric' parameter, either as one of the predefined
+ losses (described in detail in machine_learning/ml_calcloss), or as a user-supplied custom
+ function. By default, the most appropriate loss is automatically selected depending on the types
+ of target and prediction values (mis-classification rate for categorical target values,
+ mean-square error for continuous target values, etc.), so that user intervention is rarely needed.
+
+ For advanced use, the actual predictions for every trial in the data are returned, as well as the
+ defined target values in the data set (if available). The format of the targets depends on the
+ procedure by which they were assigned to the data (e.g., when the 'events' clause was used to
+ assign target values to certain events, targets is a numerical vector of class numbers, e.g. [1 2
+ 2 1 4 1 3 2 3 2 1] for some hypothetical 4-class data set with 11 trials). The format of the
+ predictions depends on the format of the targets (e.g., whether they were categorical values or
+ continuous values, usually the former), and the capabilities of the 'learner' component of the
+ paradigm. A detailed exposition of the possibilities is given in machine_learning/ml_predict.
+
+ Almost all learners produce discrete probability distributions for categorical targets, so this is
+ the format of the predictions in 90% of the situations. A sequence of discrete probability
+ distributions (one per trial) as produced by bci_predict is formatted as a MATLAB cell array with
+ the three entries {'disc', Probabilities, Classes}. 'disc' is the format tag of the predictions
+ and indicates discrete probabilities, Probabilities is an array of probabilities for each trial
+ and class, with # of trials rows and # of classes columns, i.e. it has size [NxC], and Classes is
+ a column vector which specifies the desired target value for each of the C classes, in the same
+ order as the rows in Probabilities. For this reason, the expected target value for any trial is
+ pred{2}*pred{3}, and the most likely target value for any trial can be obtained as
+ pred{3}(argmax(pred{2}')), if pred are the predictions return by bci_predict.
+
+ In addition, further statistics are returned, which may contain additional values (e.g. false
+ positive rate in the case of binary classification).
+
+ Example:
+
+   % load a calibration data set
+   calib = io_loadset('data sets/john/gestures.eeg')
+   % train a model (see bci_train for an explanation of this stage)...
+   [loss,model,stats] = bci_train({'data',calib, 'paradigm',@para_csp}, 'events',{'left-imag','right-imag','rest'})
+   
+   % load a test data set
+   testdata = io_loadset('data sets/john/gestures2.eeg')
+
+   % and apply the model on that data set to get predictions and a loss estimate...
+   [predictions,loss2,stats2,targets] = bci_predict(model,testdata);
+
+ The application of the model results in predictions for every of its trials, an empirical average
+ loss measure, statistics, and the original target values for every trial in the test data. This is
+ under the assumption that the file gestures2 contains markers 'left-imag', 'right-imag', 'rest',
+ just like the first data set, so that a loss (deviation from desired outcomes) can be computed.
+ Note that applying a model to its own calibration data set gives overly optimistic results, and is
+ usually scientifically invalid.
+
+
+ A less common use case is to exchange the default preprocessing that is applied by a paradigm by
+ some alternative preprocessing (for example, one which slighty deviates from the model's settings,
+ or a manually implemented one, or the by the preprocessing of an entirely different model). To
+ this end, not the raw data is passed to bci_predict, but instead data that was manually processed,
+ for example using bci_preproc (see bci_preproc). In the follwing example, a test data set is
+ loaded (as in the previous sample), but it is manually preprocessed using the model's defined
+ preprocessing, with re-customized options (here: 'events', to define how trials are to be
+ extracted). We assume that the data contains events of the type 'user-action' whenever the user
+ performs a (not further known) action, such as one of the imagined hand gestures.
+  
+   testdata = io_loadset('data sets/john/unknown_gestures.eeg')
+   testdataproc = bci_preproc(testdata, model, 'events',{'user-action'})
+   predictions = bci_predict(model, testdataproc, 'process',0);
+
+   disp('the user performed the following actions: ' num2str(predictions{2}(argmax(predictions{3}')))]);
+
+ In this case, we obtain predictions for every trial of the data (this time relative to events of
+ the type 'user-action'), whereas the the predictions will still be either 1,2, or 3, since the
+ predictive part of the model has not been changed. Further, since the activity of the user was not
+ known a priori, a meaningful loss cannot be computed. Note that if the preprocessing of the model
+ contains filters that are adaptively tuned to the data (such as ICA), this strategy will give
+ unexpected results, because bci_preproc re-runs the preprocessing (i.e. readapts the filters) for
+ the test data, which gives intermediate values that are not expected by the rest of the model.
+
+ For these reasons, the recommended way to obtain predictions for a data set at the times of
+ arbitrary events, or in arbitrary intervals, is to use onl_stream, which streams the given raw
+ data set into the model and obtains predictions at the desired time points. bci_predict should
+ only be used to evaluate the performance of models on data set where the desired outcomes are
+ known and encoded in the same way as in the respective calibration data set of the used model
+ (i.e. for pure offline analyses). See onl_stream for further details.
+
+
+ In:
+   Model  : a predictive model, as produced by bci_train
+
+   Data   : a raw data set from which to derive predictions; may also be a stream bundle
+
+   TargetMarkers : Target markers. By default as in the Model. Otherwise, this is a list of types
+                   of those markers around which data shall be used for BCI calibration; each
+                   marker type encodes a different target class (i.e. desired output value) to be
+                   learned by the resulting BCI model. See also help of <a href="bci_train.html" class="code" title="function [measure,model,stats] = bci_train(varargin)">bci_train</a>.
+
+   EvaluationMetric : Evaluation metric. The metric to use in the assessment of model performance
+                      (via cross-validation). Can be empty, a string, or a function handle.
+                      See ml_calcloss() for the options (default: [] = auto-select between
+                      kullback-leibler divergence ('kld'), mean square error ('mse'), mis-classification
+                      rate ('mcr') and negative log-likelihood ('nll') depending on the type of the
+                      target and prediction variables, further detailed in ml_calcloss())
+
+   Format       : format of the prediction; see utl_formatprediction (default: 'raw')
+
+   EventField : Event field to search for target markers. By default as in the Model.
+
+
+ Out:
+   Prediction : the target variable as predicted by the model for every index in the data set
+
+   Loss       : a measure of the average loss of the model, w.r.t. to the target variable (as
+                evaluation; the allowed format is anything)
+
+   Stats      : additional statistics, as produced by the metric
+
+   Target     : original target variable, as determined by the target function
+
+ Examples:
+   % given a predictive model and a continuous data set with markers that are compatible to those
+   % that were used for training, derive per-epoch/per-marker BCI outputsm and estimate the loss
+   % plus additional statistics
+   [predictions,loss,stats] = bci_predict(model,data)
+
+   % as before, but use a custom metric (here: mean-square error)
+   [predictions,loss,stats] = bci_predict('Data',data, 'Model',model, 'EvaluationMetric','mse')
+
+ See also:
+   <a href="bci_predict.html" class="code" title="function [prediction, measure, stats, target] = bci_predict(varargin)">bci_predict</a>, <a href="bci_annotate.html" class="code" title="function data = bci_annotate(varargin)">bci_annotate</a>, onl_newpredictor, io_loadset
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-05-24</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function result = has_stats(metric)</a></li><li><a href="#_sub2" class="code">function [result,stats] = add_stats(result)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [prediction, measure, stats, target] = bci_predict(varargin)</a>
+0002 <span class="comment">% Apply a predictive model to some data and optionally measure its performance.</span>
+0003 <span class="comment">% [Prediction, Loss, Statistics, Target] = bci_predict(Model,Data,TargetMarkers,EvaluationMetric)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Let a model make predictions of cognitive state on a data set (usually with known target values),</span>
+0006 <span class="comment">% yielding one prediction per trial in the data, as well as the average empirical loss, if the data</span>
+0007 <span class="comment">% set has an attached target variable.</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% bci_predict is used to obtain and/or evaluate the outputs of a predictive model on a recorded</span>
+0010 <span class="comment">% (usually raw) data set. Predictions are made for every trial in the data set, where trials are</span>
+0011 <span class="comment">% derived from the data in the same way as was used when the model was originally calibrated. For</span>
+0012 <span class="comment">% example, if the model was calibrated w.r.t. events of certain types in the calibration set (using</span>
+0013 <span class="comment">% the 'events' parameter of the paradigm), trials will be extracted for these same events in the</span>
+0014 <span class="comment">% supplied data set, as well. In the typical case where a target variable can be derived from the</span>
+0015 <span class="comment">% data set in this way (e.g. via the 'event' clause passed to bci_train - see bci_train), then the</span>
+0016 <span class="comment">% predictions of the model are compared with the defined target values, and an average loss is</span>
+0017 <span class="comment">% computed (and returned as the second output). This loss measure has the same meaning as in</span>
+0018 <span class="comment">% bci_train, and can be customized via the 'metric' parameter, either as one of the predefined</span>
+0019 <span class="comment">% losses (described in detail in machine_learning/ml_calcloss), or as a user-supplied custom</span>
+0020 <span class="comment">% function. By default, the most appropriate loss is automatically selected depending on the types</span>
+0021 <span class="comment">% of target and prediction values (mis-classification rate for categorical target values,</span>
+0022 <span class="comment">% mean-square error for continuous target values, etc.), so that user intervention is rarely needed.</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">% For advanced use, the actual predictions for every trial in the data are returned, as well as the</span>
+0025 <span class="comment">% defined target values in the data set (if available). The format of the targets depends on the</span>
+0026 <span class="comment">% procedure by which they were assigned to the data (e.g., when the 'events' clause was used to</span>
+0027 <span class="comment">% assign target values to certain events, targets is a numerical vector of class numbers, e.g. [1 2</span>
+0028 <span class="comment">% 2 1 4 1 3 2 3 2 1] for some hypothetical 4-class data set with 11 trials). The format of the</span>
+0029 <span class="comment">% predictions depends on the format of the targets (e.g., whether they were categorical values or</span>
+0030 <span class="comment">% continuous values, usually the former), and the capabilities of the 'learner' component of the</span>
+0031 <span class="comment">% paradigm. A detailed exposition of the possibilities is given in machine_learning/ml_predict.</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">% Almost all learners produce discrete probability distributions for categorical targets, so this is</span>
+0034 <span class="comment">% the format of the predictions in 90% of the situations. A sequence of discrete probability</span>
+0035 <span class="comment">% distributions (one per trial) as produced by bci_predict is formatted as a MATLAB cell array with</span>
+0036 <span class="comment">% the three entries {'disc', Probabilities, Classes}. 'disc' is the format tag of the predictions</span>
+0037 <span class="comment">% and indicates discrete probabilities, Probabilities is an array of probabilities for each trial</span>
+0038 <span class="comment">% and class, with # of trials rows and # of classes columns, i.e. it has size [NxC], and Classes is</span>
+0039 <span class="comment">% a column vector which specifies the desired target value for each of the C classes, in the same</span>
+0040 <span class="comment">% order as the rows in Probabilities. For this reason, the expected target value for any trial is</span>
+0041 <span class="comment">% pred{2}*pred{3}, and the most likely target value for any trial can be obtained as</span>
+0042 <span class="comment">% pred{3}(argmax(pred{2}')), if pred are the predictions return by bci_predict.</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">% In addition, further statistics are returned, which may contain additional values (e.g. false</span>
+0045 <span class="comment">% positive rate in the case of binary classification).</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">% Example:</span>
+0048 <span class="comment">%</span>
+0049 <span class="comment">%   % load a calibration data set</span>
+0050 <span class="comment">%   calib = io_loadset('data sets/john/gestures.eeg')</span>
+0051 <span class="comment">%   % train a model (see bci_train for an explanation of this stage)...</span>
+0052 <span class="comment">%   [loss,model,stats] = bci_train({'data',calib, 'paradigm',@para_csp}, 'events',{'left-imag','right-imag','rest'})</span>
+0053 <span class="comment">%</span>
+0054 <span class="comment">%   % load a test data set</span>
+0055 <span class="comment">%   testdata = io_loadset('data sets/john/gestures2.eeg')</span>
+0056 <span class="comment">%</span>
+0057 <span class="comment">%   % and apply the model on that data set to get predictions and a loss estimate...</span>
+0058 <span class="comment">%   [predictions,loss2,stats2,targets] = bci_predict(model,testdata);</span>
+0059 <span class="comment">%</span>
+0060 <span class="comment">% The application of the model results in predictions for every of its trials, an empirical average</span>
+0061 <span class="comment">% loss measure, statistics, and the original target values for every trial in the test data. This is</span>
+0062 <span class="comment">% under the assumption that the file gestures2 contains markers 'left-imag', 'right-imag', 'rest',</span>
+0063 <span class="comment">% just like the first data set, so that a loss (deviation from desired outcomes) can be computed.</span>
+0064 <span class="comment">% Note that applying a model to its own calibration data set gives overly optimistic results, and is</span>
+0065 <span class="comment">% usually scientifically invalid.</span>
+0066 <span class="comment">%</span>
+0067 <span class="comment">%</span>
+0068 <span class="comment">% A less common use case is to exchange the default preprocessing that is applied by a paradigm by</span>
+0069 <span class="comment">% some alternative preprocessing (for example, one which slighty deviates from the model's settings,</span>
+0070 <span class="comment">% or a manually implemented one, or the by the preprocessing of an entirely different model). To</span>
+0071 <span class="comment">% this end, not the raw data is passed to bci_predict, but instead data that was manually processed,</span>
+0072 <span class="comment">% for example using bci_preproc (see bci_preproc). In the follwing example, a test data set is</span>
+0073 <span class="comment">% loaded (as in the previous sample), but it is manually preprocessed using the model's defined</span>
+0074 <span class="comment">% preprocessing, with re-customized options (here: 'events', to define how trials are to be</span>
+0075 <span class="comment">% extracted). We assume that the data contains events of the type 'user-action' whenever the user</span>
+0076 <span class="comment">% performs a (not further known) action, such as one of the imagined hand gestures.</span>
+0077 <span class="comment">%</span>
+0078 <span class="comment">%   testdata = io_loadset('data sets/john/unknown_gestures.eeg')</span>
+0079 <span class="comment">%   testdataproc = bci_preproc(testdata, model, 'events',{'user-action'})</span>
+0080 <span class="comment">%   predictions = bci_predict(model, testdataproc, 'process',0);</span>
+0081 <span class="comment">%</span>
+0082 <span class="comment">%   disp('the user performed the following actions: ' num2str(predictions{2}(argmax(predictions{3}')))]);</span>
+0083 <span class="comment">%</span>
+0084 <span class="comment">% In this case, we obtain predictions for every trial of the data (this time relative to events of</span>
+0085 <span class="comment">% the type 'user-action'), whereas the the predictions will still be either 1,2, or 3, since the</span>
+0086 <span class="comment">% predictive part of the model has not been changed. Further, since the activity of the user was not</span>
+0087 <span class="comment">% known a priori, a meaningful loss cannot be computed. Note that if the preprocessing of the model</span>
+0088 <span class="comment">% contains filters that are adaptively tuned to the data (such as ICA), this strategy will give</span>
+0089 <span class="comment">% unexpected results, because bci_preproc re-runs the preprocessing (i.e. readapts the filters) for</span>
+0090 <span class="comment">% the test data, which gives intermediate values that are not expected by the rest of the model.</span>
+0091 <span class="comment">%</span>
+0092 <span class="comment">% For these reasons, the recommended way to obtain predictions for a data set at the times of</span>
+0093 <span class="comment">% arbitrary events, or in arbitrary intervals, is to use onl_stream, which streams the given raw</span>
+0094 <span class="comment">% data set into the model and obtains predictions at the desired time points. bci_predict should</span>
+0095 <span class="comment">% only be used to evaluate the performance of models on data set where the desired outcomes are</span>
+0096 <span class="comment">% known and encoded in the same way as in the respective calibration data set of the used model</span>
+0097 <span class="comment">% (i.e. for pure offline analyses). See onl_stream for further details.</span>
+0098 <span class="comment">%</span>
+0099 <span class="comment">%</span>
+0100 <span class="comment">% In:</span>
+0101 <span class="comment">%   Model  : a predictive model, as produced by bci_train</span>
+0102 <span class="comment">%</span>
+0103 <span class="comment">%   Data   : a raw data set from which to derive predictions; may also be a stream bundle</span>
+0104 <span class="comment">%</span>
+0105 <span class="comment">%   TargetMarkers : Target markers. By default as in the Model. Otherwise, this is a list of types</span>
+0106 <span class="comment">%                   of those markers around which data shall be used for BCI calibration; each</span>
+0107 <span class="comment">%                   marker type encodes a different target class (i.e. desired output value) to be</span>
+0108 <span class="comment">%                   learned by the resulting BCI model. See also help of bci_train.</span>
+0109 <span class="comment">%</span>
+0110 <span class="comment">%   EvaluationMetric : Evaluation metric. The metric to use in the assessment of model performance</span>
+0111 <span class="comment">%                      (via cross-validation). Can be empty, a string, or a function handle.</span>
+0112 <span class="comment">%                      See ml_calcloss() for the options (default: [] = auto-select between</span>
+0113 <span class="comment">%                      kullback-leibler divergence ('kld'), mean square error ('mse'), mis-classification</span>
+0114 <span class="comment">%                      rate ('mcr') and negative log-likelihood ('nll') depending on the type of the</span>
+0115 <span class="comment">%                      target and prediction variables, further detailed in ml_calcloss())</span>
+0116 <span class="comment">%</span>
+0117 <span class="comment">%   Format       : format of the prediction; see utl_formatprediction (default: 'raw')</span>
+0118 <span class="comment">%</span>
+0119 <span class="comment">%   EventField : Event field to search for target markers. By default as in the Model.</span>
+0120 <span class="comment">%</span>
+0121 <span class="comment">%</span>
+0122 <span class="comment">% Out:</span>
+0123 <span class="comment">%   Prediction : the target variable as predicted by the model for every index in the data set</span>
+0124 <span class="comment">%</span>
+0125 <span class="comment">%   Loss       : a measure of the average loss of the model, w.r.t. to the target variable (as</span>
+0126 <span class="comment">%                evaluation; the allowed format is anything)</span>
+0127 <span class="comment">%</span>
+0128 <span class="comment">%   Stats      : additional statistics, as produced by the metric</span>
+0129 <span class="comment">%</span>
+0130 <span class="comment">%   Target     : original target variable, as determined by the target function</span>
+0131 <span class="comment">%</span>
+0132 <span class="comment">% Examples:</span>
+0133 <span class="comment">%   % given a predictive model and a continuous data set with markers that are compatible to those</span>
+0134 <span class="comment">%   % that were used for training, derive per-epoch/per-marker BCI outputsm and estimate the loss</span>
+0135 <span class="comment">%   % plus additional statistics</span>
+0136 <span class="comment">%   [predictions,loss,stats] = bci_predict(model,data)</span>
+0137 <span class="comment">%</span>
+0138 <span class="comment">%   % as before, but use a custom metric (here: mean-square error)</span>
+0139 <span class="comment">%   [predictions,loss,stats] = bci_predict('Data',data, 'Model',model, 'EvaluationMetric','mse')</span>
+0140 <span class="comment">%</span>
+0141 <span class="comment">% See also:</span>
+0142 <span class="comment">%   bci_predict, bci_annotate, onl_newpredictor, io_loadset</span>
+0143 <span class="comment">%</span>
+0144 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0145 <span class="comment">%                                2010-05-24</span>
+0146 
+0147 <span class="comment">% read arguments</span>
+0148 opts = arg_define([0 2],varargin, <span class="keyword">...</span>
+0149     arg_norep({<span class="string">'model'</span>,<span class="string">'Model'</span>},mandatory,[],<span class="string">'Predictive model. This is a model as previously computed via bci_train.'</span>), <span class="keyword">...</span>
+0150     arg_norep({<span class="string">'data'</span>,<span class="string">'Data'</span>},mandatory,[],<span class="string">'Data set. EEGLAB data set, or stream bundle, or cell array of data sets / stream bundles to use for calibration/evaluation.'</span>), <span class="keyword">...</span>
+0151     arg({<span class="string">'markers'</span>,<span class="string">'TargetMarkers'</span>},<span class="string">'frommodel'</span>,[],<span class="string">'Assumed target markers. List of types of those markers around which data shall be used for BCI calibration; each marker type encodes a different target class (i.e. desired output value) to be learned by the resulting BCI model. This can be specified either as a cell array of marker-value pairs, in which case each marker type of BCI interest is associated with a particular BCI output value (e.g., -1/+1), or as a cell array of marker types (in which case each marker will be associated with its respective index as corresponding BCI output value, while nested cell arrays are also allowed to group markers that correspond to the same output value). See help of set_targetmarkers for further explanation.'</span>), <span class="keyword">...</span>
+0152     arg({<span class="string">'metric'</span>,<span class="string">'EvaluationMetric'</span>,<span class="string">'Metric'</span>},<span class="string">'auto'</span>,{<span class="string">'auto'</span>,<span class="string">'mcr'</span>,<span class="string">'mse'</span>,<span class="string">'smse'</span>,<span class="string">'nll'</span>,<span class="string">'kld'</span>,<span class="string">'mae'</span>,<span class="string">'max'</span>,<span class="string">'rms'</span>,<span class="string">'bias'</span>,<span class="string">'medse'</span>,<span class="string">'auc'</span>,<span class="string">'cond_entropy'</span>,<span class="string">'cross_entropy'</span>,<span class="string">'f_measure'</span>},<span class="string">'Evaluation metric. The metric to use in the assessment of model performance (via cross-validation); see also ml_calcloss.'</span>), <span class="keyword">...</span>
+0153     arg({<span class="string">'outformat'</span>,<span class="string">'Format'</span>,<span class="string">'format'</span>},<span class="string">'raw'</span>,{<span class="string">'raw'</span>,<span class="string">'expectation'</span>,<span class="string">'distribution'</span>,<span class="string">'mode'</span>},<span class="string">'Prediction format. See utl_formatprediction.'</span>),<span class="keyword">...</span>
+0154     arg({<span class="string">'field'</span>,<span class="string">'EventField'</span>}, <span class="string">'frommodel'</span>, [], <span class="string">'Assumed target field. Event field to search for target markers, provided as a string.'</span>,<span class="string">'type'</span>,<span class="string">'char'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>));
+0155 
+0156 
+0157 <span class="keyword">if</span> ischar(opts.model.tracking.prediction_function)
+0158     <span class="comment">% prediction function given as a string</span>
+0159     <span class="keyword">if</span> strncmp(opts.model.tracking.prediction_function,<span class="string">'Paradigm'</span>,8)
+0160         <span class="comment">% class reference: instantiate</span>
+0161         instance = eval(opts.model.tracking.prediction_function); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0162         opts.model.tracking.prediction_function = eval(<span class="string">'@instance.predict'</span>);
+0163     <span class="keyword">else</span>
+0164         <span class="comment">% some other function</span>
+0165         opts.model.tracking.prediction_function = str2func(opts.model.tracking.prediction_function);
+0166     <span class="keyword">end</span>
+0167 <span class="keyword">end</span>
+0168 
+0169 <span class="comment">% use the model's target field if desired</span>
+0170 <span class="keyword">if</span> strcmp(opts.field,<span class="string">'frommodel'</span>)
+0171     opts.field = opts.model.control_options.field; <span class="keyword">end</span>
+0172 
+0173 <span class="comment">% use the model's target markers if desired</span>
+0174 <span class="keyword">if</span> strcmp(opts.markers,<span class="string">'frommodel'</span>)
+0175     opts.markers = opts.model.control_options.markers; <span class="keyword">end</span>
+0176 
+0177 <span class="comment">% string arguments are considered to be variants of the default metric</span>
+0178 <span class="keyword">if</span> isempty(opts.metric) || ischar(opts.metric) || (iscell(opts.metric) &amp;&amp; all(cellfun(@ischar,opts.metric)))
+0179     opts.metric = @(T,P)ml_calcloss(opts.metric,T,P); <span class="keyword">end</span>
+0180 <span class="keyword">if</span> ~<a href="#_sub1" class="code" title="subfunction result = has_stats(metric)">has_stats</a>(opts.metric)
+0181     opts.metric = @(T,P)<a href="#_sub2" class="code" title="subfunction [result,stats] = add_stats(result)">add_stats</a>(opts.metric(T,P)); <span class="keyword">end</span>
+0182 
+0183 <span class="comment">% uniformize data</span>
+0184 data = opts.data;
+0185 <span class="keyword">if</span> ~isfield(data,<span class="string">'streams'</span>)
+0186     data = struct(<span class="string">'streams'</span>,{{data}}); <span class="keyword">end</span>
+0187 
+0188 <span class="comment">% ... and annotate with target markers</span>
+0189 <span class="comment">% (there are 3 possible TargetMarker formats to handle)</span>
+0190 <span class="keyword">if</span> length(opts.markers) == 1 &amp;&amp; ischar(opts.markers{1}) &amp;&amp; strcmp(opts.markers{1}, <span class="string">'actualvalues'</span>)
+0191     data.streams{1} = set_targetmarkers(<span class="string">'Signal'</span>,data.streams{1},<span class="string">'EventMap'</span>,opts.markers,<span class="string">'EpochBounds'</span>,opts.model.epoch_bounds, <span class="string">'EventField'</span>, opts.field );
+0192 <span class="keyword">elseif</span> all(cellfun(<span class="string">'isclass'</span>,opts.markers,<span class="string">'char'</span>) | cellfun(<span class="string">'isclass'</span>,opts.markers,<span class="string">'cell'</span>))
+0193     data.streams{1} = set_targetmarkers(<span class="string">'Signal'</span>,data.streams{1},<span class="string">'EventTypes'</span>,opts.markers,<span class="string">'EpochBounds'</span>,opts.model.epoch_bounds, <span class="string">'EventField'</span>, opts.field);
+0194 <span class="keyword">else</span>
+0195    data.streams{1} = set_targetmarkers(<span class="string">'Signal'</span>,data.streams{1},<span class="string">'EventMap'</span>,opts.markers,<span class="string">'EpochBounds'</span>,opts.model.epoch_bounds, <span class="string">'EventField'</span>, opts.field );
+0196 <span class="keyword">end</span>
+0197 
+0198 <span class="comment">% attach the passed stream bundle to the model's filter graph</span>
+0199 model = opts.model;
+0200 resolved_graph = utl_resolve_streams(model.tracking.filter_graph,data,model.tracking.prediction_channels);
+0201 <span class="comment">% process each chain of the filter graph</span>
+0202 data.streams = cell(1,length(resolved_graph));
+0203 <span class="keyword">for</span> g=1:length(resolved_graph)
+0204     data.streams{g} = exp_eval_optimized(resolved_graph{g}); <span class="keyword">end</span>
+0205 <span class="comment">% apply the prediction function to the data</span>
+0206 prediction = model.tracking.prediction_function(data,model);
+0207 
+0208 <span class="keyword">try</span>
+0209     <span class="comment">% try to derive the target variable</span>
+0210     target = set_gettarget(data);
+0211 <span class="keyword">catch</span> e
+0212     <span class="comment">% a target variable is not necessarily present</span>
+0213     disp(<span class="string">'NOTE: Did not find a target variable in the given data ('</span> + e.message + <span class="string">')'</span>);
+0214     target = [];
+0215 <span class="keyword">end</span>
+0216 <span class="keyword">if</span> ~isempty(target)
+0217     <span class="comment">% and evaluate the performance, given the metric</span>
+0218     [measure,stats] = opts.metric(target,prediction);
+0219 <span class="keyword">else</span>
+0220     measure = NaN;
+0221     stats = struct();
+0222 <span class="keyword">end</span>
+0223 stats.target = target;
+0224 stats.prediction = prediction;
+0225 stats.is_result = true;
+0226 stats.timestamp = now;
+0227 
+0228 <span class="comment">% finally format the predictions</span>
+0229 prediction = utl_formatprediction(prediction,opts.outformat);
+0230 
+0231 
+0232 <span class="comment">% test whether the given metric supplies stats or not</span>
+0233 <a name="_sub1" href="#_subfunctions" class="code">function result = has_stats(metric)</a>
+0234 <span class="keyword">try</span> 
+0235     [x,y] = metric([],[]);  <span class="comment">%#ok&lt;NASGU,ASGLU&gt;</span>
+0236     result = true;
+0237 <span class="keyword">catch</span> e
+0238     result = ~any(strcmp(e.identifier,{<span class="string">'MATLAB:TooManyOutputs'</span>,<span class="string">'MATLAB:maxlhs'</span>,<span class="string">'MATLAB:unassignedOutputs'</span>})); 
+0239 <span class="keyword">end</span>
+0240 
+0241 <span class="comment">% add stats to the result of some metric</span>
+0242 <a name="_sub2" href="#_subfunctions" class="code">function [result,stats] = add_stats(result)</a>
+0243 stats.value = result;</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

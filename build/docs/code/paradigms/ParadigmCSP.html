@@ -1,0 +1,229 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmCSP</title>
+  <meta name="keywords" content="ParadigmCSP">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmCSP.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmCSP
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmCSP.html" class="code" title="">ParadigmCSP</a>	</li><li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmCSP.html" class="code" title="">ParadigmCSP</a>	</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li><li><a href="#_sub2" class="code">function model = feature_adapt(self,varargin)</a></li><li><a href="#_sub3" class="code">function features = feature_extract(self,signal,featuremodel)</a></li><li><a href="#_sub4" class="code">function visualize_model(self,parent,featuremodel,predictivemodel)</a></li><li><a href="#_sub5" class="code">function layout = dialog_layout_defaults(self)</a></li><li><a href="#_sub6" class="code">function tf = needs_voting(self)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmCSP.html" class="code" title="">ParadigmCSP</a> &lt; <a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>
+0002     <span class="comment">% Common Spatial Pattern(s) algorithm.</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% The CSP paradigm is based on the design of the Berlin Brain-Computer Interface (BBCI) [1], more</span>
+0005     <span class="comment">% comprehensively described in [2], which is mainly controlled by (sensori-)motor imagery. The</span>
+0006     <span class="comment">% features exploited by this paradigm in its original form are Event-Related Synchronization and</span>
+0007     <span class="comment">% Desynchronization [3] localized in the (sensori-)motor cortex, but the paradigm is not restricted</span>
+0008     <span class="comment">% to these applications. CSP was originally introduced in [5] and first applied to EEG in [6].</span>
+0009     <span class="comment">%</span>
+0010     <span class="comment">% Due to its simplicity, speed and relative robustness, CSP is the bread-and-butter paradigm for</span>
+0011     <span class="comment">% oscillatory processes, and if nothing else, can be used to get a quick estimate of whether the</span>
+0012     <span class="comment">% data contains information of interest or not. Like para_bandpower, CSP uses log-variance features</span>
+0013     <span class="comment">% over a single non-adapted frequency range (which may have multiple peaks), and neither temporal</span>
+0014     <span class="comment">% structure (variations) in the signal is captured, nor are interactions between frequency bands.</span>
+0015     <span class="comment">% The major strength of the paradigm is its adaptive spatial filter, which is computed using the CSP</span>
+0016     <span class="comment">% algorithm.</span>
+0017     <span class="comment">%</span>
+0018     <span class="comment">% The paradigm is implemented as a standard sequence of signal (pre-)processing (spatial/spectral</span>
+0019     <span class="comment">% filtering), feature extraction, and machine learning. The first preprocessing step is frequency</span>
+0020     <span class="comment">% filtering, followed by an adaptively learned spatial filter (which is the defining propery of the</span>
+0021     <span class="comment">% paradigm), followed by log-variance feature extraction and finally a (usually simple) machine</span>
+0022     <span class="comment">% learning step applied to the log-variance features. The spatial filtering projects the channels of</span>
+0023     <span class="comment">% the original signal down to a small set of (usually 4-6) surrogate channels, where the (linear)</span>
+0024     <span class="comment">% mapping is optimized such that the variance in these channels is maximally informative w.r.t. to</span>
+0025     <span class="comment">% the prediction task. The CSP filters can be obtained from the per-class signal covariance matrices</span>
+0026     <span class="comment">% by solving a generalized eigenvalue problem (of the form [V,D]=eig(Cov1,Cov1+Cov2)). CSP can also</span>
+0027     <span class="comment">% be applied to independent components to rate their importance or for better artifact robustness. A</span>
+0028     <span class="comment">% wide range of classifiers can be used with CSP features, the most commonly used one being LDA.</span>
+0029     <span class="comment">% There exists a large corpus of CSP variants and extensions, mostly to give better control over</span>
+0030     <span class="comment">% spectral filtering, including multiband CSP (para_multiband_csp), Spectrally Weighted CSP</span>
+0031     <span class="comment">% (para_speccsp), Invariant CSP, Common Spatio-Spectral Patterns (CSSP), Common Sparse Spectral</span>
+0032     <span class="comment">% Spatial Pattern (CSSSP), Regularized CSP, and several others. A more advanced (but also</span>
+0033     <span class="comment">% computationally more costly) paradigm than CSP is the Dual-Augmented Lagrange Paradigm</span>
+0034     <span class="comment">% (para_dal/para_dal_hf). The length of the data epoch and the choice of a frequency band</span>
+0035     <span class="comment">% (defaulting to motor imagery time scales and frequency ranges) are the parameters that are most</span>
+0036     <span class="comment">% commonly tuned to the task, both of which can also be found via a small parameter search.</span>
+0037     <span class="comment">%</span>
+0038     <span class="comment">% Some application areas include detection of major brain rhythm modulations (e.g. alpha, beta), for</span>
+0039     <span class="comment">% example related to relaxation/stress, aspects of workload, sensori-motor imagery, visual</span>
+0040     <span class="comment">% processing vs. idling and other idle-rhythm-related questions, or emotion recognition. See also</span>
+0041     <span class="comment">% [4].</span>
+0042     <span class="comment">%</span>
+0043     <span class="comment">% Examples:</span>
+0044     <span class="comment">%   After an approach has been defined as in one of the following examples, a predictive model can be obtained</span>
+0045     <span class="comment">%   (given a calibration data set and a specification of target markers) using bci_train:</span>
+0046     <span class="comment">%   [loss,model,stats] = bci_train('Data',io_loadset('calibration_rec.eeg'),'Approach',myapproach','TargetMarkers',{'mymarker1','mymarker2'});</span>
+0047     <span class="comment">%</span>
+0048     <span class="comment">%   % define a basic CSP approach, using the defaults (7-30 Hz bandpass, shrinkage LDA classifier, 3 pattern pairs)</span>
+0049     <span class="comment">%   myapproach = 'CSP';</span>
+0050     <span class="comment">%</span>
+0051     <span class="comment">%   % use an FIR filter restricted to the alpha band</span>
+0052     <span class="comment">%   myapproach = {'CSP' 'SignalProcessing',{'FIRFilter',[6 8 14 15]}};</span>
+0053     <span class="comment">%</span>
+0054     <span class="comment">%   % use an IIR filter instead of the default FIR</span>
+0055     <span class="comment">%   myapproach = {'CSP' 'SignalProcessing',{'FIRFilter','off', 'IIRFilter',[5 7 14 17]}};</span>
+0056     <span class="comment">%</span>
+0057     <span class="comment">%   % also restrict the model to a stationary subspace</span>
+0058     <span class="comment">%   myapproach = {'CSP' 'SignalProcessing',{'FIRFilter','off', 'IIRFilter',[5 7 14 17], 'StationarySubspace',{'StationaryDim',-0.1,'Operation','keep_stationary'}}};</span>
+0059     <span class="comment">%</span>
+0060     <span class="comment">%   % use a sharp FFT band-pass filter</span>
+0061     <span class="comment">%   myapproach = {'CSP' 'SignalProcessing',{'FIRFilter','off','SpectralSelection',[7 15]}};</span>
+0062     <span class="comment">%</span>
+0063     <span class="comment">%   % use a simple logistic regression classifier (variational Bayes) instead of the LDA</span>
+0064     <span class="comment">%   myapproach = {'CSP' 'Prediction',{'MachineLearning',{'Learner','logreg'}}};</span>
+0065     <span class="comment">%</span>
+0066     <span class="comment">%   % use a simple logistic regression classifier (sparse variational Bayes)</span>
+0067     <span class="comment">%   myapproach = {'CSP' 'Prediction',{'MachineLearning',{'Learner',{'logreg','variant','vb-ard'}}}};</span>
+0068     <span class="comment">%</span>
+0069     <span class="comment">%   % use the sparse logistic regression classifier but applied to a larger set of patterns</span>
+0070     <span class="comment">%   myapproach = {'CSP' 'Prediction',{'MachineLearning',{'Learner',{'logreg','variant','vb-ard'}},'FeatureExtraction',{'PatternPairs',6}}};</span>
+0071     <span class="comment">%</span>
+0072     <span class="comment">%   % using quadratic discriminant analysis</span>
+0073     <span class="comment">%   myapproach = {'CSP' 'Prediction',{'MachineLearning',{'Learner','qda'}}};</span>
+0074     <span class="comment">%</span>
+0075     <span class="comment">%   % using Gaussian mixture models (variational Bayesian Dirichlet process prior)</span>
+0076     <span class="comment">%   myapproach = {'CSP' 'Prediction',{'MachineLearning',{'Learner','gmm'}}};</span>
+0077     <span class="comment">%</span>
+0078     <span class="comment">%   % using relevance vector machines (here with a fixed kernel scale for speed)</span>
+0079     <span class="comment">%   myapproach = {'CSP' 'Prediction',{'MachineLearning',{'Learner',{'rvm','kernel','rbf','gamma',1}}}};</span>
+0080     <span class="comment">%</span>
+0081     <span class="comment">%   % use l1-regularized logreg (which involves a parameter search over the regularization parameter); takes about 2 minutes</span>
+0082     <span class="comment">%   myapproach = {'CSP' 'Prediction',{'MachineLearning',{'Learner',{'logreg','variant','l1','lambda',search(2.^(-6:1.5:10))}},'FeatureExtraction',{'PatternPairs',6}}};</span>
+0083     <span class="comment">%</span>
+0084     <span class="comment">%   % use support vector machines (using the SVMlight package); note: also requires a parameter search (takes about 2 minutes)</span>
+0085     <span class="comment">%   myapproach = {'CSP' 'Prediction',{'MachineLearning',{'Learner',{'svmlight','cost',search(2.^(-5:2.5:15)),'gamma',1}}}};</span>
+0086     <span class="comment">%</span>
+0087     <span class="comment">%   % optimize the size of the stationary subspace to retain; note: cross-validation takes place on continuous data (takes approx 2.5 minutes)</span>
+0088     <span class="comment">%   myapproach = {'CSP' 'SignalProcessing',{'FIRFilter','off', 'IIRFilter',[5 7 14 17], 'StationarySubspace',{'StationaryDim',search(-0.5:0.1:-0.1),'Operation','keep_stationary'}}};</span>
+0089     <span class="comment">%</span>
+0090     <span class="comment">%   % optimize the location of the frequency band manually (note: 2-dimensional parameter space -- takes approx. 7 minutes)</span>
+0091     <span class="comment">%   myapproach = {'CSP' 'SignalProcessing',{'FIRFilter','off', 'SpectralSelection',[search(7:10) search(14:2:30)]}};</span>
+0092     <span class="comment">%</span>
+0093     <span class="comment">% References:</span>
+0094     <span class="comment">%  [1] Blankertz, B., Dornhege, G., Krauledat, M., M�ller, K., and Curio,G.</span>
+0095     <span class="comment">%      &quot;The non-invasive Berlin Brain-Computer interface: Fast acquisition of effective performance in untrained subjects.&quot;</span>
+0096     <span class="comment">%      NeuroImage 37, 2 (Aug. 2007), 539?550.</span>
+0097     <span class="comment">%  [2] Benjamin Blankertz, Ryota Tomioka, Steven Lemm, Motoaki Kawanabe, and Klaus-Robert Mueller.</span>
+0098     <span class="comment">%      &quot;Optimizing spatial filters for robust EEG single-trial analysis.&quot;</span>
+0099     <span class="comment">%      IEEE Signal Process Mag, 25(1):41-56, January 2008</span>
+0100     <span class="comment">%  [3] Pfurtscheller, G., and da Silva, L. &quot;Event-related EEG/MEG synchronizaion and desynchronization: basic principles.&quot;</span>
+0101     <span class="comment">%      Clin Neurophysiol 110 (1999), 1842-1857.</span>
+0102     <span class="comment">%  [4] Buzsaki, G., &quot;Rhythms of the brain&quot;</span>
+0103     <span class="comment">%      Oxford University Press US, 2006</span>
+0104     <span class="comment">%  [5] Fukunaga K., &quot;Introduction to Statistical Pattern Recognition&quot;</span>
+0105     <span class="comment">%      Academic Press, Computer Science and Scientific Computing Series, 1990</span>
+0106     <span class="comment">%  [6] Ramoser, H., Gerking, M., and Pfurtscheller, G. &quot;Optimal spatial filtering of single trial EEG during imagined hand movement.&quot;</span>
+0107     <span class="comment">%      IEEE Trans. Rehab. Eng 8 (2000), 446, 441.</span>
+0108     <span class="comment">%</span>
+0109     <span class="comment">% Name:</span>
+0110     <span class="comment">%   Common Spatial Patterns</span>
+0111     <span class="comment">%</span>
+0112     <span class="comment">%                            Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0113     <span class="comment">%                            2010-04-29</span>
+0114     
+0115     
+0116     methods
+0117       
+0118         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0119             <span class="comment">% define the default pre-processing parameters of this paradigm</span>
+0120             defaults = {<span class="string">'FIRFilter'</span>,{<span class="string">'Frequencies'</span>,[6 8 28 32],<span class="string">'Type'</span>,<span class="string">'minimum-phase'</span>}, <span class="string">'EpochExtraction'</span>,[0.5 3.5], <span class="string">'Resampling'</span>,100};
+0121         <span class="keyword">end</span>
+0122                 
+0123         <a name="_sub1" href="#_subfunctions" class="code">function model = feature_adapt(self,varargin)</a>
+0124             <span class="comment">% adapt a feature representation using the CSP algorithm</span>
+0125             arg_define(varargin, <span class="keyword">...</span>
+0126                 arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
+0127                 arg({<span class="string">'patterns'</span>,<span class="string">'PatternPairs'</span>},3,[],<span class="string">'Number of CSP patterns (times two).'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>),<span class="keyword">...</span>
+0128                 arg({<span class="string">'shrinkage_cov'</span>,<span class="string">'ShrinkageCovariance'</span>},false,[],<span class="string">'Shrinkage covariance estimator. Whether to use shrinkage to estimate the covariance matrices.'</span>));
+0129             
+0130             <span class="keyword">if</span> signal.nbchan &lt; patterns
+0131                 error(<span class="string">'CSP requires at least as many channels as you request output patterns. Please reduce the number of pattern pairs.'</span>); <span class="keyword">end</span>
+0132             <span class="keyword">for</span> k=1:2
+0133                 trials{k} = exp_eval(set_picktrials(signal,<span class="string">'rank'</span>,k));
+0134                 <span class="keyword">if</span> shrinkage_cov
+0135                     covar{k} = hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_shrink,reshape(trials{k}.data,size(trials{k}.data,1),[])');
+0136                 <span class="keyword">else</span>
+0137                     covar{k} = cov(reshape(trials{k}.data,size(trials{k}.data,1),[])');
+0138                 <span class="keyword">end</span>
+0139                 covar{k}(~isfinite(covar{k})) = 0;
+0140             <span class="keyword">end</span>
+0141             [V,D] = eig(covar{1},covar{1}+covar{2}); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0142             model.filters = V(:,[1:patterns end-patterns+1:end]);
+0143             P = inv(V);
+0144             model.patterns = P([1:patterns end-patterns+1:end],:);
+0145             model.chanlocs = signal.chanlocs;
+0146         <span class="keyword">end</span>
+0147         
+0148         <a name="_sub2" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
+0149             <span class="comment">% extract log-variance features according to CSP</span>
+0150             features = zeros(size(signal.data,3),size(featuremodel.filters,2));
+0151             <span class="keyword">for</span> t=1:size(signal.data,3)
+0152                 features(t,:) = log(var(signal.data(:,:,t)'*featuremodel.filters)); <span class="keyword">end</span>
+0153         <span class="keyword">end</span>
+0154         
+0155         <a name="_sub3" href="#_subfunctions" class="code">function visualize_model(self,parent,featuremodel,predictivemodel) </a><span class="comment">%#ok&lt;*INUSD&gt;</span>
+0156             <span class="comment">% number of pairs, and index of pattern per subplot</span>
+0157             np = size(featuremodel.patterns,1)/2; idx = [1:np 2*np:-1:np+1];
+0158             <span class="comment">% for each CSP pattern...</span>
+0159             <span class="keyword">for</span> p=1:np*2
+0160                 subplot(2,np,p,<span class="string">'Parent'</span>,parent);
+0161                 topoplot(featuremodel.patterns(idx(p),:),featuremodel.chanlocs);
+0162                 title([<span class="string">'CSP Pattern '</span> num2str(idx(p))]);
+0163             <span class="keyword">end</span>
+0164         <span class="keyword">end</span>
+0165         
+0166         <a name="_sub4" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0167             <span class="comment">% define the default configuration dialog layout</span>
+0168             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>, <span class="string">'SignalProcessing.FIRFilter.Frequencies'</span>, <span class="keyword">...</span>
+0169                 <span class="string">'SignalProcessing.FIRFilter.Type'</span>, <span class="string">'SignalProcessing.EpochExtraction'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0170                 <span class="string">'Prediction.FeatureExtraction.PatternPairs'</span>, <span class="string">''</span>, <span class="string">'Prediction.MachineLearning.Learner'</span>};
+0171         <span class="keyword">end</span>
+0172         
+0173         <a name="_sub5" href="#_subfunctions" class="code">function tf = needs_voting(self)</a>
+0174             <span class="comment">% standard CSP requires voting to handle more than 2 classes</span>
+0175             tf = true; 
+0176         <span class="keyword">end</span>
+0177         
+0178     <span class="keyword">end</span>
+0179 <span class="keyword">end</span>
+0180</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of kth_sequence</title>
+  <meta name="keywords" content="kth_sequence">
+  <meta name="description" content="Generate a rearranged sequence of items to process for the k'th participating process (counting from 0).">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">misc</a> &gt; kth_sequence.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/misc&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>kth_sequence
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Generate a rearranged sequence of items to process for the k'th participating process (counting from 0).</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function x = kth_sequence(x,k) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Generate a rearranged sequence of items to process for the k'th participating process (counting from 0).
+
+ Each sequence covers all items, but they are chosen to first cover items that are maximally far away
+ from those of previous sequences (e.g., {forward,reversed,inside-out,from-center-left,from-center-right, ...})</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+</ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function pos = nested_index(len,k)</a></li><li><a href="#_sub2" class="code">function seq = center_out_sequence(len,ctr)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function x = kth_sequence(x,k)</a>
+0002 <span class="comment">% Generate a rearranged sequence of items to process for the k'th participating process (counting from 0).</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% Each sequence covers all items, but they are chosen to first cover items that are maximally far away</span>
+0005 <span class="comment">% from those of previous sequences (e.g., {forward,reversed,inside-out,from-center-left,from-center-right, ...})</span>
+0006 
+0007 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2013, christian@sccn.ucsd.edu</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0010 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0011 <span class="comment">% License, or (at your option) any later version.</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0014 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0015 <span class="comment">% General Public License for more details.</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0018 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0019 <span class="comment">% USA</span>
+0020 
+0021 x = x(<a href="#_sub2" class="code" title="subfunction seq = center_out_sequence(len,ctr)">center_out_sequence</a>(length(x),<a href="#_sub1" class="code" title="subfunction pos = nested_index(len,k)">nested_index</a>(length(x),k)));
+0022 
+0023 <a name="_sub1" href="#_subfunctions" class="code">function pos = nested_index(len,k)</a>
+0024 <span class="comment">% Generate the k'th index of a nested sequence of indices in the</span>
+0025 <span class="comment">% sequence 1:len (1,len,len/2,1/4*len,3/4*len, ...).</span>
+0026 <span class="comment">% This function is not perfect (i.e., there can be duplicates) but any such issue is</span>
+0027 <span class="comment">% handled gracefully in the context where it is used (with overlapping center_out_sequence's).</span>
+0028 <span class="keyword">if</span> k == 0
+0029     pos = 1;
+0030 <span class="keyword">elseif</span> k == 1
+0031     pos = len;
+0032 <span class="keyword">else</span>    
+0033     num_covered = 2;                           <span class="comment">% number of indices already covered in previous tiers</span>
+0034     <span class="keyword">for</span> tier = 1:50                            <span class="comment">% these are nesting tiers (like rows in a balanced tree)</span>
+0035         num_indices = 2^(tier-1);              <span class="comment">% number of new indices in this tier</span>
+0036         <span class="keyword">if</span> k&lt;num_covered+num_indices           <span class="comment">% if k is in this tier</span>
+0037             numerator = (k-num_covered+1)*2-1; <span class="comment">% numerator of the k'th fractional position in this tier</span>
+0038             denominator = 2^tier;              <span class="comment">% denominator of the k'th fractional position</span>
+0039             pos = ceil(len*numerator/denominator);
+0040             <span class="keyword">break</span>;
+0041         <span class="keyword">end</span>
+0042         num_covered = num_covered+num_indices;
+0043     <span class="keyword">end</span>
+0044 <span class="keyword">end</span>
+0045 
+0046 pos = min(max(pos,1),len);
+0047     
+0048 <a name="_sub2" href="#_subfunctions" class="code">function seq = center_out_sequence(len,ctr)</a>
+0049 <span class="comment">% Generate a center-out sequence beginning at ctr that covers the range 1:len.</span>
+0050 seq = ctr;
+0051 <span class="keyword">for</span> offset=1:len
+0052     <span class="keyword">for</span> side=[-1,+1]
+0053         pos = ctr + offset*side;
+0054         <span class="keyword">if</span> pos&gt;=1 &amp;&amp; pos &lt;=len &amp;&amp; ~ismember(pos,seq)
+0055             seq(end+1) = pos; <span class="keyword">end</span>
+0056         <span class="keyword">if</span> length(seq) == len
+0057             <span class="keyword">return</span>; <span class="keyword">end</span>
+0058     <span class="keyword">end</span>
+0059 <span class="keyword">end</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,218 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmBase</title>
+  <meta name="keywords" content="ParadigmBase">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmBase.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmBase
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmBase.html" class="code" title="">ParadigmBase</a>	</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmBase.html" class="code" title="">ParadigmBase</a>	</li><li><a href="ParadigmBaseSimplified.html" class="code" title="">ParadigmBaseSimplified</a>	</li><li><a href="ParadigmMOSR.html" class="code" title="">ParadigmMOSR</a>	</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function model = calibrate(self,varargin)</a></li><li><a href="#_sub2" class="code">function outputs = predict(self,bundle,model)</a></li><li><a href="#_sub3" class="code">function visualize(self,model,varargin)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmBase.html" class="code" title="">ParadigmBase</a>
+0002     <span class="comment">% Base class for all BCI paradigms.</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% Derive from this class if are looking for complete flexibility in your BCI structure:</span>
+0005     <span class="comment">%  * you supply a calibrate() function that can handle multiple recordings or multiple parallel</span>
+0006     <span class="comment">%    streams and computes a model from them (optionally also specifying a filter chain for</span>
+0007     <span class="comment">%    efficient pre-processing)</span>
+0008     <span class="comment">%  * you supply a predict() function that can handle one or more parallel streams and generates</span>
+0009     <span class="comment">%    outputs from it (using information from the previously computed model)</span>
+0010     <span class="comment">%  * (optionally, you may also supply a visualization function)</span>
+0011     <span class="comment">%</span>
+0012     <span class="comment">% If your paradigm is somewhat more traditional, consider deriving instead from one of the</span>
+0013     <span class="comment">% simplified base classes. ParadigmBaseSimplified is an appropriate base class if your paradigm</span>
+0014     <span class="comment">% handles only a single recording and stream for calibration (like most BCIs) but is not</span>
+0015     <span class="comment">% constrained in any other way. ParadigmDataflowSimplified is the most appropriate base class for</span>
+0016     <span class="comment">% almost all BCIs: takes a single recording and stream as input for calibration, operates online</span>
+0017     <span class="comment">% on a single stream, and processes its data through a chain of signal processing plugins,</span>
+0018     <span class="comment">% followed by custom feature extraction, followed by one of the machine learning plugin.</span>
+0019     <span class="comment">%</span>
+0020     <span class="comment">% Notes:</span>
+0021     <span class="comment">%   A BCI paradigm is a complete implementation of a particular type of BCI. The includes both</span>
+0022     <span class="comment">%   the real-time processing performed on one or more input signals to produce outputs (e.g. the</span>
+0023     <span class="comment">%   estimated value of a &quot;cognitive state variable&quot;), as well as any offline processing</span>
+0024     <span class="comment">%   necessary for real-time operation. The offline processing basically amounts to the</span>
+0025     <span class="comment">%   calibration of the parameters that are used during online processing (summarized and packed</span>
+0026     <span class="comment">%   into what is called a &quot;predictive model&quot;) based on one or more calibration recordings. A</span>
+0027     <span class="comment">%   miscellaneous function associated with a BCI paradigm is the visualization of the parameters</span>
+0028     <span class="comment">%   of a predictive model (function visualize()).</span>
+0029     <span class="comment">%</span>
+0030     <span class="comment">% Name:</span>
+0031     <span class="comment">%   Base Paradigm (abstract)</span>
+0032     <span class="comment">%</span>
+0033     <span class="comment">%                            Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0034     <span class="comment">%                            2011-08-28</span>
+0035     
+0036     methods
+0037         
+0038         <a name="_sub0" href="#_subfunctions" class="code">function model = calibrate(self,varargin)</a>
+0039             <span class="comment">% Override this function to implement your model calibration code.</span>
+0040             <span class="comment">% Model = calibrate(Collection,GoalIdentifier,Arguments...)</span>
+0041             <span class="comment">%</span>
+0042             <span class="comment">% The calibrate() function takes one or more annotated recordings (of EEG or other</span>
+0043             <span class="comment">% signals) plus any further auxilliary data and generates from these a predictive model</span>
+0044             <span class="comment">% that contains all necessary parameters for the online processing code of this paradigm.</span>
+0045             <span class="comment">%</span>
+0046             <span class="comment">% In the simplest case the input is a single recording annotated with target markers</span>
+0047             <span class="comment">% which encode the desired output of the BCI for various time points in the recording</span>
+0048             <span class="comment">% (assuming that a statistical mapping can be learned from features of the recorded data</span>
+0049             <span class="comment">% onto the desired outputs. The detailed interpretation of the markers is up to the paradigm.</span>
+0050             <span class="comment">%</span>
+0051             <span class="comment">% In more complex cases, the input can be a structured collection of recordings</span>
+0052             <span class="comment">% taken under various conditions (e.g. different people or tasks) plus of a description</span>
+0053             <span class="comment">% of the &quot;target&quot; person/task etc. at which the output of the calibration should be</span>
+0054             <span class="comment">% aimed. Auxilliary inputs can be additional measurements, e.g. of sensor properties or</span>
+0055             <span class="comment">% individual physiology.</span>
+0056             <span class="comment">%</span>
+0057             <span class="comment">% A paradigm's implementation of this method should always declare a parameter named</span>
+0058             <span class="comment">% &quot;Collection&quot; and one named &quot;GoalIdentifier&quot;, plus any additional user parameters or</span>
+0059             <span class="comment">% hyper-parameters. Generally, any implementation should declare its arguments using the</span>
+0060             <span class="comment">% arg_define() facility so that the parameter names and defaults can be queried by the</span>
+0061             <span class="comment">% framework (and presented in a GUI, for example).</span>
+0062             <span class="comment">%</span>
+0063             <span class="comment">% The output is generally a struct that contains any parameters needed by the predict()</span>
+0064             <span class="comment">% function, plus a field (.filter_graph) that describes any signal (pre-) processing to</span>
+0065             <span class="comment">% be performed on the input signals. This signal processing description is for the</span>
+0066             <span class="comment">% framework and is (during online use or offline simulations) applied automatically to</span>
+0067             <span class="comment">% the input signal(s) before the paradigm's predict() function would be invoked.</span>
+0068             <span class="comment">%</span>
+0069             <span class="comment">% In:</span>
+0070             <span class="comment">%   Collection : a collection (cell array) of stream bundles</span>
+0071             <span class="comment">%                * each stream bundle in the collection represents a different recording</span>
+0072             <span class="comment">%                  (e.g. of a different person)</span>
+0073             <span class="comment">%                * a stream bundle contains multiple signals overlapping in time; it is</span>
+0074             <span class="comment">%                  represented as a struct with a field .streams (itself a cell array of EEGLAB</span>
+0075             <span class="comment">%                  data set structs)</span>
+0076             <span class="comment">%                * each bundle in the collection may have arbitrary distinguishing meta-data</span>
+0077             <span class="comment">%                  fields besides the .stream field, such as subject, day, session, montage,</span>
+0078             <span class="comment">%                  etc.; these allow organizing the learning problem to exploit the</span>
+0079             <span class="comment">%                  associations between sets</span>
+0080             <span class="comment">%</span>
+0081             <span class="comment">%   GoalIdentifier: a struct that may contain identifying meta-data of the data to which</span>
+0082             <span class="comment">%                   the model should eventually be applied (i.e. subject, day, montage, etc.)</span>
+0083             <span class="comment">%</span>
+0084             <span class="comment">%   Arguments... : arbitrary further optional user arguments, defined in a base class</span>
+0085             <span class="comment">%</span>
+0086             <span class="comment">% Out:</span>
+0087             <span class="comment">%   Model : a model struct with a mandatory field .tracking.filter_graph and arbitrary other</span>
+0088             <span class="comment">%           contents</span>
+0089             <span class="comment">%           * The filter_graph field is a cell array of filter descriptions: one per stream</span>
+0090             <span class="comment">%             expected by the predict() function.</span>
+0091             <span class="comment">%</span>
+0092             <span class="comment">%             After filters have been applied to a data set, the resulting set contains the</span>
+0093             <span class="comment">%             final state of the filters and a symbolic description of the filter chain that</span>
+0094             <span class="comment">%             was applied to it in the field .tracking.online_expression. The filter_graph</span>
+0095             <span class="comment">%             field is a cell array of one or more of these online epxressions.</span>
+0096             <span class="comment">%</span>
+0097             <span class="comment">%             For simplicity, it may also be given as a (processed or unprocessed) stream</span>
+0098             <span class="comment">%             bundle.</span>
+0099             <span class="comment">%</span>
+0100             <span class="comment">%           * the model may have and optional fields .tracking.prediction_function,</span>
+0101             <span class="comment">%             .tracking.prediction_window, and .tracking.prediction_channels (though these</span>
+0102             <span class="comment">%             are normally auto-deduced, see utl_complete_model())</span>
+0103             <span class="comment">%</span>
+0104             <span class="comment">% Notes:</span>
+0105             <span class="comment">%   Overridden functions should declare their arguments using arg_define().</span>
+0106 
+0107             error(<span class="string">'This paradigm implements no calibrate() function.'</span>);
+0108         <span class="keyword">end</span>
+0109         
+0110         
+0111         <a name="_sub1" href="#_subfunctions" class="code">function outputs = predict(self,bundle,model)</a>
+0112             <span class="comment">% Override this function to implement your prediction code.</span>
+0113             <span class="comment">% Outputs = predict(Bundle,Model)</span>
+0114             <span class="comment">%</span>
+0115             <span class="comment">% This function implements the BCI paradigm's response to a &quot;prediction&quot; query, i.e., it</span>
+0116             <span class="comment">% receives a (pre-processed) signal segment (plus a previously computed predictive model</span>
+0117             <span class="comment">% that contains all its other necessary parameters) and produces an estimate of (or</span>
+0118             <span class="comment">% inference about) the value of some 'cognitive state variable' based on the given</span>
+0119             <span class="comment">% signal's data. This output is &quot;by contract&quot; about the last sample in the segment (but</span>
+0120             <span class="comment">% typically is computed based on at least some or all of the other samples in the</span>
+0121             <span class="comment">% segment).</span>
+0122             <span class="comment">%</span>
+0123             <span class="comment">% More generally, the input can be an epoched data set (i.e. multiple segments), in</span>
+0124             <span class="comment">% which case an array of outputs (one per segment) shall be produced (mainly for better</span>
+0125             <span class="comment">% efficiency during offline simulations); every paradigm should support this input form.</span>
+0126             <span class="comment">%</span>
+0127             <span class="comment">% If supported by the paradigm (as encoded by calibrate() in the .filter_graph field</span>
+0128             <span class="comment">% produced by it) the input may consist of multiple available signals that refer to the</span>
+0129             <span class="comment">% same (or overlapping) time ranges; if multiple signals are passed, the .xmin/.xmax</span>
+0130             <span class="comment">% properties of the signals determine the relative times of the contained samples (in</span>
+0131             <span class="comment">% seconds). Most paradigms will not be that general. If multiple signals are supported,</span>
+0132             <span class="comment">% it should be expected that the relative timing of input signals can be &quot;off&quot; depending</span>
+0133             <span class="comment">% of varying real-world transmission latencies.</span>
+0134             <span class="comment">%</span>
+0135             <span class="comment">% Generally, whether one or more signals are passed, the input is formatted as a &quot;stream</span>
+0136             <span class="comment">% bundle&quot;, which is a struct with a field .streams, which in turn is a cell array of all</span>
+0137             <span class="comment">% signals (a.k.a. streams) that are available.</span>
+0138             <span class="comment">%</span>
+0139             <span class="comment">% In:</span>
+0140             <span class="comment">%   Bundle : a stream bundle preprocessed by the model's filter graph (i.e. one stream per</span>
+0141             <span class="comment">%            cell entry in the model's .filter_graph)</span>
+0142             <span class="comment">%</span>
+0143             <span class="comment">%   Model : a predictive model as created by your calibrate() function</span>
+0144             <span class="comment">%</span>
+0145             <span class="comment">% Out:</span>
+0146             <span class="comment">%   Outputs : a prediction/estimate for the most recent time point in the data (or one for</span>
+0147             <span class="comment">%             every epoch if the bundle is epoched); see ml_predict for the allowed formats</span>
+0148 
+0149             error(<span class="string">'This paradigm implements no predict() function.'</span>);
+0150         <span class="keyword">end</span>
+0151         
+0152         
+0153         <a name="_sub2" href="#_subfunctions" class="code">function visualize(self,model,varargin)</a>
+0154             <span class="comment">% Optionally override this function to implement your visualization code</span>
+0155             <span class="comment">% visualize(Model)</span>
+0156             <span class="comment">%</span>
+0157             <span class="comment">% In:</span>
+0158             <span class="comment">%   Model: a model as created by your calibrate() function;</span>
+0159             <span class="comment">%          a plot or GUI will be produced to inspect the model</span>
+0160             
+0161             error(<span class="string">'This paradigm implements no visualize() function.'</span>);
+0162         <span class="keyword">end</span>
+0163         
+0164     <span class="keyword">end</span>
+0165 <span class="keyword">end</span>
+0166 
+0167 
+0168 <span class="comment">% (turn off a few editor warnings because some actual implementations are missing in this file)</span>
+0169 <span class="comment">%#ok&lt;*INUSD,*STOUT,*MANU&gt;</span></pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

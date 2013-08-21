@@ -1,0 +1,210 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmFBCSP</title>
+  <meta name="keywords" content="ParadigmFBCSP">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmFBCSP.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmFBCSP
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li><li><a href="ParadigmFBCSP.html" class="code" title="">ParadigmFBCSP</a>	</li></ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="ParadigmFBCSP.html" class="code" title="">ParadigmFBCSP</a>	</li></ul>
+<!-- crossreference -->
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li><li><a href="#_sub2" class="code">function model = feature_adapt(self,varargin)</a></li><li><a href="#_sub3" class="code">function features = feature_extract(self,signal,featuremodel)</a></li><li><a href="#_sub4" class="code">function visualize_model(self,parent,featuremodel,predictivemodel,varargin)</a></li><li><a href="#_sub5" class="code">function layout = dialog_layout_defaults(self)</a></li><li><a href="#_sub6" class="code">function tf = needs_voting(self)</a></li></ul>
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmFBCSP.html" class="code" title="">ParadigmFBCSP</a> &lt; <a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>
+0002     <span class="comment">% Paradigm for complex oscillatory processes using the filter-bank CSP algorithm.</span>
+0003     <span class="comment">% Result = para_multiband_csp(Input-Data, Operation-Mode, Options...)</span>
+0004     <span class="comment">%</span>
+0005     <span class="comment">% Filter-bank CSP [1,2] is a simple extension of the basic CSP method (see ParadigmCSP), in which for</span>
+0006     <span class="comment">% each of several time/frequency filters a set of CSP filters is learned, followed by log-variance</span>
+0007     <span class="comment">% feature extraction, concatenation of all features (over all chosen spectral filters) and</span>
+0008     <span class="comment">% subsequent machine learning. It is not a general replacement for CSP due to the problem of</span>
+0009     <span class="comment">% overfitting, but is very useful whenever oscillatory processes in different frequency bands (and</span>
+0010     <span class="comment">% with different spatial topographies) are jointly active, and their concerted behavior must be</span>
+0011     <span class="comment">% taken into account for a given prediction task. Filter-bank CSP can also be used to capture</span>
+0012     <span class="comment">% oscillations in multiple time windows, instead of frequency windows (for example for the detection</span>
+0013     <span class="comment">% of complex event-related dynamics).</span>
+0014     <span class="comment">%</span>
+0015     <span class="comment">% Since the dimensionality of the feature space is larger than in CSP, and since complex</span>
+0016     <span class="comment">% interactions may be present, a more complex classifier than the default LDA may be necessary to</span>
+0017     <span class="comment">% learn an appropriate model. On the other hand, more flexibility amplifies the risk of overfitting</span>
+0018     <span class="comment">% (especially with only little calibration data), so that the performance should always be compared</span>
+0019     <span class="comment">% to standard CSP (and Spec-CSP). Another reason is that complex (relevant) interactions between</span>
+0020     <span class="comment">% different frequency bands are seemingly rarely observed in practice. The most important</span>
+0021     <span class="comment">% user-configurable parameters are the selection regions in time and frequency and the learner</span>
+0022     <span class="comment">% component.</span>
+0023     <span class="comment">%</span>
+0024     <span class="comment">% Typical applications would be those in which either complex event-related oscillatory dynamics</span>
+0025     <span class="comment">% happen (for example when reacting to a particular stimulus) and/or where non-trivial interactions</span>
+0026     <span class="comment">% between frequency bands (e.g. alpha/theta) are relevant, such as, for example, in workload</span>
+0027     <span class="comment">% measurements.</span>
+0028     <span class="comment">%</span>
+0029     <span class="comment">% Example: Consider a calibration data set in which a subject is maintaining and updating</span>
+0030     <span class="comment">% different number of items in his/her working memory at different times, e.g. while performing</span>
+0031     <span class="comment">% the n-Back task [2]. Events with types 'n1','n2','n3' indicate challenge stimuli in which the</span>
+0032     <span class="comment">% respective number of items is being processed by the person. The goal is to be able to predict</span>
+0033     <span class="comment">% the working-memory load of the person following the presentation of such a memory-related</span>
+0034     <span class="comment">% challenge. An epoch of 3 seconds relative to each challenge is selected, and three different</span>
+0035     <span class="comment">% regions are chosen, two of them over the entire interval, covering the theta and alpha ryhthm,</span>
+0036     <span class="comment">% respectively, and one region that is restricted to a window around the time of heaviest</span>
+0037     <span class="comment">% cognitive processing. The three regions are specified as a cell array of flt_select</span>
+0038     <span class="comment">% parameters.</span>
+0039     <span class="comment">%</span>
+0040     <span class="comment">%   data = io_loadset('data sets/mary/nback.eeg')</span>
+0041     <span class="comment">%   myapproach = {'FBCSP' 'SignalProcessing',{'EpochExtraction',[-0.5 2.5]}, ...</span>
+0042     <span class="comment">%       'Prediction', {'FeatureExtraction',{'FreqWindows',[4 6; 7 15; 7 15],'TimeWindows',[-0.5 2.5; -0.5 2.5; 0.25 1.25]}, ...</span>
+0043     <span class="comment">%                      'MachineLearning',{'Learner','logreg'}}}</span>
+0044     <span class="comment">%   [loss,model,stats] = bci_train('Data',data, 'Approach','ParadigmFBCSP, 'TargetMarkers',{'n1','n2','n3'})</span>
+0045     <span class="comment">%</span>
+0046     <span class="comment">% References;</span>
+0047     <span class="comment">%   [1] Quadrianto Novi, Cuntai Guan, Tran Huy Dat, and Ping Xue, &quot;Sub-band Common Spatial Pattern (SBCSP) for Brain-Computer Interface&quot;</span>
+0048     <span class="comment">%       Proceedings of the 3rd International IEEE EMBS Conference on Neural Engineering Kohala Coast, Hawaii, USA, May 2-5, 2007</span>
+0049     <span class="comment">%   [2] Kai K. Ang, Zhang Y. Chin, Haihong Zhang, Cuntai Guan, &quot;Filter Bank Common Spatial Pattern (FBCSP) in Brain-Computer Interface&quot;</span>
+0050     <span class="comment">%       In 2008 IEEE International Joint Conference on Neural Networks (IEEE World Congress on Computational Intelligence) (June 2008), pp. 2390-2397.</span>
+0051     <span class="comment">%   [3] Owen, A. M., McMillan, K. M., Laird,A. R. &amp; Bullmore, E. &quot;N-back working memory paradigm: A meta-analysis of normative functional neuroimaging studies.&quot;</span>
+0052     <span class="comment">%       Human Brain Mapping, 25, 46-59, 2005</span>
+0053     <span class="comment">%</span>
+0054     <span class="comment">% Name:</span>
+0055     <span class="comment">%   Filter-Bank CSP</span>
+0056     <span class="comment">%</span>
+0057     <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0058     <span class="comment">%                           2010-04-29</span>
+0059     
+0060     methods
+0061       
+0062         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0063             <span class="comment">% define the default pre-processing parameters of this paradigm</span>
+0064             defaults = {<span class="string">'EpochExtraction'</span>,[0.5 3.5],<span class="string">'Resampling'</span>,200};
+0065         <span class="keyword">end</span>
+0066                 
+0067         <a name="_sub1" href="#_subfunctions" class="code">function model = feature_adapt(self,varargin)</a>
+0068             <span class="comment">% adapt a feature representation using the CSP algorithm</span>
+0069             args = arg_define(varargin, <span class="keyword">...</span>
+0070                 arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
+0071                 arg({<span class="string">'patterns'</span>,<span class="string">'PatternPairs'</span>},uint32(3),[],<span class="string">'CSP patterns per band (times two).'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>), <span class="keyword">...</span>
+0072                 arg({<span class="string">'shrinkage_cov'</span>,<span class="string">'ShrinkageCovariance'</span>},false,[],<span class="string">'Shrinkage covariance estimator. Whether to use shrinkage to estimate the covariance matrices.'</span>), <span class="keyword">...</span>
+0073                 arg({<span class="string">'robust_cov'</span>,<span class="string">'RobustCovariance'</span>},false,[],<span class="string">'Robust covariance estimation. Whether to use robust cov estimation.'</span>), <span class="keyword">...</span>
+0074                 arg({<span class="string">'freqwnds'</span>,<span class="string">'FreqWindows'</span>},[0.5 3; 4 7; 8 12; 13 30; 31 42],[],<span class="string">'Frequency bands of interest. Matrix containing one row for the start and end of each frequency band from which CSP patterns shall be computed. Values in Hz.'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>), <span class="keyword">...</span>
+0075                 arg({<span class="string">'timewnds'</span>,<span class="string">'TimeWindows'</span>},[],[],<span class="string">'Time windows of interest. Matrix containing one row for the start and end of each time window from which CSP patterns shall be computed. Values in seconds. If both this and the freqwnds parameter are non-empty, they should have the same number of rows.'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>), <span class="keyword">...</span>
+0076                 arg({<span class="string">'winfunc'</span>,<span class="string">'WindowFunction'</span>},<span class="string">'rect'</span>,{<span class="string">'barthann'</span>,<span class="string">'bartlett'</span>,<span class="string">'blackman'</span>,<span class="string">'blackmanharris'</span>,<span class="string">'bohman'</span>,<span class="string">'cheb'</span>,<span class="string">'flattop'</span>,<span class="string">'gauss'</span>,<span class="string">'hamming'</span>,<span class="string">'hann'</span>,<span class="string">'kaiser'</span>,<span class="string">'nuttall'</span>,<span class="string">'parzen'</span>,<span class="string">'rect'</span>,<span class="string">'taylor'</span>,<span class="string">'triang'</span>,<span class="string">'tukey'</span>},<span class="string">'Type of window function. Typical choices are rect (rectangular), hann, gauss, blackman and kaiser.'</span>),<span class="keyword">...</span>
+0077                 arg({<span class="string">'winparam'</span>,<span class="string">'WindowParameter'</span>,<span class="string">'param'</span>},[],[],<span class="string">'Parameter of the window function. This is mandatory for cheb, kaiser and tukey and optional for some others.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>));
+0078             
+0079             <span class="keyword">if</span> args.signal.nbchan == 1
+0080                 error(<span class="string">'Multi-band CSP does intrinsically not support single-channel data (it is a spatial filter).'</span>); <span class="keyword">end</span>
+0081             <span class="keyword">if</span> args.signal.nbchan &lt; args.patterns
+0082                 error(<span class="string">'Multi-band CSP prefers to work on at least as many channels as you request output patterns. Please reduce the number of pattern pairs.'</span>); <span class="keyword">end</span>
+0083             <span class="keyword">if</span> ~isempty(args.freqwnds) &amp;&amp; ~isempty(args.timewnds) &amp;&amp; size(args.freqwnds,1) ~= size(args.timewnds,1)
+0084                 error(<span class="string">'If both time and frequency windows are specified, both arrays must have the same number of rows (together they define the windows in time and frequency).'</span>); <span class="keyword">end</span>
+0085             <span class="keyword">if</span> isempty(args.timewnds)
+0086                 args.timewnds = zeros(size(args.freqwnds,1),0); <span class="keyword">end</span>
+0087             <span class="keyword">if</span> isempty(args.freqwnds)
+0088                 args.freqwnds = zeros(size(args.timewnds,1),0); <span class="keyword">end</span>
+0089             
+0090             filters = [];
+0091             patterns = [];
+0092             <span class="comment">% for each window</span>
+0093             <span class="keyword">for</span> w = 1:max(size(args.freqwnds,1),size(args.timewnds,1))
+0094                 <span class="comment">% pre-parse arguments for flt_window and flt_spectrum (for fast subsequent online use)</span>
+0095                 time_args{w} = arg_report(<span class="string">'vals'</span>,@flt_window,{<span class="string">'time'</span>,{args.timewnds(w,:),args.winfunc,args.winparam}});
+0096                 freq_args{w} = arg_report(<span class="string">'vals'</span>,@flt_spectrum,{<span class="string">'freq'</span>,args.freqwnds(w,:)});
+0097                 <span class="keyword">for</span> k=1:2
+0098                     <span class="comment">% filter trial subrange in time and frequency</span>
+0099                     data = exp_eval_optimized(flt_spectrum(<span class="string">'signal'</span>,flt_window(<span class="string">'signal'</span>,set_picktrials(args.signal,<span class="string">'rank'</span>,k),time_args{w}),freq_args{w}));
+0100                     <span class="keyword">if</span> args.robust_cov
+0101                         covar{k} = hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_robust,reshape(data.data,size(data.data,1),[])',max([data.nbchan*2,data.srate*2,size(data,3)]),args.shrinkage_cov);
+0102                     <span class="keyword">else</span>
+0103                         <span class="keyword">if</span> args.shrinkage_cov
+0104                             covar{k} = hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_shrink,reshape(data.data,size(data.data,1),[])');
+0105                         <span class="keyword">else</span>
+0106                             covar{k} = cov(reshape(data.data,size(data.data,1),[])');
+0107                         <span class="keyword">end</span>
+0108                     <span class="keyword">end</span>
+0109                     covar{k}(~isfinite(covar{k})) = 0;
+0110                 <span class="keyword">end</span>
+0111                 [V,D] = eig(covar{1},covar{1}+covar{2}); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0112                 P = inv(V);                                
+0113                 filters = [filters V(:,[1:args.patterns end-args.patterns+1:end])];
+0114                 patterns = [patterns P([1:args.patterns end-args.patterns+1:end],:)'];
+0115             <span class="keyword">end</span>
+0116             model = struct(<span class="string">'filters'</span>,{filters},<span class="string">'patterns'</span>,{patterns},<span class="string">'time_args'</span>,{time_args},<span class="string">'freq_args'</span>,{freq_args},<span class="string">'chanlocs'</span>,{args.signal.chanlocs});
+0117         <span class="keyword">end</span>
+0118         
+0119         <a name="_sub2" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
+0120             W = length(featuremodel.freq_args);
+0121             F = size(featuremodel.filters,2);
+0122             T = size(signal.data,3);
+0123             features = zeros(T,F);
+0124             <span class="keyword">for</span> w = 1:W
+0125                 <span class="comment">% filter data in time &amp; frequency</span>
+0126                 data = exp_eval_optimized(flt_spectrum(<span class="string">'signal'</span>,flt_window(<span class="string">'signal'</span>,signal,featuremodel.time_args{w}),featuremodel.freq_args{w}));
+0127                 inds = (w-1)*(F/W)+(1:(F/W));
+0128                 <span class="keyword">for</span> t=1:T
+0129                     features(t,inds) = log(var(data.data(:,:,t)' * featuremodel.filters(:,inds))); <span class="keyword">end</span>
+0130             <span class="keyword">end</span>
+0131         <span class="keyword">end</span>
+0132         
+0133         <a name="_sub3" href="#_subfunctions" class="code">function visualize_model(self,parent,featuremodel,predictivemodel,varargin) </a><span class="comment">%#ok&lt;*INUSD&gt;</span>
+0134             <span class="comment">% find the relevant components</span>
+0135             scores = predictivemodel.model.w;
+0136             <span class="comment">% optionally remove the bias if included in w</span>
+0137             <span class="keyword">if</span> length(scores) == size(featuremodel.patterns,2)+1
+0138                 scores = scores(1:end-1); <span class="keyword">end</span> 
+0139             <span class="comment">% frequency labels</span>
+0140             titles = repmat({<span class="string">'delta'</span>,<span class="string">'theta'</span>,<span class="string">'alpha'</span>,<span class="string">'beta'</span>,<span class="string">'gamma'</span>},8,1); titles = titles(:);
+0141             <span class="comment">% extract relevant patterns</span>
+0142             patterns = featuremodel.patterns(:,find(scores));
+0143             <span class="comment">% plot them</span>
+0144             <span class="comment">% figure;topoplot_grid(patterns,featuremodel.chanlocs,'titles',titles(find(scores)),'scales',scores(find(scores))/max(scores)*1);</span>
+0145             topoplot_grid(patterns,featuremodel.chanlocs);
+0146         <span class="keyword">end</span>
+0147         
+0148         <a name="_sub4" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0149             <span class="comment">% define the default configuration dialog layout</span>
+0150             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>, <span class="string">'SignalProcessing.EpochExtraction'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0151                 <span class="string">'Prediction.FeatureExtraction.FreqWindows'</span>, <span class="string">'Prediction.FeatureExtraction.TimeWindows'</span>, <span class="keyword">...</span>
+0152                 <span class="string">'Prediction.FeatureExtraction.WindowFunction'</span>, <span class="string">''</span>, <span class="string">'Prediction.FeatureExtraction.PatternPairs'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0153                 <span class="string">'Prediction.MachineLearning.Learner'</span>};
+0154         <span class="keyword">end</span>
+0155         
+0156         <a name="_sub5" href="#_subfunctions" class="code">function tf = needs_voting(self)</a>
+0157             tf = true;
+0158         <span class="keyword">end</span>
+0159     <span class="keyword">end</span>
+0160 <span class="keyword">end</span>
+0161</pre></div>
+<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>
