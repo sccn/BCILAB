@@ -44,7 +44,7 @@ if A == 1
     was_single = strcmp(class(X),'single');
     w = length(B); t = size(X,1);    
     % extrapolate
-    X = double([bsxfun(@minus,2*X(1,:),X((w+1):-1:2,:)); X; bsxfun(@minus,2*X(t,:),X((t-1):-1:t-w,:))]);
+    X = double([bsxfun(@minus,2*X(1,:),X(1+mod(((w+1):-1:2)-1,t),:)); X; bsxfun(@minus,2*X(t,:),X(1+mod(((t-1):-1:(t-w))-1,t),:))]);
     % filter, reverse
     X = filter_fast(B,A,X); X = X(length(X):-1:1,:);
     % filter, reverse

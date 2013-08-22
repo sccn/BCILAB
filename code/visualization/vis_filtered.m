@@ -181,7 +181,7 @@ end
                 
                 % update the data scale
                 set(ax, 'YTick',plotoffsets, 'YTickLabel',{stream.chanlocs(plotchans).labels});
-                axis(ax,[-visinfo.opts.timerange 0 -visinfo.opts.datascale size(plotdata,2)*visinfo.opts.datascale + visinfo.opts.datascale]);                
+                axis(ax,[[-visinfo.opts.timerange 0] -visinfo.opts.datascale size(plotdata,2)*visinfo.opts.datascale + visinfo.opts.datascale])
 
                 drawnow;
             else

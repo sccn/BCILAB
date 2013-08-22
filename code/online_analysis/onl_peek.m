@@ -80,5 +80,4 @@ chunk.data = chunk.buffer(channels_to_get, 1+mod(chunk.smax-samples_to_get:chunk
 % update meta-data
 [chunk.nbchan,chunk.pnts,chunk.trials] = size(chunk.data);
 chunk.chanlocs = chunk.chanlocs(channels_to_get);
-chunk.xmax = chunk.smax/chunk.srate;
-chunk.xmin = chunk.xmax - (chunk.pnts-1)/chunk.srate;
+chunk.xmax = chunk.xmin + (chunk.pnts-1)/buf.srate;
