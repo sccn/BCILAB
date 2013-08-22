@@ -106,7 +106,7 @@ function [signal,state] = flt_fir(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-17  
 
-% flt_fir_version<1.02> -- for the cache
+% flt_fir_version<1.03> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -119,7 +119,7 @@ arg_define(varargin, ...
     arg({'fmode','Mode'}, 'bandpass', {'bandpass','highpass','lowpass','bandstop','freeform'}, 'Filtering mode. Determines how the Frequencies parameter is interpreted.'), ...
     arg({'ftype','Type'},'minimum-phase', {'minimum-phase','linear-phase','zero-phase'}, 'Filter type. Minimum-phase introduces only minimal signal delay but distorts the signal. Linear-phase has no signal distortion but delays the signal. Zero-phase has neither signal delay nor distortion but can not be used for online purposes.'), ...
     arg({'passripple','PassbandRipple'}, -20, [-180 1], 'Maximum relative ripple amplitude in pass-band. Relative to nominal pass-band gain. Affects the filter length (i.e., delay). Assumed to be in db if negative, otherwise taken as a ratio.'), ...
-    arg({'stopripple','StopbandRipple'}, -30, [-180 1], 'Maximum relative ripple amplitude in stop-band. Relative to nominal pass-band gain. Affects the filter length (i.e., delay). Assumed to be in db if negative, otherwise taken as a ratio.'), ...
+    arg({'stopripple','StopbandRipple'}, -40, [-180 1], 'Maximum relative ripple amplitude in stop-band. Relative to nominal pass-band gain. Affects the filter length (i.e., delay). Assumed to be in db if negative, otherwise taken as a ratio.'), ...
     arg({'designrule','DesignRule'}, 'Frequency Sampling', {'Parks-McClellan','Window Method','Frequency Sampling'}, 'Filter design rule. Parks-McClellan minimizes the maximum error, the Window Method minimizes the square error, and Frequency Sampling constructs the filter via the Fourier transform without tuning (the latter requires no sigproc toolbox).'), ...
     arg({'chunk_length','ChunkLength'},50000,[], 'Maximum chunk length. Process the data in chunks of no larger than this (to avoid memory limitations).','guru',true), ...
     arg({'normalize_amplitude','NormalizeAmplitude'},true,[], 'Normalize amplitude. Normalizes the amplitude such that the maximum gain is as desired. This helps with the occasional erratic filter design result.','guru',true), ...
@@ -209,7 +209,7 @@ if isempty(state)
         n = length(state.b);
         
         % use cepstral windowing to calculate a minimum-phase filter (note: the min-phase change applies
-        if strcmp(ftype,'minimum-phase')
+        if strcmp(ftype,'minimum-phase') && ~any(strcmp(fmode,{'highpass','hp'}))
             wnd = [1 2*ones(1,(n+mod(n,2))/2-1) ones(1,1-mod(n,2)) zeros(1,(n+mod(n,2))/2-1)];
             state.b = real(ifft(exp(fft(wnd.*real(ifft(log(abs(fft(state.b))+stopripple)))))));
         end
@@ -272,5 +272,14 @@ for fld = {'data','srcpot','icaact'}
         signal.(field) = sig';
     end
 end
+
+if ~isfield(signal.etc,'filter_delay')
+    signal.etc.filter_delay = 0; end
+
+if strcmp(ftype,'linear-phase')
+    signal.etc.filter_delay = signal.etc.filter_delay + length(b)/2/signal.srate;
+elseif strcmp(ftype,'minimum-phase')
+    signal.etc.filter_delay = signal.etc.filter_delay + hlp_getresult(2,@max,b)/signal.srate;
+end    
 
 exp_endfun;

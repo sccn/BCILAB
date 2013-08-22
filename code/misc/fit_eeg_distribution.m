@@ -91,7 +91,7 @@ for width = min_width : step_sizes(2) : max_width
     T = x(bsxfun(@plus,inds,offsets));
     
     % calculate histograms
-    q = histc(bsxfun(@times,bsxfun(@minus,T,T(1,:)),1./(T(end,:)-T(1,:))),series);
+    q = histc(bsxfun(@times,bsxfun(@minus,T,T(1,:)),1./(T(end,:)-T(1,:))),series) + 0.01;
     
     % calc KL divergences
     kl = sum(bsxfun(@times,p,log(bsxfun(@rdivide,p,q(1:end-1,:))))) + log(length(inds));
