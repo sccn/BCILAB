@@ -1,4 +1,4 @@
-function [mu,sig] = fit_eeg_distribution(x,min_clean_fraction,max_dropout_fraction,fit_quantiles,step_sizes,num_bins)
+function [mu,sig] = fit_eeg_distribution(x,min_clean_fraction,max_dropout_fraction,fit_quantiles,step_sizes,num_bins) %#ok<INUSD>
 % Fit a truncated Gaussian to possibly contaminated EEG data.
 % [Mu,Sigma] = fit_eeg_distribution(X,MinCleanFraction,MaxDropoutFraction,FitQuantiles,StepSizes,NumBins)
 %
@@ -28,15 +28,10 @@ function [mu,sig] = fit_eeg_distribution(x,min_clean_fraction,max_dropout_fracti
 %               is the stepping over possible scales (i.e., clean-data quantiles) 
 %               (default: [0.01 0.01])
 %
-%   NumBins : Number of bins for Kullback-Leibler divergence calculation (default: 50)
-%
 % Out:
 %   Mu : estimated mean of the distribution
 %
 %   Sigma : estimated standard deviation of the distribution
-%
-% Notes:
-%   For small numbers of samples (<10000) it may help to use fewer bins.
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2013-08-15
@@ -64,17 +59,13 @@ if ~exist('fit_quantiles','var') || isempty(fit_quantiles)
     fit_quantiles = [0.022 0.6]; end
 if ~exist('step_sizes','var') || isempty(step_sizes)
     step_sizes = [0.01 0.01]; end
-if ~exist('num_bins','var') || isempty(num_bins)
-    num_bins = 50; end
 
 % sort data so we can access quantiles directly
 x = sort(x(:));
 n = length(x);
 
-% generate a binned approximation for the truncated Gaussian pdf
-series = (0:num_bins)/num_bins; series(end) = Inf;
+% calculate bounds for the truncated Gaussian pdf (in standard deviations)
 bounds = -sqrt(2)*erfcinv(2*[min(fit_quantiles) max(fit_quantiles)]);
-p = exp(-0.5*(bounds(1)+(0:(num_bins-1))/(num_bins-1)*diff(bounds)).^2)/(sqrt(2*pi)); p=p'/sum(p);
 
 % determine the limits for the grid search
 lower_min = min(fit_quantiles);                     % we can generally skip the tail below the lower quantile
@@ -90,8 +81,10 @@ for width = min_width : step_sizes(2) : max_width
     % get data in shifted intervals
     T = x(bsxfun(@plus,inds,offsets));
     
-    % calculate histograms
-    q = histc(bsxfun(@times,bsxfun(@minus,T,T(1,:)),1./(T(end,:)-T(1,:))),series) + 0.01;
+    % calculate binned histograms
+    num_bins = round(3*log2(1+length(inds)/2));
+    p = exp(-0.5*(bounds(1)+(0.5:(num_bins-0.5))/num_bins*diff(bounds)).^2)/(sqrt(2*pi)); p=p'/sum(p);
+    q = histc(bsxfun(@times,bsxfun(@minus,T,T(1,:)),1./(T(end,:)-T(1,:))),[0:num_bins-1,Inf]/num_bins) + 0.01;
     
     % calc KL divergences
     kl = sum(bsxfun(@times,p,log(bsxfun(@rdivide,p,q(1:end-1,:))))) + log(length(inds));
