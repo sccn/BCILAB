@@ -160,7 +160,7 @@ end
 if isempty(state)
     % design a spectral filter
     try
-        [state.shaping{1:2}] = hlp_diskcache('filterdesign',@yulewalk,spectral_params{3},[2*spectral_params{1}/signal.srate 1],spectral_params{2}([1:end end]));
+        [state.shaping{1},state.shaping{2}] = hlp_diskcache('filterdesign',@yulewalk,spectral_params{3},[2*spectral_params{1}/signal.srate 1],spectral_params{2}([1:end end]));
     catch e
         if strcmp(e.identifier,'MATLAB:UndefinedFunction')
             disp('The yulewalk function was not found to design a spectral filter; trying to fall back to pre-computed filter.');            
