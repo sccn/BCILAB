@@ -335,6 +335,12 @@ if ~isempty(stats)
             if isempty(logging_path)
                 logportion = '';
             else
+                try
+                    % ensure that the logging path exists
+                    io_mkdirs([logging_path filesep],{'+w','a'});
+                catch
+                    disp_once(['Warning: the logging path "' logging_path '" does not exist locally and could not be created.\nPlease make sure that it exists on all worker machines, as otherwise the computation will not start.']);
+                end
                 logportion = sprintf(' > %s/%s_%d.out',logging_path,host,port);
             end
             if binary_worker
