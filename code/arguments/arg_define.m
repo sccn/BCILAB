@@ -34,6 +34,9 @@ function res = arg_define(vals,varargin)
 %            * If this is a function handle, the function is used to transform the Values prior to
 %              any other processing into a new Values cell array. The function may specify a new
 %              (numeric) Format as its second output argument (if not specified, this is 0).
+%              The function may optionally take in the argument specification (struct array of 
+%              arg_specifier), although details of this data structure are internal and subject to 
+%              change between releases (particularly fields marked as INTERNAL).
 %
 %   Values : A cell array of values passed to the function (usually the calling function's
 %            "varargin"). Interpreted according to the Format and the Specification.
@@ -181,11 +184,25 @@ else
     spec = varargin(2:end);
     if isa(fmt,'function_handle')
         % Format was a function: run it
-        if nargout(fmt) == 1
-            vals = fmt(vals);
-            fmt = 0;
-        else
-            [vals,fmt] = feval(fmt,vals);
+        switch nargin(fmt)
+            case 1
+                if nargout(fmt) == 1
+                    vals = feval(fmt,vals);
+                    fmt = 0;
+                else
+                    [vals,fmt] = feval(fmt,vals);
+                end
+            case 2
+                % takes both the values and the specification: also evaluate the spec
+                [leanspec,all_names,joint_names,remap] = hlp_microcache('spec',@evaluate_spec,spec,'lean',nargout==0);
+                if nargout(fmt) == 1
+                    vals = feval(fmt,vals,leanspec);
+                    fmt = 0;
+                else
+                    [vals,fmt] = feval(fmt,vals,leanspec);
+                end
+            otherwise
+                error('The given formatting function expects an unsupported number of inputs (only 1 or 2 inputs supported).');
         end
     end
     direct_mode = false;
@@ -317,7 +334,8 @@ else
     % --- one-time evaluation of the Specification list into a struct array ---
 
     % evaluate the specification or retrieve it from cache
-    [spec,all_names,joint_names,remap] = hlp_microcache('spec',@evaluate_spec,spec,reporting_type,nargout==0);
+    if iscell(spec)
+        [spec,all_names,joint_names,remap] = hlp_microcache('spec',@evaluate_spec,spec,reporting_type,nargout==0); end
     
     % --- transform vals to a pure list of name-value pairs (NVPs) ---
 

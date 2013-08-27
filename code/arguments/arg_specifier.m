@@ -33,12 +33,12 @@ spec = struct(...
     'head',{@arg_specifier},...% the expression type that generated this specifier (@arg, @arg_sub, ...)
     'names',{{}}, ...       % cell array of argument names; first is the "code" name (reported to the function), second (if present) is the human-readable name (reported to the GUI)
     'value',{[]}, ...       % the assigned value of the argument; can be any data structure
-    'assigner',{@assign},...% function to be invoked in order to assign a new value the specifier
-    ... % properties for (possibly dependent) child arguments
+    'assigner',{@assign},...% function to be invoked in order to assign a new value the specifier (INTERNAL)
+    ... % properties for (possibly dependent) child arguments (INTERNAL)
     'children',{{}}, ...    % cell array of child arguments (returned to the function in a struct, and made available to the GUI in a subgroup)
-    'mapper',@(x)x, ...     % mapping function: maps a value into the index space of alternatives (possibly via range)
-    'alternatives',{{}}, ...% cell array of alternative children structures; only used for arg_subtoggle, arg_subswitch
-    'merge',{true},...      % whether the value (a cell array of arguments) should completely replace the default, or be merged with it, such that sub-arguments are only selectively overridden
+    'mapper',@(x)x, ...     % mapping function: maps a value into the index space of alternatives (possibly via range) (INTERNAL)
+    'alternatives',{{}}, ...% cell array of alternative children structures; only used for arg_subtoggle, arg_subswitch (INTERNAL)
+    'merge',{true},...      % whether the value (a cell array of arguments) should completely replace the default, or be merged with it, such that sub-arguments are only selectively overridden (INTERNAL)
     ... % type-related properties
     'range',{[]}, ...       % the allowed range of the argument (for type checking in GUI and elsewhere); can be [], [lo hi], {'option1','option2','option3',...}
     'type',{[]}, ...        % the type of the argument: string, only touches the type-checking system & GUI
@@ -51,7 +51,7 @@ spec = struct(...
     'deprecated',{false},...% whether the argument has been deprecated (true/false)
     'experimental',{false},...% whether the argument is marked as experimental or "prototype-stage" (true/false)
     'guru',{false},...      % whether the argument is marked as guru-level (true/false)
-    'reportable',{true},... % whether the argument can be reported to outer function (given that it is assigned), or not (true/false)
+    'reportable',{true},... % whether the argument can be reported to outer function (given that it is assigned), or not (true/false) (INTERNAL)
     'to_double',{true} ...  % convert numeric values to double before returning them to the function
     );
 

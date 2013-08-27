@@ -325,7 +325,7 @@ if ~isequal(varargin,{'update'})
     filters = allflt(ordering);
     
     % define/expose arguments to flt_pipeline (and define an argument for each filter)
-    args = arg_define([0 1], varargin, ...
+    args = arg_define(@check_arguments, varargin, ...
         arg_norep({'signal','Signal'}), ...
         arg({'fltorder','FilterOrdering','order'},{},[],'Override filter order. Filters listed in this cell-string array are (partially) reordered according to this list. Example: {''set_makepos'',''flt_ica'',''flt_resample''}. See also the help of flt_pipeline.','type','cellstr','shape','row'), ...
         ... % list the argument specifications for all filters
@@ -377,6 +377,7 @@ else
     % just update the list of filters and return
     list_filters(true);
 end
+
 
 
 % get a list of all existing filter specifications
@@ -454,6 +455,76 @@ if isempty(memo) || exist('update_list','var') && update_list
 end
 % remember the result for the next time...
 filters = memo;
+
+
+
+
+% check the arguments passed into the function and optionally drop those that are not 
+% known to flt_pipeline
+function [args,fmt] = check_arguments(args,spec)
+if ~isempty(args)
+    if isstruct(args{1}) && (all(isfield(args{1},{'head','parts'})) || all(isfield(args{1},{'data','srate','tracking'})))
+        % a data set was passed in as first argument: therefore, there is 1 positional argument and the rest are NVPs
+        positionals = args(1);
+        nvps = args(2:end);
+    else
+        % all arguments must be name/value pairs
+        positionals = {};
+        nvps = args;
+    end
+    
+    % flatten the NVPs
+    nvps = flatten_structs(nvps);
+    
+    % get all admissible names
+    known_identifiers = {spec.names};
+    known_identifiers_flat = [known_identifiers{:}];
+    
+    % collect all NVPs that are not supported
+    dropped_empty = [];
+    dropped_nonempty = [];
+    for k=1:2:length(nvps)
+        if strcmp(nvps{k},'arg_direct')
+            continue; end
+        if ~any(strcmp(nvps{k},known_identifiers_flat))
+            if isempty(nvps{k+1}) || strcmp(nvps{k+1},'off') || isfield(nvps{k+1},'arg_selection') && nvps{k+1}.arg_selection==0
+                dropped_empty(end+1) = k;
+            else
+                dropped_nonempty(end+1) = k;
+            end
+        end
+    end
+    % inform the user about what will be removed
+    if ~isempty(dropped_empty)
+        disp_once(['flt_pipeline: Unknown filter arguments were passed in as empty: ' hlp_tostring(nvps(dropped_empty)) '; these are being ignored.']); end
+    if ~isempty(dropped_nonempty)
+        warn_once(['flt_pipeline: Unknown filter arguments were passed in with non-trivial settings and are being ignored: ' hlp_tostring(nvps(dropped_nonempty)) '.']); end
+
+    % ... and remove them from the arguments
+    dropped_all = [dropped_empty dropped_nonempty];    
+    nvps([dropped_all dropped_all+1]) = [];
+    
+    % construct outputs
+    fmt = length(positionals);
+    args = [positionals nvps];
+else
+    fmt = [0 1];
+end
+
+
+% substitute any structs in place of a name-value pair into the name-value list
+function args = flatten_structs(args)
+k = 1;
+while k <= length(args)
+    if isstruct(args{k})
+        tmp = [fieldnames(args{k}) struct2cell(args{k})]';
+        args = [args(1:k-1) tmp(:)' args(k+1:end)];
+        k = k+numel(tmp);
+    else
+        k = k+2;
+    end
+end
+
 
 
 
@@ -661,3 +732,8 @@ while ~isempty(candidates)
 end
 % return the ordered & reduced index set
 order = retain(order);
+
+
+
+
+
