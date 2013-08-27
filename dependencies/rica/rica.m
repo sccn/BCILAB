@@ -115,10 +115,10 @@ if isempty(params.numFeatures)
 Mu = median(X,2);
 Sigma = hlp_diskcache('filterdesign',@cov_blockgeom,X',params.cov_blocksize);
 %% Optionally reject bad samples
-if params.cov_rejection
+if params.cov_rejection && exist('reject_samples_robcov','file')
     X = reject_samples_robcov(X,params.cov_rejection,Mu,Sigma); end
 %% Whiten the data
-X = bsxfun(@minus,X,mu);
+X = bsxfun(@minus,X,Mu);
 mix = sqrtm(Sigma);
 sphere = inv(mix);
 X = sphere*X; %#ok<*MINV>
@@ -131,7 +131,7 @@ end
 
 params.sphere = sphere;
 params.mix = mix;
-params.rcov = rcov;
+params.rcov = Sigma;
 
 %% Select cost function
 if strcmp(params.dict_criterion,'reconstruction')

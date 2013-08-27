@@ -806,10 +806,9 @@ end
 
 function M = operator_to_matrix_cached(op,n)
 vec = @(x)x(:);
-M = [];
+M = sparse([]);
 w = zeros(n,1);
-for c=n:-1:1
+for c=[n 1:n-1]
     v = w; v(c) = 1;
     M(:,c) = vec(op(v));
 end
-M = sparse(M);
