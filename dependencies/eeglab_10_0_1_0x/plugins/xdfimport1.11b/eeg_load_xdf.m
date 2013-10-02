@@ -80,18 +80,17 @@ try
             chanlocs(c).labels = chn.label; end            
         if isfield(chn,'type')
             chanlocs(c).type = chn.type; end
-        if isfield(chn,'location')
-            try
-                chanlocs(c).X = str2num(chn.location.X)/1000;
-                chanlocs(c).Y = str2num(chn.location.Y)/1000;
-                chanlocs(c).Z = str2num(chn.location.Z)/1000;
-                [chanlocs(c).sph_theta,chanlocs(c).sph_phi,chanlocs(c).sph_radius] = cart2sph(chanlocs(c).X,chanlocs(c).Y,chanlocs(c).Z);
-                [chanlocs(c).theta,chanlocs(c).radius] = cart2pol(chanlocs(c).X,chanlocs(c).Y);
-                chanlocs(c).urchan = c;
-                chanlocs(c).ref = '';
-            catch
-            end
+        try
+            chanlocs(c).X = str2num(chn.location.X)/1000;
+            chanlocs(c).Y = str2num(chn.location.Y)/1000;
+            chanlocs(c).Z = str2num(chn.location.Z)/1000;
+            [chanlocs(c).sph_theta,chanlocs(c).sph_phi,chanlocs(c).sph_radius] = cart2sph(chanlocs(c).X,chanlocs(c).Y,chanlocs(c).Z);
+            [chanlocs(c).theta,chanlocs(c).radius] = cart2pol(chanlocs(c).X,chanlocs(c).Y);
+        catch
+            [chanlocs(c).X,chanlocs(c).Y,chanlocs(c).Z,chanlocs(c).sph_theta,chanlocs(c).sph_phi,chanlocs(c).sph_radius,chanlocs(c).theta,chanlocs(c).radius] = deal([]);
         end
+        chanlocs(c).urchan = c;
+        chanlocs(c).ref = '';
     end
     raw.chaninfo.nosedir = '+Y';    
 catch e

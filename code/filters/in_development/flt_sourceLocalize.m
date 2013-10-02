@@ -284,7 +284,7 @@ if ~isempty(combineROIs)
         newRoiVertices{k} = A(sort(idx));
     end
     
-    if appendROI
+    if ~appendROI
         % remove all merged ROIs ...
         mergedROI = unique(cell2mat(roiIdxInAtlas));
         state.roiVerticesReduced(mergedROI) = [];
