@@ -49,9 +49,6 @@ function collected = hlp_collect_datasets(directory,varargin)
 %       'conditions',@(EEG) ~isempty(EEG.icawinv) && mean(cellfun('isempty',{EEG.chanlocs.X})) < 0.5, ...
 %       'collect',@(EEG,path){path,EEG.icawinv,EEG.chanlocs,EEG.icachansind})
 %
-% Dependencies: 
-%   env_translatepath.
-%
 %                               Laura Froelich, Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                               2010-09-10
 
@@ -75,7 +72,7 @@ if length(varargin)==1 && isstruct(varargin{1})
     opts = varargin{1};                                                     % opts is already a struct: fast path
 else
     opts = hlp_varargin2struct(varargin, 'pattern',regexptranslate('wildcard','*.set'), 'nopattern',{}, 'checkset',1, 'nowarnings',1 ,'nodialogs',1, ...
-        'maxsize',5*2^20, 'maxtime',Inf, 'maxnumber',Inf, 'conditions',[], 'collect',@(EEG,path) path, ....
+        'maxsize',5*2^20, 'maxtime',Inf, 'maxnumber',Inf, 'conditions',{}, 'collect',@(EEG,path) path, ....
         'fileconditions',@(path,name,ext) exist([path filesep  name '.fdt'],'file') || exist([path filesep name '.dat'],'file'));
     if ~iscell(opts.conditions)
         opts.conditions = {opts.conditions}; end

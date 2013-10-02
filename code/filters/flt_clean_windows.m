@@ -23,6 +23,7 @@ function [signal,sample_mask] = flt_clean_windows(varargin)
 %                    output) to 0.3 (very lax cleaning of only coarse artifacts). Default: 0.15.
 %
 %
+%
 %   The following are detail parameters that usually do not have to be tuned. If you can't get
 %   the function to do what you want, you might consider adapting these to your data.
 %
@@ -54,6 +55,7 @@ function [signal,sample_mask] = flt_clean_windows(varargin)
 %`  KeepMetadata    : boolean; whether meta data of EEG struct (such as events, ICA decomposition
 %                     etc.) should be returned. If true, meta data is returned. Returning meta data
 %                     is quite slow. (default: true)
+%
 %
 %
 %	The following are legacy parameters to enable previous behaviors.
@@ -185,7 +187,7 @@ else
         % previous method (2011): based on quantiles
         removed_windows = find(sum(1-retain_mask) > min_badchans);
     elseif ~isempty(ignored_chans)
-        % oldest method (2010)
+        % oldest method (2010): attempt at being robust against broken channels
         removed_windows = find(sum(retain_mask) <= ignored_chans);
     else
         error('BCILAB:flt_clean_windows:legacy_options','By setting the flag_quantile parameter you switch to legacy methods; these require that you also set the min_badchans (former default: 0.5) or ignored_chans (former default: 0.3) parameter.');

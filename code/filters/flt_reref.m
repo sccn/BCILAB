@@ -1,6 +1,6 @@
 function signal = flt_reref(varargin)
 % Re-references the data to a new (set of) channel(s) or the average of all channels.
-% Signal = flt_reref(Signal, ReferenceChannels, ExcludeChannels, KeepReference)
+% Signal = flt_reref(Signal, ReferenceChannels, ExcludeChannels, KeepReference, ReferenceType, HuberCutoff, HuberIterations)
 %
 % Re-referencing is a spatial filter in which the (instantaneous) mean signal of some "reference"
 % channels is subtracted from the signal of each channel. This allows to dampen externally-induced
@@ -12,6 +12,9 @@ function signal = flt_reref(varargin)
 % re-referencing, since their spatial filters are adaptively optimized and effectively incorporate
 % re-referencing to the degree that it is necessary.
 %
+% This function also supports robust re-referencing, where artifacts in few channels will not affect
+% the outcome disproportionally.
+%
 % In:
 %   Signal            :  Epoched or continuous data set.
 %
@@ -22,6 +25,19 @@ function signal = flt_reref(varargin)
 %                       (default: [])
 %
 %   KeepReference     : Whether to keep the reference channel (default: false)
+%                       If true and multiple channels were selected, a new channel named CAR is
+%                       appended.
+%
+%   ReferenceType     : Type of referencing to apply, can be one of the following:
+%                       * 'mean': subtract average of reference channels (default)
+%                       * 'median': subtract median of reference channels
+%                       * 'huber': subtract robust mean (under the Huber loss) of reference channels;
+%
+%   HuberCutoff       : cutoff/transition parameter for huber loss; if [], this is set
+%                       to one (robust) standard deviation of the signal
+%
+%   HuberIterations   : number of iterations to compute the Huber fit; a larger number can tolerate
+%                       larger outliers (default: 100)
 %
 % Out:
 %   Signal : Re-referenced data set.
@@ -45,7 +61,7 @@ function signal = flt_reref(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-03-28
 
-% flt_reref_version<1.0> -- for the cache
+% flt_reref_version<1.01> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -53,10 +69,44 @@ declare_properties('name',{'Rereferencing','ref'}, 'independent_channels',false,
 
 arg_define(varargin,...
     arg_norep({'signal','Signal'}), ...
-    arg({'chn','ReferenceChannels'}, [], [], 'Cell array of reference channels. The signal data is be referenced to these, defaults to average reference if empty.','type','cellstr','shape','row'),...
-    arg({'exclude','ExcludeChannels'}, [], [], 'Cell array of channels to exclude.','type','cellstr','shape','row'),...
-    arg({'keepref','KeepReference'}, false, [], 'Keep the reference channel.'));
+    arg({'ref_chn','ReferenceChannels','chn'}, [], [], 'Cell array of reference channels. The signal data is be referenced to these, defaults to average reference if empty.','type','cellstr','shape','row'),...
+    arg({'exclude_chn','ExcludeChannels','exclude'}, [], [], 'Cell array of channels to exclude.','type','cellstr','shape','row'),...
+    arg({'keepref','KeepReference'}, false, [], 'Keep the reference channel.'), ...
+    arg({'ref_type','ReferenceType'}, 'mean', {'mean','median','huber'}, 'Type of reference. The traditional average reference operation uses the mean. If this is set to median, the median of the reference channels will be removed, and if set to huber the robust mean under the Huber loss will be removed (slower than median but closer to the mean).'), ...
+    arg({'huber_cut','HuberCutoff'}, [], [], 'Cutoff for huber function. If left empty this is set to one (robust) standard deviation of the signal.','guru',true), ...
+    arg({'huber_iters','HuberIterations'}, 100, [], 'Iterations for huber fitting. A larger number yields tolerance to larger outliers.','guru',true));
 
-signal = pop_reref(signal,set_chanid(signal,chn),'exclude',fastif(isempty(exclude),[],set_chanid(signal,exclude)),'keepref',fastif(keepref,'on','off')); %#ok<*NODEF>
+if ~isempty(ref_chn)
+    ref_chns = set_chanid(signal,ref_chn);
+else
+    ref_chns = 1:size(signal.data,1);
+end
+    
+if ~isempty(exclude_chn)
+    ref_chns = setdiff(ref_chns,set_chanid(signal,exclude_chn)); end
 
-exp_endfun;
+switch ref_type
+    case 'mean'
+        ref_signal = mean(signal.data(ref_chns,:));
+    case 'median'
+        ref_signal = median(signal.data(ref_chns,:));
+    case 'huber'
+        if isempty(huber_cut)
+            huber_cut = median(mad(signal.data,1,2))*1.4826; end
+        ref_signal = robust_mean(signal.data(ref_chns,:)/huber_cut,1,huber_iters)*huber_cut;
+    otherwise
+        error('Unsupported reference type.');
+end
+    
+signal.data = bsxfun(@minus,signal.data,ref_signal);
+
+if ~keepref && ~isempty(ref_chn)
+    signal = pop_select(signal,'nochannel',ref_chns); end
+if keepref && length(ref_chn)>1
+    signal.data(end+1,:) = ref_signal;
+    signal.nbchan = size(signal.data,1);
+    signal.chanlocs(end+1).labels = 'CAR';
+    signal.chanlocs(end).type = 'REF';
+end
+
+exp_endfun('append_online',{'huber_cut',huber_cut});
