@@ -182,11 +182,15 @@ function learners = list_learners(update_list)
 % list all the learning functions in code/machine_learning/
 persistent memo;
 if isempty(memo) || exist('update_list','var') && update_list
-    modules = dir(env_translatepath('functions:/machine_learning/ml_train*.m'));
-    names = setdiff({modules.name},{'ml_train.m','ml_trainvote.m'});
-    tags = cellfun(@(n) n(9:end-2),names,'UniformOutput',false);
-    funcs = cellfun(@(n) str2func(n(1:end-2)),names,'UniformOutput',false);
-    memo = [tags; funcs];
-    memo = memo(:)';
+    memo = {};
+    for p = {'functions:/machine_learning/ml_train*.m','home:/.bcilab/code/machine_learning/ml_train*.m'}
+        modules = dir(env_translatepath(p{1}));
+        names = setdiff({modules.name},{'ml_train.m','ml_trainvote.m'});
+        tags = cellfun(@(n) n(9:end-2),names,'UniformOutput',false);
+        funcs = cellfun(@(n) str2func(n(1:end-2)),names,'UniformOutput',false);
+        tmp = [tags; funcs];
+        tmp = tmp(:)';
+        memo = [memo tmp];
+    end
 end
 learners = memo;

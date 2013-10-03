@@ -113,8 +113,10 @@ if ~isdeployed
     end
     
     % rebuild path
-    rmpath(added_paths{:});
-    addpath(added_paths{:});
+    if ~isempty(added_paths)
+        rmpath(added_paths{:});
+        addpath(added_paths{:});
+    end
 end
 
 

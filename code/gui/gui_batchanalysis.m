@@ -92,8 +92,9 @@ for obj = {handles.edit1,handles.edit20,handles.edit19}
 end
 
 % get all paradigm names
-paradir = env_translatepath('functions:/paradigms');
-para_files = dir([paradir filesep 'Paradigm*.m']);
+para_files = [];
+for p = {'functions:/paradigms', 'home:/.bcilab/code/paradigms'}
+    para_files = [para_files dir([env_translatepath(p{1}) filesep 'Paradigm*.m'])]; end
 para_acronyms = cellfun(@(s)s(9:end-2),{para_files.name},'UniformOutput',false);
 
 % populate the list of approaches with available in the workspace

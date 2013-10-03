@@ -209,7 +209,7 @@ if isempty(state)
         n = length(state.b);
         
         % use cepstral windowing to calculate a minimum-phase filter (note: the min-phase change applies
-        if strcmp(ftype,'minimum-phase') && ~any(strcmp(fmode,{'highpass','hp'}))
+        if strcmp(ftype,'minimum-phase')
             wnd = [1 2*ones(1,(n+mod(n,2))/2-1) ones(1,1-mod(n,2)) zeros(1,(n+mod(n,2))/2-1)];
             state.b = real(ifft(exp(fft(wnd.*real(ifft(log(abs(fft(state.b))+stopripple)))))));
         end

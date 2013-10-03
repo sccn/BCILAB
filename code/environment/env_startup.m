@@ -216,6 +216,8 @@ opts = hlp_varargin2struct(varargin,'data',[],'store',[],'cache',[],'temp',[],'m
 % load all dependencies, recursively...
 disp('Loading BCILAB dependencies...');
 env_load_dependencies(dependency_dir,opts.autocompile);
+if exist(env_translatepath('home:/.bcilab/code/dependencies'),'dir')
+    env_load_dependencies(env_translatepath('home:/.bcilab/code/dependencies'),opts.autocompile); end
 
 if ischar(opts.worker)
     try
@@ -421,21 +423,45 @@ if isequal(opts.worker,false) || isequal(opts.worker,0)
     end
     tracking.logfile = env_translatepath('home:/.bcilab/logs/bcilab_console.log');
     try 
-        if ~exist([hlp_homedir filesep '.bcilab' filesep 'logs'],'dir')
-            mkdir([hlp_homedir filesep '.bcilab' filesep 'logs']); end
+        diary(tracking.logfile); 
         if exist(tracking.logfile,'file')
             warning off MATLAB:DELETE:Permission
             delete(tracking.logfile); 
             warning on MATLAB:DELETE:Permission
         end
     catch,end
-    try diary(tracking.logfile); catch,end
-
-    if ~exist([hlp_homedir filesep '.bcilab' filesep 'models'],'dir')
-        mkdir([hlp_homedir filesep '.bcilab' filesep 'models']); end
-    if ~exist([hlp_homedir filesep '.bcilab' filesep 'approaches'],'dir')
-        mkdir([hlp_homedir filesep '.bcilab' filesep 'approaches']); end
     
+    try 
+        % create directories in the user's .bcilab folder...
+        home_basedir = [hlp_homedir filesep '.bcilab' filesep];
+        home_codedirs = {['code' filesep 'filters'],['code' filesep 'dataset_editing'], ...
+            ['code' filesep 'machine_learning'], ['code' filesep 'paradigms']};
+        home_miscdirs = {'models','approaches','code',['code' filesep 'dependencies'],'logs'};
+        for d = [home_codedirs home_miscdirs]
+            try
+                subdir = [home_basedir d{1}];
+                if ~exist(subdir,'dir')
+                    mkdir(subdir); end
+            catch e
+                disp(['Could not create directory: ' subdir ': ' e.message]);
+            end
+        end
+        % and add the code directories to the path
+        for d = home_codedirs
+            addpath(genpath([home_basedir d{1}])); end
+        % add the env_add.m file to the dependencies folder
+        add_file = [home_basedir 'code' filesep 'dependencies' filesep 'env_add.m'];
+        if ~exist(add_file,'file')
+            try                
+                f = fopen(add_file,'w');
+                fwrite(f,' ');
+                fclose(f);
+            catch e
+                disp(['Could not create file ' add_file ': ' e.message]);
+            end
+        end
+    catch,end
+
     % create a menu
     if ~(isequal(opts.menu,false) || isequal(opts.menu,0))
         try

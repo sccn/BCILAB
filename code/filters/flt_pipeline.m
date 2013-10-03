@@ -390,7 +390,9 @@ if isempty(memo) || exist('update_list','var') && update_list
     found = [dir(env_translatepath('functions:/filters/flt_*.m')); 
              dir(env_translatepath('functions:/dataset_editing/set_*.m'));
              dir(env_translatepath('functions:/filters/in_development/flt_*.m'));
-             dir(env_translatepath('functions:/dataset_editing/in_development/set_*.m'))];
+             dir(env_translatepath('functions:/dataset_editing/in_development/set_*.m'));
+             dir(env_translatepath('home:/.bcilab/code/filters/flt_*.m'));
+             dir(env_translatepath('home:/.bcilab/code/dataset_editing/set_*.m'))];
 
     % get file names, function names, function handles, function tags (names without prefix)
     files = setdiff({found.name},{'flt_pipeline.m','set_new.m','set_chanid.m','set_infer_chanlocs.m'});

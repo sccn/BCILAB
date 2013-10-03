@@ -24,12 +24,16 @@ list = {};
 % --- aggregate all paradigms ---
 approaches = {};
 
-paradir = env_translatepath('functions:/paradigms');
-para_files = dir([paradir filesep 'Paradigm*.m']);
-para_names = {para_files.name};
+para_paths = {};
+for p = {'functions:/paradigms', 'home:/.bcilab/code/paradigms'}
+    rootpath = env_translatepath(p{1});
+    files = dir([rootpath filesep 'Paradigm*.m']);
+    para_paths = [para_paths cellfun(@(n)[rootpath filesep n],{files.name},'UniformOutput',false)];
+end
 
-for p=1:length(para_names)
-    filename = para_names{p};
+for p=1:length(para_paths)
+    [paradir,filename,ext] = fileparts(para_paths{p});
+    filename = [filename ext];
     tag = filename(1:end-2);
     try
         % try lookup from a tiny cache of approach descriptions        
