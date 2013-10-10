@@ -9,6 +9,8 @@ function [signal,state] = flt_standardize(varargin)
 % usually take relative signal power into account. It is important to make the standardization
 % window long enough that it does not factor out changes in signal power that one is interested in.
 %
+% Note that this function requires the data to be relatively free of artifacts to work well.
+%
 % In:
 %   Signal       :   continuous data set to be filtered
 %
@@ -49,6 +51,7 @@ arg_define(varargin, ...
     arg({'multivariate_sphering','Sphere','sphere'}, false, [], 'Perform multivariate sphering. This removes correlations between channels but maintains. Assumes that the data is approximately zero-mean (i.e., first highpass filtered).'), ...
     arg({'stepsize','StepSize'}, 1/3, [], 'Step size between updates. The sphering matrix will be updated every this many samples. If this is below 1, it is assumed to be in seconds.','guru',true), ...
     arg({'usegpu','UseGPU'}, false, [], 'Use the GPU for sphering.'), ...
+    arg({'lambda','CovarianceRegularization'}, 0.001, [], 'Covariance regularization. This is a regularization parameter for the covariance estimate used in sperhing.','guru',true), ...
     arg_nogui({'state','State'}));
 
 warning off MATLAB:nearlySingularMatrix
@@ -75,7 +78,7 @@ if isempty(state)
             state.(field) = struct('ord1',[],'ord2',[],'offset',sum(signal.(field) ,2)/size(signal.(field) ,2),'last_R',[]);
             % prepend a made up data sequence
             signal.(field) = [repmat(2*signal.(field) (:,1),1,N) - signal.(field)(:,(N+1):-1:2) signal.(field)];
-        elseif ~isequal(signal.(field),1)
+        elseif ~isequal(signal.(field),1) && ~isempty(signal.(field))
             disp_once(['Not filtering the field .' field ': needs to be longer than the set data window length (for this data set ' num2str(window_len) ' seconds).']);
         end
     end
@@ -132,7 +135,8 @@ for fld = utl_timeseries_fields(signal)
                     last_n = 0;
                     for j=1:length(update_at)
                         % update the sphering matrix
-                        R = real(Xcov(:,:,j)^-1/2);
+                        V = Xcov(:,:,j);
+                        R = real((V*(1-lambda) + lambda*eye(C)*trace(V)/C)^(-1/2));
                         % apply the reconstruction to intermediate samples (using raised-cosine blending)
                         n = update_at(j);
                         subrange = range((last_n+1):n);
