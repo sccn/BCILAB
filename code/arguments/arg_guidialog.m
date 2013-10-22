@@ -6,6 +6,12 @@ function varargout = arg_guidialog(func,varargin)
 % function must declare its arguments via arg_define. In addition, only a Subset of the function's
 % specified arguments can be displayed.
 %
+% If this function is called with no arguments from within a function that uses arg_define it brings
+% up a dialog for the function's defined arguments, with values assigned based on the function's
+% inputs (contents of in varargin) and returns an argument struct if the dialog was confirmed with a
+% click on OK, and an empty value otherwise. The calling function can exit on empty, or otherwise
+% resume with entered parameters.
+%
 % In:
 %   Function : the function for which to display arguments
 %
@@ -22,11 +28,15 @@ function varargout = arg_guidialog(func,varargin)
 %
 %                 'Invoke' : whether to invoke the function directly; in this case, the output
 %                            arguments are those of the function (default: true, unless called in 
-%                            the form g = arg_guidialog; e.g., from within some function)
+%                            the form g = arg_guidialog; from within some function)
+%
+%                 'ShowGuru' : whether to show parameters marked as guru-level. (default: according
+%                              to env_startup setting)
 %
 % Out:
-%   Parameters : either a struct that is a valid input to the Function or the outputs of the function
-%                when Invoke is set to true (possibly multiple outputs)
+%   Parameters : If Invoke was set to true, this is either the results of the function call or empty
+%                (if the dialog was cancelled). If Invoke was set to false, this is either a struct 
+%                that is a valid input to the Function, or an empty value if cancel was clicked. 
 %
 % Examples:
 %   % bring up a configuration dialog for the given function
@@ -40,6 +50,15 @@ function varargout = arg_guidialog(func,varargin)
 %
 %   % bring up a dialog, and invoke the function with the selected settings after the user clicks OK
 %   settings = arg_guidialog(@myfunction,'Invoke',true)
+%
+%   % from within a function
+%   args = arg_define(varargin, ...);
+%   if nargin < 1
+%       % optionally allow the user to enter arguments via a GUI
+%       args = arg_guidialog;
+%       % user clicked cancel?
+%       if isempty(args), return; end
+%   end
 %
 % See also:
 %   arg_guidialog_ex, arg_guipanel, arg_define
@@ -61,14 +80,22 @@ function varargout = arg_guidialog(func,varargin)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
+global tracking;
+
 if ~exist('func','var')
-    % called with no arguments, from inside a function: open function dialog
+    % called with no arguments, from inside a function: open function dialog    
     func = hlp_getcaller;
     varargin = {'Parameters',evalin('caller','varargin'),'Invoke',nargout==0};
 end
 
 % parse arguments...
-hlp_varargin2struct(varargin,{'params','Parameters','parameters'},{}, {'subset','Subset'},{}, {'dialogtitle','title','Title'}, [char(func) '()'], {'buttons','Buttons'},[],{'invoke','Invoke'},true);
+hlp_varargin2struct(varargin, ...
+    {'params','Parameters','parameters'},{}, ...
+    {'subset','Subset'},{}, ...
+    {'dialogtitle','title','Title'}, [char(func) '()'], ...
+    {'buttons','Buttons'},[], ...
+    {'invoke','Invoke'},true, ...
+    {'show_guru','ShowGuru'},tracking.gui.show_guru);
 oldparams = params;
 
 % obtain the argument specification for the function
@@ -83,7 +110,7 @@ if ~isempty(subset) && subset{1}==-1
     subset(1) = [];
     subset = allnames(~ismember(allnames,[subset 'arg_direct']));
 end
-[spec,subset] = obtain_items(rawspec,subset);
+[spec,subset] = obtain_items(rawspec,subset,'',show_guru);
 
 % create an inputgui() dialog...
 geometry = repmat({[0.6 0.35]},1,length(spec)+length(buttons)/2);
@@ -95,7 +122,7 @@ for k = 1:length(spec)
     s = spec{k};
     if isempty(s)
         uilist(end+1:end+2) = {{} {}};
-    else        
+    else
         if isempty(s.help)
             error(['Cannot display the argument ' subset{k} ' because it contains no description.']);
         else
@@ -138,6 +165,7 @@ for k = 1:length(spec)
     end
 end
 
+
 % invoke the GUI, obtaining a list of output values...
 helptopic = char(func);
 try
@@ -149,6 +177,14 @@ try
 catch
     disp('Cannot deduce help topic.');
 end
+
+% % strip geometry for guru arguments
+% if ~show_guru
+%     tmpspec = [spec{:}];
+%     geometry([tmpspec.guru]) = [];
+%     geomvert([tmpspec.guru]) = [];
+% end
+
 [outs,dummy,okpressed] = inputgui('geometry',geometry, 'uilist',uilist,'helpcom',['env_doc ' helptopic], 'title',dialogtitle,'geomvert',geomvert); %#ok<ASGLU>
 
 if ~isempty(okpressed)
@@ -204,7 +240,7 @@ else
 end
 
 % obtain a cell array of spec entries by name from the given specification
-function [items,ids] = obtain_items(rawspec,requested,prefix)
+function [items,ids] = obtain_items(rawspec,requested,prefix,show_guru)
 if ~exist('prefix','var')
     prefix = ''; end
 items = {}; 
@@ -241,7 +277,7 @@ for k = length(items):-1:1
     % special case: switch arguments are not spliced, but instead the argument that defines the
     % option popupmenu will be retained
     if ~isempty(items{k}) && ~isempty(items{k}.children) && (~iscellstr(items{k}.range) || isempty(requested))
-        [subitems, subids] = obtain_items(items{k}.children,{},[ids{k} '.']);
+        [subitems, subids] = obtain_items(items{k}.children,{},[ids{k} '.'],show_guru);
         if ~isempty(subitems)
             % and introduce blank rows around them
             items = [items(1:k-1) {{}} subitems {{}} items(k+1:end)];
@@ -251,7 +287,7 @@ for k = length(items):-1:1
 end
 
 % remove items that cannot be displayed
-retain = cellfun(@(x)isempty(x)||x.displayable,items);
+retain = cellfun(@(x)isempty(x)||x.displayable&&(show_guru||~x.guru),items);
 items = items(retain);
 ids = ids(retain);
 

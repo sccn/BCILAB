@@ -1047,7 +1047,7 @@ for inddataset = 1:length(ALLEEG)
         
         % general checking of channels
         % ----------------------------
-        EEG = eeg_checkchanlocs(EEG);
+        [EEG.chanlocs,EEG.chaninfo] = hlp_microcache('checkchans',@eeg_checkchanlocs,EEG.chanlocs,EEG.chaninfo);
     end;
     EEG.chaninfo.icachansind = EEG.icachansind; % just a copy for programming convinience
     

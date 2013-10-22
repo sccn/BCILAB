@@ -12,6 +12,8 @@ function [h_old,h_new] = vis_artifacts(new,old,varargin)
 %   [*] : expand time range
 %   [/] : reduce time range
 %   [h] : show/hide slider
+%   [e] : toggle events
+%   [l] : toggle event legend
 %
 % In:
 %   NewEEG     : cleaned continuous EEG data set
@@ -30,6 +32,7 @@ function [h_old,h_new] = vis_artifacts(new,old,varargin)
 %                'DisplayMode' : what should be displayed: 'both', 'new', 'old', 'diff'
 %                'ShowSetname' : whether to display the dataset name in the title
 %                'EqualizeChannelScaling' : optionally equalize the channel scaling
+%                See also code for more options.
 %
 % Notes:
 %   This function is primarily meant for testing purposes and is not a particularly high-quality
@@ -61,7 +64,8 @@ function [h_old,h_new] = vis_artifacts(new,old,varargin)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-done_legend = false;
+have_signallegend = false;
+have_eventlegend = false;
 
 if nargin < 2
     old = new; 
@@ -79,6 +83,8 @@ opts = hlp_varargin2struct(varargin, ...
     {'oldcol','OldColor'}, [1 0 0], ...         % color of the old (i.e., uncleaned) data
     {'highpass_old','HighpassOldData'},true, ...% whether to high-pass the old data if not already done
     {'show_removed_portions','ShowRemovedPortions'},true, ...% whether to show removed data portions (if only one set is passed in)
+    {'show_events','ShowEvents'},true, ...      % whether to show events
+    {'show_eventlegend','ShowEventLegend'},false, ...  % whether to show a legend for the currently visible events
     {'scale_by','ScaleBy'},'new',...            % the data set according to which the display should be scaled
     {'channel_subset','ChannelSubset'},[], ...  % optionally a channel subset to display
     {'time_subset','TimeSubset'},[],...         % optionally a time subrange to display
@@ -86,7 +92,7 @@ opts = hlp_varargin2struct(varargin, ...
     {'show_setname','ShowSetname'},true,...     % whether to display the dataset name in the title
     {'line_spec','LineSpec'},'-',...            % line style for plotting
     {'line_width','LineWidth'},0.5,...          % line width
-    {'add_legend','AddLegend'},false,...        % add a legend
+    {'add_legend','AddLegend'},false,...        % add a signal legend
     {'equalize_channel_scaling','EqualizeChannelScaling'},false);  % optionally equalize the channel scaling
 
 % ensure that the data are not epoched and expand the rejections with NaN's (now both should have the same size)
@@ -129,6 +135,9 @@ if opts.equalize_channel_scaling
     new.data = bsxfun(@times,new.data,rescale);
     old.data = bsxfun(@times,old.data,rescale);
 end
+
+% generate event colormap
+opts.event_colormap = gen_colormap(old.event,'jet');
 
 % create a unique name for this visualization and store the options it in the workspace
 taken = evalin('base','whos(''vis_*'')');
@@ -214,11 +223,41 @@ on_update();
                 title([tit '; difference'],'Interpreter','none');
                 plot(xl(1):(xl(2)-xl(1))/(length(wndindices)-1):xl(2), (repmat(channel_y,1,length(wndindices)) + scale.*(oldwnd-newwnd))','Color',opts.newcol,'LineWidth',opts.line_width(1));
         end
+        
+        % also plot events
+        if visinfo.opts.show_events
+            evtlats = [old.event.latency];
+            evtindices = find(evtlats>wndrange(1) & evtlats<wndrange(end));
+            if ~isempty(evtindices)
+                evtpos = xl(1) + (evtlats(evtindices)-wndrange(1))/length(wndrange)*(xl(2)-xl(1));                
+                evttypes = {old.event(evtindices).type};
+                % for each visible type
+                visible_types = unique(evttypes);
+                handles = [];
+                labels = {};
+                for ty = visible_types(:)'
+                    % plot line instances in the right color
+                    curtype = ty{1};
+                    curcolor = visinfo.opts.event_colormap.values(strcmp(visinfo.opts.event_colormap.keys,curtype),:);
+                    matchpos = strcmp(evttypes,curtype);
+                    h = line([evtpos(matchpos);evtpos(matchpos)],repmat([0;1],1,nnz(matchpos)),'Color',curcolor);
+                    handles(end+1) = h(1);
+                    labels{end+1} = curtype;
+                end
+                if visinfo.opts.show_eventlegend
+                    legend(handles,labels,'Location','NorthWest'); 
+                    have_eventlegend = true;
+                elseif have_eventlegend
+                    legend off;
+                    have_eventlegend = false;
+                end
+            end
+        end        
         axis([0 1 0 1]);
         
-        if opts.add_legend && ~done_legend
+        if opts.add_legend && ~have_signallegend
             legend([h_old(1);h_new(1)],'Original','Corrected');
-            done_legend = 1;
+            have_signallegend = 1;
         end
         drawnow;
 
@@ -298,6 +337,10 @@ on_update();
                 visinfo.opts.display_mode = 'both';
             case 'd'
                 visinfo.opts.display_mode = 'diff';
+            case 'l'
+                visinfo.opts.show_eventlegend = ~visinfo.opts.show_eventlegend;
+            case 'e'
+                visinfo.opts.show_events = ~visinfo.opts.show_events;
             case 'h'
                 if strcmp(get(hSlider,'Visible'),'on')
                     set(hSlider,'Visible','off')
@@ -308,4 +351,15 @@ on_update();
         assignin('base',visname,visinfo);
         on_update();
     end
+end
+
+% create a mapping from event types onto colors
+function map = gen_colormap(eventstruct,mapname)
+map.keys = unique({eventstruct.type});
+if ~isempty(map.keys)
+    tmp = colormap(mapname);
+    map.values = tmp(1+floor((0:length(map.keys)-1)/(length(map.keys)-1)*(length(tmp)-1)),:);
+else
+    map.values = [];
+end
 end

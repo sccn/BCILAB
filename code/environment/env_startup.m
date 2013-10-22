@@ -435,8 +435,8 @@ if isequal(opts.worker,false) || isequal(opts.worker,0)
         % create directories in the user's .bcilab folder...
         home_basedir = [hlp_homedir filesep '.bcilab' filesep];
         home_codedirs = {['code' filesep 'filters'],['code' filesep 'dataset_editing'], ...
-            ['code' filesep 'machine_learning'], ['code' filesep 'paradigms']};
-        home_miscdirs = {'models','approaches','code',['code' filesep 'dependencies'],'logs'};
+            ['code' filesep 'machine_learning'], ['code' filesep 'paradigms'], ['code' filesep 'scripts']};
+        home_miscdirs = {'models','approaches','code',['code' filesep 'dependencies'],'logs',['logs' filesep 'workers']};
         for d = [home_codedirs home_miscdirs]
             try
                 subdir = [home_basedir d{1}];

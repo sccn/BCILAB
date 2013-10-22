@@ -1,5 +1,6 @@
 function results = utl_run_batchjob(opts,d,appname,setnames)
 % Internal: the actual processing function of bci_batchtrain
+% Results = ult_run_batchjob(Options,DatasetIndex,ApproachName,DatasetNames)
 try
     results = [];    
     storename = env_translatepath(strrep(strrep(opts.storepatt,'%set',setnames{d}),'%approach',appname));

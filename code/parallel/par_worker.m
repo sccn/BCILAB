@@ -118,7 +118,7 @@ import java.lang.*
 warning off MATLAB:structOnObject
 
 % parse arguments
-if ~exist('port','var') || isempty(port)
+if ~exist('port','var') || isempty(port) || isequal(port,0)
     port = 23547; end
 if ~exist('portrange','var') || isempty(portrange)
     portrange = 0; end

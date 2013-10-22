@@ -77,13 +77,10 @@ function [signal,state] = flt_iir(varargin)
 % Notes:
 %   Requires the Signal Processing toolbox.
 %
-%   This function is currently somewhat slow during online processing due to the way in which the 
-%   dfilt object is used; if wall-clock timing is critical, compare the latency to flt_fir.
-%
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-17
 
-% flt_iir_version<1.0> -- for the cache
+% flt_iir_version<1.01> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -105,10 +102,6 @@ if signal.trials > 1
     error('flt_iir is supposed to be applied to continuous (non-epoched) data.'); end
 
 if isempty(state)
-    % check if we have the toolbox
-    if ~exist('dfilt','file')
-        error('You need the Signal Processing toolbox to make use of IIR filters in BCILAB.'); end
-
     % compute filter parameters
     f = 2*fspec/signal.srate;
     if length(f) < 4 && any(strcmp(fmode,{'bp','bs'}))
@@ -132,42 +125,41 @@ if isempty(state)
     % compute filter coefficients
     switch ftype
         case {'butterworth','butt'}
-            [n,Wn] = buttord(Wp,Ws,ripple,atten);
-            [z,p,k] = butter(n,Wn,label{:});
+            [n,Wn] = hlp_diskcache('filterdesign',@buttord,Wp,Ws,ripple,atten);
+            [z,p,k] = hlp_diskcache('filterdesign',@butter,n,Wn,label{:});
         case {'chebychev1','cheb1'}
-            [n,Wn] = cheb1ord(Wp,Ws,ripple,atten);
-            [z,p,k] = cheby1(n,ripple,Wn,label{:});
+            [n,Wn] = hlp_diskcache('filterdesign',@cheb1ord,Wp,Ws,ripple,atten);
+            [z,p,k] = hlp_diskcache('filterdesign',@cheby1,n,ripple,Wn,label{:});
         case {'chebychev2','cheb2'}
-            [n,Wn] = cheb2ord(Wp,Ws,ripple,atten);
-            [z,p,k] = cheby2(n,atten,Wn,label{:});
+            [n,Wn] = hlp_diskcache('filterdesign',@cheb2ord,Wp,Ws,ripple,atten);
+            [z,p,k] = hlp_diskcache('filterdesign',@cheby2,n,atten,Wn,label{:});
         case {'elliptic','ellip'}
-            [n,Wn] = ellipord(Wp,Ws,ripple,atten);
-            [z,p,k] = ellip(n,ripple,atten,Wn,label{:});
+            [n,Wn] = hlp_diskcache('filterdesign',@ellipord,Wp,Ws,ripple,atten);
+            [z,p,k] = hlp_diskcache('filterdesign',@ellip,n,ripple,atten,Wn,label{:});
         case {'yule-walker','yulewalk'}
-            [b,a] = yulewalk(yulewalk_order,F,M);
-            [z,p,k] = tf2zp(b,a);
+            [b,a] = hlp_diskcache('filterdesign',@yulewalk,yulewalk_order,F,M);
+            [z,p,k] = hlp_diskcache('filterdesign',@tf2zp,b,a);
+        otherwise 
+            error(['Unrecognized filter type specified: ' hlp_tostring(ftype)]);
     end
-    [sos,g] = zp2sos(z,p,k);
+    [sos,g] = hlp_diskcache('filterdesign',@zp2sos,z,p,k);
     
-    % create state object
+   % initialize state
     for fld = utl_timeseries_fields(signal)
-        state.(fld{1}) = dfilt.df2sos(sos,g);
-        set(state.(fld{1}),'PersistentMemory',true);
+        state.(fld{1}).sos = sos;
+        state.(fld{1}).g = g;
+        state.(fld{1}).zi = repmat({[]},1,size(sos,1));
     end
-else
-    % make a deep copy of the state before modification
-    for fld = utl_timeseries_fields(signal)
-        state.(fld{1}) = copy(state.(fld{1})); end
 end
 
-% apply the filter
 for fld = utl_timeseries_fields(signal)
     field = fld{1};
-    S = size(signal.(field),2);
-    numsplits = ceil(S/chunk_length);
-    for i=0:numsplits-1
-        range = 1+floor(i*S/numsplits) : min(S,floor((i+1)*S/numsplits));
-        signal.(field)(:,range) = filter(state.(field),double(signal.(field)(:,range)),2);
+    if isfield(signal,field) && ~isempty(signal.(field)) && ~isequal(signal.(field),1)
+        % apply filter for each section
+        for s = 1:size(state.(field).sos,1)
+            [signal.(field),state.(field).zi{s}] = filter(state.(field).sos(s,1:3),state.(field).sos(s,4:6),double(signal.(field)),state.(field).zi{s},2); end
+        % apply gain
+        signal.(field) = signal.(field)*state.(field).g;
     end
 end
 

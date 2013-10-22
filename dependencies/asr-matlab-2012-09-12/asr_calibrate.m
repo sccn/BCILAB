@@ -70,6 +70,8 @@ function state = asr_calibrate(X,srate,cutoff,blocksize,B,A,window_len,window_ov
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2012-08-31
 
+% asr_calibrate_version<1.03> -- for the cache
+
 % UC Copyright Notice
 % This software is Copyright (C) 2013 The Regents of the University of California. All Rights Reserved.
 % 

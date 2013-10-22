@@ -61,12 +61,15 @@ try
                 if isempty(chunk)
                     return; end;
                 
+                % the code line to execute
+                codeline = ['[' name '.buffer(:,1+mod(' name '.smax:' name '.smax+size(' name '_chunk,2)-1,' name '.buffer_len)),' name '.smax] = deal(' name '_chunk,' name '.smax + size(' name '_chunk,2));'];
+                
                 % check what's wrong...
                 persistent cannot_script; %#ok<TLEV>
                 if cannot_script
                     % if we previously determined that we cannot work with scripts for some reason, 
                     % we run the code directly (at some performance cost)
-                    evalin('base',['[' name '.smax,' name '.buffer(:,1+mod(' name '.smax:' name '.smax+size(' name '_chunk,2)-1,' name '.buffer_len))] = deal(' name '.smax + size(' name '_chunk,2),' name '_chunk);']);
+                    evalin('base',codeline);
                 else
                     % does the script exist?
                     if ~exist(scriptname,'file')
@@ -74,7 +77,7 @@ try
                             % try to create it (likely a first-time use)
                             filename = env_translatepath(['functions:/temp/' scriptname '.m']);
                             f = fopen(filename,'w+');
-                            fprintf(f,['[' name '.smax,' name '.buffer(:,1+mod(' name '.smax:' name '.smax+size(' name '_chunk,2)-1,' name '.buffer_len))] = deal(' name '.smax + size(' name '_chunk,2),' name '_chunk);']);
+                            fprintf(f,codeline);
                             fclose(f);
                             rehash;
                         catch

@@ -340,7 +340,7 @@ try
             if exist(data{c},'file')
                 % it's a file name: wrap in quotes
                 data{c} = ['''' data{c} ''''];
-            elseif (any(data{c}=='*') || any(data{c}=='?')) && ~isempty(dir(data{c}))
+            elseif (any(data{c}=='*') || any(data{c}=='?')) && ~isempty(rdir(data{c}))
                 % it's apparently a file name pattern: wrap in quotes
                 data{c} = ['''' data{c} ''''];
             elseif isvarname(data{c}) && evalin('base',sprintf('exist(''%s'',''var'')',data{c}))

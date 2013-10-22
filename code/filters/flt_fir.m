@@ -106,7 +106,7 @@ function [signal,state] = flt_fir(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-17  
 
-% flt_fir_version<1.03> -- for the cache
+% flt_fir_version<1.04> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -122,7 +122,7 @@ arg_define(varargin, ...
     arg({'stopripple','StopbandRipple'}, -40, [-180 1], 'Maximum relative ripple amplitude in stop-band. Relative to nominal pass-band gain. Affects the filter length (i.e., delay). Assumed to be in db if negative, otherwise taken as a ratio.'), ...
     arg({'designrule','DesignRule'}, 'Frequency Sampling', {'Parks-McClellan','Window Method','Frequency Sampling'}, 'Filter design rule. Parks-McClellan minimizes the maximum error, the Window Method minimizes the square error, and Frequency Sampling constructs the filter via the Fourier transform without tuning (the latter requires no sigproc toolbox).'), ...
     arg({'chunk_length','ChunkLength'},50000,[], 'Maximum chunk length. Process the data in chunks of no larger than this (to avoid memory limitations).','guru',true), ...
-    arg({'normalize_amplitude','NormalizeAmplitude'},true,[], 'Normalize amplitude. Normalizes the amplitude such that the maximum gain is as desired. This helps with the occasional erratic filter design result.','guru',true), ...
+    arg({'normalize_amplitude','NormalizeAmplitude'},false,[], 'Normalize amplitude. Normalizes the amplitude such that the maximum gain is as desired. This helps with the occasional erratic filter design result.','guru',true), ...
     arg_nogui({'state','State'}));
 
 if isempty(state)
@@ -227,7 +227,7 @@ end
 
 [b,n] = deal(state.b,length(state.b));
 % process each known time series field
-for fld = {'data','srcpot','icaact'}
+for fld = utl_timeseries_fields(signal)
     field = fld{1};
     if isfield(signal,field) && ~isempty(signal.(field)) && ~isequal(signal.(field),1)
         if ~isfield(state,field)
@@ -277,9 +277,10 @@ if ~isfield(signal.etc,'filter_delay')
     signal.etc.filter_delay = 0; end
 
 if strcmp(ftype,'linear-phase')
-    signal.etc.filter_delay = signal.etc.filter_delay + length(b)/2/signal.srate;
+    signal.etc.filter_delay = signal.etc.filter_delay + (length(b)/2-1)/signal.srate;
 elseif strcmp(ftype,'minimum-phase')
-    signal.etc.filter_delay = signal.etc.filter_delay + hlp_getresult(2,@max,b)/signal.srate;
+    [dummy,maxidx] = max(b); %#ok<ASGLU>
+    signal.etc.filter_delay = signal.etc.filter_delay + (maxidx-1)/signal.srate;
 end    
 
 exp_endfun;

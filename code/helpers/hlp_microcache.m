@@ -186,14 +186,14 @@ if nargin > 1
         
         % get the size id (sid) of the key (MATLAB keeps track of that for every object)
         keyinfo = whos('key');
-        keysid = sprintf('s%.0f',keyinfo.bytes);
+        keysid = sprintf('s%u',keyinfo.bytes);
         
         try
             % retrieve the pool of size-equivalent objects
             sizepool = mc.(dom).(keysid);
             % search for the key in the pool (checking the most-frequently used keys first)
             for k=1:length(sizepool.inps)
-                if isequalwithequalnans(key,sizepool.inps{k}) % (isequalwithequalnans() is a fast builtin)
+                if isequalwithequalnans(key,sizepool.inps{k}) %#ok<FPARK> % (isequalwithequalnans() is a fast builtin)
                     % found the key, deliver outputs
                     varargout = sizepool.outs{k};
                     % update the db record...

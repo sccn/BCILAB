@@ -98,7 +98,7 @@ classdef ParadigmFBCSP < ParadigmDataflowSimplified
                     % filter trial subrange in time and frequency
                     data = exp_eval_optimized(flt_spectrum('signal',flt_window('signal',set_picktrials(args.signal,'rank',k),time_args{w}),freq_args{w}));
                     if args.robust_cov
-                        covar{k} = hlp_diskcache('featuremodels',@cov_robust,reshape(data.data,size(data.data,1),[])',max([data.nbchan*2,data.srate*2,size(data,3)]),args.shrinkage_cov);
+                        covar{k} = hlp_diskcache('featuremodels',@cov_blockgeom,reshape(data.data,size(data.data,1),[])',max([data.nbchan*2,data.srate*2,size(data,3)]),args.shrinkage_cov);
                     else
                         if args.shrinkage_cov
                             covar{k} = hlp_diskcache('featuremodels',@cov_shrink,reshape(data.data,size(data.data,1),[])');

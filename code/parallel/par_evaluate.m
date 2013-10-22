@@ -54,8 +54,8 @@ catch e
     try
         % try to display and serialize the error
         disp(['Exception during task processing: ' e.message]);
-        if exist('env_handleerror','file')
-            env_handleerror(e);
+        if exist('hlp_handleerror','file')
+            hlp_handleerror(e);
         else
             for k = 1:length(e.stack)
                 fprintf('  %s (%i)\n',e.stack(k).name,e.stack(k).line); end

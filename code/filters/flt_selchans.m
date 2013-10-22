@@ -1,6 +1,6 @@
 function signal = flt_selchans(varargin)
 % Selects a subset of channels from the given data set.
-% Signal = flt_selchans(Signal, Channels)
+% Signal = flt_selchans(Signal, Channels, OrderPreservation, RemoveSelection, FindClosest)
 %
 % Channel (or sensor) selection is a simple and effective method to constrain the complexity (and
 % thus shorten computation time and/or improve robustness) of later stages in a paradigm. Sometimes,
@@ -21,6 +21,9 @@ function signal = flt_selchans(varargin)
 %                       (default: 'query-order')
 %
 %   RemoveSelection : Remove selected channels. (default: false)
+%
+%   FindClosest : Find closest channels. This is for cases where the requested channels are not in
+%                 the set. (default: false)
 %
 % Out:
 %   Signal    : The original data set restricted to the selected channels (as far as they are 
@@ -48,7 +51,7 @@ function signal = flt_selchans(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-17
 
-% flt_selchans_version<1.1> -- for the cache
+% flt_selchans_version<1.11> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -59,9 +62,18 @@ arg_define(varargin, ...
     arg_norep({'signal','Signal'}), ...
     arg({'channels','Channels'}, [], [], 'Cell array of channel names to retain.','type','cellstr','shape','row'), ...
     arg({'orderPreservation','OrderPreservation'}, 'query-order', {'query-order','dataset-order'}, 'Output channel order. The result will have its channels either in the order of the input set or in the order of the query list.'), ...
-    arg({'remove_selection','RemoveSelection'},false,[],'Remove selected channels.'));
+    arg({'remove_selection','RemoveSelection'},false,[],'Remove selected channels.'), ...
+    arg({'find_closest','FindClosest'},false,[],'Find closest channels. This is for cases where the requested channels are not in the set.'));
 
-subset = set_chanid(signal,channels);
+if find_closest
+    if ~iscellstr(channels)
+        error('For distance-based channel matching the given channels should be a cell array of labels.'); end
+    tmplocs = hlp_microcache('matchchan',@set_infer_chanlocs,channels);
+    subset = hlp_microcache('matchchan',@eeg_matchchans,signal.chanlocs,tmplocs,'noplot');
+else
+    subset = set_chanid(signal,channels);
+end
+    
 if remove_selection
     subset = setdiff(1:signal.nbchan,subset); end
 if ~isequal(subset,1:signal.nbchan)    

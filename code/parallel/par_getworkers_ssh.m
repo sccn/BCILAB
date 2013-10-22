@@ -144,28 +144,59 @@ function pool = par_getworkers_ssh(varargin)
 
 global tracking;
 
-arg_define(varargin,...
+opts = arg_define(varargin,...
+    ... % resources to acquire
     arg({'hostnames','Hostnames'},{''},[],'Host names to acquire. Host names or IP addresses of machines on which to consider starting workers. If this is left empty, the current global worker pool will be used.'), ...
-    arg({'processors_per_node','ProcessorsPerNode'},0,[],'Processors per node. A value of 0 means that as many processors as there are cores on each node shall be used, but divided by the value of the "matlabthreads" (Number of MATLAB threads) parameter.'), ...
+    arg({'processors_per_node','WorkersPerNode','ProcessorsPerNode'},4,[],'Workers per node. A value of 0 means that as many instances as there are cores on each node shall be used, but divided by the value of the "matlabthreads" (Number of MATLAB threads) parameter.'), ...
     arg({'matlabthreads','MatlabThreads'},4,[],'Number of MATLAB threads. This is the number of threads that each worker uses internally.'), ...
+    ... % SSH command
+    arg({'identity_file','IdentityFile'},'', [], 'SSH identity file. Optional, if needed for passwordless login. This corresponds to the -i option in ssh.'), ...
+    ... % startup commands within MATLAB
+    arg({'matlab_command','MATLABCommand'},'autogenerate', [], 'Command to start MATLAB. This is the command to run on the command line to start the desired version of MATLAB. If this is set to ''autogenerate'' the same path that runs the par_getworkers_ssh command will be used (useful on clusters with identical file systems).'), ...
     arg({'startup_prefix','StartupPrefix'},'',[], 'Startup prefix. Any startup lines to run before running the main BCILAB command.'),...
     arg({'startup_command','StartupCommand'},'autogenerate',[], 'Startup command. If the binary_worker parameter (Use compiled workers) is true, this is a sequence of shell commands, otherwise it is a sequence of MATLAB statements which contain the placeholder %d where the TCP port # would be inserted; If set to ''autogenerate'', a startup command specific to the current BCILAB environment will be generated.'),...
+    ... % binary commands for compiled workers
+    arg({'binary_worker','BinaryWorker'},false,[], 'Use compiled workers. Whether to start a given binary worker implementation rather than the MATLAB worker.'), ...
+    arg({'mcr_root','MatlabCompilerRoot'},'', [], 'MATLAB Compiler directory. Installation path of the MATLAB compiler runtime; if empty, a few locations will be searched for an MCR that corresponds to the MATLAB version that is running this function (this assumes that the compiler is installed in the same directory remotely as it is locally). If nothing is found, it is assumed that the MCR has been installed into the system path and is found automatically.'), ...
+    arg({'binary_name','BinaryName'},'build', [], 'Name of the binary. The name of the BCILAB binary (if using compiled workers).'), ...
+    ... % port allocation
     arg({'share_resources','ShareResources'},true,[],'Share resources. Whether workers that are already running (started by other users) will be returned as part of the worker set, and are thus potentially shared with other users. If false, the requested number of workers will always be started and be private to the requester -- however, potentially over-subscribing the capacity of the node.'),...
     arg({'sharing_port','SharingPort'},0, [], 'Port for sharing. The lowest port used by shared workers -- if 0, this is computed based on the startup_command (recommended).'), ...
+    ... % worker status and logging
     arg({'logging_path','LoggingPath'},env_translatepath('home:/.bcilab/logs/workers'), [], 'Logging path. Make sure that this does not conflict with other users'' log paths.'), ...
-    arg({'identity_file','IdentityFile'},'', [], 'SSH identity file. Optional, if needed for passwordless login. This corresponds to the -i option in ssh.'), ...
-    arg({'binary_worker','BinaryWorker'},false,[], 'Use compiled workers. Whether to start a given binary worker implementation rather than the MATLAB worker.'), ...
-    arg({'binary_name','BinaryName'},'build', [], 'Name of the binary. The name of the BCILAB binary (if using compiled workers).'), ...
-    arg({'matlab_command','MATLABCommand'},'matlab', [], 'Command to start MATLAB. This is the command to run on the command line to start the desired version of MATLAB.'), ...
-    arg({'mcr_root','MatlabCompilerRoot'},'', [], 'MATLAB Compiler directory. Installation path of the MATLAB compiler runtime; if empty, a few locations will be searched for an MCR that corresponds to the MATLAB version that is running this function (this assumes that the compiler is installed in the same directory remotely as it is locally). If nothing is found, it is assumed that the MCR has been installed into the system path and is found automatically.'), ...
+    arg({'verbose_output','VerboseOutput'},true, [], 'Verbose output. Whether to display information about the acquisition process.'), ...
+    arg({'processors_command','NumProcessorsCommand'},'cat /proc/cpuinfo | grep ^processor | wc -l;', [], 'Processor-check command. This command should return the number of processors on a given worker machine.','guru',true), ...
+    arg({'cpuload_command','CPULoadCommand'},'cat /proc/loadavg;', [], 'CPU-load command. This command should generate CPU load statistics.','guru',true), ...
+    arg({'memfree_command','MemCheckCommand'},'cat /proc/meminfo | grep ^MemFree;', [], 'Avoidance-check command. This command should return the amount of free RAM on the given worker machine.','guru',true), ...
+    arg({'avoidcheck_command','AvoidanceCheckCommand'},'ps -A | grep ''%s'' | wc -l;', [], 'Avoidance-check command. This command should return the number of processes on a given client to avoid (based on a regex pattern).','guru',true), ...    
+    ... % sanity checks
+    arg({'sanity_checks','SanityChecks'},true, [], 'Perform sanity checks. This checks whether the necessary paths are present on the worker machines, etc.'), ...
+    arg({'path_exists_command','PathExistsCommand'},'ls %s;', [], 'Path-check command. This command should return success if the path exists, and otherwise yield an error return value.','guru',true), ...   
+    arg({'binary_exists_command','BinaryExistsCommand'},'which %s;', [], 'Binary-check command. This command should return success if the binary exists, and otherwise yield an error return value.','guru',true), ...   
+    ... % exclusion criteria
     arg({'min_memory','MinFreeMemory'},2^32,[], 'Minimum free memory. Minimum amount of RAM memory (in bytes) that needs to be available for an instance to be started.'),...
     arg({'max_cpuload','MaxCPULoad'},Inf, [], 'Maximum CPU load. The maximum acceptable average CPU load (summed over all cores) for a node to be considered.'), ...
     arg({'load_window','LoadWindow'},15,[],'Load estimation window. The time window in seconds (into the past) over which the CPU load will be estimated to determine whether a worker shall be started on a given node.'), ...
     arg({'avoid_proc','AvoidProcess'},'avoidme',[],'Process to avoid. Optionally a process name that indicates that no workers shall be spawned if the process is running on some machine (e.g. a time-critical computation).'),...
-    arg({'shutdown_timeout','ShutdownTimeout'},0,[],'Shutdown timeout. If non-zero, the worker will be shut down if it has not received a heartbeat signal from a client in the given time frame.'),...
-    arg({'recruit_machines','RecruitMachines'},true,[],'Recruit workers. Whether to actually recruit other machines, rather than just list them.'), ...
-    arg({'verbose_output','VerboseOutput'},true, [], 'Verbose output. Whether to display information about the acquisition process.'));
+    ... % shutdown management
+    arg({'shutdown_timeout','ShutdownTimeout'},0,[],'Shutdown timeout. If non-zero, the worker will be shut down if it has not received a heartbeat signal from a client in the given time frame, in seconds. For this to work, the function env_acquire_cluster should be used as it sets up the heartbeat timer.'),...
+    ... % misc
+    arg({'recruit_machines','RecruitMachines'},true,[],'Recruit workers. Whether to actually recruit other machines, rather than just list them.'));
 
+
+% no arguments were passed? bring up GUI dialog
+if isempty(varargin)
+    opts = arg_guidialog;    
+    if isempty(opts)
+        return; end % -> user clicked cancel
+end
+
+arg_toworkspace(opts);
+
+if ispc
+    disp('Note: Acquiring workers from BCILAB will only work if your operating system provides an ''ssh'' command. From a Windows machine, you likely have to have some program installed to use this feature. Also note that your cluster needs to run Linux for this to work.');
+    disp('You can always fall back to starting your worker processes (either as MATLAB instances or compiled binaries) by hand and listing their host:port''s in the worker pool (see Cluster Settings GUI).');
+end
 
 if isempty(hostnames) || isequal(hostnames,{''})
     hostnames = par_globalpool; end
@@ -173,11 +204,6 @@ if isempty(hostnames) || isequal(hostnames,{''})
 if isempty(hostnames)
     disp('The list of hostnames to connect to is empty; exiting.');
     return;
-end
-
-if ispc
-    disp('Note: Acquiring workers from BCILAB will only work if your operating system provides an ''ssh'' command. From a Windows machine, you likely have to have some program installed to use this feature. Also note that your cluster needs to run Linux for this to work.'); 
-    disp('You can always fall back to starting your worker processes (either as MATLAB instances or compiled binaries) by hand and listing their host:port''s in the worker pool (see Cluster Settings GUI).'); 
 end
 
 if isempty(mcr_root)
@@ -202,6 +228,8 @@ if ~ischar(startup_command)
     error('The startup_command parameter must be given as a string.'); end
 if ~islogical(binary_worker)
     error('The binary_worker flag must be either true or false.'); end
+if strcmp(matlab_command,'autogenerate')
+    matlab_command = [matlabroot filesep 'bin' filesep 'matlab']; end
 if ~ischar(mcr_root)
     error('The mcr_root parameter must be given as a string.'); end
 if ~ischar(identity_file)
@@ -214,23 +242,25 @@ if ~isscalar(load_window) || ~isnumeric(load_window)
     error('The load_window parameter must be given as a number.'); end
 if ~isscalar(shutdown_timeout) || ~isnumeric(shutdown_timeout)
     error('The shutdown_timeout parameter must be given as a number.'); end
-if ~isempty(identity_file)
-    identity_file = ['-i ' identity_file]; end
 window_remap = [1 1 1 2 2 2 2 2 2 2 3 3 3 3 3];
 load_window = window_remap(min(load_window,15));
+if ~isempty(identity_file)
+    identity_file = ['-i ' identity_file]; end
+if ~isempty(avoidcheck_command)
+    avoidcheck_command = sprintf(avoidcheck_command,avoid_proc); end
 
 % generate in the bcilab-specific startup command
 if strcmp(startup_command,'autogenerate')
     if binary_worker
-        startup_command = sprintf('cd %s',env_translatepath('bcilab:/build/distrib')); 
+        startup_command = sprintf('cd %s',env_translatepath('bcilab:/build/distrib'));
     else
-        startup_command = sprintf('%s; cd %s; bcilab %s worker {%s,1,%d} parallel {}',startup_prefix, env_translatepath('bcilab:/'), tracking.configscript,'%d',shutdown_timeout); 
+        startup_command = sprintf('%s; cd %s; bcilab %s worker {%s,1,%d} parallel {}',startup_prefix, env_translatepath('bcilab:/'), tracking.configscript,'%d',shutdown_timeout);
     end
 end
 
 % use a port that depends on the startup command for sharing resources
 if sharing_port == 0
-    sharing_port = 10000 + mod(23457+hlp_fingerprint(startup_command),50000); end
+    sharing_port = 10000 + mod(23457+hlp_fingerprint([matlab_command startup_command]),50000); end
 
 % remove any port assignments
 for i=1:length(hostnames)
@@ -238,17 +268,25 @@ for i=1:length(hostnames)
     if any(colons)
         hostnames{i} = hostnames{i}(1:find(colons)-1); end
 end
+% replace localhost by hlp_hostname
+for i=1:length(hostnames)
+    if strcmp(hostnames{i},'localhost')
+        hostnames{i} = hlp_hostname; end
+end
 % remove duplicates
 hostnames = unique(hostnames);
+
 
 
 % filter hostnames by machine availability, and retrieve machine stats
 disp('Listing compute servers ...');
 stats = [];
-for host = hostnames(:)'    
+for host = hostnames(:)'
     % collect system info
-    [status,info] = system(sprintf('ssh %s -x %s "cat /proc/cpuinfo | grep ^processor | wc -l; cat /proc/loadavg; ps -A | grep ''%s'' | wc -l; cat /proc/meminfo | grep ^MemFree"',identity_file,host{1},avoid_proc));
-    if ~status
+    stats_commands = [processors_command cpuload_command avoidcheck_command memfree_command];
+    ssh_command = sprintf('ssh %s -x %s "%s"',identity_file,host{1},stats_commands);
+    [errcode,info] = system(ssh_command);
+    if ~errcode
         try
             % parse info
             lines = hlp_split(info,10);
@@ -256,29 +294,35 @@ for host = hostnames(:)'
             meminfo = hlp_split(lines{4},': ');
             % store stats
             stats(end+1).hostname = host{1};
-            try                
+            try
                 stats(end).processors = str2num(lines{1});
             catch
+                fprintf('The processor-check command (%s) returns an unexpected format on host %s.\n',processors_command,host{1});
                 stats(end).processors = 4;
             end
             try
                 stats(end).cpuload = str2num(loadavg{load_window});
             catch
+                fprintf('The cpuload command (%s) returns an unexpected format on host %s.\n',cpuload_command,host{1});
                 stats(end).cpuload = 0;
-            end
-            try
-                stats(end).freemem = 1024*str2num(meminfo{2});
-            catch
-                stats(end).freemem = Inf;
             end
             try
                 stats(end).avoidance = str2num(lines{3});
                 if ~isscalar(stats(end).avoidance)
                     stats(end).avoidance = 0; end
             catch
+                fprintf('The avoid-processes command (%s) returns an unexpected format on host %s.\n',avoidcheck_command,host{1});
                 stats(end).avoidance = 0;
+            end            
+            try
+                stats(end).freemem = 1024*str2num(meminfo{2});
+            catch
+                fprintf('The memory-check command (%s) returns an unexpected format on host %s.\n',memfree_command,host{1});
+                stats(end).freemem = Inf;
             end
-        catch,end
+        catch
+            fprintf('The stats command (%s) gave an error on host %s.\n',ssh_command,host{1});
+        end
     end
 end
 
@@ -341,11 +385,19 @@ if ~isempty(stats)
                 catch
                     disp_once(['Warning: the logging path "' logging_path '" does not exist locally and could not be created.\nPlease make sure that it exists on all worker machines, as otherwise the computation will not start.']);
                 end
-                logportion = sprintf(' > %s/%s_%d.out',logging_path,host,port);
+                logpath = sprintf('%s/%s_%d.out',logging_path,host,port);
+                if sanity_checks
+                    % check whether the logging path is writable on the worker
+                    check_command = sprintf('ssh %s -x %s "touch %s"',identity_file,host,logpath);
+                    [errcode,info] = system(check_command);
+                    if errcode
+                        fprintf('The logging path (%s) does not appear to be writable on host %s.\n',logpath,host); end
+                end                
+                logportion = [' > ' logpath];
             end
             if binary_worker
+                % search for MCR root path
                 if isempty(mcr_root)
-                    % search it 
                     [major,minor] = mcrversion;
                     mcr_tail = sprintf([filesep 'MATLAB_Compiler_Runtime' filesep 'v%d%d'],major,minor);
                     possible_locations = {'/opt/MATLAB','/usr/local/MATLAB','/usr/common/MATLAB',hlp_homedir,[hlp_homedir filesep 'MATLAB'],'C:\\Program Files\\MATLAB','C:\\Program Files (x86)\\MATLAB','/Applications/MATLAB/'};
@@ -356,14 +408,41 @@ if ~isempty(stats)
                     if isempty(mcr_root)
                         fprintf('MATLAB compiler runtime v%d%d not found; if you get an error subsequently, please make sure that it is installed in a recognized location (or pass the mcr_root as an acquire options).\n',major,minor); end
                 end
+                % determine the file to run
+                if isempty(mcr_root)
+                    run_file = binary_name;
+                else
+                    run_file = ['run_' binary_name '.sh'];
+                end
+                % perform sanity checks
+                if sanity_checks                    
+                    % check whether the startup command works
+                    check_command = sprintf(['ssh %s -x %s "' startup_command '; ' path_exists_command '"'],identity_file,host,run_file);
+                    [errcode,info] = system(check_command);
+                    if errcode
+                        fprintf('The worker binary path (%s) or file (%s) appear to be missing on host %s.\n',startup_command,run_file,host); end
+                end
                 if isempty(mcr_root)
                     % assume that the binary finds all necessary MCR files
-                    command = ['ssh ' identity_file ' -x ' host '  "' startup_command '; ./' binary_name ' worker ''{' num2str(port) ',1,' num2str(shutdown_timeout) '}'' parallel {} ' logportion '" &'];
+                    command = ['ssh ' identity_file ' -x ' host '  "' startup_command '; ./' run_file ' worker ''{' num2str(port) ',1,' num2str(shutdown_timeout) '}'' parallel {} ' logportion '" &'];
                 else
                     % use the run script to point to the correct MCR install location
-                    command = ['ssh ' identity_file ' -x ' host ' "' startup_command '; ./run_' binary_name '.sh ' mcr_root ' worker ''{' num2str(port) ',1,' num2str(shutdown_timeout) '}'' parallel {} ' logportion '" &'];
+                    command = ['ssh ' identity_file ' -x ' host ' "' startup_command '; ./' run_file mcr_root ' worker ''{' num2str(port) ',1,' num2str(shutdown_timeout) '}'' parallel {} ' logportion '" &'];
                 end
             else
+                % perform sanity checks
+                if sanity_checks
+                    % check presence of MATLAB binary
+                    if any(matlab_command==filesep)
+                        test_command = path_exists_command;
+                    else
+                        test_command = binary_exists_command;
+                    end
+                    check_command = sprintf(['ssh %s -x %s "' test_command '"'],identity_file,host,matlab_command);
+                    [errcode,info] = system(check_command);
+                    if errcode
+                        fprintf('The MATLAB binary (%s) appears to be missing on host %s.\n',matlab_command,host); end        
+                end
                 % run the MATLAB startup command (and substitute the port into it)
                 command = sprintf('ssh %s -x %s "%s -nodisplay -r ''%s''%s" &', ...
                     identity_file, host, matlab_command, sprintf(startup_command,port),logportion);
@@ -382,13 +461,13 @@ if ~isempty(stats)
                 pool{end+1} = sprintf('%s:%d',host,port);
             end
         end
-    end    
+    end
     fprintf('%i processor slots acquired.\n',length(pool));
 else
     disp('None of the listed machines is available; please make sure that:');
-    disp(' * you can ssh into these machines without a password prompt"'); 
-    disp(' * the files /proc/cpuinfo, /proc/meminfo, and /proc/loadavg are available on them"'); 
-    disp(' * the commands ps, cat, grep, and wc are working on them"'); 
+    disp(' * you can ssh into these machines without a password prompt"');
+    disp(' * the files /proc/cpuinfo, /proc/meminfo, and /proc/loadavg are available on them"');
+    disp(' * the commands ps, cat, grep, and wc are working on them"');
 end
 
 if nargout == 0

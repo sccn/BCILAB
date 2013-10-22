@@ -48,7 +48,7 @@ mem_capacity = 0.25;
 % But to automatically acquire machines, you need to have a Linux .ssh identity set up so that 
 % you can ssh into any of these machines without needing to type a password. Also, make sure that 
 % these machines/ports are never accessible from the internet (except perhaps via SSH tunnels).
-parallel = {'engine', 'local', 'pool', {'localhost:23547', 'localhost:23548', 'localhost:23549', 'localhost:23550', 'localhost:23551', 'localhost:23552', 'localhost:23553', 'localhost:23554'}};
+parallel = {'engine','local', 'pool', {'localhost:23547', 'localhost:23548', 'localhost:23549', 'localhost:23550', 'localhost:23551', 'localhost:23552', 'localhost:23553', 'localhost:23554'}};
 
 % this controls how likely BCILAB is to cache things on disk; since disk access may be slower than
 % recomputing the results again, this is the expected number of times you believe you'll need a
@@ -70,14 +70,9 @@ show_experimental = false;
 % whether to show guru-level options in the GUI by default (this can be toggled while editing)
 show_guru = false;
 
-% custom options to control how workers are acquired; parameters to par_getworkers_* (rarely used)
-acquire_options = {};
-
-
-
-
-
-
+% custom options to control how workers are acquired; parameters to par_getworkers_*
+% these options are editable in the cluster settings dialog and are used when calling env_acquire_cluster (or clicking the "request cluster availability" button)
+acquire_options = {'Hostnames',{'localhost'},'ShutdownTimeout',300};
 
 
 

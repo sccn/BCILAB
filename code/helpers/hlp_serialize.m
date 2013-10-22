@@ -119,7 +119,9 @@ end
 
 % Numeric Matrix: can be real/complex, sparse/full, scalar
 function m = serialize_numeric(v)
-    if issparse(v)
+    if isa(v,'gpuArray')
+        m = serialize_numeric(gather(v));
+    elseif issparse(v)
         % Data Type & Dimensions
         m = [uint8(130); typecast(uint64(size(v,1)), 'uint8').'; typecast(uint64(size(v,2)), 'uint8').']; % vectorize
         % Index vectors
@@ -388,7 +390,7 @@ function b = class2tag(cls)
           b = uint8(200);
 
 		otherwise
-			error('Unknown class');
+			error(['Unknown class: ' cls]);
     end
 end
 

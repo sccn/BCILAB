@@ -1,4 +1,4 @@
-function [signal,newstate] = flt_movavg(varargin)
+function [signal,state] = flt_movavg(varargin)
 % Filter a continuous data set by a moving-average filter.
 % [Signal,State] = flt_fir(Signal, Length, State)
 %
@@ -49,7 +49,7 @@ for fld = utl_timeseries_fields(signal)
         end
         
         % apply the filter
-        [sig,newstate.(field)] = filter(b,1,sig,state.(field),1);
+        [sig,state.(field)] = filter(b,1,sig,state.(field),1);
         
         % check if we need to cut off a data segment that we previously prepended
         if isempty(state.(field))

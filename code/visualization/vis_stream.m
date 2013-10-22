@@ -69,35 +69,37 @@ opts = arg_define(varargin, ...
     arg_nogui({'pageoffset','PageOffset'},0,[],'Channel page offset. Allows to flip forward or backward pagewise through the displayed channels.'), ...
     arg_nogui({'position','Position'},[],[],'Figure position. Allows to script the position at which the figures should appear.'));
 
-
+% no arguments were passed? bring up GUI dialog
 if isempty(varargin)
-    % bring up GUI dialog if no arguments were passed
-    arg_guidialog;
-else
-    % fix up some arguments
-    opts.bufferrange = max(opts.bufferrange,opts.timerange);    
-
-    % init shared handles
-    [fig,ax,lines] = deal([]);
-        
-    % choose variable names to hold the stream's data (in the base workspace)
-    taken = evalin('base','whos(''lsl*'')');
-    chunkname = genvarname(['lsl_' opts.streamname '_chunk'],{taken.name});
-    buffername = genvarname(['lsl_' opts.streamname '_stream'],{taken.name});
-        
-    % create a stream inlet
-    inlet = create_inlet(opts);
-    
-    % create the stream data structure in the base workspace
-    assignin('base', buffername, create_streambuffer(opts,inlet.info()));
-    
-    % create the figure
-    create_figure(opts);
-    
-    % set up a timer that reads from LSL    
-    th = timer('Period', 1.0/opts.refreshrate,'ExecutionMode','fixedRate','TimerFcn',@on_timer,'StartDelay',0.2,'Tag',['lsl_' genvarname(opts.streamname) '_timer']);
-    start(th);
+    opts = arg_guidialog;    
+    if isempty(opts)
+        return; end % -> user clicked cancel
 end
+
+% fix up some arguments
+opts.bufferrange = max(opts.bufferrange,opts.timerange);
+
+% init shared handles
+[fig,ax,lines] = deal([]);
+
+% choose variable names to hold the stream's data (in the base workspace)
+taken = evalin('base','whos(''lsl*'')');
+chunkname = genvarname(['lsl_' opts.streamname '_chunk'],{taken.name});
+buffername = genvarname(['lsl_' opts.streamname '_stream'],{taken.name});
+
+% create a stream inlet
+inlet = create_inlet(opts);
+
+% create the stream data structure in the base workspace
+assignin('base', buffername, create_streambuffer(opts,inlet.info()));
+
+% create the figure
+create_figure(opts);
+
+% set up a timer that reads from LSL
+th = timer('Period', 1.0/opts.refreshrate,'ExecutionMode','fixedRate','TimerFcn',@on_timer,'StartDelay',0.2,'Tag',['lsl_' genvarname(opts.streamname) '_timer']);
+start(th);
+
 
 
     % === nested functions (sharing some handles with each other) ===

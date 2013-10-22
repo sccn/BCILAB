@@ -180,8 +180,7 @@ classdef ParadigmSIFT < ParadigmDataflowSimplified
                 [dummy,model.shape] = self.feature_extract(tmpsignal,model); end %#ok<ASGLU>
         end
         
-        function [features,shape] = feature_extract(self,signal,featuremodel)
-            hlp_microcache('conn','max_key_size',2^30,'max_result_size',2^30);
+        function [features,shape] = feature_extract(self,signal,featuremodel)            
             % pre-calculate the placement indices within each epoch
             winStartIdx = 1 : round(featuremodel.siftPipelineConfig.modeling.winstep*signal.srate) : signal.pnts - ceil(featuremodel.siftPipelineConfig.modeling.winlen * signal.srate);
             % calculate placement indices across all epochs (after make_continuous)
@@ -189,7 +188,13 @@ classdef ParadigmSIFT < ParadigmDataflowSimplified
             featuremodel.siftPipelineConfig.modeling.winStartIdx = winStartIdx(:);
             
             % extract connectivity features per epoch
-            EEG = hlp_microcache('conn',@onl_siftpipeline,featuremodel.siftPipelineConfig,'EEG',self.make_continuous(signal));
+            if onl_isonline
+                EEG = onl_siftpipeline(featuremodel.siftPipelineConfig,'EEG',self.make_continuous(signal),'arg_direct',true);
+            else
+                hlp_microcache('conn','max_key_size',2^30,'max_result_size',2^30);
+                EEG = hlp_microcache('conn',@onl_siftpipeline,featuremodel.siftPipelineConfig,'EEG',self.make_continuous(signal),'arg_direct',true);
+            end
+            
             rawfeatures = cellfun(@(connmethod) EEG.CAT.Conn.(connmethod), ...
                 featuremodel.siftPipelineConfig.connectivity.connmethods, ...
                 'UniformOutput',false);
@@ -207,20 +212,21 @@ classdef ParadigmSIFT < ParadigmDataflowSimplified
                 error('Unexpected feature shape.'); end
             
             % reshape into desired form (note: all arrays are implicitly xN)
-            switch featuremodel.featureShape
+            same_size = @(shape,features) isequal(shape(1:ndims(features)),size(features));
+            switch featuremodel.featureShape                
                 case '[CxCxFxTxM] (5d tensor)'
                     shape = [C,C,F,T,M];
-                    if ~isequal([shape N],size(features))
+                    if ~same_size([shape N],features)
                         error('Unexpected feature shape.'); end
                 case '[CCMxFT] (time/freq row sparsity matrix)'
                     features = reshape(permute(features,[1 2 5 3 4 6]),[C*C*M,F*T,N]);
                     shape = [C*C*M,F*T];
-                    if ~isequal([shape N],size(features))
+                    if ~same_size([shape N],features)
                         error('Unexpected feature shape.'); end
                 case '[CCxFTM] (per-link column sparsity matrix)'
                     features = reshape(permute(features,[1 2 3 4 5 6]),[C*C,F*T*M,N]);
                     shape = [C*C,F*T*M];
-                    if ~isequal([shape N],size(features))
+                    if ~same_size([shape N],features)
                         error('Unexpected feature shape.'); end
                 case '[CCxFT]_m1,..,[CCxFT]_mk (low-rank space/time structure, sparse methods)'
                     features = reshape(permute(features,[1 2 3 4 5 6]),[C*C,F*T*M,N]);

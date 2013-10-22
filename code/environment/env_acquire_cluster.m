@@ -31,7 +31,9 @@ elseif isunix
     % invoke, but also impose default arguments (if unspecified)
     % by default, workers do not recruit (but only list) other workers, preventing a cascading effect
     try
-        par_getworkers_ssh(arguments{:});
+        tracking.parallel.pool = par_getworkers_ssh(arguments{:});
+        tracking.parallel.engine = 'BLS';
+        disp('Set default compute scheduler to BLS (parallel).');
     catch e
         disp('Could not acquire worker machines; traceback: ');
         env_handleerror(e);
