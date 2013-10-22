@@ -59,7 +59,7 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
     methods
         
         function defaults = preprocessing_defaults(self)
-            defaults = {'IIRFilter',{[0.1 0.5],'highpass'},'EpochExtraction',[-1.5 1.5],'Resampling',60,'SpectralSelection',[0.1 15]};
+            defaults = {'FIRFilter',{[0.1 0.5],'highpass'},'EpochExtraction',[-1.5 1.5],'Resampling',60,'SpectralSelection',[0.1 15]};
         end
         
         function defaults = machine_learning_defaults(self)
@@ -160,7 +160,7 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
                     t = title('Regularization curve');
                     p1 = plot(mean(pmodel.model.losses)); p2=[];
                     l1 = xlabel('Regularization parameter #');
-                    l2 = ylabel('Prediction loss (MCR)');
+                    l2 = ylabel('Prediction loss');
                 end
                 if args.paper
                     set([p1,p2],'LineWidth',3);
@@ -173,8 +173,8 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
         end
         
         function layout = dialog_layout_defaults(self)
-            layout = {'SignalProcessing.Resampling.SamplingRate', 'SignalProcessing.IIRFilter.Frequencies', ...
-                'SignalProcessing.IIRFilter.Type', 'SignalProcessing.EpochExtraction', ...
+            layout = {'SignalProcessing.Resampling.SamplingRate', 'SignalProcessing.FIRFilter.Frequencies',...
+                'SignalProcessing.EpochExtraction', ...
                 'SignalProcessing.SpectralSelection.FrequencySpecification', '', ...
                 'Prediction.MachineLearning.Learner.Lambdas','Prediction.MachineLearning.Learner.LossFunction',...
                 'Prediction.MachineLearning.Learner.Regularizer'};
