@@ -2,6 +2,9 @@ function tf = par_haveupdate(current_file,reference_file)
 % Return true if a code update is available.
 % Result = par_haveupdate(CurrentFile,ReferenceFile);
 %
+% This is only for expert use (when workers need to update themselves after a code change on the
+% master).
+%
 % In:
 %   CurrentFile : name of the file that is currently executing
 %
