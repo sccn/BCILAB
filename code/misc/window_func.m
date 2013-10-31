@@ -41,20 +41,21 @@ function w = window_func(name,m,param)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-
 p = (0:(m-1))/(m-1);
 switch name
     case 'bartlett'
         w = 1 - abs(((0:(m-1)) - (m-1)/2)/((m-1)/2));
-    case 'barthann'
+    case {'barthann','barthannwin'}
         w = 0.62 - 0.48*abs(p-0.5) - 0.38*cos(2*pi*p);
     case 'blackman'
         w = 0.42-0.5*cos(2*pi*p) + 0.08*cos(4*pi*p);
     case 'blackmanharris'        
         w = 0.35875 - 0.48829*cos(2*pi*p) + 0.14128*cos(4*pi*p) - 0.01168*cos(6*pi*p);
-    case 'flattop'
+    case {'bohman','bohmanwin'}
+        w = (1-abs(p*2-1)).*cos(pi*abs(p*2-1)) + (1/pi)*sin(pi*abs(p*2-1));
+    case {'flattop','flattopwin'}
         w = 0.2157 - 0.4163*cos(2*pi*p) + 0.2783*cos(4*pi*p) - 0.0837*cos(6*pi*p) + 0.0060*cos(8*pi*p);
-    case 'gauss'
+    case {'gauss','gausswin'}
         if nargin < 3
             param = 2.5; end        
         w = exp(-0.5*(param*2*(p-0.5)).^2);
@@ -68,9 +69,9 @@ switch name
         w = besseli(0,param*sqrt(1-(2*p-1).^2))/besseli(0,param);
     case 'lanczos'
         w = sin(pi*(2*p-1))./(pi*(2*p-1)); w(isnan(w)) = 1;
-    case 'nuttall'
+    case {'nuttall','nuttallwin'}
         w = 0.3635819 - 0.4891775*cos(2*pi*p) + 0.1365995*cos(4*pi*p) - 0.0106411*cos(6*pi*p);
-    case 'rect'
+    case {'rect','rectwin'}
         w = ones(1,m);
     case 'triang'
         w = 1 - abs(((0:(m-1)) - (m-1)/2)/((m+1)/2));

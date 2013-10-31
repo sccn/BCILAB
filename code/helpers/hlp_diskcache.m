@@ -150,6 +150,9 @@ clearable_settings = false; % whether settings should be clearable by "clear all
 
 archive_version = 1.0;      % version of the archive format
 persistent settings;
+persistent have_translatepath;
+if isempty(have_translatepath)
+    have_translatepath = exist('env_translatepath','file'); end
 
 % parse options
 if iscell(options) || isstruct(options)
@@ -180,7 +183,7 @@ else
 end 
 
 % make path platform-specific
-if ~exist('env_translatepath','file')
+if ~have_translatepath
     options.folder = strrep(strrep(options.folder,'\',filesep),'/',filesep);
 else
     options.folder = env_translatepath(options.folder); 
@@ -384,11 +387,9 @@ function x = trim_expression(x)
 if isfield(x,'tracking') && isfield(x.tracking,'expression')
     x = trim_expression(x.tracking.expression);
 elseif iscell(x)
-    for i=1:length(x)
-        x{i} = trim_expression(x{i}); end
+    x = cellfun(@trim_expression,x,'UniformOutput',false);
 elseif isfield(x,{'head','parts'})
-    for i=1:length(x.parts)
-        x.parts{i} = trim_expression(x.parts{i}); end
+    x.parts = trim_expression(x.parts);
 end
 
 

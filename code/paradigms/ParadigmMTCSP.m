@@ -37,6 +37,7 @@ classdef ParadigmMTCSP < ParadigmDataflowSimplified
                 arg({'patterns','PatternPairs'},uint32(3),[],'CSP patterns per frequency (times two).'), ...
                 arg({'whycsp','SkipCSP','WhyCSP'},false,[],'Classify cross-spectrum directly. This results in much higher-dimensional features, but can be approached with appropriately regularized classifiers (see ml_trainproximal).'), ...
                 arg({'normalize_spectrum','NormalizeSpectrum'},false,[],'Normalize the spectrum. Recommended if using sophisticated regularized classifiers.'), ...
+                arg({'logtransform','LogTransform'},false,[],'Log-transform output. Log-transformed spectra are more likely to be separable by a linear classifier.'), ...
                 arg({'vectorize_features','VectorizeFeatures'},true,[],'Vectorize the features. For compatibility with basic classifiers.'));
             
             if args.signal.nbchan == 1
@@ -45,6 +46,7 @@ classdef ParadigmMTCSP < ParadigmDataflowSimplified
                 error('Multi-taper CSP prefers to work on at least as many channels as you request output patterns. Please reduce the number of pattern pairs.'); end
             if isempty(args.timewnds)
                 args.timewnds = struct(); end
+            [C,dummy,T] = size(args.signal.data); %#ok<NASGU,ASGLU>
             if args.whycsp
                 % shortcut
                 for w = size(args.timewnds,1):-1:1
@@ -62,7 +64,7 @@ classdef ParadigmMTCSP < ParadigmDataflowSimplified
                         mean_covar{w}(~isfinite(mean_covar{w})) = 0; weighted_covar{w}(~isfinite(weighted_covar{w})) = 0;
                         % calculate spatial filters for each frequency
                         for f=size(mean_covar{w},1):-1:1
-                            [V,D] = eig(squeeze(weighted_covar{w}(f,:,:)),squeeze(mean_covar{w,1}(f,:,:))); %#ok<NASGU>
+                            [V,D] = eig(reshape(weighted_covar{w}(f,:,:),C,C),reshape(mean_covar{w,1}(f,:,:),C,C)); %#ok<NASGU>
                             P = inv(V);
                             % retain k best filters/patterns at both ends of the eigenvalue spectrum
                             filters(w,f,:,:) = real(V(:,[1:args.patterns end-args.patterns+1:end]));
@@ -80,14 +82,14 @@ classdef ParadigmMTCSP < ParadigmDataflowSimplified
                         end
                         % solve a CSP instance for each frequency
                         for f=size(covar{w,1},1):-1:1
-                            [V,D] = eig(squeeze(covar{w,1}(f,:,:)),squeeze(covar{w,1}(f,:,:)+covar{w,2}(f,:,:))); %#ok<NASGU>
+                            [V,D] = eig(reshape(covar{w,1}(f,:,:),C,C),reshape(covar{w,1}(f,:,:),C,C)+reshape(covar{w,2}(f,:,:),C,C)); %#ok<NASGU>
                             P = inv(V);
                             filters(w,f,:,:) = real(V(:,[1:args.patterns end-args.patterns+1:end]));
                             patterns(w,f,:,:) = real(P([1:args.patterns end-args.patterns+1:end],:))';
                         end                
                     end
                 end
-                model = struct('filters',{filters},'patterns',{patterns},'time_args',{time_args},'spec_args',{args.spectral_estimation}, 'covar',{covar}, 'mean_covar',{mean_covar}, 'weighted_covar',{weighted_covar}, 'chanlocs',{args.signal.chanlocs},'vectorize_features',{args.vectorize_features},'whycsp',{args.whycsp},'normalize_spectrum',{args.normalize_spectrum});
+                model = struct('filters',{filters},'patterns',{patterns},'time_args',{time_args},'spec_args',{args.spectral_estimation}, 'covar',{covar}, 'mean_covar',{mean_covar}, 'weighted_covar',{weighted_covar}, 'chanlocs',{args.signal.chanlocs},'vectorize_features',{args.vectorize_features},'whycsp',{args.whycsp},'normalize_spectrum',{args.normalize_spectrum},'logtransform',{args.logtransform});
             end
             global tracking; %#ok<TLEV>
             tracking.inspection.signal = args.signal;
@@ -121,6 +123,8 @@ classdef ParadigmMTCSP < ParadigmDataflowSimplified
                         freqs = freqs(1):(freqs(2)-freqs(1))/(nfreqs-1):freqs(2);
                         features = bsxfun(@times,features,max(1,1./freqs'));
                     end                    
+                    if featuremodel.logtransform
+                        features = log(features); end
                 end
             end
             % apply minimal conditioning to features

@@ -19,7 +19,7 @@ function res = utl_partition_bundle(bundle,inds,varargin)
 
 if isempty(inds)
     % compute index set size (from first stream)
-    res = exp_eval(set_partition(bundle.streams{1},[],varargin{:}));
+    res = exp_eval_optimized(set_partition(bundle.streams{1},[],varargin{:}));
 else
     % partition the streams (symbolically)
     for s=1:length(bundle.streams)
