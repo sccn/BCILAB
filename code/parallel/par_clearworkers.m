@@ -33,9 +33,7 @@ function par_clearworkers(hostnames)
 
 % optionally look up hostnames from the global pool
 if ~exist('hostnames','var')
-    global tracking; %#ok<TLEV>
-    hostnames = tracking.parallel.pool;
-end
+    hostnames = par_globalsetting('pool'); end
 
 % remove any port assignments
 for i=1:length(hostnames)
