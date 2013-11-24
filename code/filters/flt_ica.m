@@ -346,6 +346,7 @@ arg_define([0 2],varargin, ...
     }, 'ICA variant. AMICA is the highest quality (but slowest, except if run on a cluster), Infomax is second-highest quality, FastICA is fastest (but can fail to converge and gives poorer results), KernelICA is experimental.'), ...
     arg_sub({'data_cleaning','DataCleaning','CleaningLevel','clean'},{}, @flt_clean_settings,'Optional data cleaning prior to running an ICA. The computed ICA solution will be applied to the original uncleaned data.'), ...
     arg({'do_transform','TransformData','transform'},false,[],'Transform the data rather than annotate. By default, ICA decompositions are added as annotations to the data set.'),...
+    arg({'retain_labels','RetainLabels'},true,[],'Retain labels when transforming. If this is false the channel labels will be replaced by 1:k for k components, if TransformData is checked.'),...
     arg({'clear_after_trans','ClearAfterTransform'},true,[],'Clear .icaweights after transform. This is so that later functions do not attempt to transform the already transformed data.'),...
     arg({'do_calcact','CalculateActivation'},false,[],'Calculate component activations. If true, the .icaact field will be populated.'),...
     arg({'cleaned_data','OutputCleanedData'},false,[],'Emit cleaned data. Whether the cleaned data, instead of the original data should be output (note: this is not applicable for online use, since most cleaning filters cannot be run online).'),...
@@ -916,7 +917,7 @@ else
                  pre.icasphere = inv(sqrtm(cov(pre.data')));
                  pre.icaweights = eye(size(pre.data,1));
             case 'robust_sphere'
-                 pre.icasphere = inv(sqrtm(hlp_diskcache('icaweights',@cov_robust,pre.data')));
+                 pre.icasphere = inv(sqrtm(hlp_diskcache('icaweights',@cov_blockgeom,pre.data')));
                  pre.icaweights = eye(size(pre.data,1));
             otherwise
                 % let pop_runica handle all the rest
@@ -989,7 +990,11 @@ if do_transform
     if isfield(signal.etc,'amica') && size(signal.etc.amica.W,3) > 1
         warn_once('Note: The signal will only be transformed according to the 1st amica model.'); end
     signal.data = (signal.icaweights*signal.icasphere)*signal.data(signal.icachansind,:);
-    signal.chanlocs = struct('labels',cellfun(@num2str,num2cell(1:length(signal.icachansind),1),'UniformOutput',false));
+    if retain_labels && nnz(signal.icachansind) == size(signal.data,1)
+        signal.chanlocs = signal.chanlocs(signal.icachansind);
+    else
+        signal.chanlocs = struct('labels',cellfun(@num2str,num2cell(1:length(signal.icachansind),1),'UniformOutput',false)); 
+    end
     signal.nbchan = size(signal.data,1);
     if clear_after_trans
         signal.icaweights = [];

@@ -139,6 +139,58 @@
 
 function [ALLEEG, EEG, CURRENTSET, ALLCOM] = eeglab( onearg )
 
+% BCILAB specific ---------------
+
+% check for duplicate versions of EEGLAB
+% --------------------------------------
+eeglabpath = mywhich('eeglab.m');
+eeglabpath = eeglabpath(1:end-length('eeglab.m'));
+dbstackval = dbstack;
+if nargin < 1 && length(dbstackval) < 2
+    eeglabpath2 = '';
+    if strcmpi(eeglabpath, pwd) || strcmpi(eeglabpath(1:end-1), pwd) 
+        cd('functions');
+        warning('off', 'MATLAB:rmpath:DirNotFound');
+        rmpath(eeglabpath);
+        warning('on', 'MATLAB:rmpath:DirNotFound');
+        eeglabpath2 = mywhich('eeglab.m');
+        cd('..');
+    else
+        try, rmpath(eeglabpath); catch, end;
+        eeglabpath2 = mywhich('eeglab.m');
+    end;
+    if ~isempty(eeglabpath2)
+        eeglabpath2 = eeglabpath2(1:end-length('eeglab.m'));
+        disp('******************************************************');
+        disp('There are two versions of EEGLAB in your path');
+        disp(sprintf('(1) One is at %s', eeglabpath));
+        disp(sprintf('(2) The other one is at %s', eeglabpath2));
+        %disp('To remove this message, simply delete or remove one of the EEGLAB version from the Matlab path');
+        s = input('Which version do you want to use (enter "1" or "2" then press enter)? ');
+        
+        % starting other version of eeglab
+        if ~isempty(s) && s(1) == 2
+            tmpp = path;
+            indcolom = [0 find(tmpp == ':') length(tmpp)+1];
+            for ind = 1:length(indcolom)-1
+                currentpath = tmpp(indcolom(ind)+1:indcolom(ind+1)-1);
+                if ~isempty(findstr('eeglab', currentpath))
+                    disp([ 'Removing path ' currentpath ]);
+                    rmpath(currentpath);
+                end;
+            end;
+            cd(eeglabpath2);
+            eeglab;
+            return;
+        else 
+            disp(sprintf('Using the EEGLAB version at %s', eeglabpath));
+        end;
+    end;
+    addpath(eeglabpath);
+end;
+
+% BCILAB specific ---------------
+
 % add the paths
 % -------------
 warning('off', 'dispatcher:nameConflict');
@@ -162,8 +214,6 @@ if ~iseeglabdeployed2
         warning('EEGLAB subfolders not found');
     end;
 end;
-OPT_FOLDER = which('eeg_options');
-OPT_FOLDER = fileparts( OPT_FOLDER );
 
 % determine file format
 % ---------------------
@@ -192,6 +242,8 @@ if ~iseeglabdeployed2
     myaddpath( eeglabpath, 'eeglab1020.ced',   [ 'functions' filesep 'resources'    ]);
     myaddpath( eeglabpath, 'eegplugin_dipfit', 'plugins');
 end;
+OPT_FOLDER = which('eeg_options');
+OPT_FOLDER = fileparts( OPT_FOLDER );
     
 eeglab_options; 
 
@@ -1699,6 +1751,14 @@ function val = iseeglabdeployed2;
 if exist('isdeployed')
      val = isdeployed;
 else val = 0;
+end;
+
+
+function res = mywhich(varargin);
+try
+    res = which(varargin{:});
+catch
+    fprintf('Warning: permission error accesssing %s\n', varargin{1});
 end;
 
 function buildhelpmenu;
