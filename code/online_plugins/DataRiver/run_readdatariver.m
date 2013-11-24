@@ -56,6 +56,8 @@ onl_newstream(new_stream,meta);
 % create background reading job
 onl_read_background(new_stream,@()read_block(datariver_stream),update_freq)
 
+disp('Now reading...');
+
 
 % background data reading function
 function block = read_block(datariver_stream)

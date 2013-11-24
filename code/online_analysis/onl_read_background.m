@@ -53,21 +53,26 @@ try
     x = evalin('base',stream_name);
     if x.streamid ~= stream_id
         error('Stream changed.'); end
-    % get a new block
-    if nargin(read_block) == 1
-        block = read_block(x);
-    else
-        block = read_block();
-    end
-    % append it to the stream
-    if iscell(block)        
-        onl_append(stream_name,block{:});
-    else
-        onl_append(stream_name,block);
+    try
+        % get a new block
+        if nargin(read_block) == 1
+            block = read_block(x);
+        else
+            block = read_block();
+        end
+        % append it to the stream
+        if iscell(block)        
+            onl_append(stream_name,block{:});
+        else
+            onl_append(stream_name,block);
+        end
+    catch e
+        disp('Error in block-reading function:');
+        hlp_handleerror(e);
     end
 catch e
     if ~strcmp(e.identifier,'MATLAB:UndefinedFunction')
-        env_handleerror(e); end
+        hlp_handleerror(e); end
     % stream has been changed (e.g., replaced/deleted) --> stop timer
     stop(timer_handle);
     delete(timer_handle);

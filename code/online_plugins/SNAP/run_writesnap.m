@@ -81,29 +81,35 @@ onl_write_background( ...
     'StartDelay',0,...
     'EmptyResultValue',[]);
 
+disp('Now writing...');
+
+
 % background message sending function
-function send_message(y,verbose_output,id,host,port,varname)
+function send_message(yy,verbose_output,id,host,port,varname)
 persistent conns;
 try
-    if isempty(y)
-        return; end
     % try to connect if necessary
     if ~isfield(conns,id)
         conns.(id) = connect(host,port); end
-    try
-        strm = conns.(id).strm;
-        if isscalar(y)
-            strm.writeBytes(char([sprintf('setup %s=%.5f',varname,y) 10]));
-        elseif ~isempty(y)
-            strm.writeBytes(char(['setup ' varname '=(' sprintf('%.5f,',y) ')' 10]));
-        end
-        strm.flush();
-    catch e1
-        if strcmp(e1.identifier, 'MATLAB:Java:GenericException')
-            % failed to send: try to re-connect...
-            conns.(id) = connect(host,port);
-        else
-            rethrow(e1);
+    % for each prediction...
+    for k=1:size(yy,1)
+        y = yy(k,:);
+        try
+            % send it off
+            strm = conns.(id).strm;
+            if isscalar(y)
+                strm.writeBytes(char([sprintf('setup %s=%.5f',varname,y) 10]));
+            elseif ~isempty(y)
+                strm.writeBytes(char(['setup ' varname '=(' sprintf('%.5f,',y) ')' 10]));
+            end
+            strm.flush();
+        catch e1
+            if strcmp(e1.identifier, 'MATLAB:Java:GenericException')
+                % failed to send: try to re-connect...
+                conns.(id) = connect(host,port);
+            else
+                rethrow(e1);
+            end
         end
     end
 catch e2
@@ -111,9 +117,10 @@ catch e2
         if verbose_output
             fprintf('Could not connect to %s:%.0f\n',host,port); end
     else
-        env_handleerror(e2);
+        hlp_handleerror(e2);
     end
 end
+
 
 function newconn = connect(host,port)
 import java.io.*

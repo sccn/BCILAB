@@ -80,8 +80,6 @@ predictor.name = name;
 
 % optionally set up the filter graph to generate epochs relative to desired target markers
 if ~isempty(predict_at)
-    if ~iscellstr(predict_at)
-        error('PredictAt must be a cell array of strings.'); end
     % for each pipeline...
     for c=1:length(predictor.tracking.filter_graph)
         % substitute the node set_makepos('signal',x,...,'online_epoching',y,...)

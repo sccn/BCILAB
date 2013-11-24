@@ -8,16 +8,16 @@ function onl_write_background(varargin)
 % computation of updated estimates, and their transfer to the data sink.
 %
 % In:
-%   ResultWriter : function that receives a BCI estimate and writes it to some external device.
+%   ResultWriter : Function that receives one or more BCI estimates and writes them to some external
+%                  device. The format is according to OutputFormat.
 %
-%   MatlabStream : real-time stream name to read from (in MATLAB workspace) (default: 'laststream')
+%   MatlabStream : Real-time stream name to read from (in MATLAB workspace) (default: 'laststream')
 %
-%   Model : predictive model to use, or variable name (in MATLAB workspace)  (default: 'lastmodel')
+%   Model : Predictive model to use, or variable name (in MATLAB workspace)  (default: 'lastmodel')
 %
-%   OutputFormat : output data format, see onl_predict 
-%                  (default: 'distribution')
+%   OutputFormat : Output data format, see onl_predict (default: 'distribution')
 %
-%   UpdateFrequency : frequency at which the device should be queried, in Hz (default: 25)
+%   UpdateFrequency : Frequency at which the device should be queried, in Hz (default: 25)
 %
 %   StartDelay : Delay before real-time processing begins; grace period until user resources are 
 %                created (default: 1)
@@ -86,8 +86,16 @@ try
     % make a prediction
     y = onl_predict(predictor,fmt,~verbose,empty_result_value);
     % and write it out
-    result_writer(y);
-catch %#ok<CTCH>
+    try
+        result_writer(y);
+    catch e
+        disp('Error in result-writing function:');
+        hlp_handleerror(e);
+    end
+catch e
+    if ~strcmp(e.identifier,'MATLAB:UndefinedFunction')
+        hlp_handleerror(e); end    
+    % stream or predictor have changed (e.g., replaced/deleted) --> stop timer
     stop(timer_handle);
     delete(timer_handle);
 end

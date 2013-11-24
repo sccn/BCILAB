@@ -47,6 +47,8 @@ onl_newstream(new_stream,rmfield(in_dataset,'data'),'buffer_len',buffer_len);
 % start a background reading job
 onl_read_background(new_stream,@(stream)read_block(in_dataset,stream,always_double), update_freq);
 
+disp('Now reading...');
+
 
 % background block reader function
 function result = read_block(in_dataset,stream,always_double)

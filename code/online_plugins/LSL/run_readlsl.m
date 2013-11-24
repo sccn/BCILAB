@@ -128,9 +128,11 @@ function run_readlsl(varargin)
     timestamps = [];
 
     % start background acquisition
-    disp('Now reading...');
     onl_read_background(opts.new_stream,@()read_data(inlet,marker_inlet,opts.always_double),opts.update_freq);
 
+    disp('Now reading...');
+    
+    
     function result = read_data(data_inlet,marker_inlet,always_double)
         % get a new chunk of data
         [chunk,stamps] = data_inlet.pull_chunk();

@@ -76,7 +76,7 @@ while looping || last_p<dataset.pnts
         [ranks,sample_indices,marker_indices] = find(marker_map(:,wraprange));
         if any(ranks)
             % calculate time stamps
-            marker_times = now + (sample_indices(:) + residuals(marker_indices) - length(range))/dataset.srate;
+            marker_times = now + (sample_indices(:) + vec(residuals(marker_indices)) - length(range))/dataset.srate;
             % send them off
             for m=1:length(marker_times)
                 markeroutlet.push_sample(marker_types(marker_indices(m)),marker_times(m)); end
@@ -152,3 +152,8 @@ for k = 2:numel(v)
         m = v(k);
     end
 end
+
+
+function x = vec(x)
+% Vectorize a given array.
+x = x(:);

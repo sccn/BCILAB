@@ -102,8 +102,9 @@ disp('Creating a new streaminfo...');
 info = lsl_streaminfo(lib,opts.out_stream,'MentalState',length(opts.channel_names),opts.update_freq,'cf_float32',uid);
 % ... including some meta-data
 desc = info.desc();
+channels = desc.append_child('channels');
 for c=1:length(opts.channel_names)
-    newchn = desc.append_child('channel');
+    newchn = channels.append_child('channel');
     newchn.append_child_value('name',opts.channel_names{c});
     newchn.append_child_value('type',opts.out_form);
 end
@@ -113,7 +114,7 @@ outlet = lsl_outlet(info);
 
 % start background writer job
 onl_write_background( ...
-    'ResultWriter',@(y)send_sample(outlet,y),...
+    'ResultWriter',@(y)send_samples(outlet,y),...
     'MatlabStream',opts.in_stream, ...
     'Model',opts.pred_model, ...
     'OutputFormat',opts.out_form, ...
@@ -124,8 +125,10 @@ onl_write_background( ...
     'StartDelay',0,...
     'EmptyResultValue',[]);
 
+disp('Now writing...');
 
-function send_sample(outlet,y)
+
+function send_samples(outlet,y)
 if ~isempty(y)
     outlet.push_chunk(y'); end
 

@@ -9,19 +9,19 @@ function y = onl_predict(name,outfmt,suppress_console_output,empty_result_value)
 % In:
 %   Name : name of a predictor (under which is was previously created with onl_newpredictor)
 %
-%   Format : the desired form of the prediction (see also ult_formatprediction), can be:       
-%            * 'raw': the raw prediction, as defined by ml_predict (default)
-%            * 'expectation': the output is the expected value (i.e., posterior mean) of the
-%                             quantity to be predicted; can be multi-dimensional [1xD], but D
-%                             equals in most cases 1
-%            * 'distribution': the output is the probability distribution (discrete or
-%                              continuous) of the quantity to be predicted usually, this is a
-%                              discrete distribution - one probability value for every possible
-%                              target outcome [1xV] it can also be the parameters of a
-%                              parametric distribution (e.g., mean, variance) - yielding one
-%                              value for each parameter [DxP]
-%            * 'mode': the mode [1xD], or most likely output value (only supported for discrete
-%                      probability distributions)
+%   Format     : format of the output prediction (in the descriptions, N is the number of
+%                predictions), can be one of:
+%                 * 'expectation': the output is the expected value (i.e., posterior mean) of the
+%                                  quantity to be predicted; can be multi-dimensional [NxD]
+%                 * 'distribution': the output is the probability distribution (discrete or
+%                                   continuous) of the quantity to be predicted usually, this is a
+%                                   discrete distribution - one probability value for every possible
+%                                   target outcome [NxV] it can also be the parameters of a
+%                                   parametric distribution (e.g., mean, variance) - yielding one
+%                                   value for each parameter [NxP]
+%                 * 'mode': the mode [Nx1], or most likely output value (only supported for discrete
+%                           probability distributions)
+%                 * 'raw': the raw prediction, as defined by ml_predict
 %
 %   SuppressOutput : whether to suppress console output (default: true)
 %
