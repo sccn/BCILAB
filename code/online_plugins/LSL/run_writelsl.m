@@ -61,13 +61,13 @@ opts = arg_define(varargin, ...
     arg({'update_freq','UpdateFrequency'},10,[],'Update frequency. This is the rate at which the output is updated.'), ...
     arg({'predict_at','PredictAt'}, {},[],'Predict at markers. If nonempty, this is a cell array of online target markers relative to which predictions shall be made. If empty, predictions are always made on the most recently added sample.','type','expression'), ...
     arg({'verbose','Verbose'}, false,[],'Verbose output. If false, the console output of the online pipeline will be suppressed.'), ...
+    arg({'source_id','SourceID'}, 'input_data',{'input_data','model'},'Use as source ID. This is the data that determines the source ID of the stream (if the stream is restarted, readers will continue reading from it if it has the same source ID). Can be input_data (use a hash of dataset ID + target markers used for training) or model (use all model parameters).'), ...
     arg({'pred_name','PredictorName'}, 'lastpredictor',[],'Name of new predictor. This is the workspace variable name under which a predictor will be created.'));
 
+% load the model
+model = utl_loadmodel(opts.pred_model);
 
 % check if channel labels make sense for the model
-model = opts.pred_model;
-if ischar(model)
-    model = evalin('base',opts.pred_model); end
 if strcmp(opts.out_form,'distribution')
     if isfield(model,'classes') && ~isempty(model.classes)
         if length(opts.channel_names) ~= length(model.classes)
@@ -84,11 +84,18 @@ else
     end
 end
 
-% try to calculate a UID for the stream based on the model
+% try to calculate a UID for the stream
 try
-    uid = hlp_cryptohash(rmfield(model,'timestamp'));
-catch
+    if strcmp(opts.source_id,'model')
+        uid = hlp_cryptohash(rmfield(model,'timestamp'));
+    elseif strcmp(opts.source_id,'input_data')
+        uid = hlp_cryptohash({model.source_data});
+    else
+        error('Unsupported SourceID option: %s',hlp_tostring(opts.source_id));
+    end
+catch e
     disp('Could not generate a unique ID for the predictive model; the BCI stream will not be recovered automatically after the provider system had a crash.');
+    hlp_handleerror(e);
     uid = '';
 end
 
