@@ -277,16 +277,12 @@ function should_evaluate = exp_beginfun(setting, varargin)
 % --- obtain & interpret calling context ---
 
 % obtain execution context
-try
-    throw; %#ok<LTARG> faster than error()
-catch context
-    ctx = context;
-end
+ctx.stack = dbstack;
 
 % early check of whether the expression system is disabled
 if  ~strcmp(setting,'symbolic') && hlp_resolve('disable_expressions',false,ctx) && ~isequal(varargin,{'delayed_online',true})
     % and exit exp_beginfun, if so
-    assignin('caller','exp_internal_context',struct('enabled',{0}, 'exec_ctx',{ctx}));
+    assignin('caller','exp_internal_context',struct('enabled',0, 'exec_ctx',ctx));
     % the function should evaluate
     should_evaluate = 1;
     return;
@@ -298,9 +294,8 @@ should_evaluate = any(strncmp('exp_eval',{ctx.stack(3:min(4,length(ctx.stack))).
 
 % identify the calling function (i.e., the one using exp_beginfun)
 callname = ctx.stack(2).name;
-callfile = ctx.stack(2).file;
 callfunc = str2func(callname);
-[codehash,inargs,outargs] = utl_fileinfo(callfile,callname);
+[codehash,inargs,outargs] = utl_fileinfo([],callname); % note: elided the file for performance reasons
 
 
 % --- read the caller's function arguments (unfolding varargs along the way) ---

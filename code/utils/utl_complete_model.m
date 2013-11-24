@@ -17,12 +17,6 @@ function model = utl_complete_model(model,func,bundle)
 %                                           output and computes a prediction from it; If not passed,
 %                                           will be filled in based on the PredictionFunction argument 
 %
-%           .tracking.prediction_window : window length of data expected by the prediction_function, 
-%                                         in samples (if 0, the most recent chunk of data will be passed);
-%                                         has one element for each inlet of the prediction function;
-%
-%                                         If not passed, will be filled in based on the Bundle argument.
-%
 %           .tracking.prediction_channels : cell array of chanlocs structures expected by the prediction
 %                                           function; has one element for each inlet of the prediction 
 %                                           function.
@@ -48,9 +42,6 @@ function model = utl_complete_model(model,func,bundle)
 %            .prediction_function    --> a function that takes a stream bundle with one stream for 
 %                                        each entry of the filter graph; produces a prediction for each
 %                                        epoch/segment in the data (therefore works both online and offline)
-%            .prediction_window      --> an array that determines, for each inlet of the prediction function, 
-%                                        the number of samples expected by it in the epochs/segments,
-%                                        or 0 if the chunk of most recent data in the stream is expected.
 %            .prediction_channels    --> a cell array of chanlocs structs that defines that channels
 %                                        expected by the prediction function at each of its inlets
 %                                        (this is redundant additional information)
@@ -98,27 +89,15 @@ if ~isfield(model.tracking,'prediction_function')
     model.tracking.prediction_function = func; end
 
 try
-    % add the prediction_window, if necessary (deduced from the bundle)
-    if ~isfield(model.tracking,'prediction_window')
-        if ~isempty(bundle.streams{1}.epoch) || size(bundle.streams{1}.data,3) > 1
-            % data is epoched: by default the window length is the length of the epochs of the respective streams in the bundle
-            for s=1:length(bundle.streams)
-                model.tracking.prediction_window(s) = size(bundle.streams{1}.data,2); end
-        else
-            % data is not epoched: by default the window length is the length of the most recent chunk in each stream
-            model.tracking.prediction_window = zeros(1,length(bundle.streams));
-        end
-    end
-    
-    % add the channel locations (these are technically redundant, as they can be derived from the preprocessing chain)
-    % (deduced from the bundle)
+    % add the channel locations (these are technically redundant, as they can be derived from the
+    % preprocessing chain) (deduced from the bundle)
     if ~isfield(model.tracking,'prediction_channels')
         if ~exist('bundle','var')
             errore('Cannot automatically assign the .tracking.prediction_channels field because the data set from which these channels shall be determined could not be deduced by the framework; consider setting this field manually in the calibrate() function of your paradigm. This is a one-time warning.'); end
         for s=1:length(bundle.streams)
             model.tracking.prediction_channels{s} = bundle.streams{s}.chanlocs; end
     end
-catch
+catch %#ok<CTCH>
 end
 
 % finally add also a timestamp (so that we can sort them by creation time)

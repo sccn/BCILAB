@@ -45,11 +45,11 @@ function outargs = hlp_resolve(x,default,context)
 
 global tracking;
 
-try
-    % obtain the current stack frame entries from the context
-    entries = {context.stack.name};
-catch context
-    % or get the entries from the exception that was just thrown
+% get stack entries
+if nargin < 3
+    stack = dbstack;
+    entries = {stack.name};
+else
     entries = {context.stack.name};
 end
 
@@ -57,11 +57,11 @@ end
 marker = 'make_func/@(f,a,frame__';
 frames = find(strncmp(entries,marker,23));
 
-% the symbol of interest...
+% go through all stack frames...
 symbol = char(x);
 for k=frames
     frameid = entries{k}(24:end-14);
-    % ...to look up the symbol in question
+    % and check if the symbol is present there, then look up
     if isfield(tracking.stack.frames.(frameid),symbol)
         outargs = tracking.stack.frames.(frameid).(symbol);
         return;

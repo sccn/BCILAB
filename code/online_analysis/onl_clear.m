@@ -16,9 +16,9 @@ for v=vars
     % select those that are streams or predictors
     var = evalin('base',v{1});
     if isfield(var,{'buffer','smax'})
-        to_delete{end+1} = v{1}; end
+        to_delete{end+1} = v{1}; end %#ok<AGROW>
     if all(isfield(var,{'pipelines','tracking'})) && isfield(var.tracking,'prediction_function')
-        to_delete{end+1} = v{1}; end    
+        to_delete{end+1} = v{1}; end %#ok<AGROW>
 end
 
 % delete them

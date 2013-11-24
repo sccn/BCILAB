@@ -278,8 +278,9 @@ if length(ival) == 2 && ival(1) <= ival(2)
             signal.urevent = []; end
         if isempty(signal.event)
             signal.event = setfield(setfield(opts.event,'latency',1),'type','dummy'); end; %#ok<SFLD>
-        for l = lats
-            signal.event(end+1) = setfield(opts.event,'latency',l); end %#ok<SFLD>
+        range = length(signal.event) + (1:length(lats));
+        [signal.event(range)] = deal(opts.event);
+        [signal.event(range).latency] = arraydeal(lats);
     end
 end
 

@@ -628,7 +628,7 @@ end
 
 % if the EpochBounds are undefined, see if we can infer them from the data
 if isempty(opts.epoch_bounds)
-    bounds = collect_instances(paradigm_parameters,'epobounds'); % note: direct name reference to set_makepos's parameter
+    bounds = collect_instances(paradigm_parameters,'time_bounds'); % note: direct name reference to set_makepos's parameter
     if ~isempty(bounds)
         bounds = vertcat(bounds{:});
         % we use an upper bound of the encountered bounds if multiple (can be multiple if in a 

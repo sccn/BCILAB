@@ -106,48 +106,42 @@ function declare_properties(varargin)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-if evalin('caller','exist(''arg_nvps'',''var'')')
-    warn_once('BCILAB:arg:declare_properties','The function declare_properties must not be be called after arg_define().'); end
-
-try
-    throw; %#ok<LTARG> % faster than error()
-catch context
-    if any(strcmp('arg_report_properties',{context.stack(3:min(6,end)).name}))
-        % properties are being requested via arg_report; return them as a struct
-        caller = hlp_getcaller();
-        
-        % collect properties and assign defaults
-        properties = hlp_varargin2struct(varargin, ...
-            'depends',{}, ...
-            'cannot_follow',{}, ...
-            'cannot_precede',{}, ...
-            'follows',{}, ...
-            'precedes',{}, ...
-            'independent_channels',[], ...
-            'independent_trials',[], ...
-            'name', caller, ...
-            'deprecated',false, ...
-            'experimental',false);
-        
-        if isempty(properties.independent_trials) && (strncmp(caller,'flt_',4) || strncmp(caller,'set_',4))
-            properties.independent_trials = false;
-            % warn about this omission: in practice, this means that this filter and all that come after it
-            % in a pipeline will be recomputed for every partition of the data during (nested) cross-validation
-            % (perhaps 10x or 100x as often as necessary)
-            disp_once('Note: The function "%s" does not declare the property independent_trials; assuming that it is false. This may be a conservative assumption that can have massive performance cost during offline processing. Consider declaring the property explicitly in the declare_properties() clause.',caller);
-        end
-        
-        if isempty(properties.independent_channels) && (strncmp(caller,'flt_',4) || strncmp(caller,'set_',4))
-            properties.independent_channels = false;
-            % warn about this omission: in practice, this often means that BCILAB has to assume that a given
-            % model requires all channels that were present in the source data set -- even if it selects
-            % only a subset somewhere in its filter pipeline (e.g., excluding peripheral measures). If such
-            % channels are not available in an online stream, the model will fail to work, perhaps
-            % unneccessarily.
-            disp_once('Note: The function "%s" does not declare the property independent_channels; assuming that it is false. This may be a conservative assumption that can make it unnecessariy difficult to set up online processing. Consider declaring the property explicitly in the declare_properties() clause.',caller);
-        end
-        
-        % report them
-        arg_issuereport(properties);
+stack = dbstack;
+if any(strcmp('arg_report_properties',{stack(3:min(6,end)).name}))
+    % properties are being requested via arg_report; return them as a struct
+    caller = hlp_getcaller();
+    
+    % collect properties and assign defaults
+    properties = hlp_varargin2struct(varargin, ...
+        'depends',{}, ...
+        'cannot_follow',{}, ...
+        'cannot_precede',{}, ...
+        'follows',{}, ...
+        'precedes',{}, ...
+        'independent_channels',[], ...
+        'independent_trials',[], ...
+        'name', caller, ...
+        'deprecated',false, ...
+        'experimental',false);
+    
+    if isempty(properties.independent_trials) && (strncmp(caller,'flt_',4) || strncmp(caller,'set_',4))
+        properties.independent_trials = false;
+        % warn about this omission: in practice, this means that this filter and all that come after it
+        % in a pipeline will be recomputed for every partition of the data during (nested) cross-validation
+        % (perhaps 10x or 100x as often as necessary)
+        disp_once('Note: The function "%s" does not declare the property independent_trials; assuming that it is false. This may be a conservative assumption that can have massive performance cost during offline processing. Consider declaring the property explicitly in the declare_properties() clause.',caller);
     end
+    
+    if isempty(properties.independent_channels) && (strncmp(caller,'flt_',4) || strncmp(caller,'set_',4))
+        properties.independent_channels = false;
+        % warn about this omission: in practice, this often means that BCILAB has to assume that a given
+        % model requires all channels that were present in the source data set -- even if it selects
+        % only a subset somewhere in its filter pipeline (e.g., excluding peripheral measures). If such
+        % channels are not available in an online stream, the model will fail to work, perhaps
+        % unneccessarily.
+        disp_once('Note: The function "%s" does not declare the property independent_channels; assuming that it is false. This may be a conservative assumption that can make it unnecessariy difficult to set up online processing. Consider declaring the property explicitly in the declare_properties() clause.',caller);
+    end
+    
+    % report them
+    arg_issuereport(properties);
 end

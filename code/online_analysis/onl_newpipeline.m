@@ -26,7 +26,7 @@ function pipeline = onl_newpipeline(filterapp, streams, needed_channels)
 %                     
 %                    By specifying this, you can bind the pipeline to streams that are lacking some
 %                    of the channels that the pipeline expects (e.g. in a flt_selchans), but you as 
-%                    the final consumer don't.
+%                    the final consumer don't need.
 %
 % Out:
 %   Pipeline : a new filter pipeline struct.
@@ -37,18 +37,23 @@ function pipeline = onl_newpipeline(filterapp, streams, needed_channels)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2012-05-13
 
-
+% handle the pipeline description (filter application)
 if ~exist('filterapp','var')
     error('Please specify a filter expression to wrap into a pipeline.'); end
 
-if all(isfield(filterapp,{'head','parts'}))
-    disp('The filter application has not yet been evaluated; doing it now.');
-    filterapp = exp_eval_optimized(filterapp);
+% take the online expression if not yet done so
+if isfield(filterapp,'tracking') && isfield(filterapp.tracking,'online_expression')
+    filterapp = filterapp.tracking.online_expression; end
+
+% evaluate the pipeline description if not yet done so
+if isempty(utl_find_filter(filterapp,'rawdata'))
+    filterapp = exp_eval_optimized(filterapp); 
+    filterapp = filterapp.tracking.online_expression; 
 end
 
-if ~isfield(filterapp,'tracking') || ~isfield(filterapp.tracking,'online_expression')
-    error('The filter expression is lacking a .tracking field. The recommended way to construct it is as in flt_resample(io_loadset(''mycalibration.set'')) where mycalibration.set is a piece of data that is sufficiently long to initialize all filters (e.g. ICA).'); 
-end
+% final sanity check
+if ~all(isfield(filterapp,{'head','parts'}))
+    error('The given data does not describe a filter application.'); end
 
 % get the streams
 if ~exist('streams','var') || isempty(streams)
@@ -58,24 +63,48 @@ if ~exist('streams','var') || isempty(streams)
     streams = {vars(cellfun(@(x)all(isfield(evalin('base',x),{'buffer','smax'})),{vars.name})).name};
 end
 
+% streams sanity checks
 if ~iscell(streams)
     streams = {streams}; end
-
 for s=1:length(streams)
     if ~ischar(streams{s})
-        error('BCILAB:onl_newpredictor:invalid_streams','The Streams argument must be passed as the names under which the streams were loaded, instead of as structs.'); end
+        error('BCILAB:onl_newpipeline:invalid_streams','The Streams argument must be passed as the names under which the streams were loaded, instead of as structs.'); end
     if ~isvarname(streams{s})
-        error('BCILAB:onl_newpredictor:invalid_streams','One of the supplied stream names is not a valid matlab variable name (and thus cannot refer to a stream): %s.',streams{s}); end
+        error('BCILAB:onl_newpipeline:invalid_streams','One of the supplied stream names is not a valid matlab variable name (and thus cannot refer to a stream): %s.',streams{s}); end
 end
+
+if ~exist('needed_channels','var')
+    needed_channels = []; end
 
 try    
     % resolve the rawdata nodes into the correct stream
-    if exist('needed_channels','var')
-        pipeline = utl_resolve_streams(filterapp.tracking.online_expression,streams,needed_channels);
-    else
-        pipeline = utl_resolve_streams(filterapp.tracking.online_expression,streams);
-    end
+    pipeline = utl_resolve_streams(filterapp,streams,needed_channels);
+    % initialize misc properties of the pipeline
+    pipeline = init_pipeline(pipeline);
 catch e
-    env_handleerror(e);
+    hlp_handleerror(e);
     error('BCILAB:onl_newpipeline:unexpected','Could not match the channels required by the pipeline with what the stream provides.');
+end
+
+
+% initialize fields of a filter pipeline for efficient online use
+function p = init_pipeline(p)
+% check if this is a raw-data (leaf) node
+if ~strcmp(char(p.head),'rawdata')
+    % the .subnodes field stores which of the input arguments are pipelines
+    % (that we need to update recursively)
+    p.subnodes = find(cellfun(@(x)all(isfield(x,{'head','parts'})),p.parts));
+    % the .stateful field denotes whether the filter function returns state
+    if ~isfield(p,'stateful')
+        p.stateful = is_stateful(p.head); end
+    % the .state field contains the previous state of the filter function
+    if p.stateful && ~isfield(p,'state')
+        p.state = []; end
+    % recursively initialize the sub-pipelines
+    for k = p.subnodes
+        p.parts{k} = init_pipeline(p.parts{k}); end
+else
+    % for raw streams all we need initially is the smax (number of samples seen so far)
+    p.smax = 0;
+    p.subnodes = [];
 end

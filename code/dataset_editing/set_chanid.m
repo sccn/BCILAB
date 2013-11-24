@@ -53,10 +53,16 @@ labels = lower(labels);
 
 if iscell(lookup)
     lookup = lower(lookup);
-	% got channel names: look them up from the chanlocs, but ordered according to lookup
-    [x,a,b] = intersect(lookup,labels); %#ok<ASGLU>
-    [x,I] = sort(a); remaining = b(I); %#ok<ASGLU>
-    notfound = setdiff(1:length(lookup),a);
+    if isequal(lookup,labels)
+        % fast path
+        remaining = 1:length(lookup);
+        notfound = [];
+    else
+        % got channel names: look them up from the chanlocs, but ordered according to lookup
+        [x,a,b] = intersect(lookup,labels); %#ok<ASGLU>
+        [x,I] = sort(a); remaining = b(I); %#ok<ASGLU>
+        notfound = setdiff(1:length(lookup),a);
+    end
 elseif isnumeric(lookup)
 	% got channel indices: filter out the invalid channels
     if isempty(lookup)

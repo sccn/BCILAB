@@ -11,10 +11,11 @@ function stream_id = onl_read_background(varargin)
 %                  (must have been previously created via onl_newstream)
 % 
 %   BlockReader : function that reads a block from the device (format: [Channels x Samples])
-%                 if no data is available, this function should return an empty result.
-%                 It may also return a cell array of the form {[Channels x Samples],TimeStamp}. More 
-%                 generally, all returned cells are used as arguments to onl_predict.
-%                 Optionally, this function may take the current stream variable as input.
+%                 if no data is available, this function should return an empty result. It may also
+%                 return a cell array of the form {[Channels x Samples],TimeStamp} or {[Channels x
+%                 Samples],Markers,TimeStamp}. More generally, all returned cells are used as
+%                 arguments to onl_predict. Optionally, this function may take the current stream
+%                 variable as input.
 %
 %   UpdateFrequency : frequency at which the device should be queried, in Hz (default: 25)
 %
@@ -60,10 +61,8 @@ try
     end
     % append it to the stream
     if iscell(block)        
-        % includes a timestamp
         onl_append(stream_name,block{:});
     else
-        % raw data block
         onl_append(stream_name,block);
     end
 catch e

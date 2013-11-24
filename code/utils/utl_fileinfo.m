@@ -51,6 +51,9 @@ else
     refresh_period = 1;  % refreshing our view of the file system at most every refresh_period seconds
     update = false;      % indicates whether the database entry for this file is valid or has to be (re)created
     
+    if isempty(fname)
+        fname = which(identifier); end
+    
     try
         % look up the identifier from the DB
         identry = filedb.(identifier);

@@ -4,16 +4,19 @@ function id = onl_newstream(name,varargin)
 %
 % After a stream has been created, blocks of data can be appended to it using onl_append().
 % Predictors can be linked to the stream using onl_newpredictor(), and their predictions (given the
-% stream's most recent contents) can be queried using onl_predict(). This stream processing API is
-% the basis for all online processing plugins to real-time experimentation environments (see
-% code/online_plugins/*), as well as for the pseudo-online simulation function onl_simulate().
+% stream's most recent contents) can be queried using onl_predict(). One can alternatively also get
+% the most recent k seconds of raw data via onl_peek() or set up a filter pipeline using
+% onl_newpipeline() and then query the most recent k samples of filtered data using onl_filtered().
+% This stream API is the basis for all online processing plugins (see code/online_plugins/*), as
+% well as for the pseudo-online simulation function onl_simulate().
 %
-% A data stream is essentially a buffer of data (usually EEG, but may instead contain other sampled
-% data, such as gaze coordinates, or motion capture coordinates). It has the same meta-data as a
-% regular EEGLAB dataset, containing fields such as .srate, and .chanlocs, as well as special
-% additional fields .smax, .buffer, and possibly others. All name-value pairs that are specified in
-% the Options are added as fields to this data structure. Instead of .data, it has .buffer, which is
-% a circular buffer that holds a segment of data ending with the most recently supplied sample.
+% A stream has almost the same layout as an EEGLAB dataset struct; particularly, all the meta-data
+% (such as .srate and .chanlocs) is exactly the same. The difference is that a) the stream holds
+% only the last n seconds of data and markers that were appended (since all read operations on it
+% refer to portions of the most recent data), and b) markers and data are not in the regular EEGLAB
+% format for efficiency reasons (see Notes for internal details).
+%
+% All name-value pairs that are specified in the Options are added as fields to this data structure.
 %
 % In:
 %   Name : name of the stream; a variable of this name will be created in the workspace to
@@ -50,19 +53,33 @@ function id = onl_newstream(name,varargin)
 %
 %                Additional online-specific fields:
 %
-%                * 'timestamps_len' : number of measures that should be averaged to yield a signal 
+%                * 'buffer_len' : maximum length of the signal buffer, in seconds (default: 10).
+%
+%                * 'marker_buffer_len' : maximum number of marker records held in the marker buffer
+%                                       (default: 1000).
+%
+%                * 'timestamps_len' : number of time stamps that should be averaged to yield a signal 
 %                                     lag estimate, if time stamps are supplied online during onl_append
 %                                     (default: 25)
-%
-%                * 'buffer_len' : maximum length of the signal buffer, in seconds (default: 10)
-%                                 data will be lost if a predictor is not queried for longer than
-%                                 this period                              
 %
 % Out:
 %   Id : a unique id number for the predictor; same as name.predictorid
 %
 %
 % Notes:
+%   For efficiency, the storage layout for the stream's data is not an array that goes from the
+%   first sample to the last, but rather a circular buffer where data wraps around; to avoid
+%   confusion, the stream has empty .data and .event fields. Instead of .data, it has a .buffer
+%   field (a circular buffer that holds the most recently added n seconds of data) and .smax (the
+%   number of samples appended so far, which is used as an index into the ring buffer, using
+%   wrap-around indexing). Instead of .event it has a field .marker_buffer (circular buffer of
+%   marker structs), .mmax (number of marker records appended so far and serving as wrap-around
+%   index into .marker_buffer), and lastly .marker_pos (sparse time series that holds indices into
+%   .marker_buffer; like .buffer, the .marker_pos time series is a circular buffer). Please avoid
+%   using these fields directly -- instead always use the functions onl_append and onl_peek to
+%   read/write to the stream since the internal format may change (also, fields need to be accessed
+%   in the correct order to support concurrent read/write operations from timers).
+%
 %   The stream can be distinguished from a regular EEGLAB dataset by having the additional fields
 %   'buffer' and 'smax'. smax indicates how many samples have been appended to the stream so far 
 %   (though only the most recent subset of them is held in the buffer).
@@ -103,7 +120,7 @@ if ~isvarname(name)
     error('The name of the online stream must be a valid variable name.'); end
 
 % create the stream and add/reset user-specified fields
-stream = exp_eval(set_new('buffer_len',10,'timestamps_len',25,'types',[],varargin{:}, ...
+stream = exp_eval(set_new('buffer_len',10,'timestamps_len',25,'marker_buffer_len',1000,'types',[],varargin{:}, ...
     'event',[],'urevent',[],'epoch',[],'icaact',[],'tracking',[]));
 
 % check validity of user-specified fields
@@ -115,7 +132,7 @@ if isempty(stream.types)
     stream.types = unique({stream.chanlocs.type}); end
 stream.nbchan = length(stream.chanlocs);
 
-% add buffer fields
+% add data buffer fields
 stream.buffer_len = stream.buffer_len*stream.srate;     % max. number of samples in the stream's buffer (the buffer holds a running sub-range of the entire stream sample range)
 stream.buffer = zeros(stream.nbchan,stream.buffer_len); % circular data buffer
 stream.smax = 0;                                        % index of last sample in the stream; 
@@ -124,15 +141,24 @@ stream.smax = 0;                                        % index of last sample i
                                                         % current data range:
                                                         % buffer(:,1+mod((smin:smax)-1,buffer_len))
 
+% add marker buffer fields                                                        
+max_simultaneous_markers = 1000; % note: this constant must equal the one in onl_append
+stream.marker_pos = sparse(zeros(max_simultaneous_markers,stream.buffer_len));  % sparse array mapping from time (sample indices) to marker_buffer; indexed by [#sample,#duplicate]
+stream.marker_buffer = struct(...                                               % buffer of past k marker records; latency is the fractional offset within the sample (not absolute)
+    'type',cell(1,stream.marker_buffer_len), ...      
+    'latency',cell(1,stream.marker_buffer_len));                               
+stream.mmax = 0;
+
+% add time stamp fieds
 stream.timestamps = zeros(stream.timestamps_len,2); % circular array of time stamp estimates
-stream.timestamps_ptr = 0;                          % last write pointer into timestamps
+stream.tmax = 0;                                    % number of timestamps appended so far
 
 % remove fields that we do not track
 stream = rmfield(stream,{'pnts','xmax','data'});
 if stream.xmin ~= 0
     % put xmin into timestamps so that it blends with any later time stamp updates during onl_append
-    stream.timestamps_ptr = 1+mod(stream.timestamps_ptr,stream.timestamps_len);
-    stream.timestamps(stream.timestamps_ptr,:) = [stream.xmin 0];
+    stream.tmax = 1+mod(stream.tmax,stream.timestamps_len);
+    stream.timestamps(stream.tmax,:) = [stream.xmin 0];
 end
 
 % assign a unique id to the stream (for users of the stream)
@@ -144,7 +170,8 @@ try
     stream.xmin_micro = tic;
     stream.xmin_mili = java.lang.System.currentTimeMillis();
     stream.xmin_nano = java.lang.System.nanoTime();
-catch, end
+catch %#ok<CTCH>
+end
 
 % create a new stream and place it in the base workspace
 assignin('base',name,stream);

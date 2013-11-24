@@ -30,10 +30,9 @@ function pip = utl_resolve_streams(pip,streams,chanlocs)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-11-23
 
-if isstruct(streams) && isscalar(streams) && isfield(streams,'streams')
-    % streams given as a bundle: turn into cell array
+% turn streams into a cell array
+if isstruct(streams) && isscalar(streams) && isfield(streams,'streams')    
     streams = streams.streams; end
-
 if ~iscell(streams)
     streams = {streams}; end
 
@@ -62,7 +61,7 @@ end
 % now resolve rawdata nodes using the stream information
 if ~iscell(pip)
     % pipeline given as single filter chain
-    if exist('chanlocs','var')
+    if exist('chanlocs','var') && ~isempty(chanlocs)
         labels = {chanlocs.labels};
         types = unique({chanlocs.type});
     else
@@ -72,14 +71,14 @@ if ~iscell(pip)
     pip = resolve_rawdata(pip,streams,labels,types);
 else
     % pipeline given as a cell array: resolve each one by one
-    if exist('chanlocs','var')
+    if exist('chanlocs','var') && ~isempty(chanlocs)
         if ~iscell(chanlocs)
             error('If given, chanlocs should be a cell array with one cell for each chain in the filter graph.'); end
         if length(chanlocs) ~= length(pip)
             error('The Chanlocs array has a different number of elements than the filter graph.'); end
         for p = 1:length(pip)
-            labels{p} = {chanlocs{p}.labels};
-            types{p} = unique({chanlocs{p}.type});            
+            labels{p} = {chanlocs{p}.labels}; %#ok<AGROW>
+            types{p} = unique({chanlocs{p}.type}); %#ok<AGROW>
         end
     else
         labels = repmat({[]},1,length(pip));
@@ -194,8 +193,8 @@ else
         error('Unsupported channel subset format.');
     end
     
-    satisfies_channels = []; % the stream can provide all the channels required by the pipeline (ideal case if non-ambiguous)
-    satisfies_types = [];    % the stream has the same number of channels and set of types as required by the pipeline (happens when the online plugin doesn't supply the correct channel labels...)
+    satisfies_channels = logical([]); % the stream can provide all the channels required by the pipeline (ideal case if non-ambiguous)
+    satisfies_types = logical([]);    % the stream has the same number of channels and set of types as required by the pipeline (happens when the online plugin doesn't supply the correct channel labels...)
     % for each stream...
     for s = 1:length(streams)
         % find out if the stream matches
@@ -265,7 +264,7 @@ if isfield(stream,'chanlocs')
     output.types = unique({stream.chanlocs.type});
     try
         output.substitute = stream.tracking.expression;
-    catch
+    catch %#ok<CTCH>
         error('Reached a dataset node which is lacking an associated expression. This should have been resolved previously using utl_check_dataset or utl_check_bundle.');
     end
 elseif all(isfield(stream,{'head','parts'}))

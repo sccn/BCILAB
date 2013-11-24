@@ -1,11 +1,13 @@
 function chunk = onl_peek(streamname,samples_to_get,unit,channels_to_get)
 % Peek into an online stream (generates an EEG-set like view into it).
+% Chunk = onl_peek(StreamName,DesiredLength,LengthUnit,DesiredChannels)
 %
+% This function returns an EEGLAB dataset struct that hold the last k seconds of an online stream.
 % An online stream is a data structure in the workspace that can be created with onl_newstream;
 % data can be appended to it by onl_append or onl_read_background.
 %
 % In:
-%   Streamname : Name of the online stream in the workspace
+%   StreamName : Name of the online stream in the workspace
 %
 %   DesiredLength : length of the view that should be generated; should not be longer than the
 %                   buffer capacity (default: 10)
@@ -18,7 +20,7 @@ function chunk = onl_peek(streamname,samples_to_get,unit,channels_to_get)
 %   DesiredChannels : range of channels to return (default: all channels)
 %
 % Out:
-%   Signal : An EEGLAB data set that represents contains the most recent data of a given stream
+%   Chunk : An EEGLAB data set that contains the most recent data of a given stream
 %
 % Example:
 %   % get the last 5 seconds of the stream
@@ -75,7 +77,17 @@ switch unit
 end
 
 % extract the desired interval from the .buffer field and move it to .data
-chunk.data = chunk.buffer(channels_to_get, 1+mod(chunk.smax-samples_to_get:chunk.smax-1,chunk.buffer_len));
+range = 1+mod(chunk.smax-samples_to_get:chunk.smax-1,chunk.buffer_len);
+chunk.data = chunk.buffer(channels_to_get,range);
+
+% extract the markers, if there are any
+if chunk.mmax
+    [ranks,sample_indices,record_indices] = find(chunk.marker_pos(:,range));
+    if any(ranks)
+        chunk.event = chunk.marker_buffer(1+mod(record_indices-1,chunk.marker_buffer_len));
+        [chunk.event.latency] = arraydeal(sample_indices(:) + [chunk.event.latency]');
+    end
+end
 
 % update meta-data
 [chunk.nbchan,chunk.pnts,chunk.trials] = size(chunk.data);

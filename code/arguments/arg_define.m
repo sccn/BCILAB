@@ -153,23 +153,8 @@ function res = arg_define(vals,varargin)
 
 if iscell(vals)
     % no Format specifier was given: use default
-	fmt = [0 Inf];
-	spec = varargin;
-    try
-        % quick checks for direct (fast) mode
-        if isfield(vals{end},'arg_direct')
-            direct_mode = vals{end}.arg_direct;
-        elseif strcmp(vals{1},'arg_direct')
-            direct_mode = vals{2};
-        else
-            % figure it out later
-            direct_mode = false;
-        end
-        structs = cellfun('isclass',vals,'struct');
-    catch
-        % vals was empty: default behavior
-        direct_mode = false;            
-    end
+    fmt = [0 Inf];
+    spec = varargin;
 else
     % a Format specifier was given as the first argument (instead of vals as the first argument) ...
     if isempty(vals)
@@ -205,37 +190,16 @@ else
                 error('The given formatting function expects an unsupported number of inputs (only 1 or 2 inputs supported).');
         end
     end
-    direct_mode = false;
 end
 
+structs = cellfun('isclass',vals,'struct');
 
-% --- if not yet known, determine conclusively if we are in direct mode (specificationless and therefore fast) ---
-
-% this mode is only applicable when all arguments can be passed as NVPs/structs
-if ~direct_mode && any(fmt == 0)
-    % search for an arg_direct argument
-    structs = cellfun('isclass',vals,'struct');
-    indices = find(structs | strcmp(vals,'arg_direct'));
-    for k = indices(end:-1:1)
-        if ischar(vals{k}) && k<length(vals)
-            % found it in the NVPs
-            direct_mode = vals{k+1};
-            break;
-        elseif isfield(vals{k},'arg_direct')
-            % found it in a struct
-            direct_mode = vals{k}.arg_direct;
-            break;
-        end
-    end
-end
-
-if direct_mode
+if is_direct_mode(vals,structs)
 
     % --- direct mode: quickly collect NVPs from the arguments and produce a result ---
     
     % obtain flat NVP list
-    if any(structs(1:2:end))
-        vals = flatten_structs(vals); end
+    vals = flatten_structs(vals,structs);
     
     if nargout
         % get names & values
@@ -265,7 +229,7 @@ if direct_mode
     try
         % also return the arguments in NVP form
         assignin('caller','arg_nvps',vals);
-    catch
+    catch %#ok<CTCH>
         % this operation might be disallowed under some circumstances
     end
     
@@ -556,22 +520,6 @@ else
 end
 
 
-
-% substitute any structs in place of a name-value pair into the name-value list
-function args = flatten_structs(args)
-k = 1;
-while k <= length(args)
-    if isstruct(args{k})
-        tmp = [fieldnames(args{k}) struct2cell(args{k})]';
-        args = [args(1:k-1) tmp(:)' args(k+1:end)];
-        k = k+numel(tmp);
-    else
-        k = k+2;
-    end
-end
-
-
-
 % evaluate a specification into a struct array
 function [spec,all_names,joint_names,remap] = evaluate_spec(spec,reporting_type,require_namecheck)
 if strcmp(reporting_type,'rich')
@@ -615,49 +563,34 @@ if ~isempty(duplicates)
 % from the outside, which are prone to clashes with functions on the path...)
 if require_namecheck && strcmp(reporting_type,'none')
     try
-        check_names(cellfun(@(x)x{1},all_names,'UniformOutput',false));
+        validate_varnames(hlp_getcaller(3),cellfun(@(x)x{1},all_names,'UniformOutput',false));
     catch e
         disp_once('The function check_names failed; reason: %s',e.message);
     end
 end
 
 
-
-% check for name clashes (once)
-function check_names(code_names)
-persistent name_table;
-if ~isstruct(name_table)
-    name_table = struct(); end
-for name_cell = fast_setdiff(code_names,fieldnames(name_table))
-    current_name = name_cell{1};
-    existing_func = which(current_name);
-    if ~isempty(existing_func)
-        if ~exist('function_caller','var')
-            function_caller = hlp_getcaller(4); 
-            if function_caller(1) == '@'
-                function_caller = hlp_getcaller(14); end
-        end
-        if isempty(strfind(existing_func,'Java method'))
-            [path_part,file_part,ext_part] = fileparts(existing_func);
-            if ~any(strncmp('@',hlp_split(path_part,filesep),1))
-                % If this happens, it means that there is a function in one of the directories in
-                % MATLAB's path which has the same name as an argument of the specification. If this 
-                % argument variable is copied into the function's workspace by arg_define, most MATLAB
-                % versions will (incorrectly) try to call that function instead of accessing the 
-                % variable. I hope that they handle this issue at some point. One workaround is to use
-                % a longer argument name (that is less likely to clash) and, if it should still be
-                % usable for parameter passing, to retain the old name as a secondary or ternary
-                % argument name (using a cell array of names in arg()). The only really good
-                % solution at this point is to generally assign the output of arg_define to a
-                % struct.
-                disp([function_caller ': The argument name "' current_name '" clashes with the function "' [file_part ext_part] '" in directory "' path_part '"; it is strongly recommended that you either rename the function or remove it from the path.']); 
-            end
-        else
-            % these Java methods are probably spurious "false positives" of the which() function
-        	disp([function_caller ': There is a Java method named "' current_name '" on your path; if you experience any name clash with it, please report this issue.']);
+% check if arg_define is being called in direct mode
+function direct_mode = is_direct_mode(vals,structmask)
+if length(vals)>1 && isequal(vals(end-1:end),{'arg_direct',true})
+    direct_mode = true;
+elseif ~isempty(vals) && isfield(vals{end},'arg_direct')
+    direct_mode = vals{end}.arg_direct;
+else
+    direct_mode = false;
+    % if a report is requested, we cannot be in direct mode
+    indices = find(structmask | strcmp(vals,'arg_direct'));
+    for k = indices(end:-1:1)
+        if ischar(vals{k}) && k<length(vals)
+            % found it in the NVPs
+            direct_mode = vals{k+1};
+            break;
+        elseif isfield(vals{k},'arg_direct')
+            % found it in a struct
+            direct_mode = vals{k}.arg_direct;
+            break;
         end
     end
-    name_table.(current_name) = existing_func;
 end
 
 

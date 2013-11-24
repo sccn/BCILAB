@@ -65,12 +65,21 @@ classdef ParadigmRSSD < ParadigmDataflowSimplified
             
             try
                 data = self.rssd_load_overcomplete(args.signal);
-                multimodel_dipfits = [data.dipfit.multimodel{:}];
-                if ~isempty(args.fex.anatomical_prior) && ~isequal(args.fex.anatomical_prior,false) && ~isempty(data.dipfit)
+                % read out component dipole fits
+                if ~isempty(data.dipfit)
+                    if isfield(data.dipfit,'multimodel')
+                        dipfits = [data.dipfit.multimodel{:}];
+                    else
+                        dipfits = data.dipfit.model;
+                    end
+                else
+                    dipfits = [];
+                end
+                if ~isempty(args.fex.anatomical_prior) && ~isequal(args.fex.anatomical_prior,false) && ~isempty(dipfits)
                     % if an anatomical prior was given, we can pre-prune the potenial ERSPs
                     ersprange = [];                    
                     for k=1:size(data.icaweights,1)
-                        matches{k} = intersect(multimodel_dipfits(k).structures,args.fex.anatomical_prior);
+                        matches{k} = intersect(dipfits(k).structures,args.fex.anatomical_prior);
                         if ~isempty(matches{k})
                             ersprange(end+1) = k; end
                     end
@@ -96,19 +105,19 @@ classdef ParadigmRSSD < ParadigmDataflowSimplified
                     % turn into a scaling matrix
                     prior{k} =  diag(lhs) * ones(length(freqs),length(times)) * diag(rhs);
                     % incorporate the spatial prior
-                    if ~isempty(data.dipfit)
-                        prior{k} = prior{k} * args.fex.spatial_prior(multimodel_dipfits(k).posxyz); end
+                    if ~isempty(dipfits)
+                        prior{k} = prior{k} * args.fex.spatial_prior(dipfits(k).posxyz); end
                 end
                 for k = ersprange
                     % incorporate the anatomical prior
-                    if ~isempty(args.fex.anatomical_prior) && ~isequal(args.fex.anatomical_prior,false) && ~isempty(data.dipfit)
-                        [matches,idx] = intersect(multimodel_dipfits(k).structures,args.fex.anatomical_prior); %#ok<ASGLU>
+                    if ~isempty(args.fex.anatomical_prior) && ~isequal(args.fex.anatomical_prior,false) && ~isempty(dipfits)
+                        [matches,idx] = intersect(dipfits(k).structures,args.fex.anatomical_prior); %#ok<ASGLU>
                         % sum the probabilities for being in each of the accepted structures (can be > 1 as the structures are highly overlapping)
-                        prior{k} = sum(multimodel_dipfits(k).probabilities(idx)) * prior{k};
-                        structures{k} = multimodel_dipfits(k).structures(idx);
-                        probabilities{k} = multimodel_dipfits(k).probabilities(idx);
-                        summed_probabilities(k) = sum(multimodel_dipfits(k).probabilities(idx));
-                        % figure; topoplot(data.icawinv(:,k),data.chanlocs(data.icachansind),'electrodes','labels'); title([hlp_tostring(multimodel_dipfits(k).structures(idx)) ' - ' hlp_tostring(multimodel_dipfits(k).probabilities(idx))]);
+                        prior{k} = sum(dipfits(k).probabilities(idx)) * prior{k};
+                        structures{k} = dipfits(k).structures(idx);
+                        probabilities{k} = dipfits(k).probabilities(idx);
+                        summed_probabilities(k) = sum(dipfits(k).probabilities(idx));
+                        % figure; topoplot(data.icawinv(:,k),data.chanlocs(data.icachansind),'electrodes','labels'); title([hlp_tostring(xdipfits(k).structures(idx)) ' - ' hlp_tostring(dipfits(k).probabilities(idx))]);
                     end
                     if ~all(all(prior{k}==0))
                         retain_ics(end+1) = k; end

@@ -82,8 +82,7 @@ else
     if length(context.outargs) > 1 && isfield(context.ws_output_post,context.outargs{2})
         % if a second output is present and assigned, we treat it as a state output, and include it
         % in the final expression this will be picked up by the online system
-        final_expression.state = context.ws_output_post.(context.outargs{2}); 
-        
+        final_expression.state = context.ws_output_post.(context.outargs{2});
         % also, generally append 'state',state to the expression - for proper cross-validation behavior
         final_expression.parts = [final_expression.parts {'state' final_expression.state}];
     end
@@ -91,31 +90,16 @@ else
     % for all sub-arguments that have an online expression (i.e. data sets / signals), substitute 
     % their expression into the big online expression
     if isfield(final_expression,'parts')
-        % this field lets us keep track of the window length expected from each respective input expression
-        final_expression.subrequests = [];
         for k=1:length(final_expression.parts)
             exp = final_expression.parts{k};
             if isfield(exp,'tracking') && isfield(exp.tracking,'online_expression')
-                if size(exp.data,3) > 1
-                    % if this is epoched data, we record the window length expected from that stage
-                    final_expression.subrequests(end+1) = size(exp.data,2);
-                else
-                    % if it is continuous data, we leave it open for later
-                    final_expression.subrequests(end+1) = NaN;
-                end
-                final_expression.parts{k} = exp.tracking.online_expression;
-            elseif all(isfield(exp,{'head','parts'})) && ~strcmp(char(exp.head),'rawdata')
-                warning('BCILAB:utl_add_online:potential_issue','Note: the online expression for this filter depends on an unevaluated term, so that term''s the output sample count is not available. It will be assumed that this is not a rate-chaning epoch-based filter.');
-                disp(['The term in question is: ' exp_fullform(exp)]);
-                final_expression.subrequests(end+1) = NaN;
-            end
+                final_expression.parts{k} = exp.tracking.online_expression; end
         end
     end
     
     % last but not least, append an arg_direct,1 to the final expression
     final_expression.parts{end+1} = struct('arg_direct',{1});
 end
-
 
 % assign the expression to the .tracking.online_expression field of the first output (-to-be)
 if isfield(context.ws_output_post.(context.outargs{1}),'tracking')

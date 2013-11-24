@@ -20,6 +20,8 @@ function exp_endfun(varargin)
 %                                2010-04-15
 
 % retrieve the context structure
+% If you get an "Undefined function or variable" error here then you forgot to call exp_beginfun
+% at the beginning of the same function in which exp_endfun was called
 context = evalin('caller','exp_internal_context');
 if ~context.enabled
     return; end

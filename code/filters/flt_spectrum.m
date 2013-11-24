@@ -96,12 +96,9 @@ if ~isempty(freq) %#ok<*NODEF>
                 flt = freq(frqs);
             end
             % fix the filter beyond the Nyquist freq
-            flt = repmat(flt(:)' .* (frqs<(signal.srate/2)),size(signal.(field),1),1);
+            flt = (flt(:) .* (frqs(:)<(signal.srate/2)))';
             % filter the data
-            signal.(field) = fft(signal.(field),[],2);
-            for t=1:size(signal.(field),3)
-                signal.(field)(:,:,t) = signal.(field)(:,:,t).*flt; end
-            signal.(field) = 2*real(ifft(signal.(field),[],2));
+            signal.(field) = 2*real(ifft(bsxfun(@times,fft(signal.(field),[],2),flt),[],2));
         end
     end
 end

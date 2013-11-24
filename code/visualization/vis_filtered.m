@@ -10,7 +10,11 @@ function vis_filtered(varargin)
 %   [page down]  : go down by one page of channels
 %
 % In:
-%   StreamName : Stream to display. The name of the stream that you would like to display.
+%   StreamName : Stream to display. The name of the stream (in the MATLAB workspace) that you would
+%                like to display.
+%
+%   PipelineName : Filter pipeline to apply. The name of the filter pipeline (in the MATLAB
+%                  workspace) that you would like to apply.
 %
 %   TimeScale : Initial time scale in seconds. The time range of the display window;
 %               can be changed with keyboard shortcuts (see help). Default=5
