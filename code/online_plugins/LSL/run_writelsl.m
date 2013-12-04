@@ -87,9 +87,9 @@ end
 % try to calculate a UID for the stream
 try
     if strcmp(opts.source_id,'model')
-        uid = hlp_cryptohash(rmfield(model,'timestamp'));
+        uid = hlp_cryptohash({rmfield(model,'timestamp'),predict_at,in_stream,out_stream});
     elseif strcmp(opts.source_id,'input_data')
-        uid = hlp_cryptohash({model.source_data});
+        uid = hlp_cryptohash({model.source_data,predict_at,in_stream,out_stream});
     else
         error('Unsupported SourceID option: %s',hlp_tostring(opts.source_id));
     end

@@ -56,5 +56,6 @@ elseif all(isfield(x,{'head','parts'}))
     else
         % found it
         y = x;
+        s = struct('type',{'()'},'subs',{{1}});
     end
 end
