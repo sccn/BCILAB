@@ -14,7 +14,7 @@ function run_writesnap(varargin)
 %   OutputHost : destination host name to send results to (computer name, URL or IP address)
 %                (default: 'localhost')
 %
-%   OutputPort : destination port to which the results are sent (default: 12345)
+%   OutputPort : destination port to which the results are sent (default: 7897)
 %
 %   OutputForm : output data form, see onl_predict (default: 'distribution')
 %
