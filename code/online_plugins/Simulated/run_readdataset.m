@@ -60,7 +60,11 @@ block = in_dataset.data(:,range);
 if always_double
     block = double(block); end
 % get events
-events = in_dataset.event(in_dataset.event_latencies>=range(1)&in_dataset.event_latencies<=range(end));
-if ~isempty(events)
-    [events.latency] = arraydeal([events.latency]-range(1)+1);end
+if ~isempty(range)
+    events = in_dataset.event(in_dataset.event_latencies>=range(1)&in_dataset.event_latencies<=range(end));
+    if ~isempty(events)
+        [events.latency] = arraydeal([events.latency]-range(1)+1);end
+else
+    events = [];
+end
 result = {block,events};

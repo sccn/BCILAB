@@ -180,7 +180,7 @@ classdef ParadigmBaseSimplified < ParadigmBase
             end
             
             % call calibrate_simple with the signal passed in as additional argument
-            model = self.calibrate_simple(varargin{:}, 'signal',signal);
+            model = self.calibrate_simple('signal',signal,varargin{:});
         end
         
         

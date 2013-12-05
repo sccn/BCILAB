@@ -1,17 +1,22 @@
 function res = arg_norep(varargin)
-% Like arg(), but not reported to outer functions (inluding GUIs or other frameworks).
+% Like arg(), but effectively ignored in the context of reports.
 % Spec = arg_norep(Names,Default,Range,Help,Options...)
 %
-% This type of argument specifier behaves like arg(), but is never reported outside the function. 
-% Possible uses are arguments that are not directly user-editable (but which are instead supplied
-% by some framework code). An example is the image that is passed to an image processing algorithm:
-% The options should be visible in dialogs, but the image would be passed only when the function
-% is actually being executed. 
+% This type of argument is useful for "data arguments" of a function (for example the image in an
+% image processing function), rather than configuration arguments that will be edited in a GUI,
+% stored in and reloaded from configuration files, etc.). This is in the sense that they "do not get
+% in the way" in GUIs, in lists of default values, or when an argument pack that comes from a report
+% is passed back into the function to override configurable parameters.
 %
-% A caveat is, however, that other user options that depend on the presence of a particular image
-% will behave in undesired ways when a config dialog is shown without passing an appropriate image.
-% Thus, norep arguments often require that the framework code that deals with the respective
-% functions is aware of the presence and function of these arguments.
+% Technically the argument specifier behaves like arg(), except that it is ignored by most functions 
+% that deal with and process "argument reports" (the machinery used to query a function's arguments): 
+% a) displayable is set to false: it does not show up in user interfaces
+% b) empty_overwrites is set to false: the values [] and mandatory do not override previous values
+%    (just like unassigned), so as long as any of these values is used as the default value of the argument
+%    it has no effect on a function's variables when the report is passed back to the function as input
+% c) skippable set to true: when a group of defaults are specified positionally for an arg_sub* the
+%    leading skippable arguments are skipped over (assigned dummy values), and can therefore be ignored in 
+%    the defaults list (can be controlled by 'skip_noreps' option in the arg_sub* functions)
 %
 % In:
 %   Names : The name(s) of the argument. At least one must be specified, and if multiple are
@@ -19,11 +24,13 @@ function res = arg_norep(varargin)
 %           * The first name specified is the argument's "code" name, as it should appear in the
 %             function's code (= the name under which arg_define() returns it to the function).
 %           * The second name, if specified, is the "Human-readable" name, which is exposed in the
-%             GUIs (if omitted, the code name is displayed).
-%           * Further specified names are alternative names for the argument (e.g., for backwards
+%             GUIs (if omitted, the code name is displayed). For consistency with other MATLAB 
+%             functions it should be in CamelCase.
+%           * Further specified names are aliases for the argument (e.g., for backwards
 %             compatibility with older function syntaxes/parameter names).
 %
-%   Default : Optionally the default value of the argument; can be any data structure (default: []).
+%   Default : Optionally the default value of the argument (default: []).
+%             Note that this should be either [], mandatory, or unassigned.
 %
 %   Range : Optionally a range of admissible values (default: []).
 %           * If empty, no range is enforced.
@@ -31,47 +38,19 @@ function res = arg_norep(varargin)
 %           * If a 2-element numeric vector, the two values are considered the numeric range of the
 %             data (inclusive).
 %
-%   Help : The help text for this argument, optional. (default: []).
+%   Help : The help text for this argument, optional. (default: '').
 %
-%   Options... : Optional name-value pairs to denote additional properties:
-%                 'type' : Specify the primitive type of the parameter (default: [], indicating that
-%                          it is auto-discovered from the Default and/or Range). The primitive type
-%                          is one of the following strings:
-%                             'logical', 'char', 'int8', 'uint8', 'int16', 'uint16', 'int32',
-%                             'uint32', 'int64', 'uint64', 'denserealsingle', 'denserealdouble',
-%                             'densecomplexsingle', 'densecomplexdouble', 'sparserealsingle',
-%                             'sparserealdouble', 'sparsecomplexsingle', 'sparsecomplexdouble',
-%                             'cellstr', 'object'.
-%                          If auto-discovery was requested, but fails for some reason, the default
-%                          type is set to 'denserealdouble'.
-%
-%                 'shape' : Specify the array shape of the parameter (default: [], indicating that
-%                           it is auto-discovered from the Default and/or Range). The array shape is
-%                           one of the following strings: 'scalar','row','column','matrix','empty'.
-%                           If auto-discovery was requested, but fails for some reason, the default
-%                           shape is set to 'matrix'.
+%   Options... : Optional name-value pairs to denote additional properties, same as in arg().
 %
 % Out:
-%   Spec : A cell array, that, when called as invoke_arg_internal(reptype,spec{1}{:}), yields a 
-%          specification of the argument, for use by arg_define. The (internal) structure of that is 
-%          as follows:
-%          * Generally, this is a cell array (here: one element) of cells formatted as:
-%            {Names,Assigner-Function,Default-Value}.
-%          * Names is a cell array of admissible names for this argument.
-%          * Assigner-Function is a function that returns the rich specifier with value assigned,
-%            when called as Assigner-Function(Value).
-%          * reptype is either 'rich' or 'lean', where in lean mode, the aternatives field remains
-%            empty.
-%
-% Notes:
-%   For MATLAB versions older than 2008a, type and shape checking, as well as auto-discovery, are
-%   not necessarily executed.
+%   Spec : A cell array, that, when called as feval(Spec{1},reptype,Spec{2}{:}), yields a 
+%          specification of the argument, for use by arg_define.
 %
 % Examples:
 %   function myfunction(varargin)
-%   % declare an arguments, one of which is not reportable
+%   % declare an arguments, one of which does not 
 %   arg_define(varargin, ...
-%       arg_norep('image',[]), ...
+%       arg_norep('image'), ...
 %       arg('quality',10,[],'Quality setting. Controls the quality of the processing.'), ...
 %       arg('flag',true,[],'Some flag. This is a flag.'));
 %
@@ -96,11 +75,11 @@ function res = arg_norep(varargin)
 % USA
 
 if nargin == 1
-    res = {@invoke_arg_internal,[varargin {[],[],[],'reportable',false}]};
-elseif nargin == 2
-    res = {@invoke_arg_internal,[varargin {[],[],'reportable',false}]};
+    res = {'expand_arg',[varargin {'__arg_unassigned__',[],[],'displayable',false,'empty_overwrites',false,'skippable',true}]};
 elseif nargin >= 4
-    res = {@invoke_arg_internal,[varargin {'reportable',false}]};
+    res = {'expand_arg',[varargin {'displayable',false,'empty_overwrites',false,'skippable',true}]};
+elseif nargin == 2
+    res = {'expand_arg',[varargin {[],[],'displayable',false,'empty_overwrites',false,'skippable',true}]};
 else
-    res = {@invoke_arg_internal,[varargin {[],'reportable',false}]};
+    res = {'expand_arg',[varargin {[],'displayable',false,'empty_overwrites',false,'skippable',true}]};
 end

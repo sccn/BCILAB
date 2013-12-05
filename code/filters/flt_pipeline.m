@@ -403,7 +403,7 @@ if isempty(memo) || exist('update_list','var') && update_list
     retain = true(size(funcs));
     for f=1:length(funcs)
         try
-            props{f} = arg_report('properties',funcs{f});
+            props{f} = hlp_microcache('props',@arg_report,'properties',funcs{f},{hlp_fileinfo(funcs{f},[],'hash')});
         catch e
             if disp_once(['Cannot query properties of filter ' char(funcs{f}) ': ' e.message])  && debug
                 hlp_handleerror(e); end
@@ -435,9 +435,9 @@ if isempty(memo) || exist('update_list','var') && update_list
         nameset = [{['p' tags{f}]} props{f}.name tags(f)];
         % take the first line of the function's help text as description of the argument, followed
         % by the function name
-        description = [hlp_getresult(4,@utl_fileinfo,which(names{f}),names{f}) ' (' names{f} ')'];
+        description = [hlp_fileinfo(names{f},[],'H1Line') ' (' names{f} ')'];
         try
-            specs{f} = arg_subtoggle(nameset,[],funcs{f},description,'deprecated',props{f}.deprecated,'experimental',props{f}.experimental);
+            specs{f} = arg_subtoggle(nameset,[],funcs{f},description,'deprecated',props{f}.deprecated,'experimental',props{f}.experimental); %#ok<*AGROW>
         catch e
             disp_once(['Cannot define argument slot for function ' char(funcs{f}) ' (likely an issue with the properties declaration): ' e.message]);
             retain(f) = false;
@@ -447,7 +447,8 @@ if isempty(memo) || exist('update_list','var') && update_list
             report = arg_report('rich',funcs{f}); %#ok<NASGU>
         catch e
             % otherwise there is an actual error
-            if disp_once(['Cannot query arguments of function ' char(funcs{f}) ' (likely an issue with the argument definition): ' e.message]) && debug
+            known_incompliant = {'set_gettarget','set_combine','set_merge'};
+            if ~any(strcmp(char(funcs{f}),known_incompliant)) && disp_once(['Cannot query arguments of function ' char(funcs{f}) ' (likely an issue with the argument definition): ' e.message]) && debug
                 hlp_handleerror(e); end
             retain(f) = false;
             continue;

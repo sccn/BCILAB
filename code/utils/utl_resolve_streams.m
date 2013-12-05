@@ -153,7 +153,7 @@ if ~strcmp(phead,'rawdata')
         
     else
         % a generic node: check if this one mixes channels -- in which case we need all channels & types from below
-        props = arg_report('properties',pip.head);
+        props = hlp_microcache('props',@arg_report,'properties',pip.head,{hlp_fileinfo(pip.head,[],'hash')});
         if ~props.independent_channels
             % the node doesn't have independent channels: need all channnels & types from below
             chan_subset = [];
@@ -303,7 +303,7 @@ elseif all(isfield(stream,{'head','parts'}))
             output = resolve_stream_properties(stream.parts{2});
         otherwise
             % generic expression node: check if this node mixes up channels ...
-            props = arg_report('properties',stream.head);
+            props = hlp_microcache('props',@arg_report,'properties',stream.head,{hlp_fileinfo(stream.head,[],'hash')});
             if isfield(props,'independent_channels') && props.independent_channels
                 % has independent channels: just take the output from below
                 output = resolve_stream_properties(stream.parts{find(cellfun(@(p) any(isfield(p,{'parts','chanlocs'})),stream.parts),1)});

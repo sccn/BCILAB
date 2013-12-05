@@ -88,6 +88,9 @@ if ~exist('func','var')
     varargin = {'Parameters',evalin('caller','varargin'),'Invoke',nargout==0};
 end
 
+if ischar(func)
+    func = str2func(func); end
+
 % parse arguments...
 hlp_varargin2struct(varargin, ...
     {'params','Parameters','parameters'},{}, ...

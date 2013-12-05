@@ -36,14 +36,14 @@ function X = arg_setdirect(X,value)
 
 if nargin < 2
     error('please supply a value'); end
+
 if isempty(X), return; end
 
 if iscell(X)
     for k=1:numel(X)
-        X{k} = arg_setdirect(X{k},value);
+         X{k} = arg_setdirect(X{k},value);
         if ischar(X{k}) && strcmpi(X{k},'arg_direct')
-            X{k+1} = value;
-        end
+            X{k+1} = value; end
     end
 elseif isstruct(X)
     if length(X) > 1

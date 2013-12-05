@@ -297,17 +297,17 @@ else
                     files = dir([cachedir filesep record.name filesep '*.mat']);
                     for f=1:length(files)
                         files(f).path = [cachedir filesep record.name filesep files(f).name]; 
-                        allfiles(end+1) = files(f);
+                        allfiles(end+1) = files(f); %#ok<AGROW>
                     end
                     % try to remove dirs that are empty
                     if isempty(files)
-                        try rmdir([cachedir filesep record.name]); catch,end; end
+                        try rmdir([cachedir filesep record.name]); catch,end; end %#ok<CTCH>
                 end
             end
             % delete old files as long as ours doesn't yet fit into memory
             [dummy,newest_to_oldest] = sort([allfiles.datenum],'descend'); %#ok<ASGLU>
             while ~isempty(newest_to_oldest) && disk_free_space(filename) - resultsize < ensured_space
-                try delete(allfiles(newest_to_oldest(end)).path); catch,end
+                try delete(allfiles(newest_to_oldest(end)).path); catch,end %#ok<CTCH>
                 newest_to_oldest = newest_to_oldest(1:end-1);
             end
         end
@@ -414,10 +414,11 @@ else
             if isempty(versiontag) || isempty(v)
                 v = hlp_cryptohash(code); end
             fclose(f);
-        catch
+        catch %#ok<CTCH>
             try
                 fclose(f);
-            catch,end
+            catch %#ok<CTCH>
+            end
             v = func;
         end
     else
@@ -493,7 +494,5 @@ for i=first:last
             end
         end
     end
-    curpath = [curpath paths{i} filesep];
+    curpath = [curpath paths{i} filesep]; %#ok<AGROW>
 end
-
-
