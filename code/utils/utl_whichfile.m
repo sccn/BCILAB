@@ -33,7 +33,7 @@ persistent filenames; % table of m file names, indexed by identifier
 try
     % look up the record for this file name
     filename = filenames.(identifier);
-catch
+catch %#ok<CTCH>
     if isempty(filenames)
         % file table is empty (first-time run): build it recursively from root directories
         global tracking; %#ok<TLEV>
@@ -49,7 +49,7 @@ catch
     end
     try
         filename = filenames.(identifier);
-    catch
+    catch %#ok<CTCH>
         error('No record for the file %s was found. Make sure it is in the searched directories.',identifier);
     end
 end

@@ -135,7 +135,6 @@ function varargout = hlp_microcache(dom, f, varargin)
 %   lambda_equality: desired equality relation for lambda expressions
 persistent mc;
 
-
 % [varargout{1:nargout}] = f(varargin{:}); return; % UNCOMMENT TO BYPASS
 
 % is this a regular call?
@@ -160,7 +159,7 @@ if nargin > 1
             args = varargin;
             leq = mc.(dom).config.lambda_equality;
             if ischar(leq)
-                for k = find(cellfun('isclass',argin,'function_handle'))
+                for k = find(cellfun('isclass',varargin,'function_handle'))
                     ck = char(args{k});
                     if ck(1) == '@'
                         if strcmp(leq,'string')
@@ -178,7 +177,7 @@ if nargin > 1
                     end
                 end
             end
-        catch
+        catch %#ok<CTCH>
             % the lambda lookup failed, so we assume that it has not yet been assigned; assign it now.
             mc.(dom).config.lambda_equality = false;
         end
@@ -213,7 +212,7 @@ if nargin > 1
                     return;
                 end
             end
-        catch
+        catch %#ok<CTCH>
             % domain+keysid not yet in the cache: create appropriate structures (this is rare)
             sizepool = struct('inps',{{}}, 'outs',{{}}, 'frqs',{[]}, 'luse',{[]}, 'lcnt',{0});
         end
@@ -292,3 +291,4 @@ else
         mc = [];
     end
 end
+

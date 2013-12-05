@@ -6,6 +6,12 @@ function varargout = arg_guidialog(func,varargin)
 % function must declare its arguments via arg_define. In addition, only a Subset of the function's
 % specified arguments can be displayed.
 %
+% If this function is called with no arguments from within a function that uses arg_define it brings
+% up a dialog for the function's defined arguments, with values assigned based on the function's
+% inputs (contents of in varargin) and returns an argument struct if the dialog was confirmed with a
+% click on OK, and an empty value otherwise. The calling function can exit on empty, or otherwise
+% resume with entered parameters.
+%
 % In:
 %   Function : the function for which to display arguments
 %
@@ -22,11 +28,12 @@ function varargout = arg_guidialog(func,varargin)
 %
 %                 'Invoke' : whether to invoke the function directly; in this case, the output
 %                            arguments are those of the function (default: true, unless called in 
-%                            the form g = arg_guidialog; e.g., from within some function)
+%                            the form g = arg_guidialog; from within some function)
 %
 % Out:
-%   Parameters : either a struct that is a valid input to the Function or the outputs of the function
-%                when Invoke is set to true (possibly multiple outputs)
+%   Parameters : If Invoke was set to true, this is either the results of the function call or empty
+%                (if the dialog was cancelled). If Invoke was set to false, this is either a struct 
+%                that is a valid input to the Function, or an empty value if cancel was clicked. 
 %
 % Examples:
 %   % bring up a configuration dialog for the given function
@@ -40,6 +47,15 @@ function varargout = arg_guidialog(func,varargin)
 %
 %   % bring up a dialog, and invoke the function with the selected settings after the user clicks OK
 %   settings = arg_guidialog(@myfunction,'Invoke',true)
+%
+%   % from within a function
+%   args = arg_define(varargin, ...);
+%   if nargin < 1
+%       % optionally allow the user to enter arguments via a GUI
+%       args = arg_guidialog;
+%       % user clicked cancel?
+%       if isempty(args), return; end
+%   end
 %
 % See also:
 %   arg_guidialog_ex, arg_guipanel, arg_define
@@ -62,10 +78,13 @@ function varargout = arg_guidialog(func,varargin)
 % USA
 
 if ~exist('func','var')
-    % called with no arguments, from inside a function: open function dialog
+    % called with no arguments, from inside a function: open function dialog    
     func = hlp_getcaller;
     varargin = {'Parameters',evalin('caller','varargin'),'Invoke',nargout==0};
 end
+
+if ischar(func)
+    func = str2func(func); end
 
 % parse arguments...
 hlp_varargin2struct(varargin,{'params','Parameters','parameters'},{}, {'subset','Subset'},{}, {'dialogtitle','title','Title'}, [char(func) '()'], {'buttons','Buttons'},[],{'invoke','Invoke'},true);

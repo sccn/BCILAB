@@ -1,6 +1,11 @@
 function res = arg(varargin)
-% A (rich) specification of a function argument, for use in arg_define() clauses.
+% A definition of a function argument, for use in arg_define() clauses.
 % Spec = arg(Names,Default,Range,Help,Options...)
+%
+% The arg() function is used to define a single input argument of a function. A list of arg()'s 
+% is used to define multiple function arguments. This list is interpreted by arg_define to parse
+% the inputs of the function or to produce a specification of function inputs that can be used to
+% render GUIs, store settings, generate help text, and so on.
 %
 % In:
 %   Names : The name(s) of the argument. At least one must be specified, and if multiple are
@@ -8,72 +13,74 @@ function res = arg(varargin)
 %           * The first name specified is the argument's "code" name, as it should appear in the
 %             function's code (= the name under which arg_define() returns it to the function).
 %           * The second name, if specified, is the "Human-readable" name, which is exposed in the
-%             GUIs (if omitted, the code name is displayed).
-%           * Further specified names are alternative names for the argument (e.g., for backwards
+%             GUIs (if omitted, the code name is displayed). For consistency with other MATLAB 
+%             functions it should be in CamelCase.
+%           * Further specified names are aliases for the argument (e.g., for backwards
 %             compatibility with older function syntaxes/parameter names).
 %
 %   Default : Optionally the default value of the argument; can be any data structure (default: []).
-%              Special values:
-%              * unassigned: the argument is not listed in the function's workspace nor GUI unless
-%                explicitly assigned
-%              * mandatory: if no value is specified to this argument by the time the function is
-%                called, an error is raised
+%             Special values:
+%             * unassigned: this value is not assigned to the function's workspace and also does not
+%                           override default values
+%             * mandatory: instead of being assigned to the function's workspace an error will be
+%                          raised
 %             
 %             Note: If neither Default nor Range are specified, consider specifying the argument's
 %             type via the Options... list.
 %
 %   Range : Optionally a range of admissible values (default: []).
 %           * If empty, no range is enforced.
-%           * If a cell array, each cell is considered one of the allowed values.
+%           * If a cell array, each cell is considered one of the allowed values (e.g., multi-option
+%             string); the value may either be one of the options, or a cell array of a subset of
+%             allowed values (usually values being strings).
 %           * If a 2-element numeric vector, the two values are considered the numeric range of the
 %             data (inclusive).
-%           * Note: if neither Default nor Range are specified, consider specifying the argument's
-%             type via the Options... list.
 %
-%   Help : The help text for this argument (displayed inside GUIs), optional. (default: []).
+%   Help : The help text for this argument (displayed inside GUIs), optional. (default: '').
 %          (Developers: Please do *not* omit this, as it is the key bridge between ease of use and
 %          advanced functionality.)
 %
 %          The first sentence should be the executive summary (max. 60 chars), any further sentences
 %          are a detailed explanation (examples, units, considerations). The end of the first
 %          sentence is indicated by a '. ' followed by a capital letter (beginning of the next
-%          sentence). If ambiguous, the help can also be specified as a cell array of 2 cells.
+%          sentence). If otherwise ambiguous, the help can also be specified as a cell array of 2 cells.
 %
 %   Options... : Optional name-value pairs to denote additional properties:
 %                 'cat' : The human-readable category of this argument, helpful to present a list of
 %                         many parameters in a categorized list, and to separate "Core Parameters"
-%                         from "Miscellaneous" arguments. Developers: When choosing names, every bit
-%                         of consistency with other function in the toolbox helps the uses find
-%                         their way (default: []).
+%                         from "Miscellaneous" arguments. (default: '')
 %
-%                 'type' : Specify the primitive type of the parameter (default: [], indicating that
-%                          it is auto-discovered from the Default and/or Range). The primitive type
-%                          is one of the following strings:
-%                             'logical', 'char', 'int8', 'uint8', 'int16', 'uint16', 'int32',
-%                             'uint32', 'int64', 'uint64', 'denserealsingle', 'denserealdouble',
-%                             'densecomplexsingle', 'densecomplexdouble', 'sparserealsingle',
-%                             'sparserealdouble', 'sparsecomplexsingle', 'sparsecomplexdouble',
-%                             'cellstr', 'object'.
-%                          If auto-discovery was requested, but fails for some reason, the default
-%                          type is set to 'denserealdouble'.
+%                 'type' : Override the type of the parameter. The type is one of the following strings:
+%                          'logical', 'char', 'int8', 'uint8', 'int16', 'uint16', 'int32',
+%                          'uint32', 'int64', 'uint64', 'denserealsingle', 'denserealdouble',
+%                          'densecomplexsingle', 'densecomplexdouble', 'sparserealsingle',
+%                          'sparserealdouble', 'sparsecomplexsingle', 'sparsecomplexdouble',
+%                          'cellstr', 'object', 'expression' (default: deduced from Default and Range)
 %
-%                 'shape' : Specify the array shape of the parameter (default: [], indicating that
-%                           it is auto-discovered from the Default and/or Range). The array shape is
-%                           one of the following strings: 'scalar','row','column','matrix','empty'.
-%                           If auto-discovery was requested, but fails for some reason, the default
-%                           shape is set to 'matrix'.
+%                 'shape' : Specify the array shape of the parameter. This is one of the following 
+%                           strings: 'scalar', 'row', 'column', 'matrix', 'empty', 'tensor'. 
+%                           (default: deduced from Default and Range)
+%
+%                 'to_double' : Whether integer values shall be converted to double before being
+%                               returned to the function (default: true if type is integer, otherwise false)
+%
+%                 'displayable' : Whether the argument may be displayed by GUIs, see also arg_nogui (default: true)
+%
+%                 'deprecated' : Whether the argument has been deprecated, see also arg_deprecated (default: false) 
+%
+%                 'experimental' : Whether the argument is marked as experimental or "prototype-stage" (default: false)
+%
+%                 'guru' : Whether the argument is marked as guru-level (default: false)
+%
+%                 'empty_overwrites' : Whether assiging empty values to this argument overwrites the
+%                                      previous (or default) value. Setting this to false yields the
+%                                      same behavior as in some well-known MATLAB functions, like
+%                                      for the TOL parameter in pcg() (default: true)
 %
 % Out:
-%   Spec : A cell array, that, when called as invoke_arg_internal(reptype,spec{1}{:}), yields a 
-%          specification of the argument, for use by arg_define. The (internal) structure of that is 
-%          as follows:
-%          * Generally, this is a cell array (here: one element) of cells formatted as:
-%            {Names,Assigner-Function,Default-Value}.
-%          * Names is a cell array of admissible names for this argument.
-%          * Assigner-Function is a function that returns the rich specifier with value assigned,
-%            when called as Assigner-Function(Value).
-%          * reptype is either 'rich' or 'lean', where in lean mode, the aternatives field remains
-%            empty.
+%   Spec : A specification of the argument that can be used in arg_define. Technically it is a cell
+%          array that, when called as feval(Spec{1},reptype,Spec{2}{:}), yields a specification
+%          struct of the argument.
 %
 % Examples:
 %   arg_define(varargin, ...
@@ -126,7 +133,7 @@ function res = arg(varargin)
 %       arg({'myval','MyValue'},[],[],'Some matrix. Note that the type also encodes whether the value is complex or sparse.','type','denserealsingle','shape','matrix')
 %
 % See also:
-%   arg_nogui, arg_norep, arg_sub, arg_subswitch, arg_subtoggle, arg_define
+%   arg_nogui, arg_norep, arg_deprecated, arg_sub, arg_subswitch, arg_subtoggle, arg_define
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-09-24
@@ -145,5 +152,4 @@ function res = arg(varargin)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-
-res = {@invoke_arg_internal,varargin};
+res = {'expand_arg',varargin};

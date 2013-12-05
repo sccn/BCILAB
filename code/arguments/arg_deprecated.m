@@ -1,5 +1,5 @@
-function res = arg_deprecated(names,default,range,help,varargin)
-% Declaration of a deprecated argument.
+function res = arg_deprecated(varargin)
+% Definition of a deprecated argument.
 % Spec = arg_deprecated(Names,Default,Range,Options...)
 %
 % This type of function argument specifier behaves like arg(), but indicates that the argument in 
@@ -13,8 +13,9 @@ function res = arg_deprecated(names,default,range,help,varargin)
 %           * The first name specified is the argument's "code" name, as it should appear in the
 %             function's code (= the name under which arg_define() returns it to the function).
 %           * The second name, if specified, is the "Human-readable" name, which is exposed in the
-%             GUIs (if omitted, the code name is displayed).
-%           * Further specified names are alternative names for the argument (e.g., for backwards
+%             GUIs (if omitted, the code name is displayed). For consistency with other MATLAB 
+%             functions it should be in CamelCase.
+%           * Further specified names are aliases for the argument (e.g., for backwards
 %             compatibility with older function syntaxes/parameter names).
 %
 %   Default : Optionally the default value of the argument; can be any data structure (default: []).
@@ -25,41 +26,13 @@ function res = arg_deprecated(names,default,range,help,varargin)
 %           * If a 2-element numeric vector, the two values are considered the numeric range of the
 %             data (inclusive).
 %
-%   Help : The help text for this argument, optional. (default: []).
+%   Help : The help text for this argument, optional. (default: '').
 %
-%   Options... : Optional name-value pairs to denote additional properties:
-%                 'type' : Specify the primitive type of the parameter (default: [], indicating that
-%                          it is auto-discovered from the Default and/or Range). The primitive type
-%                          is one of the following strings:
-%                             'logical', 'char', 'int8', 'uint8', 'int16', 'uint16', 'int32',
-%                             'uint32', 'int64', 'uint64', 'denserealsingle', 'denserealdouble',
-%                             'densecomplexsingle', 'densecomplexdouble', 'sparserealsingle',
-%                             'sparserealdouble', 'sparsecomplexsingle', 'sparsecomplexdouble',
-%                             'cellstr', 'object'.
-%                          If auto-discovery was requested, but fails for some reason, the default
-%                          type is set to 'denserealdouble'.
-%
-%                 'shape' : Specify the array shape of the parameter (default: [], indicating that
-%                           it is auto-discovered from the Default and/or Range). The array shape is
-%                           one of the following strings: 'scalar','row','column','matrix','empty'.
-%                           If auto-discovery was requested, but fails for some reason, the default
-%                           shape is set to 'matrix'.
+%   Options... : Optional name-value pairs to denote additional properties, same as in arg().
 %
 % Out:
-%   Spec : A cell array, that, when called as invoke_arg_internal(reptype,spec{1}{:}), yields a 
-%          specification of the argument, for use by arg_define. The (internal) structure of that is 
-%          as follows:
-%          * Generally, this is a cell array (here: one element) of cells formatted as:
-%            {Names,Assigner-Function,Default-Value}.
-%          * Names is a cell array of admissible names for this argument.
-%          * Assigner-Function is a function that returns the rich specifier with value assigned,
-%            when called as Assigner-Function(Value).
-%          * reptype is either 'rich' or 'lean', where in lean mode, the aternatives field remains
-%            empty.
-%
-% Notes:
-%   For MATLAB versions older than 2008a, type and shape checking, as well as auto-discovery, are
-%   not necessarily executed.
+%   Spec : A cell array, that, when called as feval(Spec{1},reptype,Spec{2}{:}), yields a 
+%          specification of the argument, for use by arg_define.
 %
 % Examples:
 %   function myfunction(varargin)
@@ -88,11 +61,11 @@ function res = arg_deprecated(names,default,range,help,varargin)
 % USA
 
 if nargin == 1
-    res = {@invoke_arg_internal,{names,[],[],[],'displayable',false,'deprecated',true}};
+    res = {'expand_arg',[varargin {[],[],[],'displayable',false,'deprecated',true}]};
 elseif nargin >= 4
-    res = {@invoke_arg_internal,[{names,default,range,help,'displayable',false,'deprecated',true} varargin]};
+    res = {'expand_arg',[varargin {'displayable',false,'deprecated',true}]};
 elseif nargin == 2
-    res = {@invoke_arg_internal,{names,default,[],[],'displayable',false,'deprecated',true}};
+    res = {'expand_arg',[varargin {[],[],'displayable',false,'deprecated',true}]};
 else
-    res = {@invoke_arg_internal,{names,default,range,[],'displayable',false,'deprecated',true}};
+    res = {'expand_arg',[varargin {[],'displayable',false,'deprecated',true}]};
 end

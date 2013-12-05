@@ -1,47 +1,41 @@
-function res = arg_report(type,func,args)
+function result = arg_report(type,func,args)
 % Report information of a certain Type from the given Function.
-% Result = arg_report(Type,Function,Arguments)
+% Result = arg_report(Type,Function,Arguments,SilentErrors)
 %
 % Functions that declare their arguments via arg_define() make their parameter specification
 % accessible to outside functions. This can be used to display auto-generated settings dialogs, to
-% record function calls, and so on.
-%
-% Varying amounts of meta-data can be obtained in addition to the raw parameter values, including
-% just the bare-bones value struct ('vals'), the meta-data associated with the passed arguments,
-% and the full set of meta-data for all possible options (for multi-option parameters), even if these
-% options were not actually prompted by the Arguments.
+% record function calls, and so on. Some other functions can generate reports, as well (like
+% declare_properties() and expose_handles()).
 %
 % In:
-%   Type : Type of information to report, can be one of the following:
-%          'rich' : Report a rich declaration of the function's arguments as a struct array, with
-%                   fields as in arg_specifier.
-%          'lean' : Report a lean declaration of the function's arguments as a struct array, with
-%                   fields as in arg_specifier, like rich, but excluding the alternatives field.
+%   Type : Type of information to report. The currently defined report types are as follows:
+%
 %          'vals' : Report the values of the function's arguments as a struct, possibly with
-%                   sub-structs.
+%                   sub-structs, after assignment of Arguments. (provided by arg_define)
+%          'nvps' : Report the values of the function's arguments as cell array of name-value pairs.
+%                   (provided by arg_define)
+%          'lean' : Report a lean specification of the function's arguments as a struct array, with
+%                   fields as in arg_specifier, including help text, etc. This is after assignment
+%                   of Arguments. (provided by arg_define)
+%          'rich' : Report a rich specification of the function's arguments as a struct array, with
+%                   fields as in arg_specifier. In addition to lean this includes information about
+%                   alternative (non-default) settings, for use in GUI generation. (provided by
+%                   arg_define)
 %
-%          'properties' : Report properties of the function, if any (these can be declared via
-%                         declare_properties)
+%          'properties' : Report declared properties of the function, if any. Arguments must be empty.
+%                         (provided by declare_properties)
 %
-%          'handle': Report function handles to scoped functions within the Function (i.e.,
-%                    subfunctions). The named of those functions are listed as a cell string array
-%                    in place of Arguments, unless there is exactly one returned function. Then,
-%                    this function is returned as-is. This functionality is a nice-to-have feature
-%                    for some use cases but not essential to the operation of the argument system.
+%          'handle': Report function handles to scoped and nested functions within the Function. The
+%                    names of those functions are given as a cell array in Arguments, and the result
+%                    is a cell array of associated function handles (or one handle if only one
+%                    function was requested).
 %
-%   Function : a function handle to a function which defines some arguments (via arg_define)
+%   Function : Handle to a function that supports the given report type.
 %
-%   Arguments : cell array of parameters to be passed to the function; depending on the function's
-%               implementation, this can affect the current value assignment (or structure) of the
-%               parameters being returned If this is not a cell, it is automatically wrapped inside
-%               one (note: to specify the first positional argument as [] to the function, always
-%               pass it as {[]}; this is only relevant if the first argument's default is non-[]).
+%   Arguments : Cell array of inputs to be passed to the function.
 %
 % Out:
 %   Result : the reported data.
-%
-% Notes:
-%   In all cases except 'properties', the Function must use arg_define() to define its arguments.
 %
 % Examples:
 %   % for a function call with some arguments assigned, obtain a struct with all parameter
@@ -57,7 +51,7 @@ function res = arg_report(type,func,args)
 %   props = arg_report('properties',@myfunction)
 %
 % See also:
-%   arg_define, declare_properties
+%   arg_define, declare_properties, expose_handles
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-09-24
@@ -76,122 +70,45 @@ function res = arg_report(type,func,args)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-% uniformize arguments
-if ~exist('args','var')
-    args = {}; end
-if isequal(args,[])
-    args = {}; end
-if ~iscell(args)
-    args = {args}; end
+% check inputs
 if ischar(func)
     func = str2func(func); end
-
-% make sure that the direct mode is disabled for the function being called (because in direct mode
-% it doesn't report)
-indices = find(cellfun('isclass',args,'struct') | strcmp(args,'arg_direct'));
-for k = indices(end:-1:1)
-    if ischar(args{k}) && k<length(args)
-        % found it in the NVPs
-        args{k+1} = false;
-        break;
-    elseif isfield(args{k},'arg_direct')
-        % found it in a struct
-        args{k}.arg_direct = false;
-        break;
-    end
-end
-
-
-if any(strcmpi(type,{'rich','lean','vals','handle'}))
-    % issue the report
-    res = do_report(type,func,args);
-elseif strcmpi(type,'properties')
-    if isempty(args)
-        % without arguments we can do a quick hash map lookup
-        % (based on the MD5 hash of the file in question)
-        info = functions(func);
-        hash = ['h' hlp_getresult(5,@utl_fileinfo,info.file,char(func))];
-        try
-            % try lookup
-            persistent cached_properties; %#ok<TLEV>
-            res = cached_properties.(hash);
-        catch
-            % fall back to actually reporting it
-            res = do_report('properties',func,args);
-            % and store it for the next time
-            cached_properties.(hash) = res;
-        end
+if nargin < 3
+    % for the properties report we implicitly pad the arguments with blanks to allow functions
+    % to define up to this number of traditional non-varargin arguments
+    if strcmp(type,'properties')
+        args(1:15) = {[]};
     else
-        % with arguments we don't try to cache (as the properties might be argument-dependent)
-        res = do_report('properties',func,args);
+        args = {};
     end
+elseif isequal(args,[])
+    args = {};
+elseif ~iscell(args)
+    error('Arguments must be a cell array, if given.'); 
 end
 
+% make use of exp_eval when used within BCILAB
+persistent use_eval;
+if isempty(use_eval)
+    use_eval = exist('exp_eval','file'); end
 
-function res = do_report(type,func,args)
-global tracking;
-persistent have_expeval;
-if isempty(have_expeval)
-    have_expeval = exist('exp_eval','file'); end
-res = {};
+result = {};
 try
-    % the presence of one of the arg_report_*** functions in the stack communicates to the receiver
-    % that a report is requested and what type of report...
-    feval(['arg_report_' lower(type)],func,args,have_expeval);
+    % evaluate the funtion with two special arguments appended
+    if use_eval && nargout(func) > 0
+        exp_eval(func(args{:},'__arg_report__',type));
+    else
+        func(args{:},'__arg_report__',type);
+    end
 catch report
     if strcmp(report.identifier,'BCILAB:arg:report_args')
+        global tracking; %#ok<TLEV>
         % get the ticket of the report
-        ticket = sscanf(report.message((find(report.message=='=',1,'last')+1):end),'%f');
-        % read out the payload
-        res = tracking.arg_sys.reports{ticket};
-        % and return the ticket
+        ticket = sscanf(report.message(end-4:end),'%u');
+        % read out the payload and return the ticket
+        result = tracking.arg_sys.reports{ticket};
         tracking.arg_sys.tickets.addLast(ticket);
-    else
-        % other error:
-        if strcmp(type,'properties')
-            % almost certainly no properties clause defined
-            res = {};
-        else
-            % genuine error: pass it on
-            rethrow(report);
-        end
+    elseif ~strcmp(type,'properties')
+        rethrow(report);
     end
-end
-
-
-% --- a bit of boilerplate below (as the caller's name is relevant here) ---
-
-function arg_report_rich(func,args,have_expeval) %#ok<DEFNU>
-if have_expeval && nargout(func) > 0
-    exp_eval(func(args{:}));
-else
-    func(args{:});
-end
-
-function arg_report_lean(func,args,have_expeval) %#ok<DEFNU>
-if have_expeval && nargout(func) > 0
-    exp_eval(func(args{:}));
-else
-    func(args{:});
-end
-
-function arg_report_vals(func,args,have_expeval) %#ok<DEFNU>
-if have_expeval && nargout(func) > 0
-    exp_eval(func(args{:}));
-else
-    func(args{:});
-end
-
-function arg_report_handle(func,args,have_expeval) %#ok<DEFNU>
-if have_expeval && nargout(func) > 0
-    exp_eval(func(args{:}));
-else
-    func(args{:});
-end
-
-function arg_report_properties(func,args,have_expeval)  %#ok<DEFNU>
-if have_expeval && nargout(func) > 0
-    exp_eval(func(args{:}));
-else
-    func(args{:});
 end

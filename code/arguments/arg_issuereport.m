@@ -1,12 +1,12 @@
 function arg_issuereport(payload)
-% Internal function to issue a report to a requesting function. 
-% This is implemented by throwing an exception. Used by arg_define() and declare_properties()
+% Internal function to yield a report to a requesting function. 
+% This is implemented by throwing an exception. Used mainly by arg_define() and declare_properties().
 %
 % In:
 %   Payload : the payload to report
 %
 % See also:
-%   arg_define, arg_report
+%   arg_report, arg_define
 
 % Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu
 %
@@ -24,18 +24,26 @@ function arg_issuereport(payload)
 
 global tracking;
 
-% first obtain a report ticket
-if ~isfield(tracking,'arg_sys')
-    tracking.arg_sys = struct(); end
-if ~isfield(tracking.arg_sys,'tickets')
-    tracking.arg_sys.tickets = java.util.concurrent.LinkedBlockingDeque();
-    for k=50000:-1:1
-        tracking.arg_sys.tickets.addLast(k); end
+% first obtain a report "ticket"
+% these tickets are used to uniquely retrieve a given report after it has been issued,
+% in particular when multiple reports are in flight in parallel (e.g., from timers)
+try
+    ticket = tracking.arg_sys.tickets.removeLast();
+catch %#ok<CTCH>
+    % initialize data structures if necessary
+    if ~isfield(tracking,'arg_sys')
+        tracking.arg_sys = struct(); end
+    if ~isfield(tracking.arg_sys,'tickets')
+        tracking.arg_sys.tickets = java.util.concurrent.LinkedBlockingDeque();
+        max_inflight_tickets = 50000;
+        for t=max_inflight_tickets:-1:1
+            tracking.arg_sys.tickets.addLast(t); end
+    end
+    ticket = tracking.arg_sys.tickets.removeLast();
 end
-ticket = tracking.arg_sys.tickets.removeLast();
 
-% ... and store the payload
+% store the payload
 tracking.arg_sys.reports{ticket} = payload;
 
 % now throw the exception
-error('BCILAB:arg:report_args','This (internal) exception is destined to be caught by arg_report(); please do not interfere with it. Ticket=%.0f',ticket);
+error('BCILAB:arg:report_args','This (internal) exception is destined to be caught by arg_report(); please do not interfere with it. Ticket=%05u',ticket);

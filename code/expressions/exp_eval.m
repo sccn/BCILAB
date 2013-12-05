@@ -107,7 +107,7 @@ function varargout = exp_eval(x,iters)
 %                                2010-04-15
 
 global tracking;
-if ~exist('iters','var')
+if nargin < 2
     iters = 1; end
 
 varargout = {x};

@@ -1,4 +1,4 @@
-function signal = flt_reconstruct(signal, dict, varargin)
+function signal = flt_reconstruct(varargin)
 % Reconstruct the given data in a new (possibly overcomplete) basis.
 % Signal = flt_reconstruct(Signal, Dictionary, Arguments...)
 %

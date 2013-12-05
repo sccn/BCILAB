@@ -1,25 +1,26 @@
-function arg_toworkspace(s)
-% Copy the arguments in the given Struct into the workspace of the calling function. 
-% arg_toworkspace(Struct)
+function result = quickif(condition,ontrue,onfalse)
+% Select one of two possible values dependent on a condition
+% Result = quickif(Condition,OnTrue,OnFalse)
 %
 % In:
-%   Struct : an argument structure, as produced by arg_define
+%   Condition : conditional expression
 %
-% Examples:
-%   function myfunction(varargin)
-%   opts = arg_define(varargin, ...
-%               arg(...), ...
-%               arg(...));
+%   OnTrue : value to return if condition evaluates to true
 %
-%   arg_toworkspace(opts);
+%   OnFalse : value to return if condition evaluates to false
 %
-% See also:
-%   arg_define
+% Out:
+%   Result : either OnTrue or OnFalse
+%
+% Notes:
+%   Note that both branches will always be evaluated, regardless of the value of Condition, since
+%   quickif() is a regular function call. This is purely a convenience function that allows to use
+%   conditional expressions inside other expressions.
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
-%                                2010-09-24
+%                                2013-10-16
 
-% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu
+% Copyright (C) Christian Kothe, SCCN, 2013, christian@sccn.ucsd.edu
 %
 % This program is free software; you can redistribute it and/or modify it under the terms of the GNU
 % General Public License as published by the Free Software Foundation; either version 2 of the
@@ -33,6 +34,8 @@ function arg_toworkspace(s)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-% place the variables in the caller's workspace one-by-one
-for fn=fieldnames(s)'
-    assignin('caller',fn{1},s.(fn{1})); end
+if condition
+    result = ontrue;
+else
+    result = onfalse;
+end

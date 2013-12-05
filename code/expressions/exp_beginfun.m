@@ -300,7 +300,7 @@ should_evaluate = any(strncmp('exp_eval',{ctx.stack(3:min(4,length(ctx.stack))).
 callname = ctx.stack(2).name;
 callfile = ctx.stack(2).file;
 callfunc = str2func(callname);
-[codehash,inargs,outargs] = utl_fileinfo(callfile,callname);
+[codehash,inargs,outargs] = hlp_fileinfo(callname,callfile);
 
 
 % --- read the caller's function arguments (unfolding varargs along the way) ---

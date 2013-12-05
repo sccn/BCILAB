@@ -122,7 +122,7 @@ allopts = arg_define([0 1],varargin,...
     arg_norep('samplerate',unassigned), arg_norep('blockrange',unassigned),arg_norep('ref',unassigned),arg_norep('rmeventchan',unassigned), ...
     arg_deprecated('nofixups',false,[],'This parameter has been retired.'));
 
-opts = rmfield(allopts,{'filename','types','casttodouble','setname','subject','group','condition','session','comments','markerchannel','subsampled','infer_chanlocs','arg_direct','nofixups'});
+opts = rmfield(allopts,{'filename','types','casttodouble','setname','subject','group','condition','session','comments','markerchannel','subsampled','infer_chanlocs','nofixups'});
 filename = env_translatepath(allopts.filename);
 [base,name,ext] = fileparts(filename);
 

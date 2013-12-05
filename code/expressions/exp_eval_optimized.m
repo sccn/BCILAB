@@ -86,16 +86,16 @@ for p=1:length(x.parts)
         num_expressions = num_expressions+1;
         % remember the places where we have set_partition sub-expressions
         if strcmp(head_p,'set_partition')
-            partition_at(end+1) = p; end
+            partition_at(end+1) = p; end %#ok<AGROW>
     end
 end
 
 % now perform the reordering, if applicable
 if num_expressions == length(partition_at) && num_expressions > 0
     % check if the current node has the independent_trials=false property (which prevents reordering)
-    props = arg_report('properties',x.head);
+    props = hlp_microcache('props',@arg_report,'properties',x.head,{hlp_fileinfo(x.head,[],'hash')});
     if ~props.independent_trials
-        return;  end
+        return; end
     
     % we can proceed
     if num_expressions == 1
