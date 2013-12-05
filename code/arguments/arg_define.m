@@ -155,7 +155,7 @@ function outstruct = arg_define(vals,varargin)
         % otherwise we perform full parsing
         
         % get the name of the calling function (for diagnostics and cache lookups)
-        caller = hlp_getcaller(2);
+        caller = hlp_getcaller;
         if ~isvarname(caller)
             caller = 'anonymous'; end
         
@@ -417,11 +417,11 @@ function validate_names(varnames)
                     % argument name (using a cell array of names in arg()). The only really good
                     % solution at this point is to generally assign the output of arg_define to a
                     % struct.
-                    disp([hlp_getcaller(4) ': The argument name "' curname '" clashes with the function "' [file_part ext_part] '" in directory "' path_part '"; it is strongly recommended that you either rename the function or remove it from the path.']);
+                    disp([hlp_getcaller(3) ': The argument name "' curname '" clashes with the function "' [file_part ext_part] '" in directory "' path_part '"; it is strongly recommended that you either rename the function or remove it from the path.']);
                 end
             else
                 % these Java methods are probably spurious "false positives" of the which() function
-                disp([hlp_getcaller(4) ': There is a Java method named "' curname '" on your path; if you experience any name clash with it, please report this issue.']);
+                disp([hlp_getcaller(3) ': There is a Java method named "' curname '" on your path; if you experience any name clash with it, please report this issue.']);
             end
         end
     end
@@ -523,11 +523,11 @@ function nvps = arguments_to_nvps(caller,fmt,vals,structmask,flat_names,first_na
     if isnan(n)
         for k=find(cellfun(@(s)all(s>='0'&s<='9'),violations))
             violations{k} = vals{str2num(violations{k})}; end %#ok<ST2NM>
-        error([hlp_getcaller(3) ':arg_define:invalid_arguments'],['Some of the specified arguments do not appear in the argument specification; ' hlp_tostring(violations) '.']);
+        error([hlp_getcaller(2) ':arg_define:invalid_arguments'],['Some of the specified arguments do not appear in the argument specification; ' hlp_tostring(violations) '.']);
     elseif ~isempty(ignored)
         for k=find(cellfun(@(s)all(s>='0'&s<='9'),violations))
             violations{k} = vals{str2num(violations{k})}; end %#ok<ST2NM>
-        caller_name = hlp_getcaller(3);
+        caller_name = hlp_getcaller(2);
         warn_once([caller_name ':arg_define:possible_conflict'],'arg_define() in %s: Possible parameter conflict -- both unrecognized parameters %s and matching names %s passed in. Assuming that the function is called with %u positional arguments. This warning will not be repeated for this MATLAB session.',caller_name,hlp_tostring(violations),hlp_tostring(ignored),n);
     end
     
@@ -624,7 +624,7 @@ function spec = assign_values(spec,nvps,name2idx)
             idx = name2idx.(nvps{k});
             newvalue = nvps{k+1};
             if spec(idx).deprecated && ~isequal_weak(spec(idx).value,newvalue)
-                disp_once(['Using deprecated argument "' nvps{k} '" in function ' hlp_getcaller(2) ' (help: ' hlp_tostring(spec(idx).help) ').']); end
+                disp_once(['Using deprecated argument "' nvps{k} '" in function ' hlp_getcaller ' (help: ' hlp_tostring(spec(idx).help) ').']); end
             if ~isempty(spec(idx).assigner) 
                 spec(idx) = spec(idx).assigner(spec(idx),newvalue);
             elseif ~isequal(newvalue,'__arg_unassigned__') && ~(~spec(idx).empty_overwrites && (isempty(newvalue) || isequal(newvalue,'__arg_mandatory__')))

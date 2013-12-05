@@ -39,16 +39,16 @@ function [name,file] = hlp_getcaller(indirection)
 stack = dbstack;
 if nargout > 1
     if nargin < 1
-        name = stack(2).name;
-        file = stack(2).file;
+        name = stack(3).name;
+        file = stack(3).file;
     else
-        name = stack(1+indirection).name;
-        file = stack(1+indirection).file;
+        name = stack(2+indirection).name;
+        file = stack(2+indirection).file;
     end
 else
     if nargin < 1
-        name = stack(2).name;
+        name = stack(3).name;
     else
-        name = stack(1+indirection).name;
+        name = stack(2+indirection).name;
     end
 end

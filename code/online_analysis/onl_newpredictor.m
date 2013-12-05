@@ -86,7 +86,10 @@ if ~isempty(predict_at)
         % by set_makepos('Signal',set_targetmarkers(x,predict_at),...,'online_epoching','at_targets',...)
         [match,pos] = utl_find_filter(predictor.tracking.filter_graph{c},'set_makepos');
         % override the online_epoching argument
-        match.parts{find(strcmp(match.parts,'online_epoching'))+1} = 'at_targets';
+        argpos = find(strcmp(match.parts,'online_epoching'))+1;
+        if isempty(argpos)
+            error('Your model was apparently calculated with a BCILAB distribution that predated the marker streaming capability; please recompute it.'); end
+        match.parts{argpos} = 'at_targets';
         % insert set_targetmarkers stage
         idx = find(strcmp(match.parts,'signal'))+1;
         match.parts{idx} = set_targetmarkers('signal',match.parts{idx},'eventmap',predict_at,'epoch_bounds',[0 0],'eventfield','type','prune_nontarget',false,'avoid_boundaries',false,'arg_direct',true);

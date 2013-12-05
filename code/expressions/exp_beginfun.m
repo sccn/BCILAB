@@ -277,7 +277,7 @@ function should_evaluate = exp_beginfun(setting, varargin)
 % --- obtain & interpret calling context ---
 
 % obtain execution context
-ctx.stack = dbstack;
+ctx.stack = dbstack('-completenames');
 
 % early check of whether the expression system is disabled
 if  ~strcmp(setting,'symbolic') && hlp_resolve('disable_expressions',false,ctx) && ~isequal(varargin,{'delayed_online',true})
@@ -294,8 +294,9 @@ should_evaluate = any(strncmp('exp_eval',{ctx.stack(3:min(4,length(ctx.stack))).
 
 % identify the calling function (i.e., the one using exp_beginfun)
 callname = ctx.stack(2).name;
+callfile = ctx.stack(2).file;
 callfunc = str2func(callname);
-[codehash,inargs,outargs] = hlp_fileinfo(callname,[]);
+[codehash,inargs,outargs] = hlp_fileinfo(callname,callfile);
 
 
 % --- read the caller's function arguments (unfolding varargs along the way) ---
