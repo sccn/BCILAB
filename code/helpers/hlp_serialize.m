@@ -267,7 +267,7 @@ function m = serialize_handle(v)
     % get the representation
     rep = functions(v);
     switch rep.type
-        case 'simple'
+        case {'simple','classsimple'}
             % simple function: Tag & name
             m = [uint8(151); serialize_string(rep.function)];
         case 'anonymous'

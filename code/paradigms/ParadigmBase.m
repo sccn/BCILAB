@@ -157,6 +157,8 @@ classdef ParadigmBase
             % In:
             %   Model: a model as created by your calibrate() function;
             %          a plot or GUI will be produced to inspect the model
+            %
+            %   Options : cell array or struct of name-value pairs
             
             error('This paradigm implements no visualize() function.');
         end

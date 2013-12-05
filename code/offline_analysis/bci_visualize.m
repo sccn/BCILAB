@@ -5,6 +5,9 @@ function bci_visualize(model,varargin)
 % In:
 %   Model : a predictive model as computed via bci_train
 %
+%   Options... : options for the respective paradigm's visualization
+%                (if empty, a GUI will be opened)
+%
 % Examples:
 %   % assuming that a model has been learned previously, visualize it
 %   bci_visualize(lastmodel)
@@ -17,4 +20,9 @@ function bci_visualize(model,varargin)
 
 % instantiate model class...
 instance = eval(model.paradigm);
-instance.visualize(model,varargin{:});
+
+if isempty(varargin)
+    arg_guidialog(@instance.visualize,'Parameters',{'Model',model});
+else
+    instance.visualize(model,varargin);
+end

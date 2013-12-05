@@ -122,7 +122,7 @@ classdef ParadigmDAL < ParadigmDataflowSimplified
         end
         
         function defaults = machine_learning_defaults(self)
-            defaults = 'dal';
+            defaults = {'dal', 'Lambdas',2.^(10:-1.5:-5), 'NumFolds',5,'FoldMargin',1};
         end
         
         function [featuremodel,predictivemodel] = calibrate_prediction_function(self,varargin)

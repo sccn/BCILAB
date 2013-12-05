@@ -275,11 +275,15 @@ classdef ParadigmSIFT < ParadigmDataflowSimplified
                 features = reshape(features,[],signal.trials)'; end
         end
         
-        function visualize_model(self,parent,featuremodel,predictivemodel,varargin) %#ok<*INUSD>
-            hlp_varargin2struct(varargin,'signed',true,'reordering',[],'smoothing_kernel',[]);
-            reordering= [1 2 4 8 5 6 3 7 9];
-            global weights;
-            global weights_ord;
+        function visualize_model(self,varargin) %#ok<*INUSD>
+            args = arg_define([0 3],varargin, ...
+                arg_norep({'parent','Parent'},[],[],'Parent figure.'), ...
+                arg_norep({'featuremodel','FeatureModel'},[],[],'Feature model. This is the part of the model that describes the feature extraction.'), ...
+                arg_norep({'predictivemodel','PredictiveModel'},[],[],'Predictive model. This is the part of the model that describes the predictive mapping.'), ...
+                arg({'signed','SignedWeights'},true,[],'Plot signed weights. Whether the original signed weights should be plotted or their absolute values.'), ...
+                arg({'reordering','Reordering'},[],[],'Component reordering. Allows to reorder components for plotting.','guru',true), ...
+                arg({'smoothing_kernel','SmoothingKernel'},[],[],'Smoothing kernel. Allows to smooth time/frequency activation.','guru',true));
+            [featuremodel,predictivemodel] = deal(args.featuremodel,args.predictivemodel);
             fs = featuremodel.shape;
             % get weights and featureshape
             w = predictivemodel.model.w; 
@@ -289,13 +293,12 @@ classdef ParadigmSIFT < ParadigmDataflowSimplified
             M = ((reshape(w,fs))); 
             % reverse frequency axis for plotting
             M = M(:,:,end:-1:1,:); 
-            if ~isempty(smoothing_kernel)
-                M = filter(smoothing_kernel/norm(smoothing_kernel),1,M,[],3);
-                M = filter(smoothing_kernel/norm(smoothing_kernel),1,M,[],4);
+            if ~isempty(args.smoothing_kernel)
+                M = filter(args.smoothing_kernel/norm(args.smoothing_kernel),1,M,[],3);
+                M = filter(args.smoothing_kernel/norm(args.smoothing_kernel),1,M,[],4);
             end
-            weights = M;
-            M = M(reordering,reordering,:,:);
-            weights_ord = M;
+            if ~isempty(args.reordering)
+                M = M(args.reordering,args.reordering,:,:); end
             % add padding
             M(:,:,end+1,:)=max(abs(M(:)));
             M(:,:,:,end+1)=max(abs(M(:)));            
@@ -303,7 +306,7 @@ classdef ParadigmSIFT < ParadigmDataflowSimplified
             N = reshape(permute(M,[3,1,4,2,5]),fs(1)*(fs(3)+1),fs(2)*(fs(4)+1),[]);
             % plot
             chns = featuremodel.siftPipelineConfig.channels;
-            if signed
+            if args.signed
                 imagesc(N,'XData',[0.5 length(chns)+0.5],'YData',[0.5 length(chns)+0.5]);
                 caxis([-max(abs(N(:))) max(abs(N(:)))])
             else
