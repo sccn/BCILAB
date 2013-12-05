@@ -45,7 +45,10 @@ function result = par_reschedule_policy(batchid,inflight,waiting,times,msgs)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
+global tracking;
+
 try
+        
     % here we keep track of our meta-data for each of the batches
     persistent batches; %#ok<TLEV>
     default_batch = struct('rescheduled',{[]});  % set of already rescheduled tasks for this batch
@@ -145,7 +148,7 @@ try
     catch e
         if ~any(strcmp(e.identifier,{'stats:mle:NonfinitePdfVal','stats:mle:NonpositivePdfVal'}))
             disp('Issue in the reschedule policy: ');
-            env_handleerror(e);
+            hlp_handleerror(e);
         end
     end
     
@@ -154,7 +157,6 @@ try
     
     % log what is being rescheduled and when
     if ~isempty(reschedule)
-        global tracking; %#ok<TLEV>
         try
             tracking.temp.rescheduled{end+1} = [now reschedule];
         catch
@@ -169,11 +171,13 @@ try
     import java.lang.*;
     import java.util.*;
     result = java.util.Vector();
-    for k=reschedule
-        result.add(Integer(k)); end
+    if ~isempty(reschedule)
+        for k=reschedule
+            result.add(Integer(k)); end
+    end
     
 catch e
     disp('Error executing the reschedule policy; traceback:');
-    env_handleerror(e);
+    hlp_handleerror(e);
     result = java.util.Vector();
 end

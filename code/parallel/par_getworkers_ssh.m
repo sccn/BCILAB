@@ -199,7 +199,7 @@ if ispc
 end
 
 if isempty(hostnames) || isequal(hostnames,{''})
-    hostnames = par_globalpool; end
+    hostnames = par_globalsetting('pool'); end
 
 if isempty(hostnames)
     disp('The list of hostnames to connect to is empty; exiting.');
@@ -472,7 +472,7 @@ end
 
 if nargout == 0
     % assign to global variable, if necessary...
-    tracking.parallel.pool = pool(:)';
+    par_globalsetting('pool',pool(:)');
 end
 
 

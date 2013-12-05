@@ -31,8 +31,8 @@ elseif isunix
     % invoke, but also impose default arguments (if unspecified)
     % by default, workers do not recruit (but only list) other workers, preventing a cascading effect
     try
-        tracking.parallel.pool = par_getworkers_ssh(arguments{:});
-        tracking.parallel.engine = 'BLS';
+        par_globalsetting('pool',par_getworkers_ssh(arguments{:}));
+        par_globalsetting('engine','BLS');
         disp('Set default compute scheduler to BLS (parallel).');
     catch e
         disp('Could not acquire worker machines; traceback: ');
@@ -43,15 +43,16 @@ else
 end
 
 % start the heartbeat timer
-if ~isempty(tracking.parallel.pool)
+pool = par_globalsetting('pool');
+if ~isempty(pool)
     fprintf('Initiating heartbeat signal... ');
-    tracking.cluster_requested = {};
+    tracking.cluster_requested = {};    
     % for each endpoint in the pool...
-    for p=1:length(tracking.parallel.pool)
+    for p=1:length(pool)
         % make a new socket
         sock = DatagramSocket();
         % and "connect" it to the worker endpoint (its heartbeat server)
-        endpoint = hlp_split(tracking.parallel.pool{p},':');
+        endpoint = hlp_split(pool{p},':');
         sock.connect(InetSocketAddress(endpoint{1}, str2num(endpoint{2})));
         tracking.cluster_requested{p} = sock;
     end

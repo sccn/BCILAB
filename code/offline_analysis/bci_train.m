@@ -457,20 +457,21 @@ function [measure,model,stats] = bci_train(varargin)
 %                              By default set to 'global'.
 %
 %   ParameterSearchResources : Parameter search parallelization. If set to 'global', the global BCILAB
-%                              setting will be used to determine when to run this computation. If set
-%                              to 'local', the computation will be done on the local machine.
-%                              Otherwise,the respective scheduler will be used to distribute the
-%                              computation across a cluster (default: 'local')
+%                              setting (see par_globalsetting) will be used to determine when to run
+%                              this computation. If set to 'local', the computation will be done on
+%                              the local machine. Otherwise,the respective scheduler will be used to
+%                              distribute the computation across a cluster (default: 'local')
 %   
 %   NestedCrossvalResources : Nested cross-validation parallelization. If set to 'global', the
-%                             global BCILAB setting will be used to determine when to run this
-%                             computation. If set to 'local', the computation will be done on the
-%                             local machine. Otherwise,the respective scheduler will be used to
-%                             distribute the computation across a cluster (default: 'local')
+%                             global BCILAB setting will be used (see par_globalsetting) to
+%                             determine when to run this computation. If set to 'local', the
+%                             computation will be done on the local machine. Otherwise,the
+%                             respective scheduler will be used to distribute the computation across
+%                             a cluster (default: 'local')
 %
 %   ResourcePool : Parallel compute resouces. If set to ''global'', the globally set BCILAB resource 
-%                  pool will be used, otherwise this should be a cell array of 'hostname:port'
-%                  strings (default: 'global')
+%                  pool will be used (see par_globalsetting), otherwise this should be a cell array
+%                  of 'hostname:port' strings (default: 'global')
 %
 % Out:
 %   Loss       : a measure of the overall performance of the paradigm combination, w.r.t. to the 
@@ -679,7 +680,7 @@ for k=1:length(source_data)
 nonlocal = false;
 for computescope = {'engine_cv','engine_gs','engine_ncv'}
     if strcmp(opts.(computescope{1}),'global')
-        nonlocal = nonlocal || ~strcmp(par_globalengine,'local'); 
+        nonlocal = nonlocal || ~strcmp(par_globalsetting('engine'),'local'); 
     else 
         nonlocal = nonlocal || ~strcmp(opts.(computescope{1}),'local');
     end

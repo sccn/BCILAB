@@ -9,12 +9,7 @@ function [results,errors] = par_schedule(tasks,varargin)
 %           * struct('head',function_handle, 'parts',{{arg1,arg2,arg3, ...}})
 %           (see also par_beginschedule for further details)
 %
-%   Options...: optional name-value pairs; possible names are:
-%
-%               see par_beginschedule and par_endschedule for the options
-%
-%               'keep': keep this scheduler alive for later re-use (default: false)
-%                       if false, the scheduler will be destroyed after use, and re-created during the next run
+%   Options...: optional name-value pairs, same as in par_beginschedule
 %
 % Out:
 %   Results : cell array of results of the scheduled computations (evaluated tasks)
@@ -55,10 +50,8 @@ function [results,errors] = par_schedule(tasks,varargin)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-opts = hlp_varargin2struct(varargin, 'keep',false);
-
-id = par_beginschedule(tasks,opts);
-[results,errors] = par_endschedule(id,opts);
+id = par_beginschedule(tasks,varargin{:});
+[results,errors] = par_endschedule(id,varargin{:});
 
 if ~isempty(errors) && nargout <= 1
     rethrow(errors{1}{2}); end

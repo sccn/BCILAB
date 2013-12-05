@@ -11,5 +11,5 @@ disp('Releasing cluster resources...');
 global tracking;
 % this will lead to the deletion of any involved heartbeat timer.
 tracking.cluster_requested = [];
-tracking.parallel.engine = 'local';
+par_globalsetting('engine','local');
 disp('Set default compute scheduling to local.');
