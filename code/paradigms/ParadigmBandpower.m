@@ -94,10 +94,10 @@ classdef ParadigmBandpower < ParadigmDataflowSimplified
     %      Clin Neurophysiol 110 (1999), 1842-1857.
     %  [3] Buzsaki, G., "Rhythms of the brain"
     %      Oxford University Press US, 2006
-    %  ﻿[4] D. J. McFarland, L. M. McCane, S. V. David, and J. R. Wolpaw,  “Spatial filter selection for {EEG-based} communication,” 
+    %  [4] D. J. McFarland, L. M. McCane, S. V. David, and J. R. Wolpaw,  "Spatial filter selection for EEG-based communication,"
     %      Electroencephalography and Clinical Neurophysiology, vol. 103, no. 3, pp. 386-394, Sep. 1997.
-    %  ﻿[5] J. Kalcher, D. Flotzinger, C. Neuper, S. Gölly, and G. Pfurtscheller, 
-    %      “Graz brain-computer interface {II:} towards communication between humans and computers based on online classification of three different {EEG} patterns,” 
+    %  [5] J. Kalcher, D. Flotzinger, C. Neuper, S. Gaelly, and G. Pfurtscheller, 
+    %      "Graz brain-computer interface II: towards communication between humans and computers based on online classification of three different {EEG} patterns,"
     %      Medical & Biological Engineering & Computing, vol. 34, no. 5, pp. 382-388, Sep. 1996.
     %
     % Name:
@@ -122,10 +122,17 @@ classdef ParadigmBandpower < ParadigmDataflowSimplified
             features = reshape(log(var(signal.data,0,2)),[size(signal.data,1),size(signal.data,3)])';
         end
         
-        function visualize_model(self,parent,fmodel,pmodel) %#ok<*INUSD>
+        function visualize_model(self,varargin) %#ok<*INUSD>
+            args = arg_define([0 3],varargin, ...
+                arg_norep({'myparent','Parent'},[],[],'Parent figure.'), ...
+                arg_norep({'fmodel','FeatureModel'},[],[],'Feature model. This is the part of the model that describes the feature extraction.'), ...
+                arg_norep({'pmodel','PredictiveModel'},[],[],'Predictive model. This is the part of the model that describes the predictive mapping.'), ...
+                arg({'paper','PaperFigure'},false,[],'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'));
+            arg_toworkspace(args);
+            
             % no parent: create new figure
-            if isempty(parent)
-                parent = figure('Name','Per-window weights'); end
+            if isempty(myparent)
+                myparent = figure('Name','Per-window weights'); end
             if isfield(pmodel.model,'w')
                 weights = pmodel.model.w;
             elseif isfield(pmodel.model,'W')
@@ -138,8 +145,7 @@ classdef ParadigmBandpower < ParadigmDataflowSimplified
             end
             % display
             if ~isempty(weights)
-                topoplot(weights,fmodel.chanlocs,'maplimits',[-max(abs(weights)) max(abs(weights))]);
-            end
+                topoplot(weights,fmodel.chanlocs,'maplimits',[-max(abs(weights)) max(abs(weights))]); end
         end
         
         function layout = dialog_layout_defaults(self)

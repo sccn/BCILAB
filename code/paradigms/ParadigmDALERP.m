@@ -63,7 +63,7 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
         end
         
         function defaults = machine_learning_defaults(self)
-            defaults = 'dal';
+            defaults = {'dal', 'Lambdas',2.^(10:-1.5:-5), 'NumFolds',5,'FoldMargin',1};
         end
         
         function model = feature_adapt(self,varargin)
@@ -119,13 +119,20 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
                 features(:,:,t) = featuremodel.P{1}*features(:,:,t)*featuremodel.P{2}; end
         end
         
-        function visualize_model(self,parent,fmodel,pmodel,varargin) %#ok<*INUSD>
-            % no parent: create new figure
-            args = hlp_varargin2struct(varargin,'maxcomps',Inf,'regcurve',true,'paper',false);
-            if isempty(parent)
-                parent = figure('Name','Per-window weights'); end
-            % [U,S,V] = svd(reshape(pmodel.model.w,size(fmodel.P{1},2),[]));
-            % SF = fmodel.P{1}*U(1:nnz(diag(S)>0.0001),:)';
+        function visualize_model(self,varargin) %#ok<*INUSD>
+            args = arg_define([0 3],varargin, ...
+                arg_norep({'myparent','Parent'},[],[],'Parent figure.'), ...
+                arg_norep({'fmodel','FeatureModel'},[],[],'Feature model. This is the part of the model that describes the feature extraction.'), ...
+                arg_norep({'pmodel','PredictiveModel'},[],[],'Predictive model. This is the part of the model that describes the predictive mapping.'), ...
+                arg({'maxcomps','MaxComponents'},Inf,[],'Maximum components to plot. Maximum number of components to plot (if too many).'), ...
+                arg({'regcurve','PlotRegcurve'},true,[],'Plot regularization curve. Whether to plot the regularization curve.'), ...
+                arg({'paper','PaperFigure'},false,[],'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'), ...
+                arg({'patterns','PlotPatterns'},true,[],'Plot patterns instead of filters. Whether to plot spatial patterns (forward projections) rather than spatial filters.'));                
+            arg_toworkspace(args);
+            
+            % no parent? --> create new figure
+            if isempty(myparent)
+                myparent = figure('Name','Per-window weights'); end
             % get the spatial preprocessing matrix.
             P = fmodel.P{1};
             Q = fmodel.P{2};
@@ -145,18 +152,22 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
                 row = floor((x-1) / px);
                 idx = 1 + col + 2*row*px;
                 if x < N || (x==N && ~args.regcurve)
-                    subplot(2*py,px,idx,'Parent',parent);
-                    topoplot(P*U(x,:)',fmodel.chanlocs);
+                    subplot(2*py,px,idx,'Parent',myparent);
+                    if args.patterns
+                        topoplot(fmodel.cov*P*U(x,:)',fmodel.chanlocs);
+                    else
+                        topoplot(P*U(x,:)',fmodel.chanlocs);
+                    end
                     t = title(sprintf('Component %.0f',x));
                     camzoom(1.2);
-                    subplot(2*py,px,idx+px,'Parent',parent);
+                    subplot(2*py,px,idx+px,'Parent',myparent);
                     p1 = plot(fmodel.times,inv(Q)*V(:,x)*S(x,x),'black');
                     ylim([-lim lim]);
                     hold; p2 = plot(fmodel.times,zeros(length(Q),1),'black--');
                     l1 = xlabel('Time in ms');
                     l2 = ylabel('Weight');
                 elseif args.regcurve
-                    subplot(2*py,px,idx+px,'Parent',parent);
+                    subplot(2*py,px,idx+px,'Parent',myparent);
                     t = title('Regularization curve');
                     p1 = plot(mean(pmodel.model.losses)); p2=[];
                     l1 = xlabel('Regularization parameter #');

@@ -183,18 +183,29 @@ classdef ParadigmSpecCSP < ParadigmDataflowSimplified
                 features(t,:) = log(var(2*real(ifft(featuremodel.alpha.*fft(signal.data(:,:,t)'*featuremodel.W))))); end                
         end
         
-        function visualize_model(self,parent,featuremodel,predictivemodel,varargin) %#ok<*INUSD>
-            args = hlp_varargin2struct(varargin,'paper',false);
+        function visualize_model(self,varargin) %#ok<*INUSD>
+            args = arg_define([0 3],varargin, ...
+                arg_norep({'myparent','Parent'},[],[],'Parent figure.'), ...
+                arg_norep({'featuremodel','FeatureModel'},[],[],'Feature model. This is the part of the model that describes the feature extraction.'), ...
+                arg_norep({'predictivemodel','PredictiveModel'},[],[],'Predictive model. This is the part of the model that describes the predictive mapping.'), ...
+                arg({'patterns','PlotPatterns'},true,[],'Plot patterns instead of filters. Whether to plot spatial patterns (forward projections) rather than spatial filters.'), ...
+                arg({'paper','PaperFigure'},false,[],'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'));
+            arg_toworkspace(args);
+
             % no parent: create new figure
-            if isempty(parent)
-                parent = figure('Name','Common Spatial Patterns'); end
+            if isempty(myparent)
+                myparent = figure('Name','Common Spatial Patterns'); end
             % number of pairs, and index of pattern per subplot
             np = size(featuremodel.W,2)/2; idxp = [1:np np+(2*np:-1:np+1)]; idxf = [np+(1:np) 2*np+(2*np:-1:np+1)];
             % for each CSP pattern...
             for p=1:np*2
-                subplot(4,np,idxp(p),'Parent',parent);
-                topoplot(featuremodel.P(:,p),featuremodel.chanlocs);
-                subplot(4,np,idxf(p),'Parent',parent);
+                subplot(4,np,idxp(p),'Parent',myparent);
+                if args.patterns
+                    topoplot(featuremodel.P(:,p),featuremodel.chanlocs);
+                else
+                    topoplot(featuremodel.W(:,p),featuremodel.chanlocs);
+                end
+                subplot(4,np,idxf(p),'Parent',myparent);
                 alpha = featuremodel.alpha(:,p);
                 range = 1:max(find(alpha)); %#ok<MXFND>
                 pl=plot(featuremodel.freqs(range),featuremodel.alpha(range,p));

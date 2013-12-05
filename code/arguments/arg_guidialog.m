@@ -112,6 +112,16 @@ if ~isempty(subset) && subset{1}==-1
 end
 [spec,subset] = obtain_items(rawspec,subset,'',show_guru);
 
+% trim unnecessary blank margins at the beginning and end
+while isempty(spec{1}) && isempty(subset{1})
+    spec = spec(2:end);
+    subset = subset(2:end);
+end
+while isempty(spec{end}) && isempty(subset{end})
+    spec = spec(1:end-1);
+    subset = subset(1:end-1);
+end
+
 % create an inputgui() dialog...
 geometry = repmat({[0.6 0.35]},1,length(spec)+length(buttons)/2);
 geomvert = ones(1,length(spec)+length(buttons)/2);

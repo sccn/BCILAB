@@ -36,42 +36,56 @@ classdef ParadigmSpectralmeans < ParadigmDataflowSimplified
                 features = log(features); end
         end
         
-        function visualize_model(self,parent,fmodel,pmodel) %#ok<*INUSD>
+        function visualize_model(self,varargin) %#ok<*INUSD>
+            args = arg_define([0 3],varargin, ...
+                arg_norep({'parent','Parent'},[],[],'Parent figure.'), ...
+                arg_norep({'fmodel','FeatureModel'},[],[],'Feature model. This is the part of the model that describes the feature extraction.'), ...
+                arg_norep({'pmodel','PredictiveModel'},[],[],'Predictive model. This is the part of the model that describes the predictive mapping.'), ...
+                arg({'paper','PaperFigure'},false,[],'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'));
+            arg_toworkspace(args);
+            parent = args.parent;
+            
             % no parent: create new figure
             if isempty(parent)
                 parent = figure('Name','Per-window weights'); end
+            
             % number of pairs, and index of pattern per subplot
             np = size(fmodel.wnds,1);
             horz = ceil(sqrt(np));
             vert = ceil(np/horz);
+            
+            % get the weights
+            if isfield(pmodel.model,'w')
+                weights = pmodel.model.w;
+            elseif isfield(pmodel.model,'W')
+                weights = pmodel.model.W;
+            elseif isfield(pmodel.model,'weights')
+                weights = pmodel.model.weights;
+            else
+                error('Cannot find model weights.');
+            end
+            
+            % check if weights contains a bias value
+            if numel(weights)==length(fmodel.chanlocs)*np+1
+                weights = weights(1:end-1);
+            elseif numel(weights)~=length(fmodel.chanlocs)*np
+                error('The model is probably not linear');
+            end
+            
+            % turn into matrix, and optionally convert to forward projections
+            weights = reshape(weights,length(fmodel.chanlocs),np);            
+            
             % for each window...
             for p=1:np
                 subplot(horz,vert,p,'Parent',parent);
-                % get the weights
-                if isfield(pmodel.model,'w')
-                    weights = pmodel.model.w;
-                elseif isfield(pmodel.model,'W')
-                    weights = pmodel.model.W;
-                elseif isfield(pmodel.model,'weights')
-                    weights = pmodel.model.weights;
-                else
-                    title('Cannot find model weights.');
-                    weights = [];
-                end
-                % extract appropriate weights portion
-                if ~isempty(weights)
-                    if length(weights) == np*length(fmodel.chanlocs) || length(weights) == np*length(fmodel.chanlocs)+1
-                        subweights = weights(1+(p-1)*length(fmodel.chanlocs) : p*length(fmodel.chanlocs));
-                    else
-                        title('Model is probably not linear.');
-                        subweights = [];
-                    end
-                end
-                % display
-                if ~isempty(weights) && ~isempty(subweights)
-                    topoplot(subweights,fmodel.chanlocs,'maplimits',[-max(abs(weights)) max(abs(weights))]);
-                    title(['Window' num2str(p) ' (' num2str(fmodel.wnds(p,1)) 's to ' num2str(fmodel.wnds(p,2)) 's)']);
-                end
+                topoplot(weights(:,p),fmodel.chanlocs,'maplimits',[-max(abs(weights(:))) max(abs(weights(:)))]);
+                t=title(['Window' num2str(p) ' (' num2str(fmodel.wnds(p,1)) 's to ' num2str(fmodel.wnds(p,2)) 's)']);
+                if args.paper
+                    set(t,'FontUnits','normalized');
+                    set(t,'FontSize',0.1);                    
+                    set(gca,'FontUnits','normalized');
+                    set(gca,'FontSize',0.1);
+                end         
             end
         end
         

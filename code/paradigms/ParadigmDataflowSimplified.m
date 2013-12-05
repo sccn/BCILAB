@@ -606,26 +606,32 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
         end
         
         
-        function visualize(self,model,varargin)
+        function visualize(self,varargin)
             % Optionally override this function to implement your visualization code
             % visualize(Model)
             %
             % In:
-            %   Model: a model as created by your calibrate() function;
-            %          a plot or GUI will be produced to inspect the model
+            %   Model : a model as created by your calibrate() function;
+            %           a plot or GUI will be produced to inspect the model
+            %
+            %   Options : cell array or struct of name-value pairs
+
+            args = arg_define(varargin, ...
+                arg_norep({'model','Model'},[],[],'BCI Model to visualize.'), ...
+                arg_sub({'options','Options'},{}, @self.visualize_model, 'Arguments of derived class.'));
             
             % visualize the model, either using one figure or multiple in case of voting
-            if ~isfield(model,'voting')
+            if ~isfield(args.model,'voting')
                 p = figure();
-                self.visualize_model(p,model.featuremodel,model.predictivemodel,varargin{:});
+                self.visualize_model(p,args.model.featuremodel,args.model.predictivemodel,args.options);
             else
-                numcl = length(model.classes);
-                numclx = length(model.classes)-1;
+                numcl = length(args.model.classes);
+                numclx = length(args.model.classes)-1;
                 for i=1:numcl
                     for j=i+1:numcl
                         p = figure('NumberTitle','off','MenuBar','none','Toolbar','none','Units','normalized', 'Name',sprintf('%d vs. %d',i,j), ...
                             'Position',[(i-0.9)/numclx (j-1-0.9)/numclx 0.8/numclx 0.8/numclx]);
-                        self.visualize_model(p,model.voting{i,j}.featuremodel,model.voting{i,j}.predictivemodel,varargin{:});
+                        self.visualize_model(p,args.model.voting{i,j}.featuremodel,args.model.voting{i,j}.predictivemodel,args.options);
                     end
                 end
             end

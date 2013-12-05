@@ -54,7 +54,7 @@ classdef ParadigmDALOSC < ParadigmDataflowSimplified
         end
 
         function defaults = machine_learning_defaults(self)
-            defaults = 'dal';
+            defaults = {'dal', 'Lambdas',2.^(10:-1.5:-5), 'NumFolds',5,'FoldMargin',1};
         end
         
         function model = feature_adapt(self,varargin)
@@ -67,6 +67,7 @@ classdef ParadigmDALOSC < ParadigmDataflowSimplified
                 X{t} = cov(X{t}'); end
             model.P = {hlp_diskcache('featuremodels',@cov_shrink,cat(2,X{:})')^args.normalizers(1),hlp_diskcache('featuremodels',@cov_shrink,cat(1,X{:}))^args.normalizers(2)};
             model.chanlocs = args.signal.chanlocs;
+            model.cov = cov(args.signal.data(:,:)');
         end
         
         function features = feature_extract(self,signal,featuremodel)
@@ -75,11 +76,18 @@ classdef ParadigmDALOSC < ParadigmDataflowSimplified
                 features(:,:,t) = featuremodel.P{1}*cov(signal.data(:,:,t)')*featuremodel.P{2}; end
         end
 
-        function visualize_model(self,parent,fmodel,pmodel,varargin) %#ok<*INUSD>
-            % no parent: create new figure
-            args = hlp_varargin2struct(varargin,'maxcomps',Inf,'regcurve',true,'paper',false);
-            if isempty(parent)
-                parent = figure('Name','Per-window weights'); end
+        function visualize_model(self,varargin) %#ok<*INUSD>
+            args = arg_define([0 3],varargin, ...
+                arg_norep({'myparent','Parent'},[],[],'Parent figure.'), ...
+                arg_norep({'fmodel','FeatureModel'},[],[],'Feature model. This is the part of the model that describes the feature extraction.'), ...
+                arg_norep({'pmodel','PredictiveModel'},[],[],'Predictive model. This is the part of the model that describes the predictive mapping.'), ...
+                arg({'maxcomps','MaxComponents'},Inf,[],'Maximum components to plot. Maximum number of components to plot (if too many).'), ...
+                arg({'patterns','PlotPatterns'},true,[],'Plot patterns instead of filters. Whether to plot spatial patterns (forward projections) rather than spatial filters.'), ...
+                arg({'paper','PaperFigure'},false,[],'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'));
+            arg_toworkspace(args);
+            
+            if isempty(myparent)
+                myparent = figure('Name','Per-window weights'); end
             % get the spatial preprocessing matrix.
             P = fmodel.P{1};
             % obtain & reshape the model
@@ -88,7 +96,10 @@ classdef ParadigmDALOSC < ParadigmDataflowSimplified
             [U,S,V] = svd(M);
             % display the model contents
             N = min(rank(M),args.maxcomps);
-            topoplot_grid(P*U(1:N,:)',fmodel.chanlocs);
+            weights = P*U(1:N,:)';
+            if args.patterns
+                weights = fmodel.cov*weights; end
+            topoplot_grid(weights,fmodel.chanlocs);
         end
         
         function layout = dialog_layout_defaults(self)
