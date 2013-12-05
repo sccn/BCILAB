@@ -1043,6 +1043,14 @@ switch amica_version
                     qavail(l) = str2num(vals{availrow});
                     qdata{l} = [vals{1} ':' vals{availrow}];
                 end
+                % optionally backtrack to a 50% smaller queue
+                if ~isempty(qavail) && ~any(qavail>=args.numprocs) && any(qavail>=args.numprocs/2)
+                    args.numprocs = args.numprocs/2;
+                    retain = qavail>=args.numprocs;
+                    qdata = qdata(retain);
+                    qname = qname(retain);
+                    qavail = qavail(retain);
+                end
                 % our options
                 options = intersect(args.use_queue,qdata);
                 if isempty(options)
