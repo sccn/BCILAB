@@ -134,7 +134,7 @@ end
 % filter bandpassed signal with differentiator to get sine part
 for fld = utl_timeseries_fields(signal)
     field = fld{1};
-    if ~isempty(signal.(field)) && ~isequal(signal.(field),1)
+    if ~isempty(signal.(field))
         % get rid of NaN's and Inf's
         signal.(field)(~isfinite(signal.(field)(:))) = 0;
         % apply differentiator to get real (cosine) and imaginary (sine) part of signal

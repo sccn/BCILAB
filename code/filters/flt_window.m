@@ -91,7 +91,11 @@ if ~isempty(time) && ~isequal(time,false) %#ok<*USENS>
         signal = pop_select(signal,'time',time.trange); end
     % apply window function, if specified    
     if ~isempty(time.winfunc)
-        signal.data = bsxfun(@times,signal.data,window_func(time.winfunc,size(signal.data,2),time.winparam)'); end
+        for f = utl_timeseries_fields(signal)
+            if ~isempty(signal.(f{1}))
+                signal.(f{1}) = bsxfun(@times,signal.(f{1}),window_func(time.winfunc,size(signal.(f{1}),2),time.winparam)'); end
+        end
+    end
 end
 
 exp_endfun;

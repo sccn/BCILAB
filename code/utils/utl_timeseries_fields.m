@@ -12,10 +12,12 @@ function fields = utl_timeseries_fields(signal)
 %   Signal : a signal for which time-series field names shall be looked up
 %
 % Out:
-%   Fields : cell array of field names (row vector)
+%   Fields : Cell array of field names (row vector). It is assumed that the second dimension of
+%            these fields is the time axis along which buffering and/or filtering should happen; any
+%            number of other dimensions may be present for any field returned by this function.
 %
 % See also:
-%   utl_register_fields
+%   utl_register_field
 %
 %                                       Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                       2013-08-16

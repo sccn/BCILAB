@@ -173,7 +173,7 @@ if isempty(state)
     disp('Finding a clean section of the data...');
     ref_section = exp_eval(flt_clean_windows('signal',signal,ref_extraction));
     % calibrate on it
-    disp('Estimating statistics; this may take a while...');
+    disp('Estimating statistics...');
     state.asr = hlp_diskcache('filterdesign',@asr_calibrate,ref_section.data,ref_section.srate,stddev_cutoff,calib_precision,state.shaping{:}); clear ref_section;
 end
 

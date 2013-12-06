@@ -57,35 +57,35 @@ arg_define(varargin,...
 
 % generate coefficients if necessary
 if ischar(wfamily)
-    [lo,hi] = wfilters(wfamily,'d');
+	[lo,hi] = wfilters(wfamily,'d');
 else
     [lo,hi] = deal(wfamily{:});
 end
 lf = length(lo);
 
-if ~isempty(signal.data)
-    % permute dimensions of the signal for parallel processing (into S x T*C)
-    X = reshape(permute(signal.data,[2 1 3]),signal.pnts,[]);
-    
-    C = [];
-    % for each decomposition level...
-    for i = 1:wlevels
-        % figure out the sub-range to retain
-        lx = size(X,1); first = 2; last = lx+lf-1;
-        % pad the signal
-        Y = X([lf-1:-1:1, 1:lx, lx:-1:lx-(lf-1)+1],:);
-        % compute approximation coefficients
-        Z = conv2(Y,lo(:),'valid'); % Z = wconv1_p(Y,Lo_D,'valid');
-        X = Z(first:2:last,:);
-        % compute & append detail coefficients
-        Z = conv2(Y,hi(:),'valid');  % Z = wconv1_p(Y,Hi_D,'valid');
-        C = [Z(first:2:last,:); C];
+for f = utl_timeseries_fields(signal)
+    if ~isempty(signal.(f{1}))
+        % flip dimensions so we can filter along the first dimension
+        [X,dims] = spatialize_transpose(signal.(f{1}));
+        C = [];
+        % for each decomposition level...
+        for i = 1:wlevels
+            % figure out the sub-range to retain
+            lx = size(X,1); first = 2; last = lx+lf-1;
+            % pad the signal
+            Y = X([lf-1:-1:1, 1:lx, lx:-1:lx-(lf-1)+1],:);
+            % compute approximation coefficients
+            Z = conv2(Y,lo(:),'valid');
+            X = Z(first:2:last,:);
+            % compute & append detail coefficients
+            Z = conv2(Y,hi(:),'valid');
+            C = [Z(first:2:last,:); C]; %#ok<AGROW>
+        end
+        C = [X; C]; %#ok<AGROW>
+        % unflip dimensions and write back the result
+        signal.(f{1}) = unspatialize_transpose(C,dims);
     end
-    C = [X; C];
-    
-    % reshape back into the original signal dimension...
-    signal.data = permute(reshape(C,[],signal.nbchan,signal.trials),[2 1 3]);
-    signal.pnts = size(signal.data,2);
 end
+signal.pnts = size(signal.data,2);
 
 exp_endfun('append_online',{'wfamily',{lo,hi}});

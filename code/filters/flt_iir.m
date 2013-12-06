@@ -145,16 +145,16 @@ if isempty(state)
     [sos,g] = hlp_diskcache('filterdesign',@zp2sos,z,p,k);
     
    % initialize state
-    for fld = utl_timeseries_fields(signal)
-        state.(fld{1}).sos = sos;
-        state.(fld{1}).g = g;
-        state.(fld{1}).zi = repmat({[]},1,size(sos,1));
+    for f = utl_timeseries_fields(signal)
+        state.(f{1}).sos = sos;
+        state.(f{1}).g = g;
+        state.(f{1}).zi = repmat({[]},1,size(sos,1));
     end
 end
 
-for fld = utl_timeseries_fields(signal)
-    field = fld{1};
-    if isfield(signal,field) && ~isempty(signal.(field)) && ~isequal(signal.(field),1)
+for f = utl_timeseries_fields(signal)
+    field = f{1};
+    if ~isempty(signal.(field))
         % apply filter for each section
         for s = 1:size(state.(field).sos,1)
             [signal.(field),state.(field).zi{s}] = filter(state.(field).sos(s,1:3),state.(field).sos(s,4:6),double(signal.(field)),state.(field).zi{s},2); end

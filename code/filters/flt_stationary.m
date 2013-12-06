@@ -140,7 +140,6 @@ if ~exist('decomposition','var')
     end
 end
 
-
 % project data
 [C,S,T] = size(signal.data); %#ok<*NODEF>
 signal.data = reshape(decomposition*reshape(signal.data,C,[]),[],S,T);
