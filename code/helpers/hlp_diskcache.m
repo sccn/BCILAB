@@ -394,9 +394,11 @@ end
 
 
 function v = func_version(func,versiontag)
-% Get the version string of a MATLAB function, or an MD5 hash if unversioned.
-% Returns just the string form of the input if a version cannot be determined
-% or if the versiontag is passed in as false.
+% Get a version identifier of a MATLAB function; can be any of the following
+%  * cell array of version strings of a MATLAB function, if present
+%  * MD5 hash of the file if unversioned.
+%  * string form of the input if there is no accessible file (e.g., anonymous function),
+%    or if the versiontag is passed in as false
 func = char(func);
 if isequal(versiontag,false)
     v = func;

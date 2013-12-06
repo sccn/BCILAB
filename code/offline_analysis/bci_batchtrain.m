@@ -56,6 +56,8 @@ function [results,errors] = bci_batchtrain(varargin)
 %   PredictArguments : Optional prediction arguments. Arguments to bci_predict - given as a cell array.
 %
 %   SaveArguments : Optional save arguments. Additional arguments to io_save - given as a cell array.
+%                   If saving is slow or your files are frequently corrupted due to multiple workers 
+%                   saving simultaneously, you might consider also passing the option -serialized.
 %                   (default: {'-makedirs'})
 %
 %
@@ -104,7 +106,7 @@ function [results,errors] = bci_batchtrain(varargin)
 %                      turned off. If set to global, the global BCILAB setting is used
 %                      (par_globalsetting), if set to BLS the BCILAB scheduler is used, and if
 %                      set to ParallelComputingToolbox, the MATLAB PCT is used. Reference is for
-%                      testing. (default: 'local')
+%                      testing. (default: 'global')
 %
 %   ClusterPool : Cluster resource pool. If set to global, the global BCILAB setting 
 %                 (par_globalsetting) will be used. Otherwise, this is a cell array of

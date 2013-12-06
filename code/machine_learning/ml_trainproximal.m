@@ -381,6 +381,7 @@ else
     if lambdaSearch.return_reggrid
         model.regularization_grid = model_seq; end
     model.classes = classes;
+    model.continuous_targets = continuous_targets;
     model.includebias = includebias;
     model.vectorize_trials = vectorize_trials;
     model.featureshape = featureshape;
