@@ -44,7 +44,7 @@ classdef ParadigmRSSD < ParadigmDataflowSimplified
             defaults = {'dal', 2.^(8:-0.25:-1), 'scaling','none'};
         end
         
-        function [featuremodel,predictivemodel] = calibrate_prediction_function(self,varargin)
+        function [featuremodel,conditioningmodel,predictivemodel] = calibrate_prediction_function(self,varargin)
             args = arg_define(varargin, ...
                 arg_norep('signal'), ...
                 arg_sub({'fex','FeatureExtraction'},{},...
@@ -61,6 +61,7 @@ classdef ParadigmRSSD < ParadigmDataflowSimplified
                      arg({'wavelet_cycles','WaveletCycles'},[3 0.5],[],'Wavelet Cycles. At lower and upper frequency band edge.','guru',true) ...
                      arg({'specmap','SpectralMap'},'sqrt',{'sqrt','log','linear'},'Transform of power.','guru',true) ...
                     }, 'Parameters for the feature-adaptation function. These parameters control how features are statistically adapted and extracted from the filtered data before they are passed int othe machine learning stage.'), ...
+                arg_sub({'cond','Conditioning'},{},@self.feature_adapt_conditioning,'Feature conditioning parameters. Allows to further process features for better usability with classifiers.'), ...
                 arg_sub({'ml','MachineLearning'},{'Learner',self.machine_learning_defaults()},@ml_train,'Machine learning stage of the paradigm. Operates on the feature vectors that are produced by the feature-extraction stage.'));
             
             try
@@ -141,6 +142,11 @@ classdef ParadigmRSSD < ParadigmDataflowSimplified
                 % extract features & target labels
                 features = self.feature_extract(args.signal, featuremodel);
                 targets = set_gettarget(args.signal);
+
+                % adapt and apply feature conditioning
+                conditioningmodel = self.feature_adapt_conditioning('features',features,'targets',targets,args.cond);
+                [features,targets] = self.feature_apply_conditioning(features,targets,conditioningmodel);
+                
                 % run the machine learning stage
                 predictivemodel = ml_train('data',{features,targets}, args.ml);
             catch

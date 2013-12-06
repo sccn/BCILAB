@@ -64,7 +64,7 @@ function signal = set_fit_dipoles(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-01-21
 
-% set_fit_dipoles_version<0.9> -- for the cache
+% set_fit_dipoles_version<0.91> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -122,7 +122,7 @@ if ~exist('dipfit_info','var')
     if verbose
         dipfit_info = hlp_diskcache('dipfits',@do_fitting,signal,mri_file,hdm_file,chan_file,lookup_labels,brain_atlas,confusion_range,var_threshold);
     else
-        dipfit_info = evalc('hlp_diskcache(''dipfits'',@do_fitting(signal,mri_file,hdm_file,chan_file,lookup_labels,brain_atlas,confusion_range,var_threshold)');
+        [text,dipfit_info] = evalc('hlp_diskcache(''dipfits'',@do_fitting,signal,mri_file,hdm_file,chan_file,lookup_labels,brain_atlas,confusion_range,var_threshold)');
     end
     try
         % check if we need to fit Amica models, too...
@@ -136,7 +136,7 @@ if ~exist('dipfit_info','var')
                 if verbose
                     tmp = hlp_diskcache('dipfits',@do_fitting,sig,mri_file,hdm_file,chan_file,lookup_labels,brain_atlas,confusion_range,var_threshold);
                 else
-                    tmp = evalc('hlp_diskcache(''dipfits'',@do_fitting(sig,mri_file,hdm_file,chan_file,lookup_labels,brain_atlas,confusion_range,var_threshold);');
+                    [text,tmp] = evalc('hlp_diskcache(''dipfits'',@do_fitting,sig,mri_file,hdm_file,chan_file,lookup_labels,brain_atlas,confusion_range,var_threshold);');
                 end
                 multimodel{m} = tmp.model; %#ok<AGROW>
             end
