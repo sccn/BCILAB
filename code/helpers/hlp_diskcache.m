@@ -150,6 +150,9 @@ clearable_settings = false; % whether settings should be clearable by "clear all
 
 archive_version = 1.0;      % version of the archive format
 persistent settings;
+persistent have_translatepath;
+if isempty(have_translatepath)
+    have_translatepath = exist('env_translatepath','file'); end
 
 % parse options
 if iscell(options) || isstruct(options)
@@ -180,7 +183,7 @@ else
 end 
 
 % make path platform-specific
-if ~exist('env_translatepath','file')
+if ~have_translatepath
     options.folder = strrep(strrep(options.folder,'\',filesep),'/',filesep);
 else
     options.folder = env_translatepath(options.folder); 
@@ -294,17 +297,17 @@ else
                     files = dir([cachedir filesep record.name filesep '*.mat']);
                     for f=1:length(files)
                         files(f).path = [cachedir filesep record.name filesep files(f).name]; 
-                        allfiles(end+1) = files(f);
+                        allfiles(end+1) = files(f); %#ok<AGROW>
                     end
                     % try to remove dirs that are empty
                     if isempty(files)
-                        try rmdir([cachedir filesep record.name]); catch,end; end
+                        try rmdir([cachedir filesep record.name]); catch,end; end %#ok<CTCH>
                 end
             end
             % delete old files as long as ours doesn't yet fit into memory
             [dummy,newest_to_oldest] = sort([allfiles.datenum],'descend'); %#ok<ASGLU>
             while ~isempty(newest_to_oldest) && disk_free_space(filename) - resultsize < ensured_space
-                try delete(allfiles(newest_to_oldest(end)).path); catch,end
+                try delete(allfiles(newest_to_oldest(end)).path); catch,end %#ok<CTCH>
                 newest_to_oldest = newest_to_oldest(1:end-1);
             end
         end
@@ -384,18 +387,18 @@ function x = trim_expression(x)
 if isfield(x,'tracking') && isfield(x.tracking,'expression')
     x = trim_expression(x.tracking.expression);
 elseif iscell(x)
-    for i=1:length(x)
-        x{i} = trim_expression(x{i}); end
+    x = cellfun(@trim_expression,x,'UniformOutput',false);
 elseif isfield(x,{'head','parts'})
-    for i=1:length(x.parts)
-        x.parts{i} = trim_expression(x.parts{i}); end
+    x.parts = trim_expression(x.parts);
 end
 
 
 function v = func_version(func,versiontag)
-% Get the version string of a MATLAB function, or an MD5 hash if unversioned.
-% Returns just the string form of the input if a version cannot be determined
-% or if the versiontag is passed in as false.
+% Get a version identifier of a MATLAB function; can be any of the following
+%  * cell array of version strings of a MATLAB function, if present
+%  * MD5 hash of the file if unversioned.
+%  * string form of the input if there is no accessible file (e.g., anonymous function),
+%    or if the versiontag is passed in as false
 func = char(func);
 if isequal(versiontag,false)
     v = func;
@@ -413,10 +416,11 @@ else
             if isempty(versiontag) || isempty(v)
                 v = hlp_cryptohash(code); end
             fclose(f);
-        catch
+        catch %#ok<CTCH>
             try
                 fclose(f);
-            catch,end
+            catch %#ok<CTCH>
+            end
             v = func;
         end
     else
@@ -492,7 +496,5 @@ for i=first:last
             end
         end
     end
-    curpath = [curpath paths{i} filesep];
+    curpath = [curpath paths{i} filesep]; %#ok<AGROW>
 end
-
-

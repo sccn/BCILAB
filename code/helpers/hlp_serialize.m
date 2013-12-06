@@ -43,6 +43,8 @@ function m = hlp_serialize(v)
 %                                adapted from serialize.m
 %                                (C) 2010 Tim Hutt
 
+% hlp_serialize_version<1.00>
+
 % Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu
 %
 % This program is free software; you can redistribute it and/or modify it under the terms of the GNU
@@ -267,7 +269,7 @@ function m = serialize_handle(v)
     % get the representation
     rep = functions(v);
     switch rep.type
-        case 'simple'
+        case {'simple','classsimple'}
             % simple function: Tag & name
             m = [uint8(151); serialize_string(rep.function)];
         case 'anonymous'

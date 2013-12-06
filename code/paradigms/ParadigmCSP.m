@@ -125,6 +125,7 @@ classdef ParadigmCSP < ParadigmDataflowSimplified
             arg_define(varargin, ...
                 arg_norep('signal'), ...
                 arg({'patterns','PatternPairs'},3,[],'Number of CSP patterns (times two).','cat','Feature Extraction','type','expression','shape','row'),...
+                arg({'dologtransform','LogTransform','logtransform'},true,[],'Perform log-transform. This is almost always the right thing to do.'),...
                 arg({'shrinkage_cov','ShrinkageCovariance'},false,[],'Shrinkage covariance estimator. Whether to use shrinkage to estimate the covariance matrices.'));
             
             if signal.nbchan < patterns
@@ -142,24 +143,45 @@ classdef ParadigmCSP < ParadigmDataflowSimplified
             model.filters = V(:,[1:patterns end-patterns+1:end]);
             P = inv(V);
             model.patterns = P([1:patterns end-patterns+1:end],:);
+            model.cov = cov(signal.data(:,:)');
             model.chanlocs = signal.chanlocs;
+            model.logtransform = dologtransform;
         end
         
         function features = feature_extract(self,signal,featuremodel)
             % extract log-variance features according to CSP
             features = zeros(size(signal.data,3),size(featuremodel.filters,2));
             for t=1:size(signal.data,3)
-                features(t,:) = log(var(signal.data(:,:,t)'*featuremodel.filters)); end
+                features(t,:) = var(signal.data(:,:,t)'*featuremodel.filters); end
+            if featuremodel.logtransform
+                features = log(features); end
         end
         
-        function visualize_model(self,parent,featuremodel,predictivemodel) %#ok<*INUSD>
+        function visualize_model(self,varargin) %#ok<*INUSD>
+            args = arg_define([0 3],varargin, ...
+                arg_norep({'myparent','Parent'},[],[],'Parent figure.'), ...
+                arg_norep({'featuremodel','FeatureModel'},[],[],'Feature model. This is the part of the model that describes the feature extraction.'), ...
+                arg_norep({'predictivemodel','PredictiveModel'},[],[],'Predictive model. This is the part of the model that describes the predictive mapping.'), ...
+                arg({'patterns','PlotPatterns'},true,[],'Plot patterns instead of filters. Whether to plot spatial patterns (forward projections) rather than spatial filters.'), ...
+                arg({'paper','PaperFigure'},false,[],'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'));
+            arg_toworkspace(args);
+            
             % number of pairs, and index of pattern per subplot
-            np = size(featuremodel.patterns,1)/2; idx = [1:np 2*np:-1:np+1];
+            np = size(featuremodel.patterns,1)/2; 
+            idx = [1:np 2*np:-1:np+1];
             % for each CSP pattern...
             for p=1:np*2
-                subplot(2,np,p,'Parent',parent);
-                topoplot(featuremodel.patterns(idx(p),:),featuremodel.chanlocs);
-                title(['CSP Pattern ' num2str(idx(p))]);
+                subplot(2,np,p,'Parent',myparent);
+                if args.patterns
+                    topoplot(featuremodel.patterns(idx(p),:),featuremodel.chanlocs);
+                else
+                    topoplot(featuremodel.filters(:,idx(p)),featuremodel.chanlocs);
+                end
+                t = title(['CSP Pattern ' num2str(idx(p))]);
+                if args.paper
+                    set(t,'FontUnits','normalized');
+                    set(t,'FontSize',0.1);                    
+                end
             end
         end
         
