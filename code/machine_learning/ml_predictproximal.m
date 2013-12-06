@@ -39,7 +39,11 @@ else
     if strcmp(model.loss,'logistic')
         % map to probabilities
         probs = 1 ./ (1 + exp(-trials*full(model.w)));
-        pred = {'disc', [1-probs probs], model.classes};
+        if ~model.continuous_targets
+            pred = {'disc', [1-probs probs], model.classes};
+        else
+            pred = probs;
+        end
     else
         % do linear regression
         pred = trials*full(model.w);

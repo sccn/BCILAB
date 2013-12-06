@@ -49,8 +49,8 @@ function [signal,sample_mask] = flt_clean_windows(varargin)
 %       StepSizes : Step size of the grid search, in quantiles; separately for [lower,upper] edge of the
 %                   truncated Gaussian (default: [0.001 0.01])
 %
-%       NumBins : Number of bins for Kullback-Leibler divergence calculation (default: 50)
-%
+%       ShapeRange : Shape parameter range. Search range for the shape parameter of the generalized
+%                    Gaussian distribution used to fit clean EEG. (default: 1.5:0.1:3.5)
 %
 %`  KeepMetadata    : boolean; whether meta data of EEG struct (such as events, ICA decomposition
 %                     etc.) should be returned. If true, meta data is returned. Returning meta data
@@ -96,7 +96,7 @@ function [signal,sample_mask] = flt_clean_windows(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-07-06
 
-% flt_clean_windows_version<1.01> -- for the cache
+% flt_clean_windows_version<1.02> -- for the cache
 
 if ~exp_beginfun('editing') return; end;
 
@@ -111,11 +111,14 @@ arg_define(varargin, ...
     arg_sub({'fit_params','ParameterFitting','parameter_fitting'}, {}, { ...
         arg({'max_dropout_fraction','MaxDropoutFraction'}, 0.1, [], 'Maximum fraction that can have dropouts. This is the maximum fraction of time windows that may have arbitrarily low amplitude (e.g., due to the sensors being unplugged).'), ...
         arg({'min_clean_fraction','MinCleanFraction'}, 0.25, [], 'Minimum fraction that needs to be clean. This is the minimum fraction of time windows that need to contain essentially uncontaminated EEG.'), ...
-        arg({'fit_quantiles','FitQuantiles'}, [0.022*ones(21,1) (0.5:0.01:0.7)'], [], 'Truncated Gaussian quantile. Quantile range [upper,lower] of the truncated Gaussian distribution that shall be fit to the EEG contents.','guru',true), ...
+        arg({'truncate_quant','TruncateQuantile'}, [0.022 0.6], [], 'Truncated Gaussian quantile. Quantile range [upper,lower] of the truncated Gaussian distribution that shall be fit to the EEG contents.','guru',true), ...
         arg({'step_sizes','StepSizes'}, [0.01 0.01], [], 'Grid search stepping. Step size of the grid search, in quantiles; separately for [lower,upper] edge of the truncated Gaussian. The lower edge has finer stepping because the clean data density is assumed to be lower there, so small changes in quantile amount to large changes in data space.','guru',true), ...
+        arg({'shape_range','ShapeRange'}, 1.7:0.15:3.5, [], 'Shape parameter range. Search range for the shape parameter of the generalized Gaussian distribution used to fit clean EEG.','guru',true), ...
         arg_deprecated({'num_bins','NumBins'},50,[],'This parameter is now auto-determined.') ...
+        arg_deprecated({'fit_quantiles','FitQuantiles'}, [0.022 0.6], [], 'Old Truncated Gaussian quantile. This was allowed to be a matrix holding an ensemble of alternative quantiles -- that is no longer needed/supported (instead the replacement parameter TruncateQuantile should be used).'), ...
     }, 'Parameter fitting details. Group of sub-arguments that govern how EEG distribution parameters should be fit.'), ...
     arg({'keep_metadata','KeepMetadata'}, true, [], 'Retain metadata of EEG set. Retaining meta data (events, ICA decomposition, etc.) is quite slow.'), ...
+    arg({'debugdisplay','DebugDisplay'}, false, [], 'Enable debug display. Plots the histogram and fit for each channel.'), ...
     arg_deprecated({'flag_quantile','FlaggedQuantile'}, [], [], 'Legacy parameter for pre-2012 methods. Quantile of data windows flagged for removal. Windows are emoved if flagged in all except for some possibly bad channels, controls the aggressiveness of the rejection.'), ...
     arg_deprecated({'min_badchans','MinAffectedChannels'}, [], [], 'Legacy parameter for 2011 method. This is the minimum number of channels that need to be affected for the window to be considered "bad".'), ...
     arg_deprecated({'ignored_chans','MaxIgnoredChannels'}, [], [], 'Legacy parameter for 2010 method. Maximum number or ratio of channels to ignore. These can contain arbitrary data without affecting the outcome (e.g., can be unplugged channels).'));
@@ -129,6 +132,7 @@ if ~isempty(min_badchans) && min_badchans > 0 && min_badchans < 1 %#ok<*NODEF>
 if ~isempty(ignored_chans) && ignored_chans > 0 && ignored_chans < 1
     ignored_chans = round(size(signal.data,1)*ignored_chans); end
 
+signal.data = double(signal.data);
 [C,S] = size(signal.data);
 N = window_len*signal.srate;
 wnd = 0:N-1;
@@ -140,7 +144,9 @@ if max_bad_channels < 1
 if max_bad_channels >= C
     sample_mask = true(1,S); return; end
 
-fprintf('Fitting per-channel distributions...');
+fprintf('Determining time window rejection thresholds...');
+if debugdisplay
+    figure; end
 % for each channel...
 for c = C:-1:1
     % compute RMS amplitude for each window...
@@ -148,9 +154,16 @@ for c = C:-1:1
     X = sqrt(sum(X(bsxfun(@plus,offsets,wnd')))/N);
     % robustly fit a distribution to the clean EEG part
     if isempty(flag_quantile)
-        [mu,sig] = fit_eeg_distribution(X, ...
+        [mu,sig,alpha,beta] = hlp_diskcache('filterdesign',@fit_eeg_distribution,X, ...
             fit_params.min_clean_fraction, fit_params.max_dropout_fraction, ...
-            fit_params.fit_quantiles, fit_params.step_sizes);
+            fit_params.truncate_quant, fit_params.step_sizes,fit_params.shape_range); %#ok<NASGU,ASGLU>
+        if debugdisplay
+            clf; 
+            show_fit_quality(X,mu,sig,alpha,beta); 
+            title(sprintf('%i@(%.2f,%.2f,%.2f,%.2f)',c,mu,sig,alpha,beta)); 
+            drawnow; 
+            waitforbuttonpress;
+        end
     else
         [mu,sig] = deal(0,1);
     end

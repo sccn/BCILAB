@@ -4,10 +4,11 @@ function state = asr_calibrate(X,srate,cutoff,blocksize,B,A,window_len,window_ov
 %
 % The input to this data is a multi-channel time series of calibration data. In typical uses the
 % calibration data is clean resting EEG data of ca. 1 minute duration (can also be longer). One can
-% also use on-task data if the fraction of artifact content is below the breakdown point of the robust
-% statistics used for estimation (50% theoretical, ~30% practical). This data is used to estimate
-% the thresholds that are used by the ASR processing function to identify and remove artifact
-% components.
+% also use on-task data if the fraction of artifact content is below the breakdown point of the
+% robust statistics used for estimation (50% theoretical, ~30% practical). If the data has a
+% proportion of more than 30-50% artifacts then bad time windows should be removed beforehand. This
+% data is used to estimate the thresholds that are used by the ASR processing function to identify
+% and remove artifact components.
 %
 % The calibration data must have been recorded for the same cap design from which data for cleanup
 % will be recorded, and ideally should be from the same session and same subject, but it is possible
@@ -54,9 +55,10 @@ function state = asr_calibrate(X,srate,cutoff,blocksize,B,A,window_len,window_ov
 %                   is slower). Default: 0.66
 %
 %   MaxDropoutFraction : Maximum fraction of windows that can be subject to signal dropouts 
-%                       (e.g., sensor unplugged) Default: 0.1
+%                        (e.g., sensor unplugged), used for threshold estimation. Default: 0.1
 %
-%   MinCleanFraction : Minimum fraction of windows that need to be clean. Default: 0.25
+%   MinCleanFraction : Minimum fraction of windows that need to be clean, used for threshold
+%                      estimation. Default: 0.25
 %
 %
 % Out:
@@ -114,7 +116,7 @@ if nargin < 6 || isempty(A) || isempty(B)
     try
         % try to use yulewalk to design the filter (Signal Processing toolbox required)
         [B,A] = yulewalk(8,[[0 2 3 13 16 40 min(80,srate/2-1)]*2/srate 1],[3 0.75 0.33 0.33 1 1 3 3]);
-    catch e
+    catch e %#ok<NASGU>
         % yulewalk not available (maybe no toolbox installed) -- use precomputed filter
         % coefficients depending on sampling rate
         switch srate

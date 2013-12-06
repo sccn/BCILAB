@@ -125,6 +125,7 @@ classdef ParadigmCSP < ParadigmDataflowSimplified
             arg_define(varargin, ...
                 arg_norep('signal'), ...
                 arg({'patterns','PatternPairs'},3,[],'Number of CSP patterns (times two).','cat','Feature Extraction','type','expression','shape','row'),...
+                arg({'dologtransform','LogTransform','logtransform'},true,[],'Perform log-transform. This is almost always the right thing to do.'),...
                 arg({'shrinkage_cov','ShrinkageCovariance'},false,[],'Shrinkage covariance estimator. Whether to use shrinkage to estimate the covariance matrices.'));
             
             if signal.nbchan < patterns
@@ -144,13 +145,16 @@ classdef ParadigmCSP < ParadigmDataflowSimplified
             model.patterns = P([1:patterns end-patterns+1:end],:);
             model.cov = cov(signal.data(:,:)');
             model.chanlocs = signal.chanlocs;
+            model.logtransform = dologtransform;
         end
         
         function features = feature_extract(self,signal,featuremodel)
             % extract log-variance features according to CSP
             features = zeros(size(signal.data,3),size(featuremodel.filters,2));
             for t=1:size(signal.data,3)
-                features(t,:) = log(var(signal.data(:,:,t)'*featuremodel.filters)); end
+                features(t,:) = var(signal.data(:,:,t)'*featuremodel.filters); end
+            if featuremodel.logtransform
+                features = log(features); end
         end
         
         function visualize_model(self,varargin) %#ok<*INUSD>

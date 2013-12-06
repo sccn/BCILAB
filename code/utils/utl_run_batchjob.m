@@ -6,7 +6,8 @@ try
     storename = env_translatepath(strrep(strrep(opts.storepatt,'%set',setnames{d}),'%approach',appname));
     if opts.reuse && ~isempty(storename) && exist(storename,'file')
         disp(['Reusing existing result for approach "' appname '" on set "' setnames{d} '".']);
-        load(storename);
+        disp(['Trying to load file ' storename]);
+        io_load(storename);
     elseif ~opts.loadonly
         % train a model on the Dataset
         [res.loss,res.model,res.stats] = bci_train(opts.trainargs{:}, 'data',opts.datasets{d}, 'approach',opts.approaches.(appname), 'markers',opts.markers);
