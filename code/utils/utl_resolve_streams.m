@@ -63,7 +63,11 @@ if ~iscell(pip)
     % pipeline given as single filter chain
     if exist('chanlocs','var') && ~isempty(chanlocs)
         labels = {chanlocs.labels};
-        types = unique({chanlocs.type});
+        if isfield(chanlocs,'type')
+            types = unique({chanlocs.type});
+        else
+            types = [];
+        end
     else
         labels = [];
         types = [];
@@ -78,7 +82,11 @@ else
             error('The Chanlocs array has a different number of elements than the filter graph.'); end
         for p = 1:length(pip)
             labels{p} = {chanlocs{p}.labels}; %#ok<AGROW>
-            types{p} = unique({chanlocs{p}.type}); %#ok<AGROW>
+            if isfield(chanlocs{p},'type')
+                types{p} = unique({chanlocs{p}.type}); %#ok<AGROW>
+            else
+                types{p} = [];
+            end
         end
     else
         labels = repmat({[]},1,length(pip));
