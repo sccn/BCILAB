@@ -176,6 +176,8 @@ else
         if any(ni)
             % if necessary, set NaN shape parameters appropriately
             shape(ni) = nf / shape(~ni);
+        elseif length(shape) == 3
+            shape = repmat([shape(1),shape(2)],shape(3),1);
         elseif nf ~= shape(1)*shape(2)
             % otherwise check for consistency
             error('shape parameter is inconsistent with feature space dimension.');
