@@ -91,7 +91,7 @@ function res = arg_tovals(spec,set_direct,format,mandatory_check,unassigned_chec
             expressions(~cellfun('isclass',values(expressions),'char')) = [];
             if ~isempty(expressions)
                 try
-                    [values{expressions}] = dealout(evalin('base',format_cellstr(values(expressions))));
+                    [values{expressions}] = celldeal(evalin('base',format_cellstr(values(expressions))));
                 catch %#ok<CTCH>
                     for e=find(expressions)
                         try
@@ -147,12 +147,6 @@ function res = arg_tovals(spec,set_direct,format,mandatory_check,unassigned_chec
         otherwise
             error(['Unrecognized output format: ' hlp_tostring(format)]);
     end            
-end
-
-
-% like deal(), except that the inputs are given as a cell array instead of a comma-separated list
-function varargout = dealout(argin)
-    varargout = argin;
 end
 
 

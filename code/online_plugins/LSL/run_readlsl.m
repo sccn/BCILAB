@@ -98,7 +98,7 @@ function run_readlsl(varargin)
     end
 
     if length(channels) ~= info.channel_count()
-        disp('The number of channels in the steam does not match the number of labeled channel records. Using numbered labels.');
+        disp('The number of channels in the stream does not match the number of labeled channel records. Using numbered labels.');
         channels = cellfun(@(k)['Ch' num2str(k)],num2cell(1:info.channel_count(),1),'UniformOutput',false);
     end
 

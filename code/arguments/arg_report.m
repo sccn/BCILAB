@@ -21,6 +21,7 @@ function result = arg_report(type,func,args)
 %                   fields as in arg_specifier. In addition to lean this includes information about
 %                   alternative (non-default) settings, for use in GUI generation. (provided by
 %                   arg_define)
+%          'parse': Only parse assigned values into a spec, do not return default values
 %
 %          'properties' : Report declared properties of the function, if any. Arguments must be empty.
 %                         (provided by declare_properties)

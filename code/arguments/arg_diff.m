@@ -14,7 +14,7 @@ function second = arg_diff(first,second,use_alternatives,prune_selection)
 %                     the value of arg_selection differs in Second (default: true)
 %
 % Out: 
-%   Difference : The second struct array with all entries removed (recursively) that is unchanged
+%   Difference : The second struct array with all entries removed (recursively) that are unchanged
 %                from the first.
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD

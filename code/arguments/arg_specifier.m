@@ -53,7 +53,9 @@ spec = struct(...
     ... % user interface properties
     'help',{''}, ...                % the help text / description for the argument
     'cat',{''}, ...                 % the human-readable category of the argument
-    ... % misc attributes
+    ... % misc properties
+    'assigned',{false},...          % whether an assignment has been performed for this argument
+    ... % attributes
     'displayable',{true},...        % whether the argument may be displayed by GUIs (true/false)
     'deprecated',{false},...        % whether the argument has been deprecated (true/false)
     'experimental',{false},...      % whether the argument is marked as experimental or "prototype-stage" (true/false)

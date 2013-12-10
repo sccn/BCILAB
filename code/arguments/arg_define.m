@@ -177,6 +177,8 @@ function outstruct = arg_define(vals,varargin)
                 arg_issuereport(arg_tovals(spec,[],'struct',checks.mandatory,checks.unassigned,checks.expression,checks.conversion));
             case 'nvps'
                 arg_issuereport(arg_tovals(spec,[],'cell',checks.mandatory,checks.unassigned,checks.expression,checks.conversion));
+            case 'parse'
+                arg_issuereport(remove_nonassigned(spec));
             case {'lean','rich'}
                 arg_issuereport(spec);
             otherwise
@@ -380,7 +382,7 @@ function [spec,flat_names,first_names,name2idx,leading_skippable,checks] = proce
     % from the outside, which are prone to clashes with functions on the path...)
     if perform_namecheck && strcmp(report,'none')
         try
-            validate_names(first_names);
+            validate_varnames(hlp_getcaller(2),first_names);
         catch e
             disp_once('The function validate_names failed; reason: %s',e.message);
         end
@@ -391,77 +393,6 @@ function [spec,flat_names,first_names,name2idx,leading_skippable,checks] = proce
     checks.unassigned = check_property(spec,'value',unassigned);
     checks.expression = check_property(spec,'type','expression');
     checks.conversion = check_property(spec,'to_double',true);
-end
-
-
-% check for name clashes (once)
-function validate_names(varnames)
-    persistent already_checked;
-    if isempty(already_checked)
-        already_checked = {}; end
-    for n = fast_setdiff(varnames,already_checked)
-        curname = n{1};
-        already_checked{end+1} = curname; %#ok<AGROW>
-        existing_func = which(curname);
-        if ~isempty(existing_func)
-            if isempty(strfind(existing_func,'Java method'))
-                [path_part,file_part,ext_part] = fileparts(existing_func);
-                if ~any(strncmp('@',hlp_split(path_part,filesep),1))
-                    % If this happens, it means that there is a function in one of the directories in
-                    % MATLAB's path which has the same name as an argument of the specification. If this
-                    % argument variable is copied into the function's workspace by arg_define, most MATLAB
-                    % versions will (incorrectly) try to call that function instead of accessing the
-                    % variable. I hope that they handle this issue at some point. One workaround is to use
-                    % a longer argument name (that is less likely to clash) and, if it should still be
-                    % usable for parameter passing, to retain the old name as a secondary or ternary
-                    % argument name (using a cell array of names in arg()). The only really good
-                    % solution at this point is to generally assign the output of arg_define to a
-                    % struct.
-                    disp([hlp_getcaller(3) ': The argument name "' curname '" clashes with the function "' [file_part ext_part] '" in directory "' path_part '"; it is strongly recommended that you either rename the function or remove it from the path.']);
-                end
-            else
-                % these Java methods are probably spurious "false positives" of the which() function
-                disp([hlp_getcaller(3) ': There is a Java method named "' curname '" on your path; if you experience any name clash with it, please report this issue.']);
-            end
-        end
-    end
-end
-
-
-% substitute any structs in place of a name-value pair into the name-value list
-function args = flatten_structs(args,structmask)
-    if any(structmask)
-        persistent cache; %#ok<TLEV>
-        try
-            % try to look up splice points from cache
-            if length(structmask) < 62
-                field = char('a'+structmask);
-            else
-                str = java.lang.String(char('a'+structmask));
-                field = ['a' num2str(str.hashCode()+2^31)];
-            end
-            splicepos = cache.(field);
-        catch %#ok<CTCH>
-            % pre-calculate splice points from structmask
-            % and cache results
-            splicepos = [];
-            k = 1;
-            while k <= length(args)
-                if isstruct(args{k})
-                    splicepos(end+1) = k; %#ok<AGROW>
-                    k = k+1; % struct case
-                else
-                    k = k+2; % NVP case
-                end
-            end
-            splicepos = splicepos(end:-1:1);
-            cache.(field) = splicepos;
-        end
-
-        % splice structs in
-        for k = splicepos
-            args = [args(1:k-1) reshape([fieldnames(args{k}) struct2cell(args{k})]',1,[]) args(k+1:end)]; end
-    end
 end
 
 
@@ -630,6 +561,7 @@ function spec = assign_values(spec,nvps,name2idx)
             elseif ~isequal(newvalue,'__arg_unassigned__') && ~(~spec(idx).empty_overwrites && (isempty(newvalue) || isequal(newvalue,'__arg_mandatory__')))
                 spec(idx).value = newvalue;
             end
+            spec(idx).assigned = true;
         catch e
             if ~strcmp(e.identifier,'MATLAB:nonExistentField')
                 rethrow(e); end
@@ -643,4 +575,14 @@ function spec = assign_values(spec,nvps,name2idx)
             spec(end+1) = feval(tmp{1},[],tmp{2}{:}); %#ok<AGROW>
         end
     end
+end
+
+
+function spec = remove_nonassigned(spec)
+    % strip everything that has not been assigned
+    if ~isempty(spec)
+        spec(~[spec.assigned]) = []; end
+    % recurse into children
+    if ~isempty(spec)        
+        [second.children] = celldeal(cellfun(@remove_nonassigned,{spec.children},'UniformOutput',false)); end
 end

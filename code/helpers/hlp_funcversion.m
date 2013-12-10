@@ -45,6 +45,11 @@ if ~isempty(filename)
         % otherwise we just hash the entire code
         if isempty(versionformat) || isempty(v)
             v = hlp_cryptohash(code); end
+        if iscell(v)
+            if length(v) > 1
+                warn_once('BCILAB:hlp_funcversion:multiple_tags','There is more than one version tag in file %s. Using the first one.',filename); end
+            v = v{1}; 
+        end
         fclose(f);
     catch %#ok<CTCH>
         try

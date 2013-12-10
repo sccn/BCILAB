@@ -169,7 +169,7 @@ function spec = assign_argsubswitch(spec,value,reptype,sources,case_default_spec
     
      if ~isempty(case_default_val{idx}) && permit_positionals
         % parse the values into a struct and retain only the difference from the urdefaults
-        diffvalue = arg_tovals(arg_diff(case_default_spec{idx},arg_report('lean',sources{idx},[value skip_noreps])),[],'cell');
+        diffvalue = arg_tovals(arg_diff(case_default_spec{idx},arg_report('parse',sources{idx},[value skip_noreps])),[],'cell');
         % now parse the defaults with values partially overriding and assign result to children
         spec.children = arg_report(reptype,sources{idx},[case_default_val{idx},diffvalue]);
     else

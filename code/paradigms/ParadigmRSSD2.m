@@ -38,13 +38,14 @@ classdef ParadigmRSSD2 < ParadigmDataflowSimplified
                 'EpochExtraction',[-2 2], ...
                 'ICA','beamica', ...
                 ...%'DipoleFitting',{'ConfusionRange',7}, ...
-                'Projection','on', ...
+                'Projection',{'ChannelNames',false}, ...
                 'ERSPTransform',{'WindowStep',1/15,'SpectralMap','sqrt'}, ...
                 };
         end
         
         function defaults = machine_learning_defaults(self)
             defaults = {'dal', 2.^(8:-0.25:-1), 'scaling','none'};
+            %defaults = {'logreg', 'variant',{'lars','ElasticMixing',0.5}};
         end
                 
         function model = feature_adapt(self,varargin)
@@ -57,16 +58,15 @@ classdef ParadigmRSSD2 < ParadigmDataflowSimplified
                     arg({'vectorize_features','VectorizeFeatures'},true,[],'Vectorize feature tensors. This is for classifiers that cannot handle matrix or tensor-shaped features.'));
             model = rmfield(args,'signal');
             % TODO: implement the priors again
-            % apply feature extraction to one trial to get the shape information
-            [dummy,tmp] = evalc('pop_select(args.signal,''trial'',1:2)'); %#ok<ASGLU>
-            [dummy,model.shape] = self.feature_extract(tmp,model); %#ok<ASGLU>
+            % apply feature extraction to the data to get the shape information
+            [dummy,model.shape] = self.feature_extract(args.signal,model); %#ok<ASGLU>
         end
         
         function [features,shape] = feature_extract(self,signal,featuremodel)
-            features = signal.data;
+            features = permute(signal.data,[2 3 1 4]);
             % determine feature shape
             siz = size(features);
-            shape = siz(1:3);
+            shape = repmat(siz(1:2),siz(3),1);
             % do final vectorization if desired
             if featuremodel.vectorize_features
                 features = reshape(features,[],signal.trials)'; end

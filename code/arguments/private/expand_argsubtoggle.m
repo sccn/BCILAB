@@ -134,7 +134,7 @@ function spec = assign_argsubtoggle(spec,value,reptype,source,default_spec,defau
     if spec.value
         if ~isempty(default_val) && permit_positionals
             % parse the values into a struct and retain only the difference from the rich default_val
-            diffvalue = arg_tovals(arg_diff(default_spec,arg_report('lean',source,[value skip_noreps])),[],'cell');
+            diffvalue = arg_tovals(arg_diff(default_spec,arg_report('parse',source,[value skip_noreps])),[],'cell');
             % now parse the default_val with values partially overriding and assign result to children (optionally reflagged)
             spec.children = arg_report(reptype,source,[default_val,diffvalue]);
         else
