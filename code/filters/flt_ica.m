@@ -148,6 +148,9 @@ function [signal,state] = flt_ica(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-17
 
+% flt_ica_version<1.2.9> -- for the cache
+
+
 if ~exp_beginfun('filter') return; end
 
 % has its own highpass filter, sometimes applied on re-referenced data
@@ -355,8 +358,6 @@ arg_define([0 2],varargin, ...
     arg({'dodebug','DebugMode','debug'},false,[],'Debug mode. Stops and waits for user input in case of an exception.','guru',true), ...
     arg({'normalize_weights','NormalizeWeights','NormalizeWights'},false,[],'Normalize weights.'), ...
     arg_nogui({'state','State'}));
-
-% flt_ica_version<1.2.8> -- for the cache
 
 if ~isempty(state)
     % online case: annotate the data
@@ -882,9 +883,9 @@ else
                 variant.solverOptions.LS_multi = hlp_rewrite(variant.solverOptions.LS_multi,'Default',[],'SameOrder',0,'HigherOrder',1);
                 variant.chan_labels = {pre.chanlocs.labels};
                 if doforce
-                    [pre.icaweights,pre.icasphere,pre.icachansind] = rica(pre.data,rmfield(variant,'solverOptions'),rmfield(variant.solverOptions,'arg_direct'));
+                    [pre.icaweights,pre.icasphere,pre.icachansind] = rica(pre.data,variant,variant.solverOptions);
                 else
-                    [pre.icaweights,pre.icasphere,pre.icachansind] = hlp_diskcache('icaweights',@rica,pre.data,rmfield(variant,'solverOptions'),rmfield(variant.solverOptions,'arg_direct'));
+                    [pre.icaweights,pre.icasphere,pre.icachansind] = hlp_diskcache('icaweights',@rica,pre.data,variant,variant.solverOptions);
                 end
             case 'dictica'
                 % use dictionary learning
@@ -977,6 +978,7 @@ else
     if isfield(signal.etc,'amica')
         state.amica = signal.etc.amica; end
 end
+
 
 % keep track of the last ICA decomposition for inspection
 global tracking; tracking.inspection.ica = state;

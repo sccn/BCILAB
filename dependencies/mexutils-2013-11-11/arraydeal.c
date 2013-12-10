@@ -5,7 +5,7 @@ void mexFunction(int nlhs, mxArray *plhs[],
     int numel,k;
     void *data;
     if (nrhs != 1)
-        mexErrMsgTxt("arraydeal:incorrect_input_argument_number","1 input argument required."); 
+        mexErrMsgIdAndTxt("arraydeal:incorrect_input_argument_number","1 input argument required."); 
     numel = mxGetNumberOfElements(prhs[0]);
     if (nlhs != numel)
         mexErrMsgIdAndTxt("arraydeal:incorrect_output_argument_number","The number of elements in the input array must equal the number of output arguments."); 
