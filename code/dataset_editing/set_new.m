@@ -70,7 +70,7 @@ end
 
 
 % derive xmax, nbchan, pnts, trials
-[signal.nbchan,signal.pnts, signal.trials] = size(signal.data);
+[signal.nbchan,signal.pnts, signal.trials, extra_dims] = size(signal.data); %#ok<NASGU>
 signal.xmax = signal.xmin + (signal.pnts-1)/signal.srate;
 
 % derive additional event & urevent info

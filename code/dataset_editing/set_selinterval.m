@@ -87,7 +87,7 @@ elseif length(samplerange)<size(signal.data,2) || ~all(samplerange)
     % select range within the time series fields
     for field = utl_timeseries_fields(signal)
         if ~isempty(signal.(field{1}))
-            signal.(field{1}) = signal.(field{1})(:,samplerange); end
+            signal.(field{1}) = signal.(field{1})(:,samplerange,:,:,:,:,:,:); end
     end
     % select range within the events
     if ~isempty(signal.event)

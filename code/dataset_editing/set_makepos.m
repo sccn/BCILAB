@@ -55,7 +55,7 @@ function [signal,state] = set_makepos(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-01
 
-% set_makepos_version<2.0> -- for the cache
+% set_makepos_version<2.01> -- for the cache
 
 if ~exp_beginfun('filter'), return; end
 
@@ -87,8 +87,8 @@ if isempty(state) %#ok<*NODEF>
 else
     % have state: prepend the buffer to the signal
     for f = state.timeseries_fields
-        signal.(f{1}) = [state.buffer.(f{1}) signal.(f{1})]; end
-    [signal.nbchan,signal.pnts,signal.trials] = size(signal.data);
+        signal.(f{1}) = cat(2,state.buffer.(f{1}),signal.(f{1})); end
+    [signal.nbchan,signal.pnts,signal.trials,extra_dims] = size(signal.data); %#ok<NASGU>
    % increment marker latencies by amount of prepended data
     if ~isempty(signal.event)
         [signal.event.latency] = arraydeal([signal.event.latency]+size(state.buffer.data,2)); end
@@ -105,7 +105,7 @@ end
 if nargout > 1
     % retain the last portion of the time series fields
     for f = state.timeseries_fields
-        state.buffer.(f{1}) = signal.(f{1})(:,max(1,end-state.prepend_samples+1):end); end
+        state.buffer.(f{1}) = signal.(f{1})(:,max(1,end-state.prepend_samples+1):end,:,:,:,:,:,:); end
     if ~isempty(signal.event)
         % retain events that lie in the buffered interval
         state.events = signal.event(round([signal.event.latency]) > (signal.pnts-size(state.buffer.data,2)));
@@ -160,8 +160,9 @@ if strcmp(online_epoching,'at_targets') || ~onl_isonline
 
             % epoch the time series fields
             for f = state.timeseries_fields
-                if ~isempty((signal.(f{1})))
-                    signal.(f{1}) = reshape(signal.(f{1})(:,ranges),size(signal.(f{1}),1),size(ranges,1),size(ranges,2)); end
+                siz = size(signal.(f{1}));
+                if ~isempty(signal.(f{1}))
+                    signal.(f{1}) = reshape(signal.(f{1})(:,ranges,1,:,:,:,:,:),[siz(1),size(ranges,1),size(ranges,2),siz(4:end)]); end
             end
 
             % epoch sparse event latencies and collect retained event indices and latencies
@@ -209,7 +210,7 @@ else
         % too long: remove excess data
         for f = state.timeseries_fields
             if ~isempty(signal.(f{1}))
-                signal.(f{1}) = signal.(f{1})(:,end-state.sample_points+1:end,1); end
+                signal.(f{1}) = signal.(f{1})(:,end-state.sample_points+1:end,1,:,:,:,:,:); end
         end
         % update event latencies and remove out-of-range events
         if ~isempty(signal.event)
@@ -243,7 +244,7 @@ end
 % fix up signal properties
 signal.xmin = state.time_bounds(1);
 signal.xmax = state.time_bounds(2);
-[signal.nbchan,signal.pnts,signal.trials] = size(signal.data);
+[signal.nbchan,signal.pnts,signal.trials,extra_dims] = size(signal.data); %#ok<NASGU>
 if isempty(signal.data) || isempty(signal.event)
     signal.event = []; end
 if isempty(signal.epoch)
