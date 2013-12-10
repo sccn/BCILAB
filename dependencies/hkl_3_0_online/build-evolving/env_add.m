@@ -1,0 +1,1 @@
+any(cellfun(@exist,{'find_existing_source_transpose', 'find_existing_source_transpose_min', 'find_sources_complement_grid_fast_int_all_active_c', 'find_sources_complement_grid_fast_int_c'})==3)

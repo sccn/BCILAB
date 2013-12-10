@@ -92,7 +92,7 @@ switch ref_type
         ref_signal = median(signal.data(ref_chns,:));
     case 'huber'
         if isempty(huber_cut)
-            huber_cut = median(mad(signal.data,1,2))*1.4826; end
+            huber_cut = median(median(abs(bsxfun(@minus,signal.data,median(signal.data,2))),2))*1.4826; end
         ref_signal = robust_mean(signal.data(ref_chns,:)/huber_cut,1,huber_iters)*huber_cut;
     otherwise
         error('Unsupported reference type.');

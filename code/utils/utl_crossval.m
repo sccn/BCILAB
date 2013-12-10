@@ -219,7 +219,7 @@ else
     stats.([stats.measure '_mu']) = mean(tmp);
     stats.([stats.measure '_std']) = std(tmp);
     stats.([stats.measure '_med']) = median(tmp);
-    stats.([stats.measure '_mad']) =  mad(tmp,1);
+    stats.([stats.measure '_mad']) =  median(abs(tmp-median(tmp)));
     measure = mean(tmp);
     
     % also add the original targets & predictions
