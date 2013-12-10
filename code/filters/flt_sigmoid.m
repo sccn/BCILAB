@@ -15,8 +15,10 @@ g = arg_define(varargin, ...
         arg({'y_shift'},0,[],'Y translation'));
 
 signal = g.signal;
-%% sigmoid transform
-% sigmoid parameters: [amp, phase, slope, x_shift, y_shift]
-signal.data = sigmoid([g.amp,g.phase,g.slope,g.x_shift,g.y_shift],signal.data);
+% sigmoid transform parameters: [amp, phase, slope, x_shift, y_shift]
+for f=utl_timeseries_fields(signal)
+    if ~isempty(signal.(f{1}))
+        signal.(f{1}) = sigmoid([g.amp,g.phase,g.slope,g.x_shift,g.y_shift],signal.(f{1})); end
+end
 
 exp_endfun;

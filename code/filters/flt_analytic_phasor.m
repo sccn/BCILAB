@@ -9,6 +9,8 @@ function [signal,state] = flt_analytic_phasor(varargin)
 % 4) compute analytic amp as A = sqrt(Re.^2 + Im.^2)
 % 5) compute phase as Phi = atan2(Im,Re)
 %
+% This filter applies to all time-series fields of the given signal.
+%
 % In:
 %   Signal : EEGLAB data set structure
 %

@@ -76,7 +76,7 @@ arg_define(varargin, ...
 
 if ~exist('retain_ics','var')    
     
-    if isfield(signal.dipfit,'multimodel') && length(signal.dipfit.multimodel) > length(signal.dipfit.model)
+    if isfield(signal.dipfit,'multimodel') && length(signal.dipfit.multimodel) > length(signal.dipfit.model) %#ok<NODEF>
         % this is, among others, because .amica.W is currently a 3d array which
         % cannot be pruned separately for each model
         error('Volume selection can currently not be applied to multi-model decompositions.');
@@ -87,7 +87,6 @@ if ~exist('retain_ics','var')
     
     % subset ICs based on probability under retained brain volumes
     for ic=1:length(retain_ics)
-        match = true;
         multiplied_prob = 1;
         % for each of the three partitions...
         for partition = {sel_hemi,sel_lobe,sel_gyrus}
@@ -113,7 +112,7 @@ if ~exist('retain_ics','var')
         isolation_measure = zeros(1,length(signal.dipfit.model));
         for ic=find(retain_ics)
             isolation_measure(ic) = min(sqrt(sum((bsxfun(@minus,signal.dipfit.model(ic).posxyz,vertcat(signal.dipfit.model(setdiff(find(retain_ics),ic)).posxyz))).^2,2))); end
-        isolation_measure(retain_ics) = log(1+isolation_measure(retain_ics));
+        isolation_measure(retain_ics) = log(1+isolation_measure(retain_ics)); %#ok<NASGU>
         % retain the highest-probability ones
         [dummy,order]= sort(multiplied_probs(retain_ics),'descend'); %#ok<ASGLU>
         %[dummy,order]= sort(isolation_measure(retain_ics).*multiplied_probs(retain_ics),'descend'); %#ok<ASGLU>

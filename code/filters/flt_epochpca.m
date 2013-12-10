@@ -37,28 +37,35 @@ arg_define(varargin,...
 if ~exist('mapping','var')
     if isempty(reducedim)
         reducedim = signal.pnts; end
-    % compute principal eigenspace for each channel
-    mapping = cell(1,signal.nbchan);
-    for c = 1:signal.nbchan
-        try
-            [mapping{c},D] = eig(hlp_diskcache('filterdesign',@cov_shrink,squeeze(signal.data(c,:,:))'));
-        catch
-            mapping{c} = eye(size(signal.data,2));
+    for f = utl_timeseries_fields(signal)
+        X = signal.(f{1});
+        if ~isempty(X)
+            mapping.(f{1}) = cell(1,size(X,1));
+            % compute principal components for each channel
+            for c = size(X,1):-1:1
+                try
+                    [mapping.(f{1}){c},D] = eig(hlp_diskcache('filterdesign',@cov_shrink,squeeze(X(c,:,:))')); %#ok<NASGU>
+                catch %#ok<CTCH>
+                    mapping.(f{1}){c} = eye(size(X,2));
+                end
+                mapping.(f{1}){c} = mapping.(f{1}){c}(:,1:reducedim);
+            end
         end
-        mapping{c} = mapping{c}(:,1:reducedim);
     end
 end
 
 % transform each channel into the eigenspace and write back
-tmp = zeros(signal.nbchan,size(mapping{1},2),signal.trials);
-for c = 1:signal.nbchan
-    tmp(c,:,:) = (mapping{c}' * reshape(signal.data(c,:,:),size(mapping{c},1),[])); end
-signal.data = tmp;
+for f = utl_timeseries_fields(signal)
+    X = signal.(f{1});
+    if ~isempty(X)
+        M = mapping.(f{1});
+        tmp = zeros(size(X,1),size(M{1},2),size(X,3));
+        for c = 1:size(X,1)
+            tmp(c,:,:) = (M{c}' * reshape(X(c,:,:),size(M,1),[])); end
+        signal.(f{1}) = tmp;
+    end
+end
 signal.pnts = size(signal.data,2);
-
-
-% keep track of the mapping decomposition
-global tracking;
-tracking.inspection.epochpca = mapping;
+signal.etc.epochpca = mapping;
 
 exp_endfun('append_online',{'mapping',mapping});

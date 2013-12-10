@@ -10,11 +10,12 @@ declare_properties('name', 'Rectify', 'precedes','set_makepos', 'independent_tri
 arg_define(varargin, ...
         arg_norep({'signal','Signal'}), ...
         arg({'squareData','SquareData'},false,[],'Return abs(x).^2. Otherwise only abs(x) is returned.'));
-     
-if ~isreal(signal.data) || ~squareData
-    signal.data = abs(signal.data); end
 
-if squareData
-    signal.data = signal.data.^2; end
+for f = utl_timeseries_fields(signal)
+    if ~isreal(signal.(f{1})) || ~squareData
+        signal.(f{1}) = abs(signal.(f{1})); end
+    if squareData
+        signal.(f{1}) = signal.(f{1}).^2; end
+end
 
 exp_endfun;

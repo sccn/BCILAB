@@ -93,7 +93,7 @@ arg_define(varargin, ...
     arg_nogui({'state','State'}));
 
 if subset_size < 1 %#ok<NODEF>
-    subset_size = round(subset_size*size(signal.data,1)); end
+    subset_size = round(subset_size*size(signal.data,1)); end %#ok<NODEF>
 
 signal.data = double(signal.data);
 signal.data(~isfinite(signal.data(:))) = 0;
@@ -102,7 +102,7 @@ N = round(window_len*signal.srate);
 P = round(processing_delay*signal.srate);
 
 % initialize filter state if necessary
-if isempty(state)
+if isempty(state) %#ok<NODEF>
     % extract a relatively clean section of data
     disp('Finding a clean section of the data...');
     ref_section = exp_eval_optimized(flt_clean_windows(ref_extraction,'signal',signal));
@@ -115,7 +115,7 @@ if isempty(state)
             elseif signal.srate > 110
                 [state.B,state.A] = yulewalk(4,[[0 45 50 55]*2/signal.srate 1],[1 1 0 1 1]);
             end
-        catch
+        catch %#ok<CTCH>
         end
     end
  
@@ -129,7 +129,7 @@ if isempty(state)
         
     % calculate the sample covariance matrices U (averaged in blocks of blocksize successive samples)
     if use_gpu
-        try X = gpuArray(X); catch,end; end
+        try X = gpuArray(X); catch,end; end %#ok<CTCH>
     U = zeros(length(1:calib_precision:S),C*C);
     for k=1:calib_precision
         range = min(S,k:calib_precision:(S+k-1));
@@ -177,7 +177,7 @@ for i=1:splits
             [X,state.iir] = filter(state.B,state.A,X,state.iir,2); end
         % move it to the GPU if applicable
         if use_gpu && length(range) > 1000
-            try X = gpuArray(X); catch,end; end
+            try X = gpuArray(X); catch,end; end %#ok<CTCH>
         
         % get the RANSAC'ed reconstruction Y
         Y = sort(reshape(X'*state.projector,size(X,2),C,[]),3);

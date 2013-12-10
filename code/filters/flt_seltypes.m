@@ -44,7 +44,7 @@ if ischar(chantypes)
 
 retain_indices = [];
 for t = chantypes
-    retain_indices = [retain_indices find(strcmp({signal.chanlocs.type},t{1}))]; end
+    retain_indices = [retain_indices find(strcmp({signal.chanlocs.type},t{1}))]; end %#ok<AGROW>
 signal = pop_select(signal,'channel',sort(retain_indices),'sorttrial','off'); %#ok<*NODEF>
 
 exp_endfun;

@@ -66,7 +66,7 @@ if strcmp(projmat,'.icaweights*.icasphere') || isempty(projmat)
         % project using AMICA weights
         subchans = signal.icachansind;
         for m=1:size(signal.etc.amica.W,3)
-            tmp{m} = signal.etc.amica.W(:,:,m)*signal.etc.amica.S; end
+            tmp{m} = signal.etc.amica.W(:,:,m)*signal.etc.amica.S; end %#ok<AGROW>
         projmat = cat(1,tmp{:});        
     elseif isfield(signal,'icaweights') && ~isempty(signal.icaweights)
         % project using ICA weights
@@ -127,7 +127,7 @@ if ~isempty(subcomps)
         subcomps = 1 + floor(subcomps*(signal.nbchan-1));
         tmp = [];
         for k=1:size(subcomps,1)
-            tmp = [tmp subcomps(k,1):subcomps(k,2)]; end
+            tmp = [tmp subcomps(k,1):subcomps(k,2)]; end %#ok<AGROW>
         subset = set_chanid(signal,tmp);
         if ~isequal(subset,1:signal.nbchan)
             signal = pop_select(signal,'channel',subset,'sorttrial','off'); end

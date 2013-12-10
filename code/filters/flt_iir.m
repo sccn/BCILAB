@@ -153,13 +153,12 @@ if isempty(state)
 end
 
 for f = utl_timeseries_fields(signal)
-    field = f{1};
-    if ~isempty(signal.(field))
+    if ~isempty(signal.(f{1}))
         % apply filter for each section
-        for s = 1:size(state.(field).sos,1)
-            [signal.(field),state.(field).zi{s}] = filter(state.(field).sos(s,1:3),state.(field).sos(s,4:6),double(signal.(field)),state.(field).zi{s},2); end
+        for s = 1:size(state.(f{1}).sos,1)
+            [signal.(f{1}),state.(f{1}).zi{s}] = filter(state.(f{1}).sos(s,1:3),state.(f{1}).sos(s,4:6),double(signal.(f{1})),state.(f{1}).zi{s},2); end
         % apply gain
-        signal.(field) = signal.(field)*state.(field).g;
+        signal.(f{1}) = signal.(f{1})*state.(f{1}).g;
     end
 end
 

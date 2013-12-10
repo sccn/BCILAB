@@ -56,14 +56,14 @@ arg_define(varargin,...
     arg({'wlevels','NumLevels','numlevels'}, 10, [], 'Number of decomposition levels. If this is > 1, a multi-level wavelet decomposition will be done.'));
 
 % generate coefficients if necessary
-if ischar(wfamily)
+if ischar(wfamily) %#ok<USENS>
 	[lo,hi] = wfilters(wfamily,'d');
 else
     [lo,hi] = deal(wfamily{:});
 end
 lf = length(lo);
 
-for f = utl_timeseries_fields(signal)
+for f = utl_timeseries_fields(signal) %#ok<NODEF>
     if ~isempty(signal.(f{1}))
         % flip dimensions so we can filter along the first dimension
         [X,dims] = spatialize_transpose(signal.(f{1}));

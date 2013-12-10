@@ -76,8 +76,8 @@ if isempty(state)
             % filter conditions & constant overall data offset (for better numerical accuracy; this is
             % unrelated to the running mean)
             state.(field) = struct('ord1',[],'ord2',[],'offset',sum(signal.(field) ,2)/size(signal.(field) ,2),'last_R',[]);
-            % prepend a made up data sequence
-            signal.(field) = [repmat(2*signal.(field) (:,1),1,N) - signal.(field)(:,(N+1):-1:2) signal.(field)];
+            % extrapolate the signal into the past
+            signal.(field) = [repmat(2*signal.(field)(:,1),1,N) - signal.(field)(:,1+mod(((N+1):-1:2)-1,size(signal.(field),2))) signal.(field)];
         elseif ~isequal(signal.(field),1) && ~isempty(signal.(field))
             disp_once(['Not filtering the field .' field ': needs to be longer than the set data window length (for this data set ' num2str(window_len) ' seconds).']);
         end
@@ -118,14 +118,14 @@ for fld = utl_timeseries_fields(signal)
                     X = double(signal.(field)(:,range));
                     % move it to the GPU if applicable
                     if usegpu && length(range) > 1000
-                        try X = gpuArray(X); catch,end; end
+                        try X = gpuArray(X); catch,end; end %#ok<CTCH>
                     % compute running mean covariance (assuming a zero-mean signal)
                     [Xcov,state.(field).ord2] = moving_average(N,reshape(bsxfun(@times,reshape(X,1,C,[]),reshape(X,C,1,[])),C*C,[]),state.(field).ord2);
                     % extract the subset of time points at which we intend to update the sphering matrix
                     update_at = min(stepsize:stepsize:(size(Xcov,2)+stepsize-1),size(Xcov,2));
                     % if there is no previous R (from the end of the last chunk), we estimate it right at the first sample
                     if isempty(state.(field).last_R)
-                        update_at = [1 update_at];
+                        update_at = [1 update_at]; %#ok<AGROW>
                         state.(field).last_R = eye(C);
                     end
                     Xcov = reshape(Xcov(:,update_at),C,C,[]);
@@ -137,7 +137,7 @@ for fld = utl_timeseries_fields(signal)
                         % update the sphering matrix
                         V = Xcov(:,:,j);
                         R = real((V*(1-lambda) + lambda*eye(C)*trace(V)/C)^(-1/2));
-                        % apply the reconstruction to intermediate samples (using raised-cosine blending)
+                        % apply the matrix to intermediate samples (using raised-cosine blending)
                         n = update_at(j);
                         subrange = range((last_n+1):n);
                         blend = (1-cos(pi*(1:(n-last_n))/(n-last_n)))/2;
