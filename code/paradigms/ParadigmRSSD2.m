@@ -66,7 +66,7 @@ classdef ParadigmRSSD2 < ParadigmDataflowSimplified
             features = permute(signal.data,[2 3 1 4]);
             % determine feature shape
             siz = size(features);
-            shape = repmat(siz(1:2),siz(3),1);
+            shape = siz(1:3);
             % do final vectorization if desired
             if featuremodel.vectorize_features
                 features = reshape(features,[],signal.trials)'; end
