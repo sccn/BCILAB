@@ -59,10 +59,10 @@ for fld = utl_timeseries_fields(chunk)
         if size(chunk.(field),2) < desired_length
             if size(buffer.(field),2) == desired_length
                 % we can do an in-place update without reallocations
-                chunk.(field) = cat(2,buffer.(field)(:,size(chunk.(field),2)+1:end,:,:,:,:,:,:) chunk.(field));
+                chunk.(field) = cat(2,buffer.(field)(:,size(chunk.(field),2)+1:end,:,:,:,:,:,:),chunk.(field));
             else
                 % append new samples & cut excess data
-                chunk.(field) = cat(2,buffer.(field) chunk.(field));
+                chunk.(field) = cat(2,buffer.(field),chunk.(field));
                 if size(chunk.(field),2) > desired_length
                     chunk.(field) = chunk.(field)(:,end-desired_length+1:end,:,:,:,:,:,:); end
             end
