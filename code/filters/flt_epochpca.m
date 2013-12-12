@@ -61,7 +61,7 @@ for f = utl_timeseries_fields(signal)
         M = mapping.(f{1});
         tmp = zeros(size(X,1),size(M{1},2),size(X,3));
         for c = 1:size(X,1)
-            tmp(c,:,:) = (M{c}' * reshape(X(c,:,:),size(M,1),[])); end
+            tmp(c,:,:) = (M{c}' * reshape(X(c,:,:),size(M{c},1),[])); end
         signal.(f{1}) = tmp;
     end
 end

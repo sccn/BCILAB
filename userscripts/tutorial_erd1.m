@@ -103,7 +103,7 @@ testdata = io_loadset('data:/tutorial/imag_movements1/feedback/DanielS001R01.dat
 run_readdataset('Dataset',testdata);
 
 % process data in real time using lastmodel, and visualize outputs
-run_writevisualization('Model',lastmodel, 'VisFunction','bar(y)');
+run_writevisualization('Model',lastmodel, 'VisFunction','bar(y);ylim([0 1])');
 
 % make sure that the online processing gets terminated...
 disp('Click into the figure to stop online processing.'); 

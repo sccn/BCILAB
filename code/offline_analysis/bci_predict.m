@@ -147,7 +147,7 @@ function [prediction, measure, stats, target] = bci_predict(varargin)
 % read arguments
 opts = arg_define([0 2],varargin, ...
     arg_norep({'model','Model'},mandatory,[],'Predictive model. This is a model as previously computed via bci_train.'), ...
-    arg_norep({'data','Data'},mandatory,[],'Data set. EEGLAB data set, or stream bundle, or cell array of data sets / stream bundles to use for calibration/evaluation.'), ...
+    arg_norep({'dataset','Data'},mandatory,[],'Data set. EEGLAB data set, or stream bundle, or cell array of data sets / stream bundles to use for calibration/evaluation.'), ...
     arg({'markers','TargetMarkers'},'frommodel',[],'Assumed target markers. List of types of those markers around which data shall be used for BCI calibration; each marker type encodes a different target class (i.e. desired output value) to be learned by the resulting BCI model. This can be specified either as a cell array of marker-value pairs, in which case each marker type of BCI interest is associated with a particular BCI output value (e.g., -1/+1), or as a cell array of marker types (in which case each marker will be associated with its respective index as corresponding BCI output value, while nested cell arrays are also allowed to group markers that correspond to the same output value). See help of set_targetmarkers for further explanation.'), ...
     arg({'metric','EvaluationMetric','Metric'},'auto',{'auto','mcr','mse','smse','nll','kld','mae','max','rms','bias','medse','auc','cond_entropy','cross_entropy','f_measure'},'Evaluation metric. The metric to use in the assessment of model performance (via cross-validation); see also ml_calcloss.'), ...
     arg({'outformat','Format','format'},'raw',{'raw','expectation','distribution','mode'},'Prediction format. See utl_formatprediction.'),...
@@ -181,33 +181,33 @@ if ~has_stats(opts.metric)
     opts.metric = @(T,P)add_stats(opts.metric(T,P)); end
 
 % uniformize data
-data = opts.data;
-if ~isfield(data,'streams')
-    data = struct('streams',{{data}}); end
+dataset = opts.dataset;
+if ~isfield(dataset,'streams')
+    dataset = struct('streams',{{dataset}}); end
 
 % ... and annotate with target markers
 % (there are 3 possible TargetMarker formats to handle)
 if length(opts.markers) == 1 && ischar(opts.markers{1}) && strcmp(opts.markers{1}, 'actualvalues')
-    data.streams{1} = set_targetmarkers('Signal',data.streams{1},'EventMap',opts.markers,'EpochBounds',opts.model.epoch_bounds, 'EventField', opts.field );
+    dataset.streams{1} = set_targetmarkers('Signal',dataset.streams{1},'EventMap',opts.markers,'EpochBounds',opts.model.epoch_bounds, 'EventField', opts.field );
 elseif all(cellfun('isclass',opts.markers,'char') | cellfun('isclass',opts.markers,'cell'))
-    data.streams{1} = set_targetmarkers('Signal',data.streams{1},'EventTypes',opts.markers,'EpochBounds',opts.model.epoch_bounds, 'EventField', opts.field);
+    dataset.streams{1} = set_targetmarkers('Signal',dataset.streams{1},'EventTypes',opts.markers,'EpochBounds',opts.model.epoch_bounds, 'EventField', opts.field);
 else
-   data.streams{1} = set_targetmarkers('Signal',data.streams{1},'EventMap',opts.markers,'EpochBounds',opts.model.epoch_bounds, 'EventField', opts.field );
+   dataset.streams{1} = set_targetmarkers('Signal',dataset.streams{1},'EventMap',opts.markers,'EpochBounds',opts.model.epoch_bounds, 'EventField', opts.field );
 end
 
 % attach the passed stream bundle to the model's filter graph
 model = opts.model;
-resolved_graph = utl_resolve_streams(model.tracking.filter_graph,data,model.tracking.prediction_channels);
+resolved_graph = utl_resolve_streams(model.tracking.filter_graph,dataset,model.tracking.prediction_channels);
 % process each chain of the filter graph
-data.streams = cell(1,length(resolved_graph));
+dataset.streams = cell(1,length(resolved_graph));
 for g=1:length(resolved_graph)
-    data.streams{g} = exp_eval_optimized(resolved_graph{g}); end
+    dataset.streams{g} = exp_eval_optimized(resolved_graph{g}); end
 % apply the prediction function to the data
-prediction = model.tracking.prediction_function(data,model);
+prediction = model.tracking.prediction_function(dataset,model);
 
 try
     % try to derive the target variable
-    target = set_gettarget(data);
+    target = set_gettarget(dataset);
 catch e
     % a target variable is not necessarily present
     disp('NOTE: Did not find a target variable in the given data (' + e.message + ')');
