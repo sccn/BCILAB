@@ -63,9 +63,9 @@ end
 % run update_pipeline() with appropriate options
 if suppress_output
     if set_online_scope
-        [console_output,chunk,p] = evalc('hlp_scope({''disable_expressions'',1,''is_online'',1},@update_pipeline,pipeline)'); %#ok<ASGLU>
+        [console_output,chunk,p] = evalc('hlp_scope({''disable_expressions'',1,''is_online'',1},@update_pipeline,p)'); %#ok<ASGLU>
     else
-        [console_output,chunk,p] = evalc('update_pipeline(pipeline)'); %#ok<ASGLU>
+        [console_output,chunk,p] = evalc('update_pipeline(p)'); %#ok<ASGLU>
     end
 else
     if set_online_scope

@@ -39,7 +39,12 @@ arg_define(varargin, ...
 % evaluate dataset, if it's an expression
 in_dataset = exp_eval_optimized(in_dataset);
 in_dataset.starttime = tic;
-in_dataset.event_latencies = round([in_dataset.event.latency]);
+if ~isempty(in_dataset.event)
+    in_dataset.event_latencies = round([in_dataset.event.latency]);
+else
+    in_dataset.event_latencies = [];
+end
+    
 
 % open a new online stream
 onl_newstream(new_stream,rmfield(in_dataset,'data'),'buffer_len',buffer_len);
@@ -60,7 +65,7 @@ block = in_dataset.data(:,range);
 if always_double
     block = double(block); end
 % get events
-if ~isempty(range)
+if ~isempty(range) && ~isempty(in_dataset.event_latencies)
     events = in_dataset.event(in_dataset.event_latencies>=range(1)&in_dataset.event_latencies<=range(end));
     if ~isempty(events)
         [events.latency] = arraydeal([events.latency]-range(1)+1);end
