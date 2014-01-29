@@ -107,19 +107,21 @@ elseif length(samplerange)<size(signal.data,2) || ~all(samplerange)
     if insert_boundary_markers
         % generate data intervals
         if isempty(intervals)
-            sample_mask = false(1,size(signal.data,2));
+            sample_mask = logical([]);
             sample_mask(samplerange) = true;
             intervals = reshape(find(diff([false sample_mask false])),2,[])';
             intervals(:,2) = intervals(:,2)-1;
         end
         % append new events for each boundary between intervals
-        range = length(signal.event)+(1:length(intervals)-1);
-        [signal.event(range).type] = deal('boundary');
-        [signal.event(range).latency] = arraydeal(intervals(1:end-1,2));
-        [signal.event(range).duration] = arraydeal(intervals(2:end,1) - (intervals(1:end-1,2)+1));        
-        % resort events
-        [dummy,order] = sort([signal.event.latency]); %#ok<ASGLU>
-        signal.event = signal.event(order);
+        range = length(signal.event)+(1:size(intervals,1)-1);
+        if range
+            [signal.event(range).type] = deal('boundary');
+            [signal.event(range).latency] = arraydeal(intervals(1:end-1,2));
+            [signal.event(range).duration] = arraydeal(intervals(2:end,1) - (intervals(1:end-1,2)+1));                    
+            % resort events
+            [dummy,order] = sort([signal.event.latency]); %#ok<ASGLU>
+            signal.event = signal.event(order);
+        end
     end
     % update misc fields
     signal.pnts = size(signal.data,2);
