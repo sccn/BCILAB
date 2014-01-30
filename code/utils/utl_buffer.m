@@ -27,7 +27,7 @@ if (desired_length ~= size(chunk.data,2)) && (~isempty(buffer.event) || ~isempty
             % remove excess markers
             chunk.event(latency<0.5) = [];
         end
-    elseif p.israw || p.stateful
+    else
         if ~isempty(chunk.event)
             % shift the latency of the chunk's markers based on how many samples we have to prepend
             [chunk.event.latency] = arraydeal([chunk.event.latency]+min(size(buffer.data,2),(desired_length-size(chunk.data,2))));

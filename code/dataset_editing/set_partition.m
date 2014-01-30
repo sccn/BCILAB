@@ -146,7 +146,7 @@ else
                 % finally, re-extract the intervals and perform the actual partitioning
                 retain_intervals = reshape(find(diff([false select_mask false])),2,[])';
                 retain_intervals(:,2) = retain_intervals(:,2)-1;
-                res = exp_eval(set_selinterval(signal,retain_intervals,'samples',false));
+                res = exp_eval(set_selinterval(signal,retain_intervals,'samples',true));
                 return;
             end
         end
@@ -158,7 +158,7 @@ else
         % find the inclusive, 1-based intervals of non-zeros
         retain_intervals = reshape(find(diff([false mask false])),2,[])';
         retain_intervals(:,2) = retain_intervals(:,2)-1;
-        res = exp_eval(set_selinterval(signal,retain_intervals,'samples',false));
+        res = exp_eval(set_selinterval(signal,retain_intervals,'samples',true));
     end
 end
 
