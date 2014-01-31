@@ -23,7 +23,7 @@ function signal = flt_seltypes(varargin)
 %   eye = flt_seltypes(eeg,'EOG')
 %
 % See also:
-%   flt_selchans, pop_select, io_loadset
+%   flt_selchans, io_loadset
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-11-23
@@ -45,6 +45,8 @@ if ischar(chantypes)
 retain_indices = [];
 for t = chantypes
     retain_indices = [retain_indices find(strcmp({signal.chanlocs.type},t{1}))]; end %#ok<AGROW>
-signal = pop_select(signal,'channel',sort(retain_indices),'sorttrial','off'); %#ok<*NODEF>
+signal.data = signal.data(sort(retain_indices),:,:,:,:,:,:,:);
+signal.chanlocs = signal.chanlocs(sort(retain_indices));
+signal.nbchan = size(signal.data,1);
 
 exp_endfun;

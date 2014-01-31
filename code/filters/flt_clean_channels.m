@@ -146,6 +146,9 @@ signal.etc.clean_channel_mask(signal.etc.clean_channel_mask) = ~removed_channel_
 
 % execute
 if any(removed_channel_mask)
-    signal = pop_select(signal,'nochannel',find(removed_channel_mask)); end
+    signal.data = signal.data(~removed_channel_mask,:,:,:,:,:,:,:);
+    signal.chanlocs = signal.chanlocs(~removed_channel_mask);
+    signal.nbchan = size(signal.data,1);
+end
 
 exp_endfun('append_online',{'removed_channel_mask',removed_channel_mask});

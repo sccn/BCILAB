@@ -91,8 +91,11 @@ end
 
 if ~isempty(subchans)
     subset = set_chanid(signal,subchans);
-    if ~isequal(subset,1:signal.nbchan)
-        signal = pop_select(signal,'channel',subset,'sorttrial','off'); end 
+    if ~isequal(subset,1:signal.nbchan)        
+        signal.data = signal.data(subset,:,:,:,:,:,:,:);
+        signal.chanlocs = signal.chanlocs(subset);
+        signal.nbchan = size(signal.data,1);
+    end
 end
 
 % project data
@@ -129,14 +132,15 @@ if ~isempty(subcomps)
         for k=1:size(subcomps,1)
             tmp = [tmp subcomps(k,1):subcomps(k,2)]; end %#ok<AGROW>
         subset = set_chanid(signal,tmp);
-        if ~isequal(subset,1:signal.nbchan)
-            signal = pop_select(signal,'channel',subset,'sorttrial','off'); end
     else
         % components are given as indices
         subset = set_chanid(signal,subcomps);
-        if ~isequal(subset,1:signal.nbchan)
-            signal = pop_select(signal,'channel',subset,'sorttrial','off'); end
     end
+    if ~isequal(subset,1:signal.nbchan)
+        signal.data = signal.data(subset,:,:,:,:,:,:,:);
+        signal.chanlocs = signal.chanlocs(subset);
+        signal.nbchan = size(signal.data,1);
+    end            
 end
 
 exp_endfun('append_online',append_online);

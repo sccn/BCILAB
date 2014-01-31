@@ -53,6 +53,11 @@ end
 
 % execute
 if ~isempty(removed_channels)
-    signal = pop_select(signal,'nochannel',removed_channels); end
+    retain_channels = true(1,size(signal.data,1)); 
+    retain_channels(removed_channels) = false;
+    signal.data = signal.data(retain_channels,:,:,:,:,:,:,:);
+    signal.chanlocs = signal.chanlocs(retain_channels);
+    signal.nbchan = size(signal.data,1);
+end
 
 exp_endfun('append_online',{'removed_channels',removed_channels});

@@ -101,7 +101,12 @@ end
 signal.data = bsxfun(@minus,signal.data,ref_signal);
 
 if ~keepref && ~isempty(ref_chn)
-    signal = pop_select(signal,'nochannel',ref_chns); end
+    retain_channels = true(1,size(signal.data,1)); 
+    retain_channels(ref_chns) = false;
+    signal.data = signal.data(retain_channels,:,:,:,:,:,:,:);
+    signal.chanlocs = signal.chanlocs(retain_channels);
+    signal.nbchan = size(signal.data,1);    
+end
 if keepref && length(ref_chn)>1
     signal.data(end+1,:) = ref_signal;
     signal.nbchan = size(signal.data,1);

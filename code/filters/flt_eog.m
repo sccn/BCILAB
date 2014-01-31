@@ -94,8 +94,11 @@ if removeeog
         signal.etc.clean_channel_mask = true(1,signal.nbchan); end
     signal.etc.clean_channel_mask(signal.etc.clean_channel_mask) = ~removed_channel_mask;
     % perform removal
-    if any(removed_channel_mask)
-        signal = pop_select(signal,'nochannel',find(removed_channel_mask)); end
+    if any(removed_channel_mask) 
+        signal.data = signal.data(~removed_channel_mask,:,:,:,:,:,:,:);
+        signal.chanlocs = signal.chanlocs(~removed_channel_mask);
+        signal.nbchan = size(signal.data,1);
+    end
 end
 
 exp_endfun;

@@ -46,7 +46,7 @@ function signal = flt_selchans(varargin)
 %   eeg = flt_selchans(eeg,{'AFz','Fz','Fpz','F1'},'dataset-order')
 %
 % See also:
-%   flt_seltypes, pop_select
+%   flt_seltypes
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-17
@@ -65,6 +65,7 @@ arg_define(varargin, ...
     arg({'remove_selection','RemoveSelection'},false,[],'Remove selected channels.'), ...
     arg({'find_closest','FindClosest'},false,[],'Find closest channels. This is for cases where the requested channels are not in the set.'));
 
+% determine channel indices to retain
 if find_closest
     if ~iscellstr(channels)
         error('For distance-based channel matching the given channels should be a cell array of labels.'); end
@@ -73,17 +74,32 @@ if find_closest
 else
     subset = set_chanid(signal,channels);
 end
-    
+
+% optionally invert selection
 if remove_selection
-    subset = setdiff(1:signal.nbchan,subset); end
-if ~isequal(subset,1:signal.nbchan)    
-    if strcmp(orderPreservation,'dataset-order')
-        signal = pop_select(signal,'channel',subset); 
-    elseif strcmp(orderPreservation,'query-order')
-        signal = pop_select(signal,'channel',subset,'sorttrial','off');
-    else
-        error(['Unknown order requested: ' orderPreservation]);
-    end %#ok<*NODEF>
+    tmp = true(1,signal.nbchan);
+    tmp(subset) = false;
+    subset = find(tmp);
+end
+
+% handle order preservation
+if strcmp(orderPreservation,'dataset-order')
+    subset = sort(subset);
+elseif ~strcmp(orderPreservation,'query-order')
+    error(['Unknown order requested: ' orderPreservation]);
+end
+
+if ~isequal(subset,1:signal.nbchan)
+    % update .data
+    signal.data = signal.data(subset,:,:,:,:,:,:,:);
+    % update .chanlocs and .nbchan
+    signal.chanlocs = signal.chanlocs(subset);
+    signal.nbchan = size(signal.data,1);
+    % reset any ICA parameters (should be recomputed)
+    signal.icachansind = [];
+    signal.icaweights = [];
+    signal.icasphere = [];
+    signal.icawinv = [];
 end
 
 exp_endfun;

@@ -859,7 +859,9 @@ else
                     % remove missing channels
                     if ~any(chanmask)
                         error('None of your channels is in the head model; the AnchorLabels option can currently only be used for data with 10-20 labels.'); end
-                    pre = pop_select(pre,'nochannel',find(~chanmask));
+                    signal.data = signal.data(chanmask,:,:,:,:,:,:,:);
+                    signal.chanlocs = signal.chanlocs(chanmask);
+                    signal.nbchan = size(signal.data,1);
                 else
                     B = {};
                 end
