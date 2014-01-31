@@ -175,7 +175,7 @@ classdef ParadigmSIFT < ParadigmDataflowSimplified
             model.args = g;
             
             % run feature extraction for a short signal to get shape information
-            [print_output,tmpsignal] = evalc('pop_select(g.signal,''trial'',1:min(3,g.signal.trials))'); %#ok<ASGLU>
+            tmpsignal = exp_eval(set_selepos(g.signal,1:min(3,g.signal.trials)));
             if ~strcmp(g.featureShape,'[CCFTMx1] (unstructured vector)')                
                 [dummy,model.shape] = self.feature_extract(tmpsignal,model); end %#ok<ASGLU>
         end

@@ -142,7 +142,7 @@ function [measure,stats] = utl_crossval(data, varargin)
 %     if isempty(indices)
 %         result = data.trials;
 %     else
-%         result = pop_select(data,'trial',indices);
+%         result = exp_eval(set_selepos(data,indices));
 %     end
 %
 %   A simple mean-square error loss metric would be:

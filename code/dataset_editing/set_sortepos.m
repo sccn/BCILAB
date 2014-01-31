@@ -28,6 +28,6 @@ arg_define(varargin, ...
     arg_norep({'signal','Signal'}));
 
 [x,inds] = sort([signal.epoch.latency]); %#ok<ASGLU>
-signal = pop_select(signal,'trial',inds,'sorttrial','off');
+signal = exp_eval(set_selepos(signal,inds));
 
 exp_endfun;

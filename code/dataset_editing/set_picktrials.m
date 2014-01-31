@@ -101,7 +101,7 @@ end
 if isempty(inds)
     error('BCILAB:set_picktrial:no_trials','This data set contains no trials for one of your target classes: please check whether your target markers are correct.\n\nAlso note that while the entire recording might have trials for each class, the subset used for training may not, for example when doing a block-wise cross-validation on a block experiment design that has no repetitions.');
 else
-    evalc('signal = pop_select(signal,''trial'',inds'');');
+    signal = exp_eval(set_selepos(signal,inds));
 end
 
 exp_endfun;

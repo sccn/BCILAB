@@ -77,7 +77,7 @@ else
     
     if ~is_continuous
         % set is epoched: strictly partition in terms of epochs
-        evalc('res = pop_select(signal,''trial'',idxset,''sorttrial'',''off'');');
+        res = exp_eval(set_selepos(signal,idxset));
     else
         % set is continuous
         if ~isempty(signal.event) && isfield(signal.event,'target')

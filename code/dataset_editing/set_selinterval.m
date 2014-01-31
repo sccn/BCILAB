@@ -72,18 +72,21 @@ end
 
 % generate samplerange from intervals if not yet present
 if isempty(samplerange)
-    samplerange = false(1,size(signal.data,2));
-    for k=1:size(intervals,1)
-        samplerange(intervals(k,1):intervals(k,2)) = true; end
+    samplerange = cell(1,size(intervals,1));
+    for k=1:length(samplerange)
+        samplerange{k} = intervals(k,1):intervals(k,2); end
+    samplerange = [samplerange{:}];
+elseif isa(samplerange,'logical')
+    samplerange = find(samplerange);
 end
 
-if ~any(samplerange)
+if isempty(samplerange)
     % clear data
     for field = utl_timeseries_fields(signal)
         signal.(field{1}) = []; end
     signal.event = [];
     signal.pnts = 0;
-elseif length(samplerange)<size(signal.data,2) || ~all(samplerange)
+elseif ~isequal(samplerange,1:size(signal.data,2))
     % select range within the time series fields
     for field = utl_timeseries_fields(signal)
         if ~isempty(signal.(field{1}))
@@ -105,19 +108,21 @@ elseif length(samplerange)<size(signal.data,2) || ~all(samplerange)
     end
     % optionally insert boundary markers
     if insert_boundary_markers
-        % generate data intervals
+        % calculate gaps between intervals
         if isempty(intervals)
-            sample_mask = logical([]);
-            sample_mask(samplerange) = true;
-            intervals = reshape(find(diff([false sample_mask false])),2,[])';
-            intervals(:,2) = intervals(:,2)-1;
+            tmp = diff(samplerange)-1;
+            gap_offsets = find(tmp);
+            gap_lengths = tmp(gap_offsets);
+        else
+            gap_offsets = intervals(1:end-1,2);
+            gap_lengths = intervals(2:end,1) - intervals(1:end-1,2) - 1;
         end
         % append new events for each boundary between intervals
-        range = length(signal.event)+(1:size(intervals,1)-1);
-        if range
-            [signal.event(range).type] = deal('boundary');
-            [signal.event(range).latency] = arraydeal(intervals(1:end-1,2));
-            [signal.event(range).duration] = arraydeal(intervals(2:end,1) - (intervals(1:end-1,2)+1));                    
+        insert_range = length(signal.event)+(1:length(gap_offsets));
+        if insert_range
+            [signal.event(insert_range).type] = deal('boundary');
+            [signal.event(insert_range).latency] = arraydeal(gap_offsets+0.5);
+            [signal.event(insert_range).duration] = arraydeal(gap_lengths);
             % resort events
             [dummy,order] = sort([signal.event.latency]); %#ok<ASGLU>
             signal.event = signal.event(order);
@@ -125,8 +130,8 @@ elseif length(samplerange)<size(signal.data,2) || ~all(samplerange)
     end
     % update misc fields
     signal.pnts = size(signal.data,2);
-    signal.xmax = signal.xmin + (find(samplerange,1,'last')-1)/signal.srate;
-    signal.xmin = signal.xmin + (find(samplerange,1)-1)/signal.srate;
+    signal.xmax = signal.xmin + (max(samplerange)-1)/signal.srate;
+    signal.xmin = signal.xmin + (min(samplerange)-1)/signal.srate;
 end
 
 exp_endfun;
