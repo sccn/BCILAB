@@ -50,10 +50,12 @@ if ~isempty(epoch_range)
     for j=length(epoch_numevents):-1:1
         tmp{j} = ones(1,epoch_numevents(j))*j; end;
     epoch_indices = [tmp{:}];
-    % rewrite pseudo-continuous event latencies based on epoch index change
-    [signal.event.latency] = arraydeal([signal.event.latency] + signal.pnts*(epoch_indices - [signal.event.epoch]));
-    % relink events and epochs
-    [signal.event.epoch] = arraydeal(epoch_indices);
+    if ~isempty(signal.event)
+        % rewrite pseudo-continuous event latencies based on epoch index change
+        [signal.event.latency] = arraydeal([signal.event.latency] + signal.pnts*(epoch_indices - [signal.event.epoch]));
+        % relink events and epochs
+        [signal.event.epoch] = arraydeal(epoch_indices);
+    end
     [signal.epoch.event] = chopdeal(1:length(signal.event),epoch_numevents);
 end
 % update misc meta-data
