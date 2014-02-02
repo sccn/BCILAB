@@ -110,9 +110,6 @@ end
 % this function maps an argument list onto a string selection key and the cell array of 
 % name-value pairs / structs to assign
 function [selection,args] = map_argsubswitch(args,selectors,names)
-    orig_args = args;
-    orig_selectors = selectors;
-    orig_names = names;
     % perform type checking
     if ~iscell(args)
         if isstruct(args) || ischar(args)
