@@ -255,22 +255,28 @@ end
 
 % select event time format and epoch
 % ----------------------------------
+if isfield(EEG,'tracking') && isfield(EEG.tracking,'timeseries_fields')
+    tsfields = EEG.tracking.timeseries_fields(:)';
+else
+    tsfields = {};
+end
+tsfields = unique([tsfields {'icaact','srcpot','data'}],'stable');
+
 switch lower( g.timeunit )
     case 'points'
-        [EEG.data tmptime indices epochevent]= epoch(EEG.data, alllatencies, [lim(1) lim(2)]*EEG.srate, ...
-            'valuelim', g.valuelim, 'allevents', tmpeventlatency);
-        if isfield(EEG,'srcpot') && ~isempty(EEG.srcpot)
-            EEG.srcpot = epoch(EEG.srcpot, alllatencies, [lim(1) lim(2)]*EEG.srate, ...
-                'valuelim', g.valuelim, 'allevents', tmpeventlatency);
+        for tsfield = tsfields
+            if isfield(EEG,tsfield) && ~isempty(EEG.(tsfield))
+               [EEG.(tsfield) tmptime indices epochevent] = epoch(EEG.(tsfield), alllatencies, ...
+                   [lim(1) lim(2)]*EEG.srate, 'valuelim', g.valuelim, 'allevents', tmpeventlatency);
+            end
         end
-        
         tmptime = tmptime/EEG.srate;
     case 'seconds'
-        [EEG.data tmptime indices epochevent]= epoch(EEG.data, alllatencies, lim, 'valuelim', g.valuelim, ...
-            'srate', EEG.srate, 'allevents', tmpeventlatency);
-        if isfield(EEG,'srcpot') && ~isempty(EEG.srcpot)
-            EEG.srcpot = epoch(EEG.srcpot, alllatencies, lim, 'valuelim', g.valuelim, ...
-                'srate', EEG.srate, 'allevents', tmpeventlatency);
+        for tsfield = tsfields
+            if isfield(EEG,tsfield) && ~isempty(EEG.(tsfield))
+                [EEG.(tsfield) tmptime indices epochevent] = epoch(EEG.(tsfield), alllatencies, ...
+                    lim, 'valuelim', g.valuelim,'srate', EEG.srate, 'allevents', tmpeventlatency);
+            end
         end
     otherwise, disp('pop_epoch(): invalid event time format'); beep; return;
 end;
