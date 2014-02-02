@@ -42,9 +42,6 @@ if nargin < 4
     prune_selection = true; end
 
 % if fields are unequal we need to do a reordered comparison
-if ~isstruct(first) || ~isstruct(second)
-    1
-end
 if length(first) ~= length(second) || ~isequal({first.first_name},{second.first_name})
     [dummy,remove_first,replicate_second] = setxor({first.first_name},{second.first_name}); %#ok<ASGLU>
     % drop all fields from first that are not in second
