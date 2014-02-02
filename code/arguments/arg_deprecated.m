@@ -1,6 +1,6 @@
 function res = arg_deprecated(varargin)
 % Definition of a deprecated argument.
-% Spec = arg_deprecated(Names,Default,Range,Options...)
+% Spec = arg_deprecated(Names,Default,Range,Help,Options...)
 %
 % This type of function argument specifier behaves like arg(), but indicates that the argument in 
 % question is deprecated and may become obsolete in the future. The argument will still be passed on

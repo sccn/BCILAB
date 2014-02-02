@@ -45,8 +45,17 @@ if ischar(chantypes)
 retain_indices = [];
 for t = chantypes
     retain_indices = [retain_indices find(strcmp({signal.chanlocs.type},t{1}))]; end %#ok<AGROW>
-signal.data = signal.data(sort(retain_indices),:,:,:,:,:,:,:);
-signal.chanlocs = signal.chanlocs(sort(retain_indices));
-signal.nbchan = size(signal.data,1);
+retain_indices = sort(retain_indices);
+if ~isequal(retain_indices,1:size(signal.data,1))
+    % select channels
+    signal.data = signal.data(retain_indices,:,:,:,:,:,:,:);
+    signal.chanlocs = signal.chanlocs(retain_indices);
+    signal.nbchan = size(signal.data,1);
+    % reset ICA-related parameters (should be recomputed)
+    signal.icachansind = [];
+    signal.icaweights = [];
+    signal.icasphere = [];
+    signal.icawinv = [];
+end
 
 exp_endfun;

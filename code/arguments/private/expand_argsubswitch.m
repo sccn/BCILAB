@@ -60,6 +60,8 @@ function spec = build_specifier(reptype,names,defaults,sources,help,varargin)
     end
     
     % handle the 'suppress' option (by appending to reflag)
+    if ischar(suppress)
+        suppress = {suppress}; end
     for n=suppress
         reflag = cellfun(@(f)[f,{n{1},{'displayable',false}}],reflag,'UniformOutput',false); end
     
@@ -82,45 +84,35 @@ function spec = build_specifier(reptype,names,defaults,sources,help,varargin)
             fmt = sources{k}{4}; end
         % parse the k'th Source
         sources{k} = generate_source(fmt,sources{k}{2});
-        % rewrite case Defaults into more convenient forms
-        [dummy,case_default_val{k}] = spec.mapper(case_defaults{k},spec.range,spec.names); %#ok<ASGLU>
-        if ~isempty(case_default_val{k})
-            case_default_spec{k} = arg_report('rich',sources{k},case_default_val{k});
-            case_default_val{k} = arg_tovals(case_default_spec{k},[],'cell');
-        else
-            case_default_spec{k} = [];
-        end
     end
     
-    % rewrite 'skip_noreps' and Defaults into more convenient forms
+    % rewrite 'skip_noreps'
     skip_noreps = quickif(skip_noreps,{'__arg_skip__',true},{});
-    [default_sel,default_val] = spec.mapper(defaults,spec.range,spec.names);
-    default_idx = find(strcmp(default_sel,spec.range));
-    if ~isempty(default_val)
-        case_default_spec{default_idx} = arg_report('rich',sources{default_idx},default_val);
-        case_default_val{default_idx} = arg_tovals(case_default_spec{default_idx},[],'cell');
-    else
-        case_default_spec{default_idx} = [];
-        case_default_val{default_idx} = {};
-    end
 
+    % initialize the contents
+    spec.contents = repmat({{}},1,length(sources));
+    
     % set up the assigner
-    spec.assigner = @(spec,value) assign_argsubswitch(spec,value,reptype,sources,case_default_spec,case_default_val,reflag,permit_positionals,skip_noreps);
+    spec.assigner = @(spec,value) assign_argsubswitch(spec,value,reptype,sources,reflag,permit_positionals,skip_noreps);
     
     % populate the alternatives in case of a rich spec
     if strcmp(reptype,'rich')
-        for n=setdiff(1:length(sources),default_idx)
-            spec.alternatives{n} = override_flags([arg_report(reptype,sources{n},case_default_val{n}) cached_selector(spec.range{n})],reflag{n}{:}); end
+        spec.alternatives = cell(1,length(sources));
+        for n=1:length(sources)
+            spec = spec.assigner(spec,[spec.range(n) case_defaults{n}]); end
     end
     
-    % assign the default
-    spec = assign_argsubswitch(spec,defaults,reptype,sources,cell(1,length(range)),cell(1,length(range)),reflag,permit_positionals,skip_noreps);
+    % assign the defaults
+    spec = spec.assigner(spec,defaults);
 end
 
 
 % this function maps an argument list onto a string selection key and the cell array of 
 % name-value pairs / structs to assign
 function [selection,args] = map_argsubswitch(args,selectors,names)
+    orig_args = args;
+    orig_selectors = selectors;
+    orig_names = names;
     % perform type checking
     if ~iscell(args)
         if isstruct(args) || ischar(args)
@@ -158,7 +150,7 @@ end
 
 
 % function used to assign a value to the argument
-function spec = assign_argsubswitch(spec,value,reptype,sources,case_default_spec,case_default_val,reflag,permit_positionals,skip_noreps)
+function spec = assign_argsubswitch(spec,value,reptype,sources,reflag,permit_positionals,skip_noreps)
     % skip unassignable values
     if isequal(value,'__arg_unassigned__') || (~spec.empty_overwrites && (isempty(value) || isequal(value,'__arg_mandatory__')))
         return; end
@@ -167,14 +159,14 @@ function spec = assign_argsubswitch(spec,value,reptype,sources,case_default_spec
     [spec.value,value] = spec.mapper(value,spec.range,spec.names);
     idx = find(strcmp(spec.value,spec.range));
     
-     if ~isempty(case_default_val{idx}) && permit_positionals
-        % parse the values into a struct and retain only the difference from the urdefaults
-        diffvalue = arg_tovals(arg_diff(case_default_spec{idx},arg_report('parse',sources{idx},[value skip_noreps])),[],'cell');
-        % now parse the defaults with values partially overriding and assign result to children
-        spec.children = arg_report(reptype,sources{idx},[case_default_val{idx},diffvalue]);
+     if permit_positionals && length(spec.alternatives)>=idx && length(spec.alternatives{idx})>1
+        % parse the values into a struct and retain only the difference from the respective alternative
+        diffvalue = arg_tovals(arg_diff(spec.alternatives{idx},arg_report('parse',sources{idx},[value skip_noreps])),[],'cell',false,false,false,false);
+        % now parse the partially overridden contents and assign result to children
+        spec.children = arg_report(reptype,sources{idx},[spec.contents{idx},diffvalue]);
     else
         % optimization: can just concatenate defaults and value
-        spec.children = arg_report(reptype,sources{idx},[case_default_val{idx} value skip_noreps]);
+        spec.children = arg_report(reptype,sources{idx},[spec.contents{idx} value skip_noreps]);
     end
 
     % set or append selector
@@ -190,6 +182,9 @@ function spec = assign_argsubswitch(spec,value,reptype,sources,case_default_spec
     
     % also override the corresponding entry in alternatives
     spec.alternatives{idx} = spec.children;
+    
+    % update the contents
+    spec.contents{idx} = arg_tovals(spec.children,[],'cell',false,false,false,false);    
 end
 
 
@@ -199,7 +194,7 @@ function result = cached_selector(selected)
     try
         result = values{strcmp(keys,selected)};
     catch %#ok<CTCH>
-        result = arg_nogui('arg_selection',selected);
+        result = arg_nogui('arg_selection',selected,[],[],'assigned',true);
         result = feval(result{1},[],result{2}{:});
         if ~iscell(keys)
             keys = {selected};

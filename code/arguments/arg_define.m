@@ -145,31 +145,31 @@ function outstruct = arg_define(vals,varargin)
 % USA
 
     % first parse the inputs
-    [fmt,vals,structmask,spec,report,skip] = process_inputs(vals,varargin);
+    [fmt,vals,compressed_spec,structmask,report_type,skip] = process_inputs(vals,varargin);
     
     % check if we are in direct mode (fast shortcut)
-    if strcmp(report,'none') && is_direct_mode(vals,structmask)
+    if strcmp(report_type,'none') && is_direct_mode(vals,structmask)
         % in direct mode we assign only those variables that were passed in
         [nvps,outstruct] = assign_direct(vals,structmask,nargout);
     else
         % otherwise we perform full parsing
         
         % get the name of the calling function (for diagnostics and cache lookups)
-        caller = hlp_getcaller;
-        if ~isvarname(caller)
-            caller = 'anonymous'; end
+        caller_name = hlp_getcaller;
+        if ~isvarname(caller_name)
+            caller_name = 'anonymous'; end
         
-        % process the specification into a struct array and extract some properties
-        [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec_cached(caller,spec,report,nargout==0);
+        % process the specification into a struct array and extract some of its properties
+        [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec_cached(caller_name,compressed_spec,report_type,nargout==0);
 
         % convert vals to a canonical list of name-value pairs (NVPs)
-        nvps = arguments_to_nvps(caller,fmt,vals,structmask,flat_names,first_names,skip*leading_skippable);
+        nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,first_names,skip*leading_skippable);
 
         % assign the NVPs to the spec
         spec = assign_values(spec,nvps,name2idx);
 
         % generate outputs from spec
-        switch report
+        switch report_type
             case 'none'
                 outstruct = arg_tovals(spec,[],'struct',checks.mandatory,checks.unassigned,checks.expression,checks.conversion);
                 nvps = reshape([fieldnames(outstruct)';struct2cell(outstruct)'],1,[]);
@@ -182,7 +182,7 @@ function outstruct = arg_define(vals,varargin)
             case {'lean','rich'}
                 arg_issuereport(spec);
             otherwise
-                error(['Unrecognized report type requested: ' report]);
+                error(['Unrecognized report type requested: ' report_type]);
         end
     end
     
@@ -210,35 +210,37 @@ end
 
 
 % process the inputs to arg_define into Format, Values and Specification
-function [fmt,vals,structmask,spec,report,skip] = process_inputs(vals,spec)
+% also precompute the StructMask (bitmask that encodes which elements in Values are structs)
+% and split off the report_type (type of report requested from arg_define) and skip flag from vals
+function [fmt,vals,compressed_spec,structmask,report_type,skip] = process_inputs(vals,compressed_spec)
     if iscell(vals)
         % no Format specifier was given: use default
         fmt = [0 Inf];
     else
         % a Format specifier was given as first argument (need to shift remaining arguments by 1)
         fmt = vals;
-        vals = spec{1};
-        spec(1) = [];
+        vals = compressed_spec{1};
+        compressed_spec(1) = [];
     end
     
     % extract report type
     if length(vals)>1 && isequal(vals{end-1},'__arg_report__')
-        report = vals{end};
+        report_type = vals{end};
         % check for some report types that can be handled immediately
-        switch report
+        switch report_type
             case 'raw'
-                arg_issuereport(spec);
+                arg_issuereport(compressed_spec);
             case 'properties'
                 arg_issuereport(struct());
             case {'lean','rich'}
                 if length(vals) == 2
-                    arg_issuereport(hlp_microcache('spec',@expand_spec,spec,report)); end
+                    arg_issuereport(hlp_microcache('spec',@expand_spec,compressed_spec,report_type)); end
             case 'handle'
                 error('To make function handles accessible, use the function expose_handles().');
         end
         vals(end-1:end) = [];
     else
-        report = 'none';
+        report_type = 'none';
     end
     
     % extract skip flag (skip skippable positional arguments)
@@ -261,7 +263,7 @@ function [fmt,vals,structmask,spec,report,skip] = process_inputs(vals,spec)
                 end
             case 2
                 % first expand the spec
-                tmpspec = hlp_microcache('spec',@expand_spec,spec,'lean');
+                tmpspec = hlp_microcache('spec',@expand_spec,compressed_spec,'lean');
                 % then call the function with it
                 if nargout(fmt) == 1
                     vals = feval(fmt,vals,tmpspec);
@@ -333,13 +335,13 @@ end
 
 
 % cached wrapper around process_spec
-function varargout = process_spec_cached(caller,spec,type,perform_namecheck)
+function varargout = process_spec_cached(caller_name,spec,type,perform_namecheck)
     persistent cache;
     try
         % try to load the cached result for the given caller
-        result = cache.(caller).(type);
+        result = cache.(caller_name).(type);
         % return if it matches the current input
-        if isequal(result.spec,spec) || isequalwithequalnans(result.spec,spec)
+        if isequal(result.spec,spec) || isequalwithequalnans(result.spec,spec) %#ok<FPARK>
             varargout = result.output; 
             return; 
         end
@@ -347,14 +349,14 @@ function varargout = process_spec_cached(caller,spec,type,perform_namecheck)
     end
     % otherwise fall back to microcache and overwrite
     [varargout{1:nargout}] = hlp_microcache('spec',@process_spec,spec,type,perform_namecheck);
-    cache.(caller).(type) = struct('output',{varargout},'spec',{spec});
+    cache.(caller_name).(type) = struct('output',{varargout},'spec',{spec});
 end
 
 
 % expand a specification from a cell array into a struct array
-function [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec(spec,report,perform_namecheck)
+function [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec(compressed_spec,report_type,perform_namecheck)
     % first expand the cell-array spec into a struct-array spec
-    spec = expand_spec(spec,quickif(strcmp(report,'rich'),'rich','lean'));
+    spec = expand_spec(compressed_spec,quickif(strcmp(report_type,'rich'),'rich','lean'));
 
     % obtain the argument names and a flat list thereof
     arg_names = {spec.names};
@@ -380,7 +382,7 @@ function [spec,flat_names,first_names,name2idx,leading_skippable,checks] = proce
     % if required, check for name clashes with functions on the path
     % (this is due to a deficiency in MATLAB's handling of variables that were assigned to a function's scope
     % from the outside, which are prone to clashes with functions on the path...)
-    if perform_namecheck && strcmp(report,'none')
+    if perform_namecheck && strcmp(report_type,'none')
         try
             validate_varnames(hlp_getcaller(2),first_names);
         catch e
@@ -397,10 +399,10 @@ end
 
 
 % expand the given spec cell array into a struct array
-function spec = expand_spec(spec,report)
+function spec = expand_spec(spec,report_type)
     % evaluate the cells into specifier structs
     if all(cellfun('isclass',spec,'cell'))
-        spec = cellfun(@(s)feval(s{1},report,s{2}{:}),spec); end
+        spec = cellfun(@(s)feval(s{1},report_type,s{2}{:}),spec); end
     % make sure that spec has the correct fields, even if empty
     if isempty(spec)
         spec = arg_specifier;
@@ -571,8 +573,9 @@ function spec = assign_values(spec,nvps,name2idx)
                 error(['Cannot insert a duplicate field into the specification: ' nvps{k}]); end
             % append it to the spec (note: this might need some optimization... it would be better
             % if the spec automatically contained the arg_selection field)
-            tmp = arg_nogui(nvps{k},nvps{k+1});
+            tmp = arg_nogui(nvps{k},nvps{k+1},[],[],'assigned',true);
             spec(end+1) = feval(tmp{1},[],tmp{2}{:}); %#ok<AGROW>
+            name2idx.(nvps{k}) = length(spec);
         end
     end
 end
@@ -584,5 +587,5 @@ function spec = remove_nonassigned(spec)
         spec(~[spec.assigned]) = []; end
     % recurse into children
     if ~isempty(spec)        
-        [second.children] = celldeal(cellfun(@remove_nonassigned,{spec.children},'UniformOutput',false)); end
+        [spec.children] = celldeal(cellfun(@remove_nonassigned,{spec.children},'UniformOutput',false)); end
 end

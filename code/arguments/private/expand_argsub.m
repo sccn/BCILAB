@@ -49,6 +49,8 @@ function spec = build_specifier(reptype,names,defaults,source,help,varargin)
     end    
     
     % handle the 'suppress' option (by appending to reflag)
+    if ischar(suppress)
+        suppress = {suppress}; end
     for n=suppress
         reflag = [reflag {n{1},{'displayable',false}}]; end %#ok<AGROW>
     
@@ -58,40 +60,38 @@ function spec = build_specifier(reptype,names,defaults,source,help,varargin)
     % parse the Source
     source = generate_source(fmt,source);
     
-    % rewrite 'skip_noreps' and Defaults into more convenient forms
+    % rewrite 'skip_noreps'
     skip_noreps = quickif(skip_noreps,{'__arg_skip__',true},{});
-    if ~isempty(defaults)
-        default_spec = arg_report('rich',source,defaults);
-        default_val = arg_tovals(default_spec,[],'cell');
-    else
-        default_spec = [];
-        default_val = {};
-    end
     
     % set up the assigner
-    spec.assigner = @(spec,value) assign_argsub(spec,value,reptype,source,default_spec,default_val,reflag,permit_positionals,skip_noreps);
+    spec.assigner = @(spec,value) assign_argsub(spec,value,reptype,source,reflag,permit_positionals,skip_noreps);
     
-    % assign the default
-    spec = assign_argsub(spec,default_val,reptype,source,[],{},reflag,permit_positionals,skip_noreps);
+    % assign the defaults
+    spec = spec.assigner(spec,defaults);
 end
 
 
 % function to perform the value assignment
-function spec = assign_argsub(spec,value,reptype,source,default_spec,default_val,reflag,permit_positionals,skip_noreps)
+function spec = assign_argsub(spec,value,reptype,source,reflag,permit_positionals,skip_noreps)
     % skip unassignable values
     if isequal(value,'__arg_unassigned__') || (~spec.empty_overwrites && (isempty(value) || isequal(value,'__arg_mandatory__')))
         return; end
     % make sure that value is a cell array (otherwise we cannot concatenate it below)
     if ~iscell(value)
-        value = {value}; end
-    
-    if ~isempty(default_val) && permit_positionals
-        % parse the values into a struct and retain only the difference from the rich default_spec
-        diffvalue = arg_tovals(arg_diff(default_spec,arg_report('parse',source,[value skip_noreps])),[],'cell');
-        % now parse the default_val with values partially overriding and assign result to children (optionally reflagged)
-        spec.children = override_flags(arg_report(reptype,source,[default_val diffvalue]),reflag{:});
+        value = {value}; end    
+    if permit_positionals && ~isempty(spec.children)
+        % parse the values into a struct and retain only the difference vs. the current .children
+        diffvalue = arg_tovals(arg_diff(spec.children,arg_report('parse',source,[value skip_noreps])),[],'cell',false,false,false,false);
+        % now parse the current .contents with diffvalue partially overriding, and assign result to children
+        spec.children = arg_report(reptype,source,[spec.contents diffvalue]);
     else
-        % optimization: can just concatenate default_val and value
-        spec.children = override_flags(arg_report(reptype,source,[default_val value skip_noreps]),reflag{:});
-    end
+        % optimization: can just concatenate .contents and value
+        spec.children = arg_report(reptype,source,[spec.contents value skip_noreps]);
+    end    
+    
+    % override flags
+    spec.children = override_flags(spec.children,reflag{:});
+    
+    % update the contents
+    spec.contents = arg_tovals(spec.children,[],'cell',false,false,false,false);
 end

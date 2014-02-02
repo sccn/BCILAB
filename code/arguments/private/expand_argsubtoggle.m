@@ -45,6 +45,8 @@ function spec = build_specifier(reptype,names,defaults,source,help,varargin)
     end
     
     % handle the 'suppress' option (by appending to reflag)
+    if ischar(suppress)
+        suppress = {suppress}; end
     for n=suppress
         reflag = [reflag {n{1},{'displayable',false}}]; end %#ok<AGROW>
     
@@ -58,30 +60,24 @@ function spec = build_specifier(reptype,names,defaults,source,help,varargin)
     % parse the Source
     source = generate_source(fmt,source);
     
-    % rewrite 'skip_noreps' and Defaults into more convenient forms
+    % rewrite 'skip_noreps'
     skip_noreps = quickif(skip_noreps,{'__arg_skip__',true},{});
-    [default_sel,default_val] = spec.mapper(defaults);
-    if ~isempty(default_val)
-        default_spec = arg_report('rich',source,default_val);
-        default_val = arg_tovals(default_spec,[],'cell');
-    else
-        default_spec = [];
-    end
     
     % set up the assigner
-    spec.assigner = @(spec,value) assign_argsubtoggle(spec,value,reptype,source,default_spec,default_val,reflag,permit_positionals,skip_noreps);
+    spec.assigner = @(spec,value) assign_argsubtoggle(spec,value,reptype,source,reflag,permit_positionals,skip_noreps);
+    
+    % initialize the contents
+    spec.contents = repmat({{}},1,2);
     
     % populate the alternatives in case of a rich spec (rich spec contains alternative branches)
     if strcmp(reptype,'rich')
-        if default_sel
-            spec.alternatives{1} = override_flags(cached_selector(false),reflag{:});
-        else
-            spec.alternatives{2} = override_flags([arg_report(reptype,source,alternative_defaults) cached_selector(true)],reflag{:});
-        end
+        spec.alternatives = cell(1,2);
+        spec = spec.assigner(spec,[]);
+        spec = spec.assigner(spec,alternative_defaults);
     end
     
-    % assign the default
-    spec = assign_argsubtoggle(spec,defaults,reptype,source,[],{},reflag,permit_positionals,skip_noreps);
+    % assign the defaults
+    spec = spec.assigner(spec,defaults);
 end
 
 
@@ -122,25 +118,27 @@ end
 
 
 % function used to assign a value to the argument
-function spec = assign_argsubtoggle(spec,value,reptype,source,default_spec,default_val,reflag,permit_positionals,skip_noreps)
+function spec = assign_argsubtoggle(spec,value,reptype,source,reflag,permit_positionals,skip_noreps)
     % skip unassignable values
     if isequal(value,'__arg_unassigned__') || (~spec.empty_overwrites && (isempty(value) || isequal(value,'__arg_mandatory__')))
         return; end
     
     % apply the mapper
     [spec.value,value] = spec.mapper(value);
+    idx = spec.value+1;
     
     % assign the children
     if spec.value
-        if ~isempty(default_val) && permit_positionals
-            % parse the values into a struct and retain only the difference from the rich default_val
-            diffvalue = arg_tovals(arg_diff(default_spec,arg_report('parse',source,[value skip_noreps])),[],'cell');
-            % now parse the default_val with values partially overriding and assign result to children (optionally reflagged)
-            spec.children = arg_report(reptype,source,[default_val,diffvalue]);
+        if permit_positionals && length(spec.alternatives)>=idx && length(spec.alternatives{idx})>1
+            % parse the values into a struct and retain only the difference from the respective alternative
+            diffvalue = arg_tovals(arg_diff(spec.alternatives{idx},arg_report('parse',source,[value skip_noreps])),[],'cell',false,false,false,false);
+            % now parse the partially overridden contents and assign result to children
+            spec.children = arg_report(reptype,source,[spec.contents{idx} diffvalue]);
         else
-            % optimization: can just concatenate default_val and value
-            spec.children = arg_report(reptype,source,[default_val value skip_noreps]);
+            % optimization: can just concatenate .contents and value
+            spec.children = arg_report(reptype,source,[spec.contents{idx} value skip_noreps]);
         end
+        
         % set or append selector
         selection_arg = strcmp('arg_selection',{spec.children.first_name});
         if any(selection_arg)
@@ -148,6 +146,7 @@ function spec = assign_argsubtoggle(spec,value,reptype,source,default_spec,defau
         else
             spec.children = [spec.children,cached_selector(spec.value)];
         end
+        
     else
         spec.children = cached_selector(spec.value);
     end
@@ -155,8 +154,11 @@ function spec = assign_argsubtoggle(spec,value,reptype,source,default_spec,defau
     % override flags
     spec.children = override_flags(spec.children,reflag{:});
     
-    % also override the corresponding entry in alternatives
-    spec.alternatives{1+spec.value} = spec.children;    
+    % override the corresponding entry in alternatives
+    spec.alternatives{idx} = spec.children;
+    
+    % update the contents
+    spec.contents{idx} = arg_tovals(spec.children,[],'cell',false,false,false,false);
 end
 
 
@@ -166,8 +168,8 @@ function result = cached_selector(selected)
     try
         result = cache.(char('a'+selected));
     catch %#ok<CTCH>
-        result = arg_nogui('arg_selection',selected);
-        result = feval(result{1},[],result{2}{:});        
+        result = arg_nogui('arg_selection',selected,[],[],'assigned',true);
+        result = feval(result{1},[],result{2}{:});
         cache.(char('a'+selected)) = result;
     end
 end

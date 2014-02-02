@@ -40,7 +40,7 @@ if ~isempty(varargin)
         % for each affected argument...
         for j=name2index(strcmp(varargin{k},flat_names))
             % more sanity checks
-            if ~iscellstr(varargin{k+1}(1:2:end)) || ~all(cellfun('isclass',varargin{k+1}(2:2:end),'cell'))
+            if ~iscellstr(varargin{k+1}(1:2:end))
                 error('The varargin argument must be of the form: {''argname'',{''flagname'',value,''flagname'',value,...},''argname'',{...}}'); end
             % apply each override
             for l=1:2:length(varargin{k+1})

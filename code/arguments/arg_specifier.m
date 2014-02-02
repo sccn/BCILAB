@@ -36,15 +36,18 @@ function spec = arg_specifier(varargin)
 % initialize the struct
 spec = struct(...
     ... % core properties
-    'head',{@arg_specifier},...     % the expression type that generated this specifier (@arg, @arg_sub, ...)
+    'head',{@arg_specifier},...     % the argument type that generated this specifier (@arg, @arg_sub, ...)
     'names',{{}}, ...               % cell array of argument names; first is the variable name inside the function, second (if present) is the human-readable name (reported to the GUI), followed by aliases
     'first_name',{''}, ...          % the first name of the argument (used to name the function variables)
     'value',{[]}, ...               % the assigned value of the argument; can be any data structure
+    ...                             % note: for arg_subswitch this is the switch key, and for arg_subtoggle this is the toggle state (true/false)
     'assigner',{[]},...             % function to be invoked in order to assign a new value the specifier (INTERNAL)
+    ...                             % note: the assigner can affect the fields {.value, .children, .alternatives}
     ... % properties for (possibly dependent) child arguments (INTERNAL)
-    'children',{{}}, ...            % cell array of child arguments (returned to the function in a struct, and made available to the GUI in a subgroup)
+    'children',{[]}, ...            % struct array of child specifiers
+    'alternatives',{{}}, ...        % cell array of alternative child struct arrays; only used for arg_subtoggle, arg_subswitch (INTERNAL)
+    'contents',{{}}, ...            % contents of children (cell array of name-value pairs) or alternatives (cell array of a cell array of NVPs per alternative)
     'mapper',@(x)x, ...             % mapping function: maps a value into the index space of alternatives (possibly via range) (INTERNAL)
-    'alternatives',{{}}, ...        % cell array of alternative children structures; only used for arg_subtoggle, arg_subswitch (INTERNAL)
     'merge',{true},...              % whether the value (a cell array of arguments) should completely replace the default, or be merged with it, such that sub-arguments are only selectively overridden (INTERNAL)
     ... % type-related properties
     'range',{[]}, ...               % the allowed range of the argument (for type checking in GUI and elsewhere); can be [], [lo hi], {'option1','option2','option3',...}

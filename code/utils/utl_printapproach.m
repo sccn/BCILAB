@@ -1,5 +1,5 @@
 function string = utl_printapproach(app,strip_direct,indent,indent_incr)
-% Convert an approach to a stirng representation
+% Convert an approach to a string representation
 % String = utl_printapproach(Approach)
 %
 % In:
@@ -44,7 +44,7 @@ defaults = arg_report('rich',func);
 settings = arg_report('lean',func,parameters);
 
 % get the difference as cell array of human-readable name-value pairs
-difference = arg_tovals(arg_diff(defaults,settings),[],'HumanReadableCell');
+difference = arg_tovals(arg_diff(defaults,settings),[],'HumanReadableCell',false);
 
 % pre-pend the paradigm choice 
 difference = [{'arg_selection',char(paradigm)} difference];

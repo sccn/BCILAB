@@ -42,6 +42,9 @@ if nargin < 4
     prune_selection = true; end
 
 % if fields are unequal we need to do a reordered comparison
+if ~isstruct(first) || ~isstruct(second)
+    1
+end
 if length(first) ~= length(second) || ~isequal({first.first_name},{second.first_name})
     [dummy,remove_first,replicate_second] = setxor({first.first_name},{second.first_name}); %#ok<ASGLU>
     % drop all fields from first that are not in second
@@ -69,7 +72,7 @@ equal_value = cellfun(@isequal_weak,{first.value},{second.value});
 % as reference
 if use_alternatives
     for k=find(~equal_value)
-        if ischar(first(k).value) && ~isempty(first(k).alternatives)
+        if ischar(first(k).value) && ~isempty(first(k).alternatives) && length(first(k).alternatives) == length(first(k).range) && any(strcmp(second(k).value,first(k).range))
             second(k).children = arg_diff(first(k).alternatives{strcmp(second(k).value,first(k).range)},second(k).children,use_alternatives,false);
         elseif isequal(first(k).value,false) && length(first(k).alternatives)==2
             second(k).children = arg_diff(first(k).alternatives{1+second(k).value},second(k).children,use_alternatives,false);

@@ -131,7 +131,7 @@ function type = deduce_type(value)
     type = class(value);
     switch type
         case {'single','double'}
-            if ndims(type) == 2
+            if ndims(type) == 2 %#ok<ISMAT>
                 type = [quickif(issparse(value),'sparse','dense') quickif(isreal(value),'real','complex') type];
             else
                 type = 'expression';

@@ -58,7 +58,7 @@ if all(isfield(val,{'head','children','alternatives'}))
 str = '';           % the output string
 selection = [];     % value of the arg_selection entry, if any
 
-if iscellstr(val(1:2:end))
+if iscellstr(val(1:2:end)) && mod(length(val),2) == 0
     % got name-value pairs: special formatting
     if strip_direct
         % optionally get rid of any arg_direct flags
@@ -91,7 +91,7 @@ if iscellstr(val(1:2:end))
         shift = @(k) repmat(' ',1,k);
         if ischar(selection)
             str = ['{' '''' selection '''' ' ...'];
-        elseif isequal(selection,true)
+        elseif isequal(selection,true) || isequal(selection,[])
             str = '{ ...';
         else
             error(['Unsupported arg_selection form: ' hlp_tostring(selection)]);

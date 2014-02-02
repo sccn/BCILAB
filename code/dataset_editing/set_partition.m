@@ -51,9 +51,9 @@ arg_define(varargin, ...
     arg({'idxset','IndexSet'},[],[], 'Index set. This is either [] (indicating that the function should return the index set cardinality), or a vector of indices (indicating that the function shall partition the data set accordingly).'), ...
     arg({'epoch_bounds','EpochBounds'},[],[], 'Epoch bounds. Only required when partitioning on a continuous data set based on target events; this is performed using the epoch bounds (as in set_makepos).'));
 
-is_continuous = isempty(signal.epoch) && (isempty(signal.data) || size(signal.data,3) == 1);
+is_continuous = isempty(signal.epoch) && (isempty(signal.data) || size(signal.data,3) == 1); %#ok<NODEF>
 
-if isempty(idxset)
+if isempty(idxset) %#ok<NODEF>
     % --- calc index set size ---
     
     if ~is_continuous
@@ -88,7 +88,7 @@ else
                 % (assuming that target markers with boundary-crossing epochs were already removed in
                 %  set_targetmarkers, and assuming that the given epoch bounds are an upper bound of those
                 %  used in set_makepos)
-                if isempty(epoch_bounds)
+                if isempty(epoch_bounds) %#ok<NODEF>
                     disp_once('Warning: Attempting to partition a continuous data set based on target events, but no EpochBounds argument is present. Assuming 1-sample epochs.'); 
                     ival = 0;
                 else

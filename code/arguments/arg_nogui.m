@@ -1,6 +1,6 @@
 function res = arg_nogui(varargin)
 % Like arg(), but not displayed by GUIs.
-% Spec = arg_nogui(Names,Default,Range,Options...)
+% Spec = arg_nogui(Names,Default,Range,Help,Options...)
 %
 % This type of function argument specifier behaves like arg(), except that it will not be displayed 
 % in GUIs that are generated for the function. This is mainly used for optional arguments that have
