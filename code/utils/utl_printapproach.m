@@ -27,7 +27,7 @@ if nargin < 4
 
 % get required approach properties
 if iscell(app)
-    paradigm = app{1};
+    paradigm = ['Paradigm' app{1}];
     parameters = app(2:end);
 else
     paradigm = app.paradigm;
@@ -47,7 +47,8 @@ settings = remove_argdirect(arg_report('lean',func,parameters));
 difference = arg_tovals(arg_diff(defaults,settings),[],'HumanReadableCell',false);
 
 % pre-pend the paradigm choice 
-difference = [{'arg_selection',char(paradigm)} difference];
+paradigm_name = char(paradigm);
+difference = [{'arg_selection',paradigm_name(9:end)} difference];
 
 % and convert to string
 string = arg_tostring(difference,strip_direct,indent,indent_incr);
