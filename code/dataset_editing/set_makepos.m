@@ -190,8 +190,11 @@ if strcmp(online_epoching,'at_targets') || ~onl_isonline
             % special handling for epoch.eventlatency, and epoch.eventduration (in ms and relative to epoch center)
             epoch_rellatencies = (residuals(event_indices)+sample_indices-1-(epoch_assignment-1)*state.sample_points)+state.sample_range(1);
             [signal.epoch.eventlatency] = chopdeal(num2cell(epoch_rellatencies/signal.srate*1000),epoch_numevents);
-            if isfield(signal.event,'duration')
-                [signal.epoch.eventduration] = chopdeal(num2cell([signal.event.duration]*(1000/signal.srate)),epoch_numevents); end
+            if isfield(signal.event,'duration') 
+                durations = {signal.event.duration};
+                [durations{cellfun('isempty',durations)}] = deal(0);
+                [signal.epoch.eventduration] = chopdeal(num2cell([durations{:}]*(1000/signal.srate)),epoch_numevents);
+            end
             
             % update event latency to pseudo-continuous latencies
             if ~isempty(signal.event)
