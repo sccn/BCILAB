@@ -44,7 +44,7 @@ for f = utl_timeseries_fields(signal) %#ok<NODEF>
         prepend = ~isfield(state,f{1});
         if prepend
             X = [repmat(2*X(1,:),length(b),1) - X(1+mod(((length(b)+1):-1:2)-1,size(X,1)),:); X]; %#ok<AGROW>
-            state.(field) = [];
+            state.(f{1}) = [];
         end
         % apply the filter
         [X,state.(f{1})] = filter(b,1,X,state.(f{1}),1);

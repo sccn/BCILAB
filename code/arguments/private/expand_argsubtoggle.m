@@ -127,18 +127,17 @@ function spec = assign_argsubtoggle(spec,value,reptype,source,reflag,permit_posi
     [spec.value,value] = spec.mapper(value);
     idx = spec.value+1;
     
-    % assign the children
     if spec.value
-        if permit_positionals && length(spec.alternatives)>=idx && length(spec.alternatives{idx})>1
-            % parse the values into a struct and retain only the difference from the respective alternative
-            diffvalue = arg_tovals(arg_diff(spec.alternatives{idx},arg_report('parse',source,[value skip_noreps])),[],'cell',false,false,false,false);
-            % now parse the partially overridden contents and assign result to children
-            spec.children = arg_report(reptype,source,[spec.contents{idx} diffvalue]);
+        value = hlp_microcache('argparse',@arg_report,'parse',source,[value skip_noreps]);
+        if length(spec.alternatives)>=idx && length(spec.alternatives{idx})>1 
+            diffvalue = arg_diff(spec.alternatives{idx},value);
         else
-            % optimization: can just concatenate .contents and value
-            spec.children = arg_report(reptype,source,[spec.contents{idx} value skip_noreps]);
+            diffvalue = value;
         end
-        
+        diffvalue = arg_tovals(diffvalue,[],'cell',false,false,false,false);
+        spec.contents{idx} = [spec.contents{idx} diffvalue];
+        spec.children = arg_report(reptype,source,spec.contents{idx});    
+
         % set or append selector
         selection_arg = strcmp('arg_selection',{spec.children.first_name});
         if any(selection_arg)
@@ -146,19 +145,15 @@ function spec = assign_argsubtoggle(spec,value,reptype,source,reflag,permit_posi
         else
             spec.children = [spec.children,cached_selector(spec.value)];
         end
-        
     else
         spec.children = cached_selector(spec.value);
     end
-    
+        
     % override flags
     spec.children = override_flags(spec.children,reflag{:});
     
     % override the corresponding entry in alternatives
     spec.alternatives{idx} = spec.children;
-    
-    % update the contents
-    spec.contents{idx} = arg_tovals(spec.children,[],'cell',false,false,false,false);
 end
 
 

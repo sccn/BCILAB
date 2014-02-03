@@ -34,6 +34,8 @@ function second = arg_diff(first,second,use_alternatives,prune_selection)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
+urfirst = first; ursecond = second;
+
 if isempty(first) || isempty(second)
     return; end
 if nargin < 3
@@ -43,13 +45,21 @@ if nargin < 4
 
 % if fields are unequal we need to do a reordered comparison
 if length(first) ~= length(second) || ~isequal({first.first_name},{second.first_name})
-    [dummy,remove_first,replicate_second] = setxor({first.first_name},{second.first_name}); %#ok<ASGLU>
+    remove_first = 1:length(first);
+    replicate_second = 1:length(second);
+    [dummy,first_in_second] = fast_setdiff({first.first_name},{second.first_name}); %#ok<ASGLU>
+    [dummy,second_in_first] = fast_setdiff({second.first_name},{first.first_name}); %#ok<ASGLU>
+    remove_first(first_in_second) = [];
+    replicate_second(second_in_first) = [];    
     % drop all fields from first that are not in second
     if any(remove_first)
         first(remove_first) = []; end;
-    % append the extra fields of second to first
+    % append the extra fields of second to first, with blank values
     if any(replicate_second)
-        first = [first second(replicate_second)]; end
+        dummy = second([]);
+        [dummy(1:length(replicate_second)).first_name] = second(replicate_second).first_name;
+        first = [first dummy]; 
+    end
     % reorder first to match the order of second
     [dummy,idx1] = sort({first.first_name}); %#ok<ASGLU>
     [dummy,idx2] = sort({second.first_name}); %#ok<ASGLU>
@@ -60,10 +70,17 @@ if length(first) ~= length(second) || ~isequal({first.first_name},{second.first_
 end
 
 % check where the value differs
-equal_value = cellfun(@isequal_weak,{first.value},{second.value});
+equal_value = cellfun(@isequalwithequalnans,{first.value},{second.value});
+nontrivial = equal_value & ~cellfun('isempty',{first.children});
 
-% at all positions where the value is equal, prune the children arrays
-[second(equal_value).children] = celldeal(cellfun(@(a,b)arg_diff(a,b,use_alternatives),{first(equal_value).children},{second(equal_value).children},'UniformOutput',false));
+% at all positions where the value is equal and first has nonempty children, prune the second's children arrays
+if any(nontrivial)
+    if use_alternatives 
+        [second(nontrivial).children] = celldeal(cellfun(@arg_diff,{first(nontrivial).children},{second(nontrivial).children},'UniformOutput',false));
+    else
+        [second(nontrivial).children] = celldeal(cellfun(@(a,b)arg_diff(a,b,false),{first(nontrivial).children},{second(nontrivial).children},'UniformOutput',false));
+    end
+end
 
 % at all positions where the value differs, use the corresponding alternative value set (if any)
 % as reference

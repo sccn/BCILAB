@@ -147,24 +147,24 @@ end
 
 
 % function used to assign a value to the argument
-function spec = assign_argsubswitch(spec,value,reptype,sources,reflag,permit_positionals,skip_noreps)
+function spec = assign_argsubswitch(spec,invalue,reptype,sources,reflag,permit_positionals,skip_noreps)
     % skip unassignable values
-    if isequal(value,'__arg_unassigned__') || (~spec.empty_overwrites && (isempty(value) || isequal(value,'__arg_mandatory__')))
+    if isequal(invalue,'__arg_unassigned__') || (~spec.empty_overwrites && (isempty(invalue) || isequal(invalue,'__arg_mandatory__')))
         return; end
     
     % apply the mapper
-    [spec.value,value] = spec.mapper(value,spec.range,spec.names);
+    [spec.value,value] = spec.mapper(invalue,spec.range,spec.names);
     idx = find(strcmp(spec.value,spec.range));
-    
-     if permit_positionals && length(spec.alternatives)>=idx && length(spec.alternatives{idx})>1
-        % parse the values into a struct and retain only the difference from the respective alternative
-        diffvalue = arg_tovals(arg_diff(spec.alternatives{idx},arg_report('parse',sources{idx},[value skip_noreps])),[],'cell',false,false,false,false);
-        % now parse the partially overridden contents and assign result to children
-        spec.children = arg_report(reptype,sources{idx},[spec.contents{idx},diffvalue]);
+        
+    value = hlp_microcache('argparse',@arg_report,'parse',sources{idx},[value skip_noreps]);
+    if length(spec.alternatives)>=idx && length(spec.alternatives{idx})>1
+        diffvalue = arg_diff(spec.alternatives{idx},value);
     else
-        % optimization: can just concatenate defaults and value
-        spec.children = arg_report(reptype,sources{idx},[spec.contents{idx} value skip_noreps]);
+        diffvalue = value;
     end
+    diffvalue = arg_tovals(diffvalue,[],'cell',false,false,false,false);
+    spec.contents{idx} = [spec.contents{idx} diffvalue];
+    spec.children = arg_report(reptype,sources{idx},spec.contents{idx});    
 
     % set or append selector
     selection_arg = strcmp('arg_selection',{spec.children.first_name});
@@ -179,9 +179,6 @@ function spec = assign_argsubswitch(spec,value,reptype,sources,reflag,permit_pos
     
     % also override the corresponding entry in alternatives
     spec.alternatives{idx} = spec.children;
-    
-    % update the contents
-    spec.contents{idx} = arg_tovals(spec.children,[],'cell',false,false,false,false);    
 end
 
 

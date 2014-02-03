@@ -147,26 +147,31 @@ exp_endfun;
 
 % parse the (relatively flexible) time specification into a struct
 function out = parse_timespec(in)
-out = struct('trange',{[]},'winfunc',{'rect'},'winparam',{[]});
-if ~isempty(in)
-    % set the .range field
-    if isnumeric(in)
-        out.trange = in; end
-    % set the .winfunc field
-    if ischar(in)
-        out.winfunc = in; end
-    % set fields according to cell contents...
-    if iscell(in) 
-        rangeidx = find(cellfun(@(x) isnumeric(x) && length(x)==2,in));
-        if ~isempty(rangeidx)
-            out.trange = in{rangeidx}; end        
-        funcidx = find(cellfun(@(x) ischar(x),in));
-        if ~isempty(funcidx)
-            out.winfunc = in{funcidx}; end        
-        paramidx = find(cellfun(@(x) isnumeric(x) && length(x)==1,in));
-        if ~isempty(paramidx)
-            out.winparam = in{paramidx}; end        
+if iscellstr(in(1:2:end)) && isempty(fast_setdiff(in(1:2:end),{'trange','winfunc','winparam'}))
+    % the inputs are in name-value pair format
+    out = in;
+else
+    out = struct('trange',{[]},'winfunc',{'rect'},'winparam',{[]});
+    if ~isempty(in)
+        % set the .range field
+        if isnumeric(in)
+            out.trange = in; end
+        % set the .winfunc field
+        if ischar(in)
+            out.winfunc = in; end
+        % set fields according to cell contents...
+        if iscell(in)         
+            rangeidx = find(cellfun(@(x) isnumeric(x) && length(x)==2,in));
+            if ~isempty(rangeidx)
+                out.trange = in{rangeidx}; end        
+            funcidx = find(cellfun(@(x) ischar(x),in));
+            if ~isempty(funcidx)
+                out.winfunc = in{funcidx}; end        
+            paramidx = find(cellfun(@(x) isnumeric(x) && length(x)==1,in));
+            if ~isempty(paramidx)
+                out.winparam = in{paramidx}; end        
+        end
     end
+    % turn into a cell array
+    out = {out};
 end
-% turn into a cell array
-out = {out};

@@ -21,27 +21,11 @@ function outstruct = arg_define(vals,varargin)
 % struct can be used to draw a GUI, store settings, generate help text, or be processed otherwise.
 %
 % In:
-%   Format : Note that this argument can be omitted. Optionally this is the number of allowed
-%            positional arguments of the Function (default: [0 Inf]), i.e., the number of leading
-%            arguments that can be passed to the Function as positional arguments, while the
-%            remaining arguments are interpreted as a list of name-value pairs and/or structs.
-%
-%            Special uses: 
-%            * If Format is a vector of multiple values, then the smallest number for which the 
-%              Function's inputs are consistent, in the sense that each name in Values matches a
-%              name in the Specification, is accepted.
-%            * If Format is numeric but does not contain a 0, a 0 will be implicitly prepended.
-%            * If Format is [], any number of positional arguments is allowed (i.e., Format defaults
-%              to 0:length(Specification)), although this is discouraged in practice as it may
-%              result in mis-parsing when mis-spelled arguments are passed in (arg_define will then
-%              assume that anything up to the mis-spelled argument is passed in positionally).
-%            * If Format is a function handle, the given function can be used to transform the
-%              Values prior to any other processing into a new Values cell array. The function may
-%              optionally specify a new (numeric) Format as its second output argument (if not
-%              specified, this is 0). The function may optionally take in the argument specification
-%              (struct array of arg_specifier), although some details of this data structure are
-%              internal and subject to change in future releases (particularly fields marked as
-%              INTERNAL).
+%   Format : This argument can be omitted. The number of allowed positional arguments of the
+%            Function, or a vector of multiple possibilities, i.e., the number of leading arguments
+%            that can be passed to the Function as positional arguments, while the remaining
+%            arguments are interpreted as a list of name-value pairs and/or structs. See Format
+%            Options for additional options and details. (default: [0 Inf])
 %
 %   Values : A cell array of values passed to the function (usually the calling function's
 %            "varargin"). Interpreted according to the Format and the Specification.
@@ -63,11 +47,22 @@ function outstruct = arg_define(vals,varargin)
 % See also:
 %   arg, arg_nogui, arg_norep, arg_deprecated, arg_sub, arg_subswitch, arg_subtoggle
 %
-% Technical Note:
-%   The Function may be called with the request to deliver the parameter specification as opposed to
-%   following the normal execution flow (this is done by arg_report). arg_define responds to this
-%   task by throwing an exception of the type 'BCILAB:arg:report_args' using arg_issuereport, which
-%   is caught by arg_report to obtain the specification struct.
+% Format Options:
+%    * If Format is a vector of multiple values, then the smallest number for which the 
+%      Function's inputs are consistent, in the sense that each name in Values matches a
+%      name in the Specification, is accepted.
+%    * If Format is numeric but does not contain a 0, a 0 will be implicitly prepended.
+%    * If Format is [], any number of positional arguments is allowed (i.e., Format defaults
+%      to 0:length(Specification)), although this is discouraged in practice as it may
+%      result in mis-parsing when mis-spelled arguments are passed in (arg_define will then
+%      assume that anything up to the mis-spelled argument is passed in positionally).
+%    * If Format is a function handle, the given function can be used to transform the
+%      Values prior to any other processing into a new Values cell array. The function may
+%      optionally specify a new (numeric) Format as its second output argument (if not
+%      specified, this is 0). The function may optionally take in the argument specification
+%      (struct array of arg_specifier), although some details of this data structure are
+%      internal and subject to change in future releases (particularly fields marked as
+%      INTERNAL).
 %
 % Performance Tips:
 %   1) If a name-value pair 'arg_direct',true is passed (preferably as last argument for best
@@ -83,6 +78,17 @@ function outstruct = arg_define(vals,varargin)
 %
 %   2) If a function has many arguments it is faster to receive the arguments in a struct (optional
 %      return value of arg_define) rather than to have them assigned to the function workspace.
+%
+% Internal Arguments and Return Values:
+%   1) The Function may be called with the request to deliver the parameter specification as opposed
+%      to following the normal execution flow (this is done by arg_report), an effectively
+%      implemented by passing in the extra name-value pair '__arg_report__',true at the end.
+%      arg_define responds to this task by throwing an exception of the type
+%      'BCILAB:arg:report_args' using arg_issuereport, which is caught by arg_report to obtain the
+%      specification struct.
+%
+%   2) The Function may be called with the name-value pair '__arg_skip__',true, at the end which
+%      allows to use positional arguments as if the leading arg_norep() arguments were not defined.
 %
 % Examples:
 %   function myfunction(varargin)
@@ -166,19 +172,27 @@ function outstruct = arg_define(vals,varargin)
         nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,first_names,skip*leading_skippable);
 
         % assign the NVPs to the spec
-        spec = assign_values(spec,nvps,name2idx);
+        spec = assign_values(spec,nvps,name2idx,caller_name);
 
         % generate outputs from spec
         switch report_type
             case 'none'
-                outstruct = arg_tovals(spec,[],'struct',checks.mandatory,checks.unassigned,checks.expression,checks.conversion);
+                % reset the skippable flag (these shall not be pruned by arg_tovals)
+                [spec.skippable] = deal(false);
+                % check for mandatory entries, warn if any
+                mandatory_entries = find(strcmp('__arg_mandatory__',{spec.value}));
+                if mandatory_entries
+                    error(['The arguments ' format_cellstr({spec(mandatory_entries).first_name}) ' were unspecified but are mandatory.']); end
+                outstruct = arg_tovals(spec,[],'struct',false,checks.unassigned,checks.expression,checks.conversion);
                 nvps = reshape([fieldnames(outstruct)';struct2cell(outstruct)'],1,[]);
             case 'vals'
-                arg_issuereport(arg_tovals(spec,[],'struct',checks.mandatory,checks.unassigned,checks.expression,checks.conversion));
+                arg_issuereport(arg_tovals(spec,[],'struct',false,checks.unassigned,checks.expression,checks.conversion));
             case 'nvps'
-                arg_issuereport(arg_tovals(spec,[],'cell',checks.mandatory,checks.unassigned,checks.expression,checks.conversion));
+                arg_issuereport(arg_tovals(spec,[],'cell',false,checks.unassigned,checks.expression,checks.conversion));
             case 'parse'
-                arg_issuereport(remove_nonassigned(spec));
+                if ~isempty(spec)
+                    spec(~[spec.assigned]) = []; end
+                arg_issuereport(spec);
             case {'lean','rich'}
                 arg_issuereport(spec);
             otherwise
@@ -356,7 +370,9 @@ end
 % expand a specification from a cell array into a struct array
 function [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec(compressed_spec,report_type,perform_namecheck)
     % first expand the cell-array spec into a struct-array spec
-    spec = expand_spec(compressed_spec,quickif(strcmp(report_type,'rich'),'rich','lean'));
+    if ~any(strcmp(report_type,{'rich','parse'}))
+        report_type = 'lean'; end
+    spec = expand_spec(compressed_spec,report_type);
 
     % obtain the argument names and a flat list thereof
     arg_names = {spec.names};
@@ -447,7 +463,7 @@ function nvps = arguments_to_nvps(caller,fmt,vals,structmask,flat_names,first_na
             signature{k} = sprintf('%u',k); end
     end
     if any(structmask)
-        signature(structmask) = cellfun(@(s)fieldnames(s),signature(structmask),'UniformOutput',false); end
+        signature(structmask) = cellfun(@fieldnames,signature(structmask),'UniformOutput',false); end
     
     % determine the number n of arguments that were specified positionally
     [n,violations,ignored] = hlp_nanocache(caller,10,@get_num_positionals,fmt,length(first_names),signature,structmask,permitted_names,skipped_positionals);
@@ -550,14 +566,20 @@ end
 
 
 % assign the values in an NVP list to the spec
-function spec = assign_values(spec,nvps,name2idx)
+function spec = assign_values(spec,nvps,name2idx,caller_name)
     % note: this part needs to be changed to accommodate arg_ref()
     for k=1:2:length(nvps)
         try
             idx = name2idx.(nvps{k});
             newvalue = nvps{k+1};
             if spec(idx).deprecated && ~isequal_weak(spec(idx).value,newvalue)
-                disp_once(['Using deprecated argument "' nvps{k} '" in function ' hlp_getcaller ' (help: ' hlp_tostring(spec(idx).help) ').']); end
+                if iscell(spec(idx).help)
+                    help = [spec(idx).help{:}];
+                else
+                    help = spec(idx).help;
+                end
+                disp_once(['Using deprecated argument "' nvps{k} '" in function ' caller_name ' (help: ' help ').']); 
+            end
             if ~isempty(spec(idx).assigner) 
                 spec(idx) = spec(idx).assigner(spec(idx),newvalue);
             elseif ~isequal(newvalue,'__arg_unassigned__') && ~(~spec(idx).empty_overwrites && (isempty(newvalue) || isequal(newvalue,'__arg_mandatory__')))
@@ -573,19 +595,33 @@ function spec = assign_values(spec,nvps,name2idx)
                 error(['Cannot insert a duplicate field into the specification: ' nvps{k}]); end
             % append it to the spec (note: this might need some optimization... it would be better
             % if the spec automatically contained the arg_selection field)
-            tmp = arg_nogui(nvps{k},nvps{k+1},[],[],'assigned',true);
-            spec(end+1) = feval(tmp{1},[],tmp{2}{:}); %#ok<AGROW>
+            spec(end+1) = cached_argument(nvps{k},nvps{k+1});
             name2idx.(nvps{k}) = length(spec);
         end
     end
 end
 
 
-function spec = remove_nonassigned(spec)
-    % strip everything that has not been assigned
-    if ~isempty(spec)
-        spec(~[spec.assigned]) = []; end
-    % recurse into children
-    if ~isempty(spec)        
-        [spec.children] = celldeal(cellfun(@remove_nonassigned,{spec.children},'UniformOutput',false)); end
+% returns a cached selector argument specifier
+function result = cached_argument(name,default)
+    persistent keys values;
+    try
+        key = [name '_' char('a'+default)];
+        try
+            result = values{strcmp(keys,key)};
+        catch %#ok<CTCH>
+            result = arg_nogui(name,default,[],[],'assigned',true);
+            result = feval(result{1},[],result{2}{:});
+            if ~iscell(keys)
+                keys = {key};
+                values = {result};
+            else
+                keys{end+1} = key;
+                values{end+1} = result;
+            end
+        end
+    catch %#ok<CTCH>
+        result = arg_nogui(name,default,[],[],'assigned',true);
+        result = feval(result{1},[],result{2}{:});
+    end
 end

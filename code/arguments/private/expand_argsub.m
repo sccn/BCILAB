@@ -76,22 +76,19 @@ function spec = assign_argsub(spec,value,reptype,source,reflag,permit_positional
     % skip unassignable values
     if isequal(value,'__arg_unassigned__') || (~spec.empty_overwrites && (isempty(value) || isequal(value,'__arg_mandatory__')))
         return; end
-    % make sure that value is a cell array (otherwise we cannot concatenate it below)
+
     if ~iscell(value)
-        value = {value}; end    
-    if permit_positionals && ~isempty(spec.children)
-        % parse the values into a struct and retain only the difference vs. the current .children
-        diffvalue = arg_tovals(arg_diff(spec.children,arg_report('parse',source,[value skip_noreps])),[],'cell',false,false,false,false);
-        % now parse the current .contents with diffvalue partially overriding, and assign result to children
-        spec.children = arg_report(reptype,source,[spec.contents diffvalue]);
+        value = {value}; end
+    value = hlp_microcache('argparse',@arg_report,'parse',source,[value skip_noreps]);
+    if ~isempty(spec.children)
+        diffvalue = arg_diff(spec.children,value);
     else
-        % optimization: can just concatenate .contents and value
-        spec.children = arg_report(reptype,source,[spec.contents value skip_noreps]);
-    end    
-    
+        diffvalue = value;
+    end
+    diffvalue = arg_tovals(diffvalue,[],'cell',false,false,false,false);
+    spec.contents = [spec.contents diffvalue];        
+    spec.children = arg_report(reptype,source,spec.contents);    
+
     % override flags
-    spec.children = override_flags(spec.children,reflag{:});
-    
-    % update the contents
-    spec.contents = arg_tovals(spec.children,[],'cell',false,false,false,false);
+    spec.children = override_flags(spec.children,reflag{:});    
 end

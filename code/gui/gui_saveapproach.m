@@ -5,7 +5,7 @@ function varargout = gui_saveapproach(varargin)
 %                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                           2010-10-28
 
-% Last Modified by GUIDE v2.5 28-Mar-2012 23:28:11
+% Last Modified by GUIDE v2.5 02-Feb-2014 17:35:12
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -118,8 +118,11 @@ if FileName
     % assign as struct field
     tmp.(identifier) = handles.approach;
     % and then save it from there...
-    io_save([PathName,FileName],'-struct tmp',identifier); 
+    save([PathName,FileName],'-struct','tmp',identifier); 
 end
+
+function pushbutton3_Callback(hObject, eventdata, handles)
+disp(utl_printapproach(handles.approach));
 
 
 function edit2_Callback(hObject, eventdata, handles)
@@ -144,3 +147,5 @@ function edit1_KeyPressFcn(hObject, eventdata, handles)
 
 
 function pushbutton2_ButtonDownFcn(hObject, eventdata, handles)
+
+

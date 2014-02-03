@@ -18,9 +18,9 @@ function res = arg_tovals(spec,set_direct,format,mandatory_check,unassigned_chec
 %             * 'HumanReadableCell' : generate a cell array with human-readable names
 %
 %   MandatoryCheck : whether to check and produce errors for unspecified mandatory arguments
-%                    (default: true)
+%                    (default: false)
 %
-%   UnassignedCheck : whether to check and strip unassigned arguments from the result
+%   UnassignedCheck : whether to check and strip unassigned and skippable arguments from the result
 %                     (default: true)
 %
 %   ExpressionCheck : whether to check and evalute expression arguments from the result
@@ -67,12 +67,17 @@ function res = arg_tovals(spec,set_direct,format,mandatory_check,unassigned_chec
         if nargin < 5
             unassigned_check = true; end
         if nargin < 4
-            mandatory_check = true; end
+            mandatory_check = false; end
         if nargin < 3
             format = 'struct'; end
         if nargin < 2
             set_direct = false; end
     end
+    
+    % remove skippable arguments
+    toprune = [spec.skippable];
+    if any(toprune)
+        spec(toprune) = []; end
     
     % get the values
     values = {spec.value};

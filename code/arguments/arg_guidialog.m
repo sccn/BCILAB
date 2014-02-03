@@ -207,7 +207,7 @@ if ~isempty(okpressed)
     subset = subset(~cellfun('isempty',subset));
     % turn the raw specification into a parameter struct (a non-direct one, since we will mess with
     % it)
-    params = arg_tovals(rawspec,false);
+    params = arg_tovals(rawspec);
 
     % for each parameter produced by the GUI...
     for k = 1:length(outs)
@@ -238,7 +238,7 @@ if ~isempty(okpressed)
     
     % now send the result through the function to check for errors and obtain a values structure...
     params = arg_report('rich',func,{params});
-    params = arg_tovals(params,false);
+    params = arg_tovals(params);
 
     % invoke the function, if so desired
     if ischar(func)
