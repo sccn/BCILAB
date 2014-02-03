@@ -21,7 +21,7 @@ function bci_visualize(model,varargin)
 % instantiate model class...
 instance = eval(model.paradigm);
 
-if isempty(varargin)
+if isempty(varargin) && arg_supported(@instance.visualize)
     arg_guidialog(@instance.visualize,'Parameters',{'Model',model});
 else
     instance.visualize(model,varargin);

@@ -61,7 +61,7 @@ classdef ParadigmWPI < ParadigmDataflowSimplified
             X = num2cell(X,[1 2]);
             featuremodel.P = {cov(cat(2,X{:})')^args.fex.normalizers(1),var(cat(1,X{:})).^args.fex.normalizers(2)};
             featuremodel.chanlocs = args.signal.chanlocs;
-            featuremodel.times = args.signal.times;
+            featuremodel.times = args.signal.xmin + (0:args.signal.pnts-1)/args.signal.srate;
             featuremodel.sparsity = args.fex.sparsity;
             featuremodel.smoothness = args.fex.smoothness;
             % track some properties for inspection

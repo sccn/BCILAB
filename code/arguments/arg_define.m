@@ -251,6 +251,8 @@ function [fmt,vals,compressed_spec,structmask,report_type,skip] = process_inputs
                     arg_issuereport(hlp_microcache('spec',@expand_spec,compressed_spec,report_type)); end
             case 'handle'
                 error('To make function handles accessible, use the function expose_handles().');
+            case 'supported'
+                arg_issuereport(true);
         end
         vals(end-1:end) = [];
     else
