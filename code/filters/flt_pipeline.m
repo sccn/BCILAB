@@ -435,7 +435,7 @@ if isempty(memo) || exist('update_list','var') && update_list
         nameset = [{['p' tags{f}]} props{f}.name tags(f)];
         % take the first line of the function's help text as description of the argument, followed
         % by the function name
-        description = [hlp_fileinfo(names{f},[],'H1Line') ' (' names{f} ')'];
+        description = ['Implemented by ' names{f} '. ' hlp_fileinfo(names{f},[],'H1Line')];
         try
             specs{f} = arg_subtoggle(nameset,[],funcs{f},description,'deprecated',props{f}.deprecated,'experimental',props{f}.experimental); %#ok<*AGROW>
         catch e

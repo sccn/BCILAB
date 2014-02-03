@@ -95,7 +95,7 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
                     model.P = {cov(cat(2,X{:})')^args.normalizers(1),cov(cat(1,X{:}))^args.normalizers(2)}; 
                 end
             end
-            model.times = args.signal.times;
+            model.times = args.signal.xmin + (0:args.signal.pnts-1)/args.signal.srate;
             model.apply_to = args.apply_to;
             
             % store some extra info

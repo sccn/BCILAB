@@ -119,7 +119,7 @@ else
 end
 
 % optionally output the desired piece of info as first output (for convenience)
-if nargin>3
+if nargin>=3
     switch lower(whatinfo)
         case 'hash'
             version = hash;
