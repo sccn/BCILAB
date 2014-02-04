@@ -36,11 +36,11 @@ function spec = build_specifier(reptype,names,defaults,source,help,varargin)
         error('BCILAB:args:no_options','The Source argument for arg_subtoggle() may not be omitted.'); end 
     if nargin < 5
         help = ''; end
-    [fmt,reflag,suppress,permit_positionals,skip_noreps,alternative_defaults] = deal([0 Inf],{},{},true,true,{});
+    [fmt,reflag,suppress,alternative_defaults] = deal([0 Inf],{},{},{});
     
     % extract special options
     for k=length(varargin)-1:-2:1
-        if any(strcmp(varargin{k},{'fmt','reflag','suppress','permit_positionals','skip_noreps','alternative_defaults'}))
+        if any(strcmp(varargin{k},{'fmt','reflag','suppress','alternative_defaults'}))
             eval([varargin{k} ' = varargin{k+1}; varargin([k k+1]) = [];']); end
     end
     
@@ -51,7 +51,8 @@ function spec = build_specifier(reptype,names,defaults,source,help,varargin)
         reflag = [reflag {n{1},{'displayable',false}}]; end %#ok<AGROW>
     
     % initialize the specification struct
-    spec = arg_specifier('head',@arg_subtoggle,'names',names,'help',help,'mapper',@map_argsubtoggle,varargin{:},'type','logical','shape','scalar');
+    spec = arg_specifier('head',@arg_subtoggle, 'names',names, 'help',help, 'mapper',@map_argsubtoggle,varargin{:}, ...
+        'type','logical','shape','scalar', 'contents',repmat({{}},1,2), 'alternatives',cell(1,2));
     
     % parse the 'mapper'
     if nargin(spec.mapper) == 1
@@ -60,18 +61,11 @@ function spec = build_specifier(reptype,names,defaults,source,help,varargin)
     % parse the Source
     source = generate_source(fmt,source);
     
-    % rewrite 'skip_noreps'
-    skip_noreps = quickif(skip_noreps,{'__arg_skip__',true},{});
-    
     % set up the assigner
-    spec.assigner = @(spec,value) assign_argsubtoggle(spec,value,reptype,source,reflag,permit_positionals,skip_noreps);
+    spec.assigner = @(spec,value) assign_argsubtoggle(spec,value,reptype,source,reflag);
     
-    % initialize the contents
-    spec.contents = repmat({{}},1,2);
-    
-    % populate the alternatives in case of a rich spec (rich spec contains alternative branches)
+    % assign alternative defaults in case of a rich spec (rich spec contains alternative branches)
     if strcmp(reptype,'rich')
-        spec.alternatives = cell(1,2);
         spec = spec.assigner(spec,[]);
         spec = spec.assigner(spec,alternative_defaults);
     end
@@ -118,35 +112,26 @@ end
 
 
 % function used to assign a value to the argument
-function spec = assign_argsubtoggle(spec,value,reptype,source,reflag,permit_positionals,skip_noreps)
-    % skip unassignable values
-    if isequal(value,'__arg_unassigned__') || (~spec.empty_overwrites && (isempty(value) || isequal(value,'__arg_mandatory__')))
-        return; end
-    
+function spec = assign_argsubtoggle(spec,invalue,reptype,source,reflag)
     % apply the mapper
-    [spec.value,value] = spec.mapper(value);
+    [spec.value,value] = spec.mapper(invalue);
     idx = spec.value+1;
     
     if spec.value
-        value = hlp_microcache('argparse',@arg_report,'parse',source,[value skip_noreps]);
-        if length(spec.alternatives)>=idx && length(spec.alternatives{idx})>1 
-            diffvalue = arg_diff(spec.alternatives{idx},value);
-        else
-            diffvalue = value;
-        end
-        diffvalue = arg_tovals(diffvalue,[],'cell',false,false,false,false);
-        spec.contents{idx} = [spec.contents{idx} diffvalue];
-        spec.children = arg_report(reptype,source,spec.contents{idx});    
-
+       % parse the value into a spec struct array
+        value = arg_report('parse',source,[value {'__arg_skip__',true}]);
+        % selectively override children with the value
+        spec.children = override_fields(spec.alternatives{idx},value);
+        
         % set or append selector
         selection_arg = strcmp('arg_selection',{spec.children.first_name});
         if any(selection_arg)
             spec.children(selection_arg).value = spec.value;
         else
-            spec.children = [spec.children,cached_selector(spec.value)];
+            spec.children = [spec.children,cached_argument('arg_selection',spec.value)];
         end
     else
-        spec.children = cached_selector(spec.value);
+        spec.children = cached_argument('arg_selection',spec.value);
     end
         
     % override flags
@@ -154,17 +139,4 @@ function spec = assign_argsubtoggle(spec,value,reptype,source,reflag,permit_posi
     
     % override the corresponding entry in alternatives
     spec.alternatives{idx} = spec.children;
-end
-
-
-% returns a cached selector argument specifier
-function result = cached_selector(selected)
-    persistent cache;
-    try
-        result = cache.(char('a'+selected));
-    catch %#ok<CTCH>
-        result = arg_nogui('arg_selection',selected,[],[],'assigned',true);
-        result = feval(result{1},[],result{2}{:});
-        cache.(char('a'+selected)) = result;
-    end
 end

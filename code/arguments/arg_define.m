@@ -150,8 +150,8 @@ function outstruct = arg_define(vals,varargin)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-    % first parse the inputs
-    [fmt,vals,compressed_spec,structmask,report_type,skip] = process_inputs(vals,varargin);
+    % first parse the inputs to arg_define
+    [fmt,vals,compressed_spec,structmask,report_type,skip_skippable] = process_inputs(vals,varargin);
     
     % check if we are in direct mode (fast shortcut)
     if strcmp(report_type,'none') && is_direct_mode(vals,structmask)
@@ -160,16 +160,16 @@ function outstruct = arg_define(vals,varargin)
     else
         % otherwise we perform full parsing
         
-        % get the name of the calling function (for diagnostics and cache lookups)
+        % get the calling function's name (for cache lookups and diagnostics)
         caller_name = hlp_getcaller;
         if ~isvarname(caller_name)
             caller_name = 'anonymous'; end
         
-        % process the specification into a struct array and extract some of its properties
+        % expand specification into a struct array, derive some properties
         [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec_cached(caller_name,compressed_spec,report_type,nargout==0);
 
         % convert vals to a canonical list of name-value pairs (NVPs)
-        nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,first_names,skip*leading_skippable);
+        nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,first_names,skip_skippable*leading_skippable);
 
         % assign the NVPs to the spec
         spec = assign_values(spec,nvps,name2idx,caller_name);
@@ -177,12 +177,14 @@ function outstruct = arg_define(vals,varargin)
         % generate outputs from spec
         switch report_type
             case 'none'
-                % reset the skippable flag (these shall not be pruned by arg_tovals)
+                % reset the skippable flag (these arguments are not skippable as far as the Function 
+                % to which we're returning them is concerned)
                 [spec.skippable] = deal(false);
-                % check for mandatory entries, warn if any
+                % handle mandatory entries
                 mandatory_entries = find(strcmp('__arg_mandatory__',{spec.value}));
                 if mandatory_entries
                     error(['The arguments ' format_cellstr({spec(mandatory_entries).first_name}) ' were unspecified but are mandatory.']); end
+                % build output struct and generate full NVP list for assignment to workspace
                 outstruct = arg_tovals(spec,[],'struct',false,checks.unassigned,checks.expression,checks.conversion);
                 nvps = reshape([fieldnames(outstruct)';struct2cell(outstruct)'],1,[]);
             case 'vals'
@@ -190,8 +192,10 @@ function outstruct = arg_define(vals,varargin)
             case 'nvps'
                 arg_issuereport(arg_tovals(spec,[],'cell',false,checks.unassigned,checks.expression,checks.conversion));
             case 'parse'
-                if ~isempty(spec)
-                    spec(~[spec.assigned]) = []; end
+                % in parse mode we strip anything that was not assigned in this call
+                spec = remove_unassigned(spec);
+                %if ~isempty(spec)
+%                    spec(~[spec.assigned]) = []; end
                 arg_issuereport(spec);
             case {'lean','rich'}
                 arg_issuereport(spec);
@@ -224,8 +228,8 @@ end
 
 
 % process the inputs to arg_define into Format, Values and Specification
-% also precompute the StructMask (bitmask that encodes which elements in Values are structs)
-% and split off the report_type (type of report requested from arg_define) and skip flag from vals
+% also precompute the structmask (bitmask that encodes which elements in Values are structs)
+% and split both the report_type (type of report requested from arg_define) and the skip flag off from vals
 function [fmt,vals,compressed_spec,structmask,report_type,skip] = process_inputs(vals,compressed_spec)
     if iscell(vals)
         % no Format specifier was given: use default
@@ -371,7 +375,7 @@ end
 
 % expand a specification from a cell array into a struct array
 function [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec(compressed_spec,report_type,perform_namecheck)
-    % first expand the cell-array spec into a struct-array spec
+    % first expand the compressed cell-array spec into a full-blown struct-array spec
     if ~any(strcmp(report_type,{'rich','parse'}))
         report_type = 'lean'; end
     spec = expand_spec(compressed_spec,report_type);
@@ -398,8 +402,8 @@ function [spec,flat_names,first_names,name2idx,leading_skippable,checks] = proce
         error(['The names ' hlp_tostring(duplicates) ' refer to multiple arguments.']); end
     
     % if required, check for name clashes with functions on the path
-    % (this is due to a deficiency in MATLAB's handling of variables that were assigned to a function's scope
-    % from the outside, which are prone to clashes with functions on the path...)
+    % (this is due to a deficiency in MATLAB's handling of variables that were assigned to a 
+    % function's scope from a subfunction, which are prone to clashes with functions on the path...)
     if perform_namecheck && strcmp(report_type,'none')
         try
             validate_varnames(hlp_getcaller(2),first_names);
@@ -421,6 +425,8 @@ function spec = expand_spec(spec,report_type)
     % evaluate the cells into specifier structs
     if all(cellfun('isclass',spec,'cell'))
         spec = cellfun(@(s)feval(s{1},report_type,s{2}{:}),spec); end
+    % recursively clear the assigned flag
+    spec = clear_assigned_flag(spec);
     % make sure that spec has the correct fields, even if empty
     if isempty(spec)
         spec = arg_specifier;
@@ -429,7 +435,7 @@ function spec = expand_spec(spec,report_type)
 end
 
 
-% recursively check whether the given property matches the given value in any of the spec entries
+% recursively check whether the given property is set to the given value in any of the spec entries
 function ismatch = check_property(spec,name,value)
     if isempty(spec)
         ismatch = false;
@@ -568,26 +574,33 @@ end
 
 
 % assign the values in an NVP list to the spec
-function spec = assign_values(spec,nvps,name2idx,caller_name)
+function spec = assign_values(inspec,nvps,name2idx,caller_name)
     % note: this part needs to be changed to accommodate arg_ref()
+    spec = inspec;    
     for k=1:2:length(nvps)
         try
             idx = name2idx.(nvps{k});
             newvalue = nvps{k+1};
-            if spec(idx).deprecated && ~isequal_weak(spec(idx).value,newvalue)
-                if iscell(spec(idx).help)
-                    help = [spec(idx).help{:}];
-                else
-                    help = spec(idx).help;
+            % check whether this value is assignable
+            if ~isequal(newvalue,'__arg_unassigned__') && ~(~spec(idx).empty_overwrites && (isempty(newvalue) || isequal(newvalue,'__arg_mandatory__')))
+                % warn about deprecation
+                if spec(idx).deprecated && ~isequal_weak(spec(idx).value,newvalue)
+                    if iscell(spec(idx).help)
+                        help = [spec(idx).help{:}];
+                    else
+                        help = spec(idx).help;
+                    end
+                    disp_once(['Using deprecated argument "' nvps{k} '" in function ' caller_name ' (help: ' help ').']); 
                 end
-                disp_once(['Using deprecated argument "' nvps{k} '" in function ' caller_name ' (help: ' help ').']); 
+                % perform assignment
+                if isempty(spec(idx).assigner) 
+                    spec(idx).value = newvalue;
+                else
+                    spec(idx) = spec(idx).assigner(spec(idx),newvalue);
+                end
+                % tag this node as assigned
+                spec(idx).assigned = true;
             end
-            if ~isempty(spec(idx).assigner) 
-                spec(idx) = spec(idx).assigner(spec(idx),newvalue);
-            elseif ~isequal(newvalue,'__arg_unassigned__') && ~(~spec(idx).empty_overwrites && (isempty(newvalue) || isequal(newvalue,'__arg_mandatory__')))
-                spec(idx).value = newvalue;
-            end
-            spec(idx).assigned = true;
         catch e
             if ~strcmp(e.identifier,'MATLAB:nonExistentField')
                 rethrow(e); end
@@ -595,7 +608,7 @@ function spec = assign_values(spec,nvps,name2idx,caller_name)
             % occurred
             if any(strcmp({spec.first_name},nvps{k}))
                 error(['Cannot insert a duplicate field into the specification: ' nvps{k}]); end
-            % append it to the spec (note: this might need some optimization... it would be better
+            % append it to the spec (note: this could use some optimization... it would be better
             % if the spec automatically contained the arg_selection field)
             spec(end+1) = cached_argument(nvps{k},nvps{k+1});
             name2idx.(nvps{k}) = length(spec);
@@ -604,26 +617,30 @@ function spec = assign_values(spec,nvps,name2idx,caller_name)
 end
 
 
-% returns a cached selector argument specifier
-function result = cached_argument(name,default)
-    persistent keys values;
-    try
-        key = [name '_' char('a'+default)];
-        try
-            result = values{strcmp(keys,key)};
-        catch %#ok<CTCH>
-            result = arg_nogui(name,default,[],[],'assigned',true);
-            result = feval(result{1},[],result{2}{:});
-            if ~iscell(keys)
-                keys = {key};
-                values = {result};
-            else
-                keys{end+1} = key;
-                values{end+1} = result;
-            end
+% clear the assigned flag in a spec, recursively
+function spec = clear_assigned_flag(spec)
+    if ~isempty(spec)
+        if isstruct(spec)
+            [spec.assigned] = deal(false);
+            [spec.children] = celldeal(cellfun(@clear_assigned_flag,{spec.children},'UniformOutput',false));
+            [spec.alternatives] = celldeal(cellfun(@clear_assigned_flag,{spec.alternatives},'UniformOutput',false));
+        else
+            spec = cellfun(@clear_assigned_flag,spec,'UniformOutput',false); 
         end
-    catch %#ok<CTCH>
-        result = arg_nogui(name,default,[],[],'assigned',true);
-        result = feval(result{1},[],result{2}{:});
+    end
+end
+
+% remove all unassigned spec entries, recursively
+function spec = remove_unassigned(spec)
+    if ~isempty(spec)
+        if isstruct(spec)
+            spec(~[spec.assigned]) = [];
+            if ~isempty(spec)
+                [spec.children] = celldeal(cellfun(@remove_unassigned,{spec.children},'UniformOutput',false));
+                [spec.alternatives] = celldeal(cellfun(@remove_unassigned,{spec.alternatives},'UniformOutput',false));
+            end
+        else
+            spec = cellfun(@remove_unassigned,spec,'UniformOutput',false); 
+        end
     end
 end

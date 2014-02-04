@@ -16,7 +16,7 @@ function res = arg_norep(varargin)
 %    it has no effect on a function's variables when the report is passed back to the function as input
 % c) skippable set to true: when a group of defaults are specified positionally for an arg_sub* the
 %    leading skippable arguments are skipped over (assigned dummy values), and can therefore be ignored in 
-%    the defaults list (can be controlled by 'skip_noreps' option in the arg_sub* functions)
+%    the defaults list.
 %
 % In:
 %   Names : The name(s) of the argument. At least one must be specified, and if multiple are

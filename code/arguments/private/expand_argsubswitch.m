@@ -38,11 +38,11 @@ function spec = build_specifier(reptype,names,defaults,sources,help,varargin)
         sources = mat2cell(sources,1,repmat(2,length(sources)/2,1)); end % we turn the NVP form of sources into a cell array of cell arrays
     if nargin < 5
         help = ''; end
-    [reflag,suppress,range,case_defaults,permit_positionals,skip_noreps] = deal({},{},cellfun(@(c)c{1},sources,'UniformOutput',false),cell(1,length(sources)),true,true);
+    [reflag,suppress,range,case_defaults] = deal({},{},cellfun(@(c)c{1},sources,'UniformOutput',false),cell(1,length(sources)));
     
     % extract special options
     for k=length(varargin)-1:-2:1
-        if any(strcmp(varargin{k},{'reflag','suppress','permit_positionals','skip_norep'}))
+        if any(strcmp(varargin{k},{'reflag','suppress'}))
             eval([varargin{k} ' = varargin{k+1}; varargin([k k+1]) = [];']); end
     end
     
@@ -66,7 +66,8 @@ function spec = build_specifier(reptype,names,defaults,sources,help,varargin)
         reflag = cellfun(@(f)[f,{n{1},{'displayable',false}}],reflag,'UniformOutput',false); end
     
     % initialize the specification struct
-    spec = arg_specifier('head',@arg_subswitch,'names',names,'help',help,'mapper',@map_argsubswitch,varargin{:},'range',range,'type','char','shape','row');
+    spec = arg_specifier('head',@arg_subswitch, 'names',names, 'help',help, 'mapper',@map_argsubswitch, varargin{:}, ...
+        'range',range, 'type','char', 'shape','row', 'contents',repmat({{}},1,length(sources)), 'alternatives',cell(1,length(sources)));
     
     % parse the 'mapper'
     if nargin(spec.mapper) == 1
@@ -86,18 +87,11 @@ function spec = build_specifier(reptype,names,defaults,sources,help,varargin)
         sources{k} = generate_source(fmt,sources{k}{2});
     end
     
-    % rewrite 'skip_noreps'
-    skip_noreps = quickif(skip_noreps,{'__arg_skip__',true},{});
-
-    % initialize the contents
-    spec.contents = repmat({{}},1,length(sources));
-    
     % set up the assigner
-    spec.assigner = @(spec,value) assign_argsubswitch(spec,value,reptype,sources,reflag,permit_positionals,skip_noreps);
+    spec.assigner = @(spec,value) assign_argsubswitch(spec,value,reptype,sources,reflag);
     
-    % populate the alternatives in case of a rich spec
+    % assign alternative defaults in case of a rich spec
     if strcmp(reptype,'rich')
-        spec.alternatives = cell(1,length(sources));
         for n=1:length(sources)
             spec = spec.assigner(spec,[spec.range(n) case_defaults{n}]); end
     end
@@ -147,55 +141,27 @@ end
 
 
 % function used to assign a value to the argument
-function spec = assign_argsubswitch(spec,invalue,reptype,sources,reflag,permit_positionals,skip_noreps)
-    % skip unassignable values
-    if isequal(invalue,'__arg_unassigned__') || (~spec.empty_overwrites && (isempty(invalue) || isequal(invalue,'__arg_mandatory__')))
-        return; end
-    
+function spec = assign_argsubswitch(spec,invalue,reptype,sources,reflag)
     % apply the mapper
     [spec.value,value] = spec.mapper(invalue,spec.range,spec.names);
     idx = find(strcmp(spec.value,spec.range));
-        
-    value = hlp_microcache('argparse',@arg_report,'parse',sources{idx},[value skip_noreps]);
-    if length(spec.alternatives)>=idx && length(spec.alternatives{idx})>1
-        diffvalue = arg_diff(spec.alternatives{idx},value);
-    else
-        diffvalue = value;
-    end
-    diffvalue = arg_tovals(diffvalue,[],'cell',false,false,false,false);
-    spec.contents{idx} = [spec.contents{idx} diffvalue];
-    spec.children = arg_report(reptype,sources{idx},spec.contents{idx});    
+       
+    % parse the value into a spec struct array
+    value = arg_report('parse',sources{idx},[value {'__arg_skip__',true}]);
+    % selectively override children with the value
+    spec.children = override_fields(spec.alternatives{idx},value);
 
     % set or append selector
     selection_arg = strcmp('arg_selection',{spec.children.first_name});
     if any(selection_arg)
         spec.children(selection_arg).value = spec.range{idx};
     else
-        spec.children = [spec.children,cached_selector(spec.range{idx})]; 
+        spec.children = [spec.children,cached_argument('arg_selection',spec.range{idx})]; 
     end
     
     % override flags
     spec.children = override_flags(spec.children,reflag{idx}{:});
     
-    % also override the corresponding entry in alternatives
+    % update alternatives
     spec.alternatives{idx} = spec.children;
-end
-
-
-% returns a cached selector argument specifier
-function result = cached_selector(selected)
-    persistent keys values;
-    try
-        result = values{strcmp(keys,selected)};
-    catch %#ok<CTCH>
-        result = arg_nogui('arg_selection',selected,[],[],'assigned',true);
-        result = feval(result{1},[],result{2}{:});
-        if ~iscell(keys)
-            keys = {selected};
-            values = {result};
-        else
-            keys{end+1} = selected;
-            values{end+1} = result;
-        end
-    end
 end

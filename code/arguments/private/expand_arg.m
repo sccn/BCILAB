@@ -42,7 +42,8 @@ function spec = build_specifier(names,default,range,help,varargin)
         help = ''; end
     
     % initialize specification struct
-    spec = arg_specifier('head',@arg,'names',names,'value',default,'range',range,'help',help,'to_double',[],varargin{:});
+    spec = arg_specifier('head',@arg, 'names',names, 'value',default, 'range',range, 'help',help, ...
+        'to_double',[], varargin{:});
 
     % parse the type
     if isempty(spec.type)

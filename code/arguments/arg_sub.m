@@ -23,9 +23,7 @@ function res = arg_sub(varargin)
 %
 %   Defaults : A cell array of values to override defaults for the Source; all syntax accepted by
 %              the Source is allowed here, although it is recommended to pass the Defaults (and the
-%              values to be assigned to the arg_sub) as NVPs/structs. For options related to passing
-%              values positionally, see the 'permit_positionals' and 'skip_noreps' options (by
-%              default they do the right thing, at some extra cost). (default: {})
+%              values to be assigned to the arg_sub) as NVPs/structs. (default: {})
 %
 %   Source : A source of argument specifications, either a function handle (referring to a function
 %            which defines arguments via arg_define()) or a cell array with a list of argument
@@ -48,18 +46,6 @@ function res = arg_sub(varargin)
 %
 %                 'suppress' : A simpler alternative to reflag that holds a list of argument names
 %                              that shall be suppressed from GUIs (by setting displayable to false).
-%
-%                 'permit_positionals' : Whether to permit positional argument lists in values
-%                                        assigned to the arg_sub in the presence of non-empty
-%                                        Defaults; when set and Defaults are non-empty, parsing of
-%                                        the values is approx 2x as slow. (default: true)
-%
-%                 'skip_noreps' : Whether norep arguments among the arguments of the Source should
-%                                 be implicitly skipped when Defaults and/or the cell array of
-%                                 values to assign have leading positional values (so that these
-%                                 don't have to be listed). This is useful when the arg_sub exposes
-%                                 arguments of a sub-function that receives its data arguments
-%                                 implicitly, rather than through the arg_sub argument. (default: true)
 %
 %                 'fmt' : Optional format specification for the Source (default: [0 Inf]). 
 %                         See arg_define() for a detailed explanation.

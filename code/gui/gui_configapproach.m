@@ -34,7 +34,6 @@ if ischar(calibrate_func)
 end
     
 % bring up the GUI
-
 result = arg_guidialog(calibrate_func,'params',approach.parameters,'title','BCILAB: Configure approach','Invoke',false);
 if ~isempty(result)
     approach.parameters = {result};

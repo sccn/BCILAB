@@ -113,12 +113,14 @@ handles.approach.timestamp = now;
 io_mkdirs('home:/.bcilab/approaches/');
 [FileName,PathName] = uiputfile('*.apr','Save approach',env_translatepath('home:/.bcilab/approaches/untitled.apr'));
 if FileName
+    fprintf('Saving approach...');
     % ... and save the file
     identifier = get(handles.edit1,'String');
     % assign as struct field
     tmp.(identifier) = handles.approach;
     % and then save it from there...
     save([PathName,FileName],'-struct','tmp',identifier); 
+    fprintf('done.\n');
 end
 
 function pushbutton3_Callback(hObject, eventdata, handles)

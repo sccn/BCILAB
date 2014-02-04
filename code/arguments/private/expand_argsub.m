@@ -40,11 +40,11 @@ function spec = build_specifier(reptype,names,defaults,source,help,varargin)
         source = {}; end
     if nargin < 5
         help = ''; end    
-    [fmt,reflag,suppress,permit_positionals,skip_noreps] = deal([0 Inf],{},{},true,true);
+    [fmt,reflag,suppress] = deal([0 Inf],{},{});
     
     % extract special options
     for k=length(varargin)-1:-2:1
-        if any(strcmp(varargin{k},{'fmt','reflag','suppress','permit_positionals','skip_noreps'}))
+        if any(strcmp(varargin{k},{'fmt','reflag','suppress'}))
             eval([varargin{k} ' = varargin{k+1}; varargin([k k+1]) = [];']); end
     end    
     
@@ -55,16 +55,14 @@ function spec = build_specifier(reptype,names,defaults,source,help,varargin)
         reflag = [reflag {n{1},{'displayable',false}}]; end %#ok<AGROW>
     
     % initialize the specification struct
-    spec = arg_specifier('head',@arg_sub,'names',names,'help',help,varargin{:},'value',[],'type','char','shape','row');
+    spec = arg_specifier('head',@arg_sub, 'names',names, 'help',help,varargin{:}, ...
+        'value',[], 'type','char', 'shape','row');
     
     % parse the Source
     source = generate_source(fmt,source);
     
-    % rewrite 'skip_noreps'
-    skip_noreps = quickif(skip_noreps,{'__arg_skip__',true},{});
-    
     % set up the assigner
-    spec.assigner = @(spec,value) assign_argsub(spec,value,reptype,source,reflag,permit_positionals,skip_noreps);
+    spec.assigner = @(spec,value) assign_argsub(spec,value,reptype,source,reflag);
     
     % assign the defaults
     spec = spec.assigner(spec,defaults);
@@ -72,23 +70,14 @@ end
 
 
 % function to perform the value assignment
-function spec = assign_argsub(spec,value,reptype,source,reflag,permit_positionals,skip_noreps)
-    % skip unassignable values
-    if isequal(value,'__arg_unassigned__') || (~spec.empty_overwrites && (isempty(value) || isequal(value,'__arg_mandatory__')))
-        return; end
-
-    if ~iscell(value)
-        value = {value}; end
-    value = hlp_microcache('argparse',@arg_report,'parse',source,[value skip_noreps]);
-    if ~isempty(spec.children)
-        diffvalue = arg_diff(spec.children,value);
-    else
-        diffvalue = value;
-    end
-    diffvalue = arg_tovals(diffvalue,[],'cell',false,false,false,false);
-    spec.contents = [spec.contents diffvalue];        
-    spec.children = arg_report(reptype,source,spec.contents);    
-
+function spec = assign_argsub(spec,invalue,reptype,source,reflag)
+    % make sure that invalue is a cell array
+    if ~iscell(invalue)
+        invalue = {invalue}; end
+    % parse the value into a spec struct array
+    value = arg_report('parse',source,[invalue {'__arg_skip__',true}]);
+    % selectively override children with the value
+    spec.children = override_fields(spec.children,value);
     % override flags
-    spec.children = override_flags(spec.children,reflag{:});    
+    spec.children = override_flags(spec.children,reflag{:});
 end

@@ -61,6 +61,7 @@ if isempty(handles.approach)
     guidata(hObject, handles);
     close(handles.figure1);
 else
+    fprintf('Generating approach GUI...');
     calibrate_func = handles.approach.paradigm;
     if ischar(calibrate_func)
         instance = eval(calibrate_func); %#ok<NASGU>
@@ -70,6 +71,7 @@ else
     handles.hProperties = arg_guipanel(handles.uipanel2, 'Function',calibrate_func,'Parameters',handles.approach.parameters);
     % Update handles structure
     guidata(hObject, handles);
+    fprintf('done.\n');
 end
 
 % --- Outputs from this function are returned to the command line.

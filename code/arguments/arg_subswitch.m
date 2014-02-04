@@ -25,9 +25,7 @@ function res = arg_subswitch(varargin)
 %              {'key', NVPs...} where NVPs is a list of arguments that can be in any format accepted
 %              by the respective Source funnction for the given key (see Sources), although it is
 %              recommended to pass the Defaults (and the values to be assigned to the arg_subswitch)
-%              as NVPs/structs. For options related to passing values positionally, see the
-%              'permit_positionals' and 'skip_noreps' options (by default they do the right thing,
-%              at some extra cost).
+%              as NVPs/structs. 
 %
 %              The key selects which case is enabled by default, while the NVPs allow to selectively
 %              override default values for the sub-argument of the selected case. Alternatively, if
@@ -82,18 +80,6 @@ function res = arg_subswitch(varargin)
 %                            forwarded to the Source that was selected, for further parsing.
 %                            (default: a mapper that implements the rules as documented for
 %                            Defaults)
-%
-%                 'permit_positionals' : Whether to permit positional argument lists in values
-%                                        assigned to the arg_sub in the presence of non-empty
-%                                        Defaults; when set and Defaults are non-empty, parsing of
-%                                        the values is approx 2x as slow. (default: true)
-%
-%                 'skip_noreps' : Whether norep arguments among the arguments of the Source should
-%                                 be implicitly skipped when Defaults and/or the cell array of
-%                                 values to assign have leading positional values (so that these
-%                                 don't have to be listed). This is useful when the arg_sub exposes
-%                                 arguments of a sub-function that receives its data arguments
-%                                 implicitly, rather than through the arg_sub argument. (default: true)
 %
 %                 others: as in arg()
 %
