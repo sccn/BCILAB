@@ -33,6 +33,8 @@ traindata = io_loadset('data:/tutorial/flanker_task/12-08-002_ERN.vhdr');
 
 % define approach
 myapproach = {'Windowmeans' 'SignalProcessing', {'Resampling','off','EpochExtraction',[-0.2 0.8],'SpectralSelection',[0.1 15]}, 'Prediction',{'FeatureExtraction',{'TimeWindows',wnds}}};
+% myapproach = {'DALERP','SignalProcessing',{'Resampling',60,'IIRFilter','off','spectrum',[0.1 15],'EpochExtraction',[0 0.8]}, ...
+%     'Prediction',{'MachineLearning',{'Learner',{'dal','lambdas',2.^(10:-0.125:1),'solver','cg'}}}};
 
 %learn model 
 [trainloss,lastmodel,laststats] = bci_train('Data',traindata,'Approach',myapproach,'TargetMarkers',mrks);
@@ -158,7 +160,8 @@ approaches.waveletsprox = {'DataflowSimplified' 'SignalProcessing',{'Resampling'
 
 % for each of the above approaches...
 for app = fieldnames(approaches)'
-    fprintf(['\n==== now testing "' app{1} '" ====\n\n']);
+    fprintf(['\n==== now testing "' app{1} '" ====\n']);
+    fprintf([utl_printapproach(approaches.(app{1})) '\n\n']);
     % train & cross-validate
     [trainloss,lastmodel,laststats] = bci_train('Data',traindata,'Approach',approaches.(app{1}),'TargetMarkers',{{'S101','S102'},{'S201','S202'}})
     disp(['training mis-classification rate: ' num2str(trainloss*100,3) '%']);

@@ -151,7 +151,8 @@ approaches.hkl = {'CSP' 'Prediction',{'MachineLearning',{'Learner','hkl'}}};
 
 % for each of the above approaches...
 for app = fieldnames(approaches)'
-    fprintf(['\n==== now testing "' app{1} '" ====\n\n']);
+    fprintf(['\n==== now testing "' app{1} '" ====\n']);
+    fprintf([utl_printapproach(approaches.(app{1})) '\n\n']);
     % train & cross-validate
     [trainloss,lastmodel,laststats] = bci_train('Data',traindata,'Approach',approaches.(app{1}),'TargetMarkers',{'0','16','30'})    
     disp(['training mis-classification rate: ' num2str(trainloss*100,3) '%']);
@@ -227,7 +228,8 @@ approaches.specm_cohen = {'Spectralmeans', 'SignalProcessing',{'IIRFilter',{[0.1
 
 % for each of the above approaches...
 for app = fieldnames(approaches)'
-    fprintf(['\n==== now testing "' app{1} '" ====\n\n']);
+    fprintf(['\n==== now testing "' app{1} '" ====\n']);
+    fprintf([utl_printapproach(approaches.(app{1})) '\n\n']);
     % train & cross-validate
     [trainloss,lastmodel,laststats] = bci_train('Data',traindata,'Approach',approaches.(app{1}),'TargetMarkers',{'0','16','30'})    
     disp(['training mis-classification rate: ' num2str(trainloss*100,3) '%']);
