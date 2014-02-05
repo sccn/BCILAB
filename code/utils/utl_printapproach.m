@@ -26,7 +26,10 @@ if nargin < 4
     indent_incr = 4; end
 
 % get required approach properties
-if iscell(app)
+if ischar(app)
+    paradigm = ['Paradigm' app];
+    parameters = {};
+elseif iscell(app)
     paradigm = ['Paradigm' app{1}];
     parameters = app(2:end);
 else

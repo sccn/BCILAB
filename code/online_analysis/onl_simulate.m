@@ -95,11 +95,11 @@ function [predictions,predict_at,timings] = onl_simulate(varargin)
 %
 % Examples:
 %  % 1. load calibration data and compute a model (see bci_train)
-%  calib = io_loadset('data sets/mary/stresslevels_calib.signal');
+%  calib = io_loadset('data sets/mary/stresslevels_calib.set');
 %  [loss,model] = bci_train({'data',calib,'paradigm',@para_speccsp},'events',{'low','medium','high'});
 %
 %  % 2. apply pseudo-online, here at a rate of 5 Hz
-%  testdata = io_loadset('data sets/mary/stresslevels_realworld.signal');
+%  testdata = io_loadset('data sets/mary/stresslevels_realworld.set');
 %  [predictions,latencies] = onl_simulate(testdata, model, 'SamplingRate',5);
 %
 %  % 3. plot time course of the model's output
@@ -112,9 +112,9 @@ function [predictions,predict_at,timings] = onl_simulate(varargin)
 %                                2010-11-07
 
 arg_define([0 2],varargin, ...
-    arg_norep({'data','Data','signal','Signal'}), ...
+    arg_norep({'signal','Data','Signal'}), ...
     arg_norep({'mdl','Model'}), ...
-    arg({'srate','UpdateRate','update_rate','SamplingRate','sampling_rate'},[],[],'Predict at this rate. If set, produce outputs at the given sampling rate.'), ...
+    arg({'sampling_rate','UpdateRate','update_rate','SamplingRate'},[],[],'Predict at this rate. If set, produce outputs at the given sampling rate.'), ...
     arg({'locksamples','Latencies'}, [], [], 'Predict at these latencies. Produce outputs at the given data sample latencies.'), ...
     arg({'lockmrks','Markers','markers'}, {}, [], 'Predict at these events. Produce outputs at the latencies of these events.'), ...
     arg({'relshift','Shift','offset'},0,[],'Add time offset. Shift the time points at which to predict by this amount (in seconds).'), ...
@@ -128,19 +128,19 @@ arg_define([0 2],varargin, ...
     arg({'force_array','ForceArrayOutputs'},true,[],'Force outputs into array. If true, the predictions, which would normally be a cell array, are returned as a numeric array. If no target markers are specified then all predictions that yielded xno results are replaced by appropriately-sized NaN vectors.'));
 
 % uniformize the data
-if all(isfield(data,{'data','srate'}))
-    data = struct('streams',{{data}}); end
-if iscell(data)
-    data = struct('streams',{data}); end
+if all(isfield(signal,{'data','srate'}))
+    signal = struct('streams',{{signal}}); end
+if iscell(signal)
+    signal = struct('streams',{signal}); end
 
 % and make sure that it is well-formed and evaluated
-data = utl_check_bundle(data);
-for s=1:length(data.streams)
-    data.streams{s} = exp_eval_optimized(data.streams{s}); end
+signal = utl_check_bundle(signal);
+for s=1:length(signal.streams)
+    signal.streams{s} = exp_eval_optimized(signal.streams{s}); end
 
 % we use the sampling rate and bounds of the first stream to determine the prediction points
-stream_srate = data.streams{1}.srate;
-stream_xmax = data.streams{1}.xmax;
+stream_srate = signal.streams{1}.srate;
+stream_xmax = signal.streams{1}.xmax;
 if all(restrict_to <= 1)
     restrict_to = max(0,min(1,restrict_to)) * stream_xmax;
 else
@@ -150,9 +150,9 @@ end
 % aggregate the time points at which the model should be invoked
 predict_at = [];
 for m=1:length(lockmrks)
-    predict_at = [predict_at ([data.streams{1}.event(strcmp(lockmrks{m},{data.streams{1}.event.type})).latency]-1)/stream_srate]; end
-if ~isempty(srate)
-    predict_at = [predict_at 0:(1/srate):stream_xmax]; end
+    predict_at = [predict_at ([signal.streams{1}.event(strcmp(lockmrks{m},{signal.streams{1}.event.type})).latency]-1)/stream_srate]; end
+if ~isempty(sampling_rate)
+    predict_at = [predict_at 0:(1/sampling_rate):stream_xmax]; end
 if ~isempty(locksamples)
     predict_at = [predict_at locksamples/stream_srate]; end
 predict_at = predict_at + relshift;
@@ -162,20 +162,20 @@ predictions = cell(1,length(predict_at));
 
 % optionally clear any existing target markers in the given streams
 if ~isempty(target_markers)
-    for s=1:length(data.streams)
-        if ~isempty(data.streams{s}.event)
-            [data.streams{s}.event.target] = deal([]); end
+    for s=1:length(signal.streams)
+        if ~isempty(signal.streams{s}.event)
+            [signal.streams{s}.event.target] = deal([]); end
     end
 end
 
 % initialize the online stream(s)
 stream_names = {};
-for s=1:length(data.streams)
+for s=1:length(signal.streams)
     stream_names{s} = sprintf('stream_simulated_%.0f',s);
     if tighten_buffer
-        onl_newstream(stream_names{s}, data.streams{s}, 'buffer_len',max(diff(predict_at)) + 10/data.streams{s}.srate);
+        onl_newstream(stream_names{s}, signal.streams{s}, 'buffer_len',max(diff(predict_at)) + 10/signal.streams{s}.srate);
     else
-        onl_newstream(stream_names{s}, data.streams{s});
+        onl_newstream(stream_names{s}, signal.streams{s});
     end
 end
 
@@ -186,24 +186,24 @@ if dofeedback
     figure; drawnow; end
 
 % get the latencies of events in each stream
-for s=length(data.streams):-1:1
-    event_latencies{s} = round([data.streams{s}.event.latency]);  end
+for s=length(signal.streams):-1:1
+    event_latencies{s} = round([signal.streams{s}.event.latency]);  end
 
 % for each latency of interest...
-cursors = zeros(1,length(data.streams)); % data up to an including this sample latency has been streamed in
+cursors = zeros(1,length(signal.streams)); % signal up to an including this sample latency has been streamed in
 timings = zeros(1,length(predict_at));
 for k=1:length(predict_at)    
     t0 = tic;
     
     % skip ahead to the position of the next prediction
     % (i.e. feed all samples and markers from the current cursor up to that position)
-    for s=1:length(data.streams)
-        next_sample = 1 + round(predict_at(k)*data.streams{s}.srate);
+    for s=1:length(signal.streams)
+        next_sample = 1 + round(predict_at(k)*signal.streams{s}.srate);
         range = (cursors(s)+1) : next_sample;
-        events = data.streams{s}.event(event_latencies{s}>=range(1)&event_latencies{s}<=range(end));
+        events = signal.streams{s}.event(event_latencies{s}>=range(1)&event_latencies{s}<=range(end));
         if ~isempty(events)
             [events.latency] = arraydeal([events.latency]-range(1)+1);end
-        onl_append(stream_names{s},data.streams{s}.data(:,range),events);
+        onl_append(stream_names{s},signal.streams{s}.data(:,range),events);
         cursors(s) = next_sample;
     end
     
