@@ -658,7 +658,7 @@ function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,de
                 % arg_sub
                 pos = 1;
                 source_fields = spec.children;
-            elseif islogical(key)
+            elseif islogical(key) || isnumeric(key)
                 % arg_subtoggle
                 pos = key+1;
                 source_fields = spec.alternatives{pos};
