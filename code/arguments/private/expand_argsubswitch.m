@@ -80,7 +80,7 @@ function spec = expand_specifier(reptype,names,defaults,sources,help,varargin)
     end
     
     % initialize the specification struct
-    spec = arg_specifier('head',@arg_subswitch, 'names',names, 'help',help, 'mapper',@map_argsubswitch, varargin{:}, ...
+    spec = arg_specifier('head','arg_subswitch', 'names',names, 'help',help, 'mapper',@map_argsubswitch, varargin{:}, ...
         'range',range, 'type','char', 'shape','row', 'alternatives',cell(1,length(sources)), 'reflag',reflag, 'defaults',{defaults}, 'sources',sources);
     
     % post-process the 'mapper' (needs to take 3 arguments)

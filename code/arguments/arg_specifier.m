@@ -36,7 +36,7 @@ function spec = arg_specifier(varargin)
 % initialize the struct
 spec = struct(...
     ... % core properties
-    'head',{@arg_specifier},...     % the argument type that generated this specifier (@arg, @arg_sub, ...)
+    'head',{'arg_specifier'},...    % the argument type that generated this specifier ('arg', 'arg_sub', ...)
     'names',{{}}, ...               % cell array of argument names; first is the variable name inside the function, second (if present) is the human-readable name (reported to the GUI), followed by aliases
     'first_name',{''}, ...          % the first name of the argument (used to name the function variables)
     'value',{'__arg_unassigned__'}, ...% the assigned value of the argument; can be any data structure
@@ -56,13 +56,15 @@ spec = struct(...
     'help',{''}, ...                % the help text / description for the argument
     'cat',{''}, ...                 % the human-readable category of the argument
     ... % attributes
-    'displayable',{true},...        % whether the argument may be displayed by GUIs (true/false)
-    'deprecated',{false},...        % whether the argument has been deprecated (true/false)
-    'experimental',{false},...      % whether the argument is marked as experimental or "prototype-stage" (true/false)
-    'guru',{false},...              % whether the argument is marked as guru-level (true/false)
-    'empty_overwrites',{true},...   % whether an empty value does replace the default (or any previous) value (true/false)
+    'displayable',{true}, ...       % whether the argument may be displayed by GUIs (true/false)
+    'deprecated',{false}, ...       % whether the argument has been deprecated (true/false)
+    'experimental',{false}, ...     % whether the argument is marked as experimental or "prototype-stage" (true/false)
+    'guru',{false}, ...             % whether the argument is marked as guru-level (true/false)
+    'empty_overwrites',{true}, ...  % whether an empty value does replace the default (or any previous) value (true/false)
     'to_double',{false}, ...        % convert numeric values to double before returning them to the function (true/false)
-    'skippable',{false}...          % whether the argument is supposed to be skipped under some circumstances in positional argument lists (true/false) (INTERNAL)
+    'skippable',{false}, ...        % whether the argument is supposed to be skipped under some circumstances in positional argument lists (true/false) (INTERNAL)
+    ... % misc fields
+    'version',{1.1} ...             % version of the argument specification
     );
 
 % selectively override fields

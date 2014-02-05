@@ -49,7 +49,7 @@ function spec = expand_specifier(names,defaults,source,help,varargin)
     end    
     
     % initialize the specification struct
-    spec = arg_specifier('head',@arg_sub, 'names',names, 'help',help, 'mapper',@map_argsub, varargin{:}, ...
+    spec = arg_specifier('head','arg_sub', 'names',names, 'help',help, 'mapper',@map_argsub, varargin{:}, ...
         'value',[], 'type','char', 'shape','row', 'sources',{generate_source(fmt,source)}, 'defaults',{defaults});
 
     % post-process the 'mapper' (needs to take 3 arguments)

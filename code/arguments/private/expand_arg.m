@@ -42,7 +42,7 @@ function spec = expand_specifier(names,default,range,help,varargin)
         help = ''; end
     
     % initialize specification struct
-    spec = arg_specifier('head',@arg, 'names',names, 'range',range, 'help',help, 'to_double',[], varargin{:}, 'mapper',[]);
+    spec = arg_specifier('head','arg', 'names',names, 'range',range, 'help',help, 'to_double',[], varargin{:}, 'mapper',[]);
 
     % parse the type
     if isempty(spec.type)

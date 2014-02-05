@@ -45,7 +45,7 @@ function spec = expand_specifier(reptype,names,defaults,source,help,varargin)
     end
     
     % initialize the specification struct
-    spec = arg_specifier('head',@arg_subtoggle, 'names',names, 'help',help, 'mapper',@map_argsubtoggle, varargin{:}, ...
+    spec = arg_specifier('head','arg_subtoggle', 'names',names, 'help',help, 'mapper',@map_argsubtoggle, varargin{:}, ...
         'type','logical', 'shape','scalar', 'alternatives',cell(1,2), 'sources',{[],generate_source(fmt,source)});
 
     % handle the 'suppress' option (suppress appends to reflag)

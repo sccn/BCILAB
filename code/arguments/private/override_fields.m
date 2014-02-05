@@ -2,6 +2,9 @@ function A = override_fields(A,B)
 % helper function: override specifiers in A selectively by specifiers in B
 % Result = override_flags(A,B)
 %
+% In particular, if A has an alternative that matches a selection in B, that alternative
+% will be used as basis to produce A's children.
+%
 % In:
 %   A : array of arg_specifier structs
 %
@@ -31,33 +34,69 @@ if isempty(A)
     A = B;
 elseif ~isempty(B)
     % find the positions where B overrides A, and positions in B to append to A
-    [A_pos,B_pos,B_append] = hlp_nanocache('override',30,@matching,{A.first_name},{B.first_name});
-    % save A's children and alternatives
-    A_chld = {A(A_pos).children};
-    A_alts = {A(A_pos).alternatives};
-    % replace A by B's elements
-    A(A_pos) = B(B_pos);
-    % override the children recursively
-    [A(A_pos).children] = celldeal(cellfun(@override_fields,A_chld,{B(B_pos).children},'UniformOutput',false));    
-    % override the alternatives recursively
-    A_numalts = cellfun('length',A_alts);
-    if any(A_numalts)
-        B_alts = {B(B_pos).alternatives};
-        B_numalts = cellfun('length',B_alts);
-        % for each element e in A where there was an alternative
-        for e=find(A_numalts)
-            % pad the alternatives with [] to ensure same length
-            if A_numalts(e) < B_numalts(e)
-                [A_alts{(end+1):B_numalts(e)}] = deal([]);
-            elseif A_numalts(e) > B_numalts(e)
-                [B_alts{(end+1):A_numalts(e)}] = deal([]);
+    A_names = {A.first_name};
+    B_names = {B.first_name};
+    if isequal(A_names,B_names)
+        A_pos = 1:length(A_names);
+        B_pos = 1:length(B_names);
+        B_append = [];
+    else
+        [A_pos,B_pos,B_append] = hlp_nanocache('override',30,@matching,A_names,B_names);
+    end
+    % determine whether any element has sub-structure (based on the head)
+    A_heads = {A(A_pos).head};
+    has_sub = strncmp(A_heads,'arg_sub',7);
+    if any(has_sub)
+        % initialize A_source with the respective children (ensures right length, etc.)
+        [A_source{has_sub}] = A(A_pos(has_sub)).children;
+        % for all switches/toggles, we replace the children with the respective alternative
+        B_values = {B(B_pos).value};
+        is_subtoggle = strcmp(A_heads,'arg_subtoggle');
+        is_subswitch = strcmp(A_heads,'arg_subswitch');
+        is_selectable = is_subtoggle | is_subswitch;
+        if any(is_selectable)
+            % get all alternatives
+            A_alts = {A(A_pos).alternatives};
+            % for each subtoggle that's enabled, use the 'on' alternative as source
+            if any(is_subtoggle)
+                is_subtoggle = find(is_subtoggle);
+                toggle_on = [B_values{is_subtoggle}] ~= 0;
+                if any(toggle_on)
+                    tmp = vertcat(A_alts{is_subtoggle(toggle_on)});
+                    [A_source{is_subtoggle(toggle_on)}] = tmp{:,2};
+                end
             end
-            % override fields at each alternative index
-            for a=1:length(A_alts{e})
-                A(A_pos(e)).alternatives{a} = override_fields(A_alts{e}{a},B_alts{e}{a}); end
-            % [A(A_pos(e)).alternatives] = celldeal(cellfun(@override_fields,A_alts{e},B_alts{e},'UniformOutput',false));
+            % for each subswitch, use the corresponding alternative based on the range
+            if any(is_subswitch)
+                is_subswitch = find(is_subswitch);
+                match = cellfun(@strcmp,B_values(is_subswitch),{A(A_pos(is_subswitch)).range},'UniformOutput',false);
+                for m=1:length(match)
+                    A_source{is_subswitch(m)} = A_alts{is_subswitch(m)}{match{m}}; end                
+            end
         end
-    end    
+        % replace A by B's elements
+        A(A_pos) = B(B_pos);
+        % merge A_source and B's children recursively
+        for k=find(has_sub)
+            A(A_pos(k)).children = override_fields(A_source{k},B(B_pos(k)).children); end
+        % uodate alternatives
+        if any(is_selectable)
+            % write merge results back into the selected alternatives
+            if any(is_subtoggle) && any(is_subtoggle(toggle_on))
+                for k=find(toggle_on)
+                    A_alts{is_subtoggle(k)} = {[],A(A_pos(is_subtoggle(k))).children}; end
+            end 
+            if any(is_subswitch)
+                for m=1:length(match)
+                    A_alts{is_subswitch(m)}{match{m}} = A(A_pos(is_subswitch(m))).children; end
+            end
+            % write back merged alternatives into A
+            [A(A_pos(is_selectable)).alternatives] = A_alts{is_selectable};
+        end
+    else
+        % replace A by B's elements
+        A(A_pos) = B(B_pos);
+    end
     % append extra elements of B
     A(end+(1:length(B_append))) = B(B_append);
 end

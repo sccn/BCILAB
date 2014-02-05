@@ -176,9 +176,9 @@ function outstruct = arg_define(vals,varargin)
         nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,first_names,skip*leading_skippable);
 
         % assign the NVPs to the spec
-        spec = assign_nvps(spec,nvps,name2idx,report_type,caller_name,nodefaults,true);
+        spec = assign_nvps(spec,nvps,name2idx,report_type,caller_name,true);
 
-        % in parse mode we strip off anything that was not assigned in this call
+        % optionally remove unassigned spec entries
         if nodefaults && ~isempty(spec)
             spec(strcmp('__arg_unassigned__',{spec.value})) = []; end
                 
@@ -264,17 +264,18 @@ function [fmt,vals,compressed_spec,structmask,report_type,skip,nodefaults] = pro
         end
         vals(end-1:end) = [];
         
+        % check for nodefaults flag (do not apply defaults)
+        if length(vals)>1 && isequal(vals{end-1},'__arg_nodefaults__')
+            nodefaults = vals{end};
+            vals(end-1:end) = [];
+        end
+        
         % check for skip flag (skip leading skippable args in positional argument lists)
         if length(vals)>1 && isequal(vals{end-1},'__arg_skip__')
             skip = vals{end};
             vals(end-1:end) = [];
         end
 
-        % check for nodefaults flag (do not apply defaults)
-        if length(vals)>1 && isequal(vals{end-1},'__arg_nodefaults__')
-            nodefaults = vals{end};
-            vals(end-1:end) = [];
-        end
     else
         report_type = 'none';
     end
@@ -385,11 +386,9 @@ end
 % expand a specification from a cell array into a struct array
 function [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec(compressed_spec,report_type,assign_defaults,perform_namecheck)
     caller_name = hlp_getcaller(2);
-    if ~strcmp(report_type,'rich')
-        report_type = 'rich'; end % TODO: FIXME
     
     % expand the compressed cell-array spec into a full-blown struct-array spec
-    spec = expand_spec(compressed_spec,report_type,assign_defaults,caller_name);
+    spec = expand_spec(compressed_spec,'rich',assign_defaults,caller_name);
     
     % obtain the argument names and a flat list thereof
     arg_names = {spec.names};
@@ -445,7 +444,7 @@ function spec = expand_spec(spec,report_type,assign_defaults,caller_name)
     if assign_defaults
         for s=1:length(spec)
             for def=spec(s).defaults
-                spec(s) = assign_value(spec(s),def{1},report_type,caller_name,~assign_defaults,false); end
+                spec(s) = assign_value(spec(s),def{1},report_type,caller_name,false,false); end
         end
     end    
 end
@@ -596,14 +595,14 @@ end
 
 
 % assign the values in an NVP list to the spec
-function spec = assign_nvps(spec,nvps,name2idx,report_type,caller_name,nodefaults,deprecation_warning)
+function spec = assign_nvps(spec,nvps,name2idx,report_type,caller_name,deprecation_warning)
     if ~strcmp(report_type,'rich')
         report_type = 'lean'; end
     % note: this part needs to be changed to accommodate arg_ref()
     for k=1:2:length(nvps)
         try 
             idx = name2idx.(nvps{k});
-            spec(idx) = assign_value(spec(idx),nvps{k+1},report_type,caller_name,nodefaults,deprecation_warning);
+            spec(idx) = assign_value(spec(idx),nvps{k+1},report_type,caller_name,true,deprecation_warning);
         catch e
             if ~strcmp(e.identifier,'MATLAB:nonExistentField')
                 rethrow(e); end
@@ -622,31 +621,13 @@ end
 
 % assign a given value to a single element in a spec
 function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,deprecation_warning)
-    if nodefaults
-        extra_args = {'__arg_skip__',true,'__arg_nodefaults__',true};
-    else
-        extra_args = {'__arg_skip__',true};
-    end
+    skip_arg = {'__arg_skip__',true};
+    nodefault_arg = {'__arg_nodefaults__',true};
     % check whether this value is assignable
     if ~isequal(newvalue,'__arg_unassigned__') && ~(~spec.empty_overwrites && (isempty(newvalue) || isequal(newvalue,'__arg_mandatory__')))
         % warn about deprecation
         if deprecation_warning && spec.deprecated && ~isequal_weak(spec.value,newvalue)
-            if iscell(spec.help)
-                if length(spec.help) == 1
-                    help = spec.help{1};
-                else
-                    help = [spec.help{1} '.' spec.help{2}];
-                end
-            else
-                help = spec.help;
-            end
-            if length(spec.names) > 1
-                name = [spec.names{1} '/' spec.names{2}];
-            else
-                name = spec.names{1};
-            end
-            disp_once(['Using deprecated argument "' name '" in function ' caller_name ' (help: ' help ').']); 
-        end
+            warn_deprecation(spec,caller_name); end
         % perform assignment
         if isempty(spec.mapper)
             spec.value = newvalue;
@@ -675,13 +656,14 @@ function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,de
                 spec.value = false;
                 spec.children = cached_argument('arg_selection',false);
             else
-                value = arg_report(report_type,spec.sources{pos},[value extra_args]);
                 if nodefaults
-                    % selectively override source fields with the value
+                    % parse just the value, without applying defaults
+                    value = arg_report(report_type,spec.sources{pos},[value skip_arg nodefault_arg]);
+                    % selectively override the current source fields with the value
                     spec.children = override_fields(source_fields,value);
                 else
                     % replace the children by the result
-                    spec.children = value;
+                    spec.children = arg_report(report_type,spec.sources{pos},[value skip_arg]);
                 end
                 % override flags
                 spec.children = override_flags(spec.children,spec.reflag{pos}{:});
@@ -701,3 +683,22 @@ function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,de
     end
 end
 
+
+% emit a deprecation warning
+function warn_deprecation(spec,caller_name)
+    if iscell(spec.help)
+        if length(spec.help) == 1
+            help = spec.help{1};
+        else
+            help = [spec.help{1} '.' spec.help{2}];
+        end
+    else
+        help = spec.help;
+    end
+    if length(spec.names) > 1
+        name = [spec.names{1} '/' spec.names{2}];
+    else
+        name = spec.names{1};
+    end
+    disp_once(['Using deprecated argument "' name '" in function ' caller_name ' (help: ' help ').']); 
+end
