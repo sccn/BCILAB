@@ -382,7 +382,7 @@ end
 
 % get a list of all existing filter specifications
 function filters = list_filters(update_list)
-debug = false;
+debug = true;
 persistent memo;
 % if we need to (re-)collect the list
 if isempty(memo) || exist('update_list','var') && update_list

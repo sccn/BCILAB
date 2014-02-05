@@ -25,12 +25,12 @@ function spec = expand_arg(unused,varargin) %#ok<INUSL>
 % USA
 
     % the result of build_specifier is cached in memory for efficient processing of repeated calls
-    spec = hlp_microcache('arg',@build_specifier,varargin{:});
+    spec = hlp_microcache('arg',@expand_specifier,varargin{:});
 end
 
 
 % expand the arg(...) declaration line into an argument specifier
-function spec = build_specifier(names,default,range,help,varargin)
+function spec = expand_specifier(names,default,range,help,varargin)
     % set defaults
     if nargin < 1
         names = {}; end
@@ -42,19 +42,18 @@ function spec = build_specifier(names,default,range,help,varargin)
         help = ''; end
     
     % initialize specification struct
-    spec = arg_specifier('head',@arg, 'names',names, 'value',default, 'range',range, 'help',help, ...
-        'to_double',[], varargin{:});
+    spec = arg_specifier('head',@arg, 'names',names, 'range',range, 'help',help, 'to_double',[], varargin{:}, 'mapper',[]);
 
     % parse the type
     if isempty(spec.type)
         % if the type is unspecified it is deduced        
-        if ~isempty(spec.value)
+        if ~isempty(default)
             % if the value is non-empty, the type is deduced from the value
-            spec.type = deduce_type(spec.value);
+            spec.type = deduce_type(default);
         elseif isnumeric(spec.range)
             % if the range is numeric, the type is deduced from the range
             spec.type = deduce_type(spec.range);
-        elseif iscellstr(spec.range) && iscellstr(spec.value) && isempty(fast_setdiff(spec.value,spec.range))
+        elseif iscellstr(spec.range) && iscellstr(default) && isempty(fast_setdiff(default,spec.range))
             % if both the value and the range are cell-string arrays and the value is a subset of
             % the range, the type is 'logical'
             spec.type = 'logical';
@@ -71,10 +70,10 @@ function spec = build_specifier(names,default,range,help,varargin)
     % parse the shape    
     if isempty(spec.shape)
         % if the shape is unspecified, it is deduced
-        if ~isempty(spec.value)
+        if ~isempty(default)
             % if the value is not empty, the shape is deduced from the value
-            spec.shape = deduce_shape(spec.value);
-        elseif ischar(spec.value) && isempty(spec.value)
+            spec.shape = deduce_shape(default);
+        elseif ischar(default) && isempty(default)
             % if the value is an empty char array, the shape is by default 'row'
             spec.shape = 'row';
         elseif ~isempty(spec.range) && isnumeric(spec.range)
@@ -90,38 +89,41 @@ function spec = build_specifier(names,default,range,help,varargin)
         end
     end
     
-    % parse the value
-    if isequal(spec.value,[]) && iscellstr(spec.range)
+    % parse the default value
+    if isequal(default,[]) && iscellstr(spec.range)
         % if the value is [] but the range is a cell-string array (as in a multi-option argument),
         % the value is set to the first option
-        spec.value = spec.range{1};
-    elseif islogical(spec.value) && isscalar(spec.value) && iscellstr(spec.range)    
+        default = spec.range{1};
+    elseif islogical(default) && isscalar(default) && iscellstr(spec.range)    
         % if the value is true/false, and the range is a cell-string array (as in a set of
         % options), false maps to the empty set and true maps to the full set
-        spec.value = quickif(spec.value,spec.range,{});
-    elseif isequal(spec.value,[])    
+        default = quickif(default,spec.range,{});
+    elseif isequal(default,[])    
         % if the value is [], it is converted to the declared type
         switch spec.type
             case {'cellstr','cell'}
-                spec.value = {};
+                default = {};
             case {'char'}
-                spec.value = '';
+                default = '';
             case {'denserealdouble','densecomplexdouble'}
-                spec.value = full(double(spec.value));
+                default = full(double(default));
             case {'sparserealdouble','sparsecomplexdouble'}
-                spec.value = sparse(double(spec.value));
+                default = sparse(double(default));
             case {'denserealsingle','densecomplexsingle'}
-                spec.value = full(single(spec.value));
+                default = full(single(default));
             case {'sparserealsingle','sparsecomplexsingle'}
-                spec.value = sparse(single(spec.value));
+                default = sparse(single(default));
             case {'int8','uint8','int16','uint16','int32','uint32','int64','logical'}
-                spec.value = cast(spec.value, spec.type);
+                default = cast(default, spec.type);
         end
     end
     
     % if to_double is still undecided, enable it only if the input type is an integer
     if isempty(spec.to_double)
         spec.to_double = any(strcmp(spec.type,{'int8','uint8','int16','uint16','int32','uint32','int64'})); end
+
+    % set up the sequence of defaults
+    spec.defaults = {default};
 end
 
 

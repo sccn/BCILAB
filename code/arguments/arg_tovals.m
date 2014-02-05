@@ -75,9 +75,7 @@ function res = arg_tovals(spec,set_direct,format,mandatory_check,unassigned_chec
     end
     
     % remove skippable arguments
-    toprune = [spec.skippable];
-    if any(toprune)
-        spec(toprune) = []; end
+    spec([spec.skippable]) = [];
     
     % get the values
     values = {spec.value};

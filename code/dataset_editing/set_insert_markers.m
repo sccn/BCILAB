@@ -308,7 +308,11 @@ function [selection,spec] = parse_segment(spec)
 if isempty(spec)
     selection = 'absoluterange';
 elseif any(strcmp(spec,{'absoluterange','relativerange','spannedrange'}))
-    selection = spec;
+    if iscell(spec)
+        selection = spec{1};
+    else
+        selection = spec;
+    end
     spec = {};
 elseif isfield(spec{1},'arg_selection')
     selection = spec{1}.arg_selection;

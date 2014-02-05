@@ -113,7 +113,7 @@ handles.approach.timestamp = now;
 io_mkdirs('home:/.bcilab/approaches/');
 [FileName,PathName] = uiputfile('*.apr','Save approach',env_translatepath('home:/.bcilab/approaches/untitled.apr'));
 if FileName
-    fprintf('Saving approach...');
+    fprintf('Saving approach as %s...',FileName);
     % ... and save the file
     identifier = get(handles.edit1,'String');
     % assign as struct field

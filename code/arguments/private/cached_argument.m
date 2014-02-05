@@ -10,7 +10,7 @@ function result = cached_argument(name,default)
 %   Default : default value of the argument
 %
 % Out:
-%   Result : an argument specifier struct, with assigned flag set to true
+%   Result : an argument specifier struct, with value pre-assigned.
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2014-02-03
@@ -35,8 +35,9 @@ try
     try
         result = values{strcmp(keys,key)};
     catch %#ok<CTCH>
-        result = arg_nogui(name,default,[],[],'assigned',true);
+        result = arg_nogui(name,default);
         result = feval(result{1},[],result{2}{:});
+        result.value = result.defaults{1};
         if ~iscell(keys)
             keys = {key};
             values = {result};
@@ -46,6 +47,7 @@ try
         end
     end
 catch %#ok<CTCH>
-    result = arg_nogui(name,default,[],[],'assigned',true);
+    result = arg_nogui(name,default);
     result = feval(result{1},[],result{2}{:});
+    result.value = result.defaults{1};
 end

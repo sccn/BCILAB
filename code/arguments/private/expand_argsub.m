@@ -1,4 +1,4 @@
-function spec = expand_argsub(varargin)
+function spec = expand_argsub(unused,varargin) %#ok<INUSL>
 % Internal: expand the output of an arg_sub(...) declaration function into an argument specifier.
 % Specifier = expand_argsub(ReportType, ...)
 %
@@ -25,59 +25,51 @@ function spec = expand_argsub(varargin)
 % USA
 
     % the result of build_specifier is cached in memory for efficient processing of repeated calls
-    spec = hlp_microcache('arg',@build_specifier,varargin{:});
+    spec = hlp_microcache('arg',@expand_specifier,varargin{:});
 end
 
 
 % expand the arg_sub(...) declaration line into an argument specifier (see expand_arg for a simpler example)
-function spec = build_specifier(reptype,names,defaults,source,help,varargin)
+function spec = expand_specifier(names,defaults,source,help,varargin)
     % set defaults
-    if nargin < 2
+    if nargin < 1
         names = {}; end
-    if nargin < 3
+    if nargin < 2
         defaults = {}; end
-    if nargin < 4
+    if nargin < 3
         source = {}; end
-    if nargin < 5
+    if nargin < 4
         help = ''; end    
-    [fmt,reflag,suppress] = deal([0 Inf],{},{});
     
-    % extract special options
+    % extract special options unique to arg_sub
+    [fmt,suppress] = deal([0 Inf],{});
     for k=length(varargin)-1:-2:1
-        if any(strcmp(varargin{k},{'fmt','reflag','suppress'}))
+        if any(strcmp(varargin{k},{'fmt','suppress'}))
             eval([varargin{k} ' = varargin{k+1}; varargin([k k+1]) = [];']); end
     end    
+    
+    % initialize the specification struct
+    spec = arg_specifier('head',@arg_sub, 'names',names, 'help',help, 'mapper',@map_argsub, varargin{:}, ...
+        'value',[], 'type','char', 'shape','row', 'sources',{generate_source(fmt,source)}, 'defaults',{defaults});
+
+    % post-process the 'mapper' (needs to take 3 arguments)
+    if ~isempty(spec.mapper) && nargin(spec.mapper) == 1
+        spec.mapper = @(x,y,z) spec.mapper(x); end
     
     % handle the 'suppress' option (by appending to reflag)
     if ischar(suppress)
         suppress = {suppress}; end
     for n=suppress
-        reflag = [reflag {n{1},{'displayable',false}}]; end %#ok<AGROW>
+        spec.reflag = [spec.reflag {n{1},{'displayable',false}}]; end %#ok<AGROW>
     
-    % initialize the specification struct
-    spec = arg_specifier('head',@arg_sub, 'names',names, 'help',help,varargin{:}, ...
-        'value',[], 'type','char', 'shape','row');
-    
-    % parse the Source
-    source = generate_source(fmt,source);
-    
-    % set up the assigner
-    spec.assigner = @(spec,value) assign_argsub(spec,value,reptype,source,reflag);
-    
-    % assign the defaults
-    spec = spec.assigner(spec,defaults);
+    % post-process the 'reflag' option (wrapped in a cell for consistency with arg_subswitch)
+    spec.reflag = {spec.reflag};    
 end
 
-
-% function to perform the value assignment
-function spec = assign_argsub(spec,invalue,reptype,source,reflag)
-    % make sure that invalue is a cell array
-    if ~iscell(invalue)
-        invalue = {invalue}; end
-    % parse the value into a spec struct array
-    value = arg_report('parse',source,[invalue {'__arg_skip__',true}]);
-    % selectively override children with the value
-    spec.children = override_fields(spec.children,value);
-    % override flags
-    spec.children = override_flags(spec.children,reflag{:});
+% this function maps an argument list onto a selection key and the cell array of 
+% name-value pairs / structs to assign; for arg_sub the key is empty
+function [selection,args] = map_argsub(args,varargin)
+    if ~iscell(args)
+        args = {args}; end
+    selection = [];
 end

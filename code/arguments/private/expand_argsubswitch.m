@@ -25,12 +25,12 @@ function spec = expand_argsubswitch(varargin)
 % USA
 
     % the result of build_specifier is cached in memory for efficient processing of repeated calls
-    spec = hlp_microcache('arg',@build_specifier,varargin{:});
+    spec = hlp_microcache('arg',@expand_specifier,varargin{:});
 end
 
 
 % expand the arg_subswitch(...) declaration line into an argument specifier (see expand_argsubtoggle for a simpler example)
-function spec = build_specifier(reptype,names,defaults,sources,help,varargin)
+function spec = expand_specifier(reptype,names,defaults,sources,help,varargin)
     % set defaults
     if nargin < 4 || isempty(sources)
         error('BCILAB:args:no_options','The Sources argument for arg_subswitch() may not be omitted.'); end 
@@ -40,13 +40,13 @@ function spec = build_specifier(reptype,names,defaults,sources,help,varargin)
         help = ''; end
     [reflag,suppress,range,case_defaults] = deal({},{},cellfun(@(c)c{1},sources,'UniformOutput',false),cell(1,length(sources)));
     
-    % extract special options
+    % extract special options unique to arg_subswitch
     for k=length(varargin)-1:-2:1
         if any(strcmp(varargin{k},{'reflag','suppress'}))
             eval([varargin{k} ' = varargin{k+1}; varargin([k k+1]) = [];']); end
     end
     
-    % parse 'reflag' option (remap from {'key3',reflag3,'key1',reflag1, ...} to {reflag1,reflag2,reflag3,...})
+    % handle 'reflag' option (remap from {'key3',reflag3,'key1',reflag1, ...} to {reflag1,reflag2,reflag3,...})
     if ~isempty(reflag)
         keys = reflag(1:2:end);
         values = reflag(2:2:end);
@@ -64,16 +64,8 @@ function spec = build_specifier(reptype,names,defaults,sources,help,varargin)
         suppress = {suppress}; end
     for n=suppress
         reflag = cellfun(@(f)[f,{n{1},{'displayable',false}}],reflag,'UniformOutput',false); end
-    
-    % initialize the specification struct
-    spec = arg_specifier('head',@arg_subswitch, 'names',names, 'help',help, 'mapper',@map_argsubswitch, varargin{:}, ...
-        'range',range, 'type','char', 'shape','row', 'contents',repmat({{}},1,length(sources)), 'alternatives',cell(1,length(sources)));
-    
-    % parse the 'mapper'
-    if nargin(spec.mapper) == 1
-        spec.mapper = @(x,y,z) spec.mapper(x); end
 
-    % parse the Sources
+    % reformat the Sources
     for k=length(sources):-1:1
         if ~ischar(sources{k}{1})
             error('In arg_subswitch, each selector must be a string.'); end
@@ -87,17 +79,17 @@ function spec = build_specifier(reptype,names,defaults,sources,help,varargin)
         sources{k} = generate_source(fmt,sources{k}{2});
     end
     
-    % set up the assigner
-    spec.assigner = @(spec,value) assign_argsubswitch(spec,value,reptype,sources,reflag);
+    % initialize the specification struct
+    spec = arg_specifier('head',@arg_subswitch, 'names',names, 'help',help, 'mapper',@map_argsubswitch, varargin{:}, ...
+        'range',range, 'type','char', 'shape','row', 'alternatives',cell(1,length(sources)), 'reflag',reflag, 'defaults',{defaults}, 'sources',sources);
     
-    % assign alternative defaults in case of a rich spec
-    if strcmp(reptype,'rich')
-        for n=1:length(sources)
-            spec = spec.assigner(spec,[spec.range(n) case_defaults{n}]); end
-    end
-    
-    % assign the defaults
-    spec = spec.assigner(spec,defaults);
+    % post-process the 'mapper' (needs to take 3 arguments)
+    if nargin(spec.mapper) == 1
+        spec.mapper = @(x,y,z) spec.mapper(x); end
+
+    % prepend alternative defaults (either those that are specified, or all if we're building a rich spec)
+    for n=find(~cellfun('isempty',case_defaults) | strcmp(reptype,'rich'))
+        spec.defaults = [{spec.range(n) case_defaults{n}} spec.defaults]; end
 end
 
 
@@ -137,31 +129,4 @@ function [selection,args] = map_argsubswitch(args,selectors,names)
     elseif ~any(strcmpi(selection,selectors))
         error(['The chosen selector argument (' selection ') does not match any of the possible options (' sprintf('%s, ',selectors{1:end-1}) selectors{end} ') in the function argument ' names{1} '.']); 
     end
-end
-
-
-% function used to assign a value to the argument
-function spec = assign_argsubswitch(spec,invalue,reptype,sources,reflag)
-    % apply the mapper
-    [spec.value,value] = spec.mapper(invalue,spec.range,spec.names);
-    idx = find(strcmp(spec.value,spec.range));
-       
-    % parse the value into a spec struct array
-    value = arg_report('parse',sources{idx},[value {'__arg_skip__',true}]);
-    % selectively override children with the value
-    spec.children = override_fields(spec.alternatives{idx},value);
-
-    % set or append selector
-    selection_arg = strcmp('arg_selection',{spec.children.first_name});
-    if any(selection_arg)
-        spec.children(selection_arg).value = spec.range{idx};
-    else
-        spec.children = [spec.children,cached_argument('arg_selection',spec.range{idx})]; 
-    end
-    
-    % override flags
-    spec.children = override_flags(spec.children,reflag{idx}{:});
-    
-    % update alternatives
-    spec.alternatives{idx} = spec.children;
 end

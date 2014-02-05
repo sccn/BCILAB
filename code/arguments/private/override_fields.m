@@ -55,7 +55,6 @@ elseif ~isempty(B)
             % override fields at each alternative index
             for a=1:length(A_alts{e})
                 A(A_pos(e)).alternatives{a} = override_fields(A_alts{e}{a},B_alts{e}{a}); end
-            
             % [A(A_pos(e)).alternatives] = celldeal(cellfun(@override_fields,A_alts{e},B_alts{e},'UniformOutput',false));
         end
     end    

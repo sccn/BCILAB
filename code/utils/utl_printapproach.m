@@ -40,11 +40,12 @@ func = @instance.calibrate;
 
 % report both the defaults of the paradigm and 
 % the current settings in form of argument specifications
-defaults = remove_argdirect(arg_report('rich',func));
-settings = remove_argdirect(arg_report('lean',func,parameters));
+defaults = clean_fields(arg_report('rich',func));
+settings = clean_fields(arg_report('lean',func,parameters));
 
 % get the difference as cell array of human-readable name-value pairs
-difference = arg_tovals(arg_diff(defaults,settings),[],'HumanReadableCell',false);
+specdiff = arg_diff(defaults,settings);
+difference = arg_tovals(specdiff,[],'HumanReadableCell',false);
 
 % pre-pend the paradigm choice 
 paradigm_name = char(paradigm);
@@ -54,18 +55,13 @@ difference = [{'arg_selection',paradigm_name(9:end)} difference];
 string = arg_tostring(difference,strip_direct,indent,indent_incr);
 
 
-% remove all arg_direct fields from x
-function x = remove_argdirect(x)
-if isfield(x,'first_name')
-    match = strcmp({x.first_name},'arg_direct');
-    if any(match)
-        x(match) = []; end
-    for k=1:numel(x)
-        if ~isempty(x(k).children)
-            x(k).children = remove_argdirect(x(k).children); end
-        if ~isempty(x(k).alternatives)
-            for a=1:length(x(k).alternatives)
-                x(k).alternatives{a} = remove_argdirect(x(k).alternatives{a}); end
-        end
-    end
+% clean fields of x, by removing all arg_direct instances and 
+% all skippable fields
+function x = clean_fields(x)
+x(strcmp({x.first_name},'arg_direct') | [x.skippable]) = [];
+try
+    children = {x.children};
+    empty_children = cellfun('isempty',children);
+    [x(~empty_children).children] = celldeal(cellfun(@clean_fields,children(~empty_children),'UniformOutput',false));    
+catch
 end

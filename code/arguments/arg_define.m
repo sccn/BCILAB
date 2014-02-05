@@ -1,31 +1,35 @@
 function outstruct = arg_define(vals,varargin)
-% Declare function arguments with support for introspection.
+% Parse function arguments and enable function introspection.
 % Struct = arg_define(Values, Specification...)
 % Struct = arg_define(Format, Values, Specification...)
 %
-% This is a replacement for the parameter declaration line of a function (named the "Function" in
-% the following). The content of Values (a cell array of values, typically the list of inputs
-% received by the Function), is assigned to the fields in the output Struct, or to variables in the
-% Function's workspace. Parsing is done according to a Specification of argument names and their
-% order (optionally obeying a custom Format description).
+% Replacement for the parameter declaration line of a function. Typically that Function will only
+% declare a single varargin argument and then calls arg_define(varargin, ...) to parse it into a
+% Struct. The Specification of allowed arguments with defaults, range and help text is given as a
+% as a series of arg(), arg_sub(), etc. definitions, each of which declares one named argument.
 %
-% Values can be a list of a fixed number of positional arguments (i.e., the typical MATLAB calling
-% format), optionally followed by a list of name-value pairs (NVPs, e.g., as the format accepted by
-% figure()). The name-value pairs may be interleaved with structs, i.e., one may pass a mix of
-% 'name',value,STRUCT,'name',value,'name',value, ...). Note that this is not ambiguous. Passing in
-% everything as NVPs/structs is generally allowed. Only names that are listed in the Specification
-% may be used in the NVPs.
+% One can also omit the output Struct to have the arguments assigned directly into the Function's
+% workspace, but that is discouraged  as it will only work for argument names that do not clash with
+% any function on the MATLAB path (due to a limitation in MATLAB).
 %
-% The difference to other NVP parsing functions is that arguments defined via arg_define() can be
-% reported to outside functions (queried using arg_report()). The resulting argument specification
-% struct can be used to draw a GUI, store settings, generate help text, or be processed otherwise.
+% The format of varargin is flexible and can be a list of a fixed number of positional arguments
+% (i.e., the typical MATLAB calling format), optionally followed by a list of name-value pairs
+% (NVPs, e.g., as the format accepted by figure()). The name-value pairs may be interleaved with
+% structs, i.e., one may pass a mix of 'name',value,STRUCT,'name',value,'name',value, ...), which is
+% not ambiguous. The allowed number of positional arguments, if any, can be specified by the
+% optional extra Format argument to arg_define. Only names that are listed in the Specification may
+% be used as named arguments.
+%
+% A main feature of arg_define() is that the argument specification can be reported to outside
+% functions (queried using arg_report()), which allows to auto-generate GUIs, help text, and various
+% other things.
 %
 % In:
-%   Format : This argument can be omitted. The number of allowed positional arguments of the
-%            Function, or a vector of multiple possibilities, i.e., the number of leading arguments
-%            that can be passed to the Function as positional arguments, while the remaining
-%            arguments are interpreted as a list of name-value pairs and/or structs. See Format
-%            Options for additional options and details. (default: [0 Inf])
+%   Format : Can be omitted. The number of allowed positional arguments of the Function, or a vector
+%            of multiple possibilities. More precisely, this is the number of leading arguments that
+%            can be passed to the Function as positional arguments, while the remaining arguments
+%            are interpreted as a list of name-value pairs and/or structs. See Format Options below
+%            for additional options and details. (default: [0 Inf])
 %
 %   Values : A cell array of values passed to the function (usually the calling function's
 %            "varargin"). Interpreted according to the Format and the Specification.
@@ -51,10 +55,11 @@ function outstruct = arg_define(vals,varargin)
 %    * If Format is a vector of multiple values, then the smallest number for which the 
 %      Function's inputs are consistent, in the sense that each name in Values matches a
 %      name in the Specification, is accepted.
-%    * If Format is numeric but does not contain a 0, a 0 will be implicitly prepended.
+%    * If Format is numeric but does not contain a 0, a 0 will be implicitly prepended
+%      (that is, one can always pass in everything as name-value pairs or structs).
 %    * If Format is [], any number of positional arguments is allowed (i.e., Format defaults
 %      to 0:length(Specification)), although this is discouraged in practice as it may
-%      result in mis-parsing when mis-spelled arguments are passed in (arg_define will then
+%      result in mis-parsing when mis-spelled arguments are passed in (arg_define would then
 %      assume that anything up to the mis-spelled argument is passed in positionally).
 %    * If Format is a function handle, the given function can be used to transform the
 %      Values prior to any other processing into a new Values cell array. The function may
@@ -80,15 +85,14 @@ function outstruct = arg_define(vals,varargin)
 %      return value of arg_define) rather than to have them assigned to the function workspace.
 %
 % Internal Arguments and Return Values:
-%   1) The Function may be called with the request to deliver the parameter specification as opposed
-%      to following the normal execution flow (this is done by arg_report), an effectively
-%      implemented by passing in the extra name-value pair '__arg_report__',true at the end.
-%      arg_define responds to this task by throwing an exception of the type
-%      'BCILAB:arg:report_args' using arg_issuereport, which is caught by arg_report to obtain the
-%      specification struct.
-%
-%   2) The Function may be called with the name-value pair '__arg_skip__',true, at the end which
-%      allows to use positional arguments as if the leading arg_norep() arguments were not defined.
+%   The Function may be called with the request to deliver the parameter specification as opposed to
+%   following the normal execution flow (this is done by arg_report), an effectively implemented by
+%   passing in the extra name-value pair '__arg_report__',true at the end. arg_define responds to
+%   this task by throwing an exception of the type 'BCILAB:arg:report_args' using arg_issuereport,
+%   which is caught by arg_report to obtain the specification struct. When a report is issued the
+%   function may be called with some further internal arguments preceding the '__arg_report__',true,
+%   including __arg_skip__,true (skip leading skippable arguments) and __arg_nodefaults__,true (do
+%   not apply default values).
 %
 % Examples:
 %   function myfunction(varargin)
@@ -151,7 +155,7 @@ function outstruct = arg_define(vals,varargin)
 % USA
 
     % first parse the inputs to arg_define
-    [fmt,vals,compressed_spec,structmask,report_type,skip_skippable] = process_inputs(vals,varargin);
+    [fmt,vals,compressed_spec,structmask,report_type,skip,nodefaults] = process_inputs(vals,varargin);
     
     % check if we are in direct mode (fast shortcut)
     if strcmp(report_type,'none') && is_direct_mode(vals,structmask)
@@ -166,14 +170,18 @@ function outstruct = arg_define(vals,varargin)
             caller_name = 'anonymous'; end
         
         % expand specification into a struct array, derive some properties
-        [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec_cached(caller_name,compressed_spec,report_type,nargout==0);
+        [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec_cached(caller_name,compressed_spec,report_type,~nodefaults,nargout==0);
 
         % convert vals to a canonical list of name-value pairs (NVPs)
-        nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,first_names,skip_skippable*leading_skippable);
+        nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,first_names,skip*leading_skippable);
 
         % assign the NVPs to the spec
-        spec = assign_values(spec,nvps,name2idx,caller_name);
+        spec = assign_nvps(spec,nvps,name2idx,report_type,caller_name,nodefaults,true);
 
+        % in parse mode we strip off anything that was not assigned in this call
+        if nodefaults && ~isempty(spec)
+            spec(strcmp('__arg_unassigned__',{spec.value})) = []; end
+                
         % generate outputs from spec
         switch report_type
             case 'none'
@@ -191,12 +199,6 @@ function outstruct = arg_define(vals,varargin)
                 arg_issuereport(arg_tovals(spec,[],'struct',false,checks.unassigned,checks.expression,checks.conversion));
             case 'nvps'
                 arg_issuereport(arg_tovals(spec,[],'cell',false,checks.unassigned,checks.expression,checks.conversion));
-            case 'parse'
-                % in parse mode we strip anything that was not assigned in this call
-                spec = remove_unassigned(spec);
-                %if ~isempty(spec)
-%                    spec(~[spec.assigned]) = []; end
-                arg_issuereport(spec);
             case {'lean','rich'}
                 arg_issuereport(spec);
             otherwise
@@ -229,8 +231,10 @@ end
 
 % process the inputs to arg_define into Format, Values and Specification
 % also precompute the structmask (bitmask that encodes which elements in Values are structs)
-% and split both the report_type (type of report requested from arg_define) and the skip flag off from vals
-function [fmt,vals,compressed_spec,structmask,report_type,skip] = process_inputs(vals,compressed_spec)
+% and split both the report_type, skip and nodefaults flags off from vals
+function [fmt,vals,compressed_spec,structmask,report_type,skip,nodefaults] = process_inputs(vals,compressed_spec)
+    skip = false;
+    nodefaults = false;
     if iscell(vals)
         % no Format specifier was given: use default
         fmt = [0 Inf];
@@ -252,25 +256,29 @@ function [fmt,vals,compressed_spec,structmask,report_type,skip] = process_inputs
                 arg_issuereport(struct());
             case {'lean','rich'}
                 if length(vals) == 2
-                    arg_issuereport(hlp_microcache('spec',@expand_spec,compressed_spec,report_type)); end
+                    arg_issuereport(hlp_microcache('spec',@expand_spec,compressed_spec,report_type,true,hlp_getcaller(2))); end
             case 'handle'
                 error('To make function handles accessible, use the function expose_handles().');
             case 'supported'
                 arg_issuereport(true);
         end
         vals(end-1:end) = [];
+        
+        % check for skip flag (skip leading skippable args in positional argument lists)
+        if length(vals)>1 && isequal(vals{end-1},'__arg_skip__')
+            skip = vals{end};
+            vals(end-1:end) = [];
+        end
+
+        % check for nodefaults flag (do not apply defaults)
+        if length(vals)>1 && isequal(vals{end-1},'__arg_nodefaults__')
+            nodefaults = vals{end};
+            vals(end-1:end) = [];
+        end
     else
         report_type = 'none';
     end
-    
-    % extract skip flag (skip skippable positional arguments)
-    if length(vals)>1 && isequal(vals{end-1},'__arg_skip__')
-        skip = vals{end};
-        vals(end-1:end) = [];
-    else
-        skip = false;
-    end
-    
+        
     % if Format is a function, run it to reformat vals and fmt
     if isa(fmt,'function_handle')
         switch nargin(fmt)
@@ -283,7 +291,7 @@ function [fmt,vals,compressed_spec,structmask,report_type,skip] = process_inputs
                 end
             case 2
                 % first expand the spec
-                tmpspec = hlp_microcache('spec',@expand_spec,compressed_spec,'lean');
+                tmpspec = hlp_microcache('spec',@expand_spec,compressed_spec,'lean',~nodefaults,hlp_getcaller(2));
                 % then call the function with it
                 if nargout(fmt) == 1
                     vals = feval(fmt,vals,tmpspec);
@@ -355,11 +363,12 @@ end
 
 
 % cached wrapper around process_spec
-function varargout = process_spec_cached(caller_name,spec,type,perform_namecheck)
+function varargout = process_spec_cached(caller_name,spec,report_type,assign_defaults,perform_namecheck)
     persistent cache;
+    key = [report_type 'a'+assign_defaults];
     try
         % try to load the cached result for the given caller
-        result = cache.(caller_name).(type);
+        result = cache.(caller_name).(key);
         % return if it matches the current input
         if isequal(result.spec,spec) || isequalwithequalnans(result.spec,spec) %#ok<FPARK>
             varargout = result.output; 
@@ -368,18 +377,20 @@ function varargout = process_spec_cached(caller_name,spec,type,perform_namecheck
     catch %#ok<CTCH>
     end
     % otherwise fall back to microcache and overwrite
-    [varargout{1:nargout}] = hlp_microcache('spec',@process_spec,spec,type,perform_namecheck);
-    cache.(caller_name).(type) = struct('output',{varargout},'spec',{spec});
+    [varargout{1:nargout}] = hlp_microcache('spec',@process_spec,spec,report_type,assign_defaults,perform_namecheck);
+    cache.(caller_name).(key) = struct('output',{varargout},'spec',{spec});
 end
 
 
 % expand a specification from a cell array into a struct array
-function [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec(compressed_spec,report_type,perform_namecheck)
-    % first expand the compressed cell-array spec into a full-blown struct-array spec
-    if ~any(strcmp(report_type,{'rich','parse'}))
-        report_type = 'lean'; end
-    spec = expand_spec(compressed_spec,report_type);
-
+function [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec(compressed_spec,report_type,assign_defaults,perform_namecheck)
+    caller_name = hlp_getcaller(2);
+    if ~strcmp(report_type,'rich')
+        report_type = 'rich'; end % TODO: FIXME
+    
+    % expand the compressed cell-array spec into a full-blown struct-array spec
+    spec = expand_spec(compressed_spec,report_type,assign_defaults,caller_name);
+    
     % obtain the argument names and a flat list thereof
     arg_names = {spec.names};
     flat_names = [arg_names{:}];
@@ -406,7 +417,7 @@ function [spec,flat_names,first_names,name2idx,leading_skippable,checks] = proce
     % function's scope from a subfunction, which are prone to clashes with functions on the path...)
     if perform_namecheck && strcmp(report_type,'none')
         try
-            validate_varnames(hlp_getcaller(2),first_names);
+            validate_varnames(caller_name,first_names);
         catch e
             disp_once('The function validate_names failed; reason: %s',e.message);
         end
@@ -421,17 +432,22 @@ end
 
 
 % expand the given spec cell array into a struct array
-function spec = expand_spec(spec,report_type)
+function spec = expand_spec(spec,report_type,assign_defaults,caller_name)
     % evaluate the cells into specifier structs
     if all(cellfun('isclass',spec,'cell'))
         spec = cellfun(@(s)feval(s{1},report_type,s{2}{:}),spec); end
-    % recursively clear the assigned flag
-    spec = clear_assigned_flag(spec);
     % make sure that spec has the correct fields, even if empty
     if isempty(spec)
         spec = arg_specifier;
         spec = spec([]);
     end
+    % optionally assign the default values
+    if assign_defaults
+        for s=1:length(spec)
+            for def=spec(s).defaults
+                spec(s) = assign_value(spec(s),def{1},report_type,caller_name,~assign_defaults,false); end
+        end
+    end    
 end
 
 
@@ -440,7 +456,13 @@ function ismatch = check_property(spec,name,value)
     if isempty(spec)
         ismatch = false;
     else
-        ismatch = any(cellfun(@(x)isequal(x,value),{spec.(name)}));
+        if ischar(value)
+            ismatch = any(strcmp({spec.(name)},value));
+        elseif isscalar(value) && islogical(value)
+            ismatch = any([spec.(name)]==value);
+        else
+            ismatch = any(cellfun(@(x)isequal(x,value),{spec.(name)}));
+        end
         if ~ismatch
             for k=find(~cellfun('isempty',{spec.children}))
                 ismatch = check_property(spec(k).children,name,value);
@@ -574,33 +596,14 @@ end
 
 
 % assign the values in an NVP list to the spec
-function spec = assign_values(inspec,nvps,name2idx,caller_name)
+function spec = assign_nvps(spec,nvps,name2idx,report_type,caller_name,nodefaults,deprecation_warning)
+    if ~strcmp(report_type,'rich')
+        report_type = 'lean'; end
     % note: this part needs to be changed to accommodate arg_ref()
-    spec = inspec;    
     for k=1:2:length(nvps)
-        try
+        try 
             idx = name2idx.(nvps{k});
-            newvalue = nvps{k+1};
-            % check whether this value is assignable
-            if ~isequal(newvalue,'__arg_unassigned__') && ~(~spec(idx).empty_overwrites && (isempty(newvalue) || isequal(newvalue,'__arg_mandatory__')))
-                % warn about deprecation
-                if spec(idx).deprecated && ~isequal_weak(spec(idx).value,newvalue)
-                    if iscell(spec(idx).help)
-                        help = [spec(idx).help{:}];
-                    else
-                        help = spec(idx).help;
-                    end
-                    disp_once(['Using deprecated argument "' nvps{k} '" in function ' caller_name ' (help: ' help ').']); 
-                end
-                % perform assignment
-                if isempty(spec(idx).assigner) 
-                    spec(idx).value = newvalue;
-                else
-                    spec(idx) = spec(idx).assigner(spec(idx),newvalue);
-                end
-                % tag this node as assigned
-                spec(idx).assigned = true;
-            end
+            spec(idx) = assign_value(spec(idx),nvps{k+1},report_type,caller_name,nodefaults,deprecation_warning);
         catch e
             if ~strcmp(e.identifier,'MATLAB:nonExistentField')
                 rethrow(e); end
@@ -617,30 +620,84 @@ function spec = assign_values(inspec,nvps,name2idx,caller_name)
 end
 
 
-% clear the assigned flag in a spec, recursively
-function spec = clear_assigned_flag(spec)
-    if ~isempty(spec)
-        if isstruct(spec)
-            [spec.assigned] = deal(false);
-            [spec.children] = celldeal(cellfun(@clear_assigned_flag,{spec.children},'UniformOutput',false));
-            [spec.alternatives] = celldeal(cellfun(@clear_assigned_flag,{spec.alternatives},'UniformOutput',false));
+% assign a given value to a single element in a spec
+function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,deprecation_warning)
+    if nodefaults
+        extra_args = {'__arg_skip__',true,'__arg_nodefaults__',true};
+    else
+        extra_args = {'__arg_skip__',true};
+    end
+    % check whether this value is assignable
+    if ~isequal(newvalue,'__arg_unassigned__') && ~(~spec.empty_overwrites && (isempty(newvalue) || isequal(newvalue,'__arg_mandatory__')))
+        % warn about deprecation
+        if deprecation_warning && spec.deprecated && ~isequal_weak(spec.value,newvalue)
+            if iscell(spec.help)
+                if length(spec.help) == 1
+                    help = spec.help{1};
+                else
+                    help = [spec.help{1} '.' spec.help{2}];
+                end
+            else
+                help = spec.help;
+            end
+            if length(spec.names) > 1
+                name = [spec.names{1} '/' spec.names{2}];
+            else
+                name = spec.names{1};
+            end
+            disp_once(['Using deprecated argument "' name '" in function ' caller_name ' (help: ' help ').']); 
+        end
+        % perform assignment
+        if isempty(spec.mapper)
+            spec.value = newvalue;
         else
-            spec = cellfun(@clear_assigned_flag,spec,'UniformOutput',false); 
+            % apply the mapper to get the selection key and the value pack
+            [key,value] = spec.mapper(newvalue,spec.range,spec.names);
+            spec.value = key;
+            if isempty(key)
+                % arg_sub
+                pos = 1;
+                source_fields = spec.children;
+            elseif islogical(key)
+                % arg_subtoggle
+                pos = key+1;
+                source_fields = spec.alternatives{pos};
+            elseif ischar(key)
+                % arg_subswitch
+                pos = find(strcmp(key,spec.range));
+                source_fields = spec.alternatives{pos};
+            else
+                error('Unsupported mapper key class.');
+            end                        
+
+            % parse the value into a spec struct array
+            if isequal(key,false)
+                spec.value = false;
+                spec.children = cached_argument('arg_selection',false);
+            else
+                value = arg_report(report_type,spec.sources{pos},[value extra_args]);
+                if nodefaults
+                    % selectively override source fields with the value
+                    spec.children = override_fields(source_fields,value);
+                else
+                    % replace the children by the result
+                    spec.children = value;
+                end
+                % override flags
+                spec.children = override_flags(spec.children,spec.reflag{pos}{:});
+                if ~isempty(key)
+                    % set/append selector child
+                    selection_arg = strcmp('arg_selection',{spec.children.first_name});
+                    if any(selection_arg)
+                        spec.children(selection_arg).value = key;
+                    else
+                        spec.children = [spec.children,cached_argument('arg_selection',key)];
+                    end
+                    % update alternatives
+                    spec.alternatives{pos} = spec.children; 
+                end
+            end
         end
     end
 end
 
-% remove all unassigned spec entries, recursively
-function spec = remove_unassigned(spec)
-    if ~isempty(spec)
-        if isstruct(spec)
-            spec(~[spec.assigned]) = [];
-            if ~isempty(spec)
-                [spec.children] = celldeal(cellfun(@remove_unassigned,{spec.children},'UniformOutput',false));
-                [spec.alternatives] = celldeal(cellfun(@remove_unassigned,{spec.alternatives},'UniformOutput',false));
-            end
-        else
-            spec = cellfun(@remove_unassigned,spec,'UniformOutput',false); 
-        end
-    end
-end

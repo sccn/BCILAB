@@ -124,7 +124,7 @@ if p.subnodes
         [inputs{k},p.parts{k}] = update_pipeline(p.parts{k}); end
     % process the inputs by calling the respective filter function
     if p.stateful
-        [chunk,p.state] = p.head(inputs{:},'state',p.state);
+        [chunk,p.state] = p.head(inputs{:},'state',p.state,'arg_direct',true);
     else
         chunk = p.head(inputs{:});
     end
