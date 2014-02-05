@@ -54,9 +54,9 @@ function res = arg_sub(varargin)
 %
 % Out:
 %   Spec : A cell array, that, when called as feval(spec{1},reptype,spec{2}{:}), yields a specification of
-%          the argument, for use by arg_define. Technical note: Upon assignment with a value (via
-%          the assigner field), the 'children' field of the specifier struct is populated according
-%          to how the Source parses the value into arguments.
+%          the argument, for use by arg_define. Technical note: Upon assignment with a value, the
+%          'children' field of the specifier struct is populated according to how the Source parses
+%          the value into arguments.
 %
 % Examples:
 %   % define 3 arguments for a function, including one which is a struct of two other arguments.

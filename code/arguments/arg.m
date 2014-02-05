@@ -25,8 +25,8 @@ function res = arg(varargin)
 %             * mandatory: instead of being assigned to the function's workspace an error will be
 %                          raised
 %             
-%             Note: If neither Default nor Range are specified, consider specifying the argument's
-%             type via the Options... list.
+%             Note: If neither Default nor Range are specified, the argument's type will be assumed
+%             to be a numeric matrix; this can be overridden in the Options... list.
 %
 %   Range : Optionally a range of admissible values (default: []).
 %           * If empty, no range is enforced.

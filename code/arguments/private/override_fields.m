@@ -2,9 +2,6 @@ function A = override_fields(A,B)
 % helper function: override specifiers in A selectively by specifiers in B
 % Result = override_flags(A,B)
 %
-% In particular, if A has an alternative that matches a selection in B, that alternative
-% will be used as basis to produce A's children.
-%
 % In:
 %   A : array of arg_specifier structs
 %
@@ -79,7 +76,7 @@ elseif ~isempty(B)
         % merge A_source and B's children recursively
         for k=find(has_sub)
             A(A_pos(k)).children = override_fields(A_source{k},B(B_pos(k)).children); end
-        % uodate alternatives
+        % update alternatives
         if any(is_selectable)
             % write merge results back into the selected alternatives
             if any(is_subtoggle) && any(is_subtoggle(toggle_on))

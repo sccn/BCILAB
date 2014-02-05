@@ -12,11 +12,12 @@ function res = arg_norep(varargin)
 % that deal with and process "argument reports" (the machinery used to query a function's arguments): 
 % a) displayable is set to false: it does not show up in user interfaces
 % b) empty_overwrites is set to false: the values [] and mandatory do not override previous values
-%    (just like unassigned), so as long as any of these values is used as the default value of the argument
+%    (just like unassigned), so long as any of these values is used as the default value of the argument
 %    it has no effect on a function's variables when the report is passed back to the function as input
 % c) skippable set to true: when a group of defaults are specified positionally for an arg_sub* the
-%    leading skippable arguments are skipped over (assigned dummy values), and can therefore be ignored in 
-%    the defaults list.
+%    leading skippable arguments are skipped over (assigned dummy values), and can therefore be
+%    ignored in the defaults list. Skippable arguments are also typically not included in value
+%    packs (as obtained via arg_tovals or arg_report('vals',...)).
 %
 % In:
 %   Names : The name(s) of the argument. At least one must be specified, and if multiple are

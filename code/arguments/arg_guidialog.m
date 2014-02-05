@@ -191,13 +191,6 @@ catch
     disp('Cannot deduce help topic.');
 end
 
-% % strip geometry for guru arguments
-% if ~show_guru
-%     tmpspec = [spec{:}];
-%     geometry([tmpspec.guru]) = [];
-%     geomvert([tmpspec.guru]) = [];
-% end
-
 [outs,dummy,okpressed] = inputgui('geometry',geometry, 'uilist',uilist,'helpcom',['env_doc ' helptopic], 'title',dialogtitle,'geomvert',geomvert); %#ok<ASGLU>
 
 if ~isempty(okpressed)

@@ -5,7 +5,7 @@ function second = arg_diff(first,second,use_alternatives,prune_selection)
 % In:
 %   First : The reference struct array (each element corresponds to one argument, possibly with 
 %           non-empty sub-arguments in .children in case of arg_sub*, and possibly with sub-arguments 
-%           for alternative choices in .alternatives in case of arg_subswitch and arg_subtoggle
+%           for alternative choices in .alternatives in case of arg_subswitch and arg_subtoggle)
 %
 %   Second : A second struct array that is pruned where it is equal to the first (with correct
 %            treatment of arg_selection).
@@ -33,8 +33,6 @@ function second = arg_diff(first,second,use_alternatives,prune_selection)
 % You should have received a copy of the GNU General Public License along with this program; if not,
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
-
-urfirst = first; ursecond = second;
 
 if isempty(first) || isempty(second)
     return; end

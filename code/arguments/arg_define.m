@@ -15,21 +15,21 @@ function outstruct = arg_define(vals,varargin)
 % The format of varargin is flexible and can be a list of a fixed number of positional arguments
 % (i.e., the typical MATLAB calling format), optionally followed by a list of name-value pairs
 % (NVPs, e.g., as the format accepted by figure()). The name-value pairs may be interleaved with
-% structs, i.e., one may pass a mix of 'name',value,STRUCT,'name',value,'name',value, ...), which is
-% not ambiguous. The allowed number of positional arguments, if any, can be specified by the
-% optional extra Format argument to arg_define. Only names that are listed in the Specification may
-% be used as named arguments.
+% option structs, i.e., one may pass a mix of 'name',value,STRUCT,'name',value,'name',value, ...),
+% which is not ambiguous. The allowed number of positional arguments, if any, can be specified by
+% the optional extra Format argument to arg_define. Only names that are listed in the Specification
+% may be used as named arguments.
 %
-% A main feature of arg_define() is that the argument specification can be reported to outside
-% functions (queried using arg_report()), which allows to auto-generate GUIs, help text, and various
+% A main feature of arg_define is that the argument specification can be reported to outside
+% functions (queried using arg_report), which allows to auto-generate GUIs, help text, and various
 % other things.
 %
 % In:
 %   Format : Can be omitted. The number of allowed positional arguments of the Function, or a vector
 %            of multiple possibilities. More precisely, this is the number of leading arguments that
 %            can be passed to the Function as positional arguments, while the remaining arguments
-%            are interpreted as a list of name-value pairs and/or structs. See Format Options below
-%            for additional options and details. (default: [0 Inf])
+%            are interpreted as a list of name-value pairs and/or option structs. See Format Options
+%            below for additional options and details. (default: [0 Inf])
 %
 %   Values : A cell array of values passed to the function (usually the calling function's
 %            "varargin"). Interpreted according to the Format and the Specification.
@@ -62,12 +62,14 @@ function outstruct = arg_define(vals,varargin)
 %      result in mis-parsing when mis-spelled arguments are passed in (arg_define would then
 %      assume that anything up to the mis-spelled argument is passed in positionally).
 %    * If Format is a function handle, the given function can be used to transform the
-%      Values prior to any other processing into a new Values cell array. The function may
-%      optionally specify a new (numeric) Format as its second output argument (if not
-%      specified, this is 0). The function may optionally take in the argument specification
-%      (struct array of arg_specifier), although some details of this data structure are
-%      internal and subject to change in future releases (particularly fields marked as
-%      INTERNAL).
+%      Values prior to any other processing into a new Values cell array. This allows for arbitrary
+%      customizations of the parameter syntax (but note that the function must always be able to
+%      accept name-value pair/struct syntax, too). This function may optionally return a new
+%      (numeric) Format as its second output argument (if not specified, this is assumed to be 0).
+%      The function may optionally take in the argument specification (struct array of
+%      arg_specifier, which holds the names, types, defaults, etc. of the defined arguments),
+%      although some details of this data structure are internal and subject to change in future
+%      releases (particularly fields marked as INTERNAL).
 %
 % Performance Tips:
 %   1) If a name-value pair 'arg_direct',true is passed (preferably as last argument for best
@@ -86,13 +88,14 @@ function outstruct = arg_define(vals,varargin)
 %
 % Internal Arguments and Return Values:
 %   The Function may be called with the request to deliver the parameter specification as opposed to
-%   following the normal execution flow (this is done by arg_report), an effectively implemented by
-%   passing in the extra name-value pair '__arg_report__',true at the end. arg_define responds to
-%   this task by throwing an exception of the type 'BCILAB:arg:report_args' using arg_issuereport,
-%   which is caught by arg_report to obtain the specification struct. When a report is issued the
-%   function may be called with some further internal arguments preceding the '__arg_report__',true,
+%   following the normal execution flow (this is done by arg_report). This is implemented by passing
+%   in the internal name-value pair '__arg_report__',true at the end. arg_define responds to this
+%   task by throwing an exception of the type 'BCILAB:arg:report_args' using arg_issuereport, which
+%   is caught by arg_report to obtain the specification struct. When a report is issued the function
+%   may be called with some further internal arguments preceding the '__arg_report__',true,
 %   including __arg_skip__,true (skip leading skippable arguments) and __arg_nodefaults__,true (do
-%   not apply default values).
+%   not return default values). These arguments are subject to change and should not be used in user
+%   code.
 %
 % Examples:
 %   function myfunction(varargin)
@@ -185,7 +188,7 @@ function outstruct = arg_define(vals,varargin)
         % generate outputs from spec
         switch report_type
             case 'none'
-                % reset the skippable flag (these arguments are not skippable as far as the Function 
+                % reset the skippable flag (these arguments are not "skippable" as far as the Function 
                 % to which we're returning them is concerned)
                 [spec.skippable] = deal(false);
                 % handle mandatory entries
@@ -340,7 +343,7 @@ end
 % directly assign names to values
 function [nvps,outstruct] = assign_direct(vals,structmask,make_struct)
     if make_struct
-        % the variables are returned in the struct named result
+        % the variables are returned in the outstruct
         if ~isscalar(structmask)
             % obtain flat NVP list
             nvps = flatten_structs(vals,structmask);
@@ -387,7 +390,7 @@ end
 function [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec(compressed_spec,report_type,assign_defaults,perform_namecheck)
     caller_name = hlp_getcaller(2);
     
-    % expand the compressed cell-array spec into a full-blown struct-array spec
+    % expand the compressed cell-array spec into a full struct-array spec
     spec = expand_spec(compressed_spec,'rich',assign_defaults,caller_name);
     
     % obtain the argument names and a flat list thereof
@@ -610,8 +613,7 @@ function spec = assign_nvps(spec,nvps,name2idx,report_type,caller_name,deprecati
             % occurred
             if any(strcmp({spec.first_name},nvps{k}))
                 error(['Cannot insert a duplicate field into the specification: ' nvps{k}]); end
-            % append it to the spec (note: this could use some optimization... it would be better
-            % if the spec automatically contained the arg_selection field)
+            % append it to the spec
             spec(end+1) = cached_argument(nvps{k},nvps{k+1});
             name2idx.(nvps{k}) = length(spec);
         end
@@ -657,9 +659,9 @@ function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,de
                 spec.children = cached_argument('arg_selection',false);
             else
                 if nodefaults
-                    % parse just the value, without applying defaults
+                    % parse the value into a spec, without returning defaults
                     value = arg_report(report_type,spec.sources{pos},[value skip_arg nodefault_arg]);
-                    % selectively override the current source fields with the value
+                    % selectively override the current source fields with the parsed value
                     spec.children = override_fields(source_fields,value);
                 else
                     % replace the children by the result
@@ -668,7 +670,7 @@ function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,de
                 % override flags
                 spec.children = override_flags(spec.children,spec.reflag{pos}{:});
                 if ~isempty(key)
-                    % set/append selector child
+                    % make sure that arg_selection child is included & set
                     selection_arg = strcmp('arg_selection',{spec.children.first_name});
                     if any(selection_arg)
                         spec.children(selection_arg).value = key;

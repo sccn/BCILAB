@@ -28,25 +28,26 @@ function res = arg_subswitch(varargin)
 %              as NVPs/structs. 
 %
 %              The key selects which case is enabled by default, while the NVPs allow to selectively
-%              override default values for the sub-argument of the selected case. Alternatively, if
+%              override default values for the sub-arguments of the selected case. Alternatively, if
 %              the key is omitted from the cell array, one of the subsequent names should be
 %              'arg_selection' and have the key as its value. The parsing rule can be overridden
-%              by changing the 'mapper' option and the same syntax also applies to values assigned
+%              by changing the 'mapper' option. The same syntax also applies to values assigned
 %              to the arg_subswitch argument. (default: {})
 %
 %   Sources : Definition of the switchable argument groups. The simplest syntax is a cell array
-%             of the form {'key1',Source1, 'key2',Source2, 'key3',Source3, ...} where the strings
+%             of the form {'key1',Source1, 'key2',Source2, 'key3',Source3, ...} where the key strings
 %             are arbitrary selection keys that must be unique and each Source is either a function
 %             handle (referring to a function that exposes arguments via arg_define) or a cell array
 %             of argument specifications (like the Source in arg_sub).
 %
 %             Alternatively, the sources can also be given as a cell array of cell arrays:
 %             {{'key1',Source1}, {'key2',Source2}, {'key3',Source3}, ...}, which allows for passing
-%             in extended parameters per selector through the formats: {'key2',Source2,Defaults}, or
-%             {'key3',Source3,Defaults,Format} that can be freely mixed. In these, Format specifies
+%             extended parameters per selector through the formats: {'key',Source,Defaults}, or
+%             {'key',Source,Defaults,Format} that can be freely mixed. In these, Format specifies
 %             the parsing format (default [0 Inf], with the same role as in arg_define), and
-%             Defaults specifies a cell array of default values for the given switch case (same
-%             format as Defaults, except that it applies to the respective case).
+%             Defaults specifies a cell array of default values for the given switch case (in any
+%             syntax accepted by the respective Source, although name-value pairs/structs are
+%             recommended).
 %
 %   Help : The help text for this argument (displayed inside GUIs), optional. (default: '').
 %          (Developers: Please do *not* omit this, as it is the key bridge between ease of use and
@@ -84,11 +85,11 @@ function res = arg_subswitch(varargin)
 %                 others: as in arg()
 %
 % Out:
-%   Spec : A cell array, that, when called as feval(spec{1},reptype,spec{2}{:}), yields a specification of
-%          the argument, for use by arg_define. Technical note: Upon assignment with a value (via
-%          the assigner field), the 'children' field of the specifier struct is populated according
-%          to how the selected (by the mapper) Source (from Sources) parses the value into
-%          arguments. The additional struct field 'arg_selection' is introduced at this point.
+%   Spec : A cell array, that, when called as feval(spec{1},reptype,spec{2}{:}), yields a
+%          specification of the argument, for use by arg_define. Technical note: Upon assignment
+%          with a value, the 'children' field of the specifier struct is populated according to how
+%          the selected (by the mapper) Source (from Sources) parses the value into arguments. The
+%          additional struct field 'arg_selection' is introduced at this point.
 %
 % Examples:
 %   % define a function with a multiple-choice argument, with different sub-arguments for each choice

@@ -5,7 +5,7 @@ function res = arg_deprecated(varargin)
 % This type of function argument specifier behaves like arg(), but indicates that the argument in 
 % question is deprecated and may become obsolete in the future. The argument will still be passed on
 % to the function as normal, but will by default not be displayed in the GUI and will display a one-
-% time-per-session warning (that can be disabled) when data is passed in to it.
+% time-per-session warning (that can be disabled) when a non-default value is assigned to it.
 %
 % In:
 %   Names : The name(s) of the argument. At least one must be specified, and if multiple are

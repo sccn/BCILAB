@@ -22,11 +22,11 @@ function res = arg_subtoggle(varargin)
 %
 %   Defaults : A cell array of arguments to override defaults for the Source; all syntax accepted by
 %              the (selected) Source is allowed here, although it is recommended to pass the
-%              Defaults (and the values to be assigned to the arg_subtoggle) as NVPs/structs. 
+%              Defaults as NVPs/structs. 
 %
 %              By default almost any value maps to on, with the exception of: 'off', [], 0, false,
-%              cell arrays of NVPs/structs where 'arg_selection' is set to false, and structs an
-%              arg_selection field that is set to false.
+%              cell arrays of NVPs/structs where 'arg_selection' is set to false, and structs with
+%              an arg_selection field that is set to false.
 %
 %              The recommended way to set an arg_subtoggle argument to on/off without overriding
 %              defaults is to pass in the strings 'on' or 'off', or the values {} (on) or [] (off).
@@ -77,9 +77,9 @@ function res = arg_subtoggle(varargin)
 %                         See arg_define() for a detailed explanation.
 %
 %                 'alternative_defaults' : cell array of default values for the case where the
-%                                          argument is by default not selected, but alternative
-%                                          defaults for the selected case should nevertheless be
-%                                          specified
+%                                          argument is by default not selected, but where
+%                                          alternative defaults for the selected case should
+%                                          nevertheless be specified (default: {})
 %
 %                 others: as in arg()
 %

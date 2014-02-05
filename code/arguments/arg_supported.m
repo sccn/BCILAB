@@ -1,5 +1,5 @@
 function result = arg_supported(func)
-% Check if the argument system is supported by the given function.
+% Check if the argument system is supported by a given function.
 % Result = arg_supported(Function)
 %
 % In:
@@ -32,7 +32,7 @@ if ischar(func)
     func = str2func(func); end %#ok<NASGU>
 
 try
-    [conout,result] = evalc('arg_report(''supported'',func,repmat({''sdfs''},1,100))'); %#ok<ASGLU>
+    [conout,result] = evalc('arg_report(''supported'',func,repmat({''__garbage__''},1,100))'); %#ok<ASGLU>
 catch
     result = false;
 end

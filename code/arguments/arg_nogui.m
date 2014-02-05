@@ -5,7 +5,7 @@ function res = arg_nogui(varargin)
 % This type of function argument specifier behaves like arg(), except that it will not be displayed 
 % in GUIs that are generated for the function. This is mainly used for optional arguments that have
 % a format that is too complex to be meaningfully edited by the user (e.g. a large matrix, or a 
-% long cell array), undocumented, or possibly confusing (e.g. some functions have special internal 
+% long cell array), or undocumented or possibly confusing (e.g. some functions have special internal 
 % or reserved arguments).
 %
 % In:

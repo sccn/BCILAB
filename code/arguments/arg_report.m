@@ -1,10 +1,10 @@
 function result = arg_report(type,func,args)
-% Report information of a certain Type from the given Function.
-% Result = arg_report(Type,Function,Arguments,SilentErrors)
+% Report information of a certain Type about the given Function.
+% Result = arg_report(Type,Function,Arguments)
 %
 % Functions that declare their arguments via arg_define() make their parameter specification
 % accessible to outside functions. This can be used to display auto-generated settings dialogs, to
-% record function calls, and so on. Some other functions can generate reports, as well (like
+% record function calls, and so on. Some other functions can enable reports, as well (like
 % declare_properties() and expose_handles()).
 %
 % In:
@@ -21,7 +21,6 @@ function result = arg_report(type,func,args)
 %                   fields as in arg_specifier. In addition to lean this includes information about
 %                   alternative (non-default) settings, for use in GUI generation. (provided by
 %                   arg_define)
-%          'parse': Only parse assigned values into a spec, do not return default values
 %
 %          'properties' : Report declared properties of the function, if any. Arguments must be empty.
 %                         (provided by declare_properties)
@@ -75,9 +74,9 @@ function result = arg_report(type,func,args)
 if ischar(func)
     func = str2func(func); end
 if nargin < 3
-    % for the properties report we implicitly pad the arguments with blanks to allow functions
-    % to define up to this number of traditional non-varargin arguments
     if strcmp(type,'properties')
+        % for the properties report we implicitly pad the arguments with blanks to allow functions
+        % to define up to this number of traditional non-varargin arguments prior to the varargin
         args(1:15) = {[]};
     else
         args = {};
