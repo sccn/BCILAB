@@ -47,16 +47,16 @@ function spec = expand_specifier(names,default,range,help,varargin)
     % parse the type
     if isempty(spec.type)
         % if the type is unspecified it is deduced        
-        if ~isempty(default)
+        if iscellstr(spec.range) && iscellstr(default) && isempty(fast_setdiff(default,spec.range))
+            % if both the value and the range are cell-string arrays and the value is a subset of
+            % the range, the type is 'logical'
+            spec.type = 'logical';
+        elseif ~isempty(default)
             % if the value is non-empty, the type is deduced from the value
             spec.type = deduce_type(default);
         elseif isnumeric(spec.range)
             % if the range is numeric, the type is deduced from the range
             spec.type = deduce_type(spec.range);
-        elseif iscellstr(spec.range) && iscellstr(default) && isempty(fast_setdiff(default,spec.range))
-            % if both the value and the range are cell-string arrays and the value is a subset of
-            % the range, the type is 'logical'
-            spec.type = 'logical';
         elseif iscell(spec.range) && isscalar(unique(cellfun(@deduce_type,spec.range,'UniformOutput',false)))
             % if the range is a cell array of uniformly-typed values, the type is the unique
             % type of the cell entries
