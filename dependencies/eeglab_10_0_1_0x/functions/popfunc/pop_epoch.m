@@ -260,21 +260,21 @@ if isfield(EEG,'tracking') && isfield(EEG.tracking,'timeseries_fields')
 else
     tsfields = {};
 end
-tsfields = unique([tsfields {'icaact','srcpot','data'}],'stable');
+tsfields = unique([tsfields {'icaact','srcpot','data'}]);
 
 switch lower( g.timeunit )
     case 'points'
-        for tsfield = tsfields
-            if isfield(EEG,tsfield) && ~isempty(EEG.(tsfield))
-               [EEG.(tsfield) tmptime indices epochevent] = epoch(EEG.(tsfield), alllatencies, ...
+        for tsfield = tsfields(:)'
+            if isfield(EEG,tsfield{1}) && ~isempty(EEG.(tsfield{1}))
+               [EEG.(tsfield{1}) tmptime indices epochevent] = epoch(EEG.(tsfield{1}), alllatencies, ...
                    [lim(1) lim(2)]*EEG.srate, 'valuelim', g.valuelim, 'allevents', tmpeventlatency);
             end
         end
         tmptime = tmptime/EEG.srate;
     case 'seconds'
-        for tsfield = tsfields
-            if isfield(EEG,tsfield) && ~isempty(EEG.(tsfield))
-                [EEG.(tsfield) tmptime indices epochevent] = epoch(EEG.(tsfield), alllatencies, ...
+        for tsfield = tsfields(:)'
+            if isfield(EEG,tsfield{1}) && ~isempty(EEG.(tsfield{1}))
+                [EEG.(tsfield{1}) tmptime indices epochevent] = epoch(EEG.(tsfield{1}), alllatencies, ...
                     lim, 'valuelim', g.valuelim,'srate', EEG.srate, 'allevents', tmpeventlatency);
             end
         end
