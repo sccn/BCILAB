@@ -75,7 +75,7 @@ function play_eegset_lsl(dataset,datastreamname,eventstreamname,looping,backgrou
     start_time = tic;
     disp('Now playing back...');
     if background
-        start(timer('ExecutionMode','fixedRate', 'Period',0.01, 'TasksToExecute',fastif(looping*Inf,dataset.xmax/0.01), 'TimerFcn',@update));
+        start(timer('ExecutionMode','fixedRate', 'Period',0.01, 'TasksToExecute',fastif(looping,Inf,dataset.xmax/0.01), 'TimerFcn',@update));
     else
         while looping || last_p<dataset.pnts
             if ~update()
@@ -111,10 +111,20 @@ function play_eegset_lsl(dataset,datastreamname,eventstreamname,looping,backgrou
 end
 
     
-function hash = matrix_hash(M)
+function hash = matrix_hash(data)
     % Calculate a hash of a given matrix.
+    max_java_memory = 2^26; % 64 MB
     hasher = java.security.MessageDigest.getInstance('MD5');
-    hasher.update(uint8(full(M(:))));
+    data = typecast(full(data(:)),'uint8');
+    if length(data) <= max_java_memory
+        hasher.update(data);
+    else
+        numsplits = ceil(length(data)/max_java_memory);
+        for i=0:numsplits-1
+            range = 1+floor(i*length(data)/numsplits) : min(length(data),floor((i+1)*length(data)/numsplits));
+            hasher.update(data(range));
+        end
+    end
     hash = dec2hex(typecast(hasher.digest,'uint8'),2);
     hash = char(['X' hash(:)']);
 end
