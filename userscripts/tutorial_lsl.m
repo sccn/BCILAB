@@ -54,6 +54,7 @@ run_writelsl('Model',lastmodel,'LabStreamName','BCI-Continuous');
 % alternatively use 'BCI-At-Markers' to display the marker-locked BCI stream
 bci_stream_name = 'BCI-Continuous';  
 
+f=figure;
 lib = lsl_loadlib();
 disp('Resolving a BCI stream...');
 result = {};
@@ -63,10 +64,14 @@ inlet = lsl_inlet(result{1});
 disp('Now receiving data...');
 while true
     % get data from the inlet (timeout: 1 second)
-    [data,timestamp] = inlet.pull_sample(1);
+    [data,timestamp] = inlet.pull_sample(0);
     % and display it
     if timestamp
-        fprintf('%.2f\n',data); end
+        fprintf('%.2f\n',data); 
+        bar([data-1,1-(data-1)]); ylim([0 1]); drawnow;
+    else
+        pause(0.01);
+    end
 end
 
 

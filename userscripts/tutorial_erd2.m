@@ -84,7 +84,7 @@ disp(['online mis-classification rate: ' num2str((1-accuracy)*100,3) '%']);
 run_readdataset('Dataset',session{end});
 
 % process it in real time using lastmodel, and visualize outputs
-run_writevisualization('Model',lastmodel, 'VisFunction','bar(y)');
+run_writevisualization('Model',lastmodel);
 
 % make sure that the online processing gets terminated...
 disp('Click into the figure to stop online processing.'); 
@@ -163,8 +163,8 @@ for app = fieldnames(approaches)'
     [predictions,latencies] = onl_simulate(session{end},lastmodel,'markers',{'0','16','30'},'offset',3.5);
     disp(['pseudo-online test mis-classification rate: ' num2str(mean(argmax(predictions') ~= targets')*100,3) '%']);
     % visualize in real time
-    run_readdataset('Dataset',session{end}); run_writevisualization('Model',lastmodel, 'VisFunction','bar(y)'); 
-    waitforbuttonpress; onl_clear; close(gcf);
+    run_readdataset('Dataset',session{end}); run_writevisualization('Model',lastmodel); 
+    waitforbuttonpress; clear laststream; close(gcf);
 end
 
 
@@ -240,8 +240,8 @@ for app = fieldnames(approaches)'
     [predictions,latencies] = onl_simulate(session{end},lastmodel,'markers',{'0','16','30'},'offset',3.5);
     disp(['pseudo-online test mis-classification rate: ' num2str(mean(argmax(predictions') ~= targets')*100,3) '%']);
     % visualize in real time
-    run_readdataset('Dataset',session{end}); run_writevisualization('Model',lastmodel, 'VisFunction','bar(y);ylim([0 1])'); 
-    waitforbuttonpress; onl_clear; close(gcf);
+    run_readdataset('Dataset',session{end}); run_writevisualization('Model',lastmodel); 
+    waitforbuttonpress; clear laststream; close(gcf);
 end
 
 
