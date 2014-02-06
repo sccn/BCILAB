@@ -44,7 +44,7 @@ if nargin < 5
     W = 0.54 - 0.46*cos(2*pi*(0:N)/N); end
 
 % calculate interpolated frequency response
-F = interp1(round(F*nfft),A,(0:nfft),'cubic');
+F = interp1(round(F*nfft),A,(0:nfft),quickif(hlp_matlab_version>=802,'pchip','cubic'));
 
 % set phase & transform into time domain
 F = F .* exp(-(0.5*N)*sqrt(-1)*pi*(0:nfft)./nfft);
