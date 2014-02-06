@@ -33,8 +33,6 @@ traindata = io_loadset('data:/tutorial/flanker_task/12-08-002_ERN.vhdr');
 
 % define approach
 myapproach = {'Windowmeans' 'SignalProcessing', {'Resampling','off','EpochExtraction',[-0.2 0.8],'SpectralSelection',[0.1 15]}, 'Prediction',{'FeatureExtraction',{'TimeWindows',wnds}}};
-% myapproach = {'DALERP','SignalProcessing',{'Resampling',60,'IIRFilter','off','spectrum',[0.1 15],'EpochExtraction',[0 0.8]}, ...
-%     'Prediction',{'MachineLearning',{'Learner',{'dal','lambdas',2.^(10:-0.125:1),'solver','cg'}}}};
 
 %learn model 
 [trainloss,lastmodel,laststats] = bci_train('Data',traindata,'Approach',myapproach,'TargetMarkers',mrks);
@@ -64,7 +62,6 @@ fprintf('mean difference in predicted classes: %f\n',mean(abs(argmax(prediction{
 
 % also simulate sliding-window online processing, without locking to markers (updating 5x per second for faster analysis)
 prediction3 = onl_simulate('Data',testdata,'Model',lastmodel,'UpdateRate',5);
-
 
 %% --- do a real-time test ---
 % (note that you would query the online stream only after distinct events)
