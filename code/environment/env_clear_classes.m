@@ -14,21 +14,23 @@ global tracking;
 % clear all micro-caches
 hlp_microcache('clear');
 
-% also clear all other stray class instances
-try
+if hlp_matlab_version>706
     % make a backup of the tracking struct
     persistent backup; %#ok<TLEV>
     backup = tracking;
-    % clear the classes, but keep this file (and the backup) locked
-    mlock;
-    now_clear;
-    munlock;
+    try
+        % clear the classes, but keep this file (and the backup) locked
+        mlock;
+        now_clear;
+        munlock;
+    catch e
+        disp(['Error while trying to clear classes from memory: ' e.message]);
+    end
     % restore the tracking variable from the backup
     restore_tracking(backup);
-catch
-    disp('Error while trying to clear classes from memory.');
+else
+    disp('Note: classes are not being cleared (not supported by your MATLAB version).');
 end
-
 
 function now_clear
 % this needs to run in a different scope, otherwise the persistent variable ref would get lost

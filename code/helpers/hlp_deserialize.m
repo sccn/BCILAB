@@ -200,7 +200,7 @@ pos = pos + length(fnChars);
 ndms = double(typecast(m(pos:pos+3),'uint32'));
 pos = pos + 4;
 % Dimensions
-dms = typecast(m(pos:pos+ndms*4-1),'uint32')';
+dms = double(typecast(m(pos:pos+ndms*4-1),'uint32')');
 pos = pos + ndms*4;
 % Field names.
 fieldNames = cell(length(fnLengths),1);
@@ -278,7 +278,7 @@ switch kind
         ndms = double(m(pos));
         pos = pos + 1;
         % Dimensions
-        dms = typecast(m(pos:pos+ndms*4-1),'uint32')';
+        dms = double(typecast(m(pos:pos+ndms*4-1),'uint32')');
         pos = pos + ndms*4;
         % Create content
         v = repmat({prot},dms);
@@ -289,7 +289,7 @@ switch kind
         ndms = double(m(pos));
         pos = pos + 1;
         % Dimensions
-        dms = typecast(m(pos:pos+ndms*4-1),'uint32')';
+        dms = double(typecast(m(pos:pos+ndms*4-1),'uint32')');
         pos = pos + ndms*4;
         % Create content
         v = repmat({prot},dms);

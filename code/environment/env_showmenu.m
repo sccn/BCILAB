@@ -58,7 +58,8 @@ if isempty(parent) %#ok<NODEF>
         scrheight = gd.getDisplayMode().getHeight();
         pos = [from_left, scrheight-from_top, width, height];        
         % create figure
-        figtitle = ['BCILAB ' env_version ' (on ' hlp_hostname ')'];
+        release = version; try release = release(find(release=='(')+1:find(release==')')-1); catch end
+        figtitle = ['BCILAB ' env_version ' (on ' hlp_hostname '/' release ')'];
         parent = figure('DockControls','off','NumberTitle','off','Name',figtitle,'Resize','off','MenuBar','none','Position',pos,'Tag','bcilab_toolwnd');
     end
 end

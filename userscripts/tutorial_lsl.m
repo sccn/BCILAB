@@ -1,10 +1,9 @@
 %% === From another MATLAB: stream EEG and Markers via the lab streaming layer ===
 
-% IMPORTANT: instead of playing back data you would normally turn on an LSL application
+% NOTE: instead of playing back data you would normally turn on an LSL application
 % that streams data from some piece of hardware
 testdata = io_loadset('data:/tutorial/flanker_task/12-08-001_ERN.vhdr');
 play_eegset_lsl(testdata);
-
 
 
 %% === calibrate a BCI model ===
@@ -18,14 +17,14 @@ mrks = {{'S101','S102'},{'S201','S202'}};
 wnds = [0.25 0.3;0.3 0.35;0.35 0.4; 0.4 0.45;0.45 0.5;0.5 0.55;0.55 0.6];
 
 % load your calibration data here
-% IMPORTANT: typically this is a recording that you have previously recorded via LSL
+% NOTE: typically this is a calibration recording that you have previously recorded
 traindata = io_loadset('data:/tutorial/flanker_task/12-08-002_ERN.vhdr');
 
 % define an approach
-myapproach = {'Windowmeans' 'SignalProcessing', {'Resampling','off','EpochExtraction',[-0.2 0.8],'SpectralSelection',[0.1 15]}, 'Prediction',{'FeatureExtraction',{'TimeWindows',wnds}}};
+myapproach = {'Windowmeans' 'SignalProcessing', {'Resampling','off','EpochExtraction',[-0.2 0.8],'SpectralSelection',[0.1 15]}, 'Prediction',{'MachineLearning',{'Learner',{'lda',0.1,'regularization','shrinkage'}},'FeatureExtraction',{'TimeWindows',wnds}}};
 
 % learn model 
-[trainloss,lastmodel,laststats] = bci_train('Data',traindata,'Approach',myapproach,'TargetMarkers',mrks);
+tic;[trainloss,lastmodel,laststats] = bci_train('Data',traindata,'Approach',myapproach,'TargetMarkers',mrks);toc
 disp(['training mis-classification rate: ' num2str(trainloss*100,3) '%']);
 
 
@@ -47,6 +46,7 @@ waitforbuttonpress; onl_clear; close(gcf);
 run_readlsl('DataStreamQuery','type=''EEG''', 'MarkerQuery','');
 
 % process it in real time and emit as stream named "BCI-Continuous"
+% this stream can be read anywhere on the network (using LSL for MATLAB, Python, C, C++, Java or C#)
 run_writelsl('Model',lastmodel,'LabStreamName','BCI-Continuous');
 
 %% === From a third MATLAB: receive and display BCI outputs ===

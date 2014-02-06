@@ -27,6 +27,10 @@ function run_readlsl(varargin)
 % Notes:
 %   The general format of the queries is that of an XPath 1.0 predicate on the meta-data of a given stream.
 %
+%   Some older versions of MATLAB (solved since 2009a) cannot handle a sender disconnecting while
+%   run_readlsl is running; on those versions you need to clear (i.e., stop) the stream before you
+%   disconnect at the sender side, otherwise your MATLAB will hang.
+%
 % Examples:
 %   % receive data from a device that contains gaze data
 %   run_readlsl('mystream','type','Gaze');

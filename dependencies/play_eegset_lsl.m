@@ -1,16 +1,37 @@
-function play_eegset_lsl(dataset,datastreamname,eventstreamname,looping,background)
+function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping,background)
 % Play back a continuous EEGLAB dataset over LSL.
+% Handle = play_eegset_lsl(Dataset,DataStreamName,EventStreamName,Looping,Background)
 %
 % In:
-%   Dataset : EEGLAB dataset struct to play
+%   Dataset : EEGLAB dataset struct to play.
 %
-%   DataStreamName : name of the data stream to create (default: 'EEGLAB')
+%   DataStreamName : Name of the data stream to create (default: 'EEGLAB')
 %
-%   EventStreamName : name of the event stream to create (default: 'EEGLAB-Markers')
+%   EventStreamName : Name of the event stream to create (default: 'EEGLAB-Markers')
 %
-%   Looping : whether play back the data in a loop (default: true)
+%   Looping : Whether play back the data in a loop (default: true)
 %
-%   Background : whether to run in the background (default: true)
+%   Background : Whether to run in the background; see example. (default: false)
+%
+% Out:
+%   Handle : A handle that can be used to stop background playback, by calling stop(myhandle).
+%
+% Examples:
+%   EEG = io_loadset('data:/tutorial/flanker_task/12-08-001_ERN.vhdr');
+%
+%   % Play a recording (blocking, press Ctrl+C to cancel)
+%   play_eegset_lsl(EEG);
+%
+%   % Play a recording in the background
+%   h = play_eegset_lsl(EEG,[],[],[],true);
+%   % stop playback after some time
+%   stop(h);
+%
+%   % Play with looping disabled
+%   play_eegset_lsl(EEG,[],[],false);
+%
+%   Play with a different name for the data stream and marker stream
+%   play_eegset_lsl(EEG,'MyDataStream','MyMarkerStream');
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2013-11-23
@@ -22,8 +43,11 @@ function play_eegset_lsl(dataset,datastreamname,eventstreamname,looping,backgrou
     if ~exist('looping','var') || isempty(looping)
         looping = true; end
     if ~exist('background','var') || isempty(background)
-        background = true; end
+        background = false; end
 
+    if background && ~nargout
+        error('To play back in the background you need to specify a return value (otherwise you playback could not be stopped).'); end
+    
     % evaluate the dataset if necessary
     if ~isfield(dataset,'data') && all(isfield(dataset,{'head','parts'})) && exist('exp_eval','file')
         dataset = exp_eval(dataset); end
@@ -75,7 +99,8 @@ function play_eegset_lsl(dataset,datastreamname,eventstreamname,looping,backgrou
     start_time = tic;
     disp('Now playing back...');
     if background
-        start(timer('ExecutionMode','fixedRate', 'Period',0.01, 'TasksToExecute',fastif(looping,Inf,dataset.xmax/0.01), 'TimerFcn',@update));
+        handle = timer('ExecutionMode','fixedRate', 'Period',0.01, 'TasksToExecute',fastif(looping,Inf,dataset.xmax/0.01), 'TimerFcn',@update, 'StopFcn',@(t,varargin)delete(t));
+        start(handle);
     else
         while looping || last_p<dataset.pnts
             if ~update()
@@ -106,6 +131,11 @@ function play_eegset_lsl(dataset,datastreamname,eventstreamname,looping,backgrou
             dataoutlet.push_chunk(double(dataset.data(:,wraprange)),now);
             last_pos = pos;
         end
+    end
+
+    function stop_playback(obj,varargin)
+        delete(obj);
+        disp('Playback stopped.');
     end
 
 end
@@ -148,7 +178,7 @@ function [B,R] = sparse_binning(V,rows,columns)
     %
     %   Residuals : optionally the fractional offset between the values and the bin indices.
 
-    [V,order] = sort(V(:)'); %#ok<TRSRT>
+    [V,order] = sort(V(:)'); %#ok<UDIM,TRSRT>
     % get the bin index where each value falls
     bins = round(V);
     % get the within-bin rank of each value

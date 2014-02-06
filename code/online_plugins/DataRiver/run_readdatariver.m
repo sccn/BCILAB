@@ -43,6 +43,8 @@ meta = utl_parse_metadata(in_metadata);
 global ds_lib;
 if isempty(ds_lib)
     disp('Loading DataSuite...');
+    if ~exist('startup_ds','file')
+        error('DataSuite is not installed.'); end
     startup_ds;
 end
 

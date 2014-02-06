@@ -51,7 +51,7 @@ if ~exist('state','var') || isempty(state)
     % get current sensor locations
     xyzSensors = [[signal.chanlocs.X]' [signal.chanlocs.Y]' [signal.chanlocs.Z]'];
     
-    [~,loc1,loc2] = intersect(lower(hmObj.getChannelLabels),lower({signal.chanlocs.labels}));
+    [dummy,loc1,loc2] = intersect(lower(hmObj.getChannelLabels),lower({signal.chanlocs.labels}));
     if isempty(loc1), error('Cannot find a match between the landmarks and the template model channels.');end
     T = hmObj.channelSpace(loc1,:);
     S = xyzSensors(loc2,:);
