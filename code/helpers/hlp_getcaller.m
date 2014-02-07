@@ -37,18 +37,23 @@ function [name,file] = hlp_getcaller(indirection)
 % USA
 
 stack = dbstack;
-if nargout > 1
-    if nargin < 1
-        name = stack(3).name;
-        file = stack(3).file;
+try
+    if nargout > 1
+        if nargin < 1
+            name = stack(3).name;
+            file = stack(3).file;
+        else
+            name = stack(2+indirection).name;
+            file = stack(2+indirection).file;
+        end
     else
-        name = stack(2+indirection).name;
-        file = stack(2+indirection).file;
+        if nargin < 1
+            name = stack(3).name;
+        else
+            name = stack(2+indirection).name;
+        end
     end
-else
-    if nargin < 1
-        name = stack(3).name;
-    else
-        name = stack(2+indirection).name;
-    end
+catch
+    name = 'base';
+    file = '';
 end
