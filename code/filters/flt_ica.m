@@ -865,7 +865,7 @@ else
                 else
                     B = {};
                 end
-                [pre.icaweights,pre.icasphere] = hlp_diskcache('filterdesign',beamica,pre.data,B,[],[],[],variant.max_iter,variant.lrate,variant.tradeoff,variant.verbose,variant.usegpu,variant.convergence_check);
+                [pre.icaweights,pre.icasphere] = hlp_diskcache('filterdesign',@beamica,pre.data,B,[],[],[],variant.max_iter,variant.lrate,variant.tradeoff,variant.verbose,variant.usegpu,variant.convergence_check);
             case 'fastica'
                 % translate all booleans into 'on'/'off'
                 variant = structfun(@(p) fastif(islogical(p),fastif(p,'on','off'),p),variant,'UniformOutput',false);

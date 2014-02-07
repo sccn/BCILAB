@@ -645,5 +645,5 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
     end
 end
 
-% disable a dumb warning about self...
+% disable a warning about self...
 %#ok<*MANU>
