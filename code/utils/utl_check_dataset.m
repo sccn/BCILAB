@@ -84,10 +84,6 @@ if isfield(sig,{'data','srate'})
                 'processing palette,since the operations implemented there are online-capable.\n']);
         end
     end
-    if ~found_problem
-        fprintf(['Note: The data set has been edited or imported from EEGLAB; to guarantee ' ...
-            'correctness of BCILAB''s performance estimates, ensure that the imported data had not been filtered.\n']);
-    end
     
     % (re-) create the fingerprint, if necessary
     if ~exist('fprint','var')

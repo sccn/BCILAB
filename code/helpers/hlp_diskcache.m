@@ -400,31 +400,35 @@ function v = func_version(func,versiontag)
 %  * string form of the input if there is no accessible file (e.g., anonymous function),
 %    or if the versiontag is passed in as false
 func = char(func);
-if isequal(versiontag,false)
+if isequal(versiontag,false) || func(1)=='@'
     v = func;
 else
-    filename = which(func);
-    if ~isempty(filename)
-        % open the source file
-        f = fopen(filename,'r');
-        try
-            % read the code
-            code = fread(f,Inf,'uint8=>char')';
-            % check if it contains the version descriptor tag
-            v = regexp(code,strrep(versiontag,'$(funcname)',func),'match');
-            % otherwise we just hash the entire code
-            if isempty(versiontag) || isempty(v)
-                v = hlp_cryptohash(code); end
-            fclose(f);
-        catch %#ok<CTCH>
+    try
+        filename = which(func);
+        if ~isempty(filename)
+            % open the source file
+            f = fopen(filename,'r');
             try
+                % read the code
+                code = fread(f,Inf,'uint8=>char')';
+                % check if it contains the version descriptor tag
+                v = regexp(code,strrep(versiontag,'$(funcname)',func),'match');
+                % otherwise we just hash the entire code
+                if isempty(versiontag) || isempty(v)
+                    v = hlp_cryptohash(code); end
                 fclose(f);
             catch %#ok<CTCH>
+                try
+                    fclose(f);
+                catch %#ok<CTCH>
+                end
+                v = func;
             end
+        else
+            % otherwise use the string representation as version
             v = func;
         end
-    else
-        % otherwise use the string representation as version
+    catch
         v = func;
     end
 end

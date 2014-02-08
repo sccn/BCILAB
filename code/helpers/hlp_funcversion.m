@@ -33,32 +33,36 @@ end
 if nargin < 3
     versionformat = '$(funcname)_version<\S+>'; end
 
-func = char(func);
-if ~isempty(filename)
-    % open the source file
-    f = fopen(filename,'r');
-    try
-        % read the code
-        code = fread(f,Inf,'uint8=>char')';
-        % check if it contains the version descriptor tag
-        v = regexp(code,strrep(versionformat,'$(funcname)',func),'match');
-        % otherwise we just hash the entire code
-        if isempty(versionformat) || isempty(v)
-            v = hlp_cryptohash(code); end
-        if iscell(v)
-            if length(v) > 1
-                warn_once('BCILAB:hlp_funcversion:multiple_tags','There is more than one version tag in file %s. Using the first one.',filename); end
-            v = v{1}; 
-        end
-        fclose(f);
-    catch %#ok<CTCH>
+try
+    func = char(func);
+    if ~isempty(filename)
+        % open the source file
+        f = fopen(filename,'r');
         try
+            % read the code
+            code = fread(f,Inf,'uint8=>char')';
+            % check if it contains the version descriptor tag
+            v = regexp(code,strrep(versionformat,'$(funcname)',func),'match');
+            % otherwise we just hash the entire code
+            if isempty(versionformat) || isempty(v)
+                v = hlp_cryptohash(code); end
+            if iscell(v)
+                if length(v) > 1
+                    warn_once('BCILAB:hlp_funcversion:multiple_tags','There is more than one version tag in file %s. Using the first one.',filename); end
+                v = v{1}; 
+            end
             fclose(f);
         catch %#ok<CTCH>
+            try
+                fclose(f);
+            catch %#ok<CTCH>
+            end
+            v = func;
         end
+    else
+        % otherwise use the string representation as version
         v = func;
     end
-else
-    % otherwise use the string representation as version
-    v = func;
+catch
+    v = func;    
 end

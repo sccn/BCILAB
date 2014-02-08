@@ -21,6 +21,8 @@ classdef ParadigmMKLCSP < ParadigmBase
     % Name:
     %   Multiple Kernel Learning Common Spatial Patterns.
     %
+    %                            Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+    %                            2014-02-05
     
     methods
         
@@ -30,7 +32,7 @@ classdef ParadigmMKLCSP < ParadigmBase
                 
         function defaults = machine_learning_defaults(self)
             % set up the default parameters for machine learning
-            defaults = {'dal', 2.^(8:-0.25:-1), 'Scaling','none', 'Regularizer','glc'};
+            defaults = {'dal', 2.^(10:-0.25:-1), 'Scaling','none', 'Regularizer','glc'};
         end
                 
         function model = calibrate(self,varargin)
@@ -71,34 +73,33 @@ classdef ParadigmMKLCSP < ParadigmBase
             [reference,remaining] = utl_collection_closest(args.collection,args.goal_identifier); %#ok<NASGU>
             % preprocess each recording in the reference collection and concatenate them across epochs into a single set
             for r=1:length(reference)
-                refdata{r} = exp_eval_optimized(flt_pipeline('signal',reference{r}.streams{1}, args.flt)); end
-            refdata = set_joinepos(refdata{:});
-            
+                refsets{r} = exp_eval_optimized(flt_pipeline('signal',reference{r}.streams{1}, args.flt)); end
+            refdata = exp_eval(set_joinepos(refsets{:}));
             % extract features and get target labels
-            features = self.feature_extract(refdata,model.featuremodel);            
+            features = self.feature_extract(refdata,model.featuremodel);
             targets = set_gettarget(refdata);
             % train classifier, using the correct feature shape (based on the group size)
-            args.ml.shape = [2*args.patterns,length(args.collection)];
+            args.ml.learner.shape = [2*args.patterns,length(args.collection)];
             model.predictivemodel = ml_train('data',{features,targets}, args.ml);
             % set the filter graph based on the reference data
-            model.tracking.filter_graph = refdata;
+            model.tracking.filter_graph = refsets{end};
             % also store channel locations for model visualization
             model.chanlocs = refdata.chanlocs;
         end
         
         function predictions = predict(self,bundle,model)
             % extract features
-            features = self.feature_extract(self,bundle.streams{1},model.featuremodel);
+            features = self.feature_extract(bundle.streams{1},model.featuremodel);
             % apply classifier
-            predictions = ml_predict(features, model.predictivemodel);            
+            predictions = ml_predict(features, model.predictivemodel);
         end
         
         function features = feature_extract(self,signal,featuremodel)
             % extract log-variance features from an epoched and preprocessed recording
             features = zeros(size(signal.data,3),size(featuremodel.filters,2));
             for t=1:size(signal.data,3)
-                features(t,:) = var(signal.data(:,:,t)'*featuremodel.filters); end
-            features = log(features);
+                features(t,:) = sum((signal.data(:,:,t)'*featuremodel.filters).^2,1); end
+            features = log(features/size(signal.data,2));
         end
         
         function visualize(self,varargin) %#ok<*INUSD>

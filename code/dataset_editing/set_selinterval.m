@@ -94,6 +94,8 @@ elseif ~isequal(samplerange,1:size(signal.data,2))
     end
     % select range within the events
     if ~isempty(signal.event)
+        % trim out-of-bounds events
+        signal.event([signal.event.latency]>signal.pnts) = [];
         % bin latencies into sparse array and apply selection
         [event_positions,residuals] = sparse_binning([signal.event.latency],[],signal.pnts);
         [ranks,sample_indices,event_indices] = find(event_positions(:,samplerange));

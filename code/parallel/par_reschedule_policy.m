@@ -165,7 +165,8 @@ try
     end
     
     reschedule = unique(reschedule);
-    batches(batchid).rescheduled = [batches(batchid).rescheduled reschedule];
+    if ~isempty(reschedule)
+        batches(batchid).rescheduled = [batches(batchid).rescheduled reschedule]; end
     
     % emit the result as a Java Vector (pre-Generics)
     import java.lang.*;

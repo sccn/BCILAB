@@ -17,6 +17,7 @@ function [list,flat,indexable] = gui_listapproaches()
 %                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                           2010-10-25
 
+global tracking;
 persistent cached_paradigms;
 
 list = {};
@@ -25,7 +26,7 @@ list = {};
 approaches = {};
 
 para_paths = {};
-for p = {'functions:/paradigms', 'home:/.bcilab/code/paradigms'}
+for p = [{'functions:/paradigms', 'home:/.bcilab/code/paradigms'} quickif(tracking.gui.show_experimental,{'functions:/paradigms/in_development'},{})]
     rootpath = env_translatepath(p{1});
     files = dir([rootpath filesep 'Paradigm*.m']);
     para_paths = [para_paths cellfun(@(n)[rootpath filesep n],{files.name},'UniformOutput',false)];

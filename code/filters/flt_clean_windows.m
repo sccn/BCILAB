@@ -217,7 +217,7 @@ fprintf('Keeping %.1f%% (%.0f seconds) of the data.\n',100*(mean(sample_mask)),n
 
 if keep_metadata
     % retain the masked data, update meta-data appropriately
-    signal = exp_eval(set_selinterval(signal,sample_mask,'range'),true);
+    signal = exp_eval(set_selinterval(signal,sample_mask,'range'));
     
     if isfield(signal.etc,'epoch_bounds') && isfield(signal.event,'target')
         targets = find(~cellfun('isempty',{signal.event.target}));
