@@ -239,7 +239,10 @@ else
             % apply special handling to latency and duration (both in ms and relative to epoch center)
             signal.epoch.eventlatency = num2cell(([signal.event.latency]-1+state.sample_range(1))/signal.srate*1000);
             if isfield(signal.event,'duration')
-                signal.epoch.eventduration = num2cell([signal.event.duration]*(1000/signal.srate)); end
+                durations = {signal.event.duration};
+                [durations{cellfun('isempty',durations)}] = deal(0);                
+                signal.epoch.eventduration = num2cell(durations*(1000/signal.srate)); 
+            end
         end
     end
 end
