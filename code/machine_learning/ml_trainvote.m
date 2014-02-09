@@ -57,9 +57,16 @@ function model = ml_trainvote(trials, targets, votingscheme, learner, predictor,
 %                           2010-06-25
 
 % first get the classes for training
-model.classes = unique(targets);
+if iscell(trials) && iscell(targets)
+    model.classes = unique([targets{:}]);
+else
+    model.classes = unique(targets);
+end
+    
 switch votingscheme
     case '1v1'
+        if iscell(targets)
+            error('One-vs-one voting not yet support for multi-task learning problems.'); end
         for i=1:length(model.classes)
             for j=i+1:length(model.classes)
                 % learn an i-vs-j model
@@ -67,12 +74,27 @@ switch votingscheme
                 subset = targets == model.classes(i) | targets == model.classes(j);
                 % learn restricted model
                 if isnumeric(trials)
-                    if ndims(trials) == 2
-                        % feature vectors
-                        model.voted{i,j} = learner(varargin{:},'trials',trials(subset,:),'targets',targets(subset));
-                    else
-                        % feature matrices
-                        model.voted{i,j} = learner(varargin{:},'trials',trials(:,:,subset),'targets',targets(subset));
+                    switch ndims(trials)
+                        case 2
+                            model.voted{i,j} = learner(varargin{:},'trials',trials(subset,:),'targets',targets(subset));
+                        case 3
+                            model.voted{i,j} = learner(varargin{:},'trials',trials(:,:,subset),'targets',targets(subset));
+                        case 4
+                            model.voted{i,j} = learner(varargin{:},'trials',trials(:,:,:,subset),'targets',targets(subset));
+                        case 5
+                            model.voted{i,j} = learner(varargin{:},'trials',trials(:,:,:,:,subset),'targets',targets(subset));
+                        case 6
+                            model.voted{i,j} = learner(varargin{:},'trials',trials(:,:,:,:,:,subset),'targets',targets(subset));
+                        case 7
+                            model.voted{i,j} = learner(varargin{:},'trials',trials(:,:,:,:,:,:,subset),'targets',targets(subset));
+                        case 8
+                            model.voted{i,j} = learner(varargin{:},'trials',trials(:,:,:,:,:,:,:,subset),'targets',targets(subset));
+                        case 9
+                            model.voted{i,j} = learner(varargin{:},'trials',trials(:,:,:,:,:,:,:,:,subset),'targets',targets(subset));
+                        case 10
+                            model.voted{i,j} = learner(varargin{:},'trials',trials(:,:,:,:,:,:,:,:,:,subset),'targets',targets(subset));
+                        otherwise
+                            error('At most 10-way feature tensors are supported by ml_trainvote.');
                     end
                 else
                     % custom data
@@ -83,14 +105,23 @@ switch votingscheme
     case '1vR'
         for i=1:length(model.classes)
             % learn model with i targets relabeled to 1 and remaining ones relabeled to 2
-            model.voted{i} = learner(varargin{:},'trials',trials,'targets',1 + (targets ~= model.classes(i)));
+            if iscell(trials) && iscell(targets)
+                model.voted{i} = learner(varargin{:},'trials',trials,'targets',cellfun(@(t)1+(t ~= model.classes(i)),targets,'UniformOutput',false));
+            else
+                model.voted{i} = learner(varargin{:},'trials',trials,'targets',1 + (targets ~= model.classes(i)));
+            end
         end
     otherwise
         error(['unsupported voting scheme: ' votingscheme]);
 end
    
-if isnumeric(trials)
-    model.feature_matrices = ndims(trials)==3; end
+if iscell(trials) && iscell(targets)
+    if isnumeric(trials{1})
+        model.feature_dims = ndims(trials{1})-1; end
+else
+    if isnumeric(trials)
+        model.feature_dims = ndims(trials)-1; end
+end
 
 % and remember the options
 model.opts = [{learner, predictor} varargin];

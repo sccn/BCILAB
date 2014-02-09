@@ -230,7 +230,13 @@ arg_define([0 2],varargin, ...
     arg({'continuous_targets','ContinuousTargets','Regression'}, false, [], 'Whether to use continuous targets. This allows to implement some kind of damped regression approach.'),...
     arg({'includebias','IncludeBias','bias'},true,[],'Include bias param. Also learns an unregularized bias param (strongly recommended for typical classification problems).'));
 
-classes = unique(targets);
+% find all target classes (if classification)
+if iscell(targets)
+    classes = unique([targets{:}]);
+else
+    classes = unique(targets);
+end
+
 if length(classes) > 2 && strcmp(loss,'logistic') && ~continuous_targets
     % in the multi-class case we use the voter for now (TODO: use softmax loss instead)
     model = ml_trainvote(trials, targets, '1v1', @ml_trainproximal, @ml_predictproximal, varargin{:});

@@ -25,10 +25,18 @@ if isfield(model,'voted')
 
     % get the trial count
     if isnumeric(trials)
-        if model.feature_matrices
-            trialcount = size(trials,3);
+        if isfield(model,'feature_dims')
+            if model.feature_dims>1
+                trialcount = size(trials,model.feature_dims+1);
+            else
+                trialcount = size(trials,1);
+            end
         else
-            trialcount = size(trials,1);
+            if model.feature_matrices
+                trialcount = size(trials,3);
+            else
+                trialcount = size(trials,1);
+            end
         end
     else
         % custom data

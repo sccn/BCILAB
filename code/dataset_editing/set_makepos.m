@@ -241,7 +241,7 @@ else
             if isfield(signal.event,'duration')
                 durations = {signal.event.duration};
                 [durations{cellfun('isempty',durations)}] = deal(0);                
-                signal.epoch.eventduration = num2cell(durations*(1000/signal.srate)); 
+                signal.epoch.eventduration = num2cell([durations{:}]*(1000/signal.srate)); 
             end
         end
     end
