@@ -230,212 +230,233 @@ arg_define([0 2],varargin, ...
     arg({'continuous_targets','ContinuousTargets','Regression'}, false, [], 'Whether to use continuous targets. This allows to implement some kind of damped regression approach.'),...
     arg({'includebias','IncludeBias','bias'},true,[],'Include bias param. Also learns an unregularized bias param (strongly recommended for typical classification problems).'));
 
-% find all target classes (if classification)
-if iscell(targets)
-    classes = unique([targets{:}]);
-else
-    classes = unique(targets);
+if ~iscell(targets)
+    trials = {trials};
+    targets = {targets}; 
 end
 
+% find all target classes (if classification)
+nTasks = length(targets);
+classes = unique([targets{:}]);
 if length(classes) > 2 && strcmp(loss,'logistic') && ~continuous_targets
     % in the multi-class case we use the voter for now (TODO: use softmax loss instead)
     model = ml_trainvote(trials, targets, '1v1', @ml_trainproximal, @ml_predictproximal, varargin{:});
 elseif length(classes) == 1
     error('BCILAB:only_one_class','Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.');
 else
+        
     % optionally allow nfolds to be a function of #trials
     if lambdaSearch.nfolds < 1
-        lambdaSearch.nfolds = round(lambdaSearch.nfolds*length(targets)); end
+        lambdaSearch.nfolds = round(lambdaSearch.nfolds*mean(cellfun('length',targets))); end
+    nFolds = lambdaSearch.nfolds;
+    
     % sanitize some more inputs
     solverOptions.verbose = max(0,verbosity-1);    
     if isnumeric(regweights)
         regweights = {regweights}; end
+    nRegweights = length(regweights);
     
     % lambdas need to be sorted in descending order for the warm-starting to work
+    nLambdas = length(lambdaSearch.lambdas);
     lambdaSearch.lambdas = sort(lambdaSearch.lambdas,'ascend');
     if strcmp(lambdaSearch.cvmetric,'mcr')
         lambdaSearch.cvmetric = ''; end
     
-    % vectorize data if necessary & sanity-check explicit shape parameter if specified
-    if ndims(trials) > 2 %#ok<ISMAT>
-        featureshape = size(trials); featureshape = featureshape(1:end-1);
-        if ~isempty(shape) && ~isequal(shape,featureshape)
-            if prod(featureshape) == prod(shape)
-                warning('You are specifying a shape property but also multidimensional features of a different shape; using the explicit shape parameter.');
-                featureshape = shape;
-            else
-                error('You are specifying a shape property but also features with an incompatible number of elements. Please correct.');
-            end
-        end
-        trials = double(reshape(trials,[],size(trials,ndims(trials)))');
-        vectorize_trials = true;
-    else
-        if ~isempty(shape)
-            if size(shape,1) > 1
-                if all(all(bsxfun(@eq,shape(1,:),shape)))
-                    featureshape = [shape(1,1),shape(1,2),size(shape,1)];
-                    if prod(featureshape) == size(trials,2)
-                        % the reason is that it is much more efficient to operate on a dense 3d array than a very sparse 2d array
-                        warn_once('This method will by convention reshape block-diagonalized feature matrices with identical blocks into a 3d tensor. This warning will only come up once.');
-                    else
-                        error('Your shape parameter has a different number of features than your data.');
-                    end
-                else
-                    % we don't implement block-diagonalization in here
-                    error('This method does not handle implicitly block-diagonal features; please either reformulate in tensor form or pass a large sparse data matrix (pre-blockdiagonalized). Note that the tensor form is likely several times faster.');
-                end
-            elseif prod(shape) ~= size(trials,2)
-                error('Your shape parameter has a different number of features than data.');
-            else
-                featureshape = shape;
-            end
-        else
-            featureshape = [size(trials,2),1];
-        end
-        vectorize_trials = false;
-    end
+    % determine featureshape and vectorize data if necessary 
+    [featureshape,trials,vectorize_trials] = determine_featureshape(trials,shape);
     
     % optionally scale the data
-    sc_info = hlp_findscaling(trials,scaling);
-    trials = hlp_applyscaling(trials,sc_info);
+    sc_info = hlp_findscaling(vertcat(trials{:}),scaling);
+    trials = cellfun(@(t)hlp_applyscaling(t,hlp_findscaling(t,scaling)),trials,'UniformOutput',false);
     
     % optionally remap target labels to -1,+1
     if strcmp(loss,'logistic') && length(classes) == 2 && ~continuous_targets
-        targets(targets==classes(1)) = -1;
-        targets(targets==classes(2)) = +1;
+        for t=1:nTasks
+            targets{t}(targets{t}==classes(1)) = -1;
+            targets{t}(targets{t}==classes(2)) = +1;
+        end
     end
         
     % learn a sequence of models across the given lambda's, on all the data (i.e. the regularization path)
     if verbosity
         disp('Running optimization...'); end
     
+    
     % run a cross-validation to score the lambdas and regweights
-    loss_mean = cell(1,length(regweights));
-    predictions = repmat({zeros(length(targets),length(lambdaSearch.lambdas))},1,length(regweights)); % predictions{r}(t,l) is the prediction for regweight combination #r, trial #t and lambda #l
-    reptargets = repmat(targets,1,length(lambdaSearch.lambdas));
-    foldid = 1+floor((0:length(targets)-1)/length(targets)*lambdaSearch.nfolds);
+
+    % loss_means{regweight,task}(fold,lambda) is the average loss for a given task, regularization weight setting, cross-validation fold, and lambda setting
+    loss_means = cell(nRegweights,nTasks);    
+    % predictions{regweight,task}(trial,lambda) is the classifier prediction for a given task, regweight setting, trial, and lambda choice
+    predictions = repmat(cellfun(@(t)zeros(length(t),nLambdas),targets(:)','UniformOutput',false),nRegweights,1);
+    % foldid{task}(trial) is the fold in which a given trial is in the test set, for a given task
+    foldids = cellfun(@(t)1+floor((0:length(t)-1)/length(t)*nFolds,targets),'UniformOutput',false);
+    
     % for each fold...
-    for i = 1:lambdaSearch.nfolds
+    model_seq = cell(nFolds,n,nRegweights,nTasks); % model_seq(fold,regweight,task}{lambda} is the model for a given fold, regweight and lambda setting, and task
+    history_seq = cell(nFolds,nRegweights); % history_seq(fold,regweight}{lambda}( is a struct of optimization histories for a given fold, regweight and lambda setting, for all concurrent tasks
+    for f = 1:nFolds
         if verbosity
-            disp(['Fitting fold # ' num2str(i) ' of ' num2str(lambdaSearch.nfolds)]); end
+            disp(['Fitting fold # ' num2str(f) ' of ' num2str(nFolds)]); end
 
-        % determine training and test sets
-        which = foldid==i;
-        trainids = ~which;
-        whichpos = find(which);
-        for j=1:lambdaSearch.foldmargin
-            trainids(max(1,whichpos-j)) = false;
-            trainids(min(length(which),whichpos+j)) = false;
-        end
-        testset = [trials(which,:) ones(length(whichpos),double(includebias))];
-
-        % for each relative regularization term weighting...
-        for w = 1:length(regweights)
-
-            % get regularization path
-            [model_seq{w},history_seq{w}] = hlp_diskcache('predictivemodels',@solve_regularization_path,trials(trainids,:),targets(trainids),lambdaSearch.lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,regweights{w},featureshape);  %#ok<NASGU>
-            
-            % calc test-set predictions for each model
-            for m=1:length(model_seq{w})
-                predictions{w}(which,m) = (testset*model_seq{w}{m}(:))'; end
-            if strcmp(loss,'logistic')
-                predictions{w}(which,:) = 2*(1 ./ (1 + exp(-predictions{w}(which,:))))-1; end
-            
-            % evaluate losses on the fold
-            if isempty(lambdaSearch.cvmetric)
-                if strcmp(loss,'logistic')
-                    loss_mean{w}(i,:) = mean(reptargets(which,:) ~= sign(predictions{w}(which,:)));
-                else
-                    loss_mean{w}(i,:) = mean((reptargets(which,:) - predictions{w}(which,:)).^2);
-                end
-            else
-                for r=1:length(lambdaSearch.lambdas)
-                    loss_mean{w}(i,r) = ml_calcloss(lambdaSearch.cvmetric,reptargets(which,r),predictions{w}(which,r)); end
+        % determine training and test set masks
+        testmask = cellfun(@(foldid)foldid==f,foldids,'UniformOutput',false); % testmask{task}(trial) a bitmask of test-set trials for a given task
+        trainmask = cellfun(@(x)~x,testmask,'UniformOutput',false);           % trainmask{task}(trial) is a bitmask of train-set trials
+        % cut train/test margins into trainmask
+        for t=1:nTasks
+            testpos = find(testmask{t});
+            for j=1:lambdaSearch.foldmargin
+                trainmask{t}(max(1,testpos-j)) = false;
+                trainmask{t}(min(length(testmask{t}),testpos+j)) = false;
             end
         end
-        1;
+
+        % set up design matrices
+        [A,y,B,z] = deal(cell(1,nTasks));
+        for t=1:nTasks
+            % training data
+            A{t} = trials{t}(trainmask{t},:);
+            y{t} = targets{t}(trainmask{t});
+            % test data
+            B{t} = [trials{t}(testmask{t},:) ones(length(testmask{t}),double(includebias))];
+            z{t} = targets{t}(testmask{t});
+        end
+        
+        % for each relative regularization term weighting...
+        for w = 1:nRegweights
+            [model_seq{f,w,:},history_seq{f,w}] = hlp_diskcache('predictivemodels',@solve_regularization_path,A,y,lambdaSearch.lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,regweights{w},featureshape);
+            
+            % for each task...
+            for t = 1:nTasks
+                % calc test-set predictions for each model
+                for m=1:nLambdas
+                    predictions{w,t}(testmask{t},m) = (B{t}*model_seq{f,w,t}{m}(:))'; end
+                if strcmp(loss,'logistic')
+                    predictions{w,t}(testmask{t},:) = 2*(1 ./ (1 + exp(-predictions{w,t}(testmask{t},:))))-1; end
+
+                % evaluate test-set losses
+                if isempty(lambdaSearch.cvmetric)
+                    if strcmp(loss,'logistic')
+                        loss_means{w,t}(f,:) = mean(~bsxfun(@eq,z{t},sign(predictions{w,t}(testmask{t},:))));
+                    else
+                        loss_means{w,t}(f,:) = mean((bsxfun(@minus,z{t},predictions{w,t}(testmask{t},:))).^2);
+                    end
+                else
+                    for m=1:nLambdas
+                        loss_means{w,t}(f,m) = ml_calcloss(lambdaSearch.cvmetric,z{t},predictions{w,t}(testmask{t},m)); end
+                end
+            end
+        end
     end
 
     % find best lambdas & regweight combination
-    for k=1:length(regweights)
-        % average over folds
-        loss_mean{k} = mean(loss_mean{k},1);
-        % if there are several minima, choose largest lambda of the smallest cvm
-        best_lambda{k} = max(lambdaSearch.lambdas(loss_mean{k} <= min(loss_mean{k})));
-        best_loss{k} = min(loss_mean{k});
+    [loss_mean,best_lambdas,best_loss] = deal(cell(nRegweights,nTasks));
+    [best_regidx,best_regweights,best_lambda] = deal(cell(1,nTasks));
+    for t=1:nTasks
+        for w=1:nRegweights
+            % average loss over folds
+            loss_mean{w,t} = mean(loss_means{w,t},1);
+            % if there are several minima, choose largest lambda of the smallest cvm
+            best_lambdas{w,t} = max(lambdaSearch.lambdas(loss_mean{w,t} <= min(loss_mean{w,t})));
+            best_loss{w,t} = min(loss_mean{w,t});
+        end
+        % pick regweights and lambda at best loss
+        [dummy,best_regidx{t}] = min([best_loss{:,t}]); %#ok<ASGLU>
+        best_regweights{t} = regweights{best_regidx{t}}(:)';
+        best_lambda{t} = best_lambdas{best_regidx{t},t};
     end
-    % pick regweights and lambda at best loss
-    [dummy,best_regidx] = min([best_loss{:}]); %#ok<ASGLU>
-    best_regweights = regweights{best_regidx};
-    lambda_min = best_lambda{best_regidx};
+    
+    % select a lambda and regweights combination from all tasks
+    tmp = sort([best_lambda{:}]); joint_best_lambda = tmp(round(end/2));
+    tmp = sort(vertcat(best_regweights{:})); joint_best_regweights = tmp(:,round(end/2));
 
     % pick the model at the minimum...
     if lambdaSearch.return_regpath
-        [regpath,history] = hlp_diskcache('predictivemodels',@solve_regularization_path,trials,targets,lambdaSearch.lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,best_regweights,featureshape);
-        model.regularization_path = regpath;
-        model.regularization_loss = loss_mean{best_regidx};
-        model.w = regpath{find(lambdaSearch.lambdas == lambda_min,1)};
+        % run the whole regularization path for the jointly best regweight combination
+        [regpath,history] = hlp_diskcache('predictivemodels',@solve_regularization_path,trials,targets,lambdaSearch.lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,joint_best_regweights,featureshape);
+        model.regularization_path = regpath;                                  % the model for a given {task}{lambda} at best regweights, for whole data
+        model.regularization_loss = loss_mean(best_regidx,:);                 % the associated loss estimatses for a given {task}(lambda)
+        model.ws = cellfun(@(p)p{find(lambdaSearch.lambdas == joint_best_lambda,1)},regpath,'UniformOutput',false); % the best model for a given {task}
     else
-        [tmp,history] = hlp_diskcache('predictivemodels',@solve_regularization_path,trials,targets,lambdaSearch.lambdas(find(lambdaSearch.lambdas==lambda_min,1)),loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,best_regweights,featureshape);
-        model.w = tmp{1};
+        [tmp,history] = hlp_diskcache('predictivemodels',@solve_regularization_path,trials,targets,lambdaSearch.lambdas(find(lambdaSearch.lambdas==best_lambda,1)),loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,best_regweights,featureshape);
+        model.ws = cellfun(@(t)t{1},tmp);           % optimal model for each {task}
     end
-    model.balance_losses = loss_mean;
-    if lambdaSearch.history_traces
-        model.fold_history = history_seq;
-        model.regularization_history = history;
-    end
+    
+    model.w = model.ws;
+    if length(model.w) == 1
+        model.w = model.w{1}; end                   % optimal model for each {task}, or the model if only one task given (without the enclosing cell array)
+    
+    model.balance_losses = loss_mean;               % same as loss_means, legacy
     if lambdaSearch.return_reggrid
-        model.regularization_grid = model_seq; end
-    model.classes = classes;
-    model.continuous_targets = continuous_targets;
-    model.includebias = includebias;
-    model.vectorize_trials = vectorize_trials;
-    model.featureshape = featureshape;
-    model.sc_info = sc_info;
-    model.loss = loss;
+        model.regularization_grid = model_seq; end  % sequence of models for each {fold,regweight,task}{lambda}
+    if lambdaSearch.history_traces
+        model.fold_history = history_seq;           % structure of regpath history for each {fold,regweight}{lambda} -- HUGE!
+        model.regularization_history = history;     % structure of regpath history at best lambda/regweights
+    end
+    model.loss_means = loss_means;                  % overall loss for each {regweight,task}(fold,lambda)
+    model.loss_mean = loss_mean;                    % overall loss for each {regweight,task}(lambda)
+    model.best_regweights = best_regweights;        % best regweights for each {task}
+    model.best_lambdas = best_lambdas;              % best set of lambdas for each {regidx,task}
+    model.best_lambda = best_lambda;                % best lambda for each {task}
+    model.best_loss = best_loss;                    % best loss for each {regweight,task}
+    model.classes = classes;                        % set of class labels in training data
+    model.continuous_targets = continuous_targets;  
+    model.includebias = includebias;                % whether a bias is included in the model
+    model.vectorize_trials = vectorize_trials;      % whether trials need to be vectorized first
+    model.featureshape = featureshape;              % shape vector for features
+    model.sc_info = sc_info;                        % overall scaling info
+    model.loss = loss;                              % loss function name
 end
 
 
 
 % learn the regularization path
-function [regpath,fullhist] = solve_regularization_path(A,y,lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizersArg,regweights,featureshape)
-% solve_regularization_path_version<1.0.0>
-fullhist = {};
+function [regpath,hist] = solve_regularization_path(A,y,lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizersArg,regweights,featureshape)
+% solve_regularization_path_version<1.0.1>
+nTasks = length(A);
 
-[m,n] = size(A); % m trials, n features
-w = zeros(n+double(includebias),1);
+% m trials, n features, per task
+m = cellfun('size',A,1);
+n = cellfun('size',A,2);
 
-% derive the design matrix A & label vector y from the trials...
-A = double(A);
-y = double(y(:));
+% w is the concatenation of xmodel weights for all tasks
+w = zeros(sum(n)+nTasks*double(includebias),1);
+
+% set up the design matrix A & label vector y
+A = cellfun(@(A)double(A),A,'UniformOutput',false);
+y = cellfun(@(y)double(y(:)),y,'UniformOutput',false);
 
 % set up the data-dependent loss function to use
 switch loss
     case 'logistic'
-        C = [bsxfun(@times,-y,A) -y];
+        C = cellfun(@(A,y)[bsxfun(@times,-y,A) -y],A,y,'UniformOutput',false);
         if lbfgsOptions.useGPU
             try
-                C = gpuArray(C); 
+                C = cellfun(@gpuArray,C,'UniformOutput',false);
             catch e
                 disp_once(['Could not enable GPU support: ' e.message]);
             end
         end
-        Cp = C';
-        lossfunc.prox = @(x,gamma,x0) prox_logistic(C,Cp,x,gamma,x0,m,hlp_struct2varargin(lbfgsOptions));
-        lossfunc.eval = @(x,lambda) lambda*obj_logistic(C,x,n);
+        Cp = cellfun(@transpose,C,'UniformOutput',false);
+        lossfunc.prox = @(x,gamma,x0) prox_logistic_mt(C,Cp,x,gamma,x0,m,n,hlp_struct2varargin(lbfgsOptions));
+        lossfunc.eval = @(x,lambda) lambda*obj_logistic_mt(C,x,m,n);
     case 'squared'
         % append a bias to the design matrix
-        Ao = [A ones(size(A,1),1)];
-        [mm,nn] = size(Ao);
+        Ao = cellfun(@(A)[A ones(size(A,1),1)],A,'UniformOutput',false);
+        mm = cellfun('size',Ao,1);
+        nn = cellfun('size',Ao,2);
         % choose the right prox operator
         if solverOptions.rho_update
-            lossfunc.prox = @(x,gamma,x0) prox_squared_iter(Ao,y,1/gamma,x,zeros(size(x)),nn,x0);
+            if length(Ao)>1
+                error('Squared loss with rho update for multi-task case not yet implemented.'); end
+            lossfunc.prox = @(x,gamma,x0) prox_squared_iter(Ao{1},y{1},1/gamma,x,zeros(size(x)),mm,nn,x0);
         else            
-            Atb = Ao'*y;
-            [L,U] = factor(Ao,solverOptions.rho);
-            lossfunc.prox = @(x,gamma,x0) prox_squared_factored(Ao,Atb,L,U,solverOptions.rho,x,zeros(size(x)),mm,nn);
+            Atb = cellfun(@(Ao,y)Ao'*y,Ao,y,'UniformOutput',false);
+            [L,U] = deal(cell(1,nTasks));
+            for t=1:nTasks
+                [L{t},U{t}] = factor(Ao{t},solverOptions.rho); end
+            lossfunc.prox = @(x,gamma,x0) prox_squared_factored_mt(Ao,Atb,L,U,solverOptions.rho,x,zeros(size(x)),mm,nn);
         end
-        lossfunc.eval = @(x,lambda) lambda*obj_squared(Ao,y,x);
+        lossfunc.eval = @(x,lambda) lambda*obj_squared_mt(Ao,y,x,mm,nn);
     case 'hyperbolic-secant'
         % lossfunc.prox = @(x,gamma,x0) prox_hs(y,x,gamma,x0,hlp_struct2varargin(lbfgsOptions));
         % lossfunc.eval = @(x,lambda) lambda*obj_hs(x,b);
@@ -446,12 +467,13 @@ end
 lossfunc.y0 = [];
 lossfunc = @(lambda)setfield(setfield(lossfunc,'prox',@(x,gamma,x0)lossfunc.prox(x,gamma*lambda,x0)),'eval',@(x)lossfunc.eval(x,lambda)); %#ok<SFLD>
 
-% ensure that regularizers is a cell array
+
+% ensure that regularizers is a cell array of structs
 regularizers = {};
 if isstruct(regularizersArg)
     for k=1:length(fieldnames(regularizersArg))
         if isfield(regularizersArg,['term' num2str(k)])
-            regularizers{end+1} = regularizersArg.(['term' num2str(k)]); end
+            regularizers{end+1} = regularizersArg.(['term' num2str(k)]); end %#ok<AGROW>
     end
 else
     regularizers = regularizersArg;
@@ -612,7 +634,7 @@ for t = 1:length(regularizers)
                 error('Unrecognized regularization type requested.');
         end
         regfunc.y0 = [];
-        regfuncs{end+1} = @(lambda) setfield(setfield(regfunc,'prox',@(x,gamma,x0)regfunc.prox(x,gamma*lambda,x0)),'eval',@(x)regfunc.eval(x,lambda)); %#ok<SFLD>
+        regfuncs{end+1} = @(lambda) setfield(setfield(regfunc,'prox',@(x,gamma,x0)regfunc.prox(x,gamma*lambda,x0)),'eval',@(x)regfunc.eval(x,lambda)); %#ok<AGROW,SFLD>
     end
 end
 
@@ -626,38 +648,90 @@ regweights = regweights/sum(regweights);
 if verbosity
     disp('solving regularization path...'); end
 y0 = {};
-regpath = cell(1,length(lambdas));
-for k =1:length(lambdas)
+nLambdas = length(lambdas);
+regpath = cell(nTasks,nLambdas);
+hist = cell(1,nLambdas);
+for k =1:nLambdas
     
     % set up parameters
-    weights = [1,lambdas(k)*regweights];
+    termweights = [1,lambdas(k)*regweights];
     lossfunc = lossfunc(1);
     lossfunc.L = [];
     if ~isempty(y0)
         lossfunc.y0 = y0{1}; end
     lossfunc.param = struct();
     for r = 1:length(regfuncs)
-        tmpregfuncs(r) = regfuncs{r}(weights(1+r));
+        tmpregfuncs(r) = regfuncs{r}(termweights(1+r)); %#ok<AGROW>
         if ~isempty(y0)
-            tmpregfuncs(r).y0 = y0{1+r}; end
+            tmpregfuncs(r).y0 = y0{1+r}; end %#ok<AGROW>
     end
     
     % solve
     t0 = tic;
     if verbosity
-        fprintf('  scanning lambda = %f (%i/%i)...',lambdas(k),k,length(lambdas)); end
+        fprintf('  scanning lambda = %f (%i/%i)...',lambdas(k),k,nLambdas); end
     if solverOptions.warmstart
-        [w,y0,rho,hist] = hlp_diskcache('temporary',@consensus_admm,w,[lossfunc tmpregfuncs],solverOptions); %#ok<ASGLU>
+        [w,y0,rho,hist{k}] = hlp_diskcache('temporary',@consensus_admm,w,[lossfunc tmpregfuncs],solverOptions); %#ok<ASGLU>
     else
-        [w,y0dummy,rho,hist] = hlp_diskcache('temporary',@consensus_admm,zeros(size(w)),[lossfunc tmpregfuncs],solverOptions); %#ok<ASGLU>
+        [w,y0dummy,rho,hist{k}] = hlp_diskcache('temporary',@consensus_admm,zeros(size(w)),[lossfunc tmpregfuncs],solverOptions); %#ok<ASGLU>
     end
     if verbosity
-        fprintf(' %i iters; t = %.1fs\n',length(hist.objval),toc(t0)); end
+        fprintf(' %i iters; t = %.1fs\n',length(hist{k}.objval),toc(t0)); end
     
     % store
-    regpath{k} = w;
-    fullhist{k} = hist;
+    [regpath{k,:}] = chopdeal(w,n);
 end
+
+
+% --- multi-task logistic loss code ---
+
+function [val,grad] = obj_proxlogistic_mt(x,C,Cp,z,gamma,m,n)
+% objective function for the multi-task logistic loss proximity operator (effectively l2-regularized logreg)
+[xt{1:length(n)}] = chopdeal(x,n);
+[zt{1:length(n)}] = chopdeal(z,n);
+for t=length(m):-1:1
+    ecx = exp(C{t}*xt{t});
+    val{t} = (1/2)*sum((xt{t}-zt{t}).^2) + gamma/m(t)*gather(sum(log1p(ecx)));
+    if ~isfinite(val{t})
+        ecx(~isfinite(ecx(:))) = 2.^50;
+        val{t} = (1/2)*sum((xt{t}-zt{t}).^2) + gamma/m(t)*gather(sum(log1p(ecx)));
+    end
+    grad{t} = (xt{t} - zt{t}) + (gamma/m(t))*gather(Cp{t}*(ecx./(1+ecx)));
+end
+val = sum(val);
+grad = vertcat(grad{:});
+
+function x = prox_logistic_mt(C,Cp,z,gamma,x0,m,n,args)
+x = liblbfgs(@(w)obj_proxlogistic_mt(w,C,Cp,z,gamma,m,n),x0,args{:});
+
+function obj = obj_logistic_mt(C,x,m,n)
+[xt{1:length(n)}] = chopdeal(x,n);
+obj = 0;
+for t=1:length(m)
+    obj = obj + gather(sum(log1p(exp(C{t}*xt{t}))))/m(t); end
+
+
+% --- multi-task square loss code  ---
+
+function x = prox_squared_factored_mt(A,Atb,L,U,rho,z,u,m,n)
+% this version can only be used if rho stays constant
+[zt{1:length(n)}] = chopdeal(z,n);
+[ut{1:length(n)}] = chopdeal(u,n);
+x = cell(1,length(n));
+for t=1:length(m)
+    q = Atb{t} + rho*(zt{t} - ut{t});
+    if(m(t) >= n(t))
+        x{t} = U{t}\(L{t}\q);
+    else
+        x{t} = q/rho - (A{t}'*(U{t}\(L{t}\(A{t}*q))))/rho^2;
+    end
+end
+x = vertcat(x{:});
+    
+function obj = obj_squared_mt(A,b,x,m,n)
+[xt{1:length(m)}] = chopdeal(x,n);
+obj = sum(cellfun(@(A,b,x)0.5*norm(A*x - b,2).^2,A,b,xt));
+
 
 % --- logistic loss code ---
 
@@ -819,3 +893,52 @@ for c=[n 1:n-1]
     v = w; v(c) = 1;
     M(:,c) = vec(op(v));
 end
+
+
+function [featureshape,trials,vectorize_trials] = determine_featureshape(trials,shape)
+featureshape = cell(1,length(trials));
+vectorize_trials = cell(1,length(trials));
+% for each task (each of which has multiple trials)...
+for t=1:length(trials)
+    if ndims(trials{t}) > 2 %#ok<ISMAT>
+        featureshape{t} = size(trials{t}); featureshape{t} = featureshape{t}(1:end-1);
+        if ~isempty(shape) && ~isequal(shape,featureshape{t})
+            if prod(featureshape{t}) == prod(shape)
+                warning('You are specifying a shape property but also multidimensional features of a different shape; using the explicit shape parameter.');
+                featureshape{t} = shape;
+            else
+                error('You are specifying a shape property but also features with an incompatible number of elements. Please correct.');
+            end
+        end
+        trials{t} = double(reshape(trials{t},[],size(trials{t},ndims(trials{t})))');
+        vectorize_trials{t} = true;
+    else
+        if ~isempty(shape)
+            if size(shape,1) > 1
+                if all(all(bsxfun(@eq,shape(1,:),shape)))
+                    featureshape{t} = [shape(1,1),shape(1,2),size(shape,1)];
+                    if prod(featureshape{t}) == size(trials{t},2)
+                        % the reason is that it is much more efficient to operate on a dense 3d array than a very sparse 2d array
+                        warn_once('This method will by convention reshape block-diagonalized feature matrices with identical blocks into a 3d tensor. This warning will only come up once.');
+                    else
+                        error('Your shape parameter has a different number of features than your data.');
+                    end
+                else
+                    % we don't implement block-diagonalization in here
+                    error('This method does not handle implicitly block-diagonal features; please either reformulate in tensor form or pass a large sparse data matrix (pre-blockdiagonalized). Note that the tensor form is likely several times faster.');
+                end
+            elseif prod(shape) ~= size(trials{t},2)
+                error('Your shape parameter has a different number of features than data.');
+            else
+                featureshape{t} = shape;
+            end
+        else
+            featureshape{t} = [size(trials{t},2),1];
+        end
+        vectorize_trials{t} = false;
+    end
+end
+featureshape = unique([featureshape{:}]);
+vectorize_trials = unique([vectorize_trials{:}]);
+if length(featureshape)>1 || length(vectorize_trials)>1
+    error('The number or shape of features must be the same for each task.'); end    
