@@ -52,6 +52,13 @@ function [measure,stats] = utl_nested_crossval(data, varargin)
 %                   'argform': format of the argument ranges, either 'direct' or 'clauses' (default: 'clauses')
 %                               'direct': search ranges are directly specified as arrays
 %                               'clauses': search ranges are specified using the search() clause
+%                   
+%                   further arguments (same as in utl_crossval)
+%                   'repeatable': whether the randomization procedure shall give repeatable results 
+%                                 (default: 1); different numbers (aside from 0) give different
+%                                 repeatable runs, i.e. the value determines the randseed
+%
+%                   'return_models': whether to return models trained for each fold (default: false)
 %
 %                   further arguments (same as in par_beginschedule, listed below for convenience)
 %                   'engine_ps': the parallelization engine to be used for the parameter search (default: 'local')

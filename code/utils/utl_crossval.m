@@ -106,6 +106,8 @@ function [measure,stats] = utl_crossval(data, varargin)
 %                             (default: 1); different numbers (aside from 0) give different
 %                             repeatable runs, i.e. the value determines the randseed
 %
+%               'return_models': whether to return models trained for each fold (default: false)
+%
 %               'engine_cv': parallelization engine to use (default: 'global'); see par_beginsschedule
 %                   
 %               'pool'  : worker pool to use (default: 'global'); see par_beginsschedule
@@ -172,6 +174,7 @@ opts = hlp_varargin2struct(varargin, ...
     'tester',@utl_default_predict,  ...
     'args',{}, ...
     'repeatable',1,  ...
+    'collect_models',false, ...
     'engine_cv','global', ...
     'pool','global', ...
     'policy','global');
@@ -204,6 +207,8 @@ else
         % collect results
         targets{p} = results{p}{1};
         predictions{p} = results{p}{2};
+        if opts.collect_models
+            models{p} = results{p}{3}; end
     end
         
     % compute aggregate metric
@@ -233,6 +238,12 @@ else
         for p=1:length(targets)
             stats.per_fold(p).indices = inds{p}; end
     end                
+
+    % add collected models, if any
+    if opts.collect_models
+        for p=1:length(models)
+            stats.per_fold(p).model = models{p}; end
+    end
     
     % add additional stats
     stats.time = toc(time0);
