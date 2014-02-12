@@ -81,7 +81,7 @@ for it=1:options.maxIter
     % updating parameters
     % J = iLV*diag(alpha*s./(alpha*s.^2+beta))*UtY;
 %     T = iLV*diag(alpha*s./(alpha*s2+beta))*Ut;
-    T = iLV*spdiags((alpha*s./(alpha*s2+beta)),0,n,n)*Ut;
+    T = iLV*(diag(alpha*s./(alpha*s2+beta))*Ut);
     J = T*Y;
     
     % updating hyperparameters

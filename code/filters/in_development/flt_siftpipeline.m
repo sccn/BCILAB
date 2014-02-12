@@ -51,16 +51,12 @@ g      = rmfield(g,'signal');
 
 % select channels
 % -------------------------------------------------------------------------
-try
-    if ~isempty(g.channels) && ~isequal(g.channels,1:signal.nbchan) && ~isequal(g.channels,{char(zeros(1,0))}) % TODO: remove last isequal hack
-        if g.verb
-            signal = pop_select(signal,'channel',g.channels,'sorttrial','off');
-        else
-            [console_text,signal] = evalc('pop_select(signal,''channel'',g.channels,''sorttrial'',''off'');');  %#ok<ASGLU>
-        end
+if ~isempty(g.channels) && ~isequal(g.channels,1:signal.nbchan) && ~isequal(g.channels,{char(zeros(1,0))}) % TODO: remove last isequal hack
+    if g.verb
+        signal = pop_select(signal,'channel',g.channels,'sorttrial','off');
+    else
+        [console_text,signal] = evalc('pop_select(signal,''channel'',g.channels,''sorttrial'',''off'');');  %#ok<ASGLU>
     end
-catch
-    'FIXME'
 end
 
 % pre-process data
@@ -91,6 +87,7 @@ end
             
 % fit model
 % -------------------------------------------------------------------------
+signal.data(~isfinite(signal.data(:))) = 0;
 signal.CAT.MODEL = feval(modelingFuncName,'EEG',signal,g.modeling,'verb',g.verb,'arg_direct',true);
 
 % perform model validation

@@ -58,12 +58,8 @@ function [signal,state] = flt_analytic_phasor(varargin)
 %
 %   State : final filter state
 % 
-%
-% Notes:
-%	Requires the Signal Processing toolbox for filter design.
-%
-%                                Tim Mullen, Swartz Center for Computational Neuroscience, UCSD
-%                                2012-03-27
+%                 Tim Mullen and Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+%                 2012-03-27
 
 if ~exp_beginfun('filter') return; end
 
@@ -78,13 +74,13 @@ arg_define(varargin,...
              arg({'fltlen','FilterLength'}, [], [], 'Filter length. This determines both the quality and the delay of the differentiator. If left empty, the optimal order will be estimated based on tolerated pass/stopband ripple.','shape','scalar'), ...
              arg({'passripple','PassbandRipple'}, -20, [-180 1], 'Maximum relative ripple amplitude in pass-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'), ...
              arg({'stopripple','StopbandRipple'}, -30, [-180 1], 'Maximum relative ripple amplitude in stop-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'), ...
-             arg({'designrule','DesignRule'}, 'Parks-McClellan', {'Least-Squares','Parks-McClellan'}, 'Filter design rule. Can be either least-squares filter design or Parks-McClellan filter design.')}, ...
+             arg({'designrule','DesignRule'}, 'Frequency Sampling', {'Frequency Sampling','Least-Squares','Parks-McClellan'}, 'Filter design rule. Can be either least-squares filter design or Parks-McClellan filter design.')}, ...
          'differentiator' ...
             {arg({'freqband','FrequencyBand'}, [7 8 12 13], [], 'Frequency band to use. The 4 numbers characterize the onset, pass-band limits, and offset frequency of the filter.','type','expression'), ...
              arg({'fltlen','FilterLength'}, [], [], 'Filter length. This determines both the quality and the delay of the differentiator. If left empty, the optimal order will be estimated based on tolerated pass/stopband ripple.','shape','scalar'), ...
              arg({'passripple','PassbandRipple'}, -20, [-180 1], 'Maximum relative ripple amplitude in pass-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'), ...
              arg({'stopripple','StopbandRipple'}, -30, [-180 1], 'Maximum relative ripple amplitude in stop-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'), ...
-             arg({'designrule','DesignRule'}, 'Parks-McClellan', {'Least-Squares','Parks-McClellan'}, 'Filter design rule. Can be either least-squares filter design or Parks-McClellan filter design.')}, ...
+             arg({'designrule','DesignRule'}, 'Frequency Sampling', {'Frequency Sampling','Least-Squares','Parks-McClellan'}, 'Filter design rule. Can be either least-squares filter design or Parks-McClellan filter design.')}, ...
          'smooth_diff' ...
             {arg({'fltlen','FilterLength'}, 10, [], 'Filter length. This determines both the quality and the delay of the differentiator. The default should be fine.','shape','scalar')} ...
         },'Differencing filter. The smooth_diff implementation is currently experimental; hilbert and differentiator should be fine.'), ...
@@ -110,7 +106,7 @@ if isempty(state)
                 flt.passripple = 10^(flt.passripple/10); end
             if flt.stopripple < 0
                 flt.stopripple = 10^(flt.stopripple/10); end            
-            if isempty(flt.fltlen)
+            if isempty(flt.fltlen) && ~any(strcmp(flt.designrule,{'Frequency Sampling','fs'}))
                 % optionally estimate filters order for each band
                 for f=nFreqs:-1:1
                     pmspec{f} = hlp_diskcache('filterdesign',@firpmord,flt.freqband{f},[0 1 0],flt.stopripple + [0 1 0]*(flt.passripple-flt.stopripple),signal.srate,'cell'); end
@@ -131,6 +127,20 @@ if isempty(state)
                     case {'Least-Squares','ls'}
                         state.b_im{f} = hlp_diskcache('filterdesign',@firls,pmspec{f}{:},flt.arg_selection);
                         state.b_re{f} = hlp_diskcache('filterdesign',@firls,pmspec{f}{:});
+                    case {'Frequency Sampling','fs'}
+                        % get frequencies and amplitudes
+                        freqs = [0 flt.freqband{f}*2/signal.srate 1];
+                        amps = [0 0 1 1 0 0];
+                        % design window
+                        if isempty(flt.fltlen)
+                            [dummy,pos] = min(diff(freqs)); %#ok<ASGLU>
+                            wnd = design_kaiser(freqs(pos),freqs(pos+1),-20*log10(flt.stopripple),false);
+                        else
+                            wnd = window_func('kaiser',flt.fltlen+1-mod(flt.fltlen,2));
+                        end
+                        % design filters
+                        state.b_im{f} = design_fir(length(wnd)-1,freqs,amps,[],wnd,true);
+                        state.b_re{f} = design_fir(length(wnd)-1,freqs,amps,[],wnd);
                     otherwise 
                         error(['Unrecognized filter design rule:' hlp_tostring(flt.designrule)]);
                 end
@@ -178,6 +188,7 @@ for fld = utl_timeseries_fields(signal)
         if override_original
             signal.(field) = aamp; 
             % also override channel labels
+            signal.etc.orig_chanlocs = signal.chanlocs;
             signal.chanlocs = state.cached_chanlocs;
             signal.nbchan = length(signal.chanlocs);
         end
