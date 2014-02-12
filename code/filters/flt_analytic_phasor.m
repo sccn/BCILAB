@@ -200,5 +200,5 @@ exp_endfun;
 
 function locs = update_chanlocs(locs,nFreqs)
 nChans = length(locs);
-locs = repmat(locs,nFreqs,1);
+locs = repmat(locs,1,nFreqs);
 [locs.labels] = celldeal(cellfun(@strcat,{locs.labels},vec(repmat(cellfun(@(f)sprintf('_%i',f),num2cell(1:nFreqs),'UniformOutput',false),nChans,1))','UniformOutput',false));

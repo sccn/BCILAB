@@ -85,7 +85,7 @@ if desired_length && ~isstruct(chunk.epoch)
         if ~isfield(p,'buffer')        
             p.buffer = utl_buffer(chunk,struct('data',[],'event',[]),desired_length);
         else
-            rethow(e);
+            rethrow(e);
         end
     end
     chunk = p.buffer;
