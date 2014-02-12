@@ -11,11 +11,12 @@ function [signal] = flt_siftpipeline(varargin)
 %           Tim Mullen, SCCN/INC/UCSD 2012-14
 
 if ~exp_beginfun('filter'), return; end
-declare_properties('name','SIFT', 'experimental',true, 'follows',{'flt_ica','flt_fir','flt_iir','flt_project','flt_sourceLocalize','set_makepos'}, 'cannot_precede',{'flt_clean_settings'},'independent_channels',false, 'independent_trials',false);
+declare_properties('name','SIFT', 'experimental',true, 'follows',{'flt_ica','flt_fir','flt_iir','flt_project','flt_sourceLocalize'}, 'cannot_precede',{'flt_clean_settings'},'independent_channels',false, 'independent_trials',false);
 
 
-signal = arg_extract(varargin,{'signal','Signal','EEG'},[],struct([]));
-
+signal = arg_extract(varargin,{'signal','Signal','EEG'},[],[]);
+signal.srcpot = [];
+signal.icaweights = [];
 g = arg_define(varargin, ...
         arg_norep({'signal','Signal','EEG'}), ...
         arg({'channels','Channels'}, [], [], 'Cell array of channel names to retain.','type','cellstr','shape','row'), ...
@@ -33,6 +34,7 @@ g = arg_define(varargin, ...
              },'Method for determining optimal model order. If "min", then the optimal model order is the one that minimizes the information criterion. If "elbow" then the optimal order is the elbow of the function of informaton criterion versus model order. If "prctile" then percentile is used.'), ...
         },'Automatically select model order'), ...
         arg_subtoggle({'connectivity','Connectivity'},{'EEG',signal,'MODEL',struct([]),'connmethods',{'S','dDTF08'}},@est_mvarConnectivity,'Select connectivity methods'), ...
+        arg_subtoggle({'collapseconn','CollapseConn'},'off',@hlp_collapseConn,'Collapse connectivity across time or freq'), ...
         arg_subtoggle({'validation','Validation'},{'EEG',signal},@est_validateMVAR,'Validate Model fit'), ...
         arg({'printValidation','PrintValidation'},false,[],'Print validation output to console'), ...
         arg({'verb','VerbosityLevel'},0,{int32(0) int32(1) int32(2)},'Verbosity level. 0 = no output, 1 = text, 2 = graphical') ...
@@ -49,12 +51,16 @@ g      = rmfield(g,'signal');
 
 % select channels
 % -------------------------------------------------------------------------
-if ~isempty(g.channels) && ~isequal(g.channels,1:signal.nbchan) && ~isequal(g.channels,{char(zeros(1,0))}) % TODO: remove last isequal hack
-    if g.verb
-        signal = pop_select(signal,'channel',g.channels,'sorttrial','off'); 
-    else
-        [console_text,signal] = evalc('pop_select(signal,''channel'',g.channels,''sorttrial'',''off'');');  %#ok<ASGLU>
+try
+    if ~isempty(g.channels) && ~isequal(g.channels,1:signal.nbchan) && ~isequal(g.channels,{char(zeros(1,0))}) % TODO: remove last isequal hack
+        if g.verb
+            signal = pop_select(signal,'channel',g.channels,'sorttrial','off');
+        else
+            [console_text,signal] = evalc('pop_select(signal,''channel'',g.channels,''sorttrial'',''off'');');  %#ok<ASGLU>
+        end
     end
+catch
+    'FIXME'
 end
 
 % pre-process data
@@ -110,6 +116,9 @@ end
 % -------------------------------------------------------------------------
 if g.connectivity.arg_selection
     signal.CAT.Conn = est_mvarConnectivity('EEG',signal,'MODEL',signal.CAT.MODEL,g.connectivity,'verb',g.verb,'arg_direct',true);
+    if g.collapseconn.arg_selection
+        [signal.CAT.Conn, signal.CAT.Conn.peak_freqs] = hlp_collapseConn('Conn',signal.CAT.Conn,g.collapseconn,'arg_direct',true);
+    end
 else
     signal.CAT.Conn = [];
 end
