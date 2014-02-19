@@ -41,7 +41,7 @@ stream.pnts = size(stream.data,2);
 stream.xmax = stream.xmin + (stream.pnts-1)/stream.srate;
 [fp fn fe] = fileparts(out_filename);
 % remove superfluous fields
-eeg = rmfield(stream,{'buffer','smax','buffer_len','timestamps','timestamps_len','timestamps_ptr','streamid'});
+eeg = rmfield(stream,{'buffer','smax','buffer_len','timestamps','timestamps_len','tmax','streamid'});
 stream.timestamp_at_beginning = toc(uint64(0));
 eeg = pop_saveset(eeg,'filename',[fn fe],'filepath',env_translatepath('bcilab:/userdata'),'savemode','twofiles');
 % re-create the fdt file...
