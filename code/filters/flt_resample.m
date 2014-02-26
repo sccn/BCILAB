@@ -103,9 +103,9 @@ if srate ~= signal.srate
     signal.srate = srate;
     signal.pnts = size(signal.data,2);
     signal.xmax = signal.xmin + (signal.pnts-1)/signal.srate;
-    if isfield(signal,'event') && isfield(signal.event,'latency')
+    if isfield(signal,'event') && ~isempty(signal.event) && isfield(signal.event,'latency') 
         [signal.event.latency] = arraydeal(max(1,min(signal.pnts,([signal.event.latency]-1)*state.p/state.q+1))); end
-    if isfield(signal,'urevent') && isfield(signal.urevent,'latency')
+    if isfield(signal,'urevent') && ~isempty(signal.urevent) && isfield(signal.urevent,'latency')
         [signal.urevent.latency] = arraydeal(max(1,min(signal.pnts,([signal.urevent.latency]-1)*state.p/state.q+1))); end
 end
 

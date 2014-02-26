@@ -79,6 +79,7 @@ opts = arg_define(varargin, ...
     arg({'samplingrate','SamplingRate'},100,[],'Sampling rate for display. This is the sampling rate that is used for plotting; for faster drawing.'), ...
     arg({'refreshrate','RefreshRate'},5,[],'Refresh rate for display. This is the rate at which the graphics are updated.'), ...
     arg({'reref','Rereference'},false,[],'Common average reference. Enable this to view the data with a common average reference filter applied.'), ...
+    arg({'ylabels','YLabels'},[],[],'Labels for each trace. If empty, determine from dataset'), ...
     arg_nogui({'pageoffset','PageOffset'},0,[],'Channel page offset. Allows to flip forward or backward pagewise through the displayed channels.'), ...
     arg_nogui({'position','Position'},[],[],'Figure position. Allows to script the position at which the figures should appear.'));
 
@@ -184,7 +185,19 @@ end
                 end
                 
                 % update the data scale
-                set(ax, 'YTick',plotoffsets, 'YTickLabel',{stream.chanlocs(plotchans).labels});
+                if ~isempty(visinfo.opts.ylabels)
+                    set(ax, 'YTick',plotoffsets, 'YTickLabel',visinfo.opts.ylabels(plotchans));
+                else
+                    switch opts.datafield
+                        case 'data'
+                            set(ax, 'YTick',plotoffsets, 'YTickLabel',{stream.chanlocs(plotchans).labels});
+                        case 'icaact'
+                            set(ax, 'YTick',plotoffsets, 'YTickLabel',plotchans); 
+                            % cellfun(@(x) ['IC' num2str(x)],(num2cell(plotchans)),'UniformOutput',false)
+                        case 'srcpot'
+                            set(ax, 'YTick',plotoffsets, 'YTickLabel',plotchans);
+                    end
+                end
                 axis(ax,[[-visinfo.opts.timerange 0] -visinfo.opts.datascale size(plotdata,2)*visinfo.opts.datascale + visinfo.opts.datascale])
 
                 drawnow;
