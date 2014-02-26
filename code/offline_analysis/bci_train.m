@@ -452,6 +452,9 @@ function [measure,model,stats] = bci_train(varargin)
 %                 continuous data because a continuous-data statistic needs to be computed over the
 %                 training set (such as ICA).
 %
+%   PerFoldModels : Collect per-fold models. If true, models of each fold of the cross-validation
+%                   will be collected (uses more memory). (default: false)
+%
 %   CrossvalidationResources : Cross-validation parallelization. Same meaning and options as the
 %                              ParameterSearchEngine parameter, however for the cross-validations.
 %                              By default set to 'global'.
@@ -743,7 +746,7 @@ model.control_options = rmfield(opts,'data');
 model.epoch_bounds = opts.epoch_bounds;
 if isfield(stats.per_fold,'model')
     for k=1:length(stats.per_fold)
-        if ~isempty(stats.per_fold(k),'model')
+        if ~isempty(stats.per_fold(k).model)
             stats.per_fold(k).model.paradigm = paradigm_name; end
     end
 end

@@ -69,11 +69,7 @@ classdef ParadigmMSERP < ParadigmBase
                 if length(corpus{s}.streams) > 1
                     disp_once('Note: ParadigmMKLCSP will use only the first data stream of a recording (no support for multi-modal data).'); end
                 % preprocess
-                try
-                    procdata = exp_eval_optimized(flt_pipeline('signal',corpus{s}.streams{1}, args.flt)); %#ok<*NODEF>
-                catch
-                    'FIXME'
-                end
+                procdata = exp_eval_optimized(flt_pipeline('signal',corpus{s}.streams{1}, args.flt)); %#ok<*NODEF>
                 % extract data
                 switch args.apply_to
                     case 'channels'

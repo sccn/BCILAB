@@ -188,7 +188,7 @@ arg_define([0 2],varargin, ...
         regularizer_params('Term5'), ...
         regularizer_params('Term6'), ...
         regularizer_params('Term7')}, 'Definition of the regularization terms. Any combination of terms is permitted.'), ...
-    arg({'regweights','TermWeights'},{{[]}},[],'Weights of the regularizers. This is a cell array of vectors of (relative) regularization parameters. Default is 1/N for N regularization terms. The cell array lists all possible assignments to search over.','type','expression','shape','row'), ...
+    arg({'regweights','TermWeights'},{[]},[],'Weights of the regularizers. This is a cell array of vectors of (relative) regularization parameters. Default is 1/N for N regularization terms. The cell array lists all possible assignments to search over.','type','expression','shape','row'), ...
     arg_sub({'solverOptions','SolverOptions'},{},{ ...
         arg({'maxit','MaxIterations'},1000,[],'Maximum number of iterations.'), ...
         arg({'rel_tol','RelativeTolerance'},2e-4,[],'Relative tolerance criterion. If the relative difference between two successive iterates is lower than this value the algorithm terminates.'),...
@@ -238,6 +238,9 @@ if ~iscell(targets)
     trials = {trials};
     targets = {targets}; 
 end
+
+for t=1:length(trials)
+    trials{t} = real(trials{t}); end
 
 % find all target classes (if classification)
 nTasks = length(targets);
@@ -303,7 +306,7 @@ else
     foldids = cellfun(@(t)1+floor((0:length(t)-1)/length(t)*nFolds),targets,'UniformOutput',false);
     
     % for each fold...
-    model_seq = cell(nFolds,nRegweights); % model_seq(fold,regweight}{task}{lambda} is the model for a given fold, regweight and lambda setting, and task
+    model_seq = cell(nFolds,nRegweights); % model_seq(fold,regweight}{lambda}{task} is the model for a given fold, regweight and lambda setting, and task
     history_seq = cell(nFolds,nRegweights); % history_seq(fold,regweight}{lambda}( is a struct of optimization histories for a given fold, regweight and lambda setting, for all concurrent tasks
     for f = 1:nFolds
         if verbosity
@@ -340,7 +343,7 @@ else
             for t = 1:nTasks
                 % calc test-set predictions for each model
                 for m=1:nLambdas
-                    predictions{w,t}(testmask{t},m) = (B{t}*model_seq{f,w}{t}{m}(:))'; end
+                    predictions{w,t}(testmask{t},m) = (B{t}*model_seq{f,w}{m}{t}(:))'; end
                 if strcmp(loss,'logistic')
                     predictions{w,t}(testmask{t},:) = 2*(1 ./ (1 + exp(-predictions{w,t}(testmask{t},:))))-1; end
 
@@ -378,18 +381,23 @@ else
     
     % select a lambda and regweights combination from all tasks
     tmp = sort([best_lambda{:}]); joint_best_lambda = tmp(round(end/2));
-    tmp = sort(vertcat(best_regweights{:})); joint_best_regweights = tmp(:,round(end/2));
+    tmp = sort(vertcat(best_regweights{:})); 
+    if isempty(tmp)
+        joint_best_regweights = [];
+    else
+        joint_best_regweights = tmp(:,round(end/2));
+    end
 
     % pick the model at the minimum...
     if lambdaSearch.return_regpath
         % run the whole regularization path for the jointly best regweight combination
         [regpath,history] = hlp_diskcache('predictivemodels',@solve_regularization_path,trials,targets,lambdaSearch.lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,joint_best_regweights,weightshape,data_weights);
-        model.regularization_path = regpath;                                  % the model for a given {task}{lambda} at best regweights, for whole data
+        model.regularization_path = regpath;                                  % the model for a given {lambda}{task} at best regweights, for whole data
         model.regularization_loss = loss_mean(best_regidx,:);                 % the associated loss estimatses for a given {task}(lambda)
-        model.ws = cellfun(@(p)p{find(lambdaSearch.lambdas == joint_best_lambda,1)},regpath,'UniformOutput',false); % the best model for a given {task}
+        model.ws = regpath{find(lambdaSearch.lambdas == joint_best_lambda,1)};% the best model for a given {task}
     else
-        [tmp,history] = hlp_diskcache('predictivemodels',@solve_regularization_path,trials,targets,lambdaSearch.lambdas(find(lambdaSearch.lambdas==best_lambda,1)),loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,best_regweights,weightshape,data_weights);
-        model.ws = cellfun(@(t)t{1},tmp);           % optimal model for each {task}
+        [tmp,history] = hlp_diskcache('predictivemodels',@solve_regularization_path,trials,targets,lambdaSearch.lambdas(find(lambdaSearch.lambdas==joint_best_lambda,1)),loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,joint_best_regweights,weightshape,data_weights);
+        model.ws = tmp{1};  % optimal model for each {task}
     end
     
     model.w = model.ws;
@@ -398,7 +406,7 @@ else
     
     model.balance_losses = loss_mean;               % same as loss_means, legacy
     if lambdaSearch.return_reggrid
-        model.regularization_grid = model_seq; end  % sequence of models for each {fold,regweight}{task}{lambda}
+        model.regularization_grid = model_seq; end  % sequence of models for each {fold,regweight}{lambda}{task}
     if lambdaSearch.history_traces
         model.fold_history = history_seq;           % structure of regpath history for each {fold,regweight}{lambda} -- HUGE!
         model.regularization_history = history;     % structure of regpath history at best lambda/regweights
@@ -422,7 +430,7 @@ end
 
 % learn the regularization path
 function [regpath,hist] = solve_regularization_path(A,y,lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizersArg,regweights,weightshape,data_weights)
-% solve_regularization_path_version<1.0.1>
+% solve_regularization_path_version<1.0.2>
 if ~includebias
     error('This implementation currently requires that a bias is included.'); end
 nTasks = length(A);
@@ -430,6 +438,8 @@ nTasks = length(A);
 % m trials, n features, per task
 m = cellfun('size',A,1);
 n = cellfun('size',A,2);
+if length(unique(n)) > 1
+    error('Each task must have the same number of features.'); end
 
 % w is the concatenation of model weights for all tasks, followed by the unregularized biases for each task
 w = zeros(sum(n) + nTasks,1);
@@ -450,8 +460,8 @@ switch loss
             end
         end
         Cp = cellfun(@transpose,C,'UniformOutput',false);
-        lossfunc.prox = @(x,gamma,x0) prox_logistic_mt(C,Cp,x,gamma,x0,m,n,hlp_struct2varargin(lbfgsOptions),data_weights);
-        lossfunc.eval = @(x,lambda) lambda*obj_logistic_mt(C,x,m,n,data_weights);
+        lossfunc.prox = @(x,gamma,x0) prox_logistic_multitask(C,Cp,x,gamma,x0,m,n,hlp_struct2varargin(lbfgsOptions),data_weights);
+        lossfunc.eval = @(x,lambda) lambda*obj_logistic_multitask(C,x,m,n,data_weights);
     case 'squared'
         % append a bias to the design matrix
         if length(A)>1
@@ -467,9 +477,9 @@ switch loss
             [L,U] = deal(cell(1,nTasks));
             for t=1:nTasks
                 [L{t},U{t}] = factor(Ao{t},solverOptions.rho/data_weights(t)); end
-            lossfunc.prox = @(x,gamma,x0) prox_squared_factored_mt(Ao,Atb,L,U,solverOptions.rho,x,zeros(size(x)),mm,nn,data_weights);
+            lossfunc.prox = @(x,gamma,x0) prox_squared_factored_multitask(Ao,Atb,L,U,solverOptions.rho,x,zeros(size(x)),mm,nn,data_weights);
         end
-        lossfunc.eval = @(x,lambda) lambda*obj_squared_mt(Ao,y,x,mm,nn,data_weights);
+        lossfunc.eval = @(x,lambda) lambda*obj_squared_multitask(Ao,y,x,mm,nn,data_weights);
     case 'hyperbolic-secant'
         % lossfunc.prox = @(x,gamma,x0) prox_hs(y,x,gamma,x0,hlp_struct2varargin(lbfgsOptions));
         % lossfunc.eval = @(x,lambda) lambda*obj_hs(x,b);
@@ -662,7 +672,7 @@ if verbosity
     disp('solving regularization path...'); end
 y0 = {};
 nLambdas = length(lambdas);
-regpath = cell(nTasks,nLambdas);
+regpath = cell(nLambdas,1);
 hist = cell(1,nLambdas);
 for k =1:nLambdas
     
@@ -691,19 +701,26 @@ for k =1:nLambdas
     if verbosity
         fprintf(' %i iters; t = %.1fs\n',length(hist{k}.objval),toc(t0)); end
     
-    % store
-    [regpath{k}{1:nTasks}] = chopdeal(w,n);
+    % assemble output weights for each task
+    if includebias && nTasks > 1
+        offsets = cumsum([1 n(1:end-1)]);
+        for t=1:nTasks
+            regpath{k}{t} = w([offsets(t)+(0:n(t)-1) end-length(m)+t]); end
+    else
+        regpath{k}{1} = w;
+    end
 end
 
 
 % --- multi-task logistic loss code ---
 
-function [val,grad] = obj_proxlogistic_mt(x,C,Cp,z,gamma,m,n,data_weights)
+function [val,grad] = obj_proxlogistic_multitask(x,C,Cp,z,gamma,m,n,data_weights)
 % objective function for the multi-task logistic loss proximity operator (effectively l2-regularized logreg)
+offsets = cumsum([1 n(1:end-1)]);
 for t=length(m):-1:1
     % move bias from end to inline
-    xt = x([1 + t*(0:n(1)-1) end-t+1]);
-    zt = z([1 + t*(0:n(1)-1) end-t+1]);
+    xt = x([offsets(t)+(0:n(t)-1) end-length(m)+t]);
+    zt = z([offsets(t)+(0:n(t)-1) end-length(m)+t]);
     ecx = exp(C{t}*xt);
     scaling = (gamma*data_weights(t)/m(t));
     val{t} = (1/2)*sum((xt-zt).^2) + scaling*gather(sum(log1p(ecx)));
@@ -716,29 +733,28 @@ end
 val = sum([val{:}]);
 grad = vertcat(grad{:});
 % move biases back to end
-grad = [grad;grad(n+1)]; grad(n+1) = [];
+grad = [grad;grad(cumsum(n+1))]; grad(cumsum(n+1)) = [];
 
-function x = prox_logistic_mt(C,Cp,z,gamma,x0,m,n,args,data_weights)
-x = liblbfgs(@(w)obj_proxlogistic_mt(w,C,Cp,z,gamma,m,n,data_weights),x0,args{:});
+function x = prox_logistic_multitask(C,Cp,z,gamma,x0,m,n,args,data_weights)
+x = liblbfgs(@(w)obj_proxlogistic_multitask(w,C,Cp,z,gamma,m,n,data_weights),x0,args{:});
 
-function obj = obj_logistic_mt(C,x,m,n,data_weights)
+function obj = obj_logistic_multitask(C,x,m,n,data_weights)
 obj = 0;
+offsets = cumsum([1 n(1:end-1)]);
 for t=1:length(m)
-    xt = x([1 + t*(0:n(1)-1) end-t+1]);
+    xt = x([offsets(t)+(0:n(t)-1) end-length(m)+t]);
     obj = obj + gather(sum(log1p(exp(C{t}*xt))))*(data_weights(t)/m(t)); 
 end
 
 
 % --- multi-task square loss code  ---
 
-function x = prox_squared_factored_mt(A,Atb,L,U,rho,z,u,m,n,data_weights)
+function x = prox_squared_factored_multitask(A,Atb,L,U,rho,z,u,m,n,data_weights)
 % this version can only be used if rho stays constant (TODO: confirm the use of data_weights as correct)
-[zt{1:length(n)}] = chopdeal(z,n);
-[ut{1:length(n)}] = chopdeal(u,n);
-x = cell(1,length(n));
 scaling = rho/data_weights;
-for t=1:length(m)
-    q = Atb{t} + scaling(t)*(zt{t} - ut{t});
+offsets = cumsum([1 n(1:end-1)]);
+for t=length(m):-1:1
+    q = Atb{t} + scaling(t)*(z([offsets(t)+(0:n(t)-1) end-length(m)+t]) - u([offsets(t)+(0:n(t)-1) end-length(m)+t]));
     if(m(t) >= n(t))
         x{t} = U{t}\(L{t}\q);
     else
@@ -746,10 +762,14 @@ for t=1:length(m)
     end
 end
 x = vertcat(x{:});
+x = [x;x(cumsum(n+1))]; x(cumsum(n+1)) = [];
     
-function obj = obj_squared_mt(A,b,x,m,n,data_weights)
-[xt{1:length(m)}] = chopdeal(x,n);
-obj = sum(cellfun(@(A,b,x)0.5*norm(A*x - b,2).^2,A,b,xt).*data_weights);
+function obj = obj_squared_multitask(A,b,x,m,n,data_weights)
+obj = 0;
+for t=length(m):-1:1
+    xt = x([offsets(t)+(0:n(t)-1) end-length(m)+t]); 
+    obj = obj + data_weights(t)*0.5*norm(A*xt - b,2).^2;
+end
 
 
 % --- logistic loss code ---

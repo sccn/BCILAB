@@ -42,13 +42,18 @@ classdef ParadigmMKLCSP < ParadigmBase
                 arg_norep({'goal_identifier','GoalIdentifier'}), ...
                 arg({'patterns','PatternPairs'},3,[],'Number of CSP patterns (times two).','cat','Feature Extraction','type','expression','shape','row'),...
                 arg({'shrinkage','ShrinkageLevel'},0,[0 1],'Shrinkage level. The amount of shrinkage (regularization) to apply during covariance estimation.'), ...
+                arg({'verbose','Verbose'},true,[],'Verbose output.'), ...
                 arg_sub({'flt','SignalProcessing'}, self.preprocessing_defaults(), @flt_pipeline, 'Signal processing stages. These parameters control filter stages that run on the signal level; they can be enabled, disabled and configured for the given paradigm. The prediction operates on the outputs of this stage.'), ...
                 arg_sub({'ml','MachineLearning'},{'Learner',self.machine_learning_defaults()},@ml_train,'Machine learning stage of the paradigm. Operates on the feature vectors that are produced by the feature-extraction stage.'),...
                 arg({'arg_dialogsel','ConfigLayout'},self.dialog_layout_defaults(),[],'Parameters displayed in the config dialog. Cell array of parameter names to display (dot-notation allowed); blanks are translated into empty rows in the dialog. Referring to a structure argument lists all parameters of that struture, except if it is a switchable structure - in this case, a pulldown menu with switch options is displayed.','type','cellstr','shape','row'));
            
             % first solve CSP for each subject in the corpus individually
+            if args.verbose
+                fprintf('Now training model for: %s...\n',hlp_tostring(args.goal_identifier)); end
             filters = [];
             patterns = [];
+            if args.verbose
+                fprintf('Pre-processing each of %i sets in the corpus and solving CSP...\n',length(args.collection)); end
             for s=1:length(args.collection)
                 if length(args.collection{s}.streams) > 1
                     disp_once('Note: ParadigmMKLCSP will use only the first data stream of a recording (no support for multi-modal data).'); end
@@ -70,7 +75,9 @@ classdef ParadigmMKLCSP < ParadigmBase
                 patterns = [patterns P([1:args.patterns end-args.patterns+1:end],:)'];
             end
             model.featuremodel = struct('filters',filters,'patterns',patterns);
-            
+
+            if args.verbose
+                fprintf('Preprocessing and extracting features for reference data...\n'); end            
             % get the data of the reference subject
             [reference,remaining] = utl_collection_closest(args.collection,args.goal_identifier); %#ok<NASGU>
             % preprocess each recording in the reference collection and concatenate them across epochs into a single set
@@ -80,6 +87,8 @@ classdef ParadigmMKLCSP < ParadigmBase
             % extract features and get target labels
             features = self.feature_extract(refdata,model.featuremodel);
             targets = set_gettarget(refdata);
+            if args.verbose
+                fprintf('Training predictive model...\n'); end
             % train classifier, using the correct feature shape (based on the group size)
             args.ml.learner.shape = [2*args.patterns,length(args.collection)];
             model.predictivemodel = ml_train('data',{features,targets}, args.ml);
