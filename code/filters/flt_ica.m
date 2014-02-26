@@ -148,7 +148,7 @@ function [signal,state] = flt_ica(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-17
 
-% flt_ica_version<1.2.9> -- for the cache
+% flt_ica_version<1.2.11> -- for the cache
 
 
 if ~exp_beginfun('filter') return; end
@@ -855,13 +855,13 @@ else
                 sig = cov(pre.data');
                 if ~isempty(variant.anchorlabels)
                     % calc beamformer penalty matrix for selected locations
-                    [B,dummy,chanmask] = hlp_diskcache('filterdesign',@calc_beamformer_constraints,{pre.chanlocs.labels},variant.anchorlabels,sig,variant.reference); %#ok<ASGLU>
+                    [B,init_W,chanmask] = hlp_diskcache('filterdesign',@calc_beamformer_constraints,{pre.chanlocs.labels},variant.anchorlabels,sig,variant.reference); %#ok<ASGLU>
                     % remove missing channels
                     if ~any(chanmask)
                         error('None of your channels is in the head model; the AnchorLabels option can currently only be used for data with 10-20 labels.'); end
-                    signal.data = signal.data(chanmask,:,:,:,:,:,:,:);
-                    signal.chanlocs = signal.chanlocs(chanmask);
-                    signal.nbchan = size(signal.data,1);
+                    pre.data = pre.data(chanmask,:,:,:,:,:,:,:);
+                    pre.chanlocs = pre.chanlocs(chanmask);
+                    pre.nbchan = size(pre.data,1);
                 else
                     B = {};
                 end
