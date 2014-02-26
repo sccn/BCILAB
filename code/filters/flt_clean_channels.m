@@ -133,6 +133,7 @@ if ~exist('removed_channel_mask','var')
     % mark all channels for removal which have more flagged samples than the maximum number of
     % ignored samples
     removed_channel_mask = sum(flagged,2)*window_len > max_broken_time;
+    fprintf('Removing %i channels...\n',nnz(removed_channel_mask));
     
     % remove the channels in the protect list
     if ~isempty(protect_channels)

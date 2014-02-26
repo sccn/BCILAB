@@ -34,8 +34,8 @@ arg_define(varargin, ...
     arg({'field_type','FieldType'},'normal',{'normal','axial'},'Regions of interest. These are the regions from which to recover signals.'), ...
     arg({'reference_type','ReferenceType'},'nasion',{'nasion','common_average'},'Referencing scheme. This is the type of re-referencing that was applied before flt_beamformer.'), ...
     arg({'override_original','OverrideOriginal'},true,[],'Override original data. If checked, the original signals will be replaced by the recovery.'), ...
-    arg_norep('M',unassigned), ...
-    arg_norep('channel_mask',unassigned));
+    arg_norep('M'), ...
+    arg_norep('channel_mask'));
 
 % calculate spatial filter matrix, if necessary
 if ~exist('M','var')
@@ -61,10 +61,12 @@ if override_original
         signal.chanlocs = struct('labels',roi_labels);
     else
         signal.nbchan = size(signal.data,1);
-        signal.chanlocs = struct('labels',[cellfun(@(f){sprintf('%s_X',f)},roi_labels) cellfun(@(f){sprintf('%s_Y',f)},roi_labels) cellfun(@(f){sprintf('%s_Z',f)},roi_labels)]);
+        signal.chanlocs = hlp_nanocache('cached_labels',10,@make_labels,roi_labels); 
     end
 end
 
 % append the M and ok arguments to the online expression
 exp_endfun('append_online',{'M',M,'channel_mask',channel_mask});
 
+function chanlocs = make_labels(roi_labels)
+chanlocs = struct('labels',[cellfun(@(f){sprintf('%s_X',f)},roi_labels) cellfun(@(f){sprintf('%s_Y',f)},roi_labels) cellfun(@(f){sprintf('%s_Z',f)},roi_labels)]);
