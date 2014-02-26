@@ -52,7 +52,8 @@ if ~isempty(varargin)
         % concatenate .event and .epoch fields
         event = cellfun(@(x)x.event,varargin,'UniformOutput',false); result.event = [event{:}];
         % shift event latencies based on cumulative sample counts
-        [result.event.latency] = arraydeal([result.event.latency]+replicate(cumsum(sample_count)-sample_count,event_count));
+        if ~isempty(result.event)
+            [result.event.latency] = arraydeal([result.event.latency]+replicate(cumsum(sample_count)-sample_count,event_count)); end
         % update misc fields
         [result.nbchan,result.pnts,result.trials,extra_dims] = size(result.data); %#ok<NASGU>
         result.xmax = result.xmin + (result.pnts-1)/result.srate;

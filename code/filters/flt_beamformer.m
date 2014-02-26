@@ -16,6 +16,9 @@ function signal = flt_beamformer(varargin)
 % Out:
 %   Signal : activity from the given ROIs
 %
+% Notes:
+%   This function currently does not perform activity renormalization.
+%
 % Examples:
 %   % recover activity from four regions
 %   eeg = flt_beamformer(eeg,{'Precentral_L', 'Precentral_R', 'Frontal_Sup_L', 'Frontal_Sup_R'},'normal')

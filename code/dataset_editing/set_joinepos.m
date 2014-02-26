@@ -55,10 +55,12 @@ if ~isempty(varargin)
         event = cellfun(@(x)x.event,varargin,'UniformOutput',false); result.event = [event{:}];
         epoch = cellfun(@(x)x.epoch,varargin,'UniformOutput',false); result.epoch = [epoch{:}];
         % shift event latencies based on cumulative sample counts
-        [result.event.latency] = arraydeal([result.event.latency]+replicate(cumsum(sample_count)-sample_count,event_count));
-        % shift event/epoch cross-references based on cumulative counts
-        [result.event.epoch] = arraydeal([result.event.epoch]+replicate(cumsum(epoch_count)-epoch_count,event_count));
-        [result.epoch.event] = chopdeal([result.epoch.event]+replicate(cumsum(event_count)-event_count,event_count),cellfun('length',{result.epoch.event}));
+        if ~isempty(result.event)
+            [result.event.latency] = arraydeal([result.event.latency]+replicate(cumsum(sample_count)-sample_count,event_count));
+            % shift event/epoch cross-references based on cumulative counts
+            [result.event.epoch] = arraydeal([result.event.epoch]+replicate(cumsum(epoch_count)-epoch_count,event_count));
+            [result.epoch.event] = chopdeal([result.epoch.event]+replicate(cumsum(event_count)-event_count,event_count),cellfun('length',{result.epoch.event}));
+        end
         % update misc fields
         [result.nbchan,result.pnts,result.trials,extra_dims] = size(result.data); %#ok<NASGU>
         result.xmax = result.xmin + (result.pnts-1)/result.srate;
