@@ -48,7 +48,7 @@ if ~isempty(varargin)
         end
         % count events, epochs and samples in each set
         event_count = cellfun(@(x)length(x.event),varargin);
-        sample_count = cellfun(@(x)x.pnts,varargin).*epoch_count;
+        sample_count = cellfun(@(x)x.pnts,varargin);
         % concatenate .event and .epoch fields
         event = cellfun(@(x)x.event,varargin,'UniformOutput',false); result.event = [event{:}];
         % shift event latencies based on cumulative sample counts
