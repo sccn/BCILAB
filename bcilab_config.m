@@ -59,6 +59,10 @@ data_reuses = 3;
 % set to a directory next to your BCILAB path
 temp = [];
 
+% if you have private plugins that you manage separately from the bcilab directory tree, you can 
+% set the path to these here (assuming the same sub-directory structure as ~/.bcilab/)
+private = [];
+
 % whether to show the main BCILAB menu by default (if this is set to 'separate', the menu is 
 % always detached from the EEGLAB main menu; otherwise it is under Tools>BCILAB)
 menu = 'separate';

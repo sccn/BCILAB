@@ -67,6 +67,8 @@ elseif strncmp('bcilab:',filename,7)
     filename = [tracking.paths.bcilab_path filename(1+length('bcilab:'):end)]; 
 elseif strncmp('dependencies:',filename,13)
     filename = [tracking.paths.dependency_path filename(1+length('dependencies:'):end)];
+elseif strncmp('private:',filename,8)
+    filename = [tracking.paths.private_path filename(1+length('private:'):end)];
 elseif strncmp('home:',filename,5)
     filename = [hlp_homedir filename(1+length('home:'):end)];
 elseif strncmp('data:',filename,5)

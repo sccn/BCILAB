@@ -27,6 +27,11 @@ paradigm_locations = { ...
     {'Built-in Paradigms', {'functions:/paradigms'}}, ...
     {'User Paradigms', {'home:/.bcilab/code/paradigms'}}, ...
     {'Experimental Paradigms',quickif(tracking.gui.show_experimental,{'functions:/paradigms/in_development'},{})}};
+if ~isempty(tracking.paths.private_path)
+    paradigm_locations = [paradigm_locations { ...
+        {'Private Paradigms', {'private:/code/paradigms'}}, ...
+        {'Private Experimental Paradigms',quickif(tracking.gui.show_experimental,{'private:/code/paradigms/in_development'},{})}}];
+end
 
 for loc=1:length(paradigm_locations)
     if ~isempty(paradigm_locations{loc}{2})
@@ -77,6 +82,8 @@ list = [list {'From Workspace', approaches}];
 % --- aggregate all approaches in the approaches directory (and the user's home directory, too) ---
 approaches = {};
 approach_dirs = {env_translatepath('home:/.bcilab/approaches'),env_translatepath('resources:/approaches')};
+if ~isempty(tracking.paths.private_path)
+    approach_dirs = [approach_dirs {env_translatepath('private:/approaches')}]; end
 for d = approach_dirs
     approach_dir = d{1};
     files = dir([approach_dir filesep '*.apr']);
