@@ -632,6 +632,12 @@ function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,de
             warn_deprecation(spec,caller_name); end
         % perform assignment
         if isempty(spec.mapper)
+            if spec.typecheck
+                check_type(spec.type,newvalue,spec.first_name); end
+            if spec.shapecheck
+                check_shape(spec.shape,newvalue,spec.first_name); end
+            if spec.rangecheck
+                check_range(spec.range,newvalue,spec.first_name); end
             spec.value = newvalue;
         else
             % apply the mapper to get the selection key and the value pack

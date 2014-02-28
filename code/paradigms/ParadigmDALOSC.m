@@ -60,7 +60,7 @@ classdef ParadigmDALOSC < ParadigmDataflowSimplified
         function model = feature_adapt(self,varargin)
             args = arg_define(varargin, ...
                 arg_norep('signal'), ...
-                arg({'normalizers','NormalizationExponents'},[-0.25,-0.25],[],'Normalization exponents [lhs, rhs]. Two-element array of powers for the left-hand-side and right-hand-side normalization matrices that are applied to the data from the region.','cat','Feature Extraction'));
+                arg({'normalizers','NormalizationExponents'},[-0.25,-0.25],[],'Normalization exponents [lhs, rhs]. Two-element array of powers for the left-hand-side and right-hand-side normalization matrices that are applied to the data from the region.','cat','Feature Extraction','guru',true));
             
             X = num2cell(args.signal.data,[1 2]);
             for t=1:length(X)

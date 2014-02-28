@@ -78,7 +78,7 @@ function res = arg_norep(varargin)
 if nargin == 1
     res = {'expand_arg',[varargin {'__arg_unassigned__',[],[],'displayable',false,'empty_overwrites',false,'skippable',true}]};
 elseif nargin >= 4
-    res = {'expand_arg',[varargin {'displayable',false,'empty_overwrites',false,'skippable',true}]};
+    res = {'expand_arg',[varargin(1:4) {'displayable',false,'empty_overwrites',false,'skippable',true} varargin(5:end)]};
 elseif nargin == 2
     res = {'expand_arg',[varargin {[],[],'displayable',false,'empty_overwrites',false,'skippable',true}]};
 else

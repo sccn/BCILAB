@@ -155,6 +155,7 @@ if isfield(signal,'epoch') && ~isempty(signal.epoch)
     error('the data set appears to contain epochs: only continuous data set are supported for now.'); end
 
 % refine options
+opts.count = round(double(opts.count));
 opts.limits = sort(max(min(opts.limits,signal.xmax),signal.xmin));
 opts.limits = opts.limits*signal.srate;
 opts.segmentspec.lo = opts.segmentspec.lo*signal.srate;

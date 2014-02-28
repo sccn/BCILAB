@@ -1,7 +1,9 @@
 function [chunk,p] = onl_filtered(p,desired_length,suppress_output,set_online_scope)
 % Obtain processed data from a filter pipeline online.
+% [Chunk,Pipeline] = onl_filtered(Pipeline,DesiredLength,SuppressOutput,SetOnlineScope)
 %
-% This function returns a chunk of most recent filtered output from a filter pipeline.
+% This function returns a chunk of most recent filtered output from a filter pipeline data structure 
+% previously created with onl_newpipeline.
 % 
 % A filter pipeline is a recursive data structure (like a tree) whose nodes are the filter stages and 
 % whose edges represent the output of one stage going into the input of another stage. The leaf
@@ -9,7 +11,7 @@ function [chunk,p] = onl_filtered(p,desired_length,suppress_output,set_online_sc
 % nodes are evaluated by calling the filter function on its input data (recursively).
 %
 % In:
-%   Pipeline : previous filter pipeline struct
+%   Pipeline : filter pipeline struct to update and to read data from.
 %
 %   DesiredLength : number of samples to get (or 0 to get all new samples) (default: 0)
 %

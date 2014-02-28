@@ -7,7 +7,8 @@ function chunk = onl_peek(streamname,samples_to_get,unit,channels_to_get)
 % data can be appended to it by onl_append or onl_read_background.
 %
 % In:
-%   StreamName : Name of the online stream in the workspace
+%   StreamName : Name of the online stream data structure in the MATLAB workspace to read from.
+%                Must have previously been created with onl_newstream.
 %
 %   DesiredLength : length of the view that should be generated; should not be longer than the
 %                   buffer capacity (default: 10)

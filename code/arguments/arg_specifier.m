@@ -63,6 +63,9 @@ spec = struct(...
     'empty_overwrites',{true}, ...  % whether an empty value does replace the default (or any previous) value (true/false)
     'to_double',{false}, ...        % convert numeric values to double before returning them to the function (true/false)
     'skippable',{false}, ...        % whether the argument is supposed to be skipped under some circumstances in positional argument lists (true/false) (INTERNAL)
+    'typecheck',{true}, ...         % whether to perform a type check upon assignment of a value
+    'shapecheck',{true}, ...        % whether to perform a shape check upon assignment of a value
+    'rangecheck',{true}, ...        % whether to perform a range check upon assignment of a value
     ... % misc fields
     'version',{1.1} ...             % version of the argument specification
     );

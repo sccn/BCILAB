@@ -7,17 +7,18 @@ function stream_id = onl_read_background(varargin)
 % periodically invokes a user-supplied data reading function.
 % 
 % In:
-%   MatlabStream : name of the stream to be updated (default: 'laststream')
-%                  (must have been previously created via onl_newstream)
+%   StreamName : Name of the stream data structure in the MATLAB workspace that shall be updated 
+%                in the background (must have been previously created via onl_newstream) 
+%                (default: 'laststream')
 % 
-%   BlockReader : function that reads a block from the device (format: [Channels x Samples])
+%   BlockReader : Callback function that reads a block from the device (format: [Channels x Samples])
 %                 if no data is available, this function should return an empty result. It may also
 %                 return a cell array of the form {[Channels x Samples],TimeStamp} or {[Channels x
 %                 Samples],Markers,TimeStamp}. More generally, all returned cells are used as
 %                 arguments to onl_predict. Optionally, this function may take the current stream
 %                 variable as input.
 %
-%   UpdateFrequency : frequency at which the device should be queried, in Hz (default: 25)
+%   UpdateFrequency : Frequency at which the device should be queried, in Hz (default: 10)
 %
 % Example:
 %   % after a stream has been openend, ...
@@ -35,9 +36,9 @@ function stream_id = onl_read_background(varargin)
 
 % read options
 arg_define(varargin, ...
-    arg({'stream_name','MatlabStream'}, 'laststream',[],'New Stream to create. This is the name of the stream within the MATLAB environment.'), ...
-    arg({'block_reader','BlockReader'},'randn(32,1)',[],'Block-reading function. This function reads a new block from some device','type','expression'), ...
-    arg({'update_freq','UpdateFrequency'},10,[],'Update frequency. New data is polled at this rate, in Hz.'));
+    arg({'stream_name','StreamName','MatlabStream'}, 'laststream',[],'Stream name to create. Name of the stream data structure in the MATLAB workspace that shall be updated in the background (must have been previously created via onl_newstream).'), ...
+    arg({'block_reader','BlockReader'},'randn(32,1)',[],'Block-reading function. Callback function that reads a block from the device (format: [Channels x Samples]) if no data is available, this function should return an empty result. It may also return a cell array of the form {[Channels x Samples],TimeStamp} or {[Channels x Samples],Markers,TimeStamp}. More generally, all returned cells are used as arguments to onl_predict. Optionally, this function may take the current stream variable as input.','type','expression'), ...
+    arg({'update_freq','UpdateFrequency'},10,[0 Inf],'Update frequency. New data is polled at this rate, in Hz.'));
 
 % get the stream's id
 stream_id = evalin('base',[stream_name '.streamid']);

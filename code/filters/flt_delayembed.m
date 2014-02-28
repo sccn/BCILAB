@@ -38,7 +38,7 @@ declare_properties('name','DelayEmbedding', 'depends','set_makepos', 'follows',{
 % declare arguments
 arg_define(varargin,...
     arg_norep({'signal','Signal'}), ...
-    arg({'numlags','NumLags'}, 1, [], 'Number of lags. For delay-embedding.'));
+    arg({'numlags','NumLags'}, 1, uint32([1,1000]), 'Number of lags. For delay-embedding.'));
 
 for k=0:numlags
     tmp{k+1} = signal.data(:,k+(1:end-numlags),:); end

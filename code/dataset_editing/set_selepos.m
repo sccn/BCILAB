@@ -29,7 +29,7 @@ declare_properties('independent_channels',true,'independent_trials',false);
 
 arg_define(varargin, ...
     arg_norep({'signal','Signal'}), ...
-    arg({'epoch_range','EpochIndices','epos'},[],[],'Indices of retained epochs.','shape','row'));
+    arg({'epoch_range','EpochIndices','epos'},[],uint32([1 1000000]),'Indices of retained epochs.','shape','row'));
 
 if isa(epoch_range,'logical') %#ok<NODEF>
     epoch_range = find(epoch_range); end

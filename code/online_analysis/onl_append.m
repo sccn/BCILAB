@@ -1,6 +1,6 @@
 function onl_append(name, chunk, markers, stamp)
 % Append a block of raw data to a stream.
-% onl_append(Name, Chunk, Markers, Timestamp)
+% onl_append(StreamName, Chunk, Markers, Timestamp)
 %
 % This function appends a chunk of data (#samples x #channels) and possibly some markers to an
 % online stream that was previously created with onl_newstream. It is also possible to pass in the
@@ -19,8 +19,8 @@ function onl_append(name, chunk, markers, stamp)
 % in real time (i.e., the actual wall-clock time does not affect the calulated results).
 %
 % In:
-%   Name : Variable name of the stream to which the data should be appended
-%          (previously created with onl_newstream)
+%   StreamName : Name of the stream data structure in the MATLAB workspace to which the data should 
+%                be appended (must have been previously created with onl_newstream).
 %
 %   Chunk : [#Channels x #Samples] matrix of raw data
 %

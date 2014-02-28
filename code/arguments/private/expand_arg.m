@@ -51,10 +51,10 @@ function spec = expand_specifier(names,default,range,help,varargin)
             % if both the value and the range are cell-string arrays and the value is a subset of
             % the range, the type is 'logical'
             spec.type = 'logical';
-        elseif ~isempty(default)
+        elseif ~isempty(default) && ~(isequal(default,'__arg_mandatory__') || isequal(default,'__arg_unassigned__'))
             % if the value is non-empty, the type is deduced from the value
             spec.type = deduce_type(default);
-        elseif isnumeric(spec.range)
+        elseif isnumeric(spec.range) && ~isempty(spec.range)
             % if the range is numeric, the type is deduced from the range
             spec.type = deduce_type(spec.range);
         elseif iscell(spec.range) && isscalar(unique(cellfun(@deduce_type,spec.range,'UniformOutput',false)))
@@ -125,46 +125,3 @@ function spec = expand_specifier(names,default,range,help,varargin)
     % set up the sequence of defaults
     spec.defaults = {default};
 end
-
-
-% deduce the type of the given value in a manner that is compatible with the PropertyGrid, with the
-% addition of the type 'expression', which is to be converted to char() before it goes into the GUI
-% and evaluated back into the correct MATLAB type when the GUI is done
-function type = deduce_type(value)
-    type = class(value);
-    switch type
-        case {'single','double'}
-            if ndims(type) == 2 %#ok<ISMAT>
-                type = [quickif(issparse(value),'sparse','dense') quickif(isreal(value),'real','complex') type];
-            else
-                type = 'expression';
-            end
-        case 'cell'
-            type = quickif(iscellstr(value),'cellstr','expression');
-        case {'logical','char','int8','uint8','int16','uint16','int32','uint32','int64','uint64'}
-            % nothing to do
-        otherwise
-            type = 'expression';
-    end
-end
-
-
-% determine the shape of the given value in a manner that is compatible with the PropertyGrid, with
-% the addition of the type 'tensor' (which may be handled by treating the type as an expression)
-function shape = deduce_shape(value)
-    siz = size(value);
-    if isequal(siz,[1,1])
-        shape = 'scalar';
-    elseif isequal(siz,[0,0])
-        shape = 'empty';
-    elseif length(siz) > 2
-        shape = 'tensor';
-    elseif siz(1) == 1
-        shape = 'row';
-    elseif siz(2) == 1
-        shape = 'column';
-    else
-        shape = 'matrix';
-    end
-end
-

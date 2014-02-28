@@ -1,6 +1,6 @@
 function id = onl_newstream(name,varargin)
 % Create a new data stream, and set up meta-data.
-% Id = onl_newstream(Name, Options...)
+% Id = onl_newstream(StreamName, Options...)
 %
 % After a stream has been created, blocks of data can be appended to it using onl_append().
 % Predictors can be linked to the stream using onl_newpredictor(), and their predictions (given the
@@ -19,8 +19,8 @@ function id = onl_newstream(name,varargin)
 % All name-value pairs that are specified in the Options are added as fields to this data structure.
 %
 % In:
-%   Name : name of the stream; a variable of this name will be created in the workspace to
-%          hold the stream's data.
+%   StreamName : name of the stream; a variable with this name will be created in the MATLAB workspace 
+%                to hold the stream's data. If such a variable already exists it will be overridden.
 %
 %   Options... : meta-data fields that are to be included in the stream, given as name-value pairs. 
 %                A struct with meta-data (e.g., a dataset), may also be specified.
@@ -63,7 +63,7 @@ function id = onl_newstream(name,varargin)
 %                                     (default: 25)
 %
 % Out:
-%   Id : a unique id number for the predictor; same as name.predictorid
+%   Id : a unique id number for the predictor; same as StreamName.streamid
 %
 %
 % Notes:
