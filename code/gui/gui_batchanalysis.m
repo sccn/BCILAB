@@ -81,6 +81,7 @@ function varargout = gui_batchanalysis_OutputFcn(hObject, eventdata, handles)
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+global tracking;
 
 % turn all large edit panes to multi-line editors
 for obj = {handles.edit1,handles.edit20,handles.edit19}
@@ -93,7 +94,10 @@ end
 
 % get all paradigm names
 para_files = [];
-for p = {'functions:/paradigms', 'home:/.bcilab/code/paradigms'}
+para_paths = {'functions:/paradigms', 'functions:/paradigms/in_development', 'home:/.bcilab/code/paradigms'};
+if ~isempty(tracking.paths.private_path)
+    para_paths = [para_paths {'private:/code/paradigms','private:/code/paradigms/in_development'}]; end
+for p = para_paths
     para_files = [para_files dir([env_translatepath(p{1}) filesep 'Paradigm*.m'])]; end
 para_acronyms = cellfun(@(s)s(9:end-2),{para_files.name},'UniformOutput',false);
 
