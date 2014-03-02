@@ -11,7 +11,8 @@ function run_readbiosemi(varargin)
 % parameters.
 %
 % In:
-%   MatlabStream : name of the stream to create in the MATLAB environment (default: 'laststream')
+%   StreamName : name of the stream; a variable with this name will be created in the MATLAB workspace 
+%                to hold the stream's data. If such a variable already exists it will be overridden.
 %
 %   ChannelRange : numeric vector of channel indices that should be recorded (referring to the 
 %                  default BioSemi channel order); default: 3:131
@@ -33,7 +34,7 @@ declare_properties('name','BioSemi amplifier');
 
 % read options
 opts = arg_define(varargin, ...
-    arg({'new_stream','MatlabStream'}, 'laststream',[],'New Stream to create. This is the name of the stream within the MATLAB environment.'), ...
+    arg({'new_stream','StreamName','MatlabStream'}, 'laststream',[],'New Stream to create. This is the name of the stream within the MATLAB environment.'), ...
     arg({'channel_range','ChannelRange'}, 3:128+3,[],'Reduced channel range. Allows to specify a sub-range of the default BioSemi channels.'), ...
     arg({'sample_rate','SamplingRate'}, 256,[],'Sampling rate. In Hz.'), ...
     arg({'update_freq','UpdateFrequency'},10,[],'Update frequency. New data is polled at this rate, in Hz.'));
