@@ -73,7 +73,7 @@ end
 for v=find(strcmp({vars.class},'cell'))
     var = evalin('base',vars(v).name);
     if length(var)>1 && ischar(var{1}) && ((strncmp(var{1},'Paradigm',8) && length(var{1})>8 && any(strcmp(var{1}(9:end),paradigm_names))) || any(strcmp(var{1},paradigm_names)))
-        approaches{end+1} = struct('paradigm',quickif(strncmp(var{1},'Paradigm',8),var{1},['Paradigm',var{1}]),'name',vars(v).name,'parameters',{var(2:end)}); end
+        approaches{end+1} = struct('paradigm',quickif(strncmp(var{1},'Paradigm',8),var{1},['Paradigm',var{1}]),'name',vars(v).name,'parameters',{var(2:end)},'description',''); end
 end
 
 list = [list {'From Workspace', approaches}];
