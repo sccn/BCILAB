@@ -49,10 +49,14 @@ if mod(nargin,2) == 0
 else
     % an odd number of arguments was passed 
     % --> the first argument is the name of the config script
+    if ~ischar(varargin{1})
+        error('If an odd number of parameters is provided then the first parameter must be the name of a config script.'); end
     configscript = varargin{1};
     % ... and the rest are the options.
     varargin = varargin(2:end);
 end
+if ~iscellstr(varargin(1:2:end))
+    error('The arguments to bcilab.m must be name-value pairs.'); end
 
 % check if the user's home directory (.bcilab sub-directory) contains a bcilab_config.m, and prefer 
 % that if present

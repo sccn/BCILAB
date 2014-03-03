@@ -90,7 +90,7 @@ if isfield(sig,{'data','srate'})
         fprint = hlp_fingerprint(rmfield(sig,'tracking')); end
     
     % flush data to disk, if not already there...
-    filepath = ['temp:/flushedsets/' num2str(fprint) '.set'];
+    filepath = ['temp:/flushedsets/' num2str(fprint) '.mat'];
     if ~exist(env_translatepath(filepath),'file')
         disp('Flushing data set to disk...');
         EEG = sig; %#ok<NASGU>

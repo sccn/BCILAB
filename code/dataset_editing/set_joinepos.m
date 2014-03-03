@@ -37,13 +37,53 @@ if ~exp_beginfun('editing') return; end
 
 declare_properties('name','JoinTrials','independent_channels',true,'independent_trials',true);
 
+% input validation
+required_fields = ;
+for k=1:length(varargin)
+    utl_check_fields(varargin{k},{'data','event','epoch','pnts','xmin','xmax','srate'},'input','signal');
+    if ~isempty(varargin{k}.event)
+        if ~isfield(varargin{k}.event,'latency')
+            error('A dataset passed to set_joineos is lacking the .event.latency field.'); end
+        if ~isfield(varargin{k}.event,'epoch')
+            error('A dataset passed to set_joineos is lacking the .event.epoch field.'); end
+        latency_numels = cellfun('prodofsize',{varargin{k}.event.latency});
+        if any(latency_numels == 0)
+            error('One or more of the events in the given data set have an empty .latency field, which is not permitted.'); end
+        if any(latency_numels ~= 1)
+            error('One or more of the events in the given data set have a .latency value that is not a scalar, which is not permitted.'); end
+    end
+    if ~isempty(varargin{k}.epoch)
+        if ~isfield(varargin{k}.epoch,'event')
+            error('A dataset passed to set_joineos is lacking the .epoch.event field.'); end
+        epoch_numels = cellfun('prodofsize',{varargin{k}.event.epoch});
+        if any(epoch_numels == 0)
+            error('One or more of the events in the given data set have an empty .epoch field, which is not permitted.'); end
+        if any(epoch_numels ~= 1)
+            error('One or more of the events in the given data set have an .epoch value that is not a scalar, which is not permitted.'); end
+    end
+end
+
 if ~isempty(varargin)
     result = varargin{1};
     if length(varargin) > 1
         % concatenate time series fields
         for field = utl_timeseries_fields(result)
             data = cellfun(@(x)x.(field{1}),varargin,'UniformOutput',false);
-            result.(field{1}) = cat(3,data{:}); 
+            try
+                result.(field{1}) = cat(3,data{:}); 
+            catch e
+                % concatenation failed: produce a reasonable error message
+                if ~isempty(data)
+                    sizes1 = cellfun('size',data,1); sizes1 = sizes(sizes1 ~= 0);
+                    sizes2 = cellfun('size',data,2); sizes2 = sizes(sizes2 ~= 0);
+                    if length(sizes1) > 1 && ~all(sizes1==sizes1(1))
+                        error('The time-series field .%s must have the same number of channels in each data set.',field{1}); end
+                    if length(sizes2) > 1 && ~all(sizes2==sizes2(1))
+                        error('The time-series field .%s must have the same number of tine points in each data set.',field{1}); end
+                end
+                size_info = hlp_tostring(cellfun(@size,data,'UniformOutput',false));
+                error('Concatenation of time-series fields failed with error: %s (the data sizes were %s -- make sure that they are mutually compatible).',e.message,size_info);
+            end
             if isempty(result.(field{1}))
                 result.(field{1}) = []; end
         end

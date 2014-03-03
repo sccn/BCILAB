@@ -16,16 +16,11 @@ function id = onl_newpredictor(name, model, streams, predict_at)
 %           variable name in the base workspace, or a cell array of {file name, variable name} to 
 %           refer to a variable inside a .mat file. The model is not modified by this function.
 %
-%   StreamNames : optional names of stream data structures in the MATLAB base workspace to consider as
-%                 possible data sources (previously created with onl_newstream); any stream that 
-%                 contains channels that are needed by the predictor will be linked to it (assuming 
-%                 that the choice of stream to use is not ambiguous). 
-%
-%                 The identification of needed channels is primarily done on the basis of the channel
-%                 labels -- if a stream has channels with labels that are required by a filter pipeline,
-%                 it will be used as a source for this pipeline. The framework attempts to gracefully
-%                 handle cases where a stream only provides a subset of the channels that were in the 
-%                 training set and the model only effectively operates on this subset via flt_selchans.
+%   SourceStreamNames : Optional names of stream data structures in the MATLAB base workspace to
+%                       consider as possible data sources (previously created with onl_newstream); 
+%                       if a stream contains all channels that are needed by the predictor, or 
+%                       alternatively has the right number and type of channels it will be considered 
+%                       as a potential source stream unless ambiguous.
 %
 %   PredictAt : Determines where predictions are made when onl_predict is called; if {}, the
 %               prediction is made at the most recently added sample of the stream, and if nonempty

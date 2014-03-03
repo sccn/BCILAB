@@ -3,12 +3,14 @@ function run_readdataset(varargin)
 % run_readdataset(MatlabStream,Dataset,UpdateFrequency)
 %
 % In:
-%   StreamName : name of the stream; a variable with this name will be created in the MATLAB workspace 
+%   StreamName : Name of the stream; a variable with this name will be created in the MATLAB workspace 
 %                to hold the stream's data. If such a variable already exists it will be overridden.
 %
-%   Dataset : dataset to use as source
+%   Dataset : Dataset to play back. This is the EEGLAB dataset that shall be played back in real
+%             time. Can also be the name of a variable in the MATLAB workspace. (default: 'lastdata')
 %
-%   UpdateFrequency : update frequency (default: 20)
+%   UpdateFrequency : The rate at which new chunks of data is polled from the device, in Hz. 
+%                     (default: 20)
 %
 %   BufferLength : Internal buffering length. This is the maximum amount of backlog that you 
 %                  can get. (default: 10)
@@ -31,9 +33,9 @@ declare_properties('name','Dataset');
 
 % read arguments...
 arg_define(varargin, ...
-    arg({'new_stream','StreamName','MatlabStream'}, 'laststream',[],'New Stream to create. This is the name of the stream within the MATLAB environment.'), ...
-    arg({'in_dataset','Dataset'}, 'lastdata',[],'Dataset to play back. This is the EEGLAB dataset that shall be played back in real time.','type','expression'), ...
-    arg({'update_freq','UpdateFrequency'},20,[],'Update frequency. New data is polled at this rate, in Hz.'), ...
+    arg({'new_stream','StreamName','MatlabStream'}, 'laststream',[],'MATLAB Stream Name. A variable with this name will be created in the MATLAB workspace to hold the stream''s data. If such a variable already exists it will be overridden.'), ...
+    arg({'in_dataset','Dataset'},'lastdata',[],'Dataset to play back. This is the EEGLAB dataset that shall be played back in real time. Can also be the name of a variable in the MATLAB workspace.','type','expression'), ...
+    arg({'update_freq','UpdateFrequency'},20,[0 Inf],'Update frequency. The rate at which new chunks of data is polled from the device, in Hz.'), ...
     arg({'buffer_len','BufferLength'},10,[],'Internal buffering length. This is the maximum amount of backlog that you can get.'), ...
     arg({'always_double','ConvertToDouble'},true,[],'Convert to double. Always convert the signal to double precision.'));
 

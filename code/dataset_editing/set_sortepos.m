@@ -27,7 +27,15 @@ declare_properties('independent_channels',true,'independent_trials',false);
 arg_define(varargin, ...
     arg_norep({'signal','Signal'}));
 
-[x,inds] = sort([signal.epoch.latency]); %#ok<ASGLU>
-signal = exp_eval(set_selepos(signal,inds));
+if isfield(signal,'epoch')
+    if ~isempty(signal.epoch)
+        if ~isfield(signal.epoch,'latency')
+            error('Your signal is lacking the required .epoch.latency field.'); end
+        [x,inds] = sort([signal.epoch.latency]); %#ok<ASGLU>
+        signal = exp_eval(set_selepos(signal,inds));
+    end
+else
+    error('The given signal parameter is lacking the required .epoch field. Not a valid signal.');
+end
 
 exp_endfun;

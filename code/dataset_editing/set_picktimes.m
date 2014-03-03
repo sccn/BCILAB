@@ -33,7 +33,8 @@ declare_properties('independent_channels',true,'independent_trials',true);
 arg_define(varargin, ...
     arg_norep({'signal','Signal'}), ...
     arg({'ranges','TimeRanges'},[],[],'Selected time ranges. Array of the form [start end; start end; start end; ...].'));
-    
+
+utl_check_fields(signal,{'data','xmin','srate'},'signal','signal');
 signal.data = utl_picktimes(signal.data, (ranges-signal.xmin) * signal.srate);
 
 exp_endfun;

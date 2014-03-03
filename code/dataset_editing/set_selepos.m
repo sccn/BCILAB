@@ -31,11 +31,17 @@ arg_define(varargin, ...
     arg_norep({'signal','Signal'}), ...
     arg({'epoch_range','EpochIndices','epos'},[],uint32([1 1000000]),'Indices of retained epochs.','shape','row'));
 
+% input validation
+utl_check_signal(signal,{'epoch','event','data','pnts'},'signal','signal'); %#ok<NODEF>
+if isempty(signal.epoch) && size(signal.data,3) > 1
+    error('Your signal is epoched but has an empty .epoch field. This is not permitted. Do not use pop_epoch but set_makepos for epoch.'); end
+% TODO: continue validation
+
 if isa(epoch_range,'logical') %#ok<NODEF>
     epoch_range = find(epoch_range); end
 
 % select epochs within time series fields
-for field = utl_timeseries_fields(signal) %#ok<NODEF>
+for field = utl_timeseries_fields(signal) 
     if ~isempty(signal.(field{1}))
         signal.(field{1}) = signal.(field{1})(:,:,epoch_range,:,:,:,:,:); end
 end

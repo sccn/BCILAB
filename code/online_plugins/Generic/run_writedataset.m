@@ -6,13 +6,15 @@ function run_writedataset(varargin)
 % to some other operation processing it).
 %
 % In:
-%   SourceStream : real-time stream name to read from (in MATLAB workspace) (default: 'laststream')
+%   SourceStreamName : Optional name of the stream data structure in the MATLAB base workspace to
+%                      take as the data source (previously created with onl_newstream).
+%                      (default: 'laststream')
 %
 %   FileName : File name to write to (default: 'lastdata.set')
 %
-%   UpdateFrequency : update frequency, in Hz (default: 1)
+%   UpdateFrequency : The are at which new chunks of data are appended to the file, in Hz (default: 1)
 %
-%   StartDelay : Start-up delay before real-time processing begins; grace period until file is being
+%   StartDelay : Start-up delay before real-time operation begins; grace period until file is being
 %                written to, in s. (default: 3)
 %
 % Examples:
@@ -26,10 +28,10 @@ declare_properties('name','File');
 
 % define arguments
 arg_define(varargin, ...
-    arg({'in_stream','SourceStream'}, 'laststream',[],'Input online stream. This is the stream that shall be written to disk.'), ...
+    arg({'in_stream','SourceStreamNames','SourceStream'}, 'laststream',[],'Input Matlab stream name(s). Optional names of stream data structures in the MATLAB base workspace to consider as possible data sources (previously created with onl_newstream); if a stream contains all channels that are needed by the predictor, or alternatively has the right number and type of channels it will be considered as a potential source stream unless ambiguous.'), ...
     arg({'out_filename','FileName'},'lastdata.set',[],'The file name to write to.'), ...
-    arg({'update_freq','UpdateFrequency'},1,[],'Update frequency. This is the rate at which data is written.'), ...
-    arg({'start_delay','StartDelay'}, 3, [],'Start-up delay. Delay before real-time processing begins; grace period until file is written.'));
+    arg({'update_freq','UpdateFrequency'},1,[0 Inf],'Update frequency. This is the rate at which new chunks of data are appended to the file.'), ...
+    arg({'start_delay','StartDelay'}, 3, [0 Inf],'Start-up delay. Delay before real-time operation begins; grace period until file is written.'));
 
 out_filename = env_translatepath(out_filename);
 
@@ -43,7 +45,7 @@ stream.xmax = stream.xmin + (stream.pnts-1)/stream.srate;
 % remove superfluous fields
 eeg = rmfield(stream,{'buffer','smax','buffer_len','timestamps','timestamps_len','timestamps_ptr','streamid'});
 stream.timestamp_at_beginning = toc(uint64(0));
-eeg = pop_saveset(eeg,'filename',[fn fe],'filepath',fastif(isempty(fp),env_translatepath('bcilab:/userdata'),fp),'savemode','twofiles');
+eeg = pop_saveset(eeg,'filename',[fn fe],'filepath',quickif(isempty(fp),env_translatepath('bcilab:/userdata'),fp),'savemode','twofiles');
 % re-create the fdt file...
 delete(fullfile(eeg.filepath, eeg.datfile));
 fid = fopen(fullfile(eeg.filepath, eeg.datfile),'wb','ieee-le');

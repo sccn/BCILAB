@@ -3,9 +3,9 @@ function targ = set_gettarget(signal)
 % Target = set_gettarget(Signal)
 %
 % Data sets may have associated "target values" in their meta-data (usually one per epoch and/or per
-% event). These target values encode what outputs a cognitive monitoring system is supposed to
-% output at the given epoch/marker time point/etc. These meta-data are the primary means in which
-% the relationship between raw data and cognitive state is specified.
+% event). These target values encode what outputs a predictive model is supposed to output at the 
+% given epoch/marker time point/etc. These meta-data are the primary means in which the relationship 
+% between raw data and cognitive state is specified.
 %
 % If an epoched data set is passed, the .target field of the epochs will be used. If a continuous
 % data set is passed which has events with a non-empty .target field, the target values of those
@@ -14,7 +14,8 @@ function targ = set_gettarget(signal)
 % target values and this function will throw an error.
 %
 % In:
-%   Signal  : EEGLAB data set, either epoched or continuous
+%   Signal  : EEGLAB data set, either epoched or continuous; if a stream bundle is passed in, it is
+%             assumed that the first stream contains all necessary taret information (e.g., events).
 %
 % Out:
 %   Target  : Array target values for the data set; either per epoch, per event, or per sample
@@ -31,15 +32,18 @@ function targ = set_gettarget(signal)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-07
 
-if ~exist('signal','var')
-    % trivial
-    targ = [];
-else
+targ = [];
+if nargin > 0
     % we got a bundle: extract target markers from the first stream
     if isfield(signal,'streams')
-        signal = signal.streams{1}; end
+        if any(isfield(signal,{'data','srate','event','epoch','chanlocs'}))
+            error('The given signal has both a .streams field (indicating a stream bundle) and EEGLAB dataset fields.'); end
+        if isempty(signal.streams)
+            return; end
+        signal = signal.streams{1}; 
+    end
     
-    if all(isfield(signal,{'head','parts'})) && strcmp(char(signal.head),'set_partition')
+    if all(isfield(signal,{'head','parts'})) && strcmp(char(signal.head),'set_partition') && length(signal.parts) >= 2
         % a computational shortcut applies if we're operating on partitioned data: this allows us to skip
         % the actual partitioning and instead look just at the target markers
         sourcetargets = set_gettarget(signal.parts{1});
@@ -48,41 +52,51 @@ else
         
         % make sure that the data is evaluated
         signal = exp_eval_optimized(signal);
-        
+
         if isfield(signal,'epoch') && ~isempty(signal.epoch) && isfield(signal.epoch,'target')
             % epoched data set with target field: get per-epoch targets
             targets = {signal.epoch.target};
             targetmask = ~cellfun('isempty',targets);
             if any(targetmask)
                 targ = concat_targets(targets(targetmask));
-                return
+                return;
             end
         end
         
         % continuous data set: check for events with non-empty target field
-        if isfield(signal.event,'target')
+        if isfield(signal,'event') && isfield(signal.event,'target')
             targets = {signal.event.target};
             targetmask = ~cellfun('isempty',targets);
             if any(targetmask)
+                if ~isfield(signal.event,'latency')
+                    error('The given signal does not have a .event.latency field.'); end                    
                 if ~issorted([signal.event.latency])
                     warning('BCILAB:unsorted_events','The events in this data set are unsorted - this is likely an error in your processing pipeline.'); end
                 targ = concat_targets(targets(targetmask));
-                return
+                return;
             end
         end
         
-        if isfield(signal,'chanlocs') && isfield(signal.chanlocs,'type') && size(signal.data,3) == 1
+        if isfield(signal,'chanlocs') && isfield(signal.chanlocs,'type') && isfield(signal,'data') && size(signal.data,3) == 1
             % continuous data set: get per-sample epoch targets
             targchans = strcmpi('target',{signal.chanlocs.type});
             if any(targchans)
+                if size(signal.data,1) ~= length(signal.chanlocs)
+                    error('The given signal has a different number of channels in .data than in .chanlocs.'); end
                 targ = signal.data(targchans,:)';
-                return
+                return;
             end
         end
         
         % otherwise...
-        error('set_gettarget did not find any target information in this data set. See help of set_gettarget and set_targetmarkers for how data sets can be annotated with target information.');
-        
+        fields = isfield(signal,{'epoch','event','chanlocs'}); 
+        if ~any(fields)
+            error('An EEGLAB dataset structure was expected but the given data structure is lacking the fields .epoch, .event and .chanlocs. This is likely a programming error.');
+        elseif ~all(fields)
+            error('The given data structure is not a complete EEGLAB data set struct (lacking some fields) and no target information was found. See help of set_gettarget and set_targetmarkers for how data sets can be annotated with target information.');
+        else
+            error('set_gettarget did not find any target information in this data set. See help of set_gettarget and set_targetmarkers for how data sets can be annotated with target information.');
+        end
     end
 end
 

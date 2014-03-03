@@ -271,11 +271,16 @@ try
         case '.mat'
             % BrainVision Analyzer Matlab file or BCI competition file
             try
-                res = pop_loadbva(filename);
+                evalc('res = pop_loadbva(filename)');
                 disp('Imported .mat file as a BrainVision Analyzer file.');
             catch
                 % backup
                 res = load(filename);
+                % if this contains a single variable take that as the output
+                if length(fieldnames(res)) == 1
+                    res = struct2cell(res);
+                    res = res{1};
+                end
                 % check if this is a BCI competition file
                 if all(isfield(res,{'cnt','nfo'}))
                     disp('Parsing .mat file as a BCI competition MATLAB file.');
