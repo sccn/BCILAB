@@ -45,12 +45,12 @@ catch %#ok<CTCH>
         for d=1:length(root_dirs)
             populate_records(root_dirs{d}); end
     else
-        error('No record for the file %s was found. Make sure it is in the searched directories.',identifier);
+        error('No file was found that corresponds to the identifier %s. Make sure it is in the searched directories.',hlp_tostring(identifier));
     end
     try
         filename = filenames.(identifier);
     catch %#ok<CTCH>
-        error('No record for the file %s was found. Make sure it is in the searched directories.',identifier);
+        error('No file was found that corresponds to the identifier %s. Make sure it is in the searched directories.',hlp_tostring(identifier));
     end
 end
 

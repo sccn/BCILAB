@@ -1,4 +1,4 @@
-function success = utl_update_config(varargin)
+function success = utl_update_config(operation,varargin)
 % Update a set of values in the configuration file and handle permissions errors, etc.
 % utl_update_config(NVPs...)
 %
@@ -29,7 +29,7 @@ global tracking;
 success = false;
 try
     % apply updates
-    hlp_config(tracking.configscript,varargin{:});
+    hlp_config(tracking.configscript,operation,varargin{:});
 catch e
     if strcmp(e.identifier,'hlp_config:permissions_error')
         % no permission to update config file: ask if a local copy should be created
@@ -45,7 +45,7 @@ catch e
                 % make it the current config file
                 tracking.configscript = new_config;
                 % re-apply changes
-                hlp_config(tracking.configscript,varargin{:});
+                hlp_config(tracking.configscript,operation,varargin{:});
             catch
                 warndlg2(['Cannot create the file "' new_config '".'],'Notification');
                 return;

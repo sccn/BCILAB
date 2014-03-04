@@ -18,9 +18,13 @@ function fname = io_saveset(signal,fname,overwrite) %#ok<INUSL>
 
 if nargin < 3
     overwrite = false; end
+if ~ischar(fname)
+    error('The given file name must be a string.'); end
+if size(fname,1) ~= 1
+    error('The given file name must be a non-empty row vector of characters.'); end
 
 % append file ending if necessary
-if length(fname)<4 || ~strcmp(fname(end-3:end),'.set')
+if length(fname)<4 || (~strcmp(fname(end-3:end),'.set') && ~strcmp(fname(end-3:end),'.mat'))
     fname = [fname '.set']; end
     
 % translate to platform-dependent path
@@ -36,5 +40,9 @@ if overwrite && exist([fp filesep fn fx],'file')
 
 % save
 fprintf('Saving set to %s...',[fp filesep fn fx]);
-evalc('pop_saveset(signal,''filepath'',fp,''filename'',[fn fx]);');
+if strcmp(fname(end-3:end),'.set')
+    evalc('pop_saveset(signal,''filepath'',fp,''filename'',[fn fx]);');
+else
+    save(fname,'signal','-mat');
+end
 fprintf('done.\n');

@@ -30,7 +30,7 @@ if isempty(match)
     if ~iscellstr(x.parts(1:2:end))
         error('The given expression does not have name-value pairs as arguments.');
     else
-        error('The given name is not an argument of the function.');
+        error('The given name is not an argument of the function: %s',hlp_tostring(name));
     end
 end
 y = x.parts{match+1};

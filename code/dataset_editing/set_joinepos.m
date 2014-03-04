@@ -38,7 +38,6 @@ if ~exp_beginfun('editing') return; end
 declare_properties('name','JoinTrials','independent_channels',true,'independent_trials',true);
 
 % input validation
-required_fields = ;
 for k=1:length(varargin)
     utl_check_fields(varargin{k},{'data','event','epoch','pnts','xmin','xmax','srate'},'input','signal');
     if ~isempty(varargin{k}.event)

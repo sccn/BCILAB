@@ -97,10 +97,11 @@ arg_define(varargin, ...
 % obtain the chanlocs
 if isfield(signal,{'head','parts'})
     signal = exp_eval(signal); end
+utl_check_fields(signal,{'data','chanlocs'},'signal','signal');
 
 % figure out which are the event channels
 fprintf('Scanning potential marker channel ');
-for k=1:signal.nbchan %#ok<*NODEF>
+for k=1:size(signal.data,1) %#ok<*NODEF>
     fprintf('%i ',k);
     X = signal.data(k,:);
     X(isnan(X)) = 0;
@@ -137,7 +138,7 @@ end
 fprintf('\n');
 
 % find the mask of event channels
-eventchans = (numtypes <= max_types) & (numevents <= max_events) & (numevents <= signal.pnts*max_event_fraction) & (~all_positive | allpositive) & (~strict_integer | allinteger);
+eventchans = (numtypes <= max_types) & (numevents <= max_events) & (numevents <= size(signal.data,2)*max_event_fraction) & (~all_positive | allpositive) & (~strict_integer | allinteger);
     
 % determine whether to include labels
 include_label = hlp_rewrite(include_label,'always',true,'never',false,'multiplechans',nnz(eventchans) > 1);

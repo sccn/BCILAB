@@ -25,5 +25,5 @@ switch(setting)
     case 'offline'
         defaults = {'argsteps',{@utl_check_dataset}, 'poststeps',{@utl_add_online}, 'set_online','inapplicable'};
     otherwise
-        error('Unsupported setting.');
+        error('Unsupported setting: %s',hlp_tostring(setting));
 end

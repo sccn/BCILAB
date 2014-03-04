@@ -44,6 +44,9 @@ function signal = set_targetmarkers(varargin)
 %
 %   PruneNontarget: Prune non-target events. Whether to prune non-target events from the data.
 %
+%   AvoidBoundaries : Avoid boundary events. Whether potential target markers whose epoch bounds
+%                     would overlap markers with type ''boundary'' should be excluded. (default: true)
+%
 % Out:
 %   Signal : data set with "target" annotations added to the events of interest (.target field added)
 %            (continuous or epoched)
@@ -88,7 +91,28 @@ arg_define(varargin, ...
     arg({'prune_nontarget','PruneNontarget'}, false, [], 'Prune non-target events. Whether to prune non-target events from the data.'), ...
     arg({'avoid_boundaries','AvoidBoundaries'}, true, [], 'Avoid boundary events. Whether potential target markers whose epoch bounds would overlap markers with type ''boundary'' should be excluded.'));
 
+% input validation
+utl_check_fields(signal,{'event','epoch','srate','pnts'},'signal','signal');
+if ~isequal(size(epoch_bounds),[1 2])
+    error('The given epoch bounds must be a 2-element row vector.'); end
+if epochbounds(1) > epoch_bounds(2)
+    error('The epoch bounds must be given as [lower,upper].'); end
+if ~isreal(epoch_bounds)
+    error('The epoch bounds must be real-valued.'); end
+
 if ~isempty(signal.event)
+    % event field validation
+    if ~isfield(signal.event,eventfield)
+        error('Your signal does not contain the desired event field .event.%s. The existing event fields are: %s',eventfield,hlp_tostring(fieldnames(signal.event))); end
+    if ~isfield(signal.event,'latency')
+        error('Your signal is missing the required .event.latency field.'); end
+    latency_numels = cellfun('prodofsize',{signal.event.latency});
+    if any(latency_numels == 0)
+        error('The given signal has one or more events with empty .latency field. This is not permitted.');
+    elseif any(latency_numels ~= 1)
+        error('The given signal has one or more events with a .latency value that is not a scalar. This is not permitted.');
+    end
+    
     types = {signal.event.(eventfield)};
     matchidx = zeros(size(types));
     if isequal(eventmap,{'actualvalues'})
@@ -137,6 +161,8 @@ if ~isempty(signal.event)
 
         % optionally prune candidates whose epochs cross boundary events
         if avoid_boundaries && isempty(signal.epoch) && ~isempty(candidates)
+            if ~isfield(signal.event,'type')
+                error('If the AvoidBoundaries parameter is set, the signal must have the field .event.type.'); end
             boundaries = strcmp({signal.event.type},'boundary');
             if any(boundaries)
                 % generate a sparse mask of boundary events

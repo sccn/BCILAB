@@ -1,0 +1,2 @@
+EEGDATA.marker_pos(:,1+mod(EEGDATA.smax:EEGDATA.smax+size(EEGDATA_marker_pos,2)-1,EEGDATA.buffer_len)) = EEGDATA_marker_pos+logical(EEGDATA_marker_pos)*EEGDATA.mmax;
+EEGDATA.mmax = EEGDATA.mmax + nnz(EEGDATA_marker_pos);

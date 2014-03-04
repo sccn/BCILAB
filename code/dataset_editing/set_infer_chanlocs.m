@@ -42,11 +42,14 @@ else
 end
 
 % channel labels given as a cell array
-if iscell(locs)
+if iscellstr(locs)
     locs = struct('labels',locs); end;
 
 if ischar(locs)
     locs = readlocs(env_translatepath(locs)); end
+
+if ~isstruct(locs)
+    error('The given data is not in an appropriate format (expected either a file name, a cell array of labels, a .chanlocs struct, or an EEGLAB dataset struct).'); end
 
 % if no channel locations present, try to look them up
 if (~all(isfield(locs,{'X','Y','Z'})) || all(cellfun('isempty',{locs.X}))) && ~isempty(locs)

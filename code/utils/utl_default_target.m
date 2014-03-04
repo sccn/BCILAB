@@ -17,4 +17,3 @@ elseif isstruct(data) && isfield(data,'Y')
 else
     error('unknown target variable in the supplied data; please specify a custom target extractor.');
 end
-end

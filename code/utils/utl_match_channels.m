@@ -19,9 +19,9 @@ function [index_a,index_b] = utl_match_channels(locs_a,locs_b)
 
 
 % map from labels to full chanlocs
-if iscell(locs_a)
+if iscellstr(locs_a)
     locs_a = hlp_microcache('matchchan',@set_infer_chanlocs,locs_a); end
-if iscell(locs_b)
+if iscellstr(locs_b)
     locs_b = hlp_microcache('matchchan',@set_infer_chanlocs,locs_b); end
 
 % sanity checks

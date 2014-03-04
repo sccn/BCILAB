@@ -108,7 +108,10 @@ function varargout = exp_eval(x,iters)
 
 global tracking;
 if nargin < 2
-    iters = 1; end
+    iters = 1;
+elseif ~(isnumeric(iters) && isreal(iters) && isscalar(iters) && round(iters) == iters) || iters < 1
+    error('The given Iterations argument must be a positive integer.');
+end
 
 varargout = {x};
 while iters > 0

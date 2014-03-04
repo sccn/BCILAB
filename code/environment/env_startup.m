@@ -230,6 +230,8 @@ if ischar(opts.worker)
 elseif ~isequal(opts.worker,false)
     fprintf('Worker was given as a %s with value %s\n',class(opts.worker),hlp_tostring(opts.worker));
 end
+if ~isequal(opts.worker,false) && ~iscell(opts.worker)
+    error('The given worker argument must be a cell array or false.'); end
 
 if ischar(opts.parallel)
     try

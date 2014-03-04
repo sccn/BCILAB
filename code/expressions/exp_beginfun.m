@@ -347,6 +347,8 @@ else
     
     % concatenate general attribs, per-setting defaults and user overrides into one list of
     % name-value pairs (NVPs)
+    if ~iscellstr(varargin(1:2:end))
+        error('The given attributes must be name-value pairs.'); end
     nvps = [attribs defaults varargin];
     % retain only the last assignment for each name
     [s,indices] = sort(nvps(1:2:end));

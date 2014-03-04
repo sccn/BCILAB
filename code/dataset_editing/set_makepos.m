@@ -175,6 +175,7 @@ if strcmp(online_epoching,'at_targets') || ~onl_isonline
         % make sure that all event latencies fall within the signal bounds
         out_of_bounds = round(latencies)<1 | round(latencies)>signal.pnts;
         if any(out_of_bounds)
+            disp_once('WARNING: your signal had %i events at out-of-bounds latencies that were removed.',nnz(out_of_bounds));
             signal.event(out_of_bounds) = [];
             latencies(out_of_bounds) = [];
         end

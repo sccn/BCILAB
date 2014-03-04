@@ -36,6 +36,8 @@ if evalin('caller','exist(''arg_nvps'',''var'')')
     context.expression_posteval.parts = evalin('caller','arg_nvps'); end
 
 % assign additional exp_endfun options to the context's options...
+if ~iscellstr(varargin(1:2:end))
+    error('The given arguments must be name-value pairs.'); end
 for k=1:2:length(varargin)
     context.opts.(varargin{k}) = varargin{k+1}; end
 

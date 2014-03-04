@@ -51,6 +51,11 @@ function filename = env_translatepath(filename)
 
 global tracking;
 
+if ~ischar(filename)
+    error('The file name must be given as a string.'); end
+if size(filename,1) ~= 1
+    error('The file name must be a non-empty row vector of characters.'); end
+
 % turn the path into a system-dependent one
 filename = strrep(strrep(filename,'\',filesep),'/',filesep);
 

@@ -25,6 +25,8 @@ if isa(topic,'function_handle')
         disp('Cannot deduce help topic for the given function handle.');
         return;
     end
+elseif ~ischar(topic)
+    error('The given topic must be a string or a function handle.');
 end
 
 if ~isdeployed

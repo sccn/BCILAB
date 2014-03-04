@@ -57,6 +57,11 @@ if ~exist('dependency_dir','var')
         if cellfun('isempty',possible_dirs)
             error('Did not find a directory called ''dependencies''. Please specify it.'); end
     end
+else
+    if ~ischar(dependency_dir)
+        error('The given dependency directory must be a string.'); end
+    if ~exist(dependency_dir,'dir')
+        error('The given dependency directory (%s) does not exist.',dependency_dir); end
 end
 
 if ~exist('autocompile','var')

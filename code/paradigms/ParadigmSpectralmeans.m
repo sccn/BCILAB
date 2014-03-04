@@ -30,7 +30,7 @@ classdef ParadigmSpectralmeans < ParadigmDataflowSimplified
         end
         
         function features = feature_extract(self,signal,featuremodel)
-            [~, idx] = utl_nearest(signal.freqs, featuremodel.wnds);
+            [dummy, idx] = utl_nearest(signal.freqs, featuremodel.wnds); %#ok<ASGLU>
             features = reshape(utl_picktimes(signal.data,idx),[],size(signal.data,3))';
             if featuremodel.logtransform
                 features = log(features); end

@@ -18,6 +18,10 @@ global tracking;
 % set default
 if ~exist('filename','var') || isempty(filename)
     filename = 'bcilab:/resources/workspaces/'; end
+if ~ischar(filename)
+    error('The given file name must be a string.'); end
+if size(filename,1) ~= 1
+    error('The given file name must be a non-empty row vector of characters.'); end
 if ~exist('bugreport','var') || isempty(bugreport)
     bugreport = false; end
 

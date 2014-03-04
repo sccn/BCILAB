@@ -151,8 +151,27 @@ opts = arg_define([0 1],varargin, ...
     arg({'maxlen','MaxLength'},Inf,[],'Maximum segment length. Ignore segments that are longer than this, in seconds.'));
 
 signal = opts.signal;
-if isfield(signal,'epoch') && ~isempty(signal.epoch)
-    error('the data set appears to contain epochs: only continuous data set are supported for now.'); end
+
+% input validation
+utl_check_fields(signal,{'data','xmax','xmin','srate'},'signal','signal');
+if (isfield(signal,'epoch') && ~isempty(signal.epoch)) || size(signal.data,3) > 1
+    error('the data set appears to contain epochs: only continuous data set are supported by this implementation.'); end
+if ~isfield(signal,'event')
+    signal.event = []; end
+if ~isempty(signal.event)
+    if ~isfield(signal.event,'latency')
+        error('The given signal has a non-empty field .event but is missing the required field .event.latency.'); end
+    if ~isfield(signal.event,'type')
+        error('The given signal has a non-empty field .event but is missing the required field .event.type.'); end
+    latency_numels = cellfun('prodofsize',{signal.event.latency});
+    if any(latency_numels == 0)
+        error('The given signal has one or more events with empty .latency field. This is not permitted.');
+    elseif any(latency_numels ~= 1)
+        error('The given signal has one or more events with a .latency value that is not a scalar. This is not permitted.');
+    end    
+end
+if ~isequal(size(opts.limits),[1 2]) || ~isreal(opts.limits) || opts.limits(1)>opts.limits(2)
+    error('The given Limits argument needs to be of the form [lower,upper].'); end
 
 % refine options
 opts.count = round(double(opts.count));
@@ -281,7 +300,7 @@ if length(ival) == 2 && ival(1) <= ival(2)
         % compute the individual latencies
         lats = ival(ival>=opts.limits(1) & ival<=opts.limits(2));
         % sanitize latencies
-        lats = min(max(lats,1),signal.pnts);
+        lats = min(max(lats,1),size(signal.data,2));
         if ~isempty(signal.urevent)
             signal.urevent = []; end
         if isempty(signal.event)
@@ -347,5 +366,7 @@ else
             ignored = {};
         end
         selection = 'spannedrange'; spec = {'openevent' mrks{1} 'closeevent' mrks{2} 'lo' lats(1) 'hi' lats(2) 'ignored' ignored};
+    else
+        error('Unsupported segment specification: %s.',hlp_tostring(spec));
     end
 end
