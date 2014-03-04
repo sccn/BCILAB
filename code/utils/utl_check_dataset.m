@@ -12,7 +12,8 @@ function sig = utl_check_dataset(sig,opts,ctx,exp)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-15
-if ~exist('opts','var')
+
+if nargin < 2
     opts.fingerprint_check = true;
     ctx = [];
     exp = [];
@@ -61,8 +62,10 @@ if isfield(sig,{'data','srate'})
     % check for problems by scanning the history
     found_problem = 0;
     if isfield(sig,'history')
-        % catch a few known to be {catastrophic,dangerous,subtle} operations in the imported data set
+        % catch a few known to be problematic operations in the imported data set
         operations = { ...
+            {{'pop_epoch'}, ...
+            'Note: The BCILAB framework cannot operate on datasets that have been epoched using pop_epoch in EEGLAB.\n'}, ...
             {{'pop_eegfilt','pop_runica'}, ...
             'Note: The operation ''%s'' will neither allow to generate reliable predictions nor usable online models from the imported data set.\n'}, ...
             {{'pop_averef','pop_interp','pop_reref','pop_resample','pop_rmbase','pop_subcomp'}, ...
@@ -81,7 +84,7 @@ if isfield(sig,{'data','srate'})
         end
         if found_problem
             fprintf(['\nIt is recommended that these operations be executed from BCILAB''s ' ...
-                'processing palette,since the operations implemented there are online-capable.\n']);
+                'processing palette, since the operations implemented there are online-capable.\n']);
         end
     end
     

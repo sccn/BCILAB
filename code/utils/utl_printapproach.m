@@ -32,30 +32,63 @@ if ischar(app)
 elseif iscell(app)
     paradigm = ['Paradigm' app{1}];
     parameters = app(2:end);
-else
+elseif all(isfield(app,{'paradigm','parameters'}))
     paradigm = app.paradigm;
     parameters = app.parameters;
+else
+    error('The given data structure is not an approach.');
 end
 
 % get a handle to the paradigm's calibrate() function
-instance = eval(paradigm);
+try
+    instance = eval(paradigm);
+catch e
+    error('Failed to instantiate the paradigm %s with error: %s.',char(paradigm),e.message);
+end
 func = @instance.calibrate;
 
 % report both the defaults of the paradigm and 
 % the current settings in form of argument specifications
-defaults = clean_fields(arg_report('rich',func));
-settings = clean_fields(arg_report('lean',func,parameters));
+try
+    defaults = clean_fields(arg_report('rich',func));
+catch e
+    hlp_handleerror(e);
+    error('Failed to report default arguments of the given paradigm''s calibrate() method with error: %s',e.message);
+end
+
+try
+    settings = clean_fields(arg_report('lean',func,parameters));
+catch e
+    hlp_handleerror(e);
+    error('Failed to process parameters of the given paradigm''s calibrate() method with error: %s',e.message);
+end
 
 % get the difference as cell array of human-readable name-value pairs
-specdiff = arg_diff(defaults,settings);
-difference = arg_tovals(specdiff,[],'HumanReadableCell',false);
+try
+    specdiff = arg_diff(defaults,settings);
+catch e
+    hlp_handleerror(e);
+    error('Failed to calculate difference between default parameters and overridden parameters with error: %s',e.message);
+end
+
+try
+    difference = arg_tovals(specdiff,[],'HumanReadableCell',false);
+catch e
+    hlp_handleerror(e);
+    error('Failed to convert argument difference to nested cell-array form with error: %s',e.message);    
+end
 
 % pre-pend the paradigm choice 
 paradigm_name = char(paradigm);
 difference = [{'arg_selection',paradigm_name(9:end)} difference];
 
 % and convert to string
-string = arg_tostring(difference,strip_direct,indent,indent_incr);
+try
+    string = arg_tostring(difference,strip_direct,indent,indent_incr);
+catch e
+    hlp_handleerror(e);
+    error('Failed to convert argument difference to string with error: %s',e.message);        
+end
 
 
 % clean fields of x, by removing all arg_direct instances and 
@@ -66,5 +99,5 @@ try
     children = {x.children};
     empty_children = cellfun('isempty',children);
     [x(~empty_children).children] = celldeal(cellfun(@clean_fields,children(~empty_children),'UniformOutput',false));    
-catch
+catch %#ok<CTCH>
 end
