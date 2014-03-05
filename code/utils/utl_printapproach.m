@@ -24,6 +24,8 @@ if nargin < 3
     indent = 0; end
 if nargin < 4
     indent_incr = 4; end
+if ~isa(strip_direct,'logical')
+    error('The StripDirect argument must be a logical/boolean value.'); end
 
 % get required approach properties
 if ischar(app)
@@ -43,52 +45,29 @@ end
 try
     instance = eval(paradigm);
 catch e
-    error('Failed to instantiate the paradigm %s with error: %s.',char(paradigm),e.message);
+    if ~exist(char(paradigm),'file')
+        error('A BCI paradigm with name %s does not exist.',char(paradigm));
+    else
+        error('Failed to instantiate the paradigm named %s with error: %s; this is likely an error in the Paradigm''s code.',char(paradigm),e.message);
+    end
 end
 func = @instance.calibrate;
 
 % report both the defaults of the paradigm and 
 % the current settings in form of argument specifications
-try
-    defaults = clean_fields(arg_report('rich',func));
-catch e
-    hlp_handleerror(e);
-    error('Failed to report default arguments of the given paradigm''s calibrate() method with error: %s',e.message);
-end
-
-try
-    settings = clean_fields(arg_report('lean',func,parameters));
-catch e
-    hlp_handleerror(e);
-    error('Failed to process parameters of the given paradigm''s calibrate() method with error: %s',e.message);
-end
+defaults = clean_fields(arg_report('rich',func));
+settings = clean_fields(arg_report('lean',func,parameters));
 
 % get the difference as cell array of human-readable name-value pairs
-try
-    specdiff = arg_diff(defaults,settings);
-catch e
-    hlp_handleerror(e);
-    error('Failed to calculate difference between default parameters and overridden parameters with error: %s',e.message);
-end
-
-try
-    difference = arg_tovals(specdiff,[],'HumanReadableCell',false);
-catch e
-    hlp_handleerror(e);
-    error('Failed to convert argument difference to nested cell-array form with error: %s',e.message);    
-end
+specdiff = arg_diff(defaults,settings);
+difference = arg_tovals(specdiff,[],'HumanReadableCell',false);
 
 % pre-pend the paradigm choice 
 paradigm_name = char(paradigm);
 difference = [{'arg_selection',paradigm_name(9:end)} difference];
 
 % and convert to string
-try
-    string = arg_tostring(difference,strip_direct,indent,indent_incr);
-catch e
-    hlp_handleerror(e);
-    error('Failed to convert argument difference to string with error: %s',e.message);        
-end
+string = arg_tostring(difference,strip_direct,indent,indent_incr);
 
 
 % clean fields of x, by removing all arg_direct instances and 
