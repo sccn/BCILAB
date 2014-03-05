@@ -22,7 +22,7 @@ if ~isempty(identifier)
         error('The identifier should be a 1x1 struct'); end
     
     % our default ordering hierarchy of dis-similarity (first is largest granularity, last is finest)
-    scale_orders = {'subject','day','montage','session','recording'};
+    scale_orders = {'subject','day','montage','session','recording','block'};
     
     
     % first tag all collection items with a tracking index
