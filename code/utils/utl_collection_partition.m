@@ -53,7 +53,7 @@ function res = utl_collection_partition(collection,inds,settings)
 
 if isempty(inds)
     settings = hlp_varargin2struct(settings, ...
-        {'scope_order','ScopeOrdering'}, {'group','subject','day','montage','session','recording'}, ... % the known granularities ordered from coarsest to finest
+        {'scope_order','ScopeOrdering'}, {'group','subject','day','montage','session','recording','block'}, ... % the known granularities ordered from coarsest to finest
         {'restrict_to','RestrictTo'}, [], ... % struct with properties to which restrict test considered test sets (default: blank)
         {'exclude','Exclude'}, {}, ...        % struct with a property signature to exclude from the test sets, or cell array of such structs) (default: blank)
         {'test_on','TestOn'}, [], ...         % identifier that determines the items to use as test sets (default: coarsest known granularity)
