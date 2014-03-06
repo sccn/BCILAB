@@ -15,5 +15,5 @@ elseif isstruct(data) && isfield(data,'Y')
     % we have a struct with fields X&Y
     t = data.Y;
 else
-    error('unknown target variable in the supplied data; please specify a custom target extractor.');
+    error('The supplied data is of a form that is not supported by the default target extraction function of utl_crossval.');
 end

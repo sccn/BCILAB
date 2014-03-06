@@ -1,14 +1,14 @@
 function res = is_needing_search(argform,args)
 % test whether some argument pack requires a search or not (according to the specified argument format)
 
-if strcmp(argform,'direct')
+if ischar(argform) && strcmp(argform,'direct')
     % a search is specified by multielement arguments
     res = prod(max(1,cellfun(@length,args))) > 1;
-elseif strcmp(argform,'clauses')
+elseif ischar(argform) && strcmp(argform,'clauses')
     % a search is specified by (possibly nested) search clauses
     res = contains_search(args);
 else
-    error('unsupported argument form.');
+    error('Unsupported argument form: %s (allowed values are ''direct'' and ''clauses'')',hlp_tostring(argform));
 end
 
 % test whether the given data structure contains a search clause

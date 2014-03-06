@@ -17,8 +17,8 @@ function utl_check_fields(x,required_fields,argname,typename)
 %                                2014-03-02
 
 if ~isstruct(x)
-    error('The given %s parameter must be a struct.',argname); end
+    error('The given %s parameter must be a struct, but was: %s',argname,hlp_tostring(x,10000)); end
 if ~isscalar(x)
-    error('The given %s parameter cannot be a struct array (must be a single struct).',argname); end
+    error('The given %s parameter cannot be a struct array (must be a single struct), but was: %s',argname,hlp_tostring(x,10000)); end
 if ~all(isfield(x,required_fields))
-    error('The given %s parameter is lacking the required fields %s; it is not a valid %s.',argname,hlp_tostring(setdiff(required_fields,fieldnames(x))),typename); end
+    error('The given %s parameter is lacking the required fields %s; it is not a valid %s (its fields were: %s).',argname,hlp_tostring(setdiff(required_fields,fieldnames(x))),typename,hlp_tostring(fieldnames(x))); end

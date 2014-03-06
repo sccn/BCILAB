@@ -52,6 +52,20 @@ function model = utl_complete_model(model,func,bundle)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-08-28
 
+% input validation
+if ~isstruct(model) || ~isscalar(model)
+    error('The given model must be a 1x1 struct, but was: %s',hlp_tostring(model,10000)); end
+if exist('bundle','var')
+    if ~isstruct(bundle) || ~isscalar(bundle)
+        error('The given stream bundle must be a 1x1 struct, but was: %s',hlp_tostring(bundle,10000)); end
+    if ~isfield(bundle,'streams') && isfield(bundle,'tracking') && isfield(bundle.tracking,'online_expression')
+        bundle.streams = {bundle}; end
+    for s=1:length(bundle.streams)
+        utl_check_fields(bundle.streams{s},{'tracking','chanlocs'},'signal','signal'); end
+end
+if exist('func','var') && ~(isa(func,'function_handle') || isa(func,'char'))
+    error('The given PredictionFunction argument must either be a function handle or a string.'); end
+
 % the .tracking field holds the data that is of interest to the offline/online evaluation system
 % it is allowed for the paradigm to fill in the following field manually, in order to yield custom behavior
 if ~isfield(model,'tracking')
@@ -60,7 +74,7 @@ if ~isfield(model,'tracking')
 % add the filter_graph, if necessary
 if ~isfield(model.tracking,'filter_graph')
     if ~exist('bundle','var')
-        error('Cannot automatically deduce the .tracking.filter_graph field for this model, because the data on which its state shall be initialized is not known or available; this most likely the case if your model was calibrated on a dataset collection and the framework could not decide which dataset in the collection to initialize the filters on. Your may set the field directly in your paradigm''s calibrate() function.'); end
+        error('Cannot automatically deduce the .tracking.filter_graph field for this model, because the data on which its state shall be initialized is not known or available;\nthis most likely the case if your model was calibrated on a dataset collection and the framework could not decide which dataset in the collection to initialize the filters on.\nYour can set the field directly in your paradigm''s calibrate() function.'); end
     for s=1:length(bundle.streams)
         model.tracking.filter_graph{s} = bundle.streams{s}.tracking.online_expression; end
 else
@@ -77,25 +91,63 @@ else
         model.tracking.filter_graph = {};
         for s=1:length(bundle.streams)
             model.tracking.filter_graph{s} = bundle.streams{s}.tracking.online_expression; end
+    elseif all(isfield(model.tracking.filter_graph,{'head','parts'}))
+        % ... as an abstract expression
+        model.tracking.filter_graph = {model.tracking.filter_graph};
+    elseif iscell(model.tracking.filter_graph)
+        % ... in the proper format (cell array)
+        if isempty(model.tracking.filter_graph)
+            error('The given model''s .tracking.filter_graph is empty.'); end
+        for c=1:length(model.tracking.filter_graph)
+            if ~all(isfield(model.tracking.filter_graph{c},{'head','parts'}))
+                error('The given model''s .tracking.filter_graph is not a valid filter graph (at least one of its cells is lacking the required fields .head and/or .parts): %s',hlp_tostring(model.tracking.filter_graph)); end
+        end
     else
-        % in the regular format
-        if ~iscell(model.tracking.filter_graph)
-            model.tracking.filter_graph = {model.tracking.filter_graph}; end
+        error('The given model''s .tracking.filter_graph is not a valid filter graph: %s',hlp_tostring(model.tracking.filter_graph));
     end
 end
 
 % add the prediction function, if necessary
 if ~isfield(model.tracking,'prediction_function')
-    model.tracking.prediction_function = func; end
+    if ~exist('func','var')
+        error('If the given model is lacking a .tracking.prediction_function field, the prediction function should be supplied as second input to utl_complete_model.'); end
+    model.tracking.prediction_function = func; 
+end
+
+% validate the model's prediction function
+if ischar(model.tracking.prediction_function)
+    if strncmp(model.tracking.prediction_function,'Paradigm',8)
+        try
+            % Paradigm class reference: try to instantiate
+            instance = eval(model.tracking.prediction_function); %#ok<NASGU>
+        catch e
+            error('Failed to instantiate the paradigm referred to by the model''s .tracking.prediction_function with error: %s',hlp_handleerror(e));
+        end
+    else
+        if ~exist(model.tracking.prediction_function,'file')
+            error('The function referred to by the model''s .tracking.prediction_function field does not exist: %s',model.tracking.prediction_function); end
+    end
+else
+    if ~exist(char(model.tracking.prediction_function),'file')
+        error('The function referred to by the model''s .tracking.prediction_function field does not exist: %s',char(model.tracking.prediction_function)); end
+end
 
 try
-    % add the channel locations (these are technically redundant, as they can be derived from the
-    % preprocessing chain) (deduced from the bundle)
+    % add and validate the channel locations (these are technically redundant, as they can be 
+    % derived from the preprocessing chain) (deduced from the bundle)
     if ~isfield(model.tracking,'prediction_channels')
         if ~exist('bundle','var')
-            errore('Cannot automatically assign the .tracking.prediction_channels field because the data set from which these channels shall be determined could not be deduced by the framework; consider setting this field manually in the calibrate() function of your paradigm. This is a one-time warning.'); end
+            error('Cannot automatically assign the .tracking.prediction_channels field because the data set from which these channels shall be determined could not be deduced by the framework; consider setting this field manually in the calibrate() function of your paradigm.'); end
         for s=1:length(bundle.streams)
-            model.tracking.prediction_channels{s} = bundle.streams{s}.chanlocs; end
+            if ~((isstruct(bundle.streams{s}.chanlocs) && isfield(bundle.streams{s}.chanlocs,'labels')) || iscellstr(bundle.streams{s}.chanlocs))
+                error('The .chanlocs fields in one of the streams of the stream bundle is malformed; needs to be a chanlocs struct (or cell array of channel labels), but was: %s',s,hlp_tostring(bundle.streams{s}.chanlocs)); end
+            model.tracking.prediction_channels{s} = bundle.streams{s}.chanlocs; 
+        end
+    else
+        for s=1:length(model.tracking.prediction_channels)
+            if ~((isstruct(model.tracking.prediction_channels{s}) && isfield(model.tracking.prediction_channels{s},'labels')) || iscellstr(model.tracking.prediction_channels{s}))
+                error('The given model''s .tracking.prediction_channels{k} field is malformed for k=%i; needs to be a chanlocs struct or cell array of channel labels, but was: %s',s,hlp_tostring(model.tracking.prediction_channels{s})); end 
+        end
     end
 catch %#ok<CTCH>
 end

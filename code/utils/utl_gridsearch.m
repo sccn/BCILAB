@@ -104,18 +104,20 @@ elseif ischar(arg1)
     % utl_gridsearch(RangeFormat, Function, Domain...)
     args = {'argform',arg1,'func',varargin{1}}; varargin = varargin(2:end);
 else
-    error('Unexpected control options format.');
+    error('Unexpected control options format: %s',hlp_tostring(arg1));
 end
 
 % read options
 opts = hlp_varargin2struct(args, 'func',mandatory, 'argform','direct', 'engine_gs','local', 'pool','global', 'policy','global');
+if ~isa(opts.func,'function_handle')
+    error('The Function argument must be a function handle.'); end
 
 % rewrite arguments if given as clauses
 if strcmp(opts.argform,'clauses')
     for i=1:length(varargin)
         varargin{i} = hlp_flattensearch(varargin{i},'cell'); end
 elseif ~strcmp(opts.argform,'direct')
-    error('Unsupported parameter search mode.');
+    error('Unsupported RangeFormat value: %s (allowed are ''clauses'' and ''direct'')',opts.argform);
 end
 
 % determine dimensions of the input grid

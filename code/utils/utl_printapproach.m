@@ -53,21 +53,44 @@ catch e
 end
 func = @instance.calibrate;
 
-% report both the defaults of the paradigm and 
-% the current settings in form of argument specifications
-defaults = clean_fields(arg_report('rich',func));
-settings = clean_fields(arg_report('lean',func,parameters));
+% report the defaults of the paradigm
+try
+    defaults = clean_fields(arg_report('rich',func));
+catch e
+    error('Could not report default calibrate() arguments for paradigm %s with error: %s',hlp_handleerror(e));
+end
 
-% get the difference as cell array of human-readable name-value pairs
-specdiff = arg_diff(defaults,settings);
-difference = arg_tovals(specdiff,[],'HumanReadableCell',false);
+% report the current settings of the paradigm in form of an argument specification
+try
+    settings = clean_fields(arg_report('lean',func,parameters));
+catch e
+    error('Could not set custom parameters to paradigm %s with error: %s',hlp_handleerror(e));
+end
+
+% get the difference between the defaults and settings
+try
+    specdiff = arg_diff(defaults,settings);
+catch e
+    error('Could not calculate difference between default and custom parameters with error: %s',hlp_handleerror(e));
+end
+
+% convert to nested cell arrays of human-readable name-value pairs
+try
+    difference = arg_tovals(specdiff,[],'HumanReadableCell',false);
+catch e
+    error('Could not convert argument specification to nested cell array form with error: %s',hlp_handleerror(e));
+end
 
 % pre-pend the paradigm choice 
 paradigm_name = char(paradigm);
 difference = [{'arg_selection',paradigm_name(9:end)} difference];
 
 % and convert to string
-string = arg_tostring(difference,strip_direct,indent,indent_incr);
+try
+    string = arg_tostring(difference,strip_direct,indent,indent_incr);
+catch e
+    error('Could not convert approach definition to string with error: %s',hlp_handleerror(e));
+end
 
 
 % clean fields of x, by removing all arg_direct instances and 
