@@ -93,6 +93,20 @@ if isa(opts.policy,'function_handle')
 if strcmp(opts.engine,'BLS') && isempty(opts.pool)
     opts.engine = 'local'; end
 
+% validate options
+if ~iscellstr(opts.pool)
+    error('The given worker pool must be a cell array of strings, but was: %s',hlp_tostring(opts.pool)); end
+if ~ischar(opts.policy)
+    error('The given rescheduling policy must be a string, but was: %s',hlp_tostring(opts.policy)); end
+if ~exist(opts.policy,'file')
+    error('The given rescheduling policy refers to a non-existing file: %s',opts.policy); end
+if ~(isnumeric(opts.receiver_backlog) && isscalar(opts.receiver_backlog) && round(opts.receiver_backlog)==opts.receiver_backlog && opts.receiver_backlog > 0)
+    error('The given receiver_backlog argument must be a positive integer.'); end
+if ~isnumeric(opts.receiver_timeout) || ~isscalar(opts.receiver_timeout) || opts.receiver_timeout<0
+    error('The given receiver timeout must be a nonnegative scalar.'); end
+if ~isnumeric(opts.reschedule_interval) || ~isscalar(opts.reschedule_interval) || opts.reschedule_interval<0
+    error('The given reschedule interval must be a nonnegative scalar.'); end
+
 % canonlicalize task format to {function-handle,arguments...}
 for t=1:length(tasks)
     if isfield(tasks{t},{'head','parts'})
@@ -103,7 +117,7 @@ for t=1:length(tasks)
         tasks{t} = {@eval,tasks{t}};
     elseif ~(iscell(tasks{t}) && ~isempty(tasks{t}) && isa(tasks{t}{1},'function_handle'))
         % incorrect task format...
-        error('Unsupported task format; please see documentation.');
+        error('Unsupported task format, please see documentation: %s',hlp_tostring(tasks{t},10000));
     end
 end
 
@@ -136,7 +150,7 @@ end
 switch opts.engine
     case 'local'
         sched = {};
-        for t=1:length(tasks)
+        for t=length(tasks):-1:1
             sched(t) = {{t,tasks{t}{1}(tasks{t}{2:end})}}; end
     case 'ParallelComputingToolbox'
         sched = {};
@@ -152,5 +166,5 @@ switch opts.engine
         % return the collected result in sched
         sched = struct('ReferenceResults',{tasks});
     otherwise
-        error('Unsupported parallelization engine selected.');
+        error('Unsupported parallelization engine selected: %s',hlp_tostring(opts.engine));
 end

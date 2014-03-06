@@ -3,7 +3,7 @@ function results = utl_run_batchjob(opts,d,appname,setnames)
 % Results = ult_run_batchjob(Options,DatasetIndex,ApproachName,DatasetNames)
 
 try
-    results = [];    
+    results = [];
     storename = env_translatepath(strrep(strrep(opts.storepatt,'%set',setnames{d}),'%approach',appname));
     if opts.reuse && ~isempty(storename) && exist(storename,'file')
         disp(['Reusing existing result for approach "' appname '" on set "' setnames{d} '".']);

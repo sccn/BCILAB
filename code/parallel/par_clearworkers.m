@@ -34,6 +34,8 @@ function par_clearworkers(hostnames)
 % optionally look up hostnames from the global pool
 if ~exist('hostnames','var')
     hostnames = par_globalsetting('pool'); end
+if ~iscellstr(hostnames)
+    error('The given Hostnames argument must be a cell array of strings.'); end
 
 % remove any port assignments
 for i=1:length(hostnames)

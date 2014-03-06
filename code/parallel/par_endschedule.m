@@ -42,6 +42,10 @@ errors = {};
 
 % read options
 opts = hlp_varargin2struct(varargin,'keep',false, 'spin_interval',0.25);
+if opts.spin_interval < 0.001
+    disp_once('The given spin interval is unreasonably short.'); end
+if opts.spin_interval > 1
+    disp_once('The given spin interval is unnecessarily long.'); end
 
 if iscell(sched)
     % locally computed results
@@ -79,15 +83,15 @@ else
         try
             % deserialize result
             raw{r} = hlp_deserialize(fast_decode(raw{r}));
-            if isfield(raw{r}{2},{'message','identifier','stack'})
+            if all(isfield(raw{r}{2},{'message','identifier','stack'}))
                 % append to errors
-                errors{end+1} = raw{r};
+                errors{end+1} = raw{r}; %#ok<AGROW>
             else
                 % put into results
-                results{raw{r}{1}} = raw{r}{2};
+                results{raw{r}{1}} = raw{r}{2}; %#ok<AGROW>
             end
         catch e
-            errors{end+1} = {NaN,e};
+            errors{end+1} = {NaN,e}; %#ok<AGROW>
         end
     end    
 end
