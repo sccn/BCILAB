@@ -84,9 +84,6 @@ if ~isempty(context.memoize_id) && isfield(context.ws_output_post,context.outarg
         try obj = [obj {context.ws_output_post.(context.outargs{k})}]; catch break; end
     end
     
-    % for each location... (currently: memory or disk)
-    for c=1:length(context.memoize_id)
-        id = context.memoize_id{c};
-        utl_memoize_commit(obj,id,context.input_size);
-    end
+    % commit object to cache
+    utl_memoize_commit(obj,context.memoize_id,context.input_size);
 end

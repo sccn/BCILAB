@@ -299,7 +299,7 @@ callfunc = str2func(callname);
 [codehash,inargs,outargs] = hlp_fileinfo(callname,callfile);
 
 
-% --- read the caller's function arguments (unfolding varargs along the way) ---
+% --- read the caller's function arguments (and unfold varargin, if any) ---
 try
     parts = {};
     for i=1:length(inargs)
@@ -313,7 +313,7 @@ catch, end
 
 % --- parse the attribute settings ---
 if isempty(varargin) && strcmp(setting,'symbolic')
-    % symbolic operations with no settings: fast path
+    % fast path: symbolic operations with no settings
     if ~should_evaluate
         % -> delayed evaluation: compose & return a new expression from transformed
         % arguments
@@ -328,7 +328,7 @@ if isempty(varargin) && strcmp(setting,'symbolic')
     end
     return;
 else
-    % everything else: regular path
+    % regular path: every other case
     
     % define general attributes
     attribs = {'delayed',1,'add_impure',1,'hold',[],'symbolic',0,'set_online',[],'append_online',[],'delayed_online',false,'argsteps',[],'presteps',[],'poststeps',[],'fingerprint_check',[],'fingerprint_create',[],'memoize',[]};

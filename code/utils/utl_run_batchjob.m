@@ -6,8 +6,8 @@ try
     results = [];
     storename = env_translatepath(strrep(strrep(opts.storepatt,'%set',setnames{d}),'%approach',appname));
     if opts.reuse && ~isempty(storename) && exist(storename,'file')
-        disp(['Reusing existing result for approach "' appname '" on set "' setnames{d} '".']);
-        disp(['Trying to load file ' storename]);
+        fprintf('Reusing existing result for approach "%s" on set "%s".\n',appname,setnames{d});
+        fprintf('Trying to load file %s.\n',storename);
         io_load(storename);
     elseif ~opts.loadonly
         % train a model on the Dataset
@@ -20,7 +20,7 @@ try
                     [res.pred_predictions{k},res.pred_loss(k),res.pred_stats{k},res.pred_targets{k}] = bci_predict(opts.predictargs{:},'data',opts.predictsets{d}{k},'model',res.model, 'markers',opts.markers);
                 catch e
                     [res.pred_predictions{k},res.pred_loss(k),res.pred_stats{k},res.pred_targets{k}] = deal([],NaN,struct(),[]);
-                    disp(['Error computing predictions for set "' setnames{d} '", prediction set #' num2str(k) ' with approach "' appname '".']);
+                    fprintf('Error computing predictions for set "%s", prediction set #%i with approach "%s".\n',setnames{d},k,appname);
                     opts.handler(e);
                 end
             end
@@ -32,17 +32,27 @@ try
             io_save(storename,opts.saveargs{:},'res'); end
     end
     if ~isempty(opts.resultpatt)
-        eval([strrep(strrep(opts.resultpatt,'%num',num2str(d)),'%approach',appname) ' res;']); end
+        try
+            statement = [strrep(strrep(opts.resultpatt,'%num',num2str(d)),'%approach',appname) ' res;'];
+            eval(statement); 
+        catch e
+            fprintf('Failed to evaluate ResultPattern (statement was "%s") with error: %s.\n',statement,e.message);
+        end
+    end
     try
         if isfield(res,'pred_loss')
             fprintf('%s@%s: train loss: %.4f, prediction loss: %.4f\n',appname,setnames{d},res.loss,res.pred_loss);
         else
             fprintf('%s@%s: train loss: %.4f\n',appname,setnames{d},res.loss);
         end
-    catch
-        disp('Could not display loss estimates.');
+    catch e
+        fprintf('Failed to display loss estimates with error: %s\n',e.message);
     end
 catch e
-    disp(['Error processing data set "' setnames{d} '" with approach "' appname '".']);
-    opts.handler(e);
+    fprintf('Error processing data set "%s" with approach "%s".\n',setnames{d},appname);
+    try
+        opts.handler(e);
+    catch he
+       fprintf('Failed to evaluate result handler with error: %s\n.',he.message);
+    end
 end
