@@ -141,6 +141,8 @@ try
         for s=1:length(bundle.streams)
             if ~((isstruct(bundle.streams{s}.chanlocs) && isfield(bundle.streams{s}.chanlocs,'labels')) || iscellstr(bundle.streams{s}.chanlocs))
                 error('The .chanlocs fields in one of the streams of the stream bundle is malformed; needs to be a chanlocs struct (or cell array of channel labels), but was: %s',s,hlp_tostring(bundle.streams{s}.chanlocs)); end
+            if iscellstr(bundle.streams{s}.chanlocs)
+                bundle.streams{s}.chanlocs = struct('labels',bundle.streams{s}.chanlocs); end
             model.tracking.prediction_channels{s} = bundle.streams{s}.chanlocs; 
         end
     else
@@ -151,6 +153,9 @@ try
     end
 catch %#ok<CTCH>
 end
+
+if length(model.tracking.filter_graph) ~= length(model.tracking.prediction_channels)
+    error('The given filter graph has a different number of elements than the given prediction channels; they should have the same length.'); end
 
 % finally add also a timestamp (so that we can sort them by creation time)
 model.timestamp = now;

@@ -103,7 +103,7 @@ if ~isreal(epoch_bounds)
 if ~isempty(signal.event)
     % event field validation
     if ~isfield(signal.event,eventfield)
-        error('Your signal does not contain the desired event field .event.%s. The existing event fields are: %s',eventfield,hlp_tostring(fieldnames(signal.event))); end
+        error('Your signal does not contain the required event field .event.%s. The existing event fields are: %s',eventfield,hlp_tostring(fieldnames(signal.event))); end
     if ~isfield(signal.event,'latency')
         error('Your signal is missing the required .event.latency field.'); end
     latency_numels = cellfun('prodofsize',{signal.event.latency});

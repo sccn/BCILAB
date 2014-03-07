@@ -584,34 +584,38 @@ if ~hlp_resolve('fingerprint_create',true)
 if ~hlp_resolve('fingerprint_check',true)
     disp('WARNING: Data fingerprint checking is currently disabled (fingerprint_check set to 0). You can re-enable it by calling exp_set_scoped(@fingerprint_check,1) in the command line.'); end
 
-% --- pre-process the inputs ---
+% --- validate and pre-process the inputs ---
 
 % parse the approach (either it's a paradigm name string, a cell array, or a struct)
 if ischar(opts.approach)
     opts.approach = struct('paradigm',opts.approach, 'parameters',{{}});
-elseif iscell(opts.approach)
+elseif iscell(opts.approach) && ~isempty(opts.approach)
     opts.approach = struct('paradigm',opts.approach{1}, 'parameters',{opts.approach(2:end)}); 
 elseif ~all(isfield(opts.approach,{'paradigm','parameters'}))
-    error('The approach must be given either as struct with fields ''paradigm'' and ''parameters'' or as a cell array of the form {paradigmname, param1, param2, param3, ...}'); 
+    error('The approach must be given either as struct with fields ''paradigm'' and ''parameters'' or as a cell array of the form {paradigmname, param1, param2, param3, ...}, but was: %s',hlp_tostring(opts.approach));
 end
-
 
 % parse the paradigm identifier of the approach
-paradigm_name = opts.approach.paradigm;
-if ischar(paradigm_name)
-    if exist(['Paradigm' paradigm_name],'class')
-        paradigm_name = ['Paradigm' paradigm_name]; end
-    if ~exist(paradigm_name,'class')
-        error('A paradigm class with the name (%s) was not found.',paradigm_name); end
-elseif isa(paradigm_name,'function_handle')
-    info = functions(paradigm_name);
-    paradigm_name = class(info.workspace{1}.instance);
-    if ~strncmp(paradigm_name,'Paradigm',8)
-        error('The Paradigm argument must be the name of a Paradigm class.'); end
+paradigm_ref = opts.approach.paradigm;
+if ischar(paradigm_ref)
+    if exist(['Paradigm' paradigm_ref],'class')
+        paradigm_ref = ['Paradigm' paradigm_ref]; end
+    if ~exist(paradigm_ref,'class')
+        error('A paradigm class with the name (%s) was not found.',paradigm_ref); end
+elseif isa(paradigm_ref,'function_handle')
+    info = functions(paradigm_ref);
+    paradigm_ref = class(info.workspace{1}.instance);
+    if ~strncmp(paradigm_ref,'Paradigm',8)
+        error('The paradigm referred to by the given Approach must be the name of a Paradigm class (i.e., start with ''Paradigm''), but was: %s',paradigm_ref); end
 else
-    error('The Paradigm argument must be the name of a class (optionally omitting the "Paradigm" prefix).');
+    error('The paradigm referred to by the given Approach must be the name of a class (optionally omitting the "Paradigm" prefix), but was: %s',hlp_tostring(paradigm_ref));
 end
-instance = eval(paradigm_name); %#ok<NASGU>
+
+try
+    instance = eval(paradigm_ref); %#ok<NASGU>
+catch e
+    error('Failed to instantiate paradigm class (%s) with error: %s',paradigm_ref,e.message);
+end
 calibrate_func = eval('@instance.calibrate');
 predict_func = eval('@instance.predict');
 
@@ -640,6 +644,8 @@ if isempty(opts.epoch_bounds)
         % parameter search, or if different bounds are assigned to multiple streams) plus some slack
         opts.epoch_bounds = [min(bounds(:,1))-0.1 max(bounds(:,2))+0.1];
     end
+elseif ~isequal(size(opts.epoch_bounds),[1 2]) || opts.epoch_bounds(1) > opts.epoch_bounds(2)    
+    error('The give EpochBounds argument, when non-empty, must be given as [lower,upper], but was: %s',hlp_tostring(opts.epoch_bounds));
 end
 
 paradigm_parameters = {paradigm_parameters};
@@ -656,7 +662,10 @@ if isstruct(opts.data)
 for k=1:length(opts.data)
     % turn each data set into a stream bundle, if necessary
     if ~isfield(opts.data{k},'streams')
-        opts.data{k} = struct('streams',{opts.data(k)}); end
+        opts.data{k} = struct('streams',{opts.data(k)}); 
+    elseif ~iscell(opts.data{k}.streams) || isempty(opts.data{k}.streams) || ~all(cellfun('isclass',opts.data{k}.streams,'struct'))
+        error('The given dataset''s .streams field must be a nonempty cell array of structs, but was: %s',hlp_tostring(opts.data{k}.streams,10000));
+    end
     % annotate target markers in 1st stream according to the specified event types
     if ~isempty(opts.markers)
         if isempty(opts.epoch_bounds)
@@ -739,7 +748,7 @@ crossval_args = [{rmfield(opts,{'data','approach','markers','goal_identifier','e
 % annotate the result with additional info
 stats.is_result = true;
 stats.timestamp = now;
-model.paradigm = paradigm_name;
+model.paradigm = paradigm_ref;
 model.options = paradigm_parameters;
 model.source_data = source_data;
 model.control_options = rmfield(opts,'data');
@@ -747,7 +756,7 @@ model.epoch_bounds = opts.epoch_bounds;
 if isfield(stats.per_fold,'model')
     for k=1:length(stats.per_fold)
         if ~isempty(stats.per_fold(k).model)
-            stats.per_fold(k).model.paradigm = paradigm_name; end
+            stats.per_fold(k).model.paradigm = paradigm_ref; end
     end
 end
 % remove some additional data overhead from model & stats to keep them small
@@ -757,7 +766,7 @@ if opts.prune_datasets
 end
 model = utl_prune_handles(model);
 stats = utl_prune_handles(stats);
-model.tracking.prediction_function = paradigm_name;
+model.tracking.prediction_function = paradigm_ref;
 stats.model = model;
 
 
@@ -798,3 +807,6 @@ elseif iscell(x)
     for c=1:numel(x)
         res = [res collect_instances(x{c},field)]; end
 end
+
+
+    
