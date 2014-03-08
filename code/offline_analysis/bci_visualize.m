@@ -18,8 +18,15 @@ function bci_visualize(model,varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-11-09
 
-% instantiate model class...
-instance = eval(model.paradigm);
+if ~isfield(model,'paradigm')
+    error('The given data structure is not a valid model (lacking the required field .paradigm)'); end
+
+% instantiate model class
+try
+    instance = eval(model.paradigm);
+catch e
+    error('Failed to instantiate the given BCI paradigm %s with error: %s.',char(model.paradigm),e.message);
+end
 
 if isempty(varargin) && arg_supported(@instance.visualize)
     arg_guidialog(@instance.visualize,'Parameters',{'Model',model});

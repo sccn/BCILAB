@@ -45,26 +45,41 @@ signal = hlp_varargin2struct(varargin, eeg_emptyset, 'setname','new set');
 
 % rewrite cell array data
 if iscell(signal.data)
-    data = signal.data;
-    signal.data = [];
-    for c=1:length(data)
-        if isnumeric(data{c}) && ~isempty(data{c})
-            signal.data = cat(3, signal.data, data{c});
-            for i=size(signal.data,3)-size(data{c},3)+1:size(signal.data,3)
-                signal.epoch(i).target = c; end
+    if isempty(signal.data)
+        signal.data = [];
+    else
+        sizes = cellfun('size',signal.data,1);
+        if any(sizes(1) ~= sizes)
+            error('For cell-array data, each cell must have the same number of channels.'); end
+        sizes = cellfun('size',signal.data,2);
+        if any(sizes(1) ~= sizes)
+            error('For cell-array data, each cell must have the same number of time points.'); end
+        data = signal.data;
+        signal.data = [];
+        for c=1:length(data)
+            if isnumeric(data{c}) && ~isempty(data{c})
+                signal.data = cat(3, signal.data, data{c});
+                for i=size(signal.data,3)-size(data{c},3)+1:size(signal.data,3)
+                    signal.epoch(i).target = c; end
+            end
         end
-    end    
+    end
 end
 
-% bring chanlocs into an appropriate format
-try signal.chanlocs = hlp_microcache('setnew',@set_infer_chanlocs,signal.chanlocs); catch,end
-
-% if necessary, create chanlocs from scratch, according to the data size
+% process .chanlocs
 if ~isfield(signal,'chanlocs') || isempty(signal.chanlocs)
+    % create chanlocs from scratch, according to the data size
     if ~isempty(signal.data)
         signal.chanlocs = struct('labels',cellfun(@num2str,num2cell(1:size(signal.data,1),1),'UniformOutput',false),'type',repmat({'unknown'},1,size(signal.data,1))); 
     else
         signal.chanlocs = struct('labels',{},'type',{});
+    end
+else
+    % bring chanlocs into an appropriate format
+    try 
+        signal.chanlocs = hlp_microcache('setnew',@set_infer_chanlocs,signal.chanlocs); 
+    catch e
+        error('Could not look up channel locations according to the given chanlocs argument with error: %s (chanlocs were: %s)',e.message,hlp_tostring(signal.chanlocs,10000));
     end
 end
 
@@ -96,20 +111,9 @@ end
 
 % do minimal consistency checks
 if ~isempty(signal.chanlocs) && ~isempty(signal.data) && (length(signal.chanlocs) ~= signal.nbchan)
-    if length(signal.chanlocs) == signal.nbchan+1 
-        if isfield(signal,'ref') && isscalar(signal.ref) && signal.ref <= signal.nbchan
-            signal.chanlocs = signal.chanlocs(setdiff(1:signal.nbchan,signal.ref));
-        elseif any(strcmpi({signal.chanlocs.labels},'ref'))
-            signal.chanlocs = signal.chanlocs(~strcmpi({signal.chanlocs.labels},'ref'));
-        else
-            error('The number of supplied channel locations does not match the number of channels in the data. Apparently includes 1 special channel...'); 
-        end
-    else
-        error('The number of supplied channel locations does not match the number of channels in the data.'); 
-    end
-end
+    error('The number of supplied channel locations (%i) does not match the number of channels (%i) in the data.',length(signal.chanlocs),signal.nbchan);  end
 if isfield(signal,'epoch') && ~isempty(signal.epoch) && length(signal.epoch) ~= size(signal.data,3)
-    error('The number of data epochs does not match the number of entries in the epoch field'); end
+    error('The number of data epochs (%i) does not match the number of entries in the epoch field (%i).',size(signal.data,3),length(signal.epoch)); end
 
 % ensure that .tracking.timeseries_fields is present
 if ~isfield(signal,'tracking') || ~isfield(signal.tracking,'timeseries_fields')

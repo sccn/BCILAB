@@ -103,8 +103,10 @@ try
 
     % update time stamps
     if (nargin==3 && isnumeric(markers)) || nargin>3
-        if nargin==3
-            stamp = markers; end
+        if nargin == 3
+            stamp = markers; 
+            clear markers;
+        end
         if isempty(stamp)
             return; end
         perform_update(name,'stamp',stamp,[...
@@ -118,36 +120,89 @@ try
             '[X.xmin,X.xmax] = deal((1+max(0,X.smax-X.buffer_len))/X.srate + X.lag,X.smax/X.srate + X.lag);']);
     end
 catch e
-    % error: interpret the source of the error & display an appropriate message
-    try
-        stream = evalin('base',name);
-    catch %#ok<CTCH>
-        disp(['A stream named ' name ' does not exist.']);
+    % diagnose the error
+    try        
+        % validate name argument
+        if nargin < 2
+            error('At least the Name and Chunk argument must be given to onl_append.'); end
+        if ~ischar(name) || ~isempty(name)
+            error('The given Name argument must be a string that refers to a variable in the MATLAB workspace, but was: %s',hlp_tostring(name,10000)); end
+        if ~isvarname(name)
+            error('The given Name argument must be a valid variable name in the MATLAB workspace, but was: %s',name); end        
+        try
+            stream = evalin('base',name);
+        catch %#ok<CTCH>            
+            error('A stream named %s does not exist in the MATLAB workspace.',name);
+        end
+
+        % validate chunk argument
+        if ndims(chunk) ~= 2 %#ok<ISMAT>
+            error('The given Chunk argument must be a [#Channels x #Samples] matrix, but was: %s',hlp_tostring(chunk,10000)); end
+        if ~isnumeric(chunk)
+            error('The given Chunk argument must be a numeric matrix, but was: %s',hlp_tostring(chunk,10000)); end
+        
+        % validate stream fields
+        if ~isstruct(stream) || ~isscalar(stream)
+            error('The stream %s is not a 1x1 struct, but was: %s. It might have been overwritten by another function or you use the wrong stream name.',name,hlp_tostring(stream,10000)); end
+        if ~isfield(stream,'buffer')
+            error('The stream %s has no .buffer field. It might have been overwritten by another function or you use the wrong stream name.',name); end
+        if ~isnumeric(stream.buffer)
+            error('The stream %s has an invalid buffer. It might have been overwritten by another function or you use the wrong stream name.',name); end
+        if ~isfield(stream,'buffer_len')
+            error('The stream %s has no buffer_len field. It might have been overwritten by another function or you use the wrong stream name.',name); end
+        if ~isscalar(stream.buffer_len) || ~isnumeric(stream.buffer_len)
+            error('The stream %s has an invalid buffer_len field. It might have been overwritten by another function or you use the wrong stream name.',name); end
+        if size(stream.buffer,2) ~= stream.buffer_len
+            error('The stream %s has a buffer with an invalid length. It might have been overwritten by another function or you use the wrong stream name.',name); end
+        if ~isfield(stream,'smax')
+            error('The stream %s has no smax field. It might have been overwritten by another function or you use the wrong stream name.',name); end
+        if ~isscalar(stream.smax) || ~isnumeric(stream.smax)
+            error('The stream %s has an invalid smax field. It might have been overwritten by another function or you use the wrong stream name.',name); end
+        if size(stream.buffer,1) ~= size(chunk,1)
+            error('Number of channels in the supplied chunk (%i) does not match the number of channels / channel names in the stream (%i).',size(chunk,1),size(stream.buffer,1)); end
+        if ~isfield(stream,'marker_pos')
+            error('The stream %s has no marker_pos field. It might have been overwritten by another function or you use the wrong stream name.',name); end
+        
+        % validate marker-related properties
+        if exist('markers','var')
+            % validate markers argument
+            if ~(isequal(markers,[]) || isstruct(markers))
+                error('The given Markers argument must be either [] or a struct array, but was: %s',hlp_tostring(markers,10000)); end
+            if ~isempty(markers) 
+                if ~isfield(markers,'type')
+                    error('The given Markers array is lacking the required .type field.'); end
+                if ~isfield(markers,'latency')
+                    error('The given Markers array is lacking the required .latency field.'); end
+            end
+            % validate stream fields
+            if ~isfield(stream,'mmax')
+                error('The stream %s has no mmax field. It might have been overwritten by another function or you use the wrong stream name.',name); end
+            if ~isfield(stream,'marker_buffer')
+                error('The stream %s has no marker_buffer field. It might have been overwritten by another function or you use the wrong stream name.',name); end
+            if ~isfield(stream,'marker_buffer_len')
+                error('The stream %s has no marker_buffer_len field. It might have been overwritten by another function or you use the wrong stream name.',name); end            
+        end
+        
+        % validate timestamp-related properties
+        if exist('stamp','var')
+            % validate stamp argument
+            if ~isnumeric(stamp) || ~isscalar(stamp)
+                error('The given Timestamp argument must be a scalar numeric value, but was: %s',hlp_tostring(stamp,10000)); end
+            % validate stream fields
+            if ~isfield(stream,'tmax')
+                error('The stream %s has no tmax field. It might have been overwritten by another function or you use the wrong stream name.',name); end
+            if ~isfield(stream,'timestamps')
+                error('The stream %s has no timestamps field. It might have been overwritten by another function or you use the wrong stream name.',name); end
+            if ~isfield(stream,'timestamps_len')
+                error('The stream %s has no timestamps_len field. It might have been overwritten by another function or you use the wrong stream name.',name); end
+            if ~isfield(stream,'srate')
+                error('The stream %s has no srate field. It might have been overwritten by another function or you use the wrong stream name.',name); end
+        end
+        % unknown error
+        rethrow(hlp_handleerror(e));
+    catch e
+        disp('onl_append error: %s',e.message);
     end
-    if ndims(chunk) ~= 2
-        disp('onl_append expects a [#Channels x #Samples] matrix.');
-    elseif ~isstruct(stream) || ~isscalar(stream)
-        disp(['The stream ' name ' is not a 1x1 struct. Probably it was accidentally overwritten by another function.']);
-    elseif ~isfield(stream,'buffer')
-        disp(['The stream ' name ' has no buffer. Probably it was accidentally overwritten by another function.']);
-    elseif ~isnumeric(stream.buffer)
-        disp(['The stream ' name ' has an invalid buffer. Probably it was accidentally overwritten by another function.']);
-    elseif ~isfield(stream,'buffer_len')
-        disp(['The stream ' name ' has no buffer_len field. Probably it was accidentally overwritten by another function.']);
-    elseif ~isscalar(stream.buffer_len) || ~isnumeric(stream.buffer_len)
-        disp(['The stream ' name ' has an invalid buffer_len field. Probably it was accidentally overwritten by another function.']);
-    elseif size(stream.buffer,2) ~= stream.buffer_len
-        disp(['The stream ' name ' has a buffer with an invalid length. Probably it was accidentally overwritten by another function.']);
-    elseif ~isfield(stream,'smax')
-        disp(['The stream ' name ' has no smax field. Probably it was accidentally overwritten by another function.']);
-    elseif ~isscalar(stream.smax) || ~isnumeric(stream.smax)
-        disp(['The stream ' name ' has an invalid smax field. Probably it was accidentally overwritten by another function.']);
-    elseif size(stream.buffer,1) ~= size(chunk,1)
-        disp('Number of channels in the supplied chunk does not match the number of channels / channel names in the stream.');
-    else
-        disp('An unknown error occurred.');
-    end
-    hlp_handleerror(e);
 end
 
 

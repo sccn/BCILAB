@@ -117,7 +117,7 @@ function id = onl_newstream(name,varargin)
 if ~exist('name','var')
     error('Please specify a name for the stream.'); end
 if ~isvarname(name)
-    error('The name of the online stream must be a valid variable name.'); end
+    error('The given StreamName argument must be a valid variable name, but was: %s',hlp_tostring(name,10000)); end
 
 % create the stream and add/reset user-specified fields
 stream = exp_eval(set_new('buffer_len',10,'timestamps_len',25,'marker_buffer_len',1000,'types',[],varargin{:}, ...
@@ -126,11 +126,30 @@ stream = exp_eval(set_new('buffer_len',10,'timestamps_len',25,'marker_buffer_len
 % check validity of user-specified fields
 if isempty(stream.srate)
     error('A sampling rate must be specified via the ''srate'' option.'); end
+if ~isnumeric(stream.srate) || ~isscalar(stream.srate) || stream.srate == 0
+    error('The given sampling rate is invalid: %s.',hlp_tostring(stream.srate,10000)); end
 if isempty(stream.chanlocs)
     error('Channel info must be specified via the ''chanlocs'' option.'); end
+if ~isfield(stream.chanlocs,'labels')
+    error('The given chanlocs field is lacking the required .labels field.'); end
 if isempty(stream.types)
-    stream.types = unique({stream.chanlocs.type}); end
+    stream.types = unique({stream.chanlocs.type}); 
+elseif ~iscellstr(stream.types)
+    error('The given types argument must be a cell array of strings, but was: %s',hlp_tostring(stream.types,10000));
+end
 stream.nbchan = length(stream.chanlocs);
+if stream.buffer_len > 120
+    disp_once('Warning: The given stream buffer length is very long and might cause inefficiencies in processing.'); end
+if stream.buffer_len < 1
+    disp_once('Warning: The given stream buffer length is very short (typically at least a few seconds).'); end
+if stream.marker_buffer_len > 100*stream.buffer_len
+    disp_once('Warning: The given marker buffer length is very long and might cause inefficiencies in processing (100 per each second in the data buffer is a reasonable upper limit).'); end
+if stream.marker_buffer_len < 3*stream.buffer_len
+    disp_once('Warning: The given marker buffer length is rather short (typically at least 3 per each second in the data buffer).'); end
+if stream.timestamps_len > 100
+    disp_once('Warning: The given timestamps_len is very long and might cause inefficiencies in processing (100 is a good upper limit).'); end
+if stream.timestamps_len < 10
+    disp_once('Warning: The given timestamps_len is rather short and might cause jitter in the time-stamp estimates (10 is a reasonable lower limit).'); end
 
 % add data buffer fields
 stream.buffer_len = stream.buffer_len*stream.srate;     % max. number of samples in the stream's buffer (the buffer holds a running sub-range of the entire stream sample range)
@@ -170,7 +189,7 @@ try
     stream.xmin_micro = tic;
     stream.xmin_mili = java.lang.System.currentTimeMillis();
     stream.xmin_nano = java.lang.System.nanoTime();
-catch %#ok<CTCH>
+catch
 end
 
 % create a new stream and place it in the base workspace

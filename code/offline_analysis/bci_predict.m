@@ -147,21 +147,33 @@ function [prediction, measure, stats, target] = bci_predict(varargin)
 % read arguments
 opts = arg_define([0 2],varargin, ...
     arg_norep({'model','Model'},mandatory,[],'Predictive model. This is a model as previously computed via bci_train.'), ...
-    arg_norep({'dataset','Data'},mandatory,[],'Data set. EEGLAB data set, or stream bundle, or cell array of data sets / stream bundles to use for calibration/evaluation.'), ...
+    arg_norep({'dataset','Data'},mandatory,[],'Data set. EEGLAB data set or stream bundle to use for prediction.'), ...
     arg({'markers','TargetMarkers'},'frommodel',[],'Assumed target markers. List of types of those markers around which data shall be used for BCI calibration; each marker type encodes a different target class (i.e. desired output value) to be learned by the resulting BCI model. This can be specified either as a cell array of marker-value pairs, in which case each marker type of BCI interest is associated with a particular BCI output value (e.g., -1/+1), or as a cell array of marker types (in which case each marker will be associated with its respective index as corresponding BCI output value, while nested cell arrays are also allowed to group markers that correspond to the same output value). See help of set_targetmarkers for further explanation.','type','expression'), ...
     arg({'metric','EvaluationMetric','Metric'},'auto',{'auto','mcr','mse','smse','nll','kld','mae','max','rms','bias','medse','auc','cond_entropy','cross_entropy','f_measure'},'Evaluation metric. The metric to use in the assessment of model performance (via cross-validation); see also ml_calcloss.'), ...
     arg({'outformat','Format','format'},'raw',{'raw','expectation','distribution','mode'},'Prediction format. See utl_formatprediction.'),...
     arg({'field','EventField'}, 'frommodel', [], 'Assumed target field. Event field to search for target markers, provided as a string.','type','char','shape','row'));
 
+% input validation
+if ~isstruct(model) || ~isscalar(model)
+    error('The given Model argument must be a 1x1 struct.'); end
+if ~isfield(model,'tracking') || ~all(isfield(model.tracking,{'prediction_function','filter_graph','prediction_channels'}))
+    error('The given Model argument is lacking some required fields (required are: .tracking.prediction_function, .tracking.filter_graph, .tracking.prediction_channels), but got: %s',hlp_tostring(model,10000)); end
 
+% evaluate and check the prediction funtion
 if ischar(opts.model.tracking.prediction_function)
     % prediction function given as a string
     if strncmp(opts.model.tracking.prediction_function,'Paradigm',8)
         % class reference: instantiate
-        instance = eval(opts.model.tracking.prediction_function); %#ok<NASGU>
+        try
+            instance = eval(opts.model.tracking.prediction_function); %#ok<NASGU>
+        catch e
+            error('Failed to instantiate paradigm class (%s) with error: %s',opts.model.tracking.prediction_function,e.message);
+        end
         opts.model.tracking.prediction_function = eval('@instance.predict');
     else
         % some other function
+        if ~exist(opts.model.tracking.prediction_function,'file')
+            error('The given prediction function was not found on the MATLAB path: %s',opts.model.tracking.prediction_function); end
         opts.model.tracking.prediction_function = str2func(opts.model.tracking.prediction_function);
     end
 end
@@ -182,11 +194,11 @@ if ~has_stats(opts.metric)
 
 % uniformize data
 dataset = opts.dataset;
+if iscell(dataset)
+    error('The bci_predict function cannot be applied to dataset collections -- you need to apply it to each dataset individually.'); end
 if ~isfield(dataset,'streams')
     dataset = struct('streams',{{dataset}}); end
-
-% ... and annotate with target markers
-% (there are 3 possible TargetMarker formats to handle)
+% and annotate with target markers (there are 3 possible TargetMarker formats to handle)
 if length(opts.markers) == 1 && ischar(opts.markers{1}) && strcmp(opts.markers{1}, 'actualvalues')
     dataset.streams{1} = set_targetmarkers('Signal',dataset.streams{1},'EventMap',opts.markers,'EpochBounds',opts.model.epoch_bounds, 'EventField', opts.field );
 elseif all(cellfun('isclass',opts.markers,'char') | cellfun('isclass',opts.markers,'cell'))
@@ -194,6 +206,8 @@ elseif all(cellfun('isclass',opts.markers,'char') | cellfun('isclass',opts.marke
 else
    dataset.streams{1} = set_targetmarkers('Signal',dataset.streams{1},'EventMap',opts.markers,'EpochBounds',opts.model.epoch_bounds, 'EventField', opts.field );
 end
+% and do final checks and fixups
+dataset = utl_check_bundle(dataset);
 
 % attach the passed stream bundle to the model's filter graph
 model = opts.model;

@@ -43,13 +43,26 @@ function y = onl_predict(name,outfmt,suppress_console_output,empty_result_value)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-03
 
-    % handle inputs
+    % input validation
     if nargin < 4
         empty_result_value = NaN;
+        if nargin < 1
+            error('You need to supply at least the PredictorName argument'); end
         if nargin < 2
-            outfmt = 'raw'; end
+            outfmt = 'raw'; 
+        elseif ~any(strcmp(outfmt,{'raw','expectation','mode','distribution'}))
+            error('The given Format argument must be one of {''raw'',''expectation'',''mode'',''distribution''}, but was: %s',hlp_tostring(outfmt,10000));
+        end
         if nargin < 3
-            suppress_console_output = true; end
+            suppress_console_output = true; 
+        elseif ~islogical(suppress_console_output)
+            error('The given SuppressOutput argument must be logical (true or false), but was: %s',hlp_tostring(suppress_console_output,10000));
+        end
+    else
+        if ~any(strcmp(outfmt,{'raw','expectation','mode','distribution'}))
+            error('The given Format argument must be one of {''raw'',''expectation'',''mode'',''distribution''}, but was: %s',hlp_tostring(outfmt,10000)); end
+        if ~islogical(suppress_console_output)
+            error('The given SuppressOutput argument must be logical (true or false), but was: %s',hlp_tostring(suppress_console_output,10000)); end
     end
 
     % run do_predict() with the online scope set (expression system disabled, and is_online set to 1)
@@ -67,7 +80,13 @@ function y = onl_predict(name,outfmt,suppress_console_output,empty_result_value)
     
     function y = do_predict()
         % get predictor from base workspace
-        pred = evalin('base',name);
+        try
+            pred = evalin('base',name);
+        catch ex
+            if ~ischar(name) || isempty(name) || ~isvarname(name)
+                error('The given PredictorName argument must be the name of a variable name in the MATLAB workspace, but was: %s',hlp_tostring(name,10000)); end            
+            error('Failed to read predictor with name %s from MATLAB base workspace with error: %s',name,ex.message);
+        end
         % get new data from each input pipeline of the prediction function
         for p=length(pred.pipelines):-1:1
             [buffers{p},pred.pipelines{p}] = onl_filtered(pred.pipelines{p},0,false,false); 

@@ -43,8 +43,8 @@ function pipeline = onl_newpipeline(filterapp, streams, needed_channels)
 %                                2012-05-13
 
 % handle the pipeline description (filter application)
-if ~exist('filterapp','var')
-    error('Please specify a filter expression to wrap into a pipeline.'); end
+if nargin < 1
+    error('At least the FilterApplication argument must be given.'); end
 
 % take the online expression if not yet done so
 if isfield(filterapp,'tracking') && isfield(filterapp.tracking,'online_expression')

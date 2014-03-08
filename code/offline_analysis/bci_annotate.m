@@ -65,26 +65,29 @@ function data = bci_annotate(varargin)
 % read arguments
 opts = arg_define([0 2],varargin, ...
     arg({'model','Model'},mandatory,[],'Predictive model. This is a model as previously computed via bci_train.'), ...
-    arg({'dataset','Data'},mandatory,[],'Data set. EEGLAB data set, or stream bundle, or cell array of data sets / stream bundles to use for prediction.'), ...
+    arg({'dataset','Data'},mandatory,[],'Data set. EEGLAB data set, or stream bundle to use for prediction.'), ...
     arg({'format','OutputFormat'},'distribution',{'distribution','expectation','mode'},'Output format. The format in which each individual prediction is represented -- can be a discrete/continuous probability distribution, the most likely value (mode), or the expected value (expectation).'), ...
     arg({'sampling_rate','SamplingRate'},10,[0 Inf],'Output sampling rate. The rate at which predictions are made, in Hz.'), ...
     arg({'interpolation','Interpolation'},'constant',{'nans','constant','laggedresample','noncausalpchip','noncausallinear','noncausalresample'},'Output interpolation. Determines how the predictions are upsampled to the sampling rate of the data set (or the first stream in a bundle). The most conservative approaches are ''constant'' and ''nans''. Resample produces a smoothed output, but delays the BCI output significantly (esp. at low output sampling rates). The non-causal methods give a smooth output that is aligned with the time course of the predictions but exhibit "false" pre-ringing (etc) that cannot be physically realized for online execution. Among those, linear is simplest to understand and pchip results in a good shape-preserving smoothing.'), ...
     arg({'storeoutputs','StoreOutputs'},'newchannels',{'newchannels','newstream','newset'},'Output behavior. Determines whether the BCI outputs are attached to the data set / stream as additional channels, or as an additional stream, or whether an EEGLAB set containing just the outputs should be returned.'), ...
     arg({'name','ChannelName'},'BCI',[],'Name of new channels. If there are multiple channels, they will be consecutively numbered.'));
 
-% uniformize the data
-data = opts.dataset;
-was_simple = all(isfield(data,{'data','srate'})) || all(isfield(data,{'head','parts'}));  % whether the data was a simple EEGLAB data set
-if iscell(data)
-    data = struct('streams',{data}); end
-if was_simple
-    data = struct('streams',{{data}}); end
-data = utl_check_bundle(data);
-for s=1:length(data.streams)
-    data.streams{s} = exp_eval_optimized(data.streams{s}); end
+% check model
+if ~isstruct(model) || ~isscalar(model)
+    error('The given Model argument must be a 1x1 struct.'); end
+if ~isfield(model,'tracking') || ~all(isfield(model.tracking,{'prediction_function','filter_graph','prediction_channels'}))
+    error('The given Model argument is lacking some required fields (required are: .tracking.prediction_function, .tracking.filter_graph, .tracking.prediction_channels), but got: %s',hlp_tostring(model,10000)); end
 
-% use onl_simulate to get outputs, for each epoch
-[preds,lats] = onl_simulate(data,opts.model,'sampling_rate',opts.sampling_rate,'format',opts.format);
+% uniformize and check data
+dataset = opts.dataset;
+if iscell(dataset)
+    error('The bci_predict function cannot be applied to dataset collections -- you need to apply it to each dataset individually.'); end
+if ~isfield(dataset,'streams')
+    dataset = struct('streams',{{dataset}}); end
+dataset = utl_check_bundle(dataset);
+
+% use onl_simulate to get outputs
+[preds,lats] = onl_simulate(dataset,opts.model,'sampling_rate',opts.sampling_rate,'format',opts.format);
 preds(~isfinite(preds(:))) = 0;
 lats = 1 + round(lats*data.streams{1}.srate);
 
