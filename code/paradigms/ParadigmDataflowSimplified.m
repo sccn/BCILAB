@@ -204,6 +204,8 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
                 case 'matrix'
                     % pass on feature matrices
                     features = signal.data;
+                otherwise
+                    error('Unsupported setting for the GroupInto parameter: %s',featuremodel.group_into);
             end
         end
         
