@@ -107,7 +107,7 @@ if ~isempty(signal.epoch)
 
     if isempty(inds)
         disp_once('WARNING: This data set contains no trials for one of your target classes: please check whether your target marker naming is correct, and ensure that your data has enough target events in each of its required subsets (e.g., in a (nested) cross-validation).'); end
-    signal = exp_eval(set_selepos(signal,inds));
+    signal = exp_eval(set_selepos(signal,inds(:)'));
 end
 
 exp_endfun;

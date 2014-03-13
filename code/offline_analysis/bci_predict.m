@@ -154,10 +154,10 @@ opts = arg_define([0 2],varargin, ...
     arg({'field','EventField'}, 'frommodel', [], 'Assumed target field. Event field to search for target markers, provided as a string.','type','char','shape','row'));
 
 % input validation
-if ~isstruct(model) || ~isscalar(model)
+if ~isstruct(opts.model) || ~isscalar(opts.model)
     error('The given Model argument must be a 1x1 struct.'); end
-if ~isfield(model,'tracking') || ~all(isfield(model.tracking,{'prediction_function','filter_graph','prediction_channels'}))
-    error('The given Model argument is lacking some required fields (required are: .tracking.prediction_function, .tracking.filter_graph, .tracking.prediction_channels), but got: %s',hlp_tostring(model,10000)); end
+if ~isfield(opts.model,'tracking') || ~all(isfield(opts.model.tracking,{'prediction_function','filter_graph','prediction_channels'}))
+    error('The given Model argument is lacking some required fields (required are: .tracking.prediction_function, .tracking.filter_graph, .tracking.prediction_channels), but got: %s',hlp_tostring(opts.model,10000)); end
 
 % evaluate and check the prediction funtion
 if ischar(opts.model.tracking.prediction_function)

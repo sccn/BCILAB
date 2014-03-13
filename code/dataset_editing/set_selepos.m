@@ -32,7 +32,7 @@ arg_define(varargin, ...
     arg({'epoch_range','EpochIndices','epos'},[],uint32([1 1000000]),'Indices of retained epochs.','shape','row'));
 
 % input validation
-utl_check_signal(signal,{'epoch','event','data','pnts'},'signal','signal'); %#ok<NODEF>
+utl_check_fields(signal,{'epoch','event','data','pnts'},'signal','signal'); %#ok<NODEF>
 if isempty(signal.epoch) && size(signal.data,3) > 1
     error('Your signal has epoched data but has an empty .epoch field. This is not permitted. Use set_makepos instead of pop_epoch for epoching in BCILAB.'); end
 

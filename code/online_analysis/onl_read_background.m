@@ -41,8 +41,8 @@ arg_define(varargin, ...
     arg({'update_freq','UpdateFrequency'},10,[0 Inf],'Update frequency. New data is polled at this rate, in Hz.'));
 
 % input validation
-if ~isvarname(streamname)
-    error('The given StreamName argument must be a valid variable name, but was: %s',hlp_tostring(streamname,10000)); end
+if ~isvarname(stream_name)
+    error('The given StreamName argument must be a valid variable name, but was: %s',hlp_tostring(stream_name,10000)); end
 try
     stream = evalin('base',stream_name);
 catch e

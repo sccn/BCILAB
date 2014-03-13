@@ -1,6 +1,6 @@
-function check_type(type,value,argname,funcname)
+function check_type(type,value,argname,funcname,range)
 % Check whether a given value can be assigned to a field of a given type.
-% check_type(TypeString,Value,ArgumentName,FunctionName)
+% check_type(TypeString,Value,ArgumentName,FunctionName,RangeExtra)
 %
 % This function throws an error message if the check fails.
 %
@@ -12,6 +12,9 @@ function check_type(type,value,argname,funcname)
 %   ArgumentName : name of the affected argument, for diagnostic messages.
 %
 %   FunctionName : name of the function that defines the argument.
+%
+%   RangeExtra : also the range associated with the value, for special
+%                conditions
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2014-02-26
@@ -43,7 +46,7 @@ switch type
         if ~ischar(value)
             error('BCILAB:arg:typecheck','The value assigned to %s in %s must be of type char, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
     case 'logical'
-        if ~all(value(:)==true | value(:)==false)
+        if ~islogical(value) && ~(isnumeric(value) && all(value(:)==true | value(:)==false)) && ~(iscellstr(range) && (iscellstr(value) || ischar(value)))
             error('BCILAB:arg:typecheck','The value assigned to %s in %s must be logical, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
     case 'cellstr'
         if ~iscellstr(value)

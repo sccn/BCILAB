@@ -385,7 +385,13 @@ end
 
 % get a list of all existing filter specifications
 function filters = list_filters(update_list)
-debug = false;
+debug = 'hard';
+% determine list of filters that are known to be unlistable here
+known_incompliant = {'set_gettarget','set_combine','set_merge','set_joinepos','set_concat'};
+% if SIFT is not installed, some more filters fall into that category
+if ~exist('hlp_getModelingApproaches','file')
+    known_incompliant = [known_incompliant {'flt_siftpipeline','flt_zscore'}]; end
+
 persistent memo;
 % if we need to (re-)collect the list
 if isempty(memo) || exist('update_list','var') && update_list
@@ -446,15 +452,22 @@ if isempty(memo) || exist('update_list','var') && update_list
             retain(f) = false;
             continue;
         end
-        try
-            report = arg_report('rich',funcs{f}); %#ok<NASGU>
-        catch e
-            % otherwise there is an actual error
-            known_incompliant = {'set_gettarget','set_combine','set_merge','set_joinepos','set_concat'};
-            if ~any(strcmp(char(funcs{f}),known_incompliant)) && disp_once(['Cannot query arguments of function ' char(funcs{f}) ' (likely an issue with the argument definition): ' e.message]) && debug
-                hlp_handleerror(e); end
+        if ~any(strcmp(char(funcs{f}),known_incompliant))
+            if strcmp(debug,'hard')
+                report = arg_report('rich',funcs{f}); %#ok<NASGU>
+            else
+                try
+                    report = arg_report('rich',funcs{f}); %#ok<NASGU>
+                catch e
+                    % otherwise there is an actual error            
+                    if ~disp_once(['Cannot query arguments of function ' char(funcs{f}) ' (likely an issue with the argument definition): ' e.message]) && debug
+                        hlp_handleerror(e); end
+                    retain(f) = false;
+                    continue;
+                end
+            end
+        else
             retain(f) = false;
-            continue;
         end
     end
     memo = struct('name',names(retain),'tag',tags(retain),'func',funcs(retain),'properties',props(retain),'spec',specs(retain));

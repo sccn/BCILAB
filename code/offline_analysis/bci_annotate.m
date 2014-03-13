@@ -73,21 +73,21 @@ opts = arg_define([0 2],varargin, ...
     arg({'name','ChannelName'},'BCI',[],'Name of new channels. If there are multiple channels, they will be consecutively numbered.'));
 
 % check model
-if ~isstruct(model) || ~isscalar(model)
+if ~isstruct(opts.model) || ~isscalar(opts.model)
     error('The given Model argument must be a 1x1 struct.'); end
-if ~isfield(model,'tracking') || ~all(isfield(model.tracking,{'prediction_function','filter_graph','prediction_channels'}))
-    error('The given Model argument is lacking some required fields (required are: .tracking.prediction_function, .tracking.filter_graph, .tracking.prediction_channels), but got: %s',hlp_tostring(model,10000)); end
+if ~isfield(opts.model,'tracking') || ~all(isfield(opts.model.tracking,{'prediction_function','filter_graph','prediction_channels'}))
+    error('The given Model argument is lacking some required fields (required are: .tracking.prediction_function, .tracking.filter_graph, .tracking.prediction_channels), but got: %s',hlp_tostring(opts.model,10000)); end
 
 % uniformize and check data
-dataset = opts.dataset;
+data = opts.dataset;
 if iscell(dataset)
     error('The bci_predict function cannot be applied to dataset collections -- you need to apply it to each dataset individually.'); end
-if ~isfield(dataset,'streams')
-    dataset = struct('streams',{{dataset}}); end
-dataset = utl_check_bundle(dataset);
+if ~isfield(data,'streams')
+    data = struct('streams',{{dataset}}); end
+data = utl_check_bundle(data);
 
 % use onl_simulate to get outputs
-[preds,lats] = onl_simulate(dataset,opts.model,'sampling_rate',opts.sampling_rate,'format',opts.format);
+[preds,lats] = onl_simulate(data,opts.model,'sampling_rate',opts.sampling_rate,'format',opts.format);
 preds(~isfinite(preds(:))) = 0;
 lats = 1 + round(lats*data.streams{1}.srate);
 

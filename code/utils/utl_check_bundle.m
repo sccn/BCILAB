@@ -56,7 +56,7 @@ for s=1:length(str)
         if any(latency_numels ~= 1)
             error('One or more of the events in the given signal have a .latency value that is not a scalar, which is not permitted.'); end
         latencies = [latencies{:}];
-        if any(latencies < 1 | latencies > size(signal.data,2))
+        if any(latencies < 1 | latencies > size(str{s}.data,2))
             disp_once('WARNING: The signal contains some events with out-of-bounds latencies.'); end
         if ~isequal(sort(latencies),latencies)
             disp_once('Warning: The signal has unsorted event latencies.'); end
@@ -149,7 +149,7 @@ for s=1:length(str)
     [dummy,sort_idx] = sort([evt.latency]); %#ok<ASGLU>
     str{s}.event = evt(sort_idx);
     % check for internal consistency of each data set
-    str{s} = utl_check_dataset(str{s});
+    str{s} = exp_eval(utl_check_dataset(str{s}));
 end
 
 % finalize

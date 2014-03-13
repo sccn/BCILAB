@@ -60,7 +60,7 @@ if any(duplicates)
     error('Your channel labels must all be unique but the following duplicates were found: %s.',hlp_tostring(tmp(duplicates))); end
 
 if iscell(lookup)
-    if iscellstr(lookup)
+    if ~iscellstr(lookup)
         error('If channel labels are provided as cell array they must all be strings.'); end
     lookup = lower(lookup);
     if isequal(lookup,labels)

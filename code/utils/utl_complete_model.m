@@ -128,7 +128,8 @@ if ischar(model.tracking.prediction_function)
             error('The function referred to by the model''s .tracking.prediction_function field does not exist: %s',model.tracking.prediction_function); end
     end
 else
-    if ~exist(char(model.tracking.prediction_function),'file')
+    tmp = char(model.tracking.prediction_function);
+    if tmp(1) ~= '@' && ~exist(tmp,'file')
         error('The function referred to by the model''s .tracking.prediction_function field does not exist: %s',char(model.tracking.prediction_function)); end
 end
 

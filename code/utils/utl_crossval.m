@@ -202,12 +202,10 @@ catch e
 end
 if isnumeric(indexset) && isscalar(indexset)
     try
-        wholedata = opts.partitioner(data,1:indexset);
+        wholedata = opts.partitioner(data,1:indexset); %#ok<NASGU>
     catch e
         error('The given partitioner failed to partition the data (arguments Data,1:N) with error: %s',hlp_handleerror(e));
     end
-    if ~isequal_weak(data,wholedata)
-        error('The given partitioner failed a sanity check to correctly partition the data (data does not equal partition(data,1:N)).'); end
 elseif iscell(indexset)    
     if isempty(indexset) || any(~cellfun('isclass',indexset,'cell')) || any(cellfun('prodofsize',indexset)<2)
         error('The index-set format returned by the partitioner is unsupported (needs to be either a scalar or a cell array of 2-element cells, but was: %s.',hlp_tostring(indexset,10000)); end
@@ -227,7 +225,7 @@ inds = make_indices(opts.scheme,indexset,opts.repeatable);
 if ~isa(opts.target,'function_handle')
     error('The given target argument must be a function handle, but was: %s',hlp_tostring(opts.target,10000)); end
 try
-    targets = opts.target(data);
+    tmptargets = opts.target(data);
 catch e
     error('The given target function failed to extract target values from the data with error: %s',hlp_handleerror(e));
 end
@@ -238,7 +236,7 @@ if isempty(opts.metric) || ischar(opts.metric) || (iscell(opts.metric) && all(ce
 if ~has_stats(opts.metric)
     opts.metric = @(T,P)add_stats(opts.metric(T,P)); end
 try
-    [measure,stats] = opts.metric(targets,targets);
+    [measure,stats] = opts.metric(tmptargets,tmptargets);
 catch e
     error('Failed to apply the loss metric to target values: %s',hlp_handleerror(e));
 end
@@ -286,7 +284,7 @@ if ~isempty(inds)
         [measure(p),stats.per_fold(p)] = opts.metric(targets{p},predictions{p}); end
     
     % attach basic summary statistics
-    if ~isfield(stats.measure)
+    if ~isfield(stats,'measure')
         stats.measure = 'loss'; end
     stats.(stats.measure) = mean(measure);
     stats.([stats.measure '_mu']) = mean(measure);

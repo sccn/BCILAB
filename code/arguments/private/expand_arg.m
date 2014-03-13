@@ -72,7 +72,13 @@ function spec = expand_specifier(names,default,range,help,varargin)
         % if the shape is unspecified, it is deduced
         if ~isempty(default)
             % if the value is not empty, the shape is deduced from the value
-            spec.shape = deduce_shape(default);
+            if (isequal(default,true) || isequal(default,false)) && iscellstr(spec.range)
+                % except in the special case where the default value is true or false, but the range
+                % is a cell array of strings, the shape is set to row
+                spec.shape = 'row';
+            else
+                spec.shape = deduce_shape(default);
+            end
         elseif ischar(default) && isempty(default)
             % if the value is an empty char array, the shape is by default 'row'
             spec.shape = 'row';

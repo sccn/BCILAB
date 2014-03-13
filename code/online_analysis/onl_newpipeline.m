@@ -87,8 +87,7 @@ try
     % initialize misc properties of the pipeline
     pipeline = init_pipeline(pipeline);
 catch e
-    hlp_handleerror(e);
-    error('BCILAB:onl_newpipeline:unexpected','Could not match the channels required by the pipeline with what the stream provides.');
+    error('BCILAB:onl_newpipeline:unexpected','Could not match the channels required by the pipeline with what the stream provides with error: %s',hlp_handleerror(e));
 end
 
 

@@ -95,7 +95,7 @@ arg_define(varargin, ...
 utl_check_fields(signal,{'event','epoch','srate','pnts'},'signal','signal');
 if ~isequal(size(epoch_bounds),[1 2])
     error('The given epoch bounds must be a 2-element row vector.'); end
-if epochbounds(1) > epoch_bounds(2)
+if epoch_bounds(1) > epoch_bounds(2)
     error('The epoch bounds must be given as [lower,upper].'); end
 if ~isreal(epoch_bounds)
     error('The epoch bounds must be real-valued.'); end

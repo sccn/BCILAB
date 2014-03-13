@@ -168,9 +168,7 @@ function outstruct = arg_define(vals,varargin)
         % otherwise we perform full parsing
         
         % get the calling function's name (for cache lookups and diagnostics)
-        caller_name = hlp_getcaller;
-        if ~isvarname(caller_name)
-            caller_name = 'anonymous'; end
+        caller_name = determine_caller();
         
         % expand specification into a struct array, derive some properties
         [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec_cached(caller_name,compressed_spec,report_type,~nodefaults,nargout==0);
@@ -259,7 +257,7 @@ function [fmt,vals,compressed_spec,structmask,report_type,skip,nodefaults] = pro
                 arg_issuereport(struct());
             case {'lean','rich'}
                 if length(vals) == 2
-                    arg_issuereport(hlp_microcache('spec',@expand_spec,compressed_spec,report_type,true,hlp_getcaller(2))); end
+                    arg_issuereport(hlp_microcache('spec',@expand_spec,compressed_spec,report_type,true,determine_caller())); end
             case 'handle'
                 error('To make function handles accessible, use the function expose_handles().');
             case 'supported'
@@ -295,7 +293,7 @@ function [fmt,vals,compressed_spec,structmask,report_type,skip,nodefaults] = pro
                 end
             case 2
                 % first expand the spec
-                tmpspec = hlp_microcache('spec',@expand_spec,compressed_spec,'lean',~nodefaults,hlp_getcaller(2));
+                tmpspec = hlp_microcache('spec',@expand_spec,compressed_spec,'lean',~nodefaults,determine_caller());
                 % then call the function with it
                 if nargout(fmt) == 1
                     vals = feval(fmt,vals,tmpspec);
@@ -381,14 +379,13 @@ function varargout = process_spec_cached(caller_name,spec,report_type,assign_def
     catch %#ok<CTCH>
     end
     % otherwise fall back to microcache and overwrite
-    [varargout{1:nargout}] = hlp_microcache('spec',@process_spec,spec,report_type,assign_defaults,perform_namecheck);
+    [varargout{1:nargout}] = hlp_microcache('spec',@process_spec,caller_name,spec,report_type,assign_defaults,perform_namecheck);
     cache.(caller_name).(key) = struct('output',{varargout},'spec',{spec});
 end
 
 
 % expand a specification from a cell array into a struct array
-function [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec(compressed_spec,report_type,assign_defaults,perform_namecheck)
-    caller_name = hlp_getcaller(2);
+function [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec(caller_name,compressed_spec,report_type,assign_defaults,perform_namecheck)
     
     % expand the compressed cell-array spec into a full struct-array spec
     spec = expand_spec(compressed_spec,'rich',assign_defaults,caller_name);
@@ -482,7 +479,7 @@ end
 
 
 % transform the cell array of input arguments (vals) to a pure list of name-value pairs (NVPs)
-function nvps = arguments_to_nvps(caller,fmt,vals,structmask,flat_names,first_names,skipped_positionals)
+function nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,first_names,skipped_positionals)
     permitted_names = [flat_names {'arg_selection','arg_direct'}];
     
     % get the call signature; this is vals with everything replaced by [] that is neither a valid argument 
@@ -498,17 +495,16 @@ function nvps = arguments_to_nvps(caller,fmt,vals,structmask,flat_names,first_na
         signature(structmask) = cellfun(@fieldnames,signature(structmask),'UniformOutput',false); end
     
     % determine the number n of arguments that were specified positionally
-    [n,violations,ignored] = hlp_nanocache(caller,10,@get_num_positionals,fmt,length(first_names),signature,structmask,permitted_names,skipped_positionals);
+    [n,violations,ignored] = hlp_nanocache(caller_name,10,@get_num_positionals,fmt,length(first_names),signature,structmask,permitted_names,skipped_positionals);
     
     % emit errors and/or diagnostic warnings
     if isnan(n)
         for k=find(cellfun(@(s)all(s>='0'&s<='9'),violations))
             violations{k} = vals{str2num(violations{k})}; end %#ok<ST2NM>
-        error([hlp_getcaller(2) ':arg_define:invalid_arguments'],['Some of the specified arguments do not appear in the argument specification; ' hlp_tostring(violations) '.']);
+        error([caller_name ':arg_define:invalid_arguments'],['Some of the specified arguments do not appear in the argument specification; ' hlp_tostring(violations) '.']);
     elseif ~isempty(ignored)
         for k=find(cellfun(@(s)all(s>='0'&s<='9'),violations))
             violations{k} = vals{str2num(violations{k})}; end %#ok<ST2NM>
-        caller_name = hlp_getcaller(2);
         warn_once([caller_name ':arg_define:possible_conflict'],'arg_define() in %s: Possible parameter conflict -- both unrecognized parameters %s and matching names %s passed in. Assuming that the function is called with %u positional arguments. This warning will not be repeated for this MATLAB session.',caller_name,hlp_tostring(violations),hlp_tostring(ignored),n);
     end
     
@@ -605,10 +601,7 @@ function spec = assign_nvps(spec,nvps,name2idx,report_type,caller_name,deprecati
     for k=1:2:length(nvps)
         try 
             idx = name2idx.(nvps{k});
-            spec(idx) = assign_value(spec(idx),nvps{k+1},report_type,caller_name,true,deprecation_warning);
-        catch e
-            if ~strcmp(e.identifier,'MATLAB:nonExistentField')
-                rethrow(e); end
+        catch
             % this is an internal sanity check; if this message is triggered some internal error has
             % occurred
             if any(strcmp({spec.first_name},nvps{k}))
@@ -616,7 +609,9 @@ function spec = assign_nvps(spec,nvps,name2idx,report_type,caller_name,deprecati
             % append it to the spec
             spec(end+1) = cached_argument(nvps{k},nvps{k+1});
             name2idx.(nvps{k}) = length(spec);
+            continue;
         end
+        spec(idx) = assign_value(spec(idx),nvps{k+1},report_type,caller_name,true,deprecation_warning);
     end
 end
 
@@ -632,12 +627,16 @@ function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,de
             warn_deprecation(spec,caller_name); end
         % perform assignment
         if isempty(spec.mapper)
-            if spec.typecheck
-                check_type(spec.type,newvalue,spec.first_name,caller_name); end
-            if spec.shapecheck
-                check_shape(spec.shape,newvalue,spec.first_name,caller_name); end
-            if spec.rangecheck
-                check_range(spec.range,newvalue,spec.first_name,caller_name); end
+            try
+                check_value(spec,newvalue,caller_name);
+            catch
+                % got a check error: make sure that the value is not a search
+                % range (in which case we would let it pass)
+                if ~(all(isfield(newvalue,{'head','parts'})) && strcmp(newvalue.head,@search))
+                    % check the new value again to propagate the previous error properly
+                    check_value(spec,newvalue,caller_name);
+                end
+            end
             spec.value = newvalue;
         else
             % apply the mapper to get the selection key and the value pack
@@ -688,6 +687,18 @@ function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,de
                 end
             end
         end
+    end
+end
+
+function check_value(spec,newvalue,caller_name)
+    % no checks for arguments of type 'expression'
+    if ~strcmp(spec.type,'expression')
+        if spec.typecheck
+            check_type(spec.type,newvalue,spec.first_name,caller_name,spec.range); end
+        if spec.shapecheck
+            check_shape(spec.shape,newvalue,spec.first_name,caller_name); end
+        if spec.rangecheck
+            check_range(spec.range,newvalue,spec.first_name,caller_name); end
     end
 end
 
