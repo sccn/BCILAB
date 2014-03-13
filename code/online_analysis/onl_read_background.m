@@ -37,11 +37,35 @@ function stream_id = onl_read_background(varargin)
 % read options
 arg_define(varargin, ...
     arg({'stream_name','StreamName','MatlabStream'}, 'laststream',[],'Stream name to create. Name of the stream data structure in the MATLAB workspace that shall be updated in the background (must have been previously created via onl_newstream).'), ...
-    arg({'block_reader','BlockReader'},'randn(32,1)',[],'Block-reading function. Callback function that reads a block from the device (format: [Channels x Samples]) if no data is available, this function should return an empty result. It may also return a cell array of the form {[Channels x Samples],TimeStamp} or {[Channels x Samples],Markers,TimeStamp}. More generally, all returned cells are used as arguments to onl_predict. Optionally, this function may take the current stream variable as input.','type','expression'), ...
+    arg({'block_reader','BlockReader'},[],[],'Block-reading function. Callback function that reads a block from the device (format: [Channels x Samples]) if no data is available, this function should return an empty result. It may also return a cell array of the form {[Channels x Samples],TimeStamp} or {[Channels x Samples],Markers,TimeStamp}. More generally, all returned cells are used as arguments to onl_predict. Optionally, this function may take the current stream variable as input.','type','expression'), ...
     arg({'update_freq','UpdateFrequency'},10,[0 Inf],'Update frequency. New data is polled at this rate, in Hz.'));
 
-% get the stream's id
-stream_id = evalin('base',[stream_name '.streamid']);
+% input validation
+if ~isvarname(streamname)
+    error('The given StreamName argument must be a valid variable name, but was: %s',hlp_tostring(streamname,10000)); end
+try
+    stream = evalin('base',stream_name);
+catch e
+    error('Failed to look up stream named %s in MATLAB base workspace with error: %s',stream_name,e.message);
+end
+if ~isstruct(stream)
+    error('The given data structure named %s in the MATLAB base workspace was expected to be a stream data structure, but was not a struct (wrong name?): %s',stream_name,hlp_tostring(stream,10000)); end
+if ~isfield(stream,'streamid')
+    if isfield(stream,{'data','srate'})
+        error('The given stream data structure named %s appears to be an EEGLAB data set struct but is not a stream (use onl_newstream to create a valid stream)',stream_name);
+    else
+        error('The given data structure named %s is not a valid stream (use onl_newstream to create a valid stream)',stream_name);
+    end
+end
+stream_id = stream.streamid;
+if ischar(block_reader) && ~isempty(block_reader)
+    if block_reader(1) ~= '@' && ~exist(block_reader,'file')
+        error('The given BlockReader argument (%s) is not a valid function name',block_reader); end
+    block_reader = str2func(block_reader); 
+end
+if ~isa(block_reader,'function_handle')
+    error('The given BlockReader argument must be a function handle (or function name), but was: %s',hlp_tostring(block_reader,10000)); end
+
 
 % create & start timer
 start(timer('ExecutionMode','fixedRate', 'Name',[stream_name '_timer'], 'Period',1/update_freq, ...
@@ -53,7 +77,7 @@ try
     % check if the stream is still there
     x = evalin('base',stream_name);
     if x.streamid ~= stream_id
-        error('Stream changed.'); end
+        error('Note: the stream named %s was recreated.',stream_name); end
     try
         % get a new block
         if nargin(read_block) == 1

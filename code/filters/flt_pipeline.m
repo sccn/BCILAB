@@ -331,6 +331,9 @@ if ~isequal(varargin,{'update'})
         ... % list the argument specifications for all filters
         filters.spec);
     
+    if any(cellfun(@(f)any(f==' '),args.fltorder))
+        error('The FilterOrdering parameter is malformed; should be a cell array of strings, but was: %s',hlp_tostring(args.fltorder,10000)); end
+    
     % check if there were conflicts / problems
     if ~isempty(unlinked)
         % there were ordering conflicts which led to the removal of filters from the chain this

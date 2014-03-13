@@ -34,25 +34,27 @@ function check_range(range,value,argname)
      return;
  elseif iscellstr(range)
      if ~any(strcmp(value,range))
-         error('BCILAB:arg:rangecheck','The value assigned to %s (%s) must be in the range %s.',argname,hlp_tostring(value),hlp_tostring(range)); end
+         error('BCILAB:arg:rangecheck','The value assigned to %s must be in the range %s, but was: %s.',argname,hlp_tostring(range),hlp_tostring(value,1000)); end
  elseif iscell(range)
      if ~any(cellfun(@(v)isequal(v,value),range))
-         error('BCILAB:arg:rangecheck','The value assigned to %s (%s) must be in the range %s.',argname,hlp_tostring(value),hlp_tostring(range)); end
- elseif isnumeric(range) && length(range) == 2
-     if any(value < range(1)) || any(value > range(2))
-         error('BCILAB:arg:rangecheck','The value assigned to %s (%s) must be in the range %s.',argname,hlp_tostring(value),hlp_tostring(range)); end
+         error('BCILAB:arg:rangecheck','The value assigned to %s must be in the range %s, but was: %s.',argname,hlp_tostring(range),hlp_tostring(value,1000)); end
+ elseif isnumeric(range) && size(range,1) == 1
+     if any(value < range(1)) || any(value > range(end))
+         error('BCILAB:arg:rangecheck','The value assigned to %s must be in the range %s, but was: %s.',argname,hlp_tostring(range),hlp_tostring(value,1000)); end
      if isinteger(range) && ~isequal(value,round(value))
-         error('BCILAB:arg:rangecheck','The value assigned to %s (%s) must be an integer.',argname,hlp_tostring(value)); end         
+         error('BCILAB:arg:rangecheck','The value assigned to %s must be an integer, but was: %s.',argname,hlp_tostring(value,1000)); end 
+     if size(range,2)==4 && (any(value < range(2)) || any(value > range(3)))
+         disp_once('NOTE: The value assigned to %s is not in the typical range %s, but was: %s',argname,hlp_tostring(range([2 3])),hlp_tostring(value,1000)); end
  elseif isstruct(range)
      if ~isstruct(value)
-         error('BCILAB:arg:rangecheck','The value assigned to %s (%s) must be a struct.',argname,hlp_tostring(value)); end         
+         error('BCILAB:arg:rangecheck','The value assigned to %s must be a struct, but was: %s.',argname,hlp_tostring(value,1000)); end 
      fn = fieldnames(range);
      tf = struct2cell(range);
      required_fields = fn(logical([tf{:}]));
      disallowed_fields = fn(~logical([tf{:}]));
      if ~all(isfield(value,required_fields))
-         error('BCILAB:arg:rangecheck','The value assigned to %s (%s) is missing fields named %s.',argname,hlp_tostring(value),hlp_tostring(setdiff(required_fields,fieldnames(value)))); end
+         error('BCILAB:arg:rangecheck','The value assigned to %s is missing the fields named %s, but was: %s.',argname,hlp_tostring(setdiff(required_fields,fieldnames(value))),hlp_tostring(value,1000)); end
      if any(isfield(value,disallowed_fields))
-         error('BCILAB:arg:rangecheck','The value assigned to %s (%s) must not have a field named %s.',argname,hlp_tostring(value),hlp_tostring(intersect(disallowed_fields,fieldnames(value)))); end         
+         error('BCILAB:arg:rangecheck','The value assigned to %s must not have fields named %s, but was: %s.',argname,hlp_tostring(intersect(disallowed_fields,fieldnames(value))),hlp_tostring(value,1000)); end         
  end
  

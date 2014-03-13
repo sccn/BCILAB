@@ -207,9 +207,12 @@ opts = arg_define(varargin, ...
 % sanitize datasets
 if ischar(opts.datasets) || (isstruct(opts.datasets) && isscalar(opts.datasets))
     opts.datasets = {opts.datasets}; end
-    
+
+if ~isvarname(opts.default)
+    error('The DefaultName must be a valid MATLAB variable names, but was: %s',hlp_tostring(opts.default,10000)); end
+
 if ~iscell(opts.datasets)
-    error('Datasets should be given as a cell array of structs and/or file names.');
+    error('Datasets should be given as a cell array of structs and/or file names, but was: %s',hlp_tostring(opts.datasets,10000));
 else
     % for each data set...
     d = 1;
@@ -302,11 +305,9 @@ end
 
 if iscell(opts.approaches) || all(isfield(opts.approaches,{'paradigm','parameters'}))
     % A single approach is given
-    if ~isvarname(opts.default)
-        error('The DefaultName must comply with the syntax rules for MATLAB variable names.'); end
     opts.approaches = struct(opts.default,{opts.approaches});
 elseif ~isstruct(opts.approaches) || numel(opts.approaches) > 1
-    error('Approaches are given in an unsupported format.');
+    error('Approaches are given in an unsupported format: %s',hlp_tostring(opts.approaches,10000));
 end
 
 caller = char(hlp_getcaller);
@@ -354,7 +355,7 @@ switch opts.order
                 tasks{end+1} = {@utl_run_batchjob,opts,d,appname{1},setnames}; end
         end
     otherwise
-        error('Unsupported processing order specified.');
+        error('Unsupported processing order specified: %s',hlp_tostring(opts.order,1000));
 end
 
 % execute the tasks

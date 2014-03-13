@@ -78,18 +78,22 @@ if ~isempty(freq) %#ok<*NODEF>
             T = size(signal.(field),2);
             % almost correct frequency vector (fixed further below)
             frqs = (0:T-1)*signal.srate/T;
-            if isnumeric(freq) && size(freq,2) == 2
-                % brickwall filters
-                flt = zeros(1,T);
-                for k=1:size(freq,1)
-                    f = freq(k,:);
-                    flt = max(flt,(frqs>=f(1) & frqs<=f(2))); end
-            elseif isnumeric(freq) && size(freq,2) == 4
-                % sloped filters
-                flt = zeros(1,T);
-                for k=1:size(freq,1)
-                    f = freq(k,:);
-                    flt = max(flt,min(max(0,min(1,(frqs-f(1)) / (f(2)-f(1)))), max(0,min(1, 1-(frqs-f(3)) / (f(4)-f(3))))));
+            if isnumeric(freq) 
+                if size(freq,2) == 2
+                    % brickwall filters
+                    flt = zeros(1,T);
+                    for k=1:size(freq,1)
+                        f = freq(k,:);
+                        flt = max(flt,(frqs>=f(1) & frqs<=f(2))); end
+                elseif size(freq,2) == 4
+                    % sloped filters
+                    flt = zeros(1,T);
+                    for k=1:size(freq,1)
+                        f = freq(k,:);
+                        flt = max(flt,min(max(0,min(1,(frqs-f(1)) / (f(2)-f(1)))), max(0,min(1, 1-(frqs-f(3)) / (f(4)-f(3))))));
+                    end
+                else
+                    error('Unsupported format for the FrequencySpecification: %s',hlp_tostring(freq,10000));
                 end
             else
                 % function handle filters

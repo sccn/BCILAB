@@ -201,12 +201,17 @@ classdef PropertyGridField < hgsetget
             for f=1:length(spec)
                 s = spec(f);
                 
+                % handle skippable arguments
                 if s.skippable
                     s.type = 'char';
                     s.shape = 'row';
                     s.value = '__arg_unassigned__';
                 end
 
+                % handle numeric ranges augmented by typical intervals
+                if isnumeric(s.range) && isequal(size(s.range),[1 4])
+                    s.range = s.range([1 end]); end
+                
                 % convert unsupported types to expressions...                
                 if isa(s.value,'function_handle') || (iscell(s.value) && ~iscellstr(s.value)) || isstruct(s.value)
                     if isa(s.value,'function_handle')

@@ -48,7 +48,7 @@ if ~exist('M','var')
     elseif strcmp(field_type,'axial')
         LF = leadField(:,:);
     else
-        error('Unsupported field type requested.');
+        error('Unsupported field type requested: %s',hlp_tostring(field_type,1000));
     end
     M = LF'/cov(signal.data(channel_mask,:)'); 
 end

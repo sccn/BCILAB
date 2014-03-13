@@ -46,7 +46,7 @@ function [predictions,predict_at,timings] = onl_simulate(varargin)
 %
 % In:
 %   Data         : raw EEGLAB data set that shall be streamed through the online pipeline,
-%                  or stream bundle, or cell array of EEGLAB data sets
+%                  or stream bundle
 %
 %   Model        : the predictive model (as produced by bci_train) that should be used to make
 %                  predictions at certain latencies in the data (specified in the Options)
@@ -114,11 +114,11 @@ function [predictions,predict_at,timings] = onl_simulate(varargin)
 arg_define([0 2],varargin, ...
     arg_norep({'signal','Data','Signal'}), ...
     arg_norep({'mdl','Model'}), ...
-    arg({'sampling_rate','UpdateRate','update_rate','SamplingRate'},[],[0 Inf],'Predict at this rate. If set, produce outputs at the given sampling rate.'), ...
-    arg({'locksamples','Latencies'}, [], [], 'Predict at these latencies. Produce outputs at the given data sample latencies.','shape','row'), ...
-    arg({'lockmrks','Markers','markers'}, {}, [], 'Predict at these events. Produce outputs at the latencies of these events.','type','expression'), ...
-    arg({'relshift','Shift','offset'},0,[],'Add time offset. Shift the time points at which to predict by this amount (in seconds).'), ...
-    arg({'target_markers','TargetMarkers'},{},[],'Target markers for prediction. If non-empty, predictions will only be generated per each target marker; if empty, a prediction will be generated for each sample where onl_predict is called.','type','expression'), ...
+    arg({'sampling_rate','UpdateRate','update_rate','SamplingRate'},[],[0 Inf],'Update at this rate. If set, update outputs at the given sampling rate.'), ...
+    arg({'locksamples','Latencies'}, [], uint32([1 1000000000]), 'Update at these latencies. Update outputs at the given data sample latencies.','shape','row'), ...
+    arg({'lockmrks','Markers','markers'}, {}, [], 'Update at these events. Update outputs at the latencies of these events.','type','expression'), ...
+    arg({'relshift','Shift','offset'},0,[],'Time offset for update positions. Shift the time points at which to update by this amount (in seconds).'), ...
+    arg({'target_markers','TargetMarkers'},{},[],'Target markers for prediction. If non-empty most types of models will generate predictions only per each target marker (even though the model will still be updated at all specified positions); if empty, a prediction will be generated for each update is called.','type','expression'), ...
     arg({'outformat','Format','format'},'distribution',{'expectation','distribution','mode'},'Prediction format. See utl_formatprediction.'), ...
     arg({'dowaitbar','Waitbar'},false,[],'Display progress update. A waitbar will be displayed if enabled.'), ...
     arg({'dofeedback','Feedback'},false,[],'Display BCI outputs. BCI outputs will be displayed on the fly if enabled.'), ...
@@ -127,16 +127,18 @@ arg_define([0 2],varargin, ...
     arg({'verbose_output','Verbose','verbose'}, false,[],'Verbose output. If false, the console output of the online pipeline will be suppressed.'), ...
     arg({'force_array','ForceArrayOutputs'},true,[],'Force outputs into array. If true, the predictions, which would normally be a cell array, are returned as a numeric array. If no target markers are specified then all predictions that yielded xno results are replaced by appropriately-sized NaN vectors.'));
 
-% uniformize the data
+% input validation
+if ~isstruct(mdl) || ~isscalar(mdl)
+    error('The given Model argument must be a 1x1 struct.'); end
+if ~isfield(mdl,'tracking') || ~all(isfield(mdl.tracking,{'prediction_function','filter_graph','prediction_channels'}))
+    error('The given Model argument is lacking some required fields (required are: .tracking.prediction_function, .tracking.filter_graph, .tracking.prediction_channels), but got: %s',hlp_tostring(model,10000)); end
 if all(isfield(signal,{'data','srate'}))
     signal = struct('streams',{{signal}}); end
 if iscell(signal)
-    signal = struct('streams',{signal}); end
-
-% and make sure that it is well-formed and evaluated
+    error('This function does not support dataset collections; you need to apply onl_simulate to each set in the collection separately (note: a previously permitted syntax in which a cell array of datasets was taken to be a stream bundle has been dropped after version 1.1)'); end
+if ~iscellstr(lockmrks)
+    error('The given markers argument must be a cell array of strings, but was: %s.',hlp_tostring(lockmrks)); end
 signal = utl_check_bundle(signal);
-for s=1:length(signal.streams)
-    signal.streams{s} = exp_eval_optimized(signal.streams{s}); end
 
 % we use the sampling rate and bounds of the first stream to determine the prediction points
 stream_srate = signal.streams{1}.srate;
@@ -150,7 +152,7 @@ end
 % aggregate the time points at which the model should be invoked
 predict_at = [];
 for m=1:length(lockmrks)
-    predict_at = [predict_at ([signal.streams{1}.event(strcmp(lockmrks{m},{signal.streams{1}.event.type})).latency]-1)/stream_srate]; end
+    predict_at = [predict_at ([signal.streams{1}.event(strcmp(lockmrks{m},{signal.streams{1}.event.type})).latency]-1)/stream_srate]; end %#ok<AGROW>
 if ~isempty(sampling_rate)
     predict_at = [predict_at 0:(1/sampling_rate):stream_xmax]; end
 if ~isempty(locksamples)
@@ -171,7 +173,7 @@ end
 % initialize the online stream(s)
 stream_names = {};
 for s=1:length(signal.streams)
-    stream_names{s} = sprintf('stream_simulated_%.0f',s);
+    stream_names{s} = sprintf('stream_simulated_%i',s);
     if tighten_buffer
         onl_newstream(stream_names{s}, signal.streams{s}, 'buffer_len',max(diff(predict_at)) + 10/signal.streams{s}.srate);
     else
