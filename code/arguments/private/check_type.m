@@ -1,6 +1,6 @@
-function check_type(type,value,argname)
+function check_type(type,value,argname,funcname)
 % Check whether a given value can be assigned to a field of a given type.
-% check_type(TypeString,Value,ArgumentName)
+% check_type(TypeString,Value,ArgumentName,FunctionName)
 %
 % This function throws an error message if the check fails.
 %
@@ -10,6 +10,8 @@ function check_type(type,value,argname)
 %   Value : the value to check
 %
 %   ArgumentName : name of the affected argument, for diagnostic messages.
+%
+%   FunctionName : name of the function that defines the argument.
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2014-02-26
@@ -31,59 +33,59 @@ function check_type(type,value,argname)
 switch type
     case {'denserealsingle','sparserealsingle','denserealdouble','sparserealdouble'}
         if ~isnumeric(value)
-            error('BCILAB:arg:typecheck','The value assigned to %s must be numeric, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s must be numeric, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
         if ~isreal(value)
-            error('BCILAB:arg:typecheck','The value assigned to %s must be real-valued, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s must be real-valued, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
     case {'densecomplexsingle','sparsecomplexsingle','densecomplexdouble','sparsecomplexdouble'}
         if ~isnumeric(value)
-            error('BCILAB:arg:typecheck','The value assigned to %s must be numeric, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s must be numeric, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
     case 'char'
         if ~ischar(value)
-            error('BCILAB:arg:typecheck','The value assigned to %s must be of type char, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s must be of type char, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
     case 'logical'
         if ~all(value(:)==true | value(:)==false)
-            error('BCILAB:arg:typecheck','The value assigned to %s must be logical, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s must be logical, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
     case 'cellstr'
         if ~iscellstr(value)
-            error('BCILAB:arg:typecheck','The value assigned to %s must be a cell array of strings, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s must be a cell array of strings, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
     case 'int8'
         if ~isnumeric(value)
-            error('BCILAB:arg:typecheck','The value assigned to %s must be numeric, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s must be numeric, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
         if ~isequal(int8(value),value)
-            error('BCILAB:arg:typecheck','The value assigned to %s cannot be converted to int8, but was: %s.',argname,hlp_tostring(value,1000)); end            
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s cannot be converted to int8, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end            
     case 'uint8'
         if ~isnumeric(value)
-            error('BCILAB:arg:typecheck','The value assigned to %s must be numeric, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s must be numeric, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
         if ~isequal(uint8(value),value)
-            error('BCILAB:arg:typecheck','The value assigned to %s cannot be converted to uint8, but was: %s.',argname,hlp_tostring(value,1000)); end            
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s cannot be converted to uint8, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end            
     case 'int16'
         if ~isnumeric(value)
-            error('BCILAB:arg:typecheck','The value assigned to %s must be numeric, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s must be numeric, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
         if ~isequal(int16(value),value)
-            error('BCILAB:arg:typecheck','The value assigned to %s cannot be converted to int16, but was: %s.',argname,hlp_tostring(value,1000)); end            
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s cannot be converted to int16, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end            
     case 'uint16'
         if ~isnumeric(value)
-            error('BCILAB:arg:typecheck','The value assigned to %s must be numeric, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s must be numeric, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
         if ~isequal(uint16(value),value)
-            error('BCILAB:arg:typecheck','The value assigned to %s cannot be converted to uint16, but was: %s.',argname,hlp_tostring(value,1000)); end            
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s cannot be converted to uint16, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end            
     case 'int32'
         if ~isnumeric(value)
-            error('BCILAB:arg:typecheck','The value assigned to %s must be numeric, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s must be numeric, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
         if ~isequal(int32(value),value)
-            error('BCILAB:arg:typecheck','The value assigned to %s cannot be converted to int32, but was: %s.',argname,hlp_tostring(value,1000)); end            
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s cannot be converted to int32, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end            
     case 'uint32'
         if ~isnumeric(value)
-            error('BCILAB:arg:typecheck','The value assigned to %s must be numeric, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s must be numeric, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
         if ~isequal(uint32(value),value)
-            error('BCILAB:arg:typecheck','The value assigned to %s cannot be converted to uint32, but was: %s.',argname,hlp_tostring(value,1000)); end            
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s cannot be converted to uint32, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end            
     case 'int64'
         if ~isnumeric(value)
-            error('BCILAB:arg:typecheck','The value assigned to %s must be numeric, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s must be numeric, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
         if ~isequal(int64(value),value)
-            error('BCILAB:arg:typecheck','The value assigned to %s cannot be converted to int64, but was: %s.',argname,hlp_tostring(value,1000)); end            
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s cannot be converted to int64, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end            
     case 'uint64'
         if ~isnumeric(value)
-            error('BCILAB:arg:typecheck','The value assigned to %s must be numeric, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s must be numeric, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
         if ~isequal(uint64(value),value)
-            error('BCILAB:arg:typecheck','The value assigned to %s cannot be converted to uint64, but was: %s.',argname,hlp_tostring(value,1000)); end            
+            error('BCILAB:arg:typecheck','The value assigned to %s in %s cannot be converted to uint64, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end            
 end

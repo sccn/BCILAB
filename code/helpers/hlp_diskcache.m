@@ -161,6 +161,8 @@ if iscell(options) || isstruct(options)
 elseif ischar(options)
     % options is referring to the name of a profile
     profilename = options;
+    if ~isvarname(profilename)
+        error('The given profile name is not a valid MATLAB variable name: %s',profilename); end
     % make sure that it exists
     if ~isfield(settings,profilename)
         settings.(profilename) = assign_defaults({}); end
@@ -176,10 +178,10 @@ elseif ischar(options)
             mlock; end
         return;
     else
-        error('Unrecognized syntax.');
+        error('Unrecognized syntax: the second argument must be either a function handle or a string.');
     end
 else
-    error('Unrecognized syntax.');
+    error('Unrecognized syntax: the Settings argument must be either a struct, cell array, or string/');
 end 
 
 % make path platform-specific

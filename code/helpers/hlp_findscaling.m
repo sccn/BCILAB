@@ -43,8 +43,10 @@ function res = hlp_findscaling(X, scaling)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-if ~exist('scaling','var') 
+if nargin < 2
     scaling = 'minmax'; end
+if ~ischar(scaling)
+    error('The given scaling mode must be a string.'); end
 
 switch scaling
     case 'center'
@@ -73,6 +75,6 @@ switch scaling
         res.mul(~isfinite(res.mul(:))) = 1;
     otherwise
         if ~isempty(scaling) && ~strcmp(scaling,'none')
-            error('hlp_findscaling: unknown scaling mode specified'); end
+            error('hlp_findscaling: unknown scaling mode specified: %s',scaling); end
         res = struct();
 end

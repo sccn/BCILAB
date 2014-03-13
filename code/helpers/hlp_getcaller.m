@@ -17,7 +17,7 @@ function [name,file] = hlp_getcaller(indirection)
 %   mycallerscaller = hlp_getcaller(2);
 %
 % See also:
-%   hlp_iscaller
+%   hlp_getcaller
 %
 %                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                               2010-04-15

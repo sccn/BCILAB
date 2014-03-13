@@ -1,6 +1,6 @@
-function check_range(range,value,argname)
+function check_range(range,value,argname,funcname)
 % Check whether a given value can be assigned to a field of a given range.
-% check_range(Range,Value,ArgumentName)
+% check_range(Range,Value,ArgumentName,FunctionName)
 %
 % This function throws an error message if the check fails.
 %
@@ -10,6 +10,8 @@ function check_range(range,value,argname)
 %   Value : the value to check
 %
 %   ArgumentName : name of the affected argument, for diagnostic messages.
+%
+%   FunctionName : name of the function that defines the argument.
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2014-02-26
@@ -34,27 +36,27 @@ function check_range(range,value,argname)
      return;
  elseif iscellstr(range)
      if ~any(strcmp(value,range))
-         error('BCILAB:arg:rangecheck','The value assigned to %s must be in the range %s, but was: %s.',argname,hlp_tostring(range),hlp_tostring(value,1000)); end
+         error('BCILAB:arg:rangecheck','The value assigned to %s in %s must be in the range %s, but was: %s.',argname,funcname,hlp_tostring(range),hlp_tostring(value,1000)); end
  elseif iscell(range)
      if ~any(cellfun(@(v)isequal(v,value),range))
-         error('BCILAB:arg:rangecheck','The value assigned to %s must be in the range %s, but was: %s.',argname,hlp_tostring(range),hlp_tostring(value,1000)); end
+         error('BCILAB:arg:rangecheck','The value assigned to %s in %s must be in the range %s, but was: %s.',argname,funcname,hlp_tostring(range),hlp_tostring(value,1000)); end
  elseif isnumeric(range) && size(range,1) == 1
      if any(value < range(1)) || any(value > range(end))
-         error('BCILAB:arg:rangecheck','The value assigned to %s must be in the range %s, but was: %s.',argname,hlp_tostring(range),hlp_tostring(value,1000)); end
+         error('BCILAB:arg:rangecheck','The value assigned to %s in %s must be in the range %s, but was: %s.',argname,funcname,hlp_tostring(range),hlp_tostring(value,1000)); end
      if isinteger(range) && ~isequal(value,round(value))
-         error('BCILAB:arg:rangecheck','The value assigned to %s must be an integer, but was: %s.',argname,hlp_tostring(value,1000)); end 
+         error('BCILAB:arg:rangecheck','The value assigned to %s in %s must be an integer, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end 
      if size(range,2)==4 && (any(value < range(2)) || any(value > range(3)))
-         disp_once('NOTE: The value assigned to %s is not in the typical range %s, but was: %s',argname,hlp_tostring(range([2 3])),hlp_tostring(value,1000)); end
+         disp_once('NOTE: The value assigned to %s in %s is not in the typical range %s, but was: %s',argname,funcname,hlp_tostring(range([2 3])),hlp_tostring(value,1000)); end
  elseif isstruct(range)
      if ~isstruct(value)
-         error('BCILAB:arg:rangecheck','The value assigned to %s must be a struct, but was: %s.',argname,hlp_tostring(value,1000)); end 
+         error('BCILAB:arg:rangecheck','The value assigned to %s in %s must be a struct, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end 
      fn = fieldnames(range);
      tf = struct2cell(range);
      required_fields = fn(logical([tf{:}]));
      disallowed_fields = fn(~logical([tf{:}]));
      if ~all(isfield(value,required_fields))
-         error('BCILAB:arg:rangecheck','The value assigned to %s is missing the fields named %s, but was: %s.',argname,hlp_tostring(setdiff(required_fields,fieldnames(value))),hlp_tostring(value,1000)); end
+         error('BCILAB:arg:rangecheck','The value assigned to %s in %s is missing the fields named %s, but was: %s.',argname,funcname,hlp_tostring(setdiff(required_fields,fieldnames(value))),hlp_tostring(value,1000)); end
      if any(isfield(value,disallowed_fields))
-         error('BCILAB:arg:rangecheck','The value assigned to %s must not have fields named %s, but was: %s.',argname,hlp_tostring(intersect(disallowed_fields,fieldnames(value))),hlp_tostring(value,1000)); end         
+         error('BCILAB:arg:rangecheck','The value assigned to %s in %s must not have fields named %s, but was: %s.',argname,funcname,hlp_tostring(intersect(disallowed_fields,fieldnames(value))),hlp_tostring(value,1000)); end
  end
  

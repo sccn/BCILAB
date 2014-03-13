@@ -1,6 +1,6 @@
-function check_shape(shape,value,argname)
+function check_shape(shape,value,argname,funcname)
 % Check whether a given value can be assigned to a field of a given shape.
-% check_type(ShapeString,Value,ArgumentName)
+% check_type(ShapeString,Value,ArgumentName,FunctionName)
 %
 % This function throws an error message if the check fails.
 %
@@ -10,6 +10,8 @@ function check_shape(shape,value,argname)
 %   Value : the value to check
 %
 %   ArgumentName : name of the affected argument, for diagnostic messages.
+%
+%   FunctionName : name of the function that defines the argument.
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2014-02-26
@@ -31,17 +33,17 @@ function check_shape(shape,value,argname)
 switch shape
     case 'scalar'
         if any(size(value) > 1)
-            error('BCILAB:arg:shapecheck','The value assigned to %s must be scalar, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:shapecheck','The value assigned to %s in %s must be scalar, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
     case 'empty'
         if ~isempty(value)
-            error('BCILAB:arg:shapecheck','The value assigned to %s must be empty, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:shapecheck','The value assigned to %s in %s must be empty, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
     case 'row'
         if size(value,1) > 1
-            error('BCILAB:arg:shapecheck','The value assigned to %s must be a row vector, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:shapecheck','The value assigned to %s in %s must be a row vector, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
     case 'column'
         if size(value,2) > 1
-            error('BCILAB:arg:shapecheck','The value assigned to %s must be a column vector, but was: %s.',argname,hlp_tostring(value,1000)); end
+            error('BCILAB:arg:shapecheck','The value assigned to %s in %s must be a column vector, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
     case 'matrix'
-        if ndims(value) > 2
-            error('BCILAB:arg:shapecheck','The value assigned to %s must be a matrix, but was: %s.',argname,hlp_tostring(value,1000)); end
+        if ndims(value) > 2 %#ok<ISMAT>
+            error('BCILAB:arg:shapecheck','The value assigned to %s in %s must be a matrix, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end
 end
