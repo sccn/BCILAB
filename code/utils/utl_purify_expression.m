@@ -7,7 +7,7 @@ function x = utl_purify_expression(x)
 %                                                     Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                                     2010-05-23
 
-if isfield(x,{'head','parts'})
+if isscalar(x) && all(isfield(x,{'head','parts'}))
     % x is a canonical expression: recurse
     for i=1:length(x.parts)
         x.parts{i} = utl_purify_expression(x.parts{i}); end

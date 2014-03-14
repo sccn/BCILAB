@@ -101,7 +101,7 @@ if isfield(sig,{'data','srate'})
     end
     % change the expression into a re-loading
     sig = io_loadset(filepath);
-elseif isfield(sig,{'head','parts'})
+elseif isscalar(sig) && all(isfield(sig,{'head','parts'}))
     % we have an expression: check parts recursively...
     for p=1:length(sig.parts)
         sig.parts{p} = utl_check_dataset(sig.parts{p},opts,ctx,exp); end

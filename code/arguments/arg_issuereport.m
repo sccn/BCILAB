@@ -38,6 +38,8 @@ catch %#ok<CTCH>
         max_inflight_tickets = 50000;
         for t=max_inflight_tickets:-1:1
             tracking.arg_sys.tickets.addLast(t); end
+    else
+        error('BCILAB ran out of report tickets; if this happens it means that tickets did not get reclaimed properly elsewhere in the system.');
     end
     ticket = tracking.arg_sys.tickets.removeLast();
 end

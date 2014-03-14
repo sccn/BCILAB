@@ -41,11 +41,11 @@ function check_range(range,value,argname,funcname)
      if ~any(cellfun(@(v)isequal(v,value),range))
          error('BCILAB:arg:rangecheck','The value assigned to %s in %s must be in the range %s, but was: %s.',argname,funcname,hlp_tostring(range),hlp_tostring(value,1000)); end
  elseif isnumeric(range) && size(range,1) == 1
-     if any(value < range(1)) || any(value > range(end))
+     if any(value(:) < range(1)) || any(value(:) > range(end))
          error('BCILAB:arg:rangecheck','The value assigned to %s in %s must be in the range %s, but was: %s.',argname,funcname,hlp_tostring(range),hlp_tostring(value,1000)); end
      if isinteger(range) && ~isequal(value,round(value))
          error('BCILAB:arg:rangecheck','The value assigned to %s in %s must be an integer, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end 
-     if size(range,2)==4 && (any(value < range(2)) || any(value > range(3)))
+     if size(range,2)==4 && (any(value(:) < range(2)) || any(value(:) > range(3)))
          disp_once('NOTE: The value assigned to %s in %s is not in the typical range %s, but was: %s',argname,funcname,hlp_tostring(range([2 3])),hlp_tostring(value,1000)); end
  elseif isstruct(range)
      if ~isstruct(value)

@@ -84,8 +84,8 @@ arg_define(varargin, ...
          arg({'winparam','WindowParameter','param'},[],[],'Parameter of the window function.','shape','scalar') ...
         }, 'Time-domain selection. Allows for the specification of a data sub-interval and/or a window function (soft weighting) placed therein.','fmt',@parse_timespec));
 
-if ~isequal(size(trange),[1 2]) || ~issorted(trange)
-    error('The given TimeRange parameters must be a 2-element row vector of the form [lower,upper] and sorted, but was: %s',hlp_tostring(trange,1000)); end
+if ~isempty(time.trange) && (~isequal(size(time.trange),[1 2]) || ~issorted(time.trange))
+    error('The given TimeRange parameters must be a 2-element row vector of the form [lower,upper] and sorted, but was: %s',hlp_tostring(time.trange,1000)); end
     
 % time-domain selection
 if ~isempty(time) && ~isequal(time,false) %#ok<*USENS>

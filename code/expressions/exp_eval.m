@@ -115,7 +115,7 @@ end
 varargout = {x};
 while iters > 0
     % check if we got a canonically represented expression
-    if isfield(x,{'head','parts'})
+    if isscalar(x) && all(isfield(x,{'head','parts'}))
         chead = char(x.head);
         % we did, check if it's an application of a lambda or builtin function
         if chead(1) == '@' || (exist(char(x.head),'builtin') && ~exist(char(x.head),'file'))

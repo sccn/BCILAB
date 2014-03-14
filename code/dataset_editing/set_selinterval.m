@@ -51,7 +51,7 @@ arg_define(varargin, ...
     arg({'selunit','IntervalUnit','Unit','unit'},'seconds',{'seconds','samples','fraction','range'}, 'Interval unit. The unit of measurement for selection intervals (does not apply to SampleRange).'), ...
     arg({'insert_boundary_markers','InsertBoundaryMarkers'},false,[], 'Insert boundary markers. Whether to insert boundary markers (for EEGLAB compatibility).'));
 
-utl_check_signal(signal,{'epoch','event','data','pnts','srate','xmin'},'signal','signal');
+utl_check_fields(signal,{'epoch','event','data','pnts','srate','xmin'},'signal','signal');
 if signal.srate == 0 
     error('Your signal needs to have a nonzero .srate value.'); end
 if ~isempty(signal.epoch) || size(signal.data,3) > 1
@@ -120,12 +120,12 @@ elseif ~isequal(samplerange,1:size(signal.data,2))
         end
         % trim out-of-bounds events
         event_latency = [signal.event.latency];
-        out_of_bounds = event_latency<1 | event_latency>size(signal.data,2);
+        out_of_bounds = event_latency<1 | event_latency>signal.pnts;
         if any(out_of_bounds)
             disp_once('WARNING: your signal had %i events at out-of-bounds latencies that were removed.',nnz(out_of_bounds)); end
         signal.event(out_of_bounds) = [];
         % bin latencies into sparse array and apply selection
-        [event_positions,residuals] = sparse_binning([signal.event.latency],[],size(signal.data,2));
+        [event_positions,residuals] = sparse_binning([signal.event.latency],[],signal.pnts);
         [ranks,sample_indices,event_indices] = find(event_positions(:,samplerange));
         residuals = residuals(:); sample_indices = sample_indices(:); event_indices = event_indices(:);
         % write event subset and update latencies

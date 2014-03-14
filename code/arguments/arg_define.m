@@ -367,10 +367,11 @@ end
 % cached wrapper around process_spec
 function varargout = process_spec_cached(caller_name,spec,report_type,assign_defaults,perform_namecheck)
     persistent cache;
+    caller_field = caller_name; caller_field(caller_field=='.') = '_';
     key = [report_type 'a'+assign_defaults];
     try
         % try to load the cached result for the given caller
-        result = cache.(caller_name).(key);
+        result = cache.(caller_field).(key);
         % return if it matches the current input
         if isequal(result.spec,spec) || isequalwithequalnans(result.spec,spec) %#ok<FPARK>
             varargout = result.output; 
@@ -380,7 +381,7 @@ function varargout = process_spec_cached(caller_name,spec,report_type,assign_def
     end
     % otherwise fall back to microcache and overwrite
     [varargout{1:nargout}] = hlp_microcache('spec',@process_spec,caller_name,spec,report_type,assign_defaults,perform_namecheck);
-    cache.(caller_name).(key) = struct('output',{varargout},'spec',{spec});
+    cache.(caller_field).(key) = struct('output',{varargout},'spec',{spec});
 end
 
 
@@ -495,7 +496,8 @@ function nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,fir
         signature(structmask) = cellfun(@fieldnames,signature(structmask),'UniformOutput',false); end
     
     % determine the number n of arguments that were specified positionally
-    [n,violations,ignored] = hlp_nanocache(caller_name,10,@get_num_positionals,fmt,length(first_names),signature,structmask,permitted_names,skipped_positionals);
+    caller_field = caller_name; caller_field(caller_field=='.') = '_';
+    [n,violations,ignored] = hlp_nanocache(caller_field,10,@get_num_positionals,fmt,length(first_names),signature,structmask,permitted_names,skipped_positionals);
     
     % emit errors and/or diagnostic warnings
     if isnan(n)
@@ -632,7 +634,7 @@ function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,de
             catch
                 % got a check error: make sure that the value is not a search
                 % range (in which case we would let it pass)
-                if ~(all(isfield(newvalue,{'head','parts'})) && strcmp(newvalue.head,@search))
+                if ~(all(isfield(newvalue,{'head','parts'})) && strcmp(char(newvalue.head),'search'))
                     % check the new value again to propagate the previous error properly
                     check_value(spec,newvalue,caller_name);
                 end
@@ -676,11 +678,15 @@ function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,de
                 spec.children = override_flags(spec.children,spec.reflag{pos}{:});
                 if ~isempty(key)
                     % make sure that arg_selection child is included & set
-                    selection_arg = strcmp('arg_selection',{spec.children.first_name});
-                    if any(selection_arg)
-                        spec.children(selection_arg).value = key;
+                    if ~isempty(spec.children)
+                        selection_arg = strcmp('arg_selection',{spec.children.first_name});
+                        if any(selection_arg)
+                            spec.children(selection_arg).value = key;
+                        else
+                            spec.children = [spec.children,cached_argument('arg_selection',key)];
+                        end
                     else
-                        spec.children = [spec.children,cached_argument('arg_selection',key)];
+                        spec.children = cached_argument('arg_selection',key);
                     end
                     % update alternatives
                     spec.alternatives{pos} = spec.children; 
