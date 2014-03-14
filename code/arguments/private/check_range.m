@@ -46,7 +46,7 @@ function check_range(range,value,argname,funcname)
      if isinteger(range) && ~isequal(value,round(value))
          error('BCILAB:arg:rangecheck','The value assigned to %s in %s must be an integer, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end 
      if size(range,2)==4 && (any(value(:) < range(2)) || any(value(:) > range(3)))
-         disp_once('NOTE: The value assigned to %s in %s is not in the typical range %s, but was: %s',argname,funcname,hlp_tostring(range([2 3])),hlp_tostring(value,1000)); end
+         disp_once('WARNING: The value assigned to %s in %s is not in the typical range %s, but was: %s',argname,funcname,hlp_tostring(range([2 3])),hlp_tostring(value,1000)); end
  elseif isstruct(range)
      if ~isstruct(value)
          error('BCILAB:arg:rangecheck','The value assigned to %s in %s must be a struct, but was: %s.',argname,funcname,hlp_tostring(value,1000)); end 

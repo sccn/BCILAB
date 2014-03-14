@@ -56,8 +56,9 @@ for s=1:length(str)
         if any(latency_numels ~= 1)
             error('One or more of the events in the given signal have a .latency value that is not a scalar, which is not permitted.'); end
         latencies = [latencies{:}];
-        if any(latencies < 1 | latencies > size(str{s}.data,2))
-            disp_once('WARNING: The signal contains some events with out-of-bounds latencies.'); end
+        out_of_bounds = latencies < 1 | latencies > size(str{s}.data,2);
+        if any(out_of_bounds)
+            disp_once('WARNING: The signal contains %i events with out-of-bounds latencies.',nnz(out_of_bounds)); end
         if ~isequal(sort(latencies),latencies)
             disp_once('Warning: The signal has unsorted event latencies.'); end
     end

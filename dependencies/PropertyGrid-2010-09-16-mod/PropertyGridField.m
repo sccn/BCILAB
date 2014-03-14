@@ -230,7 +230,9 @@ classdef PropertyGridField < hgsetget
                 end
                 
                 if strcmp(s.type,'expression') && ~ischar(s.value)
-                    s.value = hlp_tostring(s.value); end
+                    s.value = hlp_tostring(s.value); 
+                    s.range = []; % reset the domain
+                end
 
                 if strcmp(s.type,'logical') && iscell(s.range)
                     s.shape = 'row';

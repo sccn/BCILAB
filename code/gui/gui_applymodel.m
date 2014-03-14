@@ -179,7 +179,7 @@ set(handles.popupmenu1,'String',printed);
 % --- loss selector menu
 
 function popupmenu3_Callback(hObject, eventdata, handles)
-shortlosses = {[], 'kld', 'nll', 'mcr', 'mae', 'mse', 'smse', 'max', 'rms', 'bias', 'medse', 'auc', 'cond_entropy', 'cross_entropy', 'f_measure'};
+shortlosses = {'auto', 'kld', 'nll', 'mcr', 'mae', 'mse', 'smse', 'max', 'rms', 'bias', 'medse', 'auc', 'cond_entropy', 'cross_entropy', 'f_measure'};
 handles.metric = shortlosses{get(hObject,'Value')};
 guidata(hObject,handles);
 
