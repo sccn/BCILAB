@@ -253,7 +253,7 @@ if ~iscell(opts.data)
     opts.data = {opts.data}; end
 for d = 1:length(opts.data)
     opts.data{d} = path_normalize(opts.data{d}); end
-if isempty(opts.data) || ~any(cellfun(@exist,opts.data))
+if isempty(opts.data)
     opts.data = {[base_dir 'userdata']}; end
 
 % process store directory
