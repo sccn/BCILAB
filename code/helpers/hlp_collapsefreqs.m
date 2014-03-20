@@ -11,4 +11,6 @@ switch method
         bp = mean(spectrum(:,fidx),2);
     case 'max'
         bp = max(spectrum(:,fidx),[],2);
+    otherwise
+        error('Unsupported collapse method: %s',method);
 end

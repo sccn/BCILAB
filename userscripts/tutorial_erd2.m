@@ -171,38 +171,38 @@ end
 %% --- try a few other paradigms that are applicable to oscillatory processes ---
 
 approaches = [];
-
-% using the Bandpower paradigm, extracting simple per-channel logarithmic band-power estimates
-approaches.logbp = {'Bandpower', 'SignalProcessing',{'FIRFilter',[6 8 28 32], 'SurfaceLaplacian','off'}};
-% Bandpower with the surface Laplacian as basic spatial filter
-approaches.surflap = {'Bandpower', 'SignalProcessing',{'FIRFilter',[6 8 28 32], 'SurfaceLaplacian','on'}};
-% Bandpower with stationary subspaces as spatial filters
-approaches.stationary = {'Bandpower', 'SignalProcessing',{'FIRFilter',[6 8 28 32], 'SurfaceLaplacian','off', 'StationarySubspace',{'Operation','separate'}}};
-
-% using the SpectralMeans paradigm for the same frequency window, on raw channels
-% Note: if you are running out of memory under Win32, you can skip the specm approaches and continue
-% with specpca (you may also run env_clear_memcaches in the command line to free up space).
-pproaches.specm_chans = {'Spectralmeans', 'Prediction',{'FeatureExtraction',{'FreqWindows',[7 30]}}};
-% Spectralmeans using the surface Laplacian as spatial filters
-approaches.specm_surflap = {'Spectralmeans', 'SignalProcessing',{'SurfaceLaplacian','on'},'Prediction',{'FeatureExtraction',{'FreqWindows',[7 30]}}};
-% Spectralmeans using stationary subspaces as spatial filters
-approaches.specm_stat = {'Spectralmeans', 'SignalProcessing',{'StationarySubspace',{'Operation','separate'}}, 'Prediction',{'FeatureExtraction',{'FreqWindows',[7 30]}}};
-% Spectralmeans, but now using more frequency windows per component (7-15, 15-25, 7-30)
-approaches.specm_stat_big = {'Spectralmeans', 'SignalProcessing',{'StationarySubspace',{'Operation','separate'}}, 'Prediction',{'FeatureExtraction',{'FreqWindows',[7 15; 15 25; 7 30]}}};
-% Spectralmeans, now also using sparse logistic regression as classifier
-approaches.specm_stat_big_sparse_logreg = {'Spectralmeans', 'SignalProcessing',{'StationarySubspace',{'Operation','separate'}},  ...
-    'Prediction',{'FeatureExtraction',{'FreqWindows',[7 15;15 25;7 30]},'MachineLearning',{'Learner',{'logreg','variant','vb-ard'}}}};
-
-% using the basic DataflowSimplified paradigm, and operating on raw PCA features of the spectra of stationary components (using sparse logistic regression)
-approaches.specpca = {'DataflowSimplified', 'SignalProcessing',{'IIRFilter',{[0.1 2],'highpass'}, 'EpochExtraction',[0.5 3.5], 'SpectralTransform',{'multitaper',true,false,80}, 'Resampling',100, 'StationarySubspace',{'Operation','separate'},'EpochPCA',10},  ...
-    'Prediction',{'MachineLearning',{'Learner',{'logreg','variant','vb-ard'}}}}; 
-
-% using the vanilla FBCSP paradigm for three frequency windows (filter-bank CSP)
-approaches.fbcsp = {'FBCSP' 'Prediction',{'FeatureExtraction',{'FreqWindows',[7 15; 15 25; 7 30]}}};
-% using FBCSP with logistic regression
-approaches.fbcsp_logreg = {'FBCSP' 'Prediction',{'FeatureExtraction',{'FreqWindows',[7 15; 15 25; 7 30]},'MachineLearning',{'Learner','logreg'}}};
-% using FBCSP with a somewhat elaborate time windowing approach
-approaches.fbcsp_hann = {'FBCSP' 'SignalProcessing',{'EpochExtraction',[0 4]},'Prediction',{'FeatureExtraction',{'FreqWindows',[7 15; 15 25; 7 30],'WindowFunction','hann'}}};
+% 
+% % using the Bandpower paradigm, extracting simple per-channel logarithmic band-power estimates
+% approaches.logbp = {'Bandpower', 'SignalProcessing',{'FIRFilter',[6 8 28 32], 'SurfaceLaplacian','off'}};
+% % Bandpower with the surface Laplacian as basic spatial filter
+% approaches.surflap = {'Bandpower', 'SignalProcessing',{'FIRFilter',[6 8 28 32], 'SurfaceLaplacian','on'}};
+% % Bandpower with stationary subspaces as spatial filters
+% approaches.stationary = {'Bandpower', 'SignalProcessing',{'FIRFilter',[6 8 28 32], 'SurfaceLaplacian','off', 'StationarySubspace',{'Operation','separate'}}};
+% 
+% % using the SpectralMeans paradigm for the same frequency window, on raw channels
+% % Note: if you are running out of memory under Win32, you can skip the specm approaches and continue
+% % with specpca (you may also run env_clear_memcaches in the command line to free up space).
+% pproaches.specm_chans = {'Spectralmeans', 'Prediction',{'FeatureExtraction',{'FreqWindows',[7 30]}}};
+% % Spectralmeans using the surface Laplacian as spatial filters
+% approaches.specm_surflap = {'Spectralmeans', 'SignalProcessing',{'SurfaceLaplacian','on'},'Prediction',{'FeatureExtraction',{'FreqWindows',[7 30]}}};
+% % Spectralmeans using stationary subspaces as spatial filters
+% approaches.specm_stat = {'Spectralmeans', 'SignalProcessing',{'StationarySubspace',{'Operation','separate'}}, 'Prediction',{'FeatureExtraction',{'FreqWindows',[7 30]}}};
+% % Spectralmeans, but now using more frequency windows per component (7-15, 15-25, 7-30)
+% approaches.specm_stat_big = {'Spectralmeans', 'SignalProcessing',{'StationarySubspace',{'Operation','separate'}}, 'Prediction',{'FeatureExtraction',{'FreqWindows',[7 15; 15 25; 7 30]}}};
+% % Spectralmeans, now also using sparse logistic regression as classifier
+% approaches.specm_stat_big_sparse_logreg = {'Spectralmeans', 'SignalProcessing',{'StationarySubspace',{'Operation','separate'}},  ...
+%     'Prediction',{'FeatureExtraction',{'FreqWindows',[7 15;15 25;7 30]},'MachineLearning',{'Learner',{'logreg','variant','vb-ard'}}}};
+% 
+% % using the basic DataflowSimplified paradigm, and operating on raw PCA features of the spectra of stationary components (using sparse logistic regression)
+% approaches.specpca = {'DataflowSimplified', 'SignalProcessing',{'IIRFilter',{[0.1 2],'highpass'}, 'EpochExtraction',[0.5 3.5], 'SpectralTransform',{'multitaper',true,false,80}, 'Resampling',100, 'StationarySubspace',{'Operation','separate'},'EpochPCA',10},  ...
+%     'Prediction',{'MachineLearning',{'Learner',{'logreg','variant','vb-ard'}}}}; 
+% 
+% % using the vanilla FBCSP paradigm for three frequency windows (filter-bank CSP)
+% approaches.fbcsp = {'FBCSP' 'Prediction',{'FeatureExtraction',{'FreqWindows',[7 15; 15 25; 7 30]}}};
+% % using FBCSP with logistic regression
+% approaches.fbcsp_logreg = {'FBCSP' 'Prediction',{'FeatureExtraction',{'FreqWindows',[7 15; 15 25; 7 30]},'MachineLearning',{'Learner','logreg'}}};
+% % using FBCSP with a somewhat elaborate time windowing approach
+% approaches.fbcsp_hann = {'FBCSP' 'SignalProcessing',{'EpochExtraction',[0 4]},'Prediction',{'FeatureExtraction',{'FreqWindows',[7 15; 15 25; 7 30],'WindowFunction','hann'}}};
 
 % using RCSP for Tikhonov-regularized CSP (takes approx. 2 minutes)
 approaches.trcsp = {'RCSP' 'Prediction',{'FeatureExtraction',{'beta',0,'gamma',0}}};
@@ -241,7 +241,7 @@ for app = fieldnames(approaches)'
     disp(['pseudo-online test mis-classification rate: ' num2str(mean(argmax(predictions') ~= targets')*100,3) '%']);
     % visualize in real time
     run_readdataset('Dataset',session{end}); run_writevisualization('Model',lastmodel); 
-    waitforbuttonpress; clear laststream; close(gcf);
+    try waitforbuttonpress; catch,end; clear laststream; close(gcf);
 end
 
 

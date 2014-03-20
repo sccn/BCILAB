@@ -40,7 +40,12 @@ function hash = hlp_cryptohash(data,fromfile)
 % maximum amount of memory used inside the Java VM
 max_java_memory = 2^26; % 64 MB
 
-if nargin >= 2 && fromfile
+if nargin < 2
+    fromfile = false; end    
+if ~isequal(fromfile,true) || isequal(fromfile,false)
+    error('The given FromFile argument must be true or false.'); end
+
+if fromfile
     % take data as a file name
     if ~ischar(data)
         error('To represent a file name, Data should be a string.'); end

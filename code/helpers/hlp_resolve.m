@@ -13,8 +13,8 @@ function outargs = hlp_resolve(x,default,context)
 %   Default : the default value, if the symbol does not exist (note: you may also omit the default
 %             if you prefer to get an error in case the symbol does not exist)
 %
-%   Context : Optionally the execution context (stack) at this point, if known.
-%             Can be obtained via try/catch.
+%   Context : Optionally the execution context (struct with field .stack) at this point, if known.
+%             Can be obtained via dbstack or try/catch.
 %
 % Out:
 %   Data : the data associated with the symbol, or the symbol itself, if the lookup failed

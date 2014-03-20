@@ -47,6 +47,8 @@ switch rule
             x = roiVertices{k};
             srcmat_out(k,:) = median(srcmat(x,:),1);
         end
+    otherwise
+        error('Unsupported collapse rule: %s',rule);
 end
 
 

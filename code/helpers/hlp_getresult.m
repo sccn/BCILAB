@@ -47,5 +47,5 @@ elseif iscell(idx)
     [tmp{1:max([idx{:}])}] = f(varargin{:});
     varargout = {tmp([idx{:}])};
 else
-    error('unsupported index format.');
+    error('Unsupported index format (must be either numeric or cell array).');
 end

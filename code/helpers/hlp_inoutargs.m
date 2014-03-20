@@ -36,6 +36,8 @@ h1 = [];
 if nargin < 2
     funcname = []; end
 
+if ~ischar(filename)
+    error('The given Filename argument must be a string.'); end
 f = fopen(filename,'r');
 if f == -1
     if ~exist(filename,'file')
