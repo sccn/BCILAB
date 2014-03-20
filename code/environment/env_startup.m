@@ -222,7 +222,7 @@ env_load_dependencies(dependency_dir,opts.autocompile);
 if exist(env_translatepath('home:/.bcilab/code/dependencies'),'dir')
     env_load_dependencies(env_translatepath('home:/.bcilab/code/dependencies'),opts.autocompile); end
 if ~isempty(opts.private) && exist(env_translatepath([opts.private '/code/dependencies']),'dir')
-    env_load_dependencies(env_translatepath([opts.private 'code/dependencies']),opts.autocompile); end
+    env_load_dependencies(env_translatepath([opts.private '/code/dependencies']),opts.autocompile); end
 
 if ischar(opts.worker)
     try
