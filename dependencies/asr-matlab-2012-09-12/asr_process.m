@@ -141,7 +141,7 @@ for i=1:splits
         update_at = min(stepsize:stepsize:(size(Xcov,2)+stepsize-1),size(Xcov,2));
         % if there is no previous R (from the end of the last chunk), we estimate it right at the first sample
         if isempty(state.last_R)
-            update_at = [1 update_at]; 
+            update_at = [1 update_at];  %#ok<AGROW>
             state.last_R = eye(C);
         end
         Xcov = reshape(Xcov(:,update_at),C,C,[]);

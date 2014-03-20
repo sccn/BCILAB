@@ -1,4 +1,4 @@
-function [LF_penalties,LF_initfilters,LF_chanmask,LF_centroids_grid,LF_costfunction,sa] = calc_beamformer_constraints(LF_chans,LF_anchors,LF_cov,LF_ref)
+function [LF_penalties,LF_initfilters,LF_chanmask,LF_centroids_grid,LF_costfunction,sa,LF_normfield,LF] = calc_beamformer_constraints(LF_chans,LF_anchors,LF_cov,LF_ref)
 % Calculate Beamformer constraints for ICA/dictionary learning.
 %
 % In:
@@ -24,6 +24,10 @@ function [LF_penalties,LF_initfilters,LF_chanmask,LF_centroids_grid,LF_costfunct
 %                  for a given unmixing matrix (assuming sphered data)
 %
 %   HeadModel : head model struct (can be used for further processing)
+%
+%   NormField : forward projections of the selected areas onto channels (along normals)
+%
+%   LeadField : forward projections of the selected areas onto channels (3 axes)
 %
 % Notes:
 %   Requires Guido Nolte's sourceanalysis toolbox.
