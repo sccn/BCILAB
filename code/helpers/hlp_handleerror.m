@@ -76,6 +76,6 @@ try
         for st = e.stack'
             s = [s sprintf('%s   %s: %i\n',level,st.file,st.line)]; end
     end
-catch
+catch err
     disp('An error occurred, but the traceback could not be displayed due to another error...');
 end
