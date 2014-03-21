@@ -137,7 +137,7 @@ if isempty(state) %#ok<NODEF>
     end
 
     % get the reference mixing matrix M
-    state.M = sqrtm(real(reshape(block_geometric_median(U/calib_precision),C,C)));
+    state.M = sqrtm(real(reshape(geometric_median(U/calib_precision),C,C)));
     
     % calculate randomly sampled reconstruction matrices
     for k=1:num_samples

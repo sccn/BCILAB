@@ -163,7 +163,7 @@ for k=1:blocksize
 end
 
 % get the mixing matrix M
-M = sqrtm(real(reshape(block_geometric_median(U/blocksize),C,C)));
+M = sqrtm(real(reshape(geometric_median(U/blocksize),C,C)));
 
 % window length for calculating thresholds
 N = round(window_len*srate);
