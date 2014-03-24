@@ -51,7 +51,7 @@ catch e
     if strcmp(e.identifier,'MATLAB:badsubscript')
         error('BCILAB:onl_peek:improper_resolve','The raw data required by the predictor does not list the name of the needed source stream; this is likely a problem in onl_newstream/onl_newpredictor.');
     else
-        error('BCILAB:onl_peek:stream_not_found',['The stream named ' hlp_tosrting(streamname) ' was not found in the base workspace.']);
+        error('BCILAB:onl_peek:stream_not_found',['The stream named ' hlp_tostring(streamname) ' was not found in the base workspace.']);
     end
 end
 
