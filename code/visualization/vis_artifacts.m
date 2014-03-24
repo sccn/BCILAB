@@ -360,14 +360,18 @@ end
 
 % create a mapping from event types onto colors
 function map = gen_colormap(eventstruct,mapname)
-map.keys = unique({eventstruct.type});
-if isscalar(map.keys)
-    tmp = colormap(mapname);
-    map.values = tmp(round(end/2),:);
-elseif ~isempty(map.keys)
-    tmp = colormap(mapname);
-    map.values = tmp(1+floor((0:length(map.keys)-1)/(length(map.keys)-1)*(length(tmp)-1)),:);
+if isempty(eventstruct)
+    map = struct('keys',[],'values',[]);
 else
-    map.values = [];
+	map.keys = unique({eventstruct.type});
+	if isscalar(map.keys)
+		tmp = colormap(mapname);
+		map.values = tmp(round(end/2),:);
+	elseif ~isempty(map.keys)
+		tmp = colormap(mapname);
+		map.values = tmp(1+floor((0:length(map.keys)-1)/(length(map.keys)-1)*(length(tmp)-1)),:);
+	else
+		map.values = [];
+	end
 end
 end

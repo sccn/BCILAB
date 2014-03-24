@@ -43,7 +43,7 @@ function [signal,state] = flt_standardize(varargin)
 if ~exp_beginfun('filter') return; end
 
 % follows IIR/FIR, as it should operate on a clean signal (rather than depend on HF noise, etc.)
-declare_properties('name',{'Standardization','Standardize'}, 'cannot_follow','set_makepos', 'follows',{'flt_iir','flt_fir'}, 'independent_channels',true, 'independent_trials',false);
+declare_properties('name',{'Standardization','Standardize'}, 'cannot_follow','set_makepos', 'follows',{'flt_iir','flt_fir'}, 'precedes',{'flt_sourceLocalize'},'independent_channels',true, 'independent_trials',false);
 
 arg_define(varargin, ...
     arg_norep({'signal','Signal'}), ...

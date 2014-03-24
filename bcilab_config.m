@@ -65,10 +65,10 @@ menu = 'separate';
 
 % whether to show experimental methods/options in the GUI
 % (note that some of these may be unfinished features or otherwise very experimental)
-show_experimental = false;
+show_experimental = true;
 
 % whether to show guru-level options in the GUI by default (this can be toggled while editing)
-show_guru = false;
+show_guru = true;
 
 % custom options to control how workers are acquired; parameters to par_getworkers_*
 % these options are editable in the cluster settings dialog and are used when calling env_acquire_cluster (or clicking the "request cluster availability" button)
