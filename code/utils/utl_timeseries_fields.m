@@ -82,7 +82,7 @@ function fields = get_timeseries_fields(field_names,ts_fields)
 % This function performs the actual computation
 
 % generate initial list of candidates
-candidates = {'data','icaact','srcpot'};
+candidates = {'data','icaact','srcpot','stamps'};
 
 % append whatever is registered in the signal's .tracking.timeseries_fields
 candidates = unique([candidates(:); ts_fields(:)]);

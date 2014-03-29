@@ -200,7 +200,7 @@ if strcmp(online_epoching,'at_targets') || ~onl_isonline
                 siz = size(signal.(f{1}));
                 if ~isempty(signal.(f{1}))
                     if siz ~= signal.pnts
-                        error('The time-series field .%s has a different number of time-points than signal.pnts; this is not permitted by set_makepos.'); end                    
+                        error('The time-series field .%s has a different number of time-points (%i) than signal.pnts (%i); this is not permitted by set_makepos.',f{1},siz(2),signal.pnts); end
                     try
                         signal.(f{1}) = reshape(signal.(f{1})(:,ranges,1,:,:,:,:,:),[siz(1),size(ranges,1),size(ranges,2),siz(4:end)]); 
                     catch e

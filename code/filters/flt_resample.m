@@ -56,7 +56,7 @@ function [signal,state] = flt_resample(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-03-28
 
-% flt_resample_version<1.0> -- for the cache
+% flt_resample_version<1.01> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -91,13 +91,20 @@ if srate ~= signal.srate
         H = p*firlp(len,2*cutoff,2*cutoff,stopweight) .* lanczos(len);
         H = [zeros(1,floor(q-mod((len-1)/2,q))) H(:).'];
         % construct state struct
-        state = struct('conds',[],'H',H,'p',p,'q',q);
+        state = struct('H',H,'p',p,'q',q);
     end
     
-    % resample the data itself
-    signal.data = single(signal.data)';
-    [tmp,state.conds] = upfirdn2(signal.data,state.H,state.p,state.q,state.conds);
-    signal.data = tmp';
+    % resample each time-series field
+    for f = utl_timeseries_fields(signal)
+        if isempty(signal.(f{1}))
+            continue; end
+        if ~isfield(state,f{1})
+            state.(f{1}).conds = []; end
+        signal.(f{1}) = single(signal.(f{1}))';
+        [tmp,state.(f{1}).conds] = upfirdn2(signal.(f{1}),state.H,state.p,state.q,state.(f{1}).conds);
+        signal.(f{1}) = tmp';            
+    end
+    
     % update signal meta-data
     signal.icaact = [];
     signal.srate = srate;

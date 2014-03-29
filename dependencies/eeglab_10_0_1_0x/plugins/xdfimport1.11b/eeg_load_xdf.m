@@ -68,8 +68,9 @@ if args.effective_rate && isfinite(stream.info.effective_srate) && stream.info.e
 else
     raw.srate = str2num(stream.info.nominal_srate);
 end    
-raw.xmin = 0;
-raw.xmax = (raw.pnts-1)/raw.srate;
+raw.xmin = min(stream.time_stamps);
+raw.xmax = raw.xmin + (raw.pnts-1)/raw.srate;
+raw.stamps = stream.time_stamps;
 
 % chanlocs...
 chanlocs = struct();
