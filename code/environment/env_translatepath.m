@@ -10,6 +10,11 @@ function filename = env_translatepath(filename)
 % 30])", and this in turn allows to share the same data set caches (which are indexed by expression)
 % across machines and operating systems, minimizing redundant computations.
 %
+% Some of the path references, such as data:/, temp:/, store:/, private:/ can be set in the startup
+% arguments of bcilab.m or bcilab_config.m (see documentation in those files). It is permitted to
+% use other relative paths, such as home:/ when specifying those arguments (but circular references
+% must be avoided).
+%
 % In:
 %   IndependentPath : platform-independent path; may contain forward and/or backward slashes
 %                     (forward slashes generally preferred), and may refer to locations such as
@@ -42,7 +47,6 @@ function filename = env_translatepath(filename)
 %   % resolve a reference to the resources directory
 %   env_translatepath('resources:/workspaces/testing.mat')
 %
-%
 % See also:
 %   env_startup, io_loadset
 %
@@ -51,47 +55,56 @@ function filename = env_translatepath(filename)
 
 global tracking;
 
-% turn the path into a system-dependent one
-filename = strrep(strrep(filename,'\',filesep),'/',filesep);
+% function to sanitize file names (replace file separators by system-dependent version)
+sanitize = @(filename) strrep(strrep(strrep(filename,'\',filesep),'/',filesep),[filesep filesep],filesep);
 
-% resolve location references
-if strncmp('store:',filename,6)
-    filename = [tracking.paths.store_path filename(1+length('store:'):end)]; 
-elseif strncmp('resources:',filename,10)
-    filename = [tracking.paths.resource_path filename(1+length('resources:'):end)]; 
-elseif strncmp('temp:',filename,5)
-    filename = [tracking.paths.temp_path filename(1+length('temp:'):end)]; 
-elseif strncmp('functions:',filename,10)
-    filename = [tracking.paths.function_path filename(1+length('functions:'):end)]; 
-elseif strncmp('bcilab:',filename,7)
-    filename = [tracking.paths.bcilab_path filename(1+length('bcilab:'):end)]; 
-elseif strncmp('dependencies:',filename,13)
-    filename = [tracking.paths.dependency_path filename(1+length('dependencies:'):end)];
-elseif strncmp('home:',filename,5)
-    filename = [hlp_homedir filename(1+length('home:'):end)];
-elseif strncmp('data:',filename,5)
-    rest = filename(1+length('data:'):end);
-    bestpath = 1; bestlen = -1;
-    if length(tracking.paths.data_paths) > 1
-        fpieces = hlp_split(rest,filesep);
-        % find the data path that contains the longest prefix of the filename
-        for pidx=1:length(tracking.paths.data_paths)
-            p = tracking.paths.data_paths{pidx};
-            % for each prefix of the filename (starting with the longest one)
-            for k=length(fpieces):-1:0
-                % check if the data path plus the first k pieces of the filename exists
-                if exist([p sprintf([filesep '%s'],fpieces{1:k})],'file')
-                    % found a match - check if it is a new length record among all our data paths...
-                    if k>bestlen
-                        bestlen = k;
-                        bestpath = pidx;
+% loop until all path references have been resolved
+while true
+    % resolve location references
+    if strncmp('store:',filename,6)
+        filename = [tracking.paths.store_path filename(1+length('store:'):end)]; 
+    elseif strncmp('resources:',filename,10)
+        filename = [tracking.paths.resource_path filename(1+length('resources:'):end)]; 
+    elseif strncmp('temp:',filename,5)
+        filename = [tracking.paths.temp_path filename(1+length('temp:'):end)]; 
+    elseif strncmp('functions:',filename,10)
+        filename = [tracking.paths.function_path filename(1+length('functions:'):end)]; 
+    elseif strncmp('bcilab:',filename,7)
+        filename = [tracking.paths.bcilab_path filename(1+length('bcilab:'):end)]; 
+    elseif strncmp('dependencies:',filename,13)
+        filename = [tracking.paths.dependency_path filename(1+length('dependencies:'):end)];
+    elseif strncmp('private:',filename,8)
+        filename = [tracking.paths.private_path filename(1+length('private:'):end)];
+    elseif strncmp('home:',filename,5)
+        filename = [hlp_homedir filename(1+length('home:'):end)];
+    elseif strncmp('data:',filename,5)
+        rest = filename(1+length('data:'):end);
+        bestpath = 1; bestlen = -1;
+        if length(tracking.paths.data_paths) > 1
+            % find the data path that contains the longest prefix of the filename
+            fpieces = hlp_split(sanitize(rest),filesep);
+            for pidx=1:length(tracking.paths.data_paths)
+                p = env_translatepath(tracking.paths.data_paths{pidx});
+                % for each prefix of the filename (starting with the longest one)
+                for k=length(fpieces):-1:0
+                    % check if the data path plus the first k pieces of the filename exists
+                    if exist([p filesep fpieces{1:k}],'file')
+                        % found a match - check if it is a new length record among all our data paths...
+                        if k>bestlen
+                            bestlen = k;
+                            bestpath = pidx;
+                        end
+                        break;
                     end
-                    break;
                 end
             end
         end
+        % resolve the reference using that data path which matches most of the filename,
+        % where, if multiple data paths are equally well suited, the first one of them is taken
+        filename = [tracking.paths.data_paths{bestpath} rest];
+    else
+        break;
     end
-    % resolve the reference using that data path which matches most of the filename,
-    % where, if multiple data paths are equally well suited, the first one of them is taken
-    filename = [tracking.paths.data_paths{bestpath} rest];
 end
+
+filename = sanitize(filename);

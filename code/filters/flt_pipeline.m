@@ -391,6 +391,10 @@ if isempty(memo) || exist('update_list','var') && update_list
              dir(env_translatepath('functions:/dataset_editing/set_*.m'));
              dir(env_translatepath('functions:/filters/in_development/flt_*.m'));
              dir(env_translatepath('functions:/dataset_editing/in_development/set_*.m'));
+             dir(env_translatepath('private:/code/filters/flt_*.m'));
+             dir(env_translatepath('private:/code/dataset_editing/set_*.m'));
+             dir(env_translatepath('private:/code/filters/in_development/flt_*.m'));
+             dir(env_translatepath('private:/code/dataset_editing/in_development/set_*.m'));
              dir(env_translatepath('home:/.bcilab/code/filters/flt_*.m'));
              dir(env_translatepath('home:/.bcilab/code/dataset_editing/set_*.m'))];
 
@@ -447,7 +451,7 @@ if isempty(memo) || exist('update_list','var') && update_list
             report = arg_report('rich',funcs{f}); %#ok<NASGU>
         catch e
             % otherwise there is an actual error
-            known_incompliant = {'set_gettarget','set_combine','set_merge','set_joinepos'};
+            known_incompliant = {'set_gettarget','set_combine','set_merge','set_joinepos','set_concat'};
             if ~any(strcmp(char(funcs{f}),known_incompliant)) && disp_once(['Cannot query arguments of function ' char(funcs{f}) ' (likely an issue with the argument definition): ' e.message]) && debug
                 hlp_handleerror(e); end
             retain(f) = false;

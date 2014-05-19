@@ -57,7 +57,7 @@ end
 
 % set further default arguments
 if nargin < 4
-    channels_to_get = size(chunk.buffer,1);
+    channels_to_get = 1:size(chunk.buffer,1);
     if nargin < 3 || isempty(unit)
         unit = 'seconds'; end
     if nargin < 2 || isempty(samples_to_get)

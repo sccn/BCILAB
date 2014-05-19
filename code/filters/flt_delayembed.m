@@ -22,6 +22,11 @@ function signal = flt_delayembed(varargin)
 % Out:
 %   Signal : the processed signal; will have more channels
 %
+% Notes:
+%   The temporal filters that can be designed for a small number of lags are often limited to 
+%   high-frequency responses; the frequency range can often be extended without increasing model
+%   complexity by first resampling the data to the lowest acceptable sampling rate (e.g., 60 Hz).
+%
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2013-11-17
 

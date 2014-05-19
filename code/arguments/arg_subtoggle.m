@@ -26,7 +26,10 @@ function res = arg_subtoggle(varargin)
 %
 %              By default almost any value maps to on, with the exception of: 'off', [], 0, false,
 %              cell arrays of NVPs/structs where 'arg_selection' is set to false, and structs with
-%              an arg_selection field that is set to false.
+%              an arg_selection field that is set to false. The reliance on 0/false to disable an 
+%              arg_subtoggle is deprecated and discouraged as it can lead to surprising behavior
+%              when the convenience syntax (see fourth paragraph) is used with boolean or 
+%              scalar numeric values.
 %
 %              The recommended way to set an arg_subtoggle argument to on/off without overriding
 %              defaults is to pass in the strings 'on' or 'off', or the values {} (on) or [] (off).

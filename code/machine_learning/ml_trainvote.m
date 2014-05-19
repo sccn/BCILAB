@@ -58,7 +58,7 @@ function model = ml_trainvote(trials, targets, votingscheme, learner, predictor,
 
 % first get the classes for training
 if iscell(trials) && iscell(targets)
-    model.classes = unique([targets{:}]);
+    model.classes = unique(vertcat(targets{:}));
 else
     model.classes = unique(targets);
 end

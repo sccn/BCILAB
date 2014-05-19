@@ -19,7 +19,7 @@ classdef ParadigmMKLCSP < ParadigmBase
     %      In Engineering in Medicine and Biology Society (EMBC) pp. 7048-7051 (2013)
     %
     % Name:
-    %   Multiple Kernel Learning Common Spatial Patterns.
+    %   Multiple Kernel Learning Common Spatial Patterns
     %
     %                            Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
     %                            2014-02-05
@@ -41,13 +41,19 @@ classdef ParadigmMKLCSP < ParadigmBase
                 arg_norep({'collection','Collection'}), ...
                 arg_norep({'goal_identifier','GoalIdentifier'}), ...
                 arg({'patterns','PatternPairs'},3,[],'Number of CSP patterns (times two).','cat','Feature Extraction','type','expression','shape','row'),...
+                arg({'shrinkage','ShrinkageLevel'},0,[0 1],'Shrinkage level. The amount of shrinkage (regularization) to apply during covariance estimation.'), ...
+                arg({'verbose','Verbose'},true,[],'Verbose output.'), ...
                 arg_sub({'flt','SignalProcessing'}, self.preprocessing_defaults(), @flt_pipeline, 'Signal processing stages. These parameters control filter stages that run on the signal level; they can be enabled, disabled and configured for the given paradigm. The prediction operates on the outputs of this stage.'), ...
                 arg_sub({'ml','MachineLearning'},{'Learner',self.machine_learning_defaults()},@ml_train,'Machine learning stage of the paradigm. Operates on the feature vectors that are produced by the feature-extraction stage.'),...
                 arg({'arg_dialogsel','ConfigLayout'},self.dialog_layout_defaults(),[],'Parameters displayed in the config dialog. Cell array of parameter names to display (dot-notation allowed); blanks are translated into empty rows in the dialog. Referring to a structure argument lists all parameters of that struture, except if it is a switchable structure - in this case, a pulldown menu with switch options is displayed.','type','cellstr','shape','row'));
            
             % first solve CSP for each subject in the corpus individually
+            if args.verbose
+                fprintf('Now training model for: %s...\n',hlp_tostring(args.goal_identifier)); end
             filters = [];
             patterns = [];
+            if args.verbose
+                fprintf('Pre-processing each of %i sets in the corpus and solving CSP...\n',length(args.collection)); end
             for s=1:length(args.collection)
                 if length(args.collection{s}.streams) > 1
                     disp_once('Note: ParadigmMKLCSP will use only the first data stream of a recording (no support for multi-modal data).'); end
@@ -58,8 +64,9 @@ classdef ParadigmMKLCSP < ParadigmBase
                 % solve CSP
                 for k=1:2
                     classdata = exp_eval(set_picktrials(procdata,'rank',k));
-                    covar{k} = cov(reshape(classdata.data,size(classdata.data,1),[])');
+                    covar{k} = reshape(classdata.data,size(classdata.data,1),[])*reshape(classdata.data,size(classdata.data,1),[])'/(size(classdata.data,2)*size(classdata.data,3)); % cov(reshape(classdata.data,size(classdata.data,1),[])');
                     covar{k}(~isfinite(covar{k})) = 0;
+                    covar{k} = (1-args.shrinkage)*covar{k} + args.shrinkage*eye(size(covar{k}))*trace(covar{k})/length(covar{k});
                 end
                 [V,D] = eig(covar{1},covar{1}+covar{2}); %#ok<NASGU>
                 P = inv(V);
@@ -68,7 +75,9 @@ classdef ParadigmMKLCSP < ParadigmBase
                 patterns = [patterns P([1:args.patterns end-args.patterns+1:end],:)'];
             end
             model.featuremodel = struct('filters',filters,'patterns',patterns);
-            
+
+            if args.verbose
+                fprintf('Preprocessing and extracting features for reference data...\n'); end            
             % get the data of the reference subject
             [reference,remaining] = utl_collection_closest(args.collection,args.goal_identifier); %#ok<NASGU>
             % preprocess each recording in the reference collection and concatenate them across epochs into a single set
@@ -78,6 +87,8 @@ classdef ParadigmMKLCSP < ParadigmBase
             % extract features and get target labels
             features = self.feature_extract(refdata,model.featuremodel);
             targets = set_gettarget(refdata);
+            if args.verbose
+                fprintf('Training predictive model...\n'); end
             % train classifier, using the correct feature shape (based on the group size)
             args.ml.learner.shape = [2*args.patterns,length(args.collection)];
             model.predictivemodel = ml_train('data',{features,targets}, args.ml);
@@ -108,20 +119,29 @@ classdef ParadigmMKLCSP < ParadigmBase
                 arg_norep({'model','Model'},[],[],'BCI Model to visualize.'), ...
                 arg({'patterns','PlotPatterns'},true,[],'Plot patterns instead of filters. Whether to plot spatial patterns (forward projections) rather than spatial filters.'), ...
                 arg({'paper','PaperFigure'},false,[],'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'));
-
+            
             f = figure;            
+
+            % mask out unused filters
+            mask = args.model.predictivemodel.model.w(:)' ~= 0;
+            args.model.featuremodel.patterns = args.model.featuremodel.patterns(:,mask);
+            args.model.featuremodel.filters = args.model.featuremodel.filters(:,mask);
+            
+            % number of plots, and index of pattern per subplot            
+            np = nnz(mask);
+            horz = ceil(sqrt(np));
+            vert = ceil(np/horz);
+                
             % get number of pairs, and index of pattern per subplot
-            np = size(args.model.featuremodel.patterns,1)/2; 
-            idx = [1:np 2*np:-1:np+1];
             % for each CSP pattern...
-            for p=1:np*2
-                subplot(2,np,p,'Parent',f);
+            for p=1:np
+                subplot(horz,vert,p,'Parent',f);
                 if args.patterns
-                    topoplot(args.model.featuremodel.patterns(idx(p),:),args.model.featuremodel.chanlocs);
+                    topoplot(args.model.featuremodel.patterns(:,p),args.model.chanlocs);
                 else
-                    topoplot(args.model.featuremodel.filters(:,idx(p)),args.model.featuremodel.chanlocs);
+                    topoplot(args.model.featuremodel.filters(:,p),args.model.chanlocs);
                 end
-                t = title(['CSP Pattern ' num2str(idx(p))]);
+                t = title(['CSP Pattern ' num2str(p)]);
                 if args.paper
                     set(t,'FontUnits','normalized');
                     set(t,'FontSize',0.1);                    

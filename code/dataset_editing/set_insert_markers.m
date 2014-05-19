@@ -279,6 +279,8 @@ if length(ival) == 2 && ival(1) <= ival(2)
     if ~isempty(ival)
         % compute the individual latencies
         lats = ival(ival>=opts.limits(1) & ival<=opts.limits(2));
+        % sanitize latencies
+        lats = min(max(lats,1),signal.pnts);
         if ~isempty(signal.urevent)
             signal.urevent = []; end
         if isempty(signal.event)

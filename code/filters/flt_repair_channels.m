@@ -274,3 +274,13 @@ X = X(:,2:2:end);
 
 if nargout > 1
     Zf = [-(X(:,end)*N-Y(:,end-N+1)) Y(:,end-N+2:end)]; end
+
+
+
+function Y = randsample(X,num)
+Y = [];
+while length(Y)<num
+    pick = round(1 + (length(X)-1).*rand);
+    Y(end+1) = X(pick);
+    X(pick) = [];
+end

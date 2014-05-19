@@ -8,9 +8,16 @@
 % argument to the "bcilab" function (e.g. cd /your/path/to/bcilab; bcilab
 % /your/path/to/your/bcilab_config.m)
 
+% This file is loaded by bcilab.m -- note that you can have a version of the file in your ~/.bcilab/
+% directory, which will take precedence over a file of same name placed in the bcilab folder (see
+% bcilab.m), and that you can specify a custom config file to load.
+%
+% The options in this configuration file can also be edited via the GUI (under Settings); the GUI
+% always edits the file that was used when the toolbox was loaded.
+
 % this is your data path, i.e., where your studies and data sets are stored
-data = {'/data/projects'};
-data = [];
+% (if empty, will default to your bcilab:/userdata folder)
+data = []; % e.g., {'/data/myprojects','bcilab:/userdata','home:/mydata'};
 
 % this is a path where results can be stored (you must have write permission)
 % (if empty, it is set to equal the data path)
@@ -28,7 +35,8 @@ elseif exist('/var/tmp','dir')
 else
     cache = [];
 end
-% comment out this line to enable caching of intermediate results
+% comment out this line to enable caching of intermediate results in one of the above default linux
+% temp folders
 cache = [];
 
 % This is the memory capacity that is being reserved for in-memory caching of intermediate results.
@@ -56,8 +64,13 @@ parallel = {'engine','local', 'pool', {'localhost:23547', 'localhost:23548', 'lo
 data_reuses = 3;
 
 % this is a directory for temporary results (e.g. IC decompositions); if this is empty, it will be
-% set to a directory next to your BCILAB path
+% set to a directory that is your BCILAB installation path with -temp appended.
 temp = [];
+
+% if you have private plugins that you manage separately from the bcilab directory tree, you can set
+% the path to these here (using the same sub-directory structure as ~/.bcilab/, see that folder for
+% reference)
+private = [];
 
 % whether to show the main BCILAB menu by default (if this is set to 'separate', the menu is 
 % always detached from the EEGLAB main menu; otherwise it is under Tools>BCILAB)
@@ -73,7 +86,5 @@ show_guru = false;
 % custom options to control how workers are acquired; parameters to par_getworkers_*
 % these options are editable in the cluster settings dialog and are used when calling env_acquire_cluster (or clicking the "request cluster availability" button)
 acquire_options = {'Hostnames',{'localhost'},'ShutdownTimeout',300};
-
-
 
 

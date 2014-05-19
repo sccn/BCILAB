@@ -63,14 +63,23 @@ arg_define(varargin, ...
     arg({'channels','Channels'}, [], [], 'Cell array of channel names to retain.','type','cellstr','shape','row'), ...
     arg({'orderPreservation','OrderPreservation'}, 'query-order', {'query-order','dataset-order'}, 'Output channel order. The result will have its channels either in the order of the input set or in the order of the query list.'), ...
     arg({'remove_selection','RemoveSelection'},false,[],'Remove selected channels.'), ...
-    arg({'find_closest','FindClosest'},false,[],'Find closest channels. This is for cases where the requested channels are not in the set.'));
+    arg({'find_closest','FindClosest'},false,[],'Find closest channels. This is for cases where the requested channels are not in the set.'), ...
+    arg({'relabel_to_query','RelabelToQuery'},false,[],'Relabel closest channels according to query. This only applies if FindClosest was true.'));
 
 % determine channel indices to retain
 if find_closest
     if ~iscellstr(channels)
         error('For distance-based channel matching the given channels should be a cell array of labels.'); end
-    tmplocs = hlp_microcache('matchchan',@set_infer_chanlocs,channels);
-    subset = hlp_microcache('matchchan',@eeg_matchchans,signal.chanlocs,tmplocs,'noplot');
+    [index_dataset,index_query] = hlp_microcache('matchchan',@utl_match_channels,signal.chanlocs,channels);
+    if strcmp(orderPreservation,'dataset-order')
+        subset = index_dataset;
+    else
+        % sort the dataset indices according to the query indices
+        [sorted,ordering] = sort(index_query,'ascend'); %#ok<ASGLU>
+        subset = index_dataset(ordering);
+    end
+    if relabel_to_query
+        [signal.chanlocs(index_dataset).labels] = channels{index_query}; end
 else
     subset = set_chanid(signal,channels);
 end

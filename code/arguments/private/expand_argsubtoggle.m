@@ -102,6 +102,9 @@ function [selected,args] = map_argsubtoggle(args)
                 [selected,args] = deal(args{pos+1},args([1:pos-1 pos+2:end]));
             end
         end
+    elseif isequal(args,false)
+        selected = false; % FIXME: this is deprecated
+        args = {};
     else
         selected = true;
         args = {args};
