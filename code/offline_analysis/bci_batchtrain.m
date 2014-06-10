@@ -221,7 +221,7 @@ else
         if ischar(ds)
             % given as a string
             if any(ds=='*')
-                % ... with path pattern: expand
+                % ... with path pattern: expand                
                 infos = rdir(env_translatepath(ds));
                 infos(strcmp({infos.name},'.') | strcmp({infos.name},'..')) = [];
                 opts.datasets = [opts.datasets(1:d-1) {infos.name} opts.datasets(d+1:end)];
