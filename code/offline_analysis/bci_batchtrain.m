@@ -216,8 +216,8 @@ else
         if ischar(ds)
             % given as a string
             if any(ds=='*')
-                % ... with path pattern: expand
-                infos = rdir(ds);
+                % ... with path pattern: expand                
+                infos = rdir(env_translatepath(ds));
                 infos(strcmp({infos.name},'.') | strcmp({infos.name},'..')) = [];
                 opts.datasets = [opts.datasets(1:d-1) {infos.name} opts.datasets(d+1:end)];
                 ds = opts.datasets{d};
@@ -252,7 +252,7 @@ if ~isempty(opts.predictsets)
             % handle non-cell entries
             if ischar(ps) && any(ps=='*')
                 % ... given as a string with path pattern expression: first expand!
-                infos = rdir(ps);
+                infos = rdir(env_translatepath(ps));
                 infos(strcmp({infos.name},'.') | strcmp({infos.name},'..')) = [];
                 opts.predictsets = [opts.predictsets(1:d-1) {infos.name} opts.predictsets(d+1:end)];
                 ps = opts.predictsets{d};
