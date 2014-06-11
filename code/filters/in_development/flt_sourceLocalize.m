@@ -21,8 +21,9 @@ if ~exp_beginfun('filter'), return; end
 
 declare_properties('name','SourceLocalization', 'experimental',true, 'follows',{'flt_ica','flt_fir','flt_iir','flt_project'}, 'cannot_precede',{'flt_clean_settings'},'cannot_follow',{'set_makepos'},'independent_channels',false, 'independent_trials',false);
 
-% extract some defaults
 headmodel_default = 'resources:/headmodels/standard-Colin27-385ch.mat';
+
+% get ROI names supported by head model (for use in arg definition)
 if ~onl_isonline
     hmObj = arg_extract(varargin,{'hmObj','HeadModelObject'},[],headmodel_default);
     hmObj = hlp_validateHeadModelObject(hmObj);
@@ -48,16 +49,20 @@ arg_define(varargin, ...
       quickif(exist('flt_champagne','file'),{'Champagne',@flt_champagne},{})], ...
      'Source Localization Algorithm'), ...
     arg({'sourceAtlasLabels','SourceAtlasLabels','SourceAtlasROI'},ROINames,ROINames,'Source regions of interest (atlas labels). This is a cell array of strings corresponding to a subset of the labels stored in hmObj.atlas.label. Current source density will be estimated only for these ROIs.','type','logical'), ...
-    arg({'colRoiCsd','CollapseRoiCsd'},'sum',{'none','mean','sum','max','maxmag','median'},'Method for computing ROI CSD. Return the (mean, integral, max) current source density within each ROI. signal.CSD matrix will be reduced to [num_rois x num_samples].'), ...
+    arg({'colRoiCsd','CollapseRoiCsd'},'sum',{'none','mean','sum','max','maxmag','median'},'Method for computing ROI CSD. Return the (mean, integral, max) current source density within each ROI. signal.srcpot matrix will be reduced to [num_rois x num_samples].'), ...
     arg({'keepFullCsd','KeepFullCsd'},true,[],'Keep a copy of the csd for each vertex. This is stored in srcpot_all'), ...
     arg({'roiAtlasLabels','ROIAtlasLabels','AtlasROI','ROI'},ROINames,ROINames,'Regions of interest atlas labels. This is a cell array of strings corresponding to a subset of the labels stored in hmObj.atlas.label. If CollapseRoiCsd is set, current source density will be integrated over these ROIs. If empty the all ROIs in SourceAtlasLabels are selected.','type','logical'), ...
     arg({'combineROIs','CombineROI'},[],[],'Combine ROIs in ROIAtlasLabels. This is a cell array of (name, value) pairs. The name entry is a string denoting the name of a new ROI. The value part is a cell array of strings indicating which of the ROIs in ROIAtlasLabels should be combined to form a new ROI. Any ROIs that were merged into a new ROI are removed from the original set of ROIs. To preserve an ROI that was merged into a new ROI, specify a new ROI containing only this ROI. All new ROIs are then appended to the list of existing (unmerged) ROIs in ROIAtlasLabels. If CollapseRoiCsd is set, current source density will be integrated over all ROIs.','type','expression','shape','row'), ...
-    arg({'appendROI','AppendROI'},false,[],'Append superROIs or replace'), ...
+    arg({'combineMode','CombineMode'},'merge',{'replace','append','merge'},'Mode for combining MetaROIs with original ROIs'), ...
+    arg_nogui({'appendROI','AppendROI'},false,[],'Append superROIs or replace'), ...
     arg({'reference','Reference'},[],[],'Reference scheme. This is a cell array of channel labels defining the reference. If more than one channel, average reference is assumed','type','cellstr','shape','row'), ...
     arg_nogui({'roiVertices','ROIVertices'},[],[],'Regions of interest (vertices). This is supplementary to the ''RegionsOfInterest'' option. ''roiVertices'' is a cell array where each cell contains the indices of all vertices within a region of interest. The vertex indices correspond to respective columns of the lead field matrix. These ROIs will be added to the set of ROIs defined in the ''RegionsOfInterest'' option.'), ...
     arg_nogui({'roiVerticesLabels'},[],[],'Labels for the supplementary ROIs. This is a cell array of same dimension as ''roiVertices'' with labels for each ROI','type','cellstr'), ...
+    arg({'normalCSDWeight','NormalCSDWeight'},0.7,[],'Weight of normal direction in CSD. When calculating the CSD at a given vertex from a lead-field matrix that is not restricted to the surface normal this is the weighting of the current normal to the surface (and tangential current will be weighted by 1 minus this value).','guru',true),...
+    arg({'leadfieldOrientation','LeadfieldOrientation'},'axisparallel',{'axisparallel','tangentspace'},'Orientation of the local leadfield components for a given source vertex (if orientations are flexible). If axisparallel, the projections will point in X/Y/Z directions, if tangentspace, the projections will point in surface normal, tangent and binormal directions.','guru',true),...
     arg({'makeDipfitStruct','MakeDipfitStruct'},true,[],'Make dipfit structure. If selected, a dipfit structure will be created in signal.dipfit containing the locations (.posxyz) and moments (.mom) of each dipole or center of mass of ROI.'), ... 
     arg({'do_transform','TransformData','transform'},false,[],'Transform the data rather than annotate. By default, source reconstructions are added as annotations (.srcpot) to the data set.'),...
+    arg({'usecar','CAR'},true,[],'Rereference to common average. This should always be enabled, unless you are really sure about it'), ...
     arg({'verb','Verbosity'},false,[],'Verbose output'), ...
     arg_nogui({'state','State'}));
 
@@ -67,11 +72,6 @@ end
 if isempty(sourceAtlasLabels) %#ok
     sourceAtlasLabels = ROINames;
 end
-% if ~isempty(combineROIs)
-%     % initially override roiAtlasLabels
-%     roiAtlasLabels = sourceAtlasLabels;
-% end
-
 
 % Intialization block
 % -------------------------------------------------------------------------
@@ -79,7 +79,7 @@ if isempty(state)
     % || (isfield(state,'roiAtlasLabels') && ~isequal(state.roiAtlasLabels,roiAtlasLabels))
     % Either we are initializing our adaptive estimator or user-specified 
     % ROIs have changed.
-    state = hlp_microcache('sourcespace',@build_state,hmObj,channels,sourceAtlasLabels,roiAtlasLabels,roiVertices,roiVerticesLabels,makeDipfitStruct,verb,signal.chanlocs,combineROIs,appendROI);
+    state = hlp_microcache('sourcespace',@build_state,hmObj,channels,sourceAtlasLabels,roiAtlasLabels,roiVertices,roiVerticesLabels,makeDipfitStruct,verb,signal.chanlocs,combineROIs,combineMode,usecar,normalCSDWeight,leadfieldOrientation);
 end
 
 % Estimate Current Source Density
@@ -90,10 +90,14 @@ end
 % Inverse operator is returned in signal.srcweights   
 % [num_vertices x num_channels]
 
+if usecar
+    % apply common average reference
+    signal.data = bsxfun(@minus,signal.data,mean(signal.data));
+end
 switch lower(invMethod.arg_selection)
     case 'loreta'
         if isempty(state.solverState)
-            [signal, state.solverState] = exp_eval_optimized(flt_loreta(                    ...
+            [signal, state.solverState] = exp_eval_optimized(flt_loreta(...
                                         'signal',signal,                ...
                                         invMethod,                      ...
                                         'state',state.solverState,      ...
@@ -106,14 +110,14 @@ switch lower(invMethod.arg_selection)
                                         'signal',signal,                ...
                                         invMethod,                      ...
                                         'state',state.solverState,      ...
-                                        'head_file',state.leadFieldMatrix,      ...
+                                        'K',state.leadFieldMatrix,      ...
                                         'L',state.laplacianOperator,    ...
                                         'verb',verb,'arg_direct',true);
         end
         signal.srcweights = state.solverState.srcweights;
     case 'variational loreta'
         if isempty(state.solverState)
-            [signal, state.solverState] = exp_eval_optimized(flt_vbloreta(                    ...
+            [signal, state.solverState] = exp_eval_optimized(flt_vbloreta( ...
                                         'signal',signal,                ...
                                         invMethod,                      ...
                                         'state',state.solverState,      ...
@@ -137,10 +141,18 @@ switch lower(invMethod.arg_selection)
                                     'signal',signal,                ...
                                     invMethod,                      ...
                                     'state',state.solverState,      ...
-                                    'hmObj',hmObj, ...
+                                    'head_file',struct('leadfield',reshape(state.leadFieldMatrix,state.nChannels,state.nVertices,state.orientationDegrees), ...
+                                                       'chanlabels',{{signal.chanlocs.labels}}), ...
                                     'arg_direct',true);
     otherwise
         error('flt_sourceLocalize:badInverseMethod','Invalid inverse method %s',invMethod.arg_selection);
+end
+
+
+% collapse srcpot from 3d to 1d based on state.srcweightCollapseDoFWeights
+if state.orientationDegrees == 3
+    siz = size(signal.srcpot);
+    signal.srcpot = reshape(sum(reshape(bsxfun(@times,signal.srcpot,state.srcweightCollapseDoFWeights),[3 siz(1)/3 siz(2:end)]),1),[siz(1)/3 siz(2:end)]);
 end
 
 % Collapse CSD within each ROI
@@ -160,18 +172,18 @@ if ~strcmp(colRoiCsd,'none') && ~isempty(signal.srcpot)
     
     if keepFullCsd
         % store backup with all vertices
-        signal.srcpot_all     = signal.srcpot;
+        % also, register this as a time-series field
+        signal = utl_register_field(signal,'timeseries','srcpot_all',signal.srcpot);
         signal.srcweights_all = signal.srcweights;
     end
         
     % collapse current density
     signal.srcpot = hlp_colsrc(signal.srcpot,state.roiVerticesReduced,colRoiCsd);
     % collapse weights
-    if ~isempty(signal.srcweights)
-        signal.srcweights = hlp_colsrc(signal.srcweights,state.roiVerticesReduced,colRoiCsd); end
+    signal.srcweights = hlp_colsrc(signal.srcweights,state.roiVerticesReduced,colRoiCsd);
 else
-    signal.srcpot_all = [];
-    signal.srcweights_all = [];
+    signal.srcpot_all       = [];
+    signal.srcweights_all   = [];
 end
 
 
@@ -183,6 +195,7 @@ end
 signal.roiLabels          = state.roiLabels;
 signal.roiVertices        = state.roiVertices;
 signal.roiVerticesReduced = state.roiVerticesReduced;
+signal.rmIndices          = state.rmIndices;
 
 if do_transform
     signal.data = signal.srcpot;
@@ -197,7 +210,7 @@ exp_endfun;
 
 
 
-function state = build_state(hmObj,channels,sourceAtlasLabels,roiAtlasLabels,roiVertices,roiVerticesLabels,makeDipfitStruct,verb,chanlocs,combineROIs,appendROI)
+function state = build_state(hmObj,channels,sourceAtlasLabels,roiAtlasLabels,roiVertices,roiVerticesLabels,makeDipfitStruct,verb,chanlocs,combineROIs,combineMode,usecar,normalCSDWeight,leadfieldOrientation)
 % validate the head model and construct the source space
 
 orilen = length(roiAtlasLabels);
@@ -231,12 +244,63 @@ end
 if verb
     fprintf('Constructing source space \n');
 end
+
+% remove undesired brain structures 
+% note: we assume that the leadFieldMatrix produced by this step is 2d, but
+% contain stacked pages for X, Y and Z dipole components (so that a reshape
+% to [#ch,#vox,3] would yield the correct result.
 brainStructsToRemove = setdiff(unique(hmObj.atlas.label),sourceAtlasLabels);
 [   reducedSpace,                      ...
     state.leadFieldMatrix,             ...
     state.laplacianOperator            ...
-    state.rmIndices                          ...
+    state.rmIndices                    ...
     ] = getSourceSpace4PEB(hmObj,brainStructsToRemove,roiVertices);
+
+state.nVertices = size(reducedSpace.vertices,1);
+state.nChannels = length(chanlocs);
+
+% determine the number of orientation degrees of freedom
+if size(state.leadFieldMatrix,2) == state.nVertices
+    state.orientationDegrees = 1;
+elseif size(state.leadFieldMatrix,2) == 3*state.nVertices
+    state.orientationDegrees = 3;
+else
+    error('Your lead-field matrix has a # of columns that does not correspond to the # of source vertices.');
+end
+
+% project leadfield matrix onto tangent space
+if state.orientationDegrees==3
+    % get tangent space at each vertex
+    if isprop(hmObj,'surfNormal')
+        state.surfNormals = blk_diag(hmObj.surfNormal,1)';
+        % prune removed indices
+        state.surfNormals(state.rmIndices,:)=[];
+    else
+        % FIXME: these data contains NaN's (presumably near deleted triangles)
+        state.surfNormals = geometricTools.getSurfaceNormals(reducedSpace.vertices,reducedSpace.faces,true);
+    end
+    state.surfTangents = cross(state.surfNormals,ones(length(state.surfNormals),1)*[1 0 0],2);
+    state.surfBinormals = cross(state.surfNormals,state.surfTangents,2);    
+
+    % also calc final projection operator
+    if strcmp(leadfieldOrientation,'axisparallel')
+        state.srcweightCollapseDoFWeights = vec((state.surfNormals*normalCSDWeight + (state.surfTangents+state.surfBinormals)*(1-normalCSDWeight))'); % does assume axis-parallel lead-field    
+    elseif strcmp(leadfieldOrientation,'tangentspace')
+        state.srcweightCollapseDoFWeights = vec((ones(length(state.surfNormals),1)*[normalCSDWeight (1-normalCSDWeight)/2 (1-normalCSDWeight)/2])');  % assumes rotated lead-field
+        % turn into triplet order
+        tmp = permute(reshape(state.leadFieldMatrix,state.nChannels,state.nVertices,state.orientationDegrees),[1 3 2]);
+        % transpose for recombination
+        tmp = tmp(:,:)'; siz = size(tmp);
+        % recombine into tangent space in pages
+        new_matrix = permute(cat(3,reshape(sum(reshape(bsxfun(@times,tmp,vec(state.surfNormals')),[3 siz(1)/3 siz(2:end)]),1),[siz(1)/3 siz(2:end)]), ...
+            reshape(sum(reshape(bsxfun(@times,tmp,vec(state.surfTangents')),[3 siz(1)/3 siz(2:end)]),1),[siz(1)/3 siz(2:end)]), ...
+            reshape(sum(reshape(bsxfun(@times,tmp,vec(state.surfBinormals')),[3 siz(1)/3 siz(2:end)]),1),[siz(1)/3 siz(2:end)])),[2 1 3]);
+        % flatten again
+        state.leadFieldMatrix = new_matrix(:,:);
+    else
+        error('Unsupported LeadfieldOrientation specified: %s',leadfieldOrientation);
+    end
+end
 
 % We also store the indices of the vertices of each ROI (in the full
 % source space) in a cell array. This allows us to obtain dipole
@@ -250,12 +314,12 @@ state.roiVertices = [state.roiVertices roiVertices];
 
 % get ROI indices into reduced source space. These are used for
 % integration over current source density (CSD) within each ROI
-nvert   = length(hmObj.atlas.color);
-LFMcols = 1:nvert;
+LFMcols = 1:length(hmObj.atlas.color);
 LFMcols(state.rmIndices) = [];
 for k=1:length(state.roiVertices)
     state.roiVerticesReduced{k} = find(ismember(LFMcols,state.roiVertices{k}));
 end
+
 
 % set up the labeling for any vertex-index-defined ROIs
 if isempty(roiVerticesLabels) && ~isempty(roiVertices)
@@ -294,19 +358,29 @@ if ~isempty(combineROIs)
         newRoiVertices{k} = A(sort(idx));
     end
     
-    if ~appendROI
-        % remove all merged ROIs ...
-        mergedROI = unique(cell2mat(roiIdxInAtlas));
-        state.roiVerticesReduced(mergedROI) = [];
-        state.roiVertices(mergedROI)        = [];
-        state.roiLabels(mergedROI)          = [];
+    switch combineMode
+        case 'merge'
+            % remove all merged ROIs ...
+            mergedROI = unique(cell2mat(roiIdxInAtlas));
+            state.roiVerticesReduced(mergedROI) = [];
+            state.roiVertices(mergedROI)        = [];
+            state.roiLabels(mergedROI)          = [];
+            
+            % ... and append the new ROIs
+            state.roiVerticesReduced = [state.roiVerticesReduced newRoiVerticesReduced];
+            state.roiVertices        = [state.roiVertices newRoiVertices];
+            state.roiLabels          = [state.roiLabels newRoiLabels];
+        case 'replace'
+            % keep only the new rois
+            state.roiVerticesReduced = newRoiVerticesReduced;
+            state.roiVertices        = newRoiVertices;
+            state.roiLabels          = newRoiLabels;
+        case 'append'
+            % append the new ROIs
+            state.roiVerticesReduced = [state.roiVerticesReduced newRoiVerticesReduced];
+            state.roiVertices        = [state.roiVertices newRoiVertices];
+            state.roiLabels          = [state.roiLabels newRoiLabels];
     end
-    % ... and append the new ROIs
-    state.roiVerticesReduced = [state.roiVerticesReduced newRoiVerticesReduced];
-    state.roiVertices        = [state.roiVertices newRoiVertices];
-    state.roiLabels          = [state.roiLabels newRoiLabels];
-    
-    
 end
 
 
@@ -317,11 +391,23 @@ if isempty(channels)
 end
 
 % use only selected channels that are in the head model
-chaninds = ismember(hmChanlabels,channels);
-if nnz(chaninds)~=length(channels)
-    error('Some channels could not be matched to the headmodel');
+% chaninds is also an integer permutation vector so that rows of 
+% LFM match the ordering of 'channels' variable
+[~, ia, ib] = intersect(lower(hmChanlabels),lower(channels),'stable');
+if max(ib)>length(ia)
+    error('The following channels could not be matched to the headmodel: %s', ...
+          hlp_tostring(channels(ib>length(ia))));
 end
-state.leadFieldMatrix = state.leadFieldMatrix(chaninds,:);
+chaninds = ia; %ia(ib);
+% if nnz(chaninds)~=length(channels)
+%     error('Some channels could not be matched to the headmodel');
+% end
+state.leadFieldMatrix = state.leadFieldMatrix(chaninds,:,:);
+
+if usecar
+    % apply common-average rereference
+    state.leadFieldMatrix = bsxfun(@minus,state.leadFieldMatrix,mean(state.leadFieldMatrix));
+end
 
 % load the original source space (non-reduced)
 tmp = load(hmObj.surfaces);

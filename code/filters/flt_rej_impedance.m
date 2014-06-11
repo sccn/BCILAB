@@ -1,7 +1,7 @@
 function signal = flt_rej_impedance(varargin)
 % Reject channels based on an impedance threshold; requires hardware support.
 % this assumes that impedence is encoded in the peak-to-peak amplitdue  
-% difference between every EncodingFactor samples
+% difference between every ImpedancePeriod samples
 %
 % Author: Tim Mullen, SCCN/INC/UCSD 2013
 

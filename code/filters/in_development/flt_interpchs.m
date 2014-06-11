@@ -51,7 +51,14 @@ if ~exist('state','var') || isempty(state)
     % get current sensor locations
     xyzSensors = [[signal.chanlocs.X]' [signal.chanlocs.Y]' [signal.chanlocs.Z]'];
     
-    [dummy,loc1,loc2] = intersect(lower(hmObj.getChannelLabels),lower({signal.chanlocs.labels}));
+    % determine which  that are in the head model
+    % chaninds is also an integer permutation vector so that rows of 
+    % LFM match the ordering of 'channels' variable
+    % FIXME: still need to permute order of the original hmObj.channelSpace
+    % Perhaps best to instead permute xyzSensors to match the head model
+    % ordering
+    chans = lower({signal.chanlocs.labels});
+    [~,loc1,loc2] = intersect(lower(hmObj.getChannelLabels),chans,'stable');  % FIXME: this does not work with versions of Matlab prior to 2012
     if isempty(loc1), error('Cannot find a match between the landmarks and the template model channels.');end
     T = hmObj.channelSpace(loc1,:);
     S = xyzSensors(loc2,:);
