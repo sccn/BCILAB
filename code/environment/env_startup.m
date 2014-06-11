@@ -24,6 +24,9 @@ function env_startup(varargin)
 %                       (default: path/to/bcilab-temp, or path/to/cache/bcilab_temp if a cache
 %                       directory was specified)
 %
+%               'private': optional private plugin directory, separate from bcilab/*; can have
+%                          the same directory structure as ~/.bcilab/ (default: [])
+%
 %               --- caching settings ---
 %
 %               'cache': Path where intermediate data sets are cached. Should be located on a fast 
@@ -209,7 +212,7 @@ if hlp_matlab_version < 706
     disp('Note: Your version of MATLAB is not supported by BCILAB any more. You may try BCILAB version 0.9, which supports old MATLAB''s back to version 2006a.'); end    
 
 % get options
-opts = hlp_varargin2struct(varargin,'data',[],'store',[],'cache',[],'temp',[],'mem_capacity',2,'data_reuses',3, ...
+opts = hlp_varargin2struct(varargin,'data',[],'store',[],'cache',[],'temp',[],'private',[],'mem_capacity',2,'data_reuses',3, ...
     'parallel',{'use','local'}, 'menu',true, 'configscript','', 'worker',false, 'autocompile',true, 'acquire_options',{}, ...
     'show_experimental',false,'show_guru',false);
 
@@ -218,6 +221,8 @@ disp('Loading BCILAB dependencies...');
 env_load_dependencies(dependency_dir,opts.autocompile);
 if exist(env_translatepath('home:/.bcilab/code/dependencies'),'dir')
     env_load_dependencies(env_translatepath('home:/.bcilab/code/dependencies'),opts.autocompile); end
+if ~isempty(opts.private) && exist(env_translatepath([opts.private '/code/dependencies']),'dir')
+    env_load_dependencies(env_translatepath([opts.private '/code/dependencies']),opts.autocompile); end
 
 if ischar(opts.worker)
     try
@@ -250,7 +255,7 @@ if ~iscell(opts.data)
     opts.data = {opts.data}; end
 for d = 1:length(opts.data)
     opts.data{d} = path_normalize(opts.data{d}); end
-if isempty(opts.data) || ~any(cellfun(@exist,opts.data))
+if isempty(opts.data)
     opts.data = {[base_dir 'userdata']}; end
 
 % process store directory
@@ -299,7 +304,7 @@ end
 
 % set global variables
 global tracking
-tracking.paths = struct('bcilab_path',{base_dir(1:end-1)}, 'function_path',{function_dir}, 'data_paths',{opts.data}, 'store_path',{opts.store}, 'dependency_path',{dependency_dir},'resource_path',{resource_dir},'temp_path',{opts.temp});
+tracking.paths = struct('bcilab_path',{base_dir(1:end-1)}, 'function_path',{function_dir}, 'data_paths',{opts.data}, 'store_path',{opts.store}, 'dependency_path',{dependency_dir},'resource_path',{resource_dir},'temp_path',{opts.temp}, 'private_path',{opts.private});
 for d=1:length(opts.cache)
     location = rmfield(opts.cache{d},'tag');
     % convert GiB to bytes
@@ -408,6 +413,8 @@ else
     disp('cache is disabled');
 end
 disp(['temp is in ' opts.temp]);
+if ~isempty(opts.private)
+    disp(['private plugins are in ' opts.private]); end
 fprintf('\n');
 
 
@@ -465,6 +472,22 @@ if isequal(opts.worker,false) || isequal(opts.worker,0)
         end
     catch,end
 
+    % add private plugin directories to the path
+    if ~isempty(opts.private)
+        try
+            private_codedirs = {['code' filesep 'filters'],['code' filesep 'dataset_editing'], ...
+                ['code' filesep 'machine_learning'], ['code' filesep 'paradigms'], ['code' filesep 'scripts']};
+            % and add the code directories to the path
+            for d = private_codedirs
+                tmpdir  = env_translatepath([opts.private filesep d{1}]);
+                if exist(tmpdir,'dir')
+                    addpath(genpath(tmpdir)); end
+            end
+        catch e
+            disp(['Could not add private code directories to path: ' e.message]);
+        end
+    end
+    
     % create a menu
     if ~(isequal(opts.menu,false) || isequal(opts.menu,0))
         try

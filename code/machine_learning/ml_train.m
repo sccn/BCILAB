@@ -180,10 +180,14 @@ end
 
 function learners = list_learners(update_list)
 % list all the learning functions in code/machine_learning/
+global tracking;
 persistent memo;
 if isempty(memo) || exist('update_list','var') && update_list
     memo = {};
-    for p = {'functions:/machine_learning/ml_train*.m','home:/.bcilab/code/machine_learning/ml_train*.m'}
+    ml_paths = {'functions:/machine_learning/ml_train*.m','home:/.bcilab/code/machine_learning/ml_train*.m'};
+    if ~isempty(tracking.paths.private_path)
+        ml_paths = [ml_paths {'private:/code/machine_learning/ml_train*.m'}]; end
+    for p = ml_paths
         modules = dir(env_translatepath(p{1}));
         names = setdiff({modules.name},{'ml_train.m','ml_trainvote.m'});
         tags = cellfun(@(n) n(9:end-2),names,'UniformOutput',false);

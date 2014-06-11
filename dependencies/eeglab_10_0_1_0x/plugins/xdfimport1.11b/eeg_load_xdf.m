@@ -66,7 +66,7 @@ raw.data = stream.time_series;
 if args.effective_rate && isfinite(stream.info.effective_srate) && stream.info.effective_srate>0
     raw.srate = stream.info.effective_srate;
 else
-    raw.srate = str2num(stream.info.nominal_srate);
+    raw.srate = str2num(stream.info.nominal_srate); %#ok<ST2NM>
 end    
 raw.xmin = min(stream.time_stamps);
 raw.xmax = raw.xmin + (raw.pnts-1)/raw.srate;
@@ -106,19 +106,24 @@ end
 
 % events...
 event = [];
+if isfinite(stream.info.effective_srate) && stream.info.effective_srate>0
+    srate = stream.info.effective_srate;
+else
+    srate = raw.srate;
+end
 for s=1:length(streams)
     if (strcmp(streams{s}.info.type,'Markers') || strcmp(streams{s}.info.type,'Events')) && ~ismember(streams{s}.info.name,args.exclude_markerstreams)
         try
             if iscell(streams{s}.time_series)
                 for e=1:length(streams{s}.time_stamps)
                     event(end+1).type = streams{s}.time_series{e};
-                    event(end).latency = 1+raw.srate*(streams{s}.time_stamps(e)-stream.time_stamps(1));
+                    event(end).latency = 1+srate*(streams{s}.time_stamps(e)-stream.time_stamps(1));
                     event(end).duration = 1;
                 end
             else
                 for e=1:length(streams{s}.time_stamps)
                     event(end+1).type = num2str(streams{s}.time_series(e));
-                    event(end).latency = 1+raw.srate*(streams{s}.time_stamps(e)-stream.time_stamps(1));
+                    event(end).latency = 1+srate*(streams{s}.time_stamps(e)-stream.time_stamps(1));
                     event(end).duration = 1;
                 end
             end
@@ -128,6 +133,7 @@ for s=1:length(streams)
     end
 end
 raw.event = event;
+
 
 % etc...
 raw.etc.desc = stream.info.desc;
