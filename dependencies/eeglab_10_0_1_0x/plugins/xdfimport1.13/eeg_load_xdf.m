@@ -67,6 +67,12 @@ if args.effective_rate && isfinite(stream.info.effective_srate) && stream.info.e
     raw.srate = stream.info.effective_srate;
 else
     raw.srate = str2num(stream.info.nominal_srate); %#ok<ST2NM>
+    if isfinite(stream.info.effective_srate) && stream.info.effective_srate>0
+        if abs(raw.srate - stream.info.effective_srate)/min(raw.srate,stream.info.effective_srate) > 0.01
+            disp('xdfimport: The nominal sampling rate differs by more than 1% from the effective (measured) sampling rate -- using the effective rate.');
+            raw.srate = stream.info.effective_srate;
+        end
+    end
 end    
 raw.xmin = min(stream.time_stamps);
 raw.xmax = raw.xmin + (raw.pnts-1)/raw.srate;
