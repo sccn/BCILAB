@@ -58,7 +58,7 @@ if ~exist('state','var') || isempty(state)
     % Perhaps best to instead permute xyzSensors to match the head model
     % ordering
     chans = lower({signal.chanlocs.labels});
-    [~,loc1,loc2] = intersect(lower(hmObj.getChannelLabels),chans,'stable');  % FIXME: this does not work with versions of Matlab prior to 2012
+    [dummy,loc1,loc2] = intersect(lower(hmObj.getChannelLabels),chans,'stable');  % FIXME: this does not work with versions of Matlab prior to 2012
     if isempty(loc1), error('Cannot find a match between the landmarks and the template model channels.');end
     T = hmObj.channelSpace(loc1,:);
     S = xyzSensors(loc2,:);
