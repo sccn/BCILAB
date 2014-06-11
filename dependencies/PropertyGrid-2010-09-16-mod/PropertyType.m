@@ -626,7 +626,7 @@ classdef PropertyType
             elseif iscell(domain)
                 tf = any(cellfun(@(v) v==value, domain)); % FIXME: should this not use isequal()?
             elseif isnumeric(domain) && length(domain) == 2
-                tf = value >= min(domain) && value <= max(domain);
+                tf = all(value(:) >= min(domain)) && all(value(:) <= max(domain));
             end
         end
     end

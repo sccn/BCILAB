@@ -63,6 +63,6 @@ else
         end
     end
     fprintf('Saving workspace...');
-    evalin('base',sprintf('io_save(''%s'');',filename));
+    evalin('base',['io_save(''' filename ''');']);
     fprintf('done.\n');
 end

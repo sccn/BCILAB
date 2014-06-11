@@ -98,7 +98,7 @@ para_paths = {'functions:/paradigms', 'functions:/paradigms/in_development', 'ho
 if ~isempty(tracking.paths.private_path)
     para_paths = [para_paths {'private:/code/paradigms','private:/code/paradigms/in_development'}]; end
 for p = para_paths
-    para_files = [para_files dir([env_translatepath(p{1}) filesep 'Paradigm*.m'])]; end
+    para_files = [para_files; dir([env_translatepath(p{1}) filesep 'Paradigm*.m'])]; end
 para_acronyms = cellfun(@(s)s(9:end-2),{para_files.name},'UniformOutput',false);
 
 % populate the list of approaches with available in the workspace

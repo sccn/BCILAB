@@ -42,7 +42,7 @@ max_java_memory = 2^26; % 64 MB
 
 if nargin < 2
     fromfile = false; end    
-if ~isequal(fromfile,true) || isequal(fromfile,false)
+if ~(isequal(fromfile,true) || isequal(fromfile,false))
     error('The given FromFile argument must be true or false.'); end
 
 if fromfile

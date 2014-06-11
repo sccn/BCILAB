@@ -1,5 +1,5 @@
 function signal = flt_fourier_bandpower(varargin)
-% estimate bandpower for multiple frequencies using a filter bank
+% Estimate bandpower for multiple frequencies using a filter bank.
 
 % Compute logarithmic bandpower features.
 % [Signal,State] = flt_fourier_bandpower(Signal, Bands)

@@ -138,7 +138,7 @@ else
             elseif is_distributed(T) && is_point(P)
                 measure = sum(neg_loglike(P,T,max_nll_loss));
             else
-                error('cannot compute log-likelihood for the given training & prediction data format.');
+                error('cannot compute log-likelihood for the given training and prediction data format.');
             end
         case {'mcr','err'}
             % misclassification rate
