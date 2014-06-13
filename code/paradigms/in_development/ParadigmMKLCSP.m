@@ -32,7 +32,7 @@ classdef ParadigmMKLCSP < ParadigmBase
                 
         function defaults = machine_learning_defaults(self)
             % set up the default parameters for machine learning
-            defaults = {'dal', 2.^(10:-0.25:-1), 'Scaling','none', 'Regularizer','glc'};
+            defaults = {'dal', 2.^(10:-0.25:-1), 'Scaling','none', 'Regularizer','grouplasso-columns'};
         end
                 
         function model = calibrate(self,varargin)
@@ -153,7 +153,7 @@ classdef ParadigmMKLCSP < ParadigmBase
             % define the default configuration dialog layout 
             layout = {'SignalProcessing.Resampling.SamplingRate', 'SignalProcessing.FIRFilter.Frequencies', ...
                 'SignalProcessing.FIRFilter.Type', 'SignalProcessing.EpochExtraction', '', ...
-                'Prediction.FeatureExtraction.PatternPairs', '', 'Prediction.MachineLearning.Learner'};
+                'PatternPairs', '', 'MachineLearning.Learner'};
         end
                 
     end

@@ -39,7 +39,7 @@ switch type
             type = 'expression';
         end
     case 'cell'
-        if iscellstr(value)
+        if iscellstr(value) && ~isempty(value)
             type = 'cellstr';
         else
             type = 'expression';

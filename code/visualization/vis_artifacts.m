@@ -151,7 +151,7 @@ lastPos = 0;
 hFig = figure('ResizeFcn',@on_window_resized,'KeyPressFcn',@(varargin)on_key(varargin{2}.Key)); hold; axis();
 hAxis = gca;
 hSlider = uicontrol('style','slider','KeyPressFcn',@(varargin)on_key(varargin{2}.Key)); on_resize();
-jSlider = findjobj(hSlider);
+jSlider = handle(findjobj(hSlider),'CallbackProperties');
 jSlider.AdjustmentValueChangedCallback = @on_update;
 
 % do the initial update

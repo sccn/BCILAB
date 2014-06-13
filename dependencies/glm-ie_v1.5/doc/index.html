@@ -1,0 +1,367 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+  <meta name="author" content="Hannes Nickisch">
+  <meta name="description" content="User documentation of the Generalised Linear Models: Inference and Estimation Toolbox (glm-ie) 1.5">
+  <title>User documentation of the Generalised Linear Models: Inference and Estimation Toolbox (glm-ie)</title>
+  <link type="text/css" rel="stylesheet" href="style.css">
+  <script src="jsMath/easy/load.js"></script>
+  <script>jsMath.Process(document);</script>
+</head>
+<body>
+
+<noscript>
+Warning: <A HREF="http://www.math.union.edu/locate/jsMath">jsMath</a>
+requires JavaScript to process the formulas on this page.<br>
+If your browser supports JavaScript, be sure it is enabled.
+</noscript>
+
+<h1>Documentation for the <tt>glm-ie</tt> Toolbox 1.5</h1>
+
+<h2>0) What?</h2>
+
+<p>The <strong><tt>glm-ie</tt></strong> package (<strong><tt>g</tt></strong>eneralised <strong><tt>l</tt></strong>inear <strong><tt>m</tt></strong>odels: <strong><tt>i</tt></strong>nference and <strong><tt>e</tt></strong>stimation) offers estimation procedures and approximate inference algorithms for Gaussian and non-Gaussian variable models that can be applied at large scales ($10^5$ and more variables). <br>
+Standard large-scale (sparse) regression and classification as well as $l_1$-regularised image reconstruction can be treated as an instance of penalised estimation. A strong emphasis of the code is scalability and numerical robustness. This is achieved by phrasing all operations as (fast) matrix vector multiplications (MVMs). A matrix class for lazy evaluation is a core ingredient to scalability. <br>
+After giving some theoretical background, we provide four exemplary aplications: 
+<ul>
+  <li><a href="#regress">(sparse) regression</a>,</li>
+  <li><a href="#classify">(sparse) classification</a>,</li>
+  <li><a href="#deblur">non-blind imaged deblurring</a> and</li>
+  <li><a href="#mri">undersampled MRI reconstruction</a>.</li>
+</ul>
+</p>
+
+<p>
+<em>Estimation</em> corresponds to finding the most likely model parameter and <em>inference</em> can be understood as finding a (Gaussian) approximation to the distribution over the model parameters. We offer no less than five solvers to compute the most likely model parameters; a penalised least squares (PLS) problem. Approximate inference can be done by two algorithms Variational Bounding (VB) and Expectation Propagation (EP).<br>
+<ul>
+  <li>The VB algorithms are described in Seeger and Nickisch, SIIMS, 2011:<br>
+    <a href="http://arxiv.org/abs/0810.0901">Large Scale Variational Inference and Experimental Design for Sparse Generalized Linear Models</a>.
+  </li>
+  <li>The parallel EP approach is detailed in Gerven, Cseske, Lange and Heskes, Neuroimage, 2010:<br>
+    <a href="http://homepages.inf.ed.ac.uk/bcseke/webpubs/gerven2010.pdf">Efficient Bayesian multivariate fMRI analysis using a sparsifying spatio-temporal prior</a>.
+  </li>
+  <li>The factorial mean field algorithm comes from Miskin and McKay, Advances in ICA, 2000:<br>
+    <a href="http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.37.597&rep=rep1&type=pdf">Ensemble Learning for Blind Image Separation and Deconvolution</a>.
+  </li>
+  <li>The Monte Carlo marginal variance estimator was proposed by Papandreou and Yuille, ICCV WS, 2011:<br>
+    <a href="http://www.stat.ucla.edu/~gpapan/pubs/confr/PapandreouYuille_VariationalBayesCompressedSensing_ieee-c-iccvw11.pdf">Efficient Variational Inference in Large-Scale Bayesian Compressed Sensing</a>.
+  </li>
+</ul>
+</p>
+
+<p>The code is written by Hannes Nickisch; it runs on
+both <a href="http://www.octave.org">Octave</a> 3.3.x
+and <a href="http://www.mathworks.com/products/matlab/">Matlab</a>&reg; 7.x. 
+<a href="http://hannes.nickisch.org/code/glm-ie/release/oldcode.html">Previous versions of the code</a> are still available.</p>
+
+<h2>1) Download, Install and Documentation</h2>
+
+<p>All the code including demonstrations and html documentation can be
+downloaded in a <a
+ href="http://hannes.nickisch.org/code/glm-ie/release/glm-ie_v1.5.tar.gz">tar</a>
+or <a
+ href="http://hannes.nickisch.org/code/glm-ie/release/glm-ie_v1.5.zip">zip</a>
+archive file.</p>
+
+<p>Minor changes and incremental bugfixes are documented in the <a href="changelog">changelog</a>. </p>
+
+<p>Please read the <a href="../Copyright">copyright</a> notice.</p>
+
+<p>After unpacking the tar or zip file you will find 6 subdirectories:
+<b>doc</b>, <b>inf</b>, <b>mat</b>, <b>pen</b>, <b>pls</b> and <b>pot</b>. It is not necessary to install
+anything to get started, just run the <a
+href="../startup.m">startup.m</a> script to set your path.</p>
+
+<p>Details about the directory contents and on how to compile MEX
+files can be found in the <a href="README">README</a>. The getting
+started guide is the remainder of the html file you are currently
+reading (also available at <a href="http://hannes.nickisch.org/code/glm-ie/doc">http://hannes.nickisch.org/code/glm-ie/doc</a>). A Developer's Guide containing technical documentation is
+found in <a href="manual.pdf">manual.pdf</a>, but for the casual user,
+the guide is below.</p>
+
+<h2>2) Theory</h2>
+
+<p>Generalised linear models (GLMs) are used for a variety of different tasks such as classification to regression. Applications range from image processing over bioinformatics to ranking.</p>
+
+<p>A generalised linear model over unknown parameters $\mathbf{u}\in\mathbb{R}^n$ is composed of Gaussian observations
+\[
+\mathbf{y}=\mathbf{X}\mathbf{u} + \mathbf{\varepsilon}\in\mathbb{R}^m, \: \mathbf{\varepsilon} \sim \mathcal{N}(0,\sigma^2\mathbf{I})
+\]
+and non-Gaussian <em>potentials</em> $\mathcal{T}_j(s_j)$ on affine functions thereof
+\[
+\mathbf{s}=\mathbf{B}\mathbf{u}-\mathbf{t}\in\mathbb{R}^q
+\]
+leading to a posterior of the form
+\[
+\mathbb{P}(\mathbf{u}|\mathcal{D})\propto\mathcal{N}(\mathbf{y}|\mathbf{X}\mathbf{u},\sigma^2\mathbf{I})\prod_{j=1}^q\mathcal{T}_j(s_j).
+\]
+</p>
+
+<p>The <tt>glm-ie</tt> toolbox allows to perform maximum a posterior (MAP) <em>estimation</em> i.e. finding the most probable configuration
+\[
+\hat{\mathbf{u}}_{MAP} = \arg \max_{\mathbf{u}} \mathbb{P}(\mathbf{u}|\mathcal{D}) = \arg \min_{\mathbf{u}} -\ln\mathcal{N}(\mathbf{y}|\mathbf{X}\mathbf{u},\sigma^2\mathbf{I}) -\sum_{j=1}^q\ln\mathcal{T}_j(s_j)
+\]
+and <em>inference</em> i.e. approximate the Bayesian posterior by a tractable distribution (here a Gaussian with mean $\mathbf{m}$, and covariance $\mathbf{V}$)
+\[
+\mathbb{P}(\mathbf{u}|\mathcal{D}) \approx \mathcal{N}(\mathbf{u}|\mathbf{m},\mathbf{V})
+\]</p>
+
+<h3>2a) Estimation</h3>
+
+<p>MAP estimation involves solving a penalised least squares problem (PLS)
+\[
+\hat{\mathbf{u}}_{MAP} = \arg\min_{\mathbf{u}} \frac{1}{\lambda} \left\Vert\mathbf{X}\mathbf{u}-\mathbf{y}\right\Vert_2^2 + 2 \cdot \rho(\mathbf{s}), \: \mathbf{s}=\mathbf{B}\mathbf{u}-\mathbf{t}, \:\lambda\in\mathbb{R}_+
+\] with <em>penaliser</em> $\rho(\mathbf{s})=-\sum_{j=1}^q\ln\mathcal{T}_j(s_j)$ and weight $\lambda=\sigma^2$.
+</p>
+
+<h3>2b) Inference by Variational Bounding (VB)</h3>
+<p> The general idea of the inference algorithm is to replace non-Gaussian <em>potentials</em> 
+$\mathcal{T}_j(s_j)$ by Gaussians $\mathcal{N}(s_j|\mu_j,\gamma_j)$
+with width $\gamma_j$ and to jointly adjust the vector of widths 
+$\mathbf{\gamma}\in\mathbb{R}_+^q$ such that the Gaussian approximation
+$\mathcal{N}(\mathbf{u}|\hat{\mathbf{u}}_{VB},\mathbf{V})$ imitates the Bayesian posterior
+$\mathbb{P}(\mathbf{u}|\mathcal{D})$ as faithfully as possible.
+</p>
+
+<h3>2c) Inference by (factorial) Mean Field (MF)</h3>
+<p> This approach makes a factorial posterior approximation and turns out to admit an inference algorithm along the lines of variational bounding with modified outer loop computations. The outer loop computation is faster but only applicable to a restricted class of matrices, namely Fourier matrices, convolution matrices and finite difference matrices.
+</p>
+
+<h3>2d) Inference by Expectation Propagation (EP)</h3>
+<p> Again, non-Gaussian <em>potentials</em> $\mathcal{T}_j(s_j)$ are replace by 
+Gaussians $\mathcal{N}(s_j|\mu_j,\gamma_j)$ such that the marginal distributions
+
+\[
+\mathcal{N}(\mathbf{u}|\hat{\mathbf{u}}_{EP},\mathbf{V}) \text{ and }
+\mathcal{N}(\mathbf{u}|\hat{\mathbf{u}}_{EP},\mathbf{V}) \frac{\mathcal{T}_j(s_j)}{\mathcal{N}(s_j|\mu_j,\gamma_j)}
+\]
+
+have the same mean and variance for all $j=1,..,q$. This is achieved by iteratively adjusting the parameters $\mu_j$ and $\gamma_j$ such that the moments match.
+</p>
+
+<p> Note that large-scale EP is far more difficult to run than VB because EP seems to not tolerate inaccurate marginal variance estimates. Marginal variances can be approximated using a Lanczos procedure or a Monte Carlo sampler.
+</p>
+
+<h3>2e) Code organisation</h3>
+<p>
+Before going straight to the examples, just a brief note about the organization of the package. There are four types of objects which you need to know about. Details can be found in the <a href="manual.pdf">developer's manual</a> :
+</p>
+
+<dl>
+<dt><strong>mat: matrix operators</strong>
+<dd>Matrices $\mathbf{B}$ and $\mathbf{X}$ are very large if the parameters
+    $\mathbf{u}$ represent the pixels of and image.
+    Most often, $\mathbf{B}$ and $\mathbf{X}$ 
+    do not need to be stored explicitly but only implicitly through their 
+    matrix vector multiplication (MVM). The <tt>glm-ie</tt> toolbox
+    comprises a <a href=../mat>library of implicit matrices</a>
+    derived from the base matrix class <a href=../mat/@mat>mat</a>.
+    Matrices of type <a href=../mat/@mat>mat</a> can be added, multiplied, 
+    concatenated, replicated and subindexed.
+<dt><strong>pen: penalty functions</strong>
+<dd>A <a href=../pen>penalty function</a> $\rho(\mathbf{s})$ defines 
+    a PLS problem. All <a href=../pen>penalty functions</a> share a common
+    <a href=../penFunctions.m>interface</a>. Penalty functions can be derived from potential
+    functions by e.g. $\rho(\mathbf{s})=-\sum_{j=1}^q\ln\mathcal{T}_j(s_j)$.
+    These mechanism is exploited in the inference engine where a sequence of PLS problems is solved.
+<dt><strong>pls: penalised least squares (PLS) solvers</strong>
+<dd>PLS problems are not only specified but also solved. Our <a href=../pls>PLS solvers</a>
+    also obey a common <a href=../plsSolvers.m>interface</a>. For LBFGSB to properly work,
+    you have to compile some MEX functions as detailed in the <a href="README">README</a>.
+<dt><strong>pot: potential functions</strong>
+<dd>A <a href=../pot>potential function</a> $\mathcal{T}_j(s_j)$ implementing the
+    potential <a href=../potFunctions.m>interface</a> is needed to specify whether a probabilistic model
+    performs ordinary regression (using the <a href=../pot/potGauss.m>Gaussian</a> distribution), sparse regression (based on the <a href=../pot/potLaplace.m>Laplace</a>, <a href=../pot/potT.m>Student's t</a>, <a href=../pot/potExpPow.m>Exponential power family</a> and <a href=../pot/potSech2.m>Sech-squared</a> distribution) or classification (aka <a href=../pot/potLogistic.m>Logistic regression</a>).
+</dl>
+
+<h2>3) Practice</h2>
+
+<h3><a name="regress">3a) Sparse Regression</a></h3>
+
+<p> The unknown parameters $\mathbf{u}\in\mathbb{R}^n$ represent the weights of a linear predictor that -- given a data point $\mathbf{x}_i\in\mathbb{R}^n$ -- computes the label $y_i$ as $y_i = \mathbf{x}_i^{\top} \mathbf{u}$. We use a <a href=../pot/potLaplace.m>Laplace</a> sparsity prior on the weights (i.e. $\mathbf{B}=\mathbf{I}$, $\mathbf{t}=\mathbf{0}$) such that $\mathcal{T}_i(u_i)=\exp(-\tau_i|u_i|)$ and a Gaussian noise model where $y_i=\mathbf{x}_i^{\top}\mathbf{u}+\varepsilon_i,\:\varepsilon_i\sim\mathcal{N}(0,\sigma^2)$, i.i.d. The posterior of the model can be written as
+\[
+\mathbb{P}(\mathbf{u}|\mathcal{D})\propto\exp(-\frac{1}{2\sigma^2}\left\Vert\mathbf{X}\mathbf{u}-\mathbf{y}\right\Vert_2^2 - \tau\left\Vert\mathbf{u}\right\Vert_1).
+\]
+</p>
+<p>
+In our example, we use the <a href=http://walnut.usc.edu/>Nordborg Flowering Time dataset</a> to estimate the flowering time $y_i$ from the genome represented as a binary vector $\mathbf{x}_i$. We have $m=166$ datapoints of dimension $n=5537$.
+</p>
+
+<p>
+<strong>Estimation</strong><br>
+We start by using PLS estimation <a href="regress_estimation.m">regress_estimation.m</a> to find $\hat{\mathbf{u}}_{MAP}$ using $\lambda=\sigma^2\tau$, where $\sigma^2=0.0078$ and $\tau=125$. The code compares four different solvers <tt>plsTN</tt>, <tt>plsCGBT</tt>, <tt>plsCG</tt> and <tt>plsBB</tt> in terms of the mean squared error $\frac{1}{N} \sum_i (\mathbf{x}_i^{\top}\hat{\mathbf{u}}_{MAP}-y_i)^2$, the computation time and the achieved objective $\phi(\hat{\mathbf{u}}_{MAP})$, where $\phi(\mathbf{u})=\frac{1}{\lambda}\left\Vert\mathbf{X}\mathbf{u}-\mathbf{y}\right\Vert_2^2 - 2\cdot\left\Vert\mathbf{u}\right\Vert_1$.<br>
+</p>
+
+<p>
+<strong>Inference</strong><br>
+Next, we can approximate the posterior by a Gaussian using the scalable VB approach <a href="regress_inference.m">regress_inference.m</a>. By uncommenting the appropriate of the following lines
+<pre>
+  pot = @(s) potT(s,2);            % Student's t
+  pot = @potLaplace;               % Laplace
+  pot = @(s) potExpPow(s,1.3);     % Exponential Power family
+</pre>
+one can easily change the potentials from Laplace to others. 
+Further, one can compare different marginal variance computation algorithms by choosing among
+<pre>
+  opts.outerMethod = 'lanczos';  % Lanczos marginal variance approximation
+  opts.outerMethod = 'sample';   % Monte Carlo marginal variance approximation
+  opts.outerMethod = 'full';     % Exact marginal variance computation (slow)
+  opts.outerMethod = 'woodbury'; % Exact marginal variance computation (fast)
+</pre>
+two exact algorithms and two approximate ones.
+In the code, we also demonstrate how to get a handle on the posterior approximation $\mathcal{N}(\mathbf{m},\mathbf{V})$ and the marginal likelihood estimate $Z$.
+<pre>
+  % m = E(u) posterior mean estimate
+  % z = var(B*u) marginal variance estimate
+  % nlZ sequence of negative log marginal likelihoods, nlZ(end) is the last one
+  % zu = var(u) marginal variance estimate
+  % Q,T yield cov(u) = V = inv(A) \approx Q'*inv(T)*Q the posterior covariance
+</pre>
+</p>
+
+
+
+<h3><a name="classify">3b) (Sparse) Pattern Classification or logistic regression</a></h3>
+
+<p> In classification, the unkown parameters $\mathbf{u}\in\mathbb{R}^n$ represent the weights of a linear classifier $c_i=\text{sign}(\mathbf{b}_i^{\top} \mathbf{u})\in\{\pm1\}$ computing the binary class label $c_i$ for a data point $\mathbf{b}_i\in\mathbb{R}^n$. We start with a Gaussian prior on the weights $\mathbb{P}(\mathbf{u})=\mathcal{N}(\mathbf{u}|\mathbf{0},\sigma^2\mathbf{I})$. Later, we can also use a sparsity prior on $\mathbf{u}$ so that the final model does not contain any Gaussian variables at all. The likelihood function is the <a href=../pot/potLogistic.m>logistic</a> $\mathbb{P}(c_i|\mathbf{u},\mathbf{b}_i)=(1+\exp(-c_i\cdot\mathbf{b}_i^{\top}\mathbf{u}))^{-1}$.
+</p>
+<p>
+In our example, we use the <a href="http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/a9a">Adult dataset</a> from the <a href="http://archive.ics.uci.edu/ml/">UCI machine learning repository</a>. We have $q=32561$ datapoints of dimension $n=123$.
+</p>
+
+<p>
+<strong>Estimation</strong><br>
+Again, we can compare the performance of several PLS solvers by running <a href="classify_estimation.m">classify_estimation.m</a>. We can also choose to use a non-Gaussian prior by uncommenting the appropriate one of the following lines.
+<pre>
+  gauss = 1;                                   % Gaussian
+  gauss = 0; potS = @(s) potT(s,2);            % Student's t
+  gauss = 0; potS = @(s) potLaplace(s);        % Laplace
+  gauss = 0; potS = @(s) potExpPower(s,0.7);   % Exponential Power family
+</pre>
+The final potential is a concatenation of the prior and the logistic potential and the final matrix $\mathbf{B}$ is a concatenation of the former $\mathbf{X}=\mathbf{I}$ and the former $\mathbf{B}$ matrix.
+<pre>
+  B = [eye(n);B];
+  pot = @(s,varargin) potCat(s, varargin{:}, {potS,@potLogistic}, {1:n,n+(1:q)} );
+</pre>
+</p>
+
+<p>
+<strong>Inference</strong><br>
+Along the same lines, we can perform inference as in <a href="classify_inference.m">classify_inference.m</a>. The example illustrates how to toggle between EP and VB via the following two lines:
+<pre>
+  opts.innerType = 'VB';
+  opts.innerType = 'EP'; opts.innerEPeta = 0.9;
+</pre>
+Note that the concatenation of two potentials has to be done by
+<pre>
+  pot = @(s,varargin) potCat(s, varargin{:}, {potS,@potLogistic}, {1:n,n+(1:q)} );
+</pre>
+in order to have EP working properly.
+</p>
+
+<p>
+The following scatter plot illustrates the differences between the estimates $\hat{\mathbf{u}}_{MAP}$ and $\hat{\mathbf{u}}_{VB/EP}$ while offering similar predictive performance (16% error). It clearly shows that far more components of $\hat{\mathbf{u}}_{MAP}$ are zero. That means that the MAP estimator puts much more emphasis on driving entries to zero which effectively prunes out features from the model. A posterior mean estimate $\hat{\mathbf{u}}_{VB/EP}$ is far less rigorous. The rationale is that from finite data it is statistically hard to confidently rule out some parts of the model; here the posterior standard deviation (shown in cyan) provides a natural measure of uncertainty.
+</p>
+<center><img src="ci-f1.png" alt="ci-f1.png"></center><br>
+
+<h3><a name="deblur">3c) (Nonblind) Image Deblurring</a></h3>
+
+<p>
+If a camera is moved while a picture is taken, the resulting image is blurry. If the motion is parallel to the image plane, the measured image $\mathbf{y}\in\mathbb{R}^n$ can be modeled as a noisy convolution of the sharp image $\mathbf{u}\in\mathbb{R}^n$ with a blurring filter/kernel $\mathbf{f}\in\mathbb{R}^f$ as expressed by
+\[
+\mathbf{y}=\mathbf{f}\star\mathbf{u}+\mathbf{\varepsilon}=\mathbf{X}_{\mathbf{f}}\mathbf{u}+\mathbf{\varepsilon},
+\]
+where $\star$ denotes the convolution operator which can equivalently be represented by a convolution matrix $\mathbf{X}_{\mathbf{f}}$. We assume Gaussian noise $\mathbf{\varepsilon}\sim\mathcal{N}(\mathbf{0},\sigma^2\mathbf{I})$, $\sigma^2=10^{-5}$.<br>
+The model is completed by prior knowledge on the distribution of filter responses of natural images. Multi-scale derivatives as computed by the (orthnormal) wavelet transform matrix $\mathbf{W}$ and the finite difference matrix $\mathbf{D}$ can be combined into a sparsity transform matrix $\mathbf{B}$ whose responses $\mathbf{s}=\mathbf{B}\mathbf{u}$ follow a sparse distribution that is peaked around zero and has heavy tails. The <tt>glm-ie</tt> toolbox allows the specification of such matrices by a single line of code
+<pre>
+  W = matWav(su); D = matFD2(su); B = [W; D]; 
+</pre>
+where <tt>su</tt> denotes the size of the image. In the following, we use Laplace potentials $\mathcal{T}_j(s_j)=\exp(-\tau|s_j|)$ where we fix the scale to $\tau=15$.<br>
+The task in image deblurring consists of finding the sharp image $\mathbf{u}$ given the noisy and blurry measurement
+ $\mathbf{y}$ and prior knowledge about the sparse distribution of multiscale derivatives $\mathbf{s}=\mathbf{B}\mathbf{u}$.</p>
+
+<p>
+<strong>Estimation</strong><br>
+We demonstrate estimation in <a href="deblur_estimation.m">deblur_estimation.m</a> where we use the convolution matrix $\mathbf{X}_\mathbf{f}$ instantiated by
+<pre>
+  X = matConv2(f, su, 'circ');
+</pre>
+We can use non-convex penalty functions like
+<pre>
+  dof = 2; pen = @(s) penLogSmooth(s,dof);
+</pre>
+to enforce even more sparsity as the Laplace potential or equivalently the <tt>penAbs</tt> penalty. Note that, the <tt>penLogSmooth</tt> penalty $\rho(s_j)=\ln(s^2+\epsilon)$ corresponds to the negative log of the Student's t potential. The optimisation problem -- even though non-convex -- can efficiently be solved by LBFGSB or any other solver. For the special case of <tt>plsLBFGS</tt>, we can enforce nonnegativity $\mathbf{u}\ge\mathbf{0}$ be activating the following flag:
+<pre>
+  opt.LBFGSnonneg = 1;
+</pre>
+The figure depicts the original image $\mathbf{u}$ from which the blurry image $\mathbf{y}$ was generated and the reconstructed sharp image $\hat{\mathbf{u}}_{MAP}$ as found be penalised least squares estimation.
+</p>
+<center><img src="de-f1.png" alt="de-f1.png"></center><br>
+
+<p>
+<strong>Inference</strong><br>
+As in the other examples, we can go further and not only find the point of highest posterior density $\hat{\mathbf{u}}_{MAP}$ but to compute a Gaussian approximation to the posterior distribution that allows to quantify the uncertainty in our model. The script <a href="deblur_inference.m">deblur_inference.m</a> does exactly this.<br>
+Since the marginal variances $\mathbf{z}=\text{dg}(\mathbf{B}\mathbf{A}^{-1}\mathbf{B}^{\top})$ cannot be efficiently computed exactly (due to the $\mathcal{O}(n^3)$ matrix operation, where $n$ is the number of image pixels), we have to resort to an approximation. We use the Lanczos procedure to obtain an estimate $\mathbf{0}\le\hat{\mathbf{z}}_k\le\mathbf{z}$. For $k=n$, the estimate is exact but that is computationally prohibitive for images of realistic size. We can set $k=170$ by
+<pre>
+  opts.outerVarOpts.MVM = 170;
+</pre>
+which is much smaller than $n=54910$ in our example.<br>
+As a result, we obtain in addition to the posterior mode estimate $\hat{\mathbf{u}}_{MAP}$ an estimate of the posterior mean $\hat{\mathbf{u}}_{VB}$ and an estimate of the marginal variances $\text{dg}(\mathbf{V})$ of the posterior. We visualise the respective differences of $\hat{\mathbf{u}}_{MAP}$ and $\hat{\mathbf{u}}_{VB}$ to the sharp underlying image as well as the marginal standard deviation. We see that mean and mode look very similar and the marginal variances are largest at corners and edges.
+Alternatively, we can compute the marginal variances by sampling. We just choose between the three lines:
+<pre>
+  opts.outerMethod = 'lanczos';       % Lancos
+  opts.outerMethod = 'sample';        % Monte Carlo
+  opts.outerMethod = 'factorial';     % factorial posterior approximation (MF)
+</pre>
+In case, we choose sampling, we can set the number of preconditioned conjugate gradient steps and the number of samples by:
+<pre>
+  opts.outerVarOpts = struct('NSamples',20,'Ncg',20);  
+</pre>
+In estimation, we used a wavelet and a finite difference matrix for $\mathbf{B}$; for inference, we only use total variation since the factorial approximation cannot be computed efficiently for the wavelet matrix:
+<pre>
+  B = matFD2(su); 
+</pre>
+Note that the marginal standard deviations by Lanczos are one magnitude smaller (but also less noisy) than those obtained by sampling. Also the reconstruction error is better for the randomized approach. Note that MAP estimation yields an error of 7.34 in our example (an additional wavelet matrix improves the result, though).
+</p>
+Result obtained by Lanzos (error is 7.29):
+<center><img src="di-f1.png" alt="di-f1.png"></center><br>
+Result obtained by Monte Carlo (error is 6.49):
+<center><img src="di-f2.png" alt="di-f2.png"></center><br>
+Result obtained by factorial approximation (error is 6.52):
+<center><img src="di-f3.png" alt="di-f3.png"></center><br>
+
+<h3><a name="mri">3d) Undersampled Magnetic Resonance Imaging (MRI)</a></h3>
+Along the lines of the deblurring example, we can also do sparse estimation from incomplete measurements using the same image prior based on $\mathbf{B}\in\mathbb{R}^{q\times n}$ as before. In magnetic resonance imaging (MRI), the measurements are Fourier coefficients along smooth curves. The number of acquired Fourier coefficients determines the scantime, hence one aims at reconstructing the underlying image $\mathbf{u}\in\mathbb{C}^n$ from incomplete measurements $\mathbf{y}\in\mathbb{C}^m$ where $m \le n$. The measurement matrix $\mathbb{X}$ is a Fourier-type matrix. Our example offers $3$ different measurement trajectories: lines, arbitrary positions on a grid (not sensible on a real scanner) and spirals as shown in the center of the illustrative figures. You can switch between the $3$ types by varying the <tt>type</tt> variable in the following code.
+<pre>
+  type_str = {'line', 'mask', 'spiral'};
+  type = 2;
+</pre>
+The measurement matrices themselves are generated by one of the following three lines of code.
+<pre>
+  X = matFFT2line(size(utrue),id,complex,mfull);
+  X = matFFTNmask(mask,complex,mfull);
+  X = matFFT2nu(size(utrue),k,complex);
+</pre>
+Another subtlety comes from the fact that all PLS solvers of the <tt>glm-ie</tt> toolbox treat real variables only. For that reason, we embed the original complex variable $\mathbf{u}\in\mathbb{C}^n$ into $\mathbb{R}^{2n}$ and solve the corresponding real optimisation problem. The two auxiliary routines <tt>mat/re2cx.m</tt> and <tt>mat/cx2re.m</tt> can be used to switch between the two. Also the matrix class <tt>mat/@mat</tt> and all derived classes <tt>mat/@mat*</tt> have a mechanism to deal with real and complex vectors: the variable <tt>complex</tt> specifies whether the matrix $\mathbf{X}\in\mathbb{C}^{m \times n}$ acts as a linear operator $\mathbb{C}^n\rightarrow\mathbb{C}^m$, $\mathbb{R}^{2n}\rightarrow\mathbb{R}^{2m}$ or hybrids thereof.<br>
+Especially suited for complex valued PLS estimation problems where both matrices $\mathbf{X}$ and $\mathbf{B}$ correspond to simple pointwise operations in the Fourier domain i.e. $\mathbf{X}^{\top}\mathbf{X}$ and $\mathbf{B}^{\top}\mathbf{B}$ can be written as $\mathbf{F}^{H}\text{dg}(\mathbf{d})\mathbf{F}$ where $\mathbf{F}$ is the orthonormal $n\times n$ Fourier matrix is the solver <tt>plsSB</tt> solver implementing Bregman splitting.
+<p>
+<strong>Estimation</strong><br>
+We compare two solvers on the task of undersampled reconstruction of a famous MR image from roughly $40$ percent of the measurements. We can see that simple least squares estimation produces much worse results than PLS estimation.
+
+<a href="mri_estimation.m">mri_estimation.m</a>
+</p>
+<center><img src="me-f1.png" alt="me-f1.png"></center><br>
+<center><img src="me-f2.png" alt="me-f2.png"></center><br>
+<center><img src="me-f3.png" alt="me-f3.png"></center><br>
+
+<h2>4) Acknowledgements</h2>
+
+<p>Several colleagues have helped to improve this software. Some of these are: 
+George Papandreou, Matthias Seeger, Alexander Loktyushin and Michael Hirsch.</p>
+
+<hr>
+Last modified: August 31st 2013
+
+</body>
+</html>

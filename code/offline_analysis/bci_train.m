@@ -553,11 +553,11 @@ if length(varargin) == 1 && iscell(varargin{1})
     varargin = varargin{1}; end
 
 % get the options
-opts = arg_define(varargin, ...
+opts = arg_define(0,varargin, ...
     ... % core parameters ...
     arg_norep({'data','Data'},mandatory,[],'Data set. EEGLAB data set, or stream bundle, or cell array of data sets / stream bundles to use for calibration/evaluation.'), ...
     arg({'approach','Approach'},[],[],'Computational approach. Specification of a computational approach (usually a cell array, alternatively a struct).','type','expression'), ...
-    arg({'markers','TargetMarkers'},{},[],'Target markers. List of types of those markers around which data shall be used for BCI calibration; each marker type encodes a different target class (i.e. desired output value) to be learned by the resulting BCI model. This can be specified either as a cell array of marker-value pairs, in which case each marker type of BCI interest is associated with a particular BCI output value (e.g., -1/+1), or as a cell array of marker types (in which case each marker will be associated with its respective index as corresponding BCI output value, while nested cell arrays are also allowed to group markers that correspond to the same output value). See help of set_targetmarkers for further explanation.','type','expression'), ...
+    arg({'markers','TargetMarkers'},{},[],'Target markers. List of types of those markers around which data shall be used for BCI calibration; each marker type encodes a different target class (i.e. desired output value) to be learned by the resulting BCI model. This can be specified either as a cell array of marker-value pairs, in which case each marker type of BCI interest is associated with a particular BCI output value (e.g., -1/+1), or as a cell array of marker types (in which case each marker will be associated with its respective index as corresponding BCI output value, while nested cell arrays are also allowed to group markers that correspond to the same output value). See help of set_targetmarkers for further explanation.'), ...
     arg({'metric','EvaluationMetric','Metric','cvmetric'},'auto',{'auto','mcr','mse','smse','sign','nll','kld','mae','max','rms','bias','medse','auc','cond_entropy','cross_entropy','f_measure'},'Evaluation metric. The metric to use in the assessment of model performance (via cross-validation); see also ml_calcloss.'), ...
     arg({'eval_scheme','EvaluationScheme'},[],[],'Evaluation scheme. Cross-validation scheme to use for evaluation. See utl_crossval for the default settings when operating on a single recording, and utl_collection_partition when operating on a collection of data sets.','type','expression'), ...
 	arg({'opt_scheme','OptimizationScheme'},{'chron',5,5},[],'Optimization scheme. Cross-validation scheme to use for parameter search (this is a nested cross-validation, only performed if there are parameters to search).','type','expression'), ...
@@ -656,7 +656,10 @@ paradigm_parameters = {paradigm_parameters};
 
 % turn data into a trivial collection, if necessary
 if isstruct(opts.data)
-    opts.data = {opts.data}; end
+    opts.data = {opts.data};
+elseif ~iscell(opts.data) || ~all(cellfun('isclass',opts.data,'struct'))
+    error('The given Data argument must be either a struct or a cell array of structs, but was: %s',hlp_tostring(opts.data,1000));
+end
 
 % do some pre-processing and uniformization of the data
 for k=1:length(opts.data)
@@ -668,6 +671,8 @@ for k=1:length(opts.data)
     end
     % annotate target markers in 1st stream according to the specified event types
     if ~isempty(opts.markers)
+        if ~iscell(opts.markers)
+            error('The given TargetMarkers argument must be a cell array, but was: %s',hlp_tostring(opts.markers,1000)); end
         if isempty(opts.epoch_bounds)
             disp('Note: TargetMarkers were specified, but epoch bounds could not be deduced from the data (likely processing is not using epoch extraction). Assuming some default bounds [-0.5 0.5].'); 
             opts.epoch_bounds = [-0.5 0.5];
@@ -753,7 +758,7 @@ model.options = paradigm_parameters;
 model.source_data = source_data;
 model.control_options = rmfield(opts,'data');
 model.epoch_bounds = opts.epoch_bounds;
-if isfield(stats.per_fold,'model')
+if isfield(stats,'per_fold') && isfield(stats.per_fold,'model')
     for k=1:length(stats.per_fold)
         if ~isempty(stats.per_fold(k).model)
             stats.per_fold(k).model.paradigm = paradigm_ref; end

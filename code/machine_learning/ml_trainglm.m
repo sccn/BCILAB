@@ -146,18 +146,27 @@ model.shape = shape;
 model.w = uinf;
 model.vectorize = vectorize_trials;
 
-% graphics
-if doinspect
-    disp('GLM inspection breakpoint; halted.');
-    keyboard;
-end
+
+% note: I can implement general-purpose evidence maximization quite easily, just by running
+% utl_gridsearch with all model parameters, including noise cov exposed :)
+
+%  X   [mxn]  measurement matrix or operator
+%  y   [mx1]  measurement vector
+%  s2  [1x1]  measurement variance
+%  B   [qxn]  matrix or operator
+%  pot        potential function handle or function name string from pot/pot*.m
+%  tau [qx1]  scale parameters of the potentials
+%  t [qx1]    offset parameters of the potentials
+%  G [dxn] is a "grouping matrix" --> acts as sqrt(G*x^2), that is, the nonzeros in each column of G define
+%     a separate group; there can be overlapping groups, of course (but what that means is another
+%     question)
 
 
 function [X,y,B,pot,tau,G] = default_setup(trials,targets,shape,opts)
 [n,f] = size(trials);
 if strcmp(opts.ptype,'regression')
     % ridge regression
-    X = trials';
+    X = trials;
     y = targets;
     B = eye(f);
     pot = @potGauss;
@@ -167,9 +176,11 @@ else
     % logistic regression
     X = eye(f);
     y = zeros(f,1);
-    B = trials';
+    B = trials;
     pot = @potLogistic;
-    tau = targets;
+    tau = targets(:);
     G = [];
 end
+
+
 

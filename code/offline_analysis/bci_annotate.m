@@ -65,7 +65,7 @@ function data = bci_annotate(varargin)
 % read arguments
 opts = arg_define([0 2],varargin, ...
     arg({'model','Model'},mandatory,[],'Predictive model. This is a model as previously computed via bci_train.'), ...
-    arg({'dataset','Data'},mandatory,[],'Data set. EEGLAB data set, or stream bundle to use for prediction.'), ...
+    arg({'data','Data'},mandatory,[],'Data set. EEGLAB data set, or stream bundle to use for prediction.'), ...
     arg({'format','OutputFormat'},'distribution',{'distribution','expectation','mode'},'Output format. The format in which each individual prediction is represented -- can be a discrete/continuous probability distribution, the most likely value (mode), or the expected value (expectation).'), ...
     arg({'sampling_rate','SamplingRate'},10,[0 0.1 250 Inf],'Output sampling rate. The rate at which predictions are made, in Hz.'), ...
     arg({'interpolation','Interpolation'},'constant',{'nans','constant','laggedresample','noncausalpchip','noncausallinear','noncausalresample'},'Output interpolation. Determines how the predictions are upsampled to the sampling rate of the data set (or the first stream in a bundle). The most conservative approaches are ''constant'' and ''nans''. Resample produces a smoothed output, but delays the BCI output significantly (esp. at low output sampling rates). The non-causal methods give a smooth output that is aligned with the time course of the predictions but exhibit "false" pre-ringing (etc) that cannot be physically realized for online execution. Among those, linear is simplest to understand and pchip results in a good shape-preserving smoothing.'), ...
@@ -79,11 +79,12 @@ if ~isfield(opts.model,'tracking') || ~all(isfield(opts.model.tracking,{'predict
     error('The given Model argument is lacking some required fields (required are: .tracking.prediction_function, .tracking.filter_graph, .tracking.prediction_channels), but got: %s',hlp_tostring(opts.model,10000)); end
 
 % uniformize and check data
-data = opts.dataset;
-if iscell(dataset)
+data = opts.data;
+if iscell(data)
     error('The bci_predict function cannot be applied to dataset collections -- you need to apply it to each dataset individually.'); end
-if ~isfield(data,'streams')
-    data = struct('streams',{{dataset}}); end
+was_simple = ~isfield(data,'streams');
+if was_simple
+    data = struct('streams',{{data}}); end
 data = utl_check_bundle(data);
 
 % use onl_simulate to get outputs

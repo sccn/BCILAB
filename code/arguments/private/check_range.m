@@ -35,7 +35,9 @@ function check_range(range,value,argname,funcname)
  elseif isempty(range)
      return;
  elseif iscellstr(range)
-     if ~any(strcmp(value,range))
+     if ischar(value) && ~any(strcmp(value,range))
+         error('BCILAB:arg:rangecheck','The value assigned to %s in %s must be in the range %s, but was: %s.',argname,funcname,hlp_tostring(range),hlp_tostring(value,1000)); end         
+     if iscell(value) && ~isempty(fast_setdiff(value,range))
          error('BCILAB:arg:rangecheck','The value assigned to %s in %s must be in the range %s, but was: %s.',argname,funcname,hlp_tostring(range),hlp_tostring(value,1000)); end
  elseif iscell(range)
      if ~any(cellfun(@(v)isequal(v,value),range))

@@ -96,7 +96,7 @@ if ~exp_beginfun('filter') return; end
 
 % read options
 allopts = arg_define([0 1],varargin,...
-    arg_norep({'filename','Filename'},mandatory,[],'File name to load. Any format that is recognized by EEGLAB should be supported.'), ...
+    arg_norep({'filename','Filename'},mandatory,[],'File name to load. Any format that is recognized by EEGLAB should be supported.','type','char','shape','row'), ...
     ... % data reductions
     arg({'channels','ChannelSubset','chans'},[],[],'Channel index subset. Restrict the loaded channels to a subset.'), ...
     arg({'samplerange','SampleRange','srange'},[],[],'Sample range. Restrict the loaded data to a sub-range, in samples.'), ...
@@ -123,13 +123,14 @@ allopts = arg_define([0 1],varargin,...
     arg_norep('streamname',unassigned), arg_norep('streamtype',unassigned), arg_norep('effective_rate',unassigned), ...
     arg_deprecated('nofixups',false,[],'This parameter has been retired.'));
 
+%if ~ischar(filename)
+ %   error('The file name must be given as a string.'); end
+
 opts = rmfield(allopts,{'filename','types','casttodouble','setname','subject','group','condition','session','comments','markerchannel','subsampled','infer_chanlocs','nofixups'});
 filename = env_translatepath(allopts.filename);
 [base,name,ext] = fileparts(filename);
 
 % test if the file actually exists
-if ~ischar(filename)
-    error('The file name must be given as a string.'); end
 if ~exist(filename,'file')
     error(['The file ' filename ' does not exist.']); end
 

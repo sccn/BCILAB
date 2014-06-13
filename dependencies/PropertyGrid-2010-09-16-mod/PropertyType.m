@@ -102,12 +102,8 @@ classdef PropertyType
             elseif isnumeric(domain)  % interpret as numeric range for domain elements
                 if min(size(domain)) ~= 1
                     error('The domain must be vector-shaped.'); end
-                try
-                    assert(isnumeric(self), 'PropertyType:ArgumentTypeMismatch', ...
-                        'Closed interval domain is meaningful only for numeric data.');
-                catch
-                    'FIXME'
-                end
+                assert(isnumeric(self), 'PropertyType:ArgumentTypeMismatch', ...
+                    'Closed interval domain is meaningful only for numeric data.');
                 assert(length(domain) == 2, 'PropertyType:InvalidArgumentValue', ...
                     'Closed interval data is expected in the form [a,b] where a and b are numbers.');
                 domain = [min(domain) max(domain)];

@@ -172,8 +172,8 @@ classdef ParadigmMSERP < ParadigmBase
         function layout = dialog_layout_defaults(self)
             % define the default configuration dialog layout 
             layout = {'SignalProcessing.Resampling.SamplingRate', 'SignalProcessing.FIRFilter.Frequencies', ...
-                'SignalProcessing.FIRFilter.Type', 'SignalProcessing.EpochExtraction', '', ...
-                'Prediction.FeatureExtraction.PatternPairs', '', 'Prediction.MachineLearning.Learner'};
+                'SignalProcessing.EpochExtraction', '', ...
+                'SpatialWhitening', 'TemporalWhitening','ReferenceWeight','CovarianceType'};
         end
                 
     end

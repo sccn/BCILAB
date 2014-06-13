@@ -22,12 +22,12 @@ function caller_name = determine_caller
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-caller_name = hlp_nanocache('getcaller',10,@determine_caller_internal);
+stack = dbstack('-completenames');
+caller_name = hlp_nanocache('getcaller',10,@determine_caller_internal,stack);
 
 
 % determine the name of the calling function
-function caller_name = determine_caller_internal
-stack = dbstack('-completenames');
+function caller_name = determine_caller_internal(stack)
 % remove all entries from the stack that are in the arguments folder or start with hlp_
 tmp = mfilename('fullpath'); tmp = strrep(tmp,[filesep 'private'],'');
 arg_path = tmp(1:find(tmp==filesep,1,'last')-1);

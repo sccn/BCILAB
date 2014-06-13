@@ -55,12 +55,15 @@ function spec = expand_specifier(names,default,range,help,varargin)
             % if the value is non-empty, the type is deduced from the value
             spec.type = deduce_type(default);
         elseif isnumeric(spec.range) && ~isempty(spec.range)
-            % if the range is numeric, the type is deduced from the range
+            % if the range is numeric and non-empty, the type is deduced from the range
             spec.type = deduce_type(spec.range);
         elseif iscell(spec.range) && isscalar(unique(cellfun(@deduce_type,spec.range,'UniformOutput',false)))
             % if the range is a cell array of uniformly-typed values, the type is the unique
             % type of the cell entries
             spec.type = deduce_type(spec.range{1});
+        elseif isempty(default) && isempty(spec.range) && ~isa(default,'double')
+            % if both default and range are empty, and the default is not [], we deduce the type from the default
+            spec.type = deduce_type(default);
         else
             % if no other rule applies, the type is expression
             spec.type = 'expression';

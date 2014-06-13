@@ -503,11 +503,14 @@ function nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,fir
     if isnan(n)
         for k=find(cellfun(@(s)all(s>='0'&s<='9'),violations))
             violations{k} = vals{str2num(violations{k})}; end %#ok<ST2NM>
-        error([caller_name ':arg_define:invalid_arguments'],['Some of the specified arguments do not appear in the argument specification; ' hlp_tostring(violations) '.']);
+        error('arg_define:invalid_arguments',['Some of the specified arguments do not appear in the argument specification; ' hlp_tostring(violations) '.']);
     elseif ~isempty(ignored)
         for k=find(cellfun(@(s)all(s>='0'&s<='9'),violations))
             violations{k} = vals{str2num(violations{k})}; end %#ok<ST2NM>
-        warn_once([caller_name ':arg_define:possible_conflict'],'arg_define() in %s: Possible parameter conflict -- both unrecognized parameters %s and matching names %s passed in. Assuming that the function is called with %u positional arguments. This warning will not be repeated for this MATLAB session.',caller_name,hlp_tostring(violations),hlp_tostring(ignored),n);
+        % warn about possible parameter conflicts (unless the parameter in question is called data
+        % or srate, and the passed in object matches the signature of an EEGLAB dataset struct)
+        if ~(length(ignored) == 1 && any(strcmp(ignored{1},{'data','srate'})) && isempty(fast_setdiff({'chanlocs','xmin','etc'},violations)))
+            warn_once('arg_define:possible_conflict','arg_define() in %s: Possible parameter conflict -- both unrecognized parameters %s and matching names %s passed in. Assuming that the function is called with %u positional arguments. This warning will not be repeated for this MATLAB session.',caller_name,hlp_tostring(violations),hlp_tostring(ignored),n); end
     end
     
     % generate a flat list of name-value pairs
