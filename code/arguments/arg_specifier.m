@@ -75,7 +75,7 @@ for k=1:2:length(varargin)
     if isfield(spec,varargin{k})
         spec.(varargin{k}) = varargin{k+1};
     else
-        error('BCILAB:arg_specifier:no_new_fields','It is not allowed to introduce fields in an argument declaration that are not declared in arg_specifier: %s',varargin{k});
+        error('BCILAB:arg_specifier:no_new_fields','It is not allowed to introduce fields in an argument declaration that are not declared in arg_specifier: %s',hlp_tostring(varargin{k},1000));
     end
 end
 
