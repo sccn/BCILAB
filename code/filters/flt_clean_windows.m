@@ -124,11 +124,11 @@ arg_define(varargin, ...
     arg_deprecated({'ignored_chans','MaxIgnoredChannels'}, [], [], 'Legacy parameter for 2010 method. Maximum number or ratio of channels to ignore. These can contain arbitrary data without affecting the outcome (e.g., can be unplugged channels).'));
 
 % input validation
-if ~isequal(size(power_tolerances),[1 2]) || ~issorted(power_tolerances)
+if ~isequal(size(zthresholds),[1 2]) || ~issorted(zthresholds)
     error('The given PowerTolerances argument must be a two-element row vector [lower,upper] and sorted.'); end
-if ~isequal(size(truncate_quant),[1 2]) || ~issorted(truncate_quant)
+if ~isequal(size(fit_params.truncate_quant),[1 2]) || ~issorted(fit_params.truncate_quant)
     error('The given TruncateQuantile argument must be a two-element row vector [lower,upper] and sorted.'); end
-if ~isequal(size(step_sizes),[1 2])
+if ~isequal(size(fit_params.step_sizes),[1 2])
     error('The given StepSizes argument must be a two-element row vector [lower,upper].'); end
 
 if ~isempty(max_bad_channels) && max_bad_channels > 0 && max_bad_channels < 1 %#ok<*NODEF>

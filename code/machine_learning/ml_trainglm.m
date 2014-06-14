@@ -9,22 +9,129 @@ function model = ml_trainglm(varargin)
 % possibly linked to the unknowns via known linear transformations (such as Wavelet, finite
 % differences, Fourier transform), and can perform both regression and classification. However, the
 % specification of the model is quite complicated due to the flexibility, so advanced functionality
-% is only usable by experts.
+% is only usable by experts. Uses glm-ie as the inference engine.
 %
 % In:
 %   Trials       : training data, as in ml_train
-%                  in addition, it may be specified as UxVxN 3d matrix,
-%                  with UxV-formatted feature matrices per trial (N trials), or
-%                  as {{U1xV1,U2xV2,...}, {U1xV1,U2xV2,...}
+%                  in addition, it may be specified as UxVx...xN multi-way array,
+%                  with UxVx...-formatted feature tensors per trial (N trials).
 %
 %   Targets      : target variable, as in ml_train
 %
 %   Lambdas : Noise variance parameter. If multiple values are given, the one with the best evidence
 %             is chosen. A good default value is 1. (default: 2.^(-4:0.5:4))
 %
+%   Type : Problem type, either 'classification' or 'regression' (default: 'classification')
+%
+%   Priors : cell array of prior term definitions; each given as 'TermN',{Distribution, Arguments...}
+%            where Distribution can be one of 'Laplace','Gaussian','Logistic','StudentT','Sech2','ExpPow',
+%            and Arguments... is a sequence of name-value pairs with the following possible names:
+%
+%            'LinearOperator' : Linear transform. The distribution applies to the linearly
+%                               transformed weight vector. Either an expression that is evaluated in
+%                               the workspace or a function handle. When defining the linear
+%                               operator as an anonymous function, the variables a to h can be used
+%                               to refer to the sizes of the first 8 dimensions of x. (default: '@(x)x(:)''')
+%
+%            'Groups' : Grouping matrix. Sparse matrix whose columns are indicator vectors for the
+%                       respective groups in the linearly transformed data (under linear indexing).
+%                       If empty, the *columns* of the linearly transformed data are taken as the
+%                       groups -- so if you vectorize your features with (:) you probably want to 
+%                       transpose them, too. (default: [])
+%
+%            'Scales' : Scales of the distribution. Allows for scaling of the distributions; can be
+%                       a scalar or a row vector to set a per-feature scale (or a search range, see 
+%                       ScaleSeach). (default: 1)
+%
+%            'ScaleSearch' : Use Scales as regularization parameter. If enabled, multiple values can
+%                            be given and will be maximized subject to log-marginal likelihood in a
+%                            grid search (possibly together with other hyper-parameters); if
+%                            unchecked, multiple values are assumed to apply to different features
+%                            after application of the linear operator. (default: true)
+%
+%            'Shifts' : Shifts for an affine transform. Allows for shifting of the distributions.
+%                       (default: 0)
+%            
+%            Depending on the Distribution, some extra arguments apply, including:
+%            'DegreesOfFreedom' (StudentT) : Degrees of freedom. If multiple values are given the
+%                                            optimal one will be determined by evidence maximization.
+%                                            (default: 1)
+%
+%            'ShapeExponent' (ExpPow) : Shape parameter (exponent). This is the beta parameter of a
+%                                       type-1 generalized Gaussian distribution.  If multiple
+%                                       values are given the optimal one will be determined by
+%                                       evidence maximization. (default: 8)
+%
+%            'AppendToX' (Gaussian) : Rarely used; append parameters to X matrix instead of B. If
+%                                     true, the Scales parameter will be ignored and the global
+%                                     Lambdas will be used instead (and may be searched). This is
+%                                     probably better unless per-feature control of scales is
+%                                     desired. This setting will be ignored if there is otherwise no
+%                                     potential at B. (default: true)
+%           
+%   Shape : Reshaping for features. Allows to reshape (perhaps vectorized) features into a
+%           particular representation. (default: [])
+%
+%   Scaling : Pre-scaling of the data. For the regulariation to work best, the features should
+%             either be naturally scaled well, or be artificially scaled (see hlp_findscaling).
+%             (default: 'std')
+%
+%   IncludeBias : Include bias param. Adds an unregularized bias term to the data (strongly
+%                 recommended for typical situations). (default: true)
+%
+%   SolverOptions : Extensive set of tuning parameters for the solver; mostly for speed optimization,
+%                   sometimes also to improve convergence.
+%
+%   ContinuousTargets : Whether to use continuous targets. This allows to implement some kind of
+%                       damped regression approach when logistic regression is being used. (default:
+%                       false)
+%
+%   VotingScheme : Type of voting to use in the multi-class classification scenario; can be '1vR' 
+%                  or '1v1' (default: '1v1')
+%
+%   Verbosity : Verbosity level, 0-2 (default: 0)
 %
 % Out:
-%   Models   : a predictive model
+%   Model   : a predictive model
+%
+% Examples:
+%   % basic ridge regression
+%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1','Gaussian'})
+%
+%   % using evidence maximization (estimate noise variance)
+%   model = ml_trainglm(trials,targets,'Type','regression','Lambdas',2.^(-4:0.5:4),'Priors',{'Term1','Gaussian'})
+%
+%   % basic logistic regression
+%   model = ml_trainglm(trials,targets,'Type','classification','Priors',{'Term1','Gaussian'})
+%
+%   % sparse regression (LASSO-style)
+%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1','Laplace'})
+%
+%   % as before, but explicitly optimize the scale parameter of the laplacian prior
+%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'Laplace','Scales',2.^(-4:0.5:4)}})
+%
+%   % use a different sparse prior (Student-T), and also optimize the degrees of freedom (nu)
+%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'StudentT','nu',[1,2,3,4,5,6,7,8]}})
+%
+%   % jointly optimize the degrees of freedom and the lambdas
+%   model = ml_trainglm(trials,targets,'Type','regression','Lambdas',2.^(-4:0.5:4),'Priors',{'Term1',{'StudentT','nu',[1,2,3,4,5,6,7,8]}})
+%
+%   % fused LASSO (laplacian prior on finite differences) with a hard (tight) prior scale
+%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'Laplace','LinearOperator','@(x)vec(diff(x))''','Scales',50}})
+%
+%   % group sparsity over columns of the feature matrix (assuming that features are matrix-shaped)
+%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'Laplace','LinearOperator','@(x)x','Scales',50}})
+%
+%   % group sparsity over rows of the feature matrix (assuming that features are matrix-shaped)
+%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'Laplace','LinearOperator','@(x)x''','Scales',50}})
+%
+%   % sparsity in a wavelet basis
+%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'Laplace','LinearOperator','@(x)vec(mydwt(x,daubcqf(4,''min''),2))''','Scales',50}})
+%
+%   % both group sparsity over rows and sparsity in a wavelet basis
+%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{ ...
+%       'Term1',{'Laplace','LinearOperator','@(x)x''','Scales',80}, ...
+%       'Term2',{'Laplace','LinearOperator','@(x)vec(mydwt(x,daubcqf(4,''min''),2))''','Scales',15}})
 %
 % See also:
 %   ml_predictglm, dli
@@ -32,18 +139,16 @@ function model = ml_trainglm(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-07-08
 
-% example: {'glm','Type','Regression','Priors',{'Term1',{'Laplace','@(x)diff(x,2)'}}};
-
 % define common parameters of different distributions
 common_parameters = { ...
         arg({'B','LinearOperator'},'@(x)x(:)''',[],'Linear transform. The distribution applies to the linearly transformed weight vector. Either an expression that is evaluated in the workspace or a function handle. When defining the linear operator as an anonymous function, the variables a to h can be used to refer to the sizes of the first 8 dimensions of x.'), ...
         arg({'G','Groups'},[],[],'Grouping matrix. Sparse matrix whose columns are indicator vectors for the respective groups in the linearly transformed data (under linear indexing). If empty, the columns of the linearly transformed data are taken as the groups.'), ...
-        arg({'tau','Scales'},1,[],'Scales of the potential. Allows for scaling of the distributions.','shape','row'), ...
-        arg({'tauSearch','ScalesSearch'},true,[],'Use Scales as regularization parameter. If enabled, multiple values can be given and will be searched over in a grid search (possibly together with other hyper-parameters); if unchecked, multiple values are assumed to apply to different features after application of the linear operator.'), ...
+        arg({'tau','Scales'},1,[],'Scales of the distribution. Allows for scaling of the distributions.','shape','row'), ...
+        arg({'tauSearch','ScalesSearch'},true,[],'Use Scales as regularization parameter. If enabled, multiple values can be given and will be maximized subject to log-marginal likelihood in a grid search (possibly together with other hyper-parameters); if unchecked, multiple values are assumed to apply to different features after application of the linear operator.'), ...
         arg({'t','Shifts'},0,[],'Shifts for an affine transform. Allows for shifting of the distributions.'), ...
     };
 
-% define the possible distributions supported by glm-ie
+% define the possible distributions supported by the inference engine
 distributions = @(argname) arg_subswitch({lower(argname),argname},{'none'},{ ...
         'none', {}, ...
         'Laplace', common_parameters, ...
@@ -58,8 +163,7 @@ distributions = @(argname) arg_subswitch({lower(argname),argname},{'none'},{ ...
 args = arg_define([0 2],varargin, ...
     arg_norep('trials'), ...
     arg_norep('targets'), ...
-    ... % problem setup
-    arg({'lambdas','NoiseVariance','Lambdas'}, 2.^(-4:0.5:4), [0 Inf], 'Gaussian noise variance. If multiple values are given, the one with the best evidence is used. A good search range is 2.^(-4:0.5:4). Note: this only applies to Gaussian terms -- e.g., in linear regression or when using a Gaussian prior in logistic regression.','shape','row'), ...
+    arg({'lambdas','NoiseVariance','Lambdas'}, 1, [0 Inf], 'Gaussian noise variance. If multiple values are given, the one with the best evidence is used. A good search range is 2.^(-4:0.5:4). Note: this only applies to Gaussian terms -- e.g., in linear regression or when using a Gaussian prior in logistic regression.','shape','row'), ...
     arg({'ptype','Type'}, 'classification', {'classification','regression'}, 'Type of problem to solve.'), ...
     arg_sub({'priors','Priors'},{},{ ...
         distributions('Term1'), ...
@@ -119,7 +223,7 @@ args = arg_define([0 2],varargin, ...
     }, 'Solver options. The options for the Variational Bayes solver of glm-ie.'), ...
     arg({'continuousTargets','ContinuousTargets','Regression'}, false, [], 'Whether to use continuous targets. This allows to implement some kind of damped regression approach.'),...
     arg({'votingScheme','VotingScheme'},'1v1',{'1v1','1vR'},'Voting scheme. If multi-class classification is used, this determine how binary classifiers are arranged to solve the multi-class problem. 1v1 gets slow for large numbers of classes (as all pairs are tested), but can be more accurate than 1vR.'), ...
-    arg({'verbosity','Verbosity'},0,uint32([0 2]),'Verbosity level. Set to 0=disable output, 1=show outer-loop output, 2=show inner-loop outputs, too.'));
+    arg({'verbosity','Verbosity'},1,uint32([0 3]),'Verbosity level. Set to 0=disable output, 1=show progress dots, 2=show outer-loop output, too, 3=show inner-loop outputs, too.'));
 
 [trials,targets,lambdas,type,priors,shape,scaling,includeBias,solverOptions,continuousTargets,votingScheme,verbosity] = arg_toworkspace(args);
 
@@ -182,7 +286,7 @@ else
     w = zeros(nFeatures + includeBias,1);
     
     % count how many potentials we have for X and for B to make sure that there is at least one
-    % for both sites (otherwise dli cannot handle it)
+    % for each site (otherwise dli cannot handle it)
     num_X = ~isempty(X);
     num_B = ~isempty(B);
     for trm=fieldnames(priors)'
@@ -228,11 +332,11 @@ else
             opB = term.B;
             try
                 opResult = opB(reshape(w(1:nFeatures),featureShape));
-                term.B = @(x)opB(reshape(x(1:sum(nFeatures)),featureShape));
+                term.B = @(x)opB(reshape(x(1:nFeatures),featureShape));
             catch e1
                 try
-                    opResult = opB(w(1:sum(nFeatures)));
-                    term.B = @(x)opB(x(1:sum(nFeatures)));
+                    opResult = opB(w(1:nFeatures));
+                    term.B = @(x)opB(x(1:nFeatures));
                 catch e2
                     error('The linear operator for prior term %s (%s, %s) yields and error when applied to weight vector w: %s\nIt also fails when applied to weight tensor w:%s',tname,type,char(term.B),hlp_handleerror(e2),hlp_handleerror(e1));
                 end
@@ -241,7 +345,7 @@ else
             
             % deduce actual operator matrix
             if isempty(B_mat)
-                B_mat = operator_to_matrix(term.B,numel(w)); end
+                B_mat = operator_to_matrix(term.B,nWeights); end
             
             % --- process remaining parameters ---
             
@@ -252,7 +356,7 @@ else
                     term.G = eye(nProjections);
                 elseif size(opResult,1) == nProjections
                     % the output of G is a column vector: one group for all
-                    term.G = ones(nProjections,1);
+                    term.G = ones(1,nProjections);
                 else
                     % the output of G is a matrix or tensor: generate group matrix
                     groups = ones(size(opResult,1),1) * (1:(nProjections/size(opResult,1)));                    
@@ -297,15 +401,15 @@ else
                 % append it to X/y instead of B/tau if so desired, or if X would otherwise be blank,
                 % but not if B would be blank
                 X = [X; B_mat]; %#ok<*AGROW>
-                y = [y; term.tau(:)];
+                y = [y; term.t(:)];
             else
                 % append to B, G, t, tau
                 B = [B; B_mat];
-                G = [G; term.G];
+                G{end+1} = term.G;
                 t = [t; term.t];
                 tau{end+1} = term.tau;
                 % append potentials
-                potentialVars(end+1) = nProjections;
+                potentialVars(end+1) = nGroups;
                 switch type
                     case 'Laplace'
                         potentials{end+1} = @potLaplace;
@@ -332,6 +436,11 @@ else
         end
     end
     
+    % concatenate G's block-diagonally and eliminate if trivial
+    G = blkdiag(G{:});
+    if isequal(G,eye(size(G)))
+        G = []; end
+    
     % append a Gaussian prior if no Gaussian part is included
     if isempty(X)
         X = eye(nFeatures,nWeights);
@@ -351,8 +460,8 @@ else
         'Truncated Newton','plsTN', 'Backtracking Conjugate Gradients','plsCGBT', ...
         'Conjugate Gradients','plsCG', 'Split-Bregman','plsSB', 'Barzilai-Borwein','plsBB');
     % post-process verbosity
-    opts.outerOutput = verbosity>0;
-    opts.innerOutput = verbosity>1;
+    opts.outerOutput = verbosity>1;
+    opts.innerOutput = verbosity>2;
     if isfield(opts.innerVBpls,'SBga') && isempty(opts.innerVBpls.SBga)
         opts.innerVBpls = rmfield(opts.innerVBpls,'SBga'); end
     
@@ -362,13 +471,12 @@ else
         lambdas = search(lambdas); end
     
     % build arguments for solver
-    args = {X,y,lambdas,B,t,struct('funcs',{potentials},'args',{potentialArgs},'lengths',{potentialVars}),tau,opts,G};
+    args = {X,y,lambdas,B,t,struct('funcs',{potentials},'args',{potentialArgs},'lengths',{potentialVars}),tau,opts,G,verbosity};
     
     % perform evidence maximization if requested
-    fprintf('\n');
+    if verbosity>0
+        fprintf('\n'); end
     if is_search(hlp_flattensearch(args))
-        if verbosity>0
-            fprintf('Performing evidence maximization...\n'); end
         [bestIdx,allInputs,allOutputs] = utl_gridsearch('clauses',@dli_wrap,args{:}); %#ok<NASGU>
         args = allInputs{bestIdx};
         model.best_lambda = args{3};
@@ -400,8 +508,9 @@ end
 
 
 % wrapper around dli() which has nlZ as first output and which assembles pots and tau from parts
-function [nlZ,m,ga,b,z,zu,Q,T] = dli_wrap(X,y,s2,B,t,pots,taus,opts,G)
-fprintf('.');
+function [nlZ,m,ga,b,z,zu,Q,T] = dli_wrap(X,y,s2,B,t,pots,taus,opts,G,verbosity)
+if verbosity>0
+    fprintf('.'); end
 % construct tau and pot inputs from cell arrays
 tau = vertcat(taus{:});
 % build inputs for potCat    
@@ -415,170 +524,8 @@ end
 pot = @(s,varargin)potCat(s,varargin{:},potList,potRanges);
 if isempty(potList)
     pot = @(varargin)[]; end
-    
 % invoke actual solver
 [m,ga,b,z,zu,nlZ,Q,T] = dli(X,y,s2,B,t,pot,tau,opts,G);
 nlZ = nlZ(end);
-
-
-% classification
-%   B              128x7              7168  double                       
-%   G                0x0                 0  double                       
-%   Q                7x7               392  double                       
-%   T                7x7               392  double                       
-%   X                6x7               160  double             sparse    
-%   b              128x1              1024  double                       
-%   ga             128x1              1024  double                       
-%   m                7x1                56  double                       
-%   nlZ              6x1                48  double                       
-%   opts             1x1              2230  struct                       
-%   p                1x1                 8  double                       
-%   pot              1x1                32  function_handle              
-%   potArgs          0x0                 0  cell                         
-%   potFunc          1x1                32  function_handle              
-%   potList          1x1               144  cell                         
-%   potRanges        1x1              1136  cell                         
-%   pots             1x1               792  struct                       
-%   s2               1x1                 8  double                       
-%   t              128x1              1024  double                       
-%   tau            128x1              1024  double                       
-%   taus             1x1              1136  cell                         
-%   y                6x1                48  double                       
-%   z              128x1              1024  double                       
-%   zu               7x1                56  double   
-
-% regression
-%   B                6x7               160  double             sparse    
-%   G                6x6               288  double                       
-%   Q                7x7               392  double                       
-%   T                7x7               392  double                       
-%   X              128x7              7168  double                       
-%   ans              1x2                16  double                       
-%   b                6x1                48  double                       
-%   ga               6x1                48  double                       
-%   m                7x1                56  double                       
-%   nlZ              1x1                 8  double                       
-%   opts             1x1              2230  struct                       
-%   p                1x1                 8  double                       
-%   pot              1x1                32  function_handle              
-%   potArgs          0x0                 0  cell                         
-%   potFunc          1x1                32  function_handle              
-%   potList          1x1               144  cell                         
-%   potRanges        1x1               160  cell                         
-%   pots             1x1               792  struct                       
-%   s2               1x1                 8  double                       
-%   t                6x1                48  double                       
-%   tau              6x1                48  double                       
-%   taus             1x1               160  cell                         
-%   y              128x1              1024  double                       
-%   z                6x1                48  double                       
-%   zu               7x1                56  double   
-%   
-
-% >> pot = @(s,varargin) potCat(s,varargin{:},{@potT,@potGauss},{1:5,6:9});
-
-
-% note: I can implement general-purpose evidence maximization quite easily, just by running
-% utl_gridsearch with all model parameters, including noise cov exposed :)
-
-%  X   [mxn]  measurement matrix or operator
-%  y   [mx1]  measurement vector
-%  s2  [1x1]  measurement variance
-%  B   [qxn]  matrix or operator
-%  pot        potential function handle or function name string from pot/pot*.m
-%  tau [qx1]  scale parameters of the potentials
-%  t [qx1]    offset parameters of the potentials
-%  G [dxn] is a "grouping matrix" --> acts as sqrt(G*x^2), that is, the nonzeros in each column of G define
-%     a separate group; there can be overlapping groups, of course (but what that means is another
-%     question)    
-
-% note: we use B in the following way:
-% in the outer loop:
-%   B*u
-%   B'*u
-%   size(B,2)
-% in the posterior-mean calc:
-%   mvm(B,P,ei)
-% in the PLS solvers:
-%   B*M
-%   B'*M
-%   M*B
-
-
-
-
-% 
-% % pre-process the data
-% if strcmp(ptype,'classification')
-%     classes = unique(targets);
-%     if length(classes) > 2
-%         % in the multi-class case we use the voter
-%         model = ml_trainvote(trials, targets, '1v1', @ml_trainglm, @ml_predictglm, varargin{:},'shape',shape,'vectorize_trials',vectorize_trials);
-%         return
-%     elseif length(classes) == 1
-%         error('BCILAB:only_one_class','Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.');
-%     else       
-%         % optionally scale the data
-%         sc_info = hlp_findscaling(trials,scaling);
-%         trials = hlp_applyscaling(trials,sc_info);
-%         % remap target labels to -1,+1
-%         targets(targets==classes(1)) = -1;
-%         targets(targets==classes(2)) = +1;
-%     end
-% elseif strcmp(ptype,'regression')
-%     classes = [];
-%     % scale the data
-%     sc_info = hlp_findscaling(trials,scaling);
-%     trials = hlp_applyscaling(trials,sc_info);
-% else
-%     error('Unrecognized problem type.');
-% end
-% 
-% % rewrite arguments
-% args.innerVBpls = hlp_rewrite(args.innerVBpls,'Quasi-Newton','plsLBFGS','Truncated Newton','plsTN','Backtracking Conjugate Gradients','plsCGBT','Conjugate Gradients','plsCG','Split-Bregman','plsSB','Barzilai-Borwein','plsBB');
-% 
-% % call setup function
-% if nargout(setupfcn) == 5
-%     [X,y,B,pot,tau] = setupfcn(trials,targets,shape,args);
-%     G = [];
-% else
-%     [X,y,B,pot,tau,G] = setupfcn(trials,targets,shape,args);
-% end
-% 
-% if length(lambdas) > 1
-%     % empirically find lambda with best evidence
-%     for k=length(lambdas):-1:1
-%         [uinf,ga,b,z,nlZ(k),Q,T] = hlp_diskcache('predictivemodels',@dli,X,y,lambdas(k),B,pot,tau,rmfield(args,{'trials','targets','lambdas','ptype','scaling','setupfcn','shape','doinspect'}),G); end %#ok<NASGU,ASGLU>
-%     model.lambda_search = nlZ;
-%     model.lambda_best = lambdas(argmin(nlZ));
-% else
-%     model.lambda_best = lambdas;
-% end
-% 
-% % run inference
-% [uinf,ga,b,z,nlZ,Q,T] = hlp_diskcache('predictivemodels',@dli,X,y,model.lambda_best,B,pot,tau,rmfield(args,{'trials','targets','lambdas','ptype','scaling','setupfcn','shape','doinspect'}),G); %#ok<ASGLU>
-% 
-% % add misc meta-data to the model
-% model.ptype = ptype;
-% model.classes = classes;
-% model.sc_info = sc_info;
-% model.shape = shape;
-% model.w = uinf;
-% model.vectorize = vectorize_trials;
-
-
-% note: I can implement general-purpose evidence maximization quite easily, just by running
-% utl_gridsearch with all model parameters, including noise cov exposed :)
-
-%  X   [mxn]  measurement matrix or operator
-%  y   [mx1]  measurement vector
-%  s2  [1x1]  measurement variance
-%  B   [qxn]  matrix or operator
-%  pot        potential function handle or function name string from pot/pot*.m
-%  tau [qx1]  scale parameters of the potentials
-%  t [qx1]    offset parameters of the potentials
-%  G [dxn] is a "grouping matrix" --> acts as sqrt(G*x^2), that is, the nonzeros in each column of G define
-%     a separate group; there can be overlapping groups, of course (but what that means is another
-%     question)
 
 

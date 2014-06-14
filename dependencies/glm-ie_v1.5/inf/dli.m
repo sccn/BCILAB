@@ -113,7 +113,7 @@ end
 n = max(size(X,2),size(B,2)); u = zeros(n,1);
 q = numel(B*u);
 z = z0(:).*ones(q,1); ldA = 0; nlZ = inf(nout,1);
-b = feval(pot,zeros(q,1)); b = b(:,4);
+b = G'*feval(pot,zeros(q,1)); b = b(:,4); % ck: inserted G'* here
 PI = 2*acos(0);   % this is the usual pi which is used by the natural parameters
 
 if output, tic, end

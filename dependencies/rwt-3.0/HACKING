@@ -1,0 +1,131 @@
+PHREAK
+Look, you wanna be elite? You gotta do a
+righteous hack. None of this accidental shit.
+
+CEREAL
+Oh yeah, you want a seriously righteous hack,
+you score one of those Gibsons man. You know,
+supercomputers they use to like, do physics,
+and look for oil and stuff?
+
+-Hackers (1995)
+
+================================================================================
+= INTRODUCTION
+================================================================================
+
+There are a number of ways in which wavelet toolbox might be expanded or
+improved. Arbitrary dimension handling or just 3d, non-orthogonal wavelets,
+support for other environments, and so on. If you are seeking to implement these
+or any other changes, this document will be your launching point. All of this 
+applies to the state of the code as of the 3.0 release - if this sentence 
+hasn't been updated but the code has then you may assume that some of the rest 
+of this text may be outdated.
+
+================================================================================
+= DEVELOPER DOCUMENTATION
+================================================================================
+
+You will likely want to begin by building the documentation files. You'll need
+CMake, Doxygen, and GraphViz. Hopefully you are on Linux, OSX, or some other 
+Unix flavor. If you are using Windows as your primary development platform, take 
+this time to stop and think about your life and where it's going. Ok, so to 
+build the documentation run:
+  cmake .
+  make doc
+After this you should see HTML documentation in doc/html and a pdf with the
+same content at doc/latex/refman.pdf
+
+If you haven't used Doxygen before, here's what you need to know: put a ! after
+the opening /* in a comment to include that comment in the generated docs, look
+at the top of some existing functions to see how function parameters are shown,
+and note that you can use latex formulas.
+
+================================================================================
+= UNIT TESTS
+================================================================================
+
+Before changing anything you should make your way over to the tests directory
+from the MATLAB prompt and run:
+ runtests
+Witness how all of these tests pass. Take care that this is still true after
+any changes you make. Now of course you have an IQ that must be measured using
+2-byte integers and have never once introduced a bug into computer software,
+but these tests are important so that mortals can come along later and know
+whether a change they made broke some function of the software or not. 
+
+There are also Python tests at python/test_rwt.py and these are mostly the same
+as the MATLAB tests. If you are feeling adventurous you might look into unifying
+these into a single script that generates both sets of tests. You should run
+both sets of tests before publishing any commit that could concievably affect
+them. If you don't know every line of code in both platforms intimately then you
+should take the safe route and run both test scripts, and possibly the Octave
+tests as well. Unfortunately Octave lacks a lot of things that would be needed
+to run MATLAB xUnit.
+
+================================================================================
+= TOUR OF THE C CODE
+================================================================================
+
+As of version 3.0, all MATLAB-specific C code has been isolated to a few places.
+The files in the mex/ directory are MATLAB MEX wrappers for the transforms and
+these files are intended to be as short as possible. All the initialization
+code common to the different transforms is found in lib/src/init.c and some of
+that code is also shared with Python.
+
+The real magic of making things work across different environments is in 
+lib/inc/rwt_platform.h - in particular the mat() macro abstracts away memory 
+addressing so you don't have to worry about row major order and column major 
+order. The rwt_printf, mat_offset, offset_row, and offset_col macros will be
+very useful if you need to change any of the code that uses the mat() macro.
+
+To understand the code for the transforms themselves, start with lib/src/dwt.c
+which is the best documented of the transforms. The rest of them are written
+and structured in a very similar fashion.
+
+The flow of the code is as follows. One of the transforms is called from MATLAB.
+This invokes one of the wrappers from the mex directory. The function here calls
+rwt_matlab_init in lib/src/init.c which calls other init functions. From here 
+the mex wrapper calls the transform in lib/src. For example, the mdwt function
+for the discrete wavlet transform calls dwt() in the lib/src/dwt.c file. This
+function has a few helpers in the same file. It allocates memory necessary for
+the transform in dwt_allocate(), calculates the high and low pass coefficients
+in dwt_coefficients(), performs the convolution in dwt_convolution, and frees
+the allocated memory in the dwt_free() function.
+
+In the case of Python, a python wrapper function in python/rwt.i calls some of
+the same initialization code in lib/src/init.c then decides if the input is 1D
+or 2D and calls a matching C wrapper function, also found in the python/rwt.i
+file. Finally, this wrapper function calls the transform function found in the
+lib/src directory.
+
+================================================================================
+= PYTHON / NUMPY
+================================================================================
+
+The HardTh, SoftTh, daubcqf, denoise, and makesig functions are implemeted twice 
+- once in MATLAB and once in Python. This was simpler than rewriting them in C.
+If you change any of these you will be glad to see that MATLAB and numpy are 
+extremely similar.
+
+Here follows the differences you may need to know. MATLAB indexes start at 1 and
+numpy starts at 0. For three part indexes the order changes - a[b:c:d] in MATLAB
+code corresponds to a[b-1:d:c] in Python/numpy. You must use the ddof=1 argument
+to the std() function in Python. The size() function in MATLAB returns 2 numbers
+for 1D inputs and the same function in Python returns 1 number. MATLAB assumes
+additional return values beyond the 1st should be dropped if not assigned to
+a separate variable - Python does not.
+
+A quick look over the SWIG/numpy documentation might lead you to think that you
+could use OUTPUT_ARRAY or INPLACE_FARRAY or some other macro to change how the
+python bindings work to be more reasonable. You are probably wrong. Probably.
+
+================================================================================
+= THE BUILD SYSTEM
+================================================================================
+
+The CMake build system was selected for its license similarity to Wavelet 
+Toolbox itself, though this is not strictly necessary. CMake also allows for
+sophisticated results with relatively little work. Anything you want to do will
+likely require some searching and playing. You may be tempted to switch to some
+other more common build system, but this would probably only make things worse.
