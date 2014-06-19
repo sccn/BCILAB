@@ -146,6 +146,7 @@ arg_define([0 3],varargin, ...
     arg({'epsi','Epsilon','eps'}, [], [], 'Desired residual error. Currently only supported for the l1/l2 variants.'), ...
     arg({'scaling','Scaling'}, 'std', {'none','center','std','minmax','whiten'}, 'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.'),...
     arg({'continuous_targets','ContinuousTargets','Regression'}, false, [], 'Whether to use continuous targets. This allows to implement some kind of damped regression approach.'),...
+    arg({'votingScheme','VotingScheme'},'1v1',{'1v1','1vR'},'Voting scheme. If multi-class classification is used, this determine how binary classifiers are arranged to solve the multi-class problem. 1v1 gets slow for large numbers of classes (as all pairs are tested), but can be more accurate than 1vR.'), ...
     arg({'fallback','UseFallback'}, false, [], 'Use CVX fallback. The CVX fallback does not depend on binaries and should yield consistent results across all platforms.'));
 
 if is_search(lam)
@@ -176,7 +177,7 @@ if ~continuous_targets
         % these are two-class classifiers
         if length(classes) > 2
             % so we need to vote in this case
-            model = ml_trainvote(trials,targets,'1v1',@ml_trainlogreg,@ml_predictlogreg,varargin{:});
+            model = ml_trainvote(trials,targets,votingScheme,@ml_trainlogreg,@ml_predictlogreg,varargin{:});
             return;
         end
         % remap target labels to -1,+1

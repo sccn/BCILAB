@@ -130,8 +130,16 @@ if splits > 1
 for i=1:splits
     range = 1+floor((i-1)*S/splits) : min(S,floor(i*S/splits));
     if ~isempty(range)
-        % get spectrally shaped data X for statistics computation (range shifted by lookahead)
-        [X,state.iir] = filter(B,A,double(data(:,range+P)),state.iir,2);
+        % get spectrally shaped data X for statistics computation (range shifted by lookahead)        
+        X = double(data(:,range+P));
+        if isempty(state.SOS)
+            [X,state.iir] = filter(B,A,double(X),state.iir,2);
+        else
+            for s = 1:size(state.SOS,1)
+                [X,state.Zi{s}] = filter(state.SOS(s,1:3),state.SOS(s,4:6),double(X),state.Zi{s},2); end
+            X = X*state.G;        
+        end
+        
         % move it to the GPU if applicable
         if usegpu && length(range) > 1000
             try X = gpuArray(X); catch,end; end

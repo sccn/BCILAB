@@ -101,7 +101,11 @@ else
             filedb.(identifier).entries{idx}.data.last_check = tic;
         else
             % the record has to be renewed
-            filedata.version = hlp_funcversion(identifier,fname);
+            try
+                filedata.version = hlp_funcversion(identifier,fname);
+            catch e
+                hlp_handleerror(e);
+            end
             filedata.md5 = hlp_cryptohash(fname,true);
             [filedata.inargs,filedata.outargs,filedata.h1] = hlp_inoutargs(fname);
             filedata.last_check = tic;

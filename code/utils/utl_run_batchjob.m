@@ -2,9 +2,22 @@ function results = utl_run_batchjob(opts,d,appname,setnames)
 % Internal: the actual processing function of bci_batchtrain.
 % Results = ult_run_batchjob(Options,DatasetIndex,ApproachName,DatasetNames)
 
-try
-    results = [];
+results = [];
+if strcmp(char(opts.handler),'rethrow')
+    results = do_run(opts,d,appname,setnames);
+else
+    try
+        results = do_run(opts,d,appname,setnames);
+    catch e
+        fprintf('Error processing data set "%s" with approach "%s".',setnames{d},appname);
+        opts.handler(e);
+    end
+end
+
+function results = do_run(opts,d,appname,setnames)
+    results = [];    
     storename = env_translatepath(strrep(strrep(opts.storepatt,'%set',setnames{d}),'%approach',appname));
+    storename = strrep(storename,'base','commandline'); % FIXME: remove quick hack!
     if opts.reuse && ~isempty(storename) && exist(storename,'file')
         fprintf('Reusing existing result for approach "%s" on set "%s".\n',appname,setnames{d});
         fprintf('Trying to load file %s.\n',storename);
@@ -48,11 +61,3 @@ try
     catch e
         fprintf('Failed to display loss estimates with error: %s\n',e.message);
     end
-catch e
-    fprintf('Error processing data set "%s" with approach "%s".\n',setnames{d},appname);
-    try
-        opts.handler(e);
-    catch he
-       fprintf('Failed to evaluate result handler with error: %s\n.',he.message);
-    end
-end

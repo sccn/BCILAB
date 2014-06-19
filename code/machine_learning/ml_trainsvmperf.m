@@ -135,6 +135,7 @@ arg_define([0 3],varargin, ...
     arg({'scaling','Scaling'}, 'std', {'none','center','std','minmax','whiten'}, 'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.','cat','Miscellaneous'), ...
     arg({'epsi','Epsilon','eps'}, 0.1, [], 'Tolerated solution accuracy.','cat','Miscellaneous'), ...
     arg({'bias','Bias'}, false, [], 'Include a bias term. Only implemented for linear kernel.','cat','Miscellaneous'), ...
+    arg({'votingScheme','VotingScheme'},'1vR',{'1v1','1vR'},'Voting scheme. If multi-class classification is used, this determine how binary classifiers are arranged to solve the multi-class problem. 1v1 gets slow for large numbers of classes (as all pairs are tested), but can be more accurate than 1vR.'), ...
     arg({'verbose','Verbose'}, false, [], 'Show diagnostic output.','cat','Miscellaneous'));
 
 if is_search(cost)
@@ -150,7 +151,7 @@ trials = hlp_applyscaling(trials,sc_info);
 classes = unique(targets);
 if length(classes) > 2
     % in this case we use the voter
-    model = ml_trainvote(trials,targets,'1v1',@ml_trainsvmperf,@ml_predictsvmperf,varargin{:});
+    model = ml_trainvote(trials,targets,votingScheme,@ml_trainsvmperf,@ml_predictsvmperf,varargin{:});
 elseif length(classes) == 1
 	error('BCILAB:only_one_class','Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.');
 else

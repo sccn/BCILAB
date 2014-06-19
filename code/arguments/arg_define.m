@@ -503,7 +503,20 @@ function nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,fir
     if isnan(n)
         for k=find(cellfun(@(s)all(s>='0'&s<='9'),violations))
             violations{k} = vals{str2num(violations{k})}; end %#ok<ST2NM>
-        error('arg_define:invalid_arguments',['Some of the specified arguments do not appear in the argument specification; ' hlp_tostring(violations) '.']);
+        if length(violations) == 1
+            mindist = Inf;
+            suggestion = '';
+            for k=1:length(flat_names)
+                dist = strdist(flat_names{k},violations{1});
+                if dist < mindist
+                    mindist = dist;
+                    suggestion = flat_names{k};
+                end
+            end
+            error('arg_define:invalid_arguments','An argument with name %s does not appear in the argument specification; did you mean %s?',violations{1},suggestion);
+        else
+            error('arg_define:invalid_arguments',['Some of the specified arguments do not appear in the argument specification; ' hlp_tostring(violations) '.']);
+        end
     elseif ~isempty(ignored)
         for k=find(cellfun(@(s)all(s>='0'&s<='9'),violations))
             violations{k} = vals{str2num(violations{k})}; end %#ok<ST2NM>

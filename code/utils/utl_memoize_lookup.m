@@ -108,7 +108,7 @@ for i=1:2:length(settings)
             % --- look up from disk ---
             if ~isfield(tracking.cache,'disk_paths')
                 continue; end
-            hash_path = [filesep data_hash(1:2) filesep data_hash(3:end) '.mat'];
+            hash_path = [filesep data_hash(1:2) filesep data_hash(3:end) '.ckf'];
             % for each candidate disk path where the record might be found...
             for p = fieldnames(tracking.cache.disk_paths)'
                 try

@@ -70,7 +70,7 @@ arg_define(varargin, ...
 if find_closest
     if ~iscellstr(channels)
         error('For distance-based channel matching the given channels should be a cell array of labels.'); end
-    [index_dataset,index_query] = hlp_microcache('matchchan',@utl_match_channels,signal.chanlocs,channels);
+    [index_dataset,index_query] = hlp_microcache('matchchan',@utl_match_channels,signal.chanlocs,channels,true);
     if strcmp(orderPreservation,'dataset-order')
         subset = index_dataset;
     else

@@ -320,7 +320,7 @@ if ~isequal(varargin,{'update'})
     allflt = list_filters();
     
     % sort filters in the preferred order (and remove filters for which no preferences are known)
-    custom_order = arg_extract(varargin,{'fltorder','FilterOrdering','order'},[],{});
+    custom_order = arg_extract(varargin,{'fltorder','FilterOrdering','FilterOrder','order'},[],{});
     [ordering,unlinked] = hlp_microcache('ordering',@order_filters,struct('name',{allflt.name},'properties',{allflt.properties}),custom_order);
     filters = allflt(ordering);
     
@@ -510,7 +510,7 @@ if ~isempty(args)
         if strcmp(nvps{k},'arg_direct')
             continue; end
         if ~any(strcmp(nvps{k},known_identifiers_flat))
-            if isempty(nvps{k+1}) || strcmp(nvps{k+1},'off') || isfield(nvps{k+1},'arg_selection') && nvps{k+1}.arg_selection==0
+            if isempty(nvps{k+1}) || isequal(nvps{k+1},'off') || (isfield(nvps{k+1},'arg_selection') && isscalar(nvps{k+1}) && nvps{k+1}.arg_selection==0)
                 dropped_empty(end+1) = k;
             else
                 dropped_nonempty(end+1) = k;
@@ -595,7 +595,17 @@ filters = filters(retain);
 % create a mapping from name to index in filters...
 remap = struct();
 for f=1:length(filters)
-    remap.(filters(f).name) = f; end
+    remap.(filters(f).name) = f;  end
+for f=1:length(filters)
+    if isfield(filters(f),'properties') && isfield(filters(f).properties,'name')
+        for n=1:length(filters(f).properties.name)
+            name = filters(f).properties.name{n};
+            if isfield(remap,name)
+                error('BCILAB:flt_pipeline:duplicate_name','The given filter %s declares a name property (%s) that was already declared by some other filter.',filters(f).name,name);  end
+            remap.(name) = f; 
+        end
+    end
+end
 
 % create a graph according to the filters' ordering preferences/constraints, as an edge list (of the
 % type 'src precedes dst')

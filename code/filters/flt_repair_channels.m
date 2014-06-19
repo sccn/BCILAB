@@ -20,6 +20,16 @@ function [signal,state] = flt_repair_channels(varargin)
 %                     if this is too low some sharp-onset artifacts will leave brief glitches in the
 %                     data. (default: 0.125).
 %
+%
+%   The following are detail parameters that usually do not have to be tuned. If you can't get
+%   the function to do what you want, you might consider adapting these to your data.
+%
+%   NumSamples : Number of RANSAC samples. This is the number of samples to generate in the random
+%                sampling consensus process. (default: 20)
+%
+%   SubsetSize : Subset size. This is the size of the channel subsets to use, as number of channels
+%                or a fraction of the total number of channels. (default: 0.25)
+%
 %   ReferenceExtraction : Group of sub-parameters to control how clean reference data shall be extracted 
 %                         for calibration of the statistics (these are arguments to flt_clean_windows).
 %
@@ -31,10 +41,9 @@ function [signal,state] = flt_repair_channels(varargin)
 %                        contain (more than this and it is removed). Reasonable range is 0.05 (very clean
 %                        output) to 0.3 (very lax cleaning of only coarse artifacts). Default: 0.15.
 %
-%   CalibPrecision : Block size for calculating the robust data covariance, in samples; allows to 
-%                    reduce the memory requirements of the robust estimator by this factor (down to
-%                    Channels x Channels x Samples x 16 / Blocksize bytes). The value is further
-%                    incremented if necessary to fit the data in memory. (default: 10).
+%   CalibPrecision : Block granularity for calibration. The data covariance will be estimated in
+%                    blocks of this size and then robustly averaged (larger values admit smaller
+%                    memory requirements). (default: 10)
 %
 %   LineNoiseAware : Whether the operation should be performed in a line-noise aware manner. If enabled,
 %                    the correlation measure will not be affected by the presence or absence of line 

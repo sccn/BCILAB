@@ -23,13 +23,12 @@ function [signal,state] = flt_iir(varargin)
 %
 %   Type         :   'butter' for a Butterworth filter -- pro: flat response overall; con: slow
 %                             attenuation (default)
-%                    'cheb1' for a Chebychev Type I filter -- pro: steep attennuation; con:
-%                            strong passband ripple
-%                    'cheb2' for a Chebychev Type II filter -- pro: flat
-%                            passband response; con: slower
-%                            attenuation than cheb1
+%                    'cheb1' for a Chebychev Type I filter -- pro: steep attenuation; con:
+%                            passband ripple, moderate phase distortion
+%                    'cheb2' for a Chebychev Type II filter -- pro: steep attenuation; 
+%                            con: stopband ripple, moderate phase distortion
 %                    'ellip' for an Elliptic filter -- pro: steepest rolloff, lowest latency;
-%                            con: passband ripple
+%                            con: passband and stopband ripple, strong phase distortion
 %                    'yulewalk' for a Yule-Walker filter -- allows for free-form designs, but can 
 %                            be erratic (automatic for free-form mode)
 %
@@ -149,16 +148,27 @@ if isempty(state)
         state.(f{1}).sos = sos;
         state.(f{1}).g = g;
         state.(f{1}).zi = repmat({[]},1,size(sos,1));
-    end
+    end 
+    extrapolate = round(15*signal.srate);
+else
+    extrapolate = 0;
 end
 
 for f = utl_timeseries_fields(signal)
     if ~isempty(signal.(f{1}))
+        X = double(signal.(f{1}))';
+        % extrapolate the signal into the past
+        if extrapolate
+            X = [repmat(2*X(1,:),extrapolate,1) - X(1+mod(((extrapolate+1):-1:2)-1,size(X,1)),:); X]; end
         % apply filter for each section
         for s = 1:size(state.(f{1}).sos,1)
-            [signal.(f{1}),state.(f{1}).zi{s}] = filter(state.(f{1}).sos(s,1:3),state.(f{1}).sos(s,4:6),double(signal.(f{1})),state.(f{1}).zi{s},2); end
+            [X,state.(f{1}).zi{s}] = filter(state.(f{1}).sos(s,1:3),state.(f{1}).sos(s,4:6),X,state.(f{1}).zi{s},1); end
         % apply gain
-        signal.(f{1}) = signal.(f{1})*state.(f{1}).g;
+        X = X*state.(f{1}).g;
+        % remove extrapolated part again
+        if extrapolate
+            X = X(1+extrapolate:end,:); end
+        signal.(f{1}) = X';
     end
 end
 

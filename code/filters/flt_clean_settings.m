@@ -163,4 +163,4 @@ if cleansetting.shaping.arg_selection
 
 
 % evaluate the signal
-signal = exp_eval_optimized(signal);
+signal = exp_eval(signal);

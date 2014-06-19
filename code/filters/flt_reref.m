@@ -65,7 +65,7 @@ function signal = flt_reref(varargin)
 
 if ~exp_beginfun('filter') return; end
 
-declare_properties('name',{'Rereferencing','ref'}, 'independent_channels',false,'independent_trials',true);
+declare_properties('name',{'Rereferencing','ref','Rereference'}, 'independent_channels',false,'independent_trials',true);
 
 arg_define(varargin,...
     arg_norep({'signal','Signal'}), ...

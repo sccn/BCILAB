@@ -321,6 +321,9 @@ try
             % XDF files
             args = hlp_struct2varargin(opts);
             res = eeg_load_xdf(filename,args{:});
+        case '.ckf'
+            % CKF files
+            res = getfield(io_load(filename),'EEG');
         otherwise
             error('This file format has no known handler in BCILAB.');
     end

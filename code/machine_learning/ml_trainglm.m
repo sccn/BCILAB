@@ -43,9 +43,9 @@ function model = ml_trainglm(varargin)
 %                       a scalar or a row vector to set a per-feature scale (or a search range, see 
 %                       ScaleSeach). (default: 1)
 %
-%            'ScaleSearch' : Use Scales as regularization parameter. If enabled, multiple values can
-%                            be given and will be maximized subject to log-marginal likelihood in a
-%                            grid search (possibly together with other hyper-parameters); if
+%            'ScaleSearch' : Use Scales as searchable hyper-parameter. If enabled, multiple values
+%                            can be given and will be maximized subject to log-marginal likelihood
+%                            in a grid search (possibly together with other hyper-parameters); if
 %                            unchecked, multiple values are assumed to apply to different features
 %                            after application of the linear operator. (default: true)
 %
@@ -152,7 +152,7 @@ common_parameters = { ...
 distributions = @(argname) arg_subswitch({lower(argname),argname},{'none'},{ ...
         'none', {}, ...
         'Laplace', common_parameters, ...
-        'Gaussian', [common_parameters {arg({'appendToX','AppendToX'},true,[],'Append to X matrix instead of B. If true, the Scales parameter will be ignored and the global Lambdas will be used instead (and may be searched). This is probably better unless per-feature control of scales is desired. This setting will be ignored if there is otherwise no potential at B.')}], ...
+        'Gaussian', [common_parameters {arg({'appendToX','AppendToX'},true,[],'Append to X matrix instead of B. If true, the Scales parameter will be ignored and the global Lambdas will be used instead (and may be searched). Also, a non-factorial posterior will be estimated for this parameter (by default). This setting will be ignored if there is otherwise no potential at B.')}], ...
         'Logistic', common_parameters, ...
         'StudentT',[common_parameters {arg({'nu','DegreesOfFreedom'},1,[1 Inf],'Degrees of freedom. If multiple values are given the optimal one will be determined by evidence maximization.','shape','row')}], ...
         'Sech2', common_parameters, ...
@@ -223,14 +223,14 @@ args = arg_define([0 2],varargin, ...
     }, 'Solver options. The options for the Variational Bayes solver of glm-ie.'), ...
     arg({'continuousTargets','ContinuousTargets','Regression'}, false, [], 'Whether to use continuous targets. This allows to implement some kind of damped regression approach.'),...
     arg({'votingScheme','VotingScheme'},'1v1',{'1v1','1vR'},'Voting scheme. If multi-class classification is used, this determine how binary classifiers are arranged to solve the multi-class problem. 1v1 gets slow for large numbers of classes (as all pairs are tested), but can be more accurate than 1vR.'), ...
-    arg({'verbosity','Verbosity'},1,uint32([0 3]),'Verbosity level. Set to 0=disable output, 1=show progress dots, 2=show outer-loop output, too, 3=show inner-loop outputs, too.'));
+    arg({'verbosity','Verbosity'},0,uint32([0 3]),'Verbosity level. Set to 0=disable output, 1=show progress dots, 2=show outer-loop output, too, 3=show inner-loop outputs, too.'));
 
 [trials,targets,lambdas,type,priors,shape,scaling,includeBias,solverOptions,continuousTargets,votingScheme,verbosity] = arg_toworkspace(args);
 
 % check if we need to handle multi-class classification by voting
 classes = unique(targets);
 if length(classes) > 2 && strcmp(type,'classification') && ~continuousTargets
-    model = ml_trainvote(trials, targets, votingScheme, @ml_trainglm, @ml_predictgl, varargin{:});
+    model = ml_trainvote(trials, targets, votingScheme, @ml_trainglm, @ml_predictglm, varargin{:});
 elseif length(classes) == 1
     error('BCILAB:only_one_class','Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.');
 else
@@ -304,8 +304,8 @@ else
     for trm=fieldnames(priors)'
         tname = trm{1};
         term = priors.(tname);
-        type = term.arg_selection;
-        if ~strcmp(type,'none')
+        dist = term.arg_selection;
+        if ~strcmp(dist,'none')
             % --- process linear operator (note: needs to be in a separate function to keep @()'s clean) ---
             B_mat = [];
             
@@ -316,14 +316,14 @@ else
                     [a,b,c,d,e,f,g,h] = size(reshape(w(1:nFeatures),featureShape)); %#ok<NASGU,ASGLU>
                     term.B = eval(term.B);
                 catch e
-                    error('The linear operator for prior term %s (%s, %s) seems to have a syntax error: %s',tname,type,char(term.B),hlp_handleerror(e));
+                    error('The linear operator for prior term %s (%s, %s) seems to have a syntax error: %s',tname,dist,char(term.B),hlp_handleerror(e));
                 end
             elseif isnumeric(term.B)
                 % parse operators in numeric form
                 B_mat = term.B;
                 term.B = @(x)B_mat*x;
             else
-                error('Unsupported format for prior term %s (%s): %s',tname,type,hlp_tostring(term.B,1000));
+                error('Unsupported format for prior term %s (%s): %s',tname,dist,hlp_tostring(term.B,1000));
             end
             
             % try to evaluate the operator on dummy weights; determine if it can accept weights in
@@ -397,7 +397,7 @@ else
             % --- append to input data matrices
             
             % append B_mat and tau
-            if strcmp(type,'Gaussian') && ((term.appendToX || num_X==0) && num_B>0)
+            if strcmp(dist,'Gaussian') && ((term.appendToX || num_X==0) && num_B>0)
                 % append it to X/y instead of B/tau if so desired, or if X would otherwise be blank,
                 % but not if B would be blank
                 X = [X; B_mat]; %#ok<*AGROW>
@@ -410,7 +410,7 @@ else
                 tau{end+1} = term.tau;
                 % append potentials
                 potentialVars(end+1) = nGroups;
-                switch type
+                switch dist
                     case 'Laplace'
                         potentials{end+1} = @potLaplace;
                         potentialArgs{end+1} = {};
@@ -430,7 +430,7 @@ else
                         potentials{end+1} = @potExpPow;
                         potentialArgs{end+1} = {quickif(length(term.alpha)>1,search(term.alpha),term.alpha)};
                     otherwise
-                        error('Unsupported distribution type requested: %s',type);
+                        error('Unsupported distribution type requested: %s',dist);
                 end
             end
         end

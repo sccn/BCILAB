@@ -147,6 +147,9 @@ if p.subnodes
         chunk = p.head(inputs{:});
     end
 else
+    if ~isfield(p,'smax')
+        1
+    end
     % get the most recent samples since our buffer's smax from a raw stream: 
     % inputs holds the cell array {stream_name,channel_range)
     chunk = onl_peek(inputs{1},p.smax,'index',inputs{2});

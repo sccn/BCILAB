@@ -77,7 +77,7 @@ X = S*X;
 nP = length(P);
 P =  permute(cat(3,P{:}),[3 2 1]);
 
-fprintf('Running Beamica on the for %i iterations.\n',max_iter);
+fprintf('Running Beamica for %i iterations.\n',max_iter);
 if usegpu    
     try X = gpuArray(X); d = gpuArray(d); disp('Using the GPU.'); catch, end;  end
 

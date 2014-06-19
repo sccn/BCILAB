@@ -40,7 +40,7 @@ function signal = flt_laplace(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-06-29
 
-% flt_laplace_version<1.0> -- for the cache
+% flt_laplace_version<1.01> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 

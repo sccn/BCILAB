@@ -212,7 +212,7 @@ if logspacing
     idx = unique(round(logspace(log10(3),log10(size(signal.data,2)),logspacing)));
     signal.data = signal.data(:,idx,:);
     F = F(idx);
-    signal.pnts = idx;    
+    signal.pnts = numel(idx);    
 end
 
 signal.freqs = F;

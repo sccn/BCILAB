@@ -1,6 +1,6 @@
-function [signal,sample_mask] = flt_clean_windows(varargin)
+function signal = flt_clean_windows(varargin)
 % Remove periods with abnormally high/low-amplitude content from continuous data.
-% [Signal,Mask] = flt_clean_windows(Signal,PowerTolerances,MaxBadChannels,WindowLength,ParameterFitting,KeepMetadata,FlaggedQuantile,MinAffectedChannels,MaxIgnoredChannels)
+% Signal = flt_clean_windows(Signal,PowerTolerances,MaxBadChannels,WindowLength,ParameterFitting,KeepMetadata,FlaggedQuantile,MinAffectedChannels,MaxIgnoredChannels)
 %
 % This function cuts segments from the data which contain high/low-amplitude artifacts.
 % Specifically, any windows with more than a certain fraction of "bad" channels are removed, where a
@@ -74,8 +74,6 @@ function [signal,sample_mask] = flt_clean_windows(varargin)
 %
 % Out:
 %   Signal : data set with bad time periods removed.
-%
-%   Mask   : mask of retained samples (logical array)
 %
 % Examples:
 %   % use the defaults

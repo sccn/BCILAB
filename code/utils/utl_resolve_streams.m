@@ -248,9 +248,9 @@ else
             % found exactly one stream which has the correct number of channels and the same set of types
             warning('BCILAB:onl_newpredictor:ambiguous','No stream was found which contains the required channels; however, a stream was found to have the same number of channels and set of types as required by the pipeline.');
             strm = streams{satisfies_types};
-            if ischar(strm)
+            if ischar(strm.substitute)
                 % stream given as a variable name: augment the rawdata node
-                pip = struct('head',@rawdata,'parts',{{strm,1:length(strm.labels)}});
+                pip = struct('head',@rawdata,'parts',{{strm.substitute,1:length(strm.labels)}});
             else
                 % substitute the rawdata node by the stream's expression
                 pip = strm.substitute;

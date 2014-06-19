@@ -232,6 +232,7 @@ arg_define([0 2],varargin, ...
     arg({'data_weights','DataWeights'}, [], [], 'Dataset weights. Optional vector of weights for each task in the training data (one element per task in a multi-task learning setting).'), ...
     arg({'verbosity','Verbosity'},1,uint32([1 5]),'Diagnostic output level. Zero is off, 1 only shows cross-validation diagnostics, 2 shows solver diagnostics, 3 shows iteration diagnostics.'), ...
     arg({'continuous_targets','ContinuousTargets','Regression'}, false, [], 'Whether to use continuous targets. This allows to implement some kind of damped regression approach.'),...
+    arg({'votingScheme','VotingScheme'},'1v1',{'1v1','1vR'},'Voting scheme. If multi-class classification is used, this determine how binary classifiers are arranged to solve the multi-class problem. 1v1 gets slow for large numbers of classes (as all pairs are tested), but can be more accurate than 1vR.'), ...
     arg({'includebias','IncludeBias','bias'},true,[],'Include bias param. Also learns an unregularized bias param (strongly recommended for typical classification problems).'));
 
 if ~iscell(targets)
@@ -247,7 +248,7 @@ nTasks = length(targets);
 classes = unique(vertcat(targets{:}));
 if length(classes) > 2 && strcmp(loss,'logistic') && ~continuous_targets
     % in the multi-class case we use the voter for now (TODO: use softmax loss instead)
-    model = ml_trainvote(trials, targets, '1v1', @ml_trainproximal, @ml_predictproximal, varargin{:});
+    model = ml_trainvote(trials, targets, votingScheme, @ml_trainproximal, @ml_predictproximal, varargin{:});
 elseif length(classes) == 1
     error('BCILAB:only_one_class','Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.');
 else

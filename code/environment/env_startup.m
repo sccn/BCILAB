@@ -316,15 +316,15 @@ for d=1:length(opts.cache)
         import java.io.*; 
         % try to add a free space checker (Java File object), which we use to check the quota, etc.
         location.space_checker = File(opts.cache{d}.dir);
-        filename = [opts.cache{d}.dir filesep '__probe_cache_ ' num2str(round(rand*2^32)) '__.mat'];
+        filename = [opts.cache{d}.dir filesep '__probe_cache_ ' num2str(round(rand*2^32)) '__.ckf'];
         if exist(filename,'file') 
             delete(filename); end
         oldvalue = location.space_checker.getFreeSpace;
         testdata = double(rand(1024)); %#ok<NASGU>
         objinfo = whos('testdata');
         % do a quick read/write test
-        t0=tic; save(filename,'testdata'); location.writestats = struct('size',{0 objinfo.bytes},'time',{0 toc(t0)});
-        t0=tic; load(filename); location.readstats = struct('size',{0 objinfo.bytes},'time',{0 toc(t0)});
+        t0=tic; io_save(filename,'testdata'); location.writestats = struct('size',{0 objinfo.bytes},'time',{0 toc(t0)});
+        t0=tic; io_load(filename); location.readstats = struct('size',{0 objinfo.bytes},'time',{0 toc(t0)});
         newvalue = location.space_checker.getFreeSpace;
         if exist(filename,'file') 
             delete(filename); end

@@ -1,11 +1,13 @@
-function [index_a,index_b] = utl_match_channels(locs_a,locs_b)
+function [index_a,index_b] = utl_match_channels(locs_a,locs_b,projected)
 % Finds pairs of channels in two given chanlocs structures that are closest.
-% [SubsetA,SubsetB] = utl_match_channels(LocationsA,LocationsB)
+% [SubsetA,SubsetB] = utl_match_channels(LocationsA,LocationsB,Projected)
 %
 % In:
 %   LocationsA : Chanlocs structure or cell array of labels
 %
 %   LocationsB : Chanlocs structure or cell array of labels
+%
+%   Projected : Whether to perform matching on a sphere projection
 %
 % Out:
 %   IndexA : a vector of ascending indices into LocationsA; if LocationsA
@@ -41,6 +43,10 @@ locs_b(cellfun('isempty',{locs_b.X}) | cellfun('isempty',{locs_b.Y}) | cellfun('
 % find closest matches
 pos_a = [[locs_a.X]' [locs_a.Y]' [locs_a.Z]'];
 pos_b = [[locs_b.X]' [locs_b.Y]' [locs_b.Z]'];
+if projected
+    pos_a = bsxfun(@times,pos_a,1./sqrt(sum(pos_a.^2,2)));
+    pos_b = bsxfun(@times,pos_b,1./sqrt(sum(pos_b.^2,2)));
+end
 distances = sqrt(sum(bsxfun(@minus,permute(pos_b,[3 1 2]),permute(pos_a,[1 3 2])).^2,3));
 [sorted,matches] = sort(distances(:),'ascend'); %#ok<ASGLU>
 
