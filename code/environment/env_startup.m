@@ -390,6 +390,7 @@ hlp_diskcache('statistics','folder',opts.temp,'subdir','statistics','exactmatch_
 hlp_diskcache('general','folder',opts.temp,'subdir','general');
 hlp_diskcache('finegrained','folder',opts.temp,'subdir','finegrained');
 hlp_diskcache('temporary','folder',opts.temp,'subdir','temporary');
+hlp_diskcache('montages','folder',opts.temp,'subdir','montages');
 
 
 % show toolbox status

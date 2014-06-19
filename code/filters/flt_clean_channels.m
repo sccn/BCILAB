@@ -200,7 +200,7 @@ if ~exist('removed_channel_mask','var')
     end
     
     % also incorporate the line noise criterion
-    removed_channel_mask = removed_channel_mask | noise_mask';
+    removed_channel_mask = removed_channel_mask(:) | noise_mask(:);
     
     fprintf(' removing %i channels...\n',nnz(removed_channel_mask));
     % remove the channels in the protect list

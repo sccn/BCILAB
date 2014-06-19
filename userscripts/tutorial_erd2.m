@@ -131,25 +131,25 @@ approaches.windowed = {'CSP' 'SignalProcessing',{'WindowSelection','hann'}};
 approaches.resampled = {'CSP' 'SignalProcessing',{'Resampling',70}};
 % apply a delay-embedding, that is, append channels that contain lagged (shifted) versions
 approaches.delayembed = {'CSP' 'SignalProcessing',{'DelayEmbedding',3}};
-% try again, but now search for the optimal lag, and exclude intermediate lags
+% try again, but now search for the optimal lag, and exclude intermediate lags (same as CSSP, but here with limited search range); takes ca. 2m
 approaches.delayembed_search = {'CSP' 'SignalProcessing',{'DelayEmbedding',{'NumLags',search(1:5),'IncludeIntermediates',false}}};
 % apply the delay-embedding to resampled data (note: order of filters in the cell array does not matter, is automatically reordered)
 approaches.delayembed_res = {'CSP' 'SignalProcessing',{'DelayEmbedding',3,'Resampling',70}};
 % standardize the channels in a moving window, using defaults (note: this is more useful when going across sessions or subjects)
 approaches.standardize = {'CSP' 'SignalProcessing',{'Standardization','on'}};
-% sphere/whiten the data in a 20s moving window (note: for efficiency this filter windows slightly differently when applied online/pseudo-online than in batch mode)
+% sphere/whiten the data in a 20s moving window (note: for efficiency this filter operates slightly differently when applied online/pseudo-online than in batch mode)
 approaches.sphere = {'CSP' 'SignalProcessing',{'Standardization',{'Sphere',true,'WindowLength',20}}};
 
 % --- here we apply some spatial filters ---
 % (note: since CSP is already an optimal spatial filter there is little gain by inserting extra stages, except for additional assumptions/constraints)
 
 % apply a random projection matrix (note: this should give the same result as basic CSP since CSP
-% finds the optimal linear transformation regardless of how the data has been linearly transformed
+% finds an optimal linear transformation regardless of how the data has been linearly transformed
 % beforehand, as long as no information is lost)
 approaches.project = {'CSP' 'SignalProcessing',{'Projection',randn(32)}};
 % re-reference to common average reference (can be slightly worse than original as the signal's rank is reduced by 1)
 approaches.reref = {'CSP' 'SignalProcessing',{'Rereferencing','on'}};
-% re-reference to common median reference (robust reference, also no rank reduction since this is no linear combination)
+% re-reference to common median reference (robust reference, not strictly a rank reduction)
 approaches.reref_med = {'CSP' 'SignalProcessing',{'Rereferencing',{'ReferenceType','median'}}};
 % surface laplacian; no rank loss
 approaches.laplace = {'CSP' 'SignalProcessing',{'SurfaceLaplacian','on'}};
