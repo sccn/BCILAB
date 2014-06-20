@@ -136,49 +136,14 @@ if (~all(isfield(locs,{'X','Y','Z'})) || all(cellfun('isempty',{locs.X}))) && ~i
                 bestidx = 1;
             case 'deduce'
                 fprintf('Multiple known cap designs match to your data''s channel labels; determining the best fit...\n');
-
-                % first calculate bandpass-filtered signal X
-                attenuation = 80;
-                frequencies = min(1,2*[0.5 2 45 50]/signal.srate);        
-                w = design_kaiser(frequencies(1),frequencies(2),attenuation,true);
-                B = design_fir(length(w)-1,[0 frequencies 1],[0 0 1 1 0 0],[],w);
-                for c=signal.nbchan:-1:1
-                    X(c,:) = filtfilt_fast(B,1,signal.data(c,:)')'; end
-
-                % for each cap design that matches reasonably well...
-                for k=1:nnz(sorted_fractions(1) < 2*sorted_fractions)
-                    o = order(k);
-                    % get matched locations
-                    tmp = fitlocs{o};
-                    [x,y,z] = deal({tmp.X},{tmp.Y},{tmp.Z});
-                    usable_channels = find(~cellfun('isempty',x) & ~cellfun('isempty',y) & ~cellfun('isempty',z));
-                    positions = [cell2mat(x(usable_channels));cell2mat(y(usable_channels));cell2mat(z(usable_channels))];
-                    % calculate channel interpolation matrix
-                    M = hlp_diskcache('montages',@interpolation_matrix,positions);
-                    % calculated interpolated signal Y
-                    Y = M*X(usable_channels,:);
-                    % calculated median of windowed correlation between X and Y
-                    window_len = 1*signal.srate;
-                    wnd = 0:window_len-1;
-                    offsets = round(1:window_len:size(Y,2)-window_len);
-                    W = length(offsets);
-                    corrs = [];
-                    for o=W:-1:1
-                        XX = X(usable_channels,offsets(o)+wnd)';
-                        YY = Y(:,offsets(o)+wnd)';
-                        corrs(:,o) = sum(XX.*YY)./(sqrt(sum(XX.^2)).*sqrt(sum(YY.^2)));
-                    end
-                    chancorr = median(corrs,2);
-                    % use average self-correlation across channels as quality index for this cap design
-                    quality(k) = mean(chancorr); %#ok<AGROW>
-                end
-
+                quality = hlp_diskcache('montages',@fit_quality,signal,sorted_fractions,order,fitlocs);
                 % assess quality of best fit
                 if max(quality)<0.3
                     fprintf('WARNING: Did not find a cap design that matches your data. You need to add channel locations for your cap to set_infer_chanlocs to use any function that requires these locations.\n'); 
                     bestidx = NaN;
-                elseif max(quality)<0.5
-                    fprintf('WARNING: The agreement between your data and the available cap designs is low and the chosen locations might be partially wrong. Either your data is too noisy for a reliable determination or your cap design differs from the known ones.\n'); 
+                else
+                    if max(quality)<0.5
+                        fprintf('WARNING: The agreement between your data and the available cap designs is low and the chosen locations might be partially wrong. Either your data is too noisy for a reliable determination or your cap design differs from the known ones.\n');  end
                     bestidx = order(argmax(quality));
                 end
             otherwise
@@ -298,6 +263,50 @@ if isfield(data,'chanlocs')
 else
     data = locs;
 end
+
+function quality = fit_quality(signal,sorted_fractions,order,fitlocs)
+% first calculate bandpass-filtered signal X
+attenuation = 80;
+frequencies = min(1,2*[0.5 2 45 50]/signal.srate);        
+w = design_kaiser(frequencies(1),frequencies(2),attenuation,true);
+B = design_fir(length(w)-1,[0 frequencies 1],[0 0 1 1 0 0],[],w);
+try
+    % try to process all data at once
+    X = filtfilt_fast(B,1,signal.data')';
+catch
+    % fall back to channel-by-channel processing (if out of memory)
+    for c=signal.nbchan:-1:1
+        X(c,:) = filtfilt_fast(B,1,signal.data(c,:)')'; end
+end
+
+% for each cap design that matches reasonably well...
+for k=1:nnz(sorted_fractions(1) < 2*sorted_fractions)
+    o = order(k);
+    % get matched locations
+    tmp = fitlocs{o};
+    [x,y,z] = deal({tmp.X},{tmp.Y},{tmp.Z});
+    usable_channels = find(~cellfun('isempty',x) & ~cellfun('isempty',y) & ~cellfun('isempty',z));
+    positions = [cell2mat(x(usable_channels));cell2mat(y(usable_channels));cell2mat(z(usable_channels))];
+    % calculate channel interpolation matrix
+    M = hlp_diskcache('montages',@interpolation_matrix,positions);
+    % calculated interpolated signal Y
+    Y = M*X(usable_channels,:);
+    % calculated median of windowed correlation between X and Y
+    window_len = 1*signal.srate;
+    wnd = 0:window_len-1;
+    offsets = round(1:window_len:size(Y,2)-window_len);
+    W = length(offsets);
+    corrs = [];
+    for o=W:-1:1
+        XX = X(usable_channels,offsets(o)+wnd)'; XX = bsxfun(@minus,XX,mean(XX));
+        YY = Y(:,offsets(o)+wnd)'; YY = bsxfun(@minus,YY,mean(YY));
+        corrs(:,o) = sum(XX.*YY)./(sqrt(sum(XX.^2)).*sqrt(sum(YY.^2)));
+    end
+    chancorr = median(corrs,2);
+    % use average self-correlation across channels as quality index for this cap design
+    quality(k) = mean(chancorr); %#ok<AGROW>
+end
+
 
 
 function M = interpolation_matrix(positions)

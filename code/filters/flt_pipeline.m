@@ -385,7 +385,7 @@ end
 
 % get a list of all existing filter specifications
 function filters = list_filters(update_list)
-debug = 'hard';
+debug = false;
 % determine list of filters that are known to be unlistable here
 known_incompliant = {'set_gettarget','set_combine','set_merge','set_joinepos','set_concat'};
 % if SIFT is not installed, some more filters fall into that category

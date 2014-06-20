@@ -29,7 +29,6 @@ function [X,Zf] = filter_fast(B,A,X,Zi,dim)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-
 if nargin <= 4
     dim = find(size(X)~=1,1); end
 if nargin <= 3
@@ -48,18 +47,25 @@ elseif lenb < 256 || lenx<1024 || lenx <= lenb || lenx*lenb < 4000000 || ~isequa
         X = filter(B,A,X,Zi,dim);
     end
 else
-    was_single = strcmp(class(X),'single');
-    % fftfilt can be used
+    % fftfilt can be used, determine which algorithm to use
+    try
+        fftfilt(1,1);
+        do_fftfilt = @fftfilt;
+    catch
+        do_fftfilt = @oct_fftfilt;
+    end
+    was_single = isa(X,'single');
+    
     if isempty(Zi)
         % no initial conditions to take care of
         if nargout < 2
             % and no final ones
-            X = unflip(oct_fftfilt(B,flip(double(X),dim)),dim);
+            X = unflip(do_fftfilt(B,flip(double(X),dim)),dim);
         else
             % final conditions needed
             X = flip(X,dim);
             [dummy,Zf] = filter(B,1,X(end-length(B)+1:end,:),Zi,1); %#ok<ASGLU>
-            X = oct_fftfilt(B,double(X));
+            X = do_fftfilt(B,double(X));
             X = unflip(X,dim);
         end
     else
@@ -71,7 +77,7 @@ else
             % also need final conditions
             [dummy,Zf] = filter(B,1,X(end-length(B)+1:end,:),Zi,1); %#ok<ASGLU>
         end
-        X = oct_fftfilt(B,double(X));
+        X = do_fftfilt(B,double(X));
         % incorporate the piece
         X(1:length(B),:) = tmp;
         X = unflip(X,dim);
