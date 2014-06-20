@@ -156,7 +156,7 @@ if ~isempty(opts.samplerange) && ~isempty(opts.timerange)
     error('Please do not specify both a sample subset and time subset.'); end
 
 % bitrate test function (for some formats)
-wrong_bitrate = @(eeg) mad(mean(eeg.data(:,1:2:end),2)./mean(eeg.data(:,2:2:end),2)) > 0.5;
+wrong_bitrate = @(eeg) mad(mean(eeg.data(:,1:2:end),2)./mean(eeg.data(:,2:2:end),2),1) > 0.5;
 
 disp(['io_loadset(): loading ' filename '...']);
 try

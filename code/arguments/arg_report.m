@@ -92,15 +92,15 @@ elseif ~iscell(args)
 end
 
 % make use of exp_eval when used within BCILAB
-persistent use_eval;
-if isempty(use_eval)
-    use_eval = exist('exp_eval','file'); end
+persistent handle_expressions;
+if isempty(handle_expressions)
+    handle_expressions = exist('exp_eval','file'); end
 
 result = {};
 try
     % evaluate the funtion with two special arguments appended
-    if use_eval && nargout(func) > 0
-        exp_eval(func(args{:},'__arg_report__',type));
+    if handle_expressions
+        hlp_scope({'disable_expressions',1},func,args{:},'__arg_report__',type);
     else
         func(args{:},'__arg_report__',type);
     end
@@ -115,8 +115,8 @@ catch report
     elseif ~strcmp(type,'properties')        
         % got a genuine error: rerun the code to propagate it properly
         % (we're not using rethrow here to not confuse dbstop if error)
-        if use_eval && nargout(func) > 0
-            exp_eval(func(args{:},'__arg_report__',type));
+        if handle_expressions
+            hlp_scope({'disable_expressions',1},func,args{:},'__arg_report__',type);
         else
             func(args{:},'__arg_report__',type);
         end
