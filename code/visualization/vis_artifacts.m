@@ -131,7 +131,7 @@ if ~isempty(opts.time_subset)
 end
 
 if opts.equalize_channel_scaling    
-    rescale = 1./mad(old.data,[],2);
+    rescale = 1./mad(old.data,1,2);
     new.data = bsxfun(@times,new.data,rescale);
     old.data = bsxfun(@times,old.data,rescale);
 end

@@ -138,8 +138,8 @@ if ~exist('removed_channel_mask','var')
         for c=signal.nbchan:-1:1
             X(:,c) = filtfilt_fast(B,1,signal.data(c,:)'); end
         % determine z-scored level of EM noise-to-signal ratio for each channel
-        noisiness = mad(signal.data'-X)./mad(X);
-        znoise = (noisiness - median(noisiness)) ./ (mad(noisiness)*1.4826);        
+        noisiness = mad(signal.data'-X,1)./mad(X,1);
+        znoise = (noisiness - median(noisiness)) ./ (mad(noisiness,1)*1.4826);        
         % trim channels based on that
         noise_mask = znoise > noise_threshold;
     else
@@ -244,5 +244,9 @@ while length(Y)<num
     X(pick) = [];
 end
 
-function Y = mad(X,flag) %#ok<INUSD>
-Y = median(abs(bsxfun(@minus,X,median(X))));
+function Y = mad(X,usemedians)
+if usemedians
+    Y = median(abs(bsxfun(@minus,X,median(X))));
+else
+    Y = mean(abs(bsxfun(@minus,X,mean(X))));
+end

@@ -367,7 +367,8 @@ end
 % cached wrapper around process_spec
 function varargout = process_spec_cached(caller_name,spec,report_type,assign_defaults,perform_namecheck)
     persistent cache;
-    caller_field = caller_name; caller_field(caller_field=='.') = '_';
+    caller_field = caller_name; 
+    caller_field(~((caller_field>='a'&caller_field<='z') | (caller_field>='A'&caller_field<='Z') | (caller_field>='0'&caller_field<='9'))) = '_';
     key = [report_type 'a'+assign_defaults];
     try
         % try to load the cached result for the given caller
@@ -496,7 +497,8 @@ function nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,fir
         signature(structmask) = cellfun(@fieldnames,signature(structmask),'UniformOutput',false); end
     
     % determine the number n of arguments that were specified positionally
-    caller_field = caller_name; caller_field(caller_field=='.') = '_';
+    caller_field = caller_name; 
+    caller_field(~((caller_field>='a'&caller_field<='z') | (caller_field>='A'&caller_field<='Z') | (caller_field>='0'&caller_field<='9'))) = '_';
     [n,violations,ignored] = hlp_nanocache(caller_field,10,@get_num_positionals,fmt,length(first_names),signature,structmask,permitted_names,skipped_positionals);
     
     % emit errors and/or diagnostic warnings
