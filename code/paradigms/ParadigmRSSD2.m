@@ -61,8 +61,8 @@ classdef ParadigmRSSD2 < ParadigmDataflowSimplified
             model = rmfield(args,'signal');
             % determine data rescaling factors
             if args.normalize_features
-                tdata = args.signal.data;
-                sdata = permute(args.signal.data,[1 3 2 4]);
+                tdata = permute(args.signal.data,[1 2 4 3]);
+                sdata = permute(args.signal.data,[1 4 2 3]);
                 for c=size(args.signal.data,1):-1:1
                     % temporal scale vector
                     temp = 1./median(abs(bsxfun(@minus,tdata(c,:,:),median(tdata(c,:,:),3))),3);
@@ -73,11 +73,12 @@ classdef ParadigmRSSD2 < ParadigmDataflowSimplified
                 end
             end
             % determine model shape
-            model.shape = size(args.signal.data); 
-            model.shape = model.shape([2 3 1]);
+            model.shape = size(args.signal.data);
+            model.shape = model.shape([2 4 1]);
         end
         
         function [features,shape] = feature_extract(self,signal,featuremodel)
+            signal.data = permute(signal.data,[1 2 4 3]);
             % optionally apply normalization
             if featuremodel.normalize_features
                 features = bsxfun(@times,signal.data,featuremodel.scaling);

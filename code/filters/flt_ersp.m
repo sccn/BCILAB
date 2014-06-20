@@ -2,11 +2,7 @@ function signal = flt_ersp(varargin)
 % Calculate the event-related spectral perturbation for an epoched signal.
 % Signal = flt_ersp(Signal)
 %
-% The wavelet representation allows to extract local variations in a signal (both in time and 
-% frequency). The captured frequency range depends on the number of decomposition levels, and the
-% shape of captured local variations (e.g. symmetric, smooth, ...) depends on the chosen wavelet 
-% family. Some signals are sparse in a wavelet representation, which allows to use sparse classifiers
-% on them.
+% This calculates a time/frequency representation for each channel at the given resolution.
 %
 % In:
 %   Signal : epoched data set to be processed
@@ -33,7 +29,7 @@ arg_define(varargin,...
     arg({'numtapers','Tapers','tapers'},[],uint32([1,1000]),'Number of tapers. Should be an integer smaller than 2*TimeBandwith; default 2*TimeBandwidth-1','guru',true), ...
 	arg({'padding','Padding'},0,[],'FFT padding factor. Controls the oversampling of the spectrum; 0 is the next largest power of two, 1 is 2x as much, etc.','guru',true), ...
     arg({'normalized','Normalized'}, true, [], 'Normalize the spectrum by 1/f. Doing this has benefits for classifiers that work best with naturally normalized features (e.g. some regularized classifiers).'), ...
-    arg({'spectralmap','SpectralMap'}, 'linear', {'linear','sqrt','log'}, 'Spectral mapping. The sqrt and log transformations can help make the features more suitable for linear classifiers.'), ...
+    arg({'spectralmap','SpectralMap','SpectralMapping'}, 'linear', {'linear','sqrt','log'}, 'Spectral mapping. The sqrt and log transformations can help make the features more suitable for linear classifiers.'), ...
     arg({'logspacing','LogSpacing'}, 0, [], 'Log-Spacing. Whether to sub-sample the data in the log domain. If this is a number (>1) it determines the number of samples taken. If this is a fractional number < 1, it is a fraction of the number of trials.'));
 
 if isempty(numtapers)
@@ -71,8 +67,8 @@ for f = utl_timeseries_fields(signal)
             X = X(:,:,idx,:,:,:,:,:);
             F = F(idx);
         end
-        % write back
-        signal.(f{1}) = X;
+        % write back, but permute as channels x time x trials x frequency
+        signal.(f{1}) = permute(X,[1 2 4 3]);
     end
 end
 

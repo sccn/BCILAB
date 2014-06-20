@@ -57,13 +57,19 @@ else
                 probs = 1 ./ (1 + exp(-trials*model.W + model.b));
                 pred = {'disc', [1-probs probs], model.classes};
             else
-                if model.bias
-                    probs = 1 ./ (1 + exp(-trials*model.w(1:end-1)' - model.w(end)));
+                if isvector(model.w)
+                    % basic two-class case: calculate probabilities by hand
+                    if model.bias
+                        probs = 1 ./ (1 + exp(-trials*model.w(1:end-1)' - model.w(end)));
+                    else
+                        probs = 1 ./ (1 + exp(-trials*model.w'));
+                    end
+                    probs = [probs 1-probs];                    
                 else
-                    probs = 1 ./ (1 + exp(-trials*model.w'));
+                    % softmax case: use llwpredict to compute probabilities
+                    [dummy1,dummy2,probs] = llwpredict(zeros(size(trials,1),1),sparse(double(trials)),model,quickif(model.bias,'-b 1','')); %#ok<ASGLU>
                 end
-                % doesn't give probabilistic outputs: [x,y,probs] = llpredict(zeros(size(trials,1),1),sparse(double(trials)),model,'-b 1'); %#ok<ASGLU>
-                pred = {'disc', [probs 1-probs], model.classes(model.Label+1)};
+                pred = {'disc', probs, model.classes(model.Label+1)};
             end
         case 'l2'
             if isfield(model,{'W','b'})

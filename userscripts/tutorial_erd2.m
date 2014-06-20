@@ -121,11 +121,11 @@ approaches.alphafir = {'CSP' 'SignalProcessing',{'FIRFilter',[6 8 14 15]}};
 approaches.alphaiir = {'CSP' 'SignalProcessing',{'FIRFilter','off', 'IIRFilter',[5 7 14 17]}};
 % use an IIR filter with free-form response (peaks both in alpha and beta band)
 approaches.alphabetaiir = {'CSP' 'SignalProcessing',{'FIRFilter','off', 'IIRFilter',{[5 7 14 17 20 25 30;0 1 1 0 0.6 0.6 0],'freeform','yule-walker'}}};
-% use a sharp FFT band-pass filter
+% use a sharp FFT-based band-pass filter, applied to each epoch
 approaches.fftspectrum = {'CSP' 'SignalProcessing',{'FIRFilter','off','SpectralSelection',[7 15]}};
 % use the default frequency selection
 approaches.defaults = {'CSP'};
-% apply a window in the time domain
+% apply a window in the time domain (covers whole epoch)
 approaches.windowed = {'CSP' 'SignalProcessing',{'WindowSelection','hann'}};
 % apply to data resampled to 70 Hz
 approaches.resampled = {'CSP' 'SignalProcessing',{'Resampling',70}};
@@ -133,11 +133,11 @@ approaches.resampled = {'CSP' 'SignalProcessing',{'Resampling',70}};
 approaches.delayembed = {'CSP' 'SignalProcessing',{'DelayEmbedding',3}};
 % try again, but now search for the optimal lag, and exclude intermediate lags (same as CSSP, but here with limited search range); takes ca. 2m
 approaches.delayembed_search = {'CSP' 'SignalProcessing',{'DelayEmbedding',{'NumLags',search(1:5),'IncludeIntermediates',false}}};
-% apply the delay-embedding to resampled data (note: order of filters in the cell array does not matter, is automatically reordered)
+% apply the delay-embedding to resampled data (note: order of filters in SignalProcessing does not matter, is automatically reordered)
 approaches.delayembed_res = {'CSP' 'SignalProcessing',{'DelayEmbedding',3,'Resampling',70}};
 % standardize the channels in a moving window, using defaults (note: this is more useful when going across sessions or subjects)
 approaches.standardize = {'CSP' 'SignalProcessing',{'Standardization','on'}};
-% sphere/whiten the data in a 20s moving window (note: for efficiency this filter operates slightly differently when applied online/pseudo-online than in batch mode)
+% sphere/whiten the data in a 20s moving window
 approaches.sphere = {'CSP' 'SignalProcessing',{'Standardization',{'Sphere',true,'WindowLength',20}}};
 
 % --- here we apply some spatial filters ---
@@ -151,7 +151,7 @@ approaches.project = {'CSP' 'SignalProcessing',{'Projection',randn(32)}};
 approaches.reref = {'CSP' 'SignalProcessing',{'Rereferencing','on'}};
 % re-reference to common median reference (robust reference, not strictly a rank reduction)
 approaches.reref_med = {'CSP' 'SignalProcessing',{'Rereferencing',{'ReferenceType','median'}}};
-% surface laplacian; no rank loss
+% surface laplacian
 approaches.laplace = {'CSP' 'SignalProcessing',{'SurfaceLaplacian','on'}};
 % select a subset of channels (note: the channels in the data are actually not in the 10-20 system, so we have to look up the closest channels in the data)
 approaches.subset = {'CSP' 'SignalProcessing',{'ChannelSelection',{'Channels',{'C3','Cz','C4'},'FindClosest',true}}};
@@ -164,7 +164,7 @@ approaches.stationary = {'CSP' 'SignalProcessing',{'StationarySubspace',{'Statio
 
 % apply all-inclusive data cleaning with current default settings (note: if you're classifying partially based on artifacts, 
 % or if the thresholds are too tight then your performance may suffer)
-approaches.defaultclean = {'CSP' 'SignalProcessing',{'DataCleaning','on'}}; % to lock to a particular version: {'CSP' 'SignalProcessing',{'DataCleaning','1.1-beta'}};
+approaches.defaultclean = {'CSP' 'SignalProcessing',{'DataCleaning','on'}}; % to use a particular BCILAB version's defaults: {'CSP' 'SignalProcessing',{'DataCleaning','1.1-beta'}};
 % apply data cleaning and override some parameters (here: disable removal of noisy time windows); note the double cell array since we're too lazy to explicitly assign to the (first) argument of the DataCleaning named 'DataSetting'
 approaches.defaultclean_nownd = {'CSP' 'SignalProcessing',{'DataCleaning',{{'1.1-beta','BadWindowRemoval','off'}}}};
 % start with the 'highpass' setting and enable just bad window removal, setting the thresholds to -5 and +7 standard deviations
@@ -177,11 +177,11 @@ approaches.justsubspace = {'CSP' 'SignalProcessing',{'DataCleaning',{{'highpass'
 % use the basic version (full spectrum from now on), using an LDA (Linear Discriminant Analysis) classifier
 approaches.lda = 'CSP';
 % use LDA but account for unbalanced classes in training data (assume that the same class balance will hold on test data)
-% note: on these data the number of trials for both classes are approx. the same
+% note: on these data the number of trials for both classes are approx. the same, so there's little difference
 approaches.lda_unbalanced = {'CSP' 'Prediction',{'MachineLearning',{'Learner',{'lda','WeightedBias',true}}}};
 % use a simple logistic regression classifier (variational Bayes) instead of the LDA
 approaches.logreg = {'CSP' 'Prediction',{'MachineLearning',{'Learner','logreg'}}};
-% logreg again, but this time using the 1-vs-rest voting scheme to handle 3 classes (instead of the default 1-vs-1)
+% logreg again, but this time using the 1-vs-rest voting scheme to handle 3 classes using binary classifiers (instead of the default 1-vs-1)
 approaches.logreg_1vR = {'CSP' 'Prediction',{'MachineLearning',{'Learner',{'logreg','VotingScheme','1vR'}}}};
 % use a simple logistic regression classifier (sparse variational Bayes)
 approaches.sparselogreg = {'CSP' 'Prediction',{'MachineLearning',{'Learner',{'logreg','variant','vb-ard'}}}};
@@ -195,10 +195,10 @@ approaches.bigsparselogreg_glm = {'CSP' 'Prediction',{'MachineLearning',{'Learne
 approaches.qda = {'CSP' 'Prediction',{'MachineLearning',{'Learner','qda'}}};
 % using Gaussian mixture models (variational Bayesian Dirichlet process prior)
 approaches.vbgmm = {'CSP' 'Prediction',{'MachineLearning',{'Learner','gmm'}}};
-% using Gaussian mixture models (fixed number of clusters per class, using the EM algorithm)
+% using a different algorithm for Gaussian mixture models (fixed number of clusters per class, using the EM algorithm)
 approaches.emgmm = {'CSP' 'Prediction',{'MachineLearning',{'Learner',{'gmm','Variant','Greedy Expectation-Maximization','NumClusters',2}}}};
-% using relevance vector machines (here with a slightly coarsened range for the kernel scale for speed); 
-% note that the RVM by default searches the optimal gamma parameter not based on cross-validation but using evidence maximization (aka Empirical Bayes)
+% using relevance vector machines (here with a slightly coarsened range for the kernel scale to increase processing speed); 
+% note that the RVM by default searches the optimal gamma parameter internally using evidence maximization (aka Empirical Bayes), so no need for a search()
 approaches.rvm = {'CSP' 'Prediction',{'MachineLearning',{'Learner',{'rvm','kernel','rbf','gamma',2.^(-16:0.5:10)}}}};
 
 % --- the following methods demonstrate parameter search (these are usually slower than the above) ---
@@ -270,13 +270,6 @@ approaches.specm_chans_multi_sparse = {'Spectralmeans', 'Prediction',{'FeatureEx
 % Spectralmeans using the surface Laplacian as spatial filters
 approaches.specm_surflap = {'Spectralmeans', 'SignalProcessing',{'SurfaceLaplacian','on'},'Prediction',{'FeatureExtraction',{'FreqWindows',[7 30]}}};
 
-% --- the DataflowSimplified paradigm passes the pre-processed epochs directly to the machine learning stage ---
-% (normally this is the foundation on which other more specific paradigms are implemented)
-
-% using the basic DataflowSimplified paradigm, and operating on raw PCA features of the spectra of stationary components (using sparse logistic regression)
-approaches.specpca = {'DataflowSimplified', 'SignalProcessing',{'IIRFilter',{[0.1 2],'highpass'}, 'EpochExtraction',[0.5 3.5], 'SpectralTransform',{'multitaper',true,false,80}, 'Resampling',100, 'StationarySubspace',{'Operation','separate'},'EpochPCA',10},  ...
-    'Prediction',{'MachineLearning',{'Learner',{'logreg','variant','vb-ard'}}}}; 
-
 % --- the Filter-Bank CSP paradigm applies CSP to multiple selectable frequency bands ---
 
 % using the vanilla FBCSP paradigm for three frequency windows (filter-bank CSP)
@@ -310,10 +303,51 @@ approaches.dalosc = {'DALOSC' 'Prediction',{'MachineLearning',{'Learner',{'dal',
 % using the generic DAL paradigm is an extension to multiple frequency bands, and in the low-frequency case operates on event-related potentials (like DALERP, see also tutorial_erp1)
 approaches.dalgeneric = {'DAL' 'Prediction',{'FeatureExraction',{'WindowFreqs',[0.5 5; 7 15; 15 25; 7 30]},'MachineLearning',{'Learner',{'dal','lambdas',2.^(10:-0.33:-3)}}}};
 
+% --- the DataflowSimplified paradigm passes the pre-processed epochs directly to the machine learning stage ---
+% (normally this is the foundation on which other more specific paradigms are implemented)
+
+% using the basic DataflowSimplified paradigm, and operating on raw PCA features of the spectra of stationary components (using sparse logistic regression)
+approaches.specpca = {'DataflowSimplified', 'SignalProcessing',{'IIRFilter',{[0.1 2],'highpass'}, 'EpochExtraction',[0.5 3.5], 'SpectralTransform',{'multitaper',true,false,80}, 'Resampling',100, 'StationarySubspace',{'Operation','separate'},'EpochPCA',10},  ...
+    'Prediction',{'MachineLearning',{'Learner',{'logreg','variant','vb-ard'}}}}; 
+% operate on the analytic amplitudes of three characteristic frequencies over time using simple l2-regularized logistic regression
+approaches.ampphase = {'DataflowSimplified', 'SignalProcessing',{'Resampling',70,'AnalyticPhasor',{{'hilbert',{[3 4 6 7],[7 8 12 13],[18 20 22 25]}}}, 'EpochExtraction',[0.5 3.5]},  ...
+    'Prediction',{'MachineLearning',{'Learner',{'logreg','variant','l2'}}}};
+
+% --- miscellaneous approaches ---
+
 % Spectralmeans, using LARS (sparse logistic regression) with elastic net regularizer as classifier on coherence, phase and power-spectral density features between stationary components (for selected frequency bands); takes ca. 2 minutes
 % (requires ~5GB RAM
 approaches.specm_cohen = {'Spectralmeans', 'SignalProcessing',{'IIRFilter',{[0.1 2],'highpass'}, 'StationarySubspace',{'StationaryDim',16,'Operation','keep_stationary'},'SpectralTransform','off','CoherenceTransform','on'},  ...
     'Prediction',{'FeatureExtraction',{'FreqWindows',[4 7; 8 15; 15 25; 7 30]},'MachineLearning',{'Learner',{'logreg','variant',{'lars','ElasticMixing',0.5}}}}};
+
+% --- examples of very high-dimensional feature spaces (here: time/frequency representations for each channel, using various classifiers) ---
+% WARNING: these are quite slow (see time estimates)
+
+% operate on the event-related time/frequency representation (ERSP) of each channel using fast l2-regularized logistic regression
+approaches.ersp_l2 = {'DataflowSimplified', 'SignalProcessing',{'Resampling',100, 'ERSPTransform',{'SpectralMap','log'}, 'EpochExtraction',[0.5 3.5]}, ...
+    'Prediction',{'FeatureExtraction','vectorized','MachineLearning',{'Learner',{'logreg','variant','l2'}}}};
+% using fast l1-regularized logistic regression (no search ver reg. parameter)
+approaches.ersp_l1 = {'DataflowSimplified', 'SignalProcessing',{'Resampling',100, 'ERSPTransform',{'SpectralMap','log'}, 'EpochExtraction',[0.5 3.5]}, ...
+    'Prediction',{'FeatureExtraction','vectorized','MachineLearning',{'Learner',{'logreg','variant','l1'}}}};
+% using elastic net regularized logistic regression (with fast parameter search); takes ca. 10m
+approaches.ersp_lars = {'DataflowSimplified', 'SignalProcessing',{'Resampling',100, 'ERSPTransform',{'SpectralMap','log'}, 'EpochExtraction',[0.5 3.5]}, ...
+    'Prediction',{'FeatureExtraction','vectorized','MachineLearning',{'Learner',{'logreg','variant',{'lars','ElasticMixing',0.5}}}}};
+% using logistic regression with gaussian prior and empirically estimated hyper-parameter; takes ca. 30m
+approaches.ersp_glm_gauss = {'DataflowSimplified', 'SignalProcessing',{'Resampling',100, 'ERSPTransform',{'SpectralMap','log'}, 'EpochExtraction',[0.5 3.5]}, ...
+    'Prediction',{'FeatureExtraction','vectorized','MachineLearning',{'Learner',{'glm','Type','classification','Lambdas',2.^(-4:1:4),'Priors',{'Term1','Gaussian'}}}}};
+% using logistic regression with elastic net prior and empirically estimated hyper-parameters
+approaches.ersp_glm_enet = {'DataflowSimplified', 'SignalProcessing',{'Resampling',100, 'ERSPTransform',{'SpectralMap','log'}, 'EpochExtraction',[0.5 3.5]}, ...
+    'Prediction',{'FeatureExtraction','vectorized','MachineLearning',{'Learner',{'glm','Type','classification','Lambdas',2.^(-4:1:4),'Priors',{'Term1','Gaussian','Term2',{'Laplace','Scales',2.^(-4:1:4)}}}}}};
+% using logistic regression with combined markov random field and sparse priors and empirically estimated hyper-parameters
+approaches.ersp_glm_mrf_lap = {'DataflowSimplified', 'SignalProcessing',{'Resampling',100, 'ERSPTransform',{'SpectralMap','log'}, 'EpochExtraction',[0.5 3.5]}, ...
+    'Prediction',{'FeatureExtraction','vectorized','MachineLearning',{'Learner',{'glm','Type','classification','Lambdas',2.^(-4:1:4),'Priors',{'Term1',{'Gaussian','LinearOperator','@(x)[vec(diff(x,2));vec(diff(x,3))]'},'Term2',{'Laplace','Scales',2.^(-4:1:4)}}}}}};
+% using logistic regression with combined markov random field and sparse priors and empirically estimated hyper-parameters, with separate smoothness across time and frequency
+approaches.ersp_glm_mrf_lap = {'DataflowSimplified', 'SignalProcessing',{'Resampling',100, 'ERSPTransform',{'SpectralMap','log'}, 'EpochExtraction',[0.5 3.5]}, ...
+    'Prediction',{'FeatureExtraction','vectorized','MachineLearning',{'Learner',{'glm','Type','classification','Priors',{ ...
+    'Term1','Gaussian', ...
+    'Term2',{'Gaussian','AppendToX',false,'LinearOperator','@(x)vec(diff(x,2))','Scales',2.^(-4:1:4)}, ...
+    'Term3',{'Gaussian','AppendToX',false,'LinearOperator','@(x)vec(diff(x,3))','Scales',2.^(-4:1:4)}, ...
+    'Term4',{'Laplace','Scales',2.^(-4:1:4)}}}}}};
 
 
 % for each of the above approaches...

@@ -271,7 +271,7 @@ else
         lambdaSearch.cvmetric = ''; end
     
     % determine featureshape and vectorize data if necessary 
-    [featureshape,trials,vectorize_trials] = determine_featureshape(trials,shape);
+    [featureshape,trials,vectorize_trials] = utl_determine_featureshape(trials,shape);
     weightshape = [featureshape nTasks];
     
     % optionally scale the data

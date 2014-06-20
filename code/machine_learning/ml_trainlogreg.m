@@ -61,7 +61,7 @@ function model = ml_trainlogreg(varargin)
 %                                 specify custom options for the glmnet solver.
 %                        'l1' : sparse logistic regression using l1 regularization, using either 
 %                               LIBLINEAR or CVX
-%                        'l2' : logistic regression using l2 regularization using LIBLINEAR
+%                        'l2' : logistic regression using l2 regularization using LIBLINEAR or CVX
 %                       
 %
 %              'eps'    : desired accuracy (default: [] - the default of the respective library, currently only supported for l1/l2)

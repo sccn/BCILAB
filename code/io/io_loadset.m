@@ -42,6 +42,14 @@ function res = io_loadset(varargin)
 %                                       for how events shall be derived from it. This is a cell
 %                                       array of parameters to set_infer_markers(), ideally name-value 
 %                                       pairs.
+%                     'montage_disambiguation' : rule for handling ambiguous montages (i.e., the file's
+%                                                channel labels match multiple montage files similarly well):
+%                                                * 'coverage' : picks the one with maximum coverage
+%                                                * 'first' : picks the first one in the list of candidates
+%                                                             (out of those that have reasonable coverage)
+%                                                * 'deduce' : uses correlation analysis to deduce the best fit
+%                                                * filename : uses the montage with the given file name
+%                                                (default: 'deduce')
 %
 %                     --- format-specific importing parameters ---
 %                    .sna: 'gain', see pop_snapread
@@ -108,6 +116,7 @@ allopts = arg_define([0 1],varargin,...
     arg_sub({'markerchannel','MarkerChannel'},{},@set_infer_markers,'Marker channel processing. Optional parameters to control the marker channel processing function.'), ...
     ... % chanlocs handling
     arg({'infer_chanlocs','InferChanlocs'},true,[],'Infer channel locations if necessary. This will look up locations from standard tables if missing and attempt to deduce the channel types.'), ...
+    arg({'montage_disambiguation','MontageDisambiguation'},'deduce',[],'Rule for handling ambiguous montages. This situation occurs when the file''s channel labels match multiple montage files similarly well). Options are: ''coverage'': picks the one with maximum coverage, ''deduce'': uses correlation analysis to deduce the best fit, filename : uses the montage with the given file name'), ...
     ... % added annotations
     arg({'setname','DatasetName'},'',[],'Data set name. This is meta-information of potential use in study-level processing.'), ...
     arg({'subject','SubjectIdentifier'},'',[],'Subject identifier. This is meta-information of potential use in study-level processing.'), ...
@@ -126,7 +135,7 @@ allopts = arg_define([0 1],varargin,...
 %if ~ischar(filename)
  %   error('The file name must be given as a string.'); end
 
-opts = rmfield(allopts,{'filename','types','casttodouble','setname','subject','group','condition','session','comments','markerchannel','subsampled','infer_chanlocs','nofixups'});
+opts = rmfield(allopts,{'filename','types','casttodouble','setname','subject','group','condition','session','comments','markerchannel','subsampled','infer_chanlocs','montage_disambiguation','nofixups'});
 filename = env_translatepath(allopts.filename);
 [base,name,ext] = fileparts(filename);
 
@@ -363,7 +372,7 @@ if isempty(res.event) || allopts.markerchannel.force_processing
 
 % infer chanlocs fields (e.g. coordinates)
 if allopts.infer_chanlocs
-    res = set_infer_chanlocs(res); end
+    res = set_infer_chanlocs(res,allopts.montage_disambiguation); end
 
 % convert numeric event types to string
 if isfield(res.event,'type') 

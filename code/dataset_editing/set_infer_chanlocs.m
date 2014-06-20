@@ -1,9 +1,18 @@
-function [data,coords] = set_infer_chanlocs(data)
+function [data,coords] = set_infer_chanlocs(data,disambiguation_rule)
 % Infer the chanlocs subfields (positions and type) from labels.
-% [Data] = set_infer_chanlocs(Data)
+% [Data] = set_infer_chanlocs(Data,DisambiguationRule)
 %
 % In:
 %   Data   : some EEGLAB data set with a chanlocs field or the chanlocs field itself
+%
+%   DisambiguationRule : rule to apply to disambiguate montages when a given set of channel labels
+%                        match multiple montage files similarly well. Can be:
+%                        * 'coverage' : picks the one with maximum coverage
+%                        * 'first' : picks the first one in the list of candidates (out of those that 
+%                                    have reasonable coverage)
+%                        * 'deduce' : uses correlation analysis to deduce the best fit (can be slow)
+%                        * filename : uses the montage with the given file name
+%                        (default: 'deduce')
 %
 % Out:
 %   Data   : original set with updated chanlocs field, or the updated chanlocs themselves
@@ -39,6 +48,9 @@ matching = {'nocase','nocase_substr','nocase_substr','nocase_substr','nocase_sub
 % coordinate system
 nosedir = {'+X','+Y','+Y','+Y','+Y'};
 
+if nargin < 2
+    disambiguation_rule = 'deduce'; end
+
 % obtain the chanlocs
 signal = [];
 if isfield(data,{'head','parts'})
@@ -72,18 +84,18 @@ if (~all(isfield(locs,{'X','Y','Z'})) || all(cellfun('isempty',{locs.X}))) && ~i
             switch matching{c}
                 case 'nocase'
                     % not case sensitive
-                    fitlocs{c} = pop_chanedit(locs,'lookup',env_translatepath(cap));
+                    fitlocs{c} = hlp_microcache('chanlocs',@pop_chanedit,locs,'lookup',env_translatepath(cap));
                 case 'case'
                     % case sensitive matching
                     fitlocs = locs;
-                    locdb = readlocs(env_translatepath(cap));
+                    locdb = hlp_microcache('chanlocs',@readlocs,env_translatepath(cap));
                     [found,idx_in_locdb,idx_in_res] = intersect({locdb.labels},{locs.labels}); %#ok<ASGLU>
                     for fname = fieldnames(locdb)'
                         [fitlocs{c}(idx_in_res).(fname{1})] = locdb(idx_in_locdb).(fname{1}); end
                     [fitlocs{c}(idx_in_res).type] = deal('EEG');
                 case 'nocase_substr'
                     % case-insensitive sub-string matching
-                    locdb = readlocs(env_translatepath(cap));
+                    locdb = hlp_microcache('chanlocs',@readlocs,env_translatepath(cap));
                     found = {};
                     idx_in_res = [];
                     idx_in_locdb = [];
@@ -115,64 +127,87 @@ if (~all(isfield(locs,{'X','Y','Z'})) || all(cellfun('isempty',{locs.X}))) && ~i
         bestidx = order(1);
     elseif ~isempty(signal) && size(signal.data,1)==length(locs)
         % not a clear-cut case but we have a signal to work with
-        fprintf('Multiple known cap designs match to your data''s channel labels; determining the best fit...\n');
-    
-        % first calculate bandpass-filtered signal X
-        attenuation = 80;
-        frequencies = min(1,2*[0.5 2 45 50]/signal.srate);        
-        w = design_kaiser(frequencies(1),frequencies(2),attenuation,true);
-        B = design_fir(length(w)-1,[0 frequencies 1],[0 0 1 1 0 0],[],w);
-        for c=signal.nbchan:-1:1
-            X(c,:) = filtfilt_fast(B,1,signal.data(c,:)')'; end
+        switch disambiguation_rule
+            case 'coverage'
+                fprintf('Multiple known cap designs match to your data''s channel labels; picking the one with greatest coverage...\n');
+                bestidx = order(1);
+            case 'first'
+                fprintf('Multiple known cap designs match to your data''s channel labels; picking the first one in the list...\n');
+                bestidx = 1;
+            case 'deduce'
+                fprintf('Multiple known cap designs match to your data''s channel labels; determining the best fit...\n');
 
-        % for each cap design that matches reasonably well...
-        for k=1:nnz(sorted_fractions(1) < 2*sorted_fractions)
-            o = order(k);
-            % get matched locations
-            tmp = fitlocs{o};
-            [x,y,z] = deal({tmp.X},{tmp.Y},{tmp.Z});
-            usable_channels = find(~cellfun('isempty',x) & ~cellfun('isempty',y) & ~cellfun('isempty',z));
-            positions = [cell2mat(x(usable_channels));cell2mat(y(usable_channels));cell2mat(z(usable_channels))];
-            % calculate channel interpolation matrix
-            M = hlp_diskcache('montages',@interpolation_matrix,positions);
-            % calculated interpolated signal Y
-            Y = M*X;
-            % calculated median of windowed correlation between X and Y
-            window_len = 1*signal.srate;
-            wnd = 0:window_len-1;
-            offsets = round(1:window_len:size(Y,2)-window_len);
-            W = length(offsets);
-            for o=W:-1:1
-                XX = X(:,offsets(o)+wnd)';
-                YY = Y(:,offsets(o)+wnd)';
-                corrs(:,o) = sum(XX.*YY)./(sqrt(sum(XX.^2)).*sqrt(sum(YY.^2)));
-            end
-            chancorr = median(corrs,2);
-            % use average self-correlation across channels as quality index for this cap design
-            quality(k) = mean(chancorr); %#ok<AGROW>
+                % first calculate bandpass-filtered signal X
+                attenuation = 80;
+                frequencies = min(1,2*[0.5 2 45 50]/signal.srate);        
+                w = design_kaiser(frequencies(1),frequencies(2),attenuation,true);
+                B = design_fir(length(w)-1,[0 frequencies 1],[0 0 1 1 0 0],[],w);
+                for c=signal.nbchan:-1:1
+                    X(c,:) = filtfilt_fast(B,1,signal.data(c,:)')'; end
+
+                % for each cap design that matches reasonably well...
+                for k=1:nnz(sorted_fractions(1) < 2*sorted_fractions)
+                    o = order(k);
+                    % get matched locations
+                    tmp = fitlocs{o};
+                    [x,y,z] = deal({tmp.X},{tmp.Y},{tmp.Z});
+                    usable_channels = find(~cellfun('isempty',x) & ~cellfun('isempty',y) & ~cellfun('isempty',z));
+                    positions = [cell2mat(x(usable_channels));cell2mat(y(usable_channels));cell2mat(z(usable_channels))];
+                    % calculate channel interpolation matrix
+                    M = hlp_diskcache('montages',@interpolation_matrix,positions);
+                    % calculated interpolated signal Y
+                    Y = M*X(usable_channels,:);
+                    % calculated median of windowed correlation between X and Y
+                    window_len = 1*signal.srate;
+                    wnd = 0:window_len-1;
+                    offsets = round(1:window_len:size(Y,2)-window_len);
+                    W = length(offsets);
+                    corrs = [];
+                    for o=W:-1:1
+                        XX = X(usable_channels,offsets(o)+wnd)';
+                        YY = Y(:,offsets(o)+wnd)';
+                        corrs(:,o) = sum(XX.*YY)./(sqrt(sum(XX.^2)).*sqrt(sum(YY.^2)));
+                    end
+                    chancorr = median(corrs,2);
+                    % use average self-correlation across channels as quality index for this cap design
+                    quality(k) = mean(chancorr); %#ok<AGROW>
+                end
+
+                % assess quality of best fit
+                if max(quality)<0.3
+                    fprintf('WARNING: Did not find a cap design that matches your data. You need to add channel locations for your cap to set_infer_chanlocs to use any function that requires these locations.\n'); 
+                    bestidx = NaN;
+                elseif max(quality)<0.5
+                    fprintf('WARNING: The agreement between your data and the available cap designs is low and the chosen locations might be partially wrong. Either your data is too noisy for a reliable determination or your cap design differs from the known ones.\n'); 
+                    bestidx = order(argmax(quality));
+                end
+            otherwise
+                % assume that a montage file name was given
+                match = ~cellfun('isempty',strfind(caps,disambiguation_rule));
+                if nnz(match) == 1
+                    bestidx = find(match);
+                elseif nnz(match) > 1
+                    fprintf('WARNING: multiple montages match your montage name: picking the first one.\n');
+                    bestidx = find(match,1);
+                else
+                    % assume that this is a file name and try to load it
+                    bestidx = NaN;
+                    locs = hlp_microcache('chanlocs',@pop_chanedit,locs,'lookup',env_translatepath(disambiguation_rule));
+                end
         end
-        
-        % assess quality of best fit
-        if max(quality)<0.3
-            warning('Did not find a cap design that matches your data. You need to add channel locations for your cap to set_infer_chanlocs to use any function that requires these locations.'); 
-            bestidx = NaN;
-        elseif max(quality)<0.5
-            warning('The agreement between your data and the available cap designs is low and the chosen locations might be partially wrong. Either your data is too noisy for a reliable determination or your cap design differs from the known ones.'); 
-            bestidx = order(argmax(quality));
-        end
-        
     elseif sorted_fractions(1)>sorted_fractions(2)
         % not a clear-cut case but minor evidence in favor of best cap
-        fprintf('NOTE: multiple cap designs are compatible with your channel labels, using the best-matching one; inferred locations might be wrong.');
-        bestidx = 1;
+        fprintf('NOTE: multiple cap designs are compatible with your channel labels, using the best-matching one; inferred locations might be wrong.\n');
+        bestidx = order(1);
     else
         % no clear winner
-        fprintf('WARNING: multiple cap designs match your channel labels equally well, using the first cap in the list; inferred locations may be wrong.');
-        bestidx = 1;
+        fprintf('WARNING: multiple cap designs match your channel labels equally well, using the first cap in the list; inferred locations may be wrong.\n');
+        bestidx = order(1);
     end
     
     % use the picked locations
     if ~isnan(bestidx)
+        fprintf('  using montage %s.\n',caps{bestidx});
         locs = fitlocs{bestidx};
         if isstruct(data)
             data.chaninfo.labelscheme = schemes{bestidx};
@@ -185,7 +220,7 @@ if (~all(isfield(locs,{'X','Y','Z'})) || all(cellfun('isempty',{locs.X}))) && ~i
         if  mean(cellfun('isempty',{locs.X})) < 0.75
             locs = pop_chanedit(locs,'eval','chans = pop_chancenter( chans, [],[]);'); end
     catch e
-        fprintf('Failed trying to optimized the head center location for your cap montage due to error: %s',hlp_handleerror(e));
+        fprintf('Failed trying to optimized the head center location for your cap montage due to error: %s\n',hlp_handleerror(e));
     end
 end    
 

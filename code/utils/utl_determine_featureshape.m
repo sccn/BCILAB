@@ -1,6 +1,6 @@
-function [featureshape,trials,vectorize_trials] = determine_featureshape(trials,shape,multitask)
+function [featureshape,trials,vectorize_trials] = utl_determine_featureshape(trials,shape,multitask)
 % Uniformize the given trials and shape information.
-% [FeatureShape,Trials,VectorizeTrials] = determine_featureshape(Trials,Shape,Multitask)
+% [FeatureShape,Trials,VectorizeTrials] = utl_determine_featureshape(Trials,Shape,Multitask)
 %
 % This function deals with the fact that trials can be represented either as [NxF] matrix of
 % vectorized features (N=#observations, F=#features), or as [AxBxCx...xN] array of tensor-shaped
