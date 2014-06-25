@@ -73,6 +73,8 @@ function varargout = hlp_diskcache(options, f, varargin)
 %      * exactmatch_cutoff: if the input is larger than this many bytes, it will not be stored with the result
 %                           and will not be compared byte-for-byte during lookup, in bytes (default: 1000000)
 %                           note that the hash is usually strong enough to make a byte-for-byte check unnecessary
+%      * spot_hashing: if true, faster hashing will be performed on a subset of the data for speed
+%                      (default: false)
 %      * cleanup: clean up old cache entries when running out of disk space (default: true)
 %      * serialize: use serialization for the result, faster than raw save/load for large files (default: true)
 %      * permissions: cell array of file permissions to use for created directories and files, as in fileattrib 
@@ -197,12 +199,19 @@ if bypass || options.bypass || (options.bypass_if_folder_missing && ~exist(optio
     return;
 end
 
-% get a unique identifier of the computation
-uid = hlp_serialize(trim_expression({nargout,f,func_version(f,options.versiontag),varargin}));
-
-% get a short hash value of that
-hash = hlp_cryptohash(uid);
-
+uid_struct = trim_expression({nargout,f,func_version(f,options.versiontag),varargin});
+if ~options.spot_hashing
+    % get a unique identifier of the computation
+    uid = hlp_serialize(uid_struct);
+    % get a short hash value of that
+    hash = hlp_cryptohash(uid);
+else
+    % get the UID via fingerprinting
+    uid = hlp_fingerprint(uid_struct,false);
+    % get a short hash value of that
+    hash = hlp_cryptohash(uid);
+end
+    
 % get the file name under which this would be cached
 cachedir = [options.folder filesep options.subdir];
 filename = [cachedir filesep hash(1:2) filesep hash(3:end) '.mat'];
@@ -371,6 +380,8 @@ if ~isfield(options,'subdir')
     options.subdir = 'diskcache'; end
 if ~isfield(options,'exactmatch_cutoff')
     options.exactmatch_cutoff = 1000000; end
+if ~isfield(options,'spot_hashing')
+    options.spot_hashing = false; end
 if ~isfield(options,'cleanup')
     options.cleanup = true; end
 if ~isfield(options,'permissions')

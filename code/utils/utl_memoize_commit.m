@@ -1,4 +1,4 @@
-function utl_memoize_commit(obj,locations,inputbytes)
+function utl_memoize_commit(obj,locations,inputbytes) %#ok<INUSD>
 % Commit an object to a memory location.
 % utl_memoize_commit(Object,StoreLocations,InputBytes)
 %
@@ -18,6 +18,9 @@ function utl_memoize_commit(obj,locations,inputbytes)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-05-23
+
+show_diagnostics = false;   % whether to display diagnostics on caching decisions
+required_speedup = 1.5;     % this is the minimum required speedup by caching below which we don't cache (only for disk cache)
 
 % check inputs
 if nargin < 3 
@@ -95,11 +98,16 @@ for loc = locations
                 read_speed = [location_info.readstats.time] / [location_info.readstats.size];
                 write_time_estimate = objbytes * write_speed;
                 read_time_estimate = objbytes * read_speed;
-                input_read_time_estimate = inputbytes * read_speed;
+                input_read_time_estimate = 0; % inputbytes * read_speed; --> we don't have a good estimator of this since we don't know whether the input will be in memory cache or not
                 time_without_caching = (input_read_time_estimate + obj{1}.tracking.computation_time) * tracking.cache.reuses;
                 time_with_caching = write_time_estimate + read_time_estimate * tracking.cache.reuses;
-                % if we don't make it at least 2x faster, we skip the caching
-                if time_without_caching < time_with_caching * 2
+                caching_worthwhile = time_with_caching < time_without_caching / required_speedup;
+                if show_diagnostics
+                    fprintf('Cache diagnostics: write_speed=%f; read_speed=%f; write_time_est=%.3f; read_time_est=%.3f; inp_read_time_est=%.3f; comp_time=%.3f\n',write_speed,read_speed,write_time_estimate,read_time_estimate,input_read_time_estimate,obj{1}.tracking.computation_time);
+                    fprintf('                   time_w/o_cache=%.3f; time_w_cache=%.3f,docache=%i\n',time_without_caching,time_with_caching,caching_worthwhile);
+                end
+                % if we don't make it sufficiently faster, we skip the caching
+                if ~caching_worthwhile
                     return; end
                 
                 % remove old files if we're exceeding the capacity
@@ -161,11 +169,13 @@ for loc = locations
                     % this happens when getTotalSpace returns 0
                     disp_once(['Note: the disk space on ' location_info.dir ' cannot be queried; disabling capacity constraint for the cache.']);
                 end
+                                
+                t0 = tic;
                 
                 % save result to disk
-                io_save([location_info.dir id],'obj','-serialized','-makedirs','-attributes','''+w'',''a''',quickif(objbytes>2000*1024*1024,'-v7.3',''));
+                io_save([location_info.dir id],'obj','-serialized','-makedirs','-attributes','''+w'',''a''');                
                 
-                % record some statistics on the write speed to this location
+                % and record some statistics on the write speed to this location
                 stats = struct('size',{objbytes},'time',{toc(t0)});
                 try
                     location_info.writestats(end+1) = stats;
@@ -180,6 +190,6 @@ for loc = locations
                 error('The given type of cache location is unrecognized: %s (expected .fieldname or %sfilename).',id,filesep);
         end
     catch e
-        disp_once('WARNING: got an error while writing to the cache: %s',e.message);
+        disp_once('WARNING: got an error while writing to the cache: %s',hlp_handleerror(e));
     end
 end

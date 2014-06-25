@@ -2,13 +2,13 @@ function bcilab(varargin)
 % BCILAB startup function
 %
 % The startup function determines startup options according to a config file and then starts the
-% BCILAB toolbox by calling env_startup() with the config options. If a file named bcilab_config.m 
-% exists in the user's home directory (under .bcilab) it will take precedence, otherwise the file 
-% of the same name in the bcilab folder will be used. The file name (or path) can also be specified 
-% directly as the first argument to this function.
+% BCILAB toolbox based on config options. If a file named bcilab_config.m exists in the user's home
+% directory (under .bcilab) it will take precedence, otherwise the file of the same name in the
+% bcilab folder will be used. The file name (or path) can also be specified directly as the first
+% argument to this function.
 %
 % In addition, startup options can also be passed directly to this function, in the form of name-
-% value pairs. These options override those that are specified in the config file.
+% value pairs. These options selectively override those that are specified in the config file.
 %
 % Generally, the way to load bcilab is to cd into the BCILAB path, and execute this function.
 % The BCILAB path should not be added to the default MATLAB path, especially *never* recursively.
@@ -21,9 +21,9 @@ function bcilab(varargin)
 %                see env_startup
 %
 % Notes:
-%   The config file is a regular MATLAB script and may include conditional statements (depending on
-%   the platform used), etc. However, to allow modification of this file via the GUI, it is 
-%   recommended to keep this file simple.
+%   The config files are regular MATLAB script and may include conditional statements (depending on
+%   the platform used), etc. However, to allow modification of these files via the GUI, it is
+%   recommended to keep them simple.
 %
 % Examples:
 %   % start the toolbox using default settings (found in bcilab_config.m)

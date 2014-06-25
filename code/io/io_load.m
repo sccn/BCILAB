@@ -25,8 +25,8 @@ function res = io_load(varargin)
 %                               2010-06-21
 
 fname = varargin{1};
-if length(fname)>4 && strcmpi(fname(end-3:end),'.ckf')
-    % load from .ckf file
+if length(fname)>4 && strcmpi(fname(end-3:end),'.sto')
+    % load from .sto file
     f = fopen(env_translatepath(fname),'r');
     try
         bytes = fread(f);

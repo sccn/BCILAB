@@ -95,14 +95,30 @@ if srate ~= signal.srate
     end
     
     % resample each time-series field
+    n = length(state.H);
     for f = utl_timeseries_fields(signal)
         if isempty(signal.(f{1}))
             continue; end
         if ~isfield(state,f{1})
-            state.(f{1}).conds = []; end
-        signal.(f{1}) = single(signal.(f{1}))';
-        [tmp,state.(f{1}).conds] = upfirdn2(signal.(f{1}),state.H,state.p,state.q,state.(f{1}).conds);
-        signal.(f{1}) = double(tmp');            
+            state.(f{1}).conds = []; end        
+
+        % flip dimensions so that we can filter along the 1st dimension & convert to single for mex code
+        [X,dims] = spatialize_transpose(single(signal.(f{1})));
+        
+        % optionally we prepend the signal with a mirror section of itself, to minimize start-up
+        % transients (and if the signal is too short, we repeat it as much as we need)
+        prepend = isempty(state.(f{1}).conds);
+        if prepend
+            X = [repmat(2*X(1,:),n,1) - X(1+mod(((n+1):-1:2)-1,size(X,1)),:); X]; end     %#ok<AGROW>
+        
+        [X,state.(f{1}).conds] = upfirdn2(X,state.H,state.p,state.q,state.(f{1}).conds);        
+        
+        % remove prepended signal
+        if prepend
+            X(1:n,:) = []; end
+
+        % unflip dimensions and write the result back; also convert back to double
+        signal.(f{1}) = double(unspatialize_transpose(X,dims));
     end
     
     % update signal meta-data

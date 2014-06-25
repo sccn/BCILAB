@@ -1,6 +1,6 @@
-function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping,background)
+function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping,background,update_interval)
 % Play back a continuous EEGLAB dataset over LSL.
-% Handle = play_eegset_lsl(Dataset,DataStreamName,EventStreamName,Looping,Background)
+% Handle = play_eegset_lsl(Dataset,DataStreamName,EventStreamName,Looping,Background,UpdateInterval)
 %
 % In:
 %   Dataset : EEGLAB dataset struct to play.
@@ -12,6 +12,8 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
 %   Looping : Whether play back the data in a loop (default: true)
 %
 %   Background : Whether to run in the background; see example. (default: false)
+%
+%   UpdateInterval : Interval between updates, in s (default: 0)
 %
 % Out:
 %   Handle : A handle that can be used to stop background playback, by calling stop(myhandle).
@@ -44,6 +46,9 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
         looping = true; end
     if ~exist('background','var') || isempty(background)
         background = false; end
+    if ~exist('update_interval','var') || isempty(update_interval)
+        update_interval = 0; end
+    
 
     if background && ~nargout
         error('To play back in the background you need to specify a return value (otherwise you playback could not be stopped).'); end
@@ -102,9 +107,11 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
         handle = timer('ExecutionMode','fixedRate', 'Period',0.01, 'TasksToExecute',fastif(looping,Inf,dataset.xmax/0.01), 'TimerFcn',@update, 'StopFcn',@(t,varargin)delete(t));
         start(handle);
     else
-        while looping || last_p<dataset.pnts
+        while looping || last_pos<dataset.pnts
             if ~update()
                 pause(0.001); end
+            if update_interval > 0
+                pause(update_interval); end
         end
         disp('Reached end of data set.');
     end

@@ -44,7 +44,7 @@ caps = {'resources:/Standard-10-5-Cap385.sfp','resources:/sccn_LSIE_cap128.xyz',
 % internal names for the respective labeling schemes
 schemes = {'10-20','sccn_128_v3','sccn_128_v2','sccn_256_v1','sccn_128_v1'};
 % type of label matching
-matching = {'nocase','nocase_substr','nocase_substr','nocase_substr','nocase_substr'};
+matching = {'nocase_exact','nocase_exact','nocase_exact','nocase_exact','nocase_exact'};
 % coordinate system
 nosedir = {'+X','+Y','+Y','+Y','+Y'};
 
@@ -82,10 +82,10 @@ if (~all(isfield(locs,{'X','Y','Z'})) || all(cellfun('isempty',{locs.X}))) && ~i
             cap = caps{c};
             fitlocs{c} = locs;
             switch matching{c}
-                case 'nocase'
+                case 'nocase_exact'
                     % not case sensitive
                     fitlocs{c} = hlp_microcache('chanlocs',@pop_chanedit,locs,'lookup',env_translatepath(cap));
-                case 'case'
+                case 'exact'
                     % case sensitive matching
                     fitlocs = locs;
                     locdb = hlp_microcache('chanlocs',@readlocs,env_translatepath(cap));
@@ -93,20 +93,10 @@ if (~all(isfield(locs,{'X','Y','Z'})) || all(cellfun('isempty',{locs.X}))) && ~i
                     for fname = fieldnames(locdb)'
                         [fitlocs{c}(idx_in_res).(fname{1})] = locdb(idx_in_locdb).(fname{1}); end
                     [fitlocs{c}(idx_in_res).type] = deal('EEG');
-                case 'nocase_substr'
-                    % case-insensitive sub-string matching
+                case {'substr','nocase_substr'}
+                    % sub-string matching (both cases supported)
                     locdb = hlp_microcache('chanlocs',@readlocs,env_translatepath(cap));
-                    found = {};
-                    idx_in_res = [];
-                    idx_in_locdb = [];
-                    for k=1:length(locdb)
-                        match = ~cellfun('isempty',strfind(lower({fitlocs{c}.labels}),lower(locdb(k).labels)));
-                        if any(match)
-                            found{end+1} = locdb(k).labels;
-                            idx_in_res(end+1) = find(match,1);
-                            idx_in_locdb(end+1) = k;
-                        end
-                    end
+                    [found,idx_in_res,idx_in_locdb] = hlp_microcache('chanlocs',@do_matching,fitlocs{c},locdb,~isempty(strfind(matching{c},'nocase')));
                     for fname = fieldnames(locdb)'
                         [fitlocs{c}(idx_in_res).(fname{1})] = locdb(idx_in_locdb).(fname{1}); end
                     [fitlocs{c}(idx_in_res).type] = deal('EEG');
@@ -136,7 +126,7 @@ if (~all(isfield(locs,{'X','Y','Z'})) || all(cellfun('isempty',{locs.X}))) && ~i
                 bestidx = 1;
             case 'deduce'
                 fprintf('Multiple known cap designs match to your data''s channel labels; determining the best fit...\n');
-                quality = hlp_diskcache('montages',@fit_quality,signal,sorted_fractions,order,fitlocs);
+                quality = hlp_diskcache('montage_quality',@fit_quality,signal,sorted_fractions,order,fitlocs);
                 % assess quality of best fit
                 if max(quality)<0.3
                     fprintf('WARNING: Did not find a cap design that matches your data. You need to add channel locations for your cap to set_infer_chanlocs to use any function that requires these locations.\n'); 
@@ -183,7 +173,7 @@ if (~all(isfield(locs,{'X','Y','Z'})) || all(cellfun('isempty',{locs.X}))) && ~i
     try
         % optimize the head center
         if  mean(cellfun('isempty',{locs.X})) < 0.75
-            locs = pop_chanedit(locs,'eval','chans = pop_chancenter( chans, [],[]);'); end
+            locs = hlp_microcache('chanlocs',@pop_chanedit,locs,'eval','chans = pop_chancenter( chans, [],[]);'); end
     catch e
         fprintf('Failed trying to optimized the head center location for your cap montage due to error: %s\n',hlp_handleerror(e));
     end
@@ -264,6 +254,27 @@ else
     data = locs;
 end
 
+
+function [found,idx_in_res,idx_in_locdb] = do_matching(fitlocs,locdb,use_lower)
+found = {};
+idx_in_res = [];
+idx_in_locdb = [];
+fitlabels = {fitlocs.labels};
+dblabels = {locdb.labels};
+if use_lower
+    fitlabels = lower(fitlabels);
+    dblabels = lower(dblabels);
+end
+for k=1:length(locdb)
+    match = ~cellfun('isempty',strfind(fitlabels,dblabels{k}));
+    if any(match)
+        found{end+1} = locdb(k).labels;
+        idx_in_res(end+1) = find(match,1);
+        idx_in_locdb(end+1) = k;
+    end
+end
+                    
+
 function quality = fit_quality(signal,sorted_fractions,order,fitlocs)
 % first calculate bandpass-filtered signal X
 attenuation = 80;
@@ -306,7 +317,6 @@ for k=1:nnz(sorted_fractions(1) < 2*sorted_fractions)
     % use average self-correlation across channels as quality index for this cap design
     quality(k) = mean(chancorr); %#ok<AGROW>
 end
-
 
 
 function M = interpolation_matrix(positions)

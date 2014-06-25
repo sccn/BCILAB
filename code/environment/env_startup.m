@@ -316,7 +316,7 @@ for d=1:length(opts.cache)
         import java.io.*; 
         % try to add a free space checker (Java File object), which we use to check the quota, etc.
         location.space_checker = File(opts.cache{d}.dir);
-        filename = [opts.cache{d}.dir filesep '__probe_cache_ ' num2str(round(rand*2^32)) '__.ckf'];
+        filename = [opts.cache{d}.dir filesep '__probe_cache_ ' num2str(round(rand*2^32)) '__.sto'];
         if exist(filename,'file') 
             delete(filename); end
         oldvalue = location.space_checker.getFreeSpace;
@@ -340,7 +340,7 @@ for d=1:length(opts.cache)
     tracking.cache.disk_paths.(opts.cache{d}.tag) = location;     
 end
 if opts.mem_capacity < 1
-    free_mem = hlp_memavail();
+    free_mem = hlp_memfree();
     tracking.cache.capacity = round(opts.mem_capacity * free_mem);
     if free_mem < 1024*1024*1024
         sprintf('Warning: You have less than 1 GB of free memory (reserving %.0f%% = %.0fMB for data caches).\n',100*opts.mem_capacity,tracking.cache.capacity/(1024*1024));
@@ -391,6 +391,7 @@ hlp_diskcache('general','folder',opts.temp,'subdir','general');
 hlp_diskcache('finegrained','folder',opts.temp,'subdir','finegrained');
 hlp_diskcache('temporary','folder',opts.temp,'subdir','temporary');
 hlp_diskcache('montages','folder',opts.temp,'subdir','montages','exactmatch_cutoff',0);
+hlp_diskcache('montage_quality','folder',opts.temp,'subdir','montages','exactmatch_cutoff',0,'spot_hashing',true);
 
 
 % show toolbox status

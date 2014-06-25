@@ -7,8 +7,8 @@ function io_save(fname, varargin)
 %
 % In:
 %   Filename    :   Platform-Independent file name. If no ending is given, .mat will be assumed.
-%                   If the ending is .ckf, then the CKF file format will be used (10-50x as fast as
-%                   .mat).
+%                   If the ending is .sto, then BCILAB's Storage file format will be used (10-50x as
+%                   fast as .mat).
 %
 %   Arguments...:   optional arguments to save; in addition to what is supported by save(), the following options are allowed:
 %                   -makedirs   : make directories (recursively), if possible
@@ -105,7 +105,7 @@ end
 if serialized
     for k=1:length(variables)
         wkspace.(variables{k}) = hlp_serialize(wkspace.(variables{k})); end
-    wkspace.is_serialized__ = ['variables were serialized using ' utl_funcversion(@hlp_serialize) '; use hlp_deserialize (see File Exchange) to return them to their original form.'];
+    wkspace.is_serialized__ = ['variables were serialized using ' hlp_funcversion(@hlp_serialize) '; use hlp_deserialize (see File Exchange) to return them to their original form.'];
     saveargs{end+1} = 'is_serialized__';
 end
 
@@ -139,8 +139,8 @@ while 1
     
     % we have copied the variables to be saved into the 'wkspace' variable; now save
     try
-        if length(fname)>4 && strcmpi(fname(end-3:end),'.ckf')
-            % save as .ckf file (fast)
+        if length(fname)>4 && strcmpi(fname(end-3:end),'.sto')
+            % save as .sto file (fast)
             bytes = hlp_serialize(wkspace);
             f = fopen(fname,'w');
             fwrite(f,bytes);

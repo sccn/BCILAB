@@ -58,13 +58,14 @@ if ~isempty(signal.epoch) || size(signal.data,3) > 1
     error('This function cannot be applied to epoched data. Use flt_window to perform interval selection on epoched data.'); end
 
 switch selunit
-    case 'fraction'
+    case 'fraction'        
         if any(intervals<0 | intervals>1) %#ok<*NODEF>
             error('Fractional intervals must be in the [0,1] range.'); end
         intervals = 1+round(intervals*(size(signal.data,2)-1));
         samplerange = [];
     case 'seconds'
-        if any(intervals<0 | intervals>(size(signal.data,2)*signal.srate))
+        intervals(intervals==Inf) = (size(signal.data,2)-1)/signal.srate;
+        if any(intervals<0 | (1+round(intervals*signal.srate)) > size(signal.data,2))
             error('Your intervals exceed the data limit.'); end
         intervals = min(1+round(intervals*signal.srate),size(signal.data,2));
         samplerange = [];

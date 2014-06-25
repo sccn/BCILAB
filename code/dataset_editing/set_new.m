@@ -77,7 +77,7 @@ if ~isfield(signal,'chanlocs') || isempty(signal.chanlocs)
 else
     % bring chanlocs into an appropriate format
     try 
-        signal.chanlocs = hlp_microcache('setnew',@set_infer_chanlocs,signal.chanlocs); 
+        signal.chanlocs = hlp_microcache('set_new1',@set_infer_chanlocs,signal.chanlocs); 
     catch e
         error('Could not look up channel locations according to the given chanlocs argument with error: %s (chanlocs were: %s)',e.message,hlp_tostring(signal.chanlocs,10000));
     end

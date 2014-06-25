@@ -18,7 +18,7 @@ function chunk = onl_peek(streamname,samples_to_get,unit,channels_to_get)
 %                 * 'samples': return the last PeekLength samples
 %                 * 'index': return all samples newer than PeekLength (as a sample index)
 %
-%   DesiredChannels : range of channels to return (default: all channels)
+%   DesiredChannels : range of channels to return ([] = all channels); (default: [])
 %
 % Out:
 %   Chunk : An EEGLAB data set that contains the most recent data of a given stream
@@ -60,7 +60,7 @@ end
 
 try
     % set further default arguments
-    if nargin < 4
+    if nargin < 4 || isempty(channels_to_get)
         channels_to_get = 1:size(chunk.buffer,1);
         if nargin < 3 || isempty(unit)
             unit = 'seconds'; end

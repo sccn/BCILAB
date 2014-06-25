@@ -79,7 +79,7 @@ function [signal,state] = flt_iir(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-17
 
-% flt_iir_version<1.01> -- for the cache
+% flt_iir_version<1.04> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -141,35 +141,52 @@ if isempty(state)
         otherwise 
             error(['Unrecognized filter type specified: ' hlp_tostring(ftype)]);
     end
-    [sos,g] = hlp_diskcache('filterdesign',@zp2sos,z,p,k);
+    [state.sos,state.g] = hlp_diskcache('filterdesign',@zp2sos,z,p,k);
     
-   % initialize state
-    for f = utl_timeseries_fields(signal)
-        state.(f{1}).sos = sos;
-        state.(f{1}).g = g;
-        state.(f{1}).zi = repmat({[]},1,size(sos,1));
-    end 
-    extrapolate = round(15*signal.srate);
+    % fix the sign and estimate filter delay
+    X = zeros(1000,1); X(500) = 1;
+    for s = 1:size(state.sos,1)
+        X = filter(state.sos(s,1:3),state.sos(s,4:6),X,[],1); end
+    X = X*state.g;
+    if -min(X) > max(X)
+        state.g = -state.g; end
+    state.conds = struct();
+    state.filter_delay = argmax(abs(X))-500;
+    extrapolate = min(signal.pnts,round(600*signal.srate));
 else
     extrapolate = 0;
 end
 
 for f = utl_timeseries_fields(signal)
     if ~isempty(signal.(f{1}))
-        X = double(signal.(f{1}))';
+        if ~isfield(state.conds,f{1})
+            state.conds.(f{1}) = repmat({[]},1,size(state.sos,1)); end
+
+        % flip dimensions so that we can filter along the 1st dimension
+        [X,dims] = spatialize_transpose(double(signal.(f{1})));
+                
         % extrapolate the signal into the past
         if extrapolate
             X = [repmat(2*X(1,:),extrapolate,1) - X(1+mod(((extrapolate+1):-1:2)-1,size(X,1)),:); X]; end
+        
         % apply filter for each section
-        for s = 1:size(state.(f{1}).sos,1)
-            [X,state.(f{1}).zi{s}] = filter(state.(f{1}).sos(s,1:3),state.(f{1}).sos(s,4:6),X,state.(f{1}).zi{s},1); end
+        for s = 1:size(state.sos,1)
+            [X,state.conds.(f{1}){s}] = filter(state.sos(s,1:3),state.sos(s,4:6),X,state.conds.(f{1}){s},1); end
         % apply gain
-        X = X*state.(f{1}).g;
+        X = X*state.g;
+        
         % remove extrapolated part again
         if extrapolate
             X = X(1+extrapolate:end,:); end
-        signal.(f{1}) = X';
+        
+        % unflip dimensions and write the result back
+        signal.(f{1}) = unspatialize_transpose(X,dims);
     end
 end
+
+if ~isfield(signal.etc,'filter_delay')
+    signal.etc.filter_delay = 0; end
+signal.etc.filter_delay = signal.etc.filter_delay + state.filter_delay/signal.srate;
+
 
 exp_endfun;

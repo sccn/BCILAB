@@ -132,7 +132,7 @@ function run_readlsl(varargin)
     % initialize shared variables
     samples = {};
     timestamps = [];
-
+    
     % start background acquisition
     onl_read_background(opts.new_stream,@()read_data(inlet,marker_inlet,opts.always_double),opts.update_freq);
 
@@ -161,7 +161,8 @@ function run_readlsl(varargin)
             % submit all time stamps that overlap the chunk (some may be in the future)
             matching = timestamps < stamps(end);
             if any(matching)
-                latencies = max(size(chunk,2),min(1, 1+(timestamps(matching)-stamps(end))/(stamps(end)-stamps(1))*(size(chunk,2)-1)));
+                latencies = 1 + (timestamps(matching)-stamps(1))/median(diff(stamps)); % / (stamps(end)-stamps(1)) * (size(chunk,2)-1);
+                latencies = min(size(chunk,2),max(1,latencies));
                 markers = struct('type',samples(matching),'latency',num2cell(latencies));
                 % and remove the markers from the list
                 samples(matching) = [];

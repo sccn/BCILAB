@@ -108,7 +108,7 @@ for i=1:2:length(settings)
             % --- look up from disk ---
             if ~isfield(tracking.cache,'disk_paths')
                 continue; end
-            hash_path = [filesep data_hash(1:2) filesep data_hash(3:end) '.ckf'];
+            hash_path = [filesep data_hash(1:2) filesep data_hash(3:end) '.sto'];
             % for each candidate disk path where the record might be found...
             for p = fieldnames(tracking.cache.disk_paths)'
                 try
@@ -155,7 +155,7 @@ for i=1:2:length(settings)
                         % commit the data to any earlier cache locations
                         if ~isempty(result) && strcmp(action,'memoize')                        
                             for r=1:length(result)
-                                utl_memoize_commit(obj,result{r}); end
+                                utl_memoize_commit(obj,result(r),stats.size); end
                         end
 
                         % return it
@@ -164,7 +164,7 @@ for i=1:2:length(settings)
                         return;
                     end
                 catch e
-                    disp_once(e.message);
+                    disp_once('Error during cache lookup: %s',hlp_handleerror(e));
                 end
             end
 

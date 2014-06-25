@@ -271,33 +271,6 @@ else
     disp( ' ' );
 end
 
-if ~strcmp(newpath,oldpath),
-    disp( 'NOTE: The MATLAB path has been updated to point to the cvx distribution.' );
-    disp( 'In order to use cvx regularly, you must save this new path definition.' );
-    switch computer,
-        case 'PCWIN',
-        case 'MAC',
-        case 'MACI',
-            disp( 'To accomplish this, type the command' );
-            if ver >= 7,
-                disp( '    savepath' );
-                disp( 'at the MATLAB prompt. Alternatively, type the command' );
-            end
-            disp( '    pathtool' );
-            disp( 'at the MATLAB prompt, which brings up the ''Set Path'' dialog. Press' );
-            disp( 'the ''Save'' button, and then the ''Close'' button.' );
-        otherwise,
-            disp( 'To accomplish this, add these lines to your startup.m file:' );
-            for k = 1 : length( delepaths ),
-                disp( [ '    rmpath ', delepaths{k} ] );
-            end
-            for k = length( addpaths ) : -1 : 1,
-                disp( [ '    addpath ', addpaths{k} ] );
-            end
-            disp( 'Consult the MATLAB documentation if necessary.' );
-    end
-    disp( ' ' );
-end
 
 % Copyright 2010 Michael C. Grant and Stephen P. Boyd.
 % See the file COPYING.txt for full copyright information.
