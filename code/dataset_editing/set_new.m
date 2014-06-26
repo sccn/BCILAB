@@ -28,9 +28,6 @@ function signal = set_new(varargin)
 %   events = struct('type',{'X','Y','X','X','Y'},'latency',{1000,2300,5000,15000,17000});
 %   myset = set_new('data',randn(3,100000), 'srate',1000, 'chanlocs',struct('labels',{'A','B','C'}), 'event',events);
 %
-% See also:
-%   eeg_emptyset
-%
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-05-28
 
@@ -41,7 +38,11 @@ if ~exp_beginfun('filter') return; end
 declare_properties('independent_channels',false,'independent_trials',false);
 
 % construct the data set from arguments and defaults
-signal = hlp_varargin2struct(varargin, eeg_emptyset, 'setname','new set');
+signal = hlp_varargin2struct(varargin, 'setname','new set','filename','','filepath','','subject','','group','','condition','','session',[], ...
+            'comments','created by set_new()','nbchan',0,'trials',0,'pnts',0,'srate',1,'xmin',0,'xmax',0,'times',[],'data',[],'icaact',[], ...
+            'icawinv',[],'icasphere',[],'icaweights',[],'icachansind',[],'chanlocs',[],'urchanlocs',[],'chaninfo',[],'ref',[],'event',[], ...
+            'urevent',[],'eventdescription',{{}},'epoch',[],'epochdescription',{{}},'reject',[],'stats',[],'specdata',[],'specicaact',[], ...
+            'splinefile','','icasplinefile','','dipfit',[],'history','','saved','no','etc',[]);
 
 % rewrite cell array data
 if iscell(signal.data)
@@ -89,7 +90,12 @@ signal.xmax = signal.xmin + (signal.pnts-1)/signal.srate;
 
 % if epoched and there are events, derive the .epoch field
 if signal.trials > 1 && ~isempty(signal.event) && isempty(signal.epoch)
-    signal = eeg_checkset(signal,'eventconsistency'); end
+    try
+        signal = eeg_checkset(signal,'eventconsistency'); 
+    catch e
+        disp_once('set_new(): could not derive .epoch field due to error: %s',hlp_handleerror(e));
+    end
+end
 
 % add .epoch.latency if possible
 if ~isfield(signal.epoch,'latency')

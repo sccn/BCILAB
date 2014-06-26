@@ -41,13 +41,15 @@ stream = evalin('base',in_stream);
 stream.data = randn(stream.nbchan,1024);
 stream.pnts = size(stream.data,2);
 stream.xmax = stream.xmin + (stream.pnts-1)/stream.srate;
-[fp fn fe] = fileparts(out_filename);
-% remove superfluous fields
-eeg = rmfield(stream,{'buffer','smax','buffer_len','timestamps','timestamps_len','timestamps_ptr','streamid'});
 stream.timestamp_at_beginning = toc(uint64(0));
-eeg = pop_saveset(eeg,'filename',[fn fe],'filepath',quickif(isempty(fp),env_translatepath('bcilab:/userdata'),fp),'savemode','twofiles');
-% re-create the fdt file...
-delete(fullfile(eeg.filepath, eeg.datfile));
+
+% prepare .set file for saving
+[fp,fn,fe] = fileparts(out_filename); %#ok<ASGLU>
+EEG = rmfield(stream,{'buffer','smax','buffer_len','timestamps','timestamps_len','timestamps_ptr','streamid','timestamp_at_beginning'});
+[EEG.data,EEG.datfile] = deal([fn,fe]);
+io_save(out_filename,'-mat','-makedirs','-attributes','''+w'',''a''','EEG');
+
+% create the .fdt file...
 fid = fopen(fullfile(eeg.filepath, eeg.datfile),'wb','ieee-le');
 if fid == -1
     error('Cannot write output file, check permission and space.'); end;

@@ -135,8 +135,8 @@ else
         end
     end
     
-    ns = fastif(weight_cov,n,{1 1});
-    nb = fastif(weight_bias,n,{1 1});
+    ns = quickif(weight_cov,n,{1 1});
+    nb = quickif(weight_bias,n,{1 1});
     % do the math
     mu_both = (mu{1}*nb{2} + mu{2}*nb{1}) / (nb{1}+nb{2});    
     sig_both = (sig{1}*ns{1} + sig{2}*ns{2}) / (ns{1}+ns{2});

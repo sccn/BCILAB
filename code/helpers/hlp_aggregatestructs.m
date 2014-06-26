@@ -211,7 +211,7 @@ else
             case 'random'
                 op = {@(a,b)[a b], @(x) x(min(length(x),ceil(eps+rand(1)*length(x))))};
             case 'fillblanks'
-                op = @(a,b)fastif(isempty(a),b,a);
+                op = @(a,b)quickif(isempty(a),b,a);
             otherwise
                 error('Unsupported combiner operation specified: %s',op);
         end
@@ -233,7 +233,7 @@ for k=1:numel(arg)
 
 
 % for the 'fillblanks' translate op
-function val = fastif(cond,trueval,falseval)
+function val = quickif(cond,trueval,falseval)
 if cond
     val = trueval;
 else

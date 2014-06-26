@@ -249,8 +249,8 @@ switch variant.arg_selection
                 weights = ones(size(targets)); end
             % LIBLINEAR-weights 1.6+
             model = hlp_diskcache('predictivemodels',@llwtrain,double(weights),double(targets),sparse(double(trials)),[...
-                '-s 6 -c ' num2str(lam) ' -B 1' fastif(~need_fallback,' -q ','') ...
-                fastif(~isempty(epsi),[' -e ' num2str(epsi)],'')]);
+                '-s 6 -c ' num2str(lam) ' -B 1' quickif(~need_fallback,' -q ','') ...
+                quickif(~isempty(epsi),[' -e ' num2str(epsi)],'')]);
         catch
             % fallback
             if ~isempty(weights)
@@ -275,8 +275,8 @@ switch variant.arg_selection
                 weights = ones(size(targets)); end
             % LIBLINEAR-weights 1.6+
             model = hlp_diskcache('predictivemodels',@llwtrain,double(weights),double(targets),sparse(double(trials)),[...
-                '-s 0 -c ' num2str(lam) ' -B 1' fastif(~need_fallback,' -q ','') ...
-                fastif(~isempty(epsi),[' -e ' num2str(epsi)],'')]);
+                '-s 0 -c ' num2str(lam) ' -B 1' quickif(~need_fallback,' -q ','') ...
+                quickif(~isempty(epsi),[' -e ' num2str(epsi)],'')]);
         catch
             if ~isempty(weights)
                 % fallback

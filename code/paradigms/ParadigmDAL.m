@@ -166,7 +166,7 @@ classdef ParadigmDAL < ParadigmDataflowSimplified
                 % we assume the region to be first-order if any retained frequency is below 6, otherwise second-order
                 reg.order = orders(r,:);
                 if isempty(reg.order)
-                    reg.order = fastif(all(reg.freq.freq<6),1,2); end
+                    reg.order = quickif(all(reg.freq.freq<6),1,2); end
                 % we only use the window function & parameter for second-order regions
                 if reg.order == 2
                     reg.time = arg_report('vals',@flt_window,{'time',{twnds(r,:),args.fex.winfunc,args.fex.winparam}});
@@ -177,7 +177,7 @@ classdef ParadigmDAL < ParadigmDataflowSimplified
                 % squared data needs a different power than raw data
                 reg.norm = norms(r,:);                
                 if isempty(reg.norm)
-                    reg.norm = fastif(reg.order==1,{-0.25,-0.25},{-0.5,-0.5}); end
+                    reg.norm = quickif(reg.order==1,{-0.25,-0.25},{-0.5,-0.5}); end
                 if isnumeric(reg.norm) && length(reg.norm)==2
                     reg.norm = {reg.norm(1),reg.norm(2)}; end
                 

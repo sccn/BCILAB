@@ -343,8 +343,8 @@ function res = kl_divergence_gaussian(P,Q)
 if ~is_gaussian(P) || ~is_gaussian(Q)
     error('P and Q must contain gaussian distributions'); end
 % re-represent univariate distributions as a multivariate ones
-P = fastif(strcmp(P{1},'norm'), cellfun(@(x){x(1),x(2)},mat2cell(P{2},ones(size(P{2},1),1),2),'UniformOutput',false), P{2});
-Q = fastif(strcmp(Q{1},'norm'), cellfun(@(x){x(1),x(2)},mat2cell(Q{2},ones(size(Q{2},1),1),2),'UniformOutput',false), Q{2});
+P = quickif(strcmp(P{1},'norm'), cellfun(@(x){x(1),x(2)},mat2cell(P{2},ones(size(P{2},1),1),2),'UniformOutput',false), P{2});
+Q = quickif(strcmp(Q{1},'norm'), cellfun(@(x){x(1),x(2)},mat2cell(Q{2},ones(size(Q{2},1),1),2),'UniformOutput',false), Q{2});
 if length(P) ~= length(Q)
     error('P and Q must have the same number of distributions.'); end
 res = zeros(length(P),1);

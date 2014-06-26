@@ -392,7 +392,10 @@ if ~isempty(allopts.types)
     matches = false;
     for t=1:length(allopts.types)
         matches = matches | strcmp({res.chanlocs.type},allopts.types{t}); end
-    res = pop_select(res,'channel',find(matches));
+    keep = find(matches);
+    res.data = res.data(keep,:,:,:,:,:,:,:);
+    res.chanlocs = res.chanlocs(keep);
+    res.nbchan = size(signal.data,1);
 end
 
 % add data set meta-data

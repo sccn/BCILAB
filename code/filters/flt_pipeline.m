@@ -352,7 +352,7 @@ if ~isequal(varargin,{'update'})
                 'Their position in the filter chain is therefore not defined, but they are in use. Please include these filters in the filtering order definition, to specify their position.']);
         end
         % also note other conflicts (for filters that were not used in the current pipeline)
-        disp(['Note: the ordering relationship ' hlp_tostring(args.fltorder) ' is in conflict with the ordering preferences for the following' fastif(~isempty(problematic),' further ',' ') 'nodes:']);
+        disp(['Note: the ordering relationship ' hlp_tostring(args.fltorder) ' is in conflict with the ordering preferences for the following' quickif(~isempty(problematic),' further ',' ') 'nodes:']);
         disp(hlp_tostring({allflt(setdiff(unlinked,problematic)).name}));
         disp('Their position is currently not defined, but it is advisable to define it, if the filters are to be enabled eventually.');
     end

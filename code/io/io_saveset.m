@@ -1,4 +1,4 @@
-function fname = io_saveset(signal,fname,overwrite) %#ok<INUSL>
+function fname = io_saveset(signal,fname,overwrite)
 % Save a data set to disk.
 % Filename = io_loadset(Signal,Filename,Overwrite)
 %
@@ -16,6 +16,8 @@ function fname = io_saveset(signal,fname,overwrite) %#ok<INUSL>
 %                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                           2014-02-05
 
+EEG = signal;
+
 if nargin < 3
     overwrite = false; end
 if ~ischar(fname)
@@ -26,23 +28,7 @@ if size(fname,1) ~= 1
 % append file ending if necessary
 if length(fname)<4 || (~strcmp(fname(end-3:end),'.set') && ~strcmp(fname(end-3:end),'.mat'))
     fname = [fname '.set']; end
-    
-% translate to platform-dependent path
-[fp,fn,fx] = fileparts(env_translatepath(fname));
 
-% create directories, if necessary (with appropriate permissions)
-if ~exist(fp,'dir')
-    io_mkdirs([fp filesep],{'+w','a'}); end
-
-% check for overwrite
-if overwrite && exist([fp filesep fn fx],'file')
-    return; end
-
-% save
-fprintf('Saving set to %s...',[fp filesep fn fx]);
-if strcmp(fname(end-3:end),'.set')
-    evalc('pop_saveset(signal,''filepath'',fp,''filename'',[fn fx]);');
-else
-    save(fname,'signal','-mat');
-end
+fprintf('Saving set to %s...',fname);
+io_save(fname,'-mat','-makedirs',quickif(~overwrite,'-nooverwrite',''),quickif(strcmp(fname(end-3:end),'.set'),'EEG','signal'));
 fprintf('done.\n');

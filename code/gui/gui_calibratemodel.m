@@ -293,9 +293,9 @@ catch e
     return
 end
 try
-    pop_eegplot(data);
+    vis_artifacts(data,data,'ShowEventLegend',true);
 catch e
-    env_handleerror(e);
+    hlp_handleerror(e);
     errordlg2(sprintf([e.message '\n(See the MATLAB command window for a detailed stack trace.)']),'Cannot open the data viewer.');
 end
     

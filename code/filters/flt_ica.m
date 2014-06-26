@@ -848,9 +848,9 @@ else
                 signal.etc.amica = r;                
             case 'infomax'
                 % translate all booleans into 'on'/'off'
-                variant = structfun(@(p) fastif(islogical(p),fastif(p,'on','off'),p),variant,'UniformOutput',false);
+                variant = structfun(@(p) quickif(islogical(p),quickif(p,'on','off'),p),variant,'UniformOutput',false);
                 arglist = hlp_struct2varargin(variant,'suppress',{'arg_selection','arg_direct'},'rewrite',{'pstop','stop','pweights','weights','pblock','block','pposact','posact'});
-                pre = hlp_diskcache('icaweights',@pop_runica,pre,arglist{:});            
+                [pre.icaweights,pre.icasphere] = hlp_diskcache('icaweights',@runica,pre.data,arglist{:});
             case 'beamica'
                 sig = cov(pre.data');
                 if ~isempty(variant.anchorlabels)
@@ -868,7 +868,7 @@ else
                 [pre.icaweights,pre.icasphere] = hlp_diskcache('filterdesign',@beamica,pre.data,B,[],[],[],variant.max_iter,variant.lrate,variant.tradeoff,variant.verbose,variant.usegpu,variant.convergence_check);
             case 'fastica'
                 % translate all booleans into 'on'/'off'
-                variant = structfun(@(p) fastif(islogical(p),fastif(p,'on','off'),p),variant,'UniformOutput',false);
+                variant = structfun(@(p) quickif(islogical(p),quickif(p,'on','off'),p),variant,'UniformOutput',false);
                 arglist = hlp_struct2varargin(variant,'suppress',{'arg_selection','arg_direct'},'rewrite',{'stepsize','mu'});
                 [dummy,pre.icaweights] = hlp_diskcache('icaweights',@fastica,pre.data,arglist{:}); %#ok<ASGLU>
                 pre.icasphere = eye(size(pre.data,1));
@@ -894,7 +894,7 @@ else
                  [pre.icadict,pre.icasphere] = hlp_diskcache('icaweights',@dictlearn,variant,'X',pre.data,'chanlocs',pre.chanlocs);
             case 'kernelica'
                 % translate all booleans into 0/1
-                variant = structfun(@(p) fastif(islogical(p),double(p),p),variant,'UniformOutput',false);
+                variant = structfun(@(p) quickif(islogical(p),double(p),p),variant,'UniformOutput',false);
                 if strcmp(variant.kernel,'gaussian')
                     variant.sig = variant.GaussianSigma;
                 else

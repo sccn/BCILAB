@@ -56,7 +56,7 @@ function [signal,state] = flt_resample(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-03-28
 
-% flt_resample_version<1.02> -- for the cache
+% flt_resample_version<1.03> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -122,6 +122,9 @@ if srate ~= signal.srate
     end
     
     % update signal meta-data
+    if ~isfield(signal.etc,'filter_delay')
+        signal.etc.filter_delay = 0; end    
+    signal.etc.filter_delay = signal.etc.filter_delay + ceil(argmax(H)*p/q)/signal.srate;
     signal.icaact = [];
     signal.srate = srate;
     signal.pnts = size(signal.data,2);

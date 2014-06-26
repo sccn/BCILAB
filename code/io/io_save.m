@@ -55,13 +55,14 @@ makedirs = false;     % whether to create directories
 retryinput = false;   % whether to ask the user for a retry
 prunehandles = false; % whether to prune unreferenced workspace variables from function handles in arguments
 serialized = false;   % whether to write variables as serialized
+nooverwrite = false;  % whether to disable overwriting existing files
 fileattriblist = [];  % the list of attributes for files & directories
 i = 1;
 while i <= length(varargin)
     arg = varargin{i};
     if ischar(arg) && ~isempty(arg) && arg(1) == '-'
         % we are dealing with an option argument
-        switch(arg)
+        switch(strtrim(arg))
             case '-makedirs'
                 makedirs = true;
             case '-retryinput'
@@ -73,6 +74,8 @@ while i <= length(varargin)
                 prunehandles = true;
             case {'-serialized','-serialize'}
                 serialized = true;
+            case '-nooverwrite'
+                nooverwrite = true;
             otherwise
                 % regular argument; append it
                 saveargs{end+1} = arg;
@@ -139,6 +142,8 @@ while 1
     
     % we have copied the variables to be saved into the 'wkspace' variable; now save
     try
+        if nooverwrite && exist(fname,'file')
+            return; end
         if length(fname)>4 && strcmpi(fname(end-3:end),'.sto')
             % save as .sto file (fast)
             bytes = hlp_serialize(wkspace);
