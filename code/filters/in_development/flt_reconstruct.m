@@ -199,7 +199,7 @@ if dotransform
         if isfield(basisinfo,'labels')
             signal.chanlocs = basisinfo;
         elseif iscellstr(basisinfo)
-            signal.chanlocs = pop_chanedit(struct('labels',basisinfo),'lookup',[]);
+            signal.chanlocs = struct('labels',basisinfo);
         else
             error('unsupported format for the ''basisinfo'' parameter');
         end        

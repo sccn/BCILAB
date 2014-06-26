@@ -56,7 +56,7 @@ arg_define(varargin, ...
 if ~exist('M','var')
     % look up standard locations if necessary
     if ~all(isfield(signal.chanlocs,{'X','Y','Z'})) || all(cellfun('isempty',{signal.chanlocs.X}))
-        signal.chanlocs = pop_chanedit(signal.chanlocs,'lookup','standard-10-5-cap385.elp'); end
+        signal.chanlocs = hlp_microcache('chanlocs',@set_infer_chanlocs,signal.chanlocs); end
     
     % map admissible ("ok") channels into a spherical coordinate system (that has no seams across
     % the scalp)

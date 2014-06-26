@@ -1,6 +1,6 @@
-function [data,coords] = set_infer_chanlocs(data,disambiguation_rule)
+function data = set_infer_chanlocs(data,disambiguation_rule)
 % Infer the chanlocs subfields (positions and type) from labels.
-% [Data] = set_infer_chanlocs(Data,DisambiguationRule)
+% Data = set_infer_chanlocs(Data,DisambiguationRule)
 %
 % In:
 %   Data   : some EEGLAB data set with a chanlocs field or the chanlocs field itself
@@ -40,13 +40,7 @@ function [data,coords] = set_infer_chanlocs(data,disambiguation_rule)
 %                                2010-11-05
 
 % available cap files
-caps = {'resources:/Standard-10-5-Cap385.sfp','resources:/sccn_LSIE_cap128.xyz','resources:/sccn_BEM_coregistered_128_v2.xyz','resources:/sccn_BEM_coregistered_256_v1.xyz','resources:/sccn_BEM_coregistered_128_v1.xyz'};
-% internal names for the respective labeling schemes
-schemes = {'10-20','sccn_128_v3','sccn_128_v2','sccn_256_v1','sccn_128_v1'};
-% type of label matching
-matching = {'nocase_exact','nocase_exact','nocase_exact','nocase_exact','nocase_exact'};
-% coordinate system
-nosedir = {'+X','+Y','+Y','+Y','+Y'};
+caps = {'resources:/caps/Standard-10-5-Cap385.cap','resources:/caps/sccn_LSIE_cap128.cap','resources:/caps/sccn_BEM_coregistered_128_v2.cap','resources:/sccn_BEM_coregistered_256_v1.cap','resources:/caps/sccn_BEM_coregistered_128_v1.cap'};
 
 if nargin < 2
     disambiguation_rule = 'deduce'; end
@@ -80,25 +74,25 @@ if (~all(isfield(locs,{'X','Y','Z'})) || all(cellfun('isempty',{locs.X}))) && ~i
     for c = 1:length(caps)
         try
             cap = caps{c};
+            capdata{c} = hlp_microcache('chanlocs',@io_load,cap,'-mat');
+            locdb = capdata{c}.CAP;
             fitlocs{c} = locs;
-            switch matching{c}
-                case 'nocase_exact'
-                    % not case sensitive
-                    fitlocs{c} = hlp_microcache('chanlocs',@pop_chanedit,locs,'lookup',env_translatepath(cap));
-                case 'exact'
-                    % case sensitive matching
-                    fitlocs = locs;
-                    locdb = hlp_microcache('chanlocs',@readlocs,env_translatepath(cap));
-                    [found,idx_in_locdb,idx_in_res] = intersect({locdb.labels},{locs.labels}); %#ok<ASGLU>
+            switch capdata{c}.MATCH
+                case {'exact','nocase_exact'}
+                    % exact matching (both cases supported)
+                    if ~isempty(strfind(capdata{c}.MATCH,'nocase'))                        
+                        [found,idx_in_locdb,idx_in_res] = intersect(lower({locdb.labels}),lower({locs.labels})); %#ok<ASGLU>
+                    else
+                        [found,idx_in_locdb,idx_in_res] = intersect({locdb.labels},{locs.labels}); %#ok<ASGLU>
+                    end
                     for fname = fieldnames(locdb)'
                         [fitlocs{c}(idx_in_res).(fname{1})] = locdb(idx_in_locdb).(fname{1}); end
                     [fitlocs{c}(idx_in_res).type] = deal('EEG');
                 case {'substr','nocase_substr'}
                     % sub-string matching (both cases supported)
-                    locdb = hlp_microcache('chanlocs',@readlocs,env_translatepath(cap));
-                    [found,idx_in_res,idx_in_locdb] = hlp_microcache('chanlocs',@do_matching,fitlocs{c},locdb,~isempty(strfind(matching{c},'nocase')));
+                    [found,idx_in_res,idx_in_locdb] = hlp_microcache('chanlocs',@do_matching,fitlocs{c},locdb,~isempty(strfind(capdata{c}.MATCH,'nocase'))); %#ok<ASGLU>
                     for fname = fieldnames(locdb)'
-                        [fitlocs{c}(idx_in_res).(fname{1})] = locdb(idx_in_locdb).(fname{1}); end
+                        [fitlocs{c}(idx_in_res).(fname{1})] = locdb(idx_in_locdb).(fname{1}); end %#ok<*AGROW>
                     [fitlocs{c}(idx_in_res).type] = deal('EEG');
             end
             fraction_found(c) = 1-mean(cellfun('isempty',{fitlocs{c}.X}));
@@ -147,7 +141,9 @@ if (~all(isfield(locs,{'X','Y','Z'})) || all(cellfun('isempty',{locs.X}))) && ~i
                 else
                     % assume that this is a file name and try to load it
                     bestidx = NaN;
-                    locs = hlp_microcache('chanlocs',@pop_chanedit,locs,'lookup',env_translatepath(disambiguation_rule));
+                    tmp = getfield(hlp_microcache('chanlocs',@io_load,disambiguation_rule,'-mat'),'CAP');
+                    if ~isequal({tmp.labels},{locs.labels})
+                        error('Currently the given cap file must match the available channel labels exactly.'); end
                 end
         end
     elseif sorted_fractions(1)>sorted_fractions(2)
@@ -165,8 +161,8 @@ if (~all(isfield(locs,{'X','Y','Z'})) || all(cellfun('isempty',{locs.X}))) && ~i
         fprintf('  using montage %s.\n',caps{bestidx});
         locs = fitlocs{bestidx};
         if isstruct(data)
-            data.chaninfo.labelscheme = schemes{bestidx};
-            data.chaninfo.nosedir = nosedir{bestidx};
+            data.chaninfo.labelscheme = capdata{bestidx}.SCHEME;
+            data.chaninfo.nosedir = capdata{bestidx}.NOSE;
         end
     end
         
@@ -213,7 +209,7 @@ if any(empty_type)
        [locs(~cellfun('isempty',strfind({locs.labels},patterns{p})) & empty_type).type] = deal(patterns{p+1}); end
     
    % assign type 'EEG' to all numerically labeled channels (default assumption)
-    [locs(cellfun(@(x)~isempty(str2num(x)),{locs.labels})).type] = deal('EEG');
+    [locs(cellfun(@(x)~isempty(str2num(x)),{locs.labels})).type] = deal('EEG'); %#ok<ST2NM>
    
     % assign 'EEG' to all unknown channels that are preceded and followed by EEG channels...
     filled_in = false;
@@ -315,7 +311,7 @@ for k=1:nnz(sorted_fractions(1) < 2*sorted_fractions)
     end
     chancorr = median(corrs,2);
     % use average self-correlation across channels as quality index for this cap design
-    quality(k) = mean(chancorr); %#ok<AGROW>
+    quality(k) = mean(chancorr);
 end
 
 

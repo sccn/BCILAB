@@ -114,7 +114,7 @@ elseif length(newchans) == signal.nbchan
     if isfield(newchans,'labels')
         signal.chanlocs = newchans;
     elseif iscellstr(newchans)
-        signal.chanlocs = pop_chanedit(struct('labels',newchans),'lookup',[]);        
+        signal.chanlocs = struct('labels',newchans);
     elseif isnumeric(newchans)
         signal.chanlocs = signal.chanlocs(newchans);
     else
