@@ -444,7 +444,9 @@ if ~isempty(opts.samplerange)
 if ~isempty(opts.timerange)
     res = hlp_scope({'disable_expressions',true},@set_selinterval,res,opts.timerange,'seconds'); end
 if ~isempty(allopts.subsampled)
-    error('Sub-sampling at load time is not supported for this file format.'); end
+    res = hlp_scope({'disable_expressions',true},@flt_resample,res,allopts.subsampled);
+    res.data = res.data(:,1+mod(((0:res.pnts-1) + round(res.etc.filter_delay*res.srate)),res.pnts-1));
+end
 
 if length(unique({res.chanlocs.labels})) ~= length(res.chanlocs)
     warning('bcilab:io_loadset:duplicate_channels','Multiple of your channels have the same label; this will likely give you errors during processing.'); end

@@ -56,7 +56,7 @@ function [signal,state] = flt_resample(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-03-28
 
-% flt_resample_version<1.03> -- for the cache
+% flt_resample_version<1.04> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -104,19 +104,8 @@ if srate ~= signal.srate
 
         % flip dimensions so that we can filter along the 1st dimension & convert to single for mex code
         [X,dims] = spatialize_transpose(single(signal.(f{1})));
-        
-        % optionally we prepend the signal with a mirror section of itself, to minimize start-up
-        % transients (and if the signal is too short, we repeat it as much as we need)
-        prepend = isempty(state.(f{1}).conds);
-        if prepend
-            X = [repmat(2*X(1,:),n,1) - X(1+mod(((n+1):-1:2)-1,size(X,1)),:); X]; end     %#ok<AGROW>
-        
-        [X,state.(f{1}).conds] = upfirdn2(X,state.H,state.p,state.q,state.(f{1}).conds);        
-        
-        % remove prepended signal
-        if prepend
-            X(1:n,:) = []; end
-
+        % do processing
+        [X,state.(f{1}).conds] = upfirdn2(X,state.H,state.p,state.q,state.(f{1}).conds);
         % unflip dimensions and write the result back; also convert back to double
         signal.(f{1}) = double(unspatialize_transpose(X,dims));
     end
@@ -124,7 +113,7 @@ if srate ~= signal.srate
     % update signal meta-data
     if ~isfield(signal.etc,'filter_delay')
         signal.etc.filter_delay = 0; end    
-    signal.etc.filter_delay = signal.etc.filter_delay + ceil(argmax(state.H)*state.p/state.q)/signal.srate;
+    signal.etc.filter_delay = signal.etc.filter_delay + ceil(argmax(state.H))/signal.srate;
     signal.icaact = [];
     signal.srate = srate;
     signal.pnts = size(signal.data,2);
