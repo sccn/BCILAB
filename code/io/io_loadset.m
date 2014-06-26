@@ -132,9 +132,6 @@ allopts = arg_define([0 1],varargin,...
     arg_norep('streamname',unassigned), arg_norep('streamtype',unassigned), arg_norep('effective_rate',unassigned), ...
     arg_deprecated('nofixups',false,[],'This parameter has been retired.'));
 
-%if ~ischar(filename)
- %   error('The file name must be given as a string.'); end
-
 opts = rmfield(allopts,{'filename','types','casttodouble','setname','subject','group','condition','session','comments','markerchannel','subsampled','infer_chanlocs','montage_disambiguation','nofixups'});
 filename = env_translatepath(allopts.filename);
 [base,name,ext] = fileparts(filename);
@@ -144,11 +141,11 @@ if ~exist(filename,'file')
     error(['The file ' filename ' does not exist.']); end
 
 % ... and whether it can be opened
-try
-    f=fopen(filename,'r');
-    fclose(f);
-catch
+f = fopen(filename,'r');
+if f==-1
     error(['The file ' filename ' could not be opened; please check your file permissions.']);
+else
+    fclose(f);
 end
 
 % sanity check
@@ -165,7 +162,28 @@ try
         case '.set'
             % EEGLAB data set
             args = hlp_struct2varargin(opts,'suppress',{'channels','samplerange','timerange'});
-            res = pop_loadset('filepath',[base filesep], 'filename', [name ext], args{:});
+            try
+                res = pop_loadset('filepath',[base filesep], 'filename', [name ext], args{:});
+            catch e
+                % fall back to direct import attempt
+                fprintf('pop_loadset failed with error: %s\n',e.message);
+                fprintf('attempting direct import...\n');
+                res = getfield(io_load(filename,'-mat'),'EEG');
+                if ischar(res.data)
+                    binfile = [base filesep res.data];
+                    if ~exist(binfile,'file')
+                        error('The associated raw-data file %s was not found.',binfile); end
+                    f = fopen(binfile,'r','ieee-le');
+                    if f==-1
+                        error('The associated raw-data file %s does could not be opened. Please check your file permissions.',binfile); end
+                    if strcmp(res.data(end-3:end),'.fdt')
+                        res.data = fread(f,[res.nbchan Inf], 'float32');
+                    elseif strcmp(res.data(end-3:end),'.dat')
+                        res.data = fread(f,[res.trials*res.pnts EEG.nbchan], 'float32')';
+                    end
+                    fclose(f);
+                end
+            end
             if ~isfield(res,'tracking') || ~isfield(res.tracking,'online_expression')
                 % it comes fresh from EEGLAB
                 disp('The loaded EEGLAB set is lacking an online expression; assuming it contains unfiltered data.')
@@ -263,14 +281,12 @@ try
         case {'.bdf','.edf'}
             % BioSEMI BDF/EDF
             try
-                if isempty(opts.timerange) 
-                    opts = rmfield(opts,'timerange'); end
-                args = hlp_struct2varargin(opts,'suppress',{'channels','samplerange'}, 'rewrite',{'timerange','range'});
+                args = hlp_struct2varargin(opts,'suppress',{'channels','samplerange','timerange'}, 'rewrite',{'timerange','range'});
                 res = pop_readbdf(filename,args{:});
                 opts.timerange = [];
             catch
                 % backup variant
-                disp('EEGLAB importer failed; falling back to Biosig.');
+                disp('EEGLAB importer failed; falling back...');
                 args = hlp_struct2varargin(opts,'suppress',{'samplerange'}, 'rewrite',{'timerange','blockrange'});
                 res = pop_biosig(filename,args{:});
                 opts.timerange = [];
@@ -340,13 +356,26 @@ try
 catch specific_error
     % the specific importers failed, fall back to the generic ones
     try
+        % try to use FieldTrip
         warning off FieldTrip:unknown_filetype
-        % try File-IO
-        args = hlp_struct2varargin(opts,'suppress',{'channels','timerange','samplerange'});
-        res = pop_fileio(filename,args{:});
+        hdr = ft_read_header(filename);
+        res = struct('setname','','filename','','filepath','','subject','','group','','condition','','session',[],'comments','','nbchan',hdr.nChans,...
+            'trials',hdr.nTrials,'pnts',hdr.nSamples,'srate',hdr.Fs,'xmin',-hdr.nSamplesPre/hdr.Fs,'xmax',0,'times',[],'data',[],'icaact',[],'icawinv',[], ...
+            'icasphere',[],'icaweights',[],'icachansind',[],'chanlocs',struct('labels',hdr.label),'urchanlocs',[],'chaninfo',[],'ref',[],'event',[],'urevent',[], ...
+            'eventdescription',{{}}, 'epoch',[],'epochdescription',{{}},'reject',[],'stats',[],'specdata',[],'specicaact',[],'splinefile','','icasplinefile','', ...
+            'dipfit',[],'history','','saved','no','etc',[]);
+        if res.trials > 1
+            error('This importer does not support epoched data.'); end
+        if ~isempty(opts.timerange)
+            opts.samplerange = 1+round((opts.timerange-res.xmin)*res.srate); end
+        res.data = ft_read_data(filename,'chanindx',opts.channels,'begsample',opts.samplerange(1:end-1),'endsample',opts.samplerange(2:end));
+        evt = ft_read_event(filename);
+        res.event = struct('type',{evt.value},'category',{evt.type},'latency',{evt.sample},'duration',{evt.duration});
+        res.xmax = res.xmin + (res.pnts-1)*res.srate;
+        [opts.channels,opts.samplerange,opts.timerange] = deal([]);
     catch fileio_error
         try
-            % try BioSig
+            % try to use BioSig
             args = hlp_struct2varargin(opts,'suppress',{'channels','samplerange','timerange'});
             res = pop_biosig(filename,args{:});
         catch biosig_error

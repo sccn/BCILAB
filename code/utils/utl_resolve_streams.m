@@ -233,7 +233,7 @@ switch char(pip.head)
                 if iscellstr(args.channels) && ~args.find_closest && ~args.remove_selection && ~args.relabel_to_query
                     required_channels = args.channels; end
                 if iscellstr(args.channels) && (args.find_closest  || args.relabel_to_query)
-                    required_channels = []; end
+                    required_channels = {}; end
             catch e
                 disp_once('Error while parsing a flt_selchans node (syntax changed?): %s',e.message);
             end
@@ -263,8 +263,8 @@ switch char(pip.head)
         end
         if ~isfield(props,'independent_channels') || ~props.independent_channels
             % the node doesn't have independent channels: need all channnels & types from below
-            required_channels = [];
-            required_types = [];
+            required_channels = {};
+            required_types = {};
         end
 end
 

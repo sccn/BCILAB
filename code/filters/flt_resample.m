@@ -124,7 +124,7 @@ if srate ~= signal.srate
     % update signal meta-data
     if ~isfield(signal.etc,'filter_delay')
         signal.etc.filter_delay = 0; end    
-    signal.etc.filter_delay = signal.etc.filter_delay + ceil(argmax(H)*p/q)/signal.srate;
+    signal.etc.filter_delay = signal.etc.filter_delay + ceil(argmax(state.H)*state.p/state.q)/signal.srate;
     signal.icaact = [];
     signal.srate = srate;
     signal.pnts = size(signal.data,2);

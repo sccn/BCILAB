@@ -39,8 +39,8 @@ function data = set_infer_chanlocs(data,disambiguation_rule)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-11-05
 
-% available cap files
-caps = {'resources:/caps/Standard-10-5-Cap385.cap','resources:/caps/sccn_LSIE_cap128.cap','resources:/caps/sccn_BEM_coregistered_128_v2.cap','resources:/sccn_BEM_coregistered_256_v1.cap','resources:/caps/sccn_BEM_coregistered_128_v1.cap'};
+% path where *.cap files are located
+cappath = 'resources:/caps/';
 
 if nargin < 2
     disambiguation_rule = 'deduce'; end
@@ -69,6 +69,10 @@ if ~isstruct(locs)
 % --- find best-matching cap if some locs missing ---
 
 if (~all(isfield(locs,{'X','Y','Z'})) || all(cellfun('isempty',{locs.X}))) && ~isempty(locs)
+    % get a list of all cap files
+    capfiles = dir(env_translatepath(cappath));
+    capfiles = capfiles(cellfun(@(n)~isempty(strfind(n,'.cap')),{capfiles.name}));
+    caps = cellfun(@(n){[cappath n]},{capfiles.name});
     
     % for each cap file, try to match channel labels
     for c = 1:length(caps)
@@ -171,7 +175,7 @@ if (~all(isfield(locs,{'X','Y','Z'})) || all(cellfun('isempty',{locs.X}))) && ~i
         if  mean(cellfun('isempty',{locs.X})) < 0.75
             locs = hlp_microcache('chanlocs',@pop_chanedit,locs,'eval','chans = pop_chancenter( chans, [],[]);'); end
     catch e
-        fprintf('Failed trying to optimized the head center location for your cap montage due to error: %s\n',hlp_handleerror(e));
+        fprintf('Failed trying to optimized the head center location for your cap montage due to error: %s\n',e.message);
     end
 end    
 

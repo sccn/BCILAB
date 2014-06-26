@@ -20,7 +20,7 @@
 
 % load and curate raw data for each session (BioSemi format)
 for s = 1:4
-    filename = ['data:/tutorial/imag_movements2/session' num2str(s) '.bdf'];
+    filename = ['bcilab:/userdata/tutorial/imag_movements2/session' num2str(s) '.bdf'];
     % load & retain the first 32 channels
     session{s} = exp_eval_optimized(io_loadset(filename,'channels',1:32));
     % override the channel locations (they are incorrect in the original data)

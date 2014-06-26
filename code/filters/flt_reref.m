@@ -55,9 +55,6 @@ function signal = flt_reref(varargin)
 %   % as previous, but passing the arguments by name
 %   eeg = flt_reref('Signal',eeg,'ExcludeChannels',{'EOGV','EOGH'})
 %
-% See also:
-%   pop_reref
-%
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-03-28
 

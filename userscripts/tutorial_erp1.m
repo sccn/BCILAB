@@ -29,7 +29,7 @@ mrks = {{'S101','S102'},{'S201','S202'}};
 wnds = [0.25 0.3;0.3 0.35;0.35 0.4; 0.4 0.45;0.45 0.5;0.5 0.55;0.55 0.6];
 
 % define load training data (BrainVision format)
-traindata = io_loadset('data:/tutorial/flanker_task/12-08-002_ERN.vhdr');
+traindata = io_loadset('bcilab:/userdata/tutorial/flanker_task/12-08-002_ERN.vhdr');
 
 % define approach
 myapproach = {'Windowmeans' 'SignalProcessing', {'Resampling','off','EpochExtraction',[-0.2 0.8],'SpectralSelection',[0.1 15]}, 'Prediction',{'FeatureExtraction',{'TimeWindows',wnds}}};
@@ -45,7 +45,7 @@ bci_visualize(lastmodel)
 %% --- test on the twin's data set ---
 
 % define test data
-testdata = io_loadset('data:/tutorial/flanker_task/12-08-001_ERN.vhdr');
+testdata = io_loadset('bcilab:/userdata/tutorial/flanker_task/12-08-001_ERN.vhdr');
 [prediction,loss,teststats,targets] = bci_predict(lastmodel,testdata);
 
 % result visualization
@@ -90,7 +90,7 @@ mrks = {{'S101','S102'},{'S201','S202'}};
 wnds = [0.25 0.3;0.3 0.35;0.35 0.4; 0.4 0.45;0.45 0.5;0.5 0.55;0.55 0.6];
 
 % define load training data (BrainVision format)
-traindata = io_loadset('data:/tutorial/flanker_task/12-08-002_ERN.vhdr');
+traindata = io_loadset('bcilab:/userdata/tutorial/flanker_task/12-08-002_ERN.vhdr');
 
 % define approach
 myapproach = {'Windowmeans' ...
@@ -107,8 +107,8 @@ bci_visualize(lastmodel)
 %% --- try a few alternative ERP approaches ---
 
 wnds = [0.25 0.3;0.3 0.35;0.35 0.4; 0.4 0.45;0.45 0.5;0.5 0.55;0.55 0.6];
-traindata = io_loadset('data:/tutorial/flanker_task/12-08-002_ERN.vhdr');
-testdata = io_loadset('data:/tutorial/flanker_task/12-08-001_ERN.vhdr');
+traindata = io_loadset('bcilab:/userdata/tutorial/flanker_task/12-08-002_ERN.vhdr');
+testdata = io_loadset('bcilab:/userdata/tutorial/flanker_task/12-08-001_ERN.vhdr');
 
 approaches = [];
 
