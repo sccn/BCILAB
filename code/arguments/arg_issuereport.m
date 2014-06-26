@@ -30,7 +30,7 @@ global tracking;
 try
     ticket = tracking.arg_sys.tickets.removeLast();
 catch %#ok<CTCH>
-    max_inflight_tickets = 50000;
+    max_inflight_tickets = 10000;
     % initialize data structures if necessary
     if ~isfield(tracking,'arg_sys')
         tracking.arg_sys = struct(); end

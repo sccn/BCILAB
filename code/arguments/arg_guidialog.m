@@ -219,10 +219,8 @@ if ~isempty(okpressed)
             end
         elseif strcmp(s.type,'char')
             % noting to do
-        else
-            if ~isempty(v)
-               v = eval(v); % convert back to numeric (or object, or cell) value
-            end
+        elseif ~isempty(v) && ischar(v)
+            v = eval(v);
         end
         % assign the converted value to params struct...
         params = assign(params,subset{k},v);

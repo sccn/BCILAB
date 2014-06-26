@@ -147,12 +147,19 @@ function edit2_CreateFcn(hObject, eventdata, handles)
 function pushbutton4_Callback(hObject, eventdata, handles)
 % try to reuse the current arguments as a starting point...
 acquireargs = get_cell_args(handles.edit2,[]);
+% sanitize legacy arguments
+acquireargs = hlp_varargin2struct(acquireargs);
+if ~ischar(acquireargs.identity_file)
+    acquireargs.identity_file = ''; end
+if ~ischar(acquireargs.mcr_root)
+    acquireargs.mcr_root = ''; end
 % make a dialog for this
-acquireargs = arg_guidialog(@par_getworkers_ssh,'Parameters',acquireargs,'Title','Cluster acquistion options','Invoke',false);
+acquireargs = arg_guidialog(@par_getworkers_ssh,'Parameters',hlp_struct2varargin(acquireargs),'Title','Cluster acquistion options','Invoke',false);
 % and assign to the edit field, if not empty
 if ~isempty(acquireargs)
     tmp = hlp_tostring(hlp_struct2varargin(acquireargs));
-    set(handles.edit2,'String',tmp(2:end-1)); end
+    set(handles.edit2,'String',tmp(2:end-1)); 
+end
 
 function args = get_cell_args(handle,name)
 % get a cell argument pack

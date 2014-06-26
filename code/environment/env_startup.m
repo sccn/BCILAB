@@ -185,7 +185,7 @@ if ~isdeployed
         retain = cellfun('isempty',strfind(paths,bad_path));
         path(sprintf(['%s' pathsep],paths{retain}));
         if ~all(retain)
-            disp('  BCILAB sub-directories have been detected in the MATLAB path, removing them.'); end
+            disp('BCILAB sub-directories have been detected in the MATLAB path, removing them.'); end
     end
 
     % add core function paths

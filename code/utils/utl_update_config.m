@@ -33,7 +33,11 @@ try
 catch e
     if strcmp(e.identifier,'hlp_config:permissions_error')
         % no permission to update config file: ask if a local copy should be created
-        resp = questdlg2('The configuration file that you use is read only. Would you like to create a local copy in your home directory?','Permissions','Yes','No','Cancel','Yes');
+        try
+            resp = questdlg2('The configuration file that you use is read only. Would you like to create a local copy in your home directory?','Permissions','Yes','No','Cancel','Yes');
+        catch
+            resp = questdlg('The configuration file that you use is read only. Would you like to create a local copy in your home directory?','Permissions','Yes','No','Cancel','Yes');
+        end
         if strcmp(resp,'Yes')
             try 
                 % make writable copy
@@ -47,12 +51,20 @@ catch e
                 % re-apply changes
                 hlp_config(tracking.configscript,operation,varargin{:});
             catch
-                warndlg2(['Cannot create the file "' new_config '".'],'Notification');
+                try
+                    warndlg2(['Cannot create the file "' new_config '".'],'Notification');
+                catch
+                    warndlg(['Cannot create the file "' new_config '".'],'Notification');
+                end
                 return;
             end
         end
     else
-        warndlg2('Your new values cannot be applied due to some error.','Notification');
+        try
+            warndlg2('Your new values cannot be applied due to some error.','Notification');
+        catch
+            warndlg('Your new values cannot be applied due to some error.','Notification');
+        end
         env_handleerror(e);
         return;
     end
