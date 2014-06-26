@@ -26,6 +26,26 @@ function run_readlsl(varargin)
 %   ChannelOverride : Override channel labels. This allows to replace the channel labels that 
 %                     are provided by the stream. (default: {})
 %
+%   SamplingRateOverride : Override sampling rate. This allows to replace the sampling rate that is
+%                          provided by the stream. (default: 0)
+%
+%   MarkerPlacement : Marker placement rule. Controls how the latency of markers is determined --
+%                     can use fractional placement, which is based on the sampling rate  (most
+%                     precise, but requires that the sampling rate is well within 1% of the true
+%                     value) or placement next to the nearest sample (also works for streams that
+%                     have irregular sampling rate). (default: 'fractional')
+%
+%   ClockAlignment : Clock alignment algorithm. The algorithm used to smooth clock alignment
+%                    measurements; if the clock drift between data and markers is assumed to be low
+%                    (e.g., come from same machine), then median is the safest choice. If drift is
+%                    substantial (e.g., on a networked installation) then one may use linear to
+%                    correct for that, but if the network is under heavy load it is safer to use
+%                    the trimmed or robust estimators. The trimmed estimator survives occasional
+%                    extreme load spikes, and the robust estimator further improves that tolerance
+%                    by 2x. The only issue with the robust estimator is that whenever it updates
+%                    (every 5s) it delays the BCI output by an extra 15ms of processing time.
+%                    (default: 'trimmed')
+%
 % Notes:
 %   The general format of the queries is that of an XPath 1.0 predicate on the meta-data of a given stream.
 %
@@ -60,6 +80,10 @@ function run_readlsl(varargin)
         arg({'update_freq','UpdateFrequency'},20,[0 Inf],'Update frequency. The rate at which new chunks of data is polled from the device, in Hz.'), ...
         arg({'buffer_len','BufferLength'},10,[],'Internal buffering length. This is the maximum amount of backlog that you can get.'), ...
         arg({'channel_override','ChannelOverride'}, [], [], 'Override channel labels. This allows to replace the channel labels that are provided by the stream.','type','cellstr','shape','row'), ...
+        arg({'srate_override','SamplingRateOverride'}, 0, [], 'Override sampling rate. This allows to replace the sampling rate that is provided by the stream.'), ...
+        arg({'marker_placement','MarkerPlacement'}, 'nearest', {'nearest','interpolated'}, 'Marker placement rule. Controls how the latency of markers is determined -- can use interpolated placement, which is based on the sampling rate (but requires that the sampling rate is well within 1% of the true value) or placement next to the nearest sample (works for streams that have irregular sampling rate but fails for stream which incorrectly report their sampling rate).','guru',true), ...
+        arg({'clock_alignment','ClockAlignment'}, 'median', {'trimmed','median','robust','linear','raw'}, 'Clock alignment algorithm. The algorithm used to smooth clock alignment measurements; if the clock drift between data and markers is assumed to be low (e.g., come from same machine), then median is the safest choice. If drift is substantial (e.g., on a networked installation) then one may use linear to correct for that, but if the network is under heavy load it is better to use the trimmed or robust estimator. The trimmed estimator survives occasional extreme load spikes, and the robust estimator further improves that tolerance by 2x. The only issue with the robust estimator is that whenever it updates (every 5s) it delays the BCI output by an extra 15ms of processing time. Most estimators other than median can introduce a few-ms jitter between data and markers.','guru',true), ...
+        arg({'jitter_correction','JitterCorrection'}, true, [], 'Correct for jittered time stamps. This applies only to the data stream.','guru',true), ...
         arg_deprecated({'property','SelectionProperty'}, '',[],'Selection property. The selection criterion by which the desired device is identified on the net. This is a property that the desired device must have (e.g., name, type, desc/manufacturer, etc.'), ...
         arg_deprecated({'value','SelectionValue'}, '',[],'Selection value. This is the value that the desired device must have for the selected property (e.g., EEG if searching by type, or Biosemi if searching by manufacturer).'));
 
@@ -75,6 +99,7 @@ function run_readlsl(varargin)
     result = {};
     while isempty(result)
         result = lsl_resolve_bypred(lib,opts.data_query); end
+    
     % create a new inlet
     disp('Opening an inlet...');
     inlet = lsl_inlet(result{1});
@@ -108,13 +133,18 @@ function run_readlsl(varargin)
         channels = cellfun(@(k)['Ch' num2str(k)],num2cell(1:info.channel_count(),1),'UniformOutput',false);
     end
 
-    % create online stream (using appropriate meta-data)
-    srate = info.nominal_srate();
-    % for non-uniformly sampled streams we assume a sampling rate that is approx in the ballpark of
-    % 100 Hz in order to determine the buffer length
-    if srate == 0
-        srate = 100; end 
-    onl_newstream(opts.new_stream,'srate',srate,'chanlocs',channels,'buffer_len',opts.buffer_len);
+    % allow the nominal_srate to be overridden
+    nominal_srate = info.nominal_srate();
+    if ~nominal_srate && ~opts.srate_override
+        fprintf('The given data stream reports a sampling rate of 0 (= irregular sampling); if you know that the stream is actually regularly sampled we recommend that you override the sampling rate by passing in a nonzero SamplingRateOverride value.'); end
+    if opts.srate_override
+        if nominal_srate && strcmp(opts.marker_placement,'nearest')
+            fprintf('IMPORTANT: If you know that your stream''s sampling rate is specified incorrectly and override it, it is recommended to also set MarkerPlacement to ''fractional'', which bases it on your given sampling rate (nearest will most likely give incorrect results).'); end
+        nominal_srate = opts.srate_override; 
+    end
+
+    % create online stream data structure in base workspace (using appropriate meta-data)
+    onl_newstream(opts.new_stream,'srate',nominal_srate,'chanlocs',channels,'buffer_len',opts.buffer_len);
 
     if ~isempty(opts.marker_query)
         % also try to find the desired marker stream
@@ -133,7 +163,7 @@ function run_readlsl(varargin)
     samples = {};
     timestamps = [];
     
-    % start background acquisition
+    % start background acquisition on the online stream (set up read_data as callback function)
     onl_read_background(opts.new_stream,@()read_data(inlet,marker_inlet,opts.always_double),opts.update_freq);
 
     disp('Now reading...');
@@ -142,12 +172,13 @@ function run_readlsl(varargin)
     function result = read_data(data_inlet,marker_inlet,always_double)
         % get a new chunk of data
         [chunk,stamps] = data_inlet.pull_chunk();
-        stamps = stamps + data_inlet.time_correction();
+        stamps = stamps + data_inlet.time_correction([],opts.clock_alignment);
         if always_double
             chunk = double(chunk); end
-        % poll markers
+        
         if ~isempty(marker_inlet) && ~isempty(stamps)
-            corr = marker_inlet.time_correction();
+            % receive any available markers
+            corr = marker_inlet.time_correction([],opts.clock_alignment);
             while true
                 [sample,ts] = marker_inlet.pull_sample(0.0);
                 if ts                
@@ -158,13 +189,18 @@ function run_readlsl(varargin)
                 end
             end
 
-            % submit all time stamps that overlap the chunk (some may be in the future)
+            % submit all markers that overlap the chunk being submitted (some may be ahead of the data stream received thus far)
             matching = timestamps < stamps(end);
             if any(matching)
-                latencies = 1 + (timestamps(matching)-stamps(1))/median(diff(stamps)); % / (stamps(end)-stamps(1)) * (size(chunk,2)-1);
+                % calculate marker latencies, in samples relative to the beginning of the chunk being submitted
+                if (strcmp(opts.marker_placement,'nearest') || ~nominal_srate)
+                    latencies = argmin(abs(bsxfun(@minus,timestamps(matching),stamps(:))));
+                else
+                    latencies = 1 + (timestamps(matching)-stamps(1))*nominal_srate;
+                end
                 latencies = min(size(chunk,2),max(1,latencies));
                 markers = struct('type',samples(matching),'latency',num2cell(latencies));
-                % and remove the markers from the list
+                % and remove the markers from the buffer
                 samples(matching) = [];
                 timestamps(matching) = [];
             else
