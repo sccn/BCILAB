@@ -24,7 +24,7 @@ for s = 1:4
     % load & retain the first 32 channels
     session{s} = exp_eval_optimized(io_loadset(filename,'channels',1:32));
     % override the channel locations (they are incorrect in the original data)
-    session{s}.chanlocs = set_infer_chanlocs('data:/tutorial/imag_movements2/mi32.loc');
+    session{s}.chanlocs = set_infer_chanlocs('bcilab:/userdata/tutorial/imag_movements2/mi32.loc');
 end
 
 % concatenate the first 3 sessions as training data (leave the 4th session for testing)

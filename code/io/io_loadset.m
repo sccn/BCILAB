@@ -438,14 +438,13 @@ res.comments = allopts.comments;
 
 % and reduce the data post-hoc if not already done so in the loader
 if ~isempty(opts.channels)
-    res = pop_select(res,'channel',set_chanid(res,opts.channels),'sorttrial','off'); end
+    res = hlp_scope({'disable_expressions',true},@flt_selchans,res,{res.chanlocs(opts.channels).labels}); end
 if ~isempty(opts.samplerange)
-    res = pop_select(res,'point',opts.samplerange); end
+    res = hlp_scope({'disable_expressions',true},@set_selinterval,res,opts.samplerange,'samples'); end
 if ~isempty(opts.timerange)
-    res = pop_select(res,'time',opts.timerange); end
+    res = hlp_scope({'disable_expressions',true},@set_selinterval,res,opts.timerange,'seconds'); end
 if ~isempty(allopts.subsampled)
-    res = pop_resample(res,allopts.subsampled); end
-
+    error('Sub-sampling at load time is not supported for this file format.'); end
 
 if length(unique({res.chanlocs.labels})) ~= length(res.chanlocs)
     warning('bcilab:io_loadset:duplicate_channels','Multiple of your channels have the same label; this will likely give you errors during processing.'); end
