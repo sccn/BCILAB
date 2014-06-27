@@ -16,7 +16,7 @@ classdef ParadigmMOSR < ParadigmBase
     %
     % References:
     %  C. A. Kothe and S. Makeig, 
-    %  â€œEstimation of Task Workload from EEG Data: New and Current Tools and Perspectives,â€? 
+    %  "Estimation of Task Workload from EEG Data: New and Current Tools and Perspectives,"
     %  IEEE EMBC, vol. 2011, pp. 6547-6551, 2011.
     % 
     % Name:
