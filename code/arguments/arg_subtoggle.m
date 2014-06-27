@@ -1,11 +1,13 @@
 function res = arg_subtoggle(varargin)
-% Specify an argument of a function which is a struct of sub-arguments that can be disabled.
+% Define an argument of a function which is a struct of sub-arguments that can be disabled.
 % Spec = arg_subtoggle(Names,Default,Source,Help,Options...)
 %
-% Accessible to the function as a struct, and visible in the GUI as a an expandable sub-list of
-% arguments (with a checkbox to toggle). The special field 'arg_selection' (true/false) indicates
-% whether the argument is enabled or not. The value assigned to the argument determines whether it
-% is turned on or off, as determined by the mapper option.
+% Useful for functions that have a feature that can be turned on/off and that has several associated
+% options and defaults. The subtoggle argument is passed back to the function as a struct, and
+% visible in the GUI as a an expandable sub-list of arguments (with a checkbox to toggle the group
+% as a whole). The special field 'arg_selection' (true/false) indicates whether the subtoggle is
+% enabled or not. Whether the argument is turned on or off is determined based on the value assigned
+% to it (using a mapping rule).
 %
 % In:
 %   Names : The name(s) of the argument. At least one must be specified, and if multiple are
@@ -13,27 +15,40 @@ function res = arg_subtoggle(varargin)
 %           * The first name specified is the argument's "code" name, as it should appear in the
 %             function's code (= the name under which arg_define() returns it to the function).
 %           * The second name, if specified, is the "Human-readable" name, which is exposed in the
-%             GUIs (if omitted, the code name is displayed).
-%           * Further specified names are alternative names for the argument (e.g., for backwards
+%             GUIs (if omitted, the code name is displayed). For consistency with other MATLAB 
+%             functions it should be in CamelCase.
+%           * Further specified names are aliases for the argument (e.g., for backwards
 %             compatibility with older function syntaxes/parameter names).
 %
 %   Defaults : A cell array of arguments to override defaults for the Source; all syntax accepted by
-%              the (selected) Source is allowed here, whereas in the case of positional arguments,
-%              the leading arg_norep() arguments of the source are implicitly skipped. Note: Whether
-%              the argument is turned on or off is determined via the 'mapper' option. By default,
-%              [] and 'off' are mapped to off, whereas {}, non-empty cell arrays and structs are
-%              mapped to on.
+%              the (selected) Source is allowed here, although it is recommended to pass the
+%              Defaults as NVPs/structs. 
 %
-%   Source : A source of argument specifications, usually a function handle (referring to a function
-%            which defines arguments via arg_define()).
+%              By default almost any value maps to on, with the exception of: 'off', [], 0, false,
+%              cell arrays of NVPs/structs where 'arg_selection' is set to false, and structs with
+%              an arg_selection field that is set to false. The reliance on 0/false to disable an 
+%              arg_subtoggle is deprecated and discouraged as it can lead to surprising behavior
+%              when the convenience syntax (see fourth paragraph) is used with boolean or 
+%              scalar numeric values.
 %
-%            For convenience, a cell array with a list of argument declarations, formatted like the
-%            Specification part of an arg_define() clause can be given, instead. In this case, the
-%            effect is the same as specifying @some_function, for a function implemented as:
+%              The recommended way to set an arg_subtoggle argument to on/off without overriding
+%              defaults is to pass in the strings 'on' or 'off', or the values {} (on) or [] (off).
+%              When defaults shall be overridden, the recommended way is to pass a cell array of
+%              NVPs/structs (yields on), optionally with an arg_selection entry to override whether
+%              the toggle is on or off.
 %
-%               function some_function(varargin) arg_define(Format,varargin,Source{:});
+%              For end-user convenience all other values (e.g., 200, '', 'xxx') map to on and by
+%              default assign the value to the first sub-argument of the toggle -- but note that the
+%              systematic way is to always wrap the sub-arguments in a cell array instead, in order
+%              to avoid unexpected behavior when cell-array values are involved (this is the same
+%              circumstance as in MATLAB's struct() function), or when the special values
+%              true/false/'on'/'off' are passed. (default: {})
 %
-%   Help : The help text for this argument (displayed inside GUIs), optional. (default: []).
+%   Source : A source of argument specifications, either a function handle (referring to a function
+%            which defines arguments via arg_define() or a cell array with a list of argument
+%            declarations. (default: {})
+%
+%   Help : The help text for this argument (displayed inside GUIs), optional. (default: '').
 %          (Developers: Please do *not* omit this, as it is the key bridge between ease of use and
 %          advanced functionality.)
 %
@@ -43,41 +58,41 @@ function res = arg_subtoggle(varargin)
 %          sentence). If ambiguous, the help can also be specified as a cell array of 2 cells.
 %
 %   Options... : Optional name-value pairs to denote additional properties:
-%                 'cat' :  The human-readable category of this argument, helpful to present a list
-%                          of many parameters in a categorized list, and to separate
-%                          "Core Parameters" from "Miscellaneous" arguments. Developers: When
-%                          choosing names, every bit of consistency with other function in the
-%                          toolbox helps the uses find their way (default: []).
+%                 'reflag' : list of {'subargument-name',overrides, 'subargument-name',overrides, ...}
+%                            that allows to selectively override flags in the sub-arguments. The
+%                            overrides are themselves cell arrays of name-value pairs, e.g.,
+%                            {'displayable',false, 'guru',true, 'deprecated',false}
 %
-%                 'fmt' : Optional format specification for the Source (if it is a cell array)
-%                         (default: []). See arg_define() for a detailed explanation.
+%                 'suppress' : A simpler alternative to reflag that holds a list of argument names
+%                              that shall be suppressed from GUIs (by setting their displayable to false).
 %
-%                 'mapper' : A function that maps the argument list (e.g., Defaults) to a value in
-%                            the domain of selectors, and a potentially updated argument list. The
-%                            mapper is applied to the argument list prior to any parsing (i.e. it
-%                            faces the raw argument list) to determine the current selection, and
-%                            its its second output (the potentially updated argument list) is
-%                            forwarded to the Source that was selected, for further parsing.
+%                 'mapper' : A function that maps an input value assigned to the subtoggle argument
+%                            (e.g., like the Defaults) to a value in true/false, and a (potentially
+%                            updated) argument list as second output. The mapper is applied to the
+%                            value prior to any parsing (i.e. it receives the raw data that is being
+%                            assigned to the subtoggle argument) to determine the on/off state, and
+%                            its second output (the potentially updated cell array of sub-argument
+%                            assignments) is forwarded to the Source that was selected, for further
+%                            parsing. (default: a mapper that implements the rules as documented for
+%                            Defaults)
 %
-%                            The default mapper maps [] and 'off' to off, whereas 'on', empty or
-%                            non-empty cell arrays and structs are mapped to on.
+%                 'fmt' : Optional format specification for the Source (default: [0 Inf]). 
+%                         See arg_define() for a detailed explanation.
 %
-%                 'merge': Whether a value (cell array of arguments) assigned to this argument
-%                          should completely replace all arguments of the default, or whether it
-%                          should instead the two cell arrays should be concatenated ('merged'), so
-%                          that defaults are only selectively overridden. Note that for
-%                          concatenation to make sense, the cell array of Defaults cannot be some
-%                          subset of all allowed positional arguments, but must instead either be
-%                          the full set of positional arguments (and possibly some NVPs) or be
-%                          specified as NVPs in the first place.
+%                 'alternative_defaults' : cell array of default values for the case where the
+%                                          argument is by default not selected, but where
+%                                          alternative defaults for the selected case should
+%                                          nevertheless be specified (default: {})
+%
+%                 others: as in arg()
 %
 %
 % Out:
-%   Spec : A cell array, that, when called as spec{1}(reptype,spec{2}{:}), yields a specification of
+%   Spec : A cell array, that, when called as feval(spec{1},reptype,spec{2}{:}), yields a specification of
 %          the argument, for use by arg_define. Technical note: Upon assignment with a value (via
 %          the assigner field), the 'children' field of the specifier struct is populated according
 %          to how the selected (by the mapper) Source parses the value into arguments. The
-%          additional struct field 'arg_selection 'is introduced at this point.
+%          additional struct field 'arg_selection' is introduced at this point.
 %
 % Examples:
 %   % define a function with an argument that can be turned on or off, and which has sub-arguments
@@ -141,186 +156,4 @@ function res = arg_subtoggle(varargin)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-% we return a function that an be invoked to yield a specification (its output is cached for
-% efficiency) packed in a cell array together with the remaining arguments
-res = {@invoke_argsubtoggle_cached,varargin};
-
-
-function spec = invoke_argsubtoggle_cached(varargin)
-spec = hlp_microcache('arg',@invoke_argsubtoggle,varargin{:});
-
-
-% the function that does the actual work of building the argument specifier
-function spec = invoke_argsubtoggle(reptype,names,defaults,source,help,varargin)
-
-% start with a base specification
-spec = arg_specifier('head',@arg_subtoggle, 'fmt',[], 'type','logical', 'shape','scalar', 'mapper',@map_argsubtoggle);
-
-suppressNames = {};
-
-% override properties
-if exist('names','var')
-    spec.names = names; end
-if exist('help','var')
-    spec.help = help; end
-for k=1:2:length(varargin)
-    if isfield(spec,varargin{k})
-        spec.(varargin{k}) = varargin{k+1};
-    elseif strcmpi(varargin{k},'suppress')
-        suppressNames = varargin{k+1};
-    else
-        error('BCILAB:arg:no_new_fields','It is not allowed to introduce fields into a specifier that are not declared in arg_specifier.');
-    end
-end
-
-% do checking
-if ~iscell(spec.names)
-    spec.names = {spec.names}; end
-if isempty(spec.names) || ~iscellstr(spec.names)
-    error('The argument must have a name or cell array of names.'); end
-if ~exist('source','var') || isempty(source)
-    error('BCILAB:args:no_options','The Source argument for arg_subtoggle() may not be omitted.'); end %#ok<*NODEF>
-if nargin(spec.mapper) == 1
-    spec.mapper = @(x,y,z) spec.mapper(x); end
-% parse the help
-if ~isempty(spec.help)
-    try
-        spec.help = parse_help(spec.help,100);
-    catch e
-        disp(['Problem with the help text for argument ' spec.names{1} ': ' e.message]);
-        spec.help = {};
-    end
-elseif spec.reportable && spec.displayable
-    disp(['Please specify a description for argument ' spec.names{1} ', or specify it via arg_nogui() instead.']);
-end
-
-% uniformize Source syntax
-if iscell(source)
-    % args is a cell array instead of a function: we effectively turn this into a regular
-    % arg_define-using function (taking & parsing values)
-    source = @(varargin) arg_define(spec.fmt,varargin,source{:});
-else
-    % args is a function: was a custom format specified?
-    if isa(spec.fmt,'function_handle')
-        source = @(varargin) source(spec.fmt(varargin));
-    elseif ~isempty(spec.fmt)
-        error('The only allowed form in which the Format of a Source that is a function may be overridden is as a pre-parser (given as a function handle)');
-    end
-end
-spec = rmfield(spec,'fmt');
-
-% wrap the default into a cell if necessary (note: this is convenience syntax)
-if isstruct(defaults)
-    defaults = {defaults};
-elseif strcmp(defaults,'off')
-    defaults = [];
-elseif strcmp(defaults,'on')
-    defaults = {};
-elseif ~iscell(defaults) && ~isequal(defaults,[])
-    error(['It is not allowed to use anything other than a cell array, a struct, [] or ''off'' and ''on'' as defaults of an arg_subtoggle argument (here:' spec.names{1} ')']);
-end
-% resolve the default configuration into the boolean flag and value set; this is relevant for
-% the merging option: in this case, we need to pull up the currect default and merge it with the
-% passed value
-[default_sel,default_val] = spec.mapper(defaults);
-
-% set up the regular assigner
-spec.assigner = @(spec,value) assign_argsubtoggle(spec,value,reptype,source,default_sel,default_val,suppressNames);
-
-% assign the default
-if strcmp(reptype,'rich')
-    spec = assign_argsubtoggle(spec,defaults,'build',source,NaN,{},suppressNames);
-else
-	spec = assign_argsubtoggle(spec,defaults,'lean',source,NaN,{},suppressNames);
-end
-
-
-function spec = assign_argsubtoggle(spec,value,reptype,source,default_sel,default_val,suppressNames)
-% precompute things that we might need later
-persistent arg_sel arg_desel;
-if isempty(arg_sel) || isempty(arg_sel)
-    arg_sel = arg_nogui('arg_selection',true); arg_sel = arg_sel{1}([],arg_sel{2}{:});
-    arg_desel = arg_nogui('arg_selection',false); arg_desel = arg_desel{1}([],arg_desel{2}{:});
-end
-% wrap the value into a cell if necessary (note: this is convenience syntax)
-if isstruct(value)
-    value = {value};
-elseif ~iscell(value) && ~isequal(value,[]) && ~isempty(default_val)
-    error(['For an arg_subtoggle argument that has non-empty defaults (here:' spec.names{1} '), it is not allowed to assign anything other than a cell array, a struct, or [] to it.']);
-end
-% retrieve the values for the realized switch option...
-[selected,value] = spec.mapper(value);
-% build the complementary alternative, if requested
-if strcmp(reptype,'build')
-    if selected
-        spec.alternatives{1} = arg_desel;
-    else
-        spec.alternatives{2} = [arg_report('rich',source,{}) arg_sel];
-    end
-    reptype = 'rich';
-end
-% obtain the children
-if ~selected
-    spec.children = arg_desel;
-elseif spec.merge && (default_sel==true)
-    spec.children = [arg_report(reptype,source,[default_val value]) arg_sel];
-else
-    spec.children = [arg_report(reptype,source,value) arg_sel];
-end
-
-% toggle the displayable option for children which should be suppressed
-if ~isempty(suppressNames)
-    % identify which children we want to suppress display
-    hidden = find(cellfun(@any,cellfun(@(x,y) ismember(x,suppressNames),{spec.children.names},'UniformOutput',false)));
-    % set display flag to false
-    for k=hidden(:)'
-        spec.children(k).displayable = false;
-    end
-
-    % identify which alternatives we want to suppress display
-    for alt_idx = 1:length(spec.alternatives)
-        if isempty(spec.alternatives{alt_idx})
-            continue; end
-        hidden = find(cellfun(@any,cellfun(@(x,y) ismember(x,suppressNames),{spec.alternatives{alt_idx}.names},'UniformOutput',false)));
-        % set display flag to false
-        for k=hidden(:)'
-            spec.alternatives{alt_idx}(k).displayable = false;
-        end
-    end
-end
-
-spec.alternatives{selected+1} = spec.children;
-% and set the cell's value
-spec.value = selected;
-
-
-
-% this function maps an argument list onto a binary flag (enabled status) plus value set to assign
-function [selected,args] = map_argsubtoggle(args)
-if isequal(args,'on')
-    selected = true;
-    args = {};
-elseif isequal(args,'off') || isequal(args,[])
-    selected = false;
-    args = [];
-elseif length(args) == 1 && isfield(args,'arg_selection')
-    selected = args.arg_selection;
-elseif length(args) == 1 && iscell(args) && isstruct(args{1}) && isfield(args{1},'arg_selection')
-    selected = args{1}.arg_selection;
-elseif isequal(args,{'arg_selection',0})
-    selected = false;
-    args = {};
-elseif isequal(args,{'arg_selection',1})
-    selected = true;
-    args = {};
-elseif iscell(args)
-    % find the arg_selection in the cell array
-    pos = find(strcmp('arg_selection',args(1:end-1)),1,'last');
-    if isempty(pos)
-        selected = true;
-    else
-        [selected,args] = deal(args{pos+1},args([1:pos-1 pos+2:end]));
-    end
-else
-    selected = true;
-end
+res = {'expand_argsubtoggle',varargin};

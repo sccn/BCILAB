@@ -13,7 +13,7 @@ function [inargs,outargs,h1] = hlp_inoutargs(filename,funcname)
 %   H1-Line  : first line of help text
 %
 % Notes:
-%   For heavy use, utl_fileversion is to be preferred (which caches the result of this function properly).
+%   For heavy use, hlp_fileinfo is to be preferred (which caches the result of this function properly).
 %
 %                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                           2010-04-14
@@ -33,15 +33,18 @@ function [inargs,outargs,h1] = hlp_inoutargs(filename,funcname)
 % USA
 
 h1 = [];
-
-if ~exist('funcname','var')
+if nargin < 2
     funcname = []; end
 
-if ~exist(filename,'file')
-    error(['there is no file named ' filename]); end
 f = fopen(filename,'r');
 if f == -1
-    error(['Cannot open the file named ' filename]); end
+    if ~exist(filename,'file')
+        error(['there is no file named ' filename]);
+    else
+        error(['Cannot open the file named ' filename]); 
+    end
+end
+
 try
     while 1
         % read the file line by line
@@ -75,8 +78,8 @@ try
             else
                 outargs = {};
             end
-            inargs = inargs(~cellfun(@isempty,inargs));
-            outargs = outargs(~cellfun(@isempty,outargs));                
+            inargs = inargs(~cellfun('isempty',inargs));
+            outargs = outargs(~cellfun('isempty',outargs));                
             if ~isempty(funcname)
                 % and also make sure that we have the correct function name
                 if ~isempty(oend)
@@ -105,7 +108,7 @@ try
         comm = find(l=='%',1);
         if ~isempty(comm)
             h1 = strtrim(l(comm+1:end)); end
-    catch
+    catch %#ok<CTCH>
     end
     fclose(f);
 catch e

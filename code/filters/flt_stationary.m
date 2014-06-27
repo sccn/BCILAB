@@ -83,14 +83,14 @@ if ~exist('decomposition','var')
         X = X(cellfun('size',X,2) == l);
     else
         % extract intervals for each row in blocklen...
-        for i=1:size(blocklen,1)
+        for i=size(blocklen,1):-1:1
             X{i} = signal.data(:,round(blocklen(i,1)*signal.srate):round(blocklen(i,2)*signal.srate)); end
     end
     
     N = length(X);    
     % compute mean and covariance for each block
-    for i=1:N
-        mu{i} = mean(X{i}');
+    for i=N:-1:1
+        mu{i} = mean(X{i}'); %#ok<UDIM>
         sig{i} = cov(X{i}');
     end
     
@@ -102,7 +102,7 @@ if ~exist('decomposition','var')
     % compute the matrix S (Eq. 9)
     S = zeros(size(Sig));
     for i=1:N
-        S = S + mu{i}*mu{i}' + (1/2) * sig{i} * invSig * sig{i}; end
+        S = S + mu{i}*mu{i}' + (1/2) * sig{i} * invSig * sig{i}; end %#ok<MINV>
     S = S/N - Mu*Mu' - 1/2*Sig;
     
     % solve the generalized eigenvalue problem and sort results
@@ -139,7 +139,6 @@ if ~exist('decomposition','var')
         new_chanlocs = [];
     end
 end
-
 
 % project data
 [C,S,T] = size(signal.data); %#ok<*NODEF>

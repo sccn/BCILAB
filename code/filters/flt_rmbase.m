@@ -51,8 +51,10 @@ arg_define(varargin, ...
 if isempty(wnd)  %#ok<*NODEF>
     wnd = [-Inf Inf]; end
 
-signal.data = double(signal.data);
-wnd = round(max(1,min(size(signal.data,2),(wnd-signal.xmin)*signal.srate+1)));
-signal.data = signal.data - repmat(mean(signal.data(:,wnd(1):wnd(2),:),2),[1,size(signal.data,2),1]);
+for f = utl_timeseries_fields(signal)
+    signal.(f{1}) = double(signal.(f{1}));
+    wnd = round(max(1,min(size(signal.(f{1}),2),(wnd-signal.xmin)*signal.srate+1)));
+    signal.(f{1}) = signal.(f{1}) - repmat(mean(signal.(f{1})(:,wnd(1):wnd(2),:),2),[1,size(signal.(f{1}),2),1]);
+end
 
 exp_endfun;

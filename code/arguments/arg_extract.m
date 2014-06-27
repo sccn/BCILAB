@@ -26,6 +26,11 @@ function x = arg_extract(args,names,position,default)
 %   allow any of the Names as its value; otherwise, these fields may be accidentally picked out by 
 %   arg_extract.
 %
+%   This function should be used very sparingly, since a) it needs to behave robustly even if 
+%   the arguments are only partially specified (during parsing of default values that involve this 
+%   function) and b) it slows down argument processing. Generally, setting up dependencies between
+%   arguments that work correctly using arg_extract is very difficult and therefore discouraged.
+%
 % Examples:
 %   % extract the ALLEEG argument (by name or position)
 %   x = arg_extract(varargin,'ALLEEG',1) ;

@@ -188,4 +188,6 @@ end
 signal.event = signal.event(hlp_getresult(2,@sort,[signal.event.latency]));
 
 % remove event channels
-signal = pop_select(signal,'channel',find(~eventchans));
+signal.data = signal.data(~eventchans,:,:,:,:,:,:,:);
+signal.chanlocs = signal.chanlocs(~eventchans);
+signal.nbchan = size(signal.data,1);

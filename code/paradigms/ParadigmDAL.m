@@ -122,10 +122,10 @@ classdef ParadigmDAL < ParadigmDataflowSimplified
         end
         
         function defaults = machine_learning_defaults(self)
-            defaults = 'dal';
+            defaults = {'dal', 'Lambdas',2.^(10:-1.5:-5), 'NumFolds',5,'FoldMargin',1};
         end
         
-        function [featuremodel,predictivemodel] = calibrate_prediction_function(self,varargin)
+        function [featuremodel,conditioningmodel,predictivemodel] = calibrate_prediction_function(self,varargin)
             args = arg_define(varargin, ...
                 arg_norep('signal'), ...
                 arg_sub({'fex','FeatureExtraction'},{},...
@@ -137,6 +137,7 @@ classdef ParadigmDAL < ParadigmDataflowSimplified
                      arg({'orders','WindowOrders'},[],[],'Per-window order. This is the order (1 or 2) for each signal window (Nx1 matrix, or []).','cat','Feature Extraction'), ...
                      arg({'winfunc','WindowFunction'},'rect',{'barthann','bartlett','blackman','blackmanharris','bohman','cheb','flattop','gauss','hamming','hann','kaiser','nuttall','parzen','rect','taylor','triang','tukey'},'Type of window function. Typical choices are rect (rectangular), hann, gauss, blackman and kaiser; the same window function is assumed for all second-order windows (first-order windows use the rectangular window).'),...
                      arg({'winparam','WindowParameter','param'},[],[],'Parameter of the window function. This is mandatory for cheb, kaiser and tukey and optional for some others.','shape','scalar')}, 'Parameters for the feature-adaptation function. These parameters control how features are statistically adapted and extracted from the filtered data before they are passed int othe machine learning stage; the same window parameter is assumed for all second-order windows (first-order windows use the rectangular window).'), ...
+                arg_sub({'cond','Conditioning'},{},@self.feature_adapt_conditioning,'Feature conditioning parameters. Allows to further process features for better usability with classifiers.'), ...
                 arg_sub({'ml','MachineLearning'},{'Learner',self.machine_learning_defaults()},@ml_train,'Machine learning stage of the paradigm. Operates on the feature vectors that are produced by the feature-extraction stage.'));
 
             if ~isempty(args.fex.freqwnds) && ~isempty(args.fex.timewnds) && size(args.fex.freqwnds,1) ~= size(args.fex.timewnds,1)
@@ -262,6 +263,10 @@ classdef ParadigmDAL < ParadigmDataflowSimplified
             % extract features & target labels
             features = self.feature_extract(args.signal, featuremodel);
             targets = set_gettarget(args.signal);
+
+            % adapt and apply feature conditioning
+            conditioningmodel = self.feature_adapt_conditioning('features',features,'targets',targets,args.cond);
+            [features,targets] = self.feature_apply_conditioning(features,targets,conditioningmodel);
             
             % run the machine learning stage
             predictivemodel = ml_train('data',{features,targets}, args.ml);

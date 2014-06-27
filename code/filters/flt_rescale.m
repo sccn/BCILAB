@@ -11,6 +11,7 @@ arg_define(varargin, ...
     arg_norep({'signal','Signal'}), ...
     arg({'scaleFactor','ScaleFactor'},1,[],'Scaling factor'));
 
-signal.data = scaleFactor*signal.data;
+for f=utl_timeseries_fields(signal)
+    signal.(f{1}) = scaleFactor*signal.(f{1}); end
 
 exp_endfun;

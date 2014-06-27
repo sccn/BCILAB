@@ -452,25 +452,29 @@ function [measure,model,stats] = bci_train(varargin)
 %                 continuous data because a continuous-data statistic needs to be computed over the
 %                 training set (such as ICA).
 %
+%   PerFoldModels : Collect per-fold models. If true, models of each fold of the cross-validation
+%                   will be collected (uses more memory). (default: false)
+%
 %   CrossvalidationResources : Cross-validation parallelization. Same meaning and options as the
 %                              ParameterSearchEngine parameter, however for the cross-validations.
 %                              By default set to 'global'.
 %
 %   ParameterSearchResources : Parameter search parallelization. If set to 'global', the global BCILAB
-%                              setting will be used to determine when to run this computation. If set
-%                              to 'local', the computation will be done on the local machine.
-%                              Otherwise,the respective scheduler will be used to distribute the
-%                              computation across a cluster (default: 'local')
+%                              setting (see par_globalsetting) will be used to determine when to run
+%                              this computation. If set to 'local', the computation will be done on
+%                              the local machine. Otherwise,the respective scheduler will be used to
+%                              distribute the computation across a cluster (default: 'local')
 %   
 %   NestedCrossvalResources : Nested cross-validation parallelization. If set to 'global', the
-%                             global BCILAB setting will be used to determine when to run this
-%                             computation. If set to 'local', the computation will be done on the
-%                             local machine. Otherwise,the respective scheduler will be used to
-%                             distribute the computation across a cluster (default: 'local')
+%                             global BCILAB setting will be used (see par_globalsetting) to
+%                             determine when to run this computation. If set to 'local', the
+%                             computation will be done on the local machine. Otherwise,the
+%                             respective scheduler will be used to distribute the computation across
+%                             a cluster (default: 'local')
 %
 %   ResourcePool : Parallel compute resouces. If set to ''global'', the globally set BCILAB resource 
-%                  pool will be used, otherwise this should be a cell array of 'hostname:port'
-%                  strings (default: 'global')
+%                  pool will be used (see par_globalsetting), otherwise this should be a cell array
+%                  of 'hostname:port' strings (default: 'global')
 %
 % Out:
 %   Loss       : a measure of the overall performance of the paradigm combination, w.r.t. to the 
@@ -567,6 +571,7 @@ opts = arg_define(varargin, ...
     arg({'engine_ncv','NestedCrossvalResources'},'local',{'global','local','BLS','ParallelComputingToolbox','Reference'},'Nested Cross-validation parallelization. If set to ''global'', the global BCILAB setting will be used to determine when to run this computation. If set to ''local'', the computation will be done on the local machine. Otherwise,the respective scheduler will be used to distribute the computation across a cluster.'), ...
     arg({'pool','ResourcePool'},'global',[],'Parallel compute resouces. If set to ''global'', the globally set BCILAB resource pool will be used, otherwise this should be a cell array of hostname:port strings.'), ...
     ... % some more misc parameters
+    arg({'per_fold_models','PerFoldModels'},false,[],'Collect per-fold models. If true, models of each fold of the cross-validation will be collected (uses more memory).'), ...
     arg({'prune_datasets','PruneDatasets'},true,[],'Prune datasets from results. If true, any occurrence of a data set in the resulting model or stats struct will be replaced by its symbolic expression or a placeholder string.'), ...
     arg({'prune_nontarget_markers','PruneNontargetMarkers'},false,[],'Prune non-target markers. This usually improves the speed of offline processing at the cost of not being able to access misc markers in BCI analysis.'));
 
@@ -584,7 +589,7 @@ if ~hlp_resolve('fingerprint_check',true)
 % parse the approach (either it's a paradigm name string, a cell array, or a struct)
 if ischar(opts.approach)
     opts.approach = struct('paradigm',opts.approach, 'parameters',{{}});
-elseif iscell(opts.approach)
+elseif iscell(opts.approach) && ~isempty(opts.approach)
     opts.approach = struct('paradigm',opts.approach{1}, 'parameters',{opts.approach(2:end)}); 
 elseif ~all(isfield(opts.approach,{'paradigm','parameters'}))
     error('The approach must be given either as struct with fields ''paradigm'' and ''parameters'' or as a cell array of the form {paradigmname, param1, param2, param3, ...}'); 
@@ -628,7 +633,7 @@ end
 
 % if the EpochBounds are undefined, see if we can infer them from the data
 if isempty(opts.epoch_bounds)
-    bounds = collect_instances(paradigm_parameters,'epobounds'); % note: direct name reference to set_makepos's parameter
+    bounds = collect_instances(paradigm_parameters,'time_bounds'); % note: direct name reference to set_makepos's parameter
     if ~isempty(bounds)
         bounds = vertcat(bounds{:});
         % we use an upper bound of the encountered bounds if multiple (can be multiple if in a 
@@ -679,7 +684,7 @@ for k=1:length(source_data)
 nonlocal = false;
 for computescope = {'engine_cv','engine_gs','engine_ncv'}
     if strcmp(opts.(computescope{1}),'global')
-        nonlocal = nonlocal || ~strcmp(par_globalengine,'local'); 
+        nonlocal = nonlocal || ~strcmp(par_globalsetting('engine'),'local'); 
     else 
         nonlocal = nonlocal || ~strcmp(opts.(computescope{1}),'local');
     end
@@ -706,6 +711,7 @@ if isscalar(opts.data)
         'partitioner', @(dataset,inds) utl_partition_bundle(dataset,inds,opts.epoch_bounds), ...
         'target', @(dataset) set_gettarget(dataset.streams{1}), ...
         'argform','clauses', ...
+        'collect_models',opts.per_fold_models, ...
         'args',paradigm_parameters};
 else
     % got a data set collection: cross-validate across them
@@ -718,6 +724,7 @@ else
         'partitioner', @(fullcollection,inds) utl_collection_partition(fullcollection,inds,opts.eval_scheme), ...
         'target', @utl_collection_targets, ...
         'argform','clauses', ...
+        'collect_models',opts.per_fold_models, ...
         'args',[paradigm_parameters {'goal_identifier',opts.goal_identifier}]};
 end
 
@@ -737,6 +744,12 @@ model.options = paradigm_parameters;
 model.source_data = source_data;
 model.control_options = rmfield(opts,'data');
 model.epoch_bounds = opts.epoch_bounds;
+if isfield(stats,'per_fold') && isfield(stats.per_fold,'model')
+    for k=1:length(stats.per_fold)
+        if ~isempty(stats.per_fold(k).model)
+            stats.per_fold(k).model.paradigm = paradigm_name; end
+    end
+end
 % remove some additional data overhead from model & stats to keep them small
 if opts.prune_datasets
     model = utl_prune_datasets(model);

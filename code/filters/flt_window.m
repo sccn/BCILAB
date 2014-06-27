@@ -70,7 +70,7 @@ function signal = flt_window(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-06-28
 
-% flt_window_version<1.0> -- for the cache
+% flt_window_version<1.1> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -79,19 +79,67 @@ declare_properties('name','WindowSelection', 'depends','set_makepos', 'follows',
 arg_define(varargin, ... 
     arg_norep({'signal','Signal'}), ...
     arg_sub({'time','TimeSpecification'}, [], ... 
-        {arg({'trange','TimeRange','range'},[],[],'Time window position ([low, high])','shape','row'), ...
+        {arg({'trange','TimeRange','range'},[],[],'Time window position ([low, high]). In seconds.','shape','row'), ...
          arg({'winfunc','WindowFunction'},'rect',{'bartlett','barthann','blackman','blackmanharris','flattop','gauss','hamming','hann','kaiser','lanczos','nuttall','rect','triang'},'Type of window function. Typical choices are rect (rectangular), hann, gauss, blackman and kaiser.'),...
          arg({'winparam','WindowParameter','param'},[],[],'Parameter of the window function.','shape','scalar') ...
         }, 'Time-domain selection. Allows for the specification of a data sub-interval and/or a window function (soft weighting) placed therein.','fmt',@parse_timespec));
     
 % time-domain selection
 if ~isempty(time) && ~isequal(time,false) %#ok<*USENS>
-    % do range selection, if specified
+    % do time range selection, if specified
     if ~isempty(time.trange) && ~isequal(time.trange,[signal.xmin signal.xmax]) %#ok<NODEF>
-        signal = pop_select(signal,'time',time.trange); end
+        
+        % trim the time-series fields
+        sample_bounds = round(min(1+round((time.trange-signal.xmin)*signal.srate),size(signal.data,2)));
+        sample_range = sample_bounds(1):sample_bounds(2);
+        for field = utl_timeseries_fields(signal)
+            if ~isempty(signal.(field{1}))
+                signal.(field{1}) = signal.(field{1})(:,sample_range,:,:,:,:,:,:); end
+        end
+        
+        if ~isempty(signal.epoch) && ~isempty(signal.event)
+            % identify which events to retain in each epoch
+            event_latencies = [signal.epoch.eventlatency];
+            event_latencies = [event_latencies{:}];
+            retain_mask = event_latencies >= (time.trange(1)*1000) & event_latencies <= (time.trange(2)*1000);
+
+            % remove associated event entries
+            event_indices_cell = {signal.epoch.event};
+            event_indices = [event_indices_cell{:}];
+            keep_indices = event_indices(retain_mask);
+            signal.event = signal.event(keep_indices);
+
+            % remove associated .epoch.event* entries
+            [retain_masks{1:length(signal.epoch)}] = chopdeal(double(retain_mask),cellfun('length',event_indices_cell));
+            epoch_numevents = cellfun(@nnz,retain_masks);
+            for f=fieldnames(signal.epoch)'
+                if strncmp(f{1},'event',5)
+                    tmp = [signal.epoch.(f{1})];
+                    [signal.epoch.(f{1})] = chopdeal(tmp(retain_mask),epoch_numevents); 
+                end
+            end
+
+            % update .epoch.event field
+            index_remap(keep_indices) = 1:length(signal.event);
+            [signal.epoch.event] = chopdeal(index_remap([signal.epoch.event]),epoch_numevents);
+            
+            % update pseudo-continuous .event.latency field
+            if ~isempty(signal.event)
+                [signal.event.latency] = arraydeal([signal.event.latency] + (length(sample_range)-signal.pnts)*([signal.event.epoch]-1)); end
+        end
+       
+        signal.pnts = size(signal.data,2);
+        signal.xmax = (sample_bounds(2)-1)/signal.srate + signal.xmin;
+        signal.xmin = (sample_bounds(1)-1)/signal.srate + signal.xmin;
+    end
+    
     % apply window function, if specified    
-    if ~isempty(time.winfunc)
-        signal.data = bsxfun(@times,signal.data,window_func(time.winfunc,size(signal.data,2),time.winparam)'); end
+    if ~isempty(time.winfunc) && ~isequal(time.winfunc,'rect')
+        for f = utl_timeseries_fields(signal)
+            if ~isempty(signal.(f{1}))
+                signal.(f{1}) = bsxfun(@times,signal.(f{1}),window_func(time.winfunc,size(signal.(f{1}),2),time.winparam)'); end
+        end
+    end
 end
 
 exp_endfun;
@@ -99,26 +147,31 @@ exp_endfun;
 
 % parse the (relatively flexible) time specification into a struct
 function out = parse_timespec(in)
-out = struct('trange',{[]},'winfunc',{'rect'},'winparam',{[]});
-if ~isempty(in)
-    % set the .range field
-    if isnumeric(in)
-        out.trange = in; end
-    % set the .winfunc field
-    if ischar(in)
-        out.winfunc = in; end
-    % set fields according to cell contents...
-    if iscell(in) 
-        rangeidx = find(cellfun(@(x) isnumeric(x) && length(x)==2,in));
-        if ~isempty(rangeidx)
-            out.trange = in{rangeidx}; end        
-        funcidx = find(cellfun(@(x) ischar(x),in));
-        if ~isempty(funcidx)
-            out.winfunc = in{funcidx}; end        
-        paramidx = find(cellfun(@(x) isnumeric(x) && length(x)==1,in));
-        if ~isempty(paramidx)
-            out.winparam = in{paramidx}; end        
+if iscellstr(in(1:2:end)) && isempty(fast_setdiff(in(1:2:end),{'trange','winfunc','winparam'}))
+    % the inputs are in name-value pair format
+    out = in;
+else
+    out = struct('trange',{[]},'winfunc',{'rect'},'winparam',{[]});
+    if ~isempty(in)
+        % set the .range field
+        if isnumeric(in)
+            out.trange = in; end
+        % set the .winfunc field
+        if ischar(in)
+            out.winfunc = in; end
+        % set fields according to cell contents...
+        if iscell(in)         
+            rangeidx = find(cellfun(@(x) isnumeric(x) && length(x)==2,in));
+            if ~isempty(rangeidx)
+                out.trange = in{rangeidx}; end        
+            funcidx = find(cellfun(@(x) ischar(x),in));
+            if ~isempty(funcidx)
+                out.winfunc = in{funcidx}; end        
+            paramidx = find(cellfun(@(x) isnumeric(x) && length(x)==1,in));
+            if ~isempty(paramidx)
+                out.winparam = in{paramidx}; end        
+        end
     end
+    % turn into a cell array
+    out = {out};
 end
-% turn into a cell array
-out = {out};

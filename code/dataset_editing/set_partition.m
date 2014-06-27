@@ -51,9 +51,9 @@ arg_define(varargin, ...
     arg({'idxset','IndexSet'},[],[], 'Index set. This is either [] (indicating that the function should return the index set cardinality), or a vector of indices (indicating that the function shall partition the data set accordingly).'), ...
     arg({'epoch_bounds','EpochBounds'},[],[], 'Epoch bounds. Only required when partitioning on a continuous data set based on target events; this is performed using the epoch bounds (as in set_makepos).'));
 
-is_continuous = isempty(signal.epoch) && ndims(signal.data) == 2;
+is_continuous = isempty(signal.epoch) && (isempty(signal.data) || size(signal.data,3) == 1); %#ok<NODEF>
 
-if isempty(idxset)
+if isempty(idxset) %#ok<NODEF>
     % --- calc index set size ---
     
     if ~is_continuous
@@ -77,7 +77,7 @@ else
     
     if ~is_continuous
         % set is epoched: strictly partition in terms of epochs
-        evalc('res = pop_select(signal,''trial'',idxset,''sorttrial'',''off'');');
+        res = exp_eval(set_selepos(signal,idxset));
     else
         % set is continuous
         if ~isempty(signal.event) && isfield(signal.event,'target')
@@ -88,7 +88,7 @@ else
                 % (assuming that target markers with boundary-crossing epochs were already removed in
                 %  set_targetmarkers, and assuming that the given epoch bounds are an upper bound of those
                 %  used in set_makepos)
-                if isempty(epoch_bounds)
+                if isempty(epoch_bounds) %#ok<NODEF>
                     disp_once('Warning: Attempting to partition a continuous data set based on target events, but no EpochBounds argument is present. Assuming 1-sample epochs.'); 
                     ival = 0;
                 else
@@ -145,8 +145,8 @@ else
                 
                 % finally, re-extract the intervals and perform the actual partitioning
                 retain_intervals = reshape(find(diff([false select_mask false])),2,[])';
-                retain_intervals(:,2) = retain_intervals(:,2)-1; %#ok<NASGU>
-                evalc('res = pop_select(signal,''point'',retain_intervals,''sorttrial'',''off'');');
+                retain_intervals(:,2) = retain_intervals(:,2)-1;
+                res = exp_eval(set_selinterval(signal,retain_intervals,'samples'));
                 return;
             end
         end
@@ -157,8 +157,8 @@ else
         mask = false(1,size(signal.data,2)); mask(idxset) = true;
         % find the inclusive, 1-based intervals of non-zeros
         retain_intervals = reshape(find(diff([false mask false])),2,[])';
-        retain_intervals(:,2) = retain_intervals(:,2)-1; %#ok<NASGU>
-        evalc('res = pop_select(signal,''point'',retain_intervals,''sorttrial'',''off'');');
+        retain_intervals(:,2) = retain_intervals(:,2)-1;
+        res = exp_eval(set_selinterval(signal,retain_intervals,'samples'));
     end
 end
 

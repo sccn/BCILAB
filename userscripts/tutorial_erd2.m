@@ -20,11 +20,11 @@
 
 % load and curate raw data for each session (BioSemi format)
 for s = 1:4
-    filename = ['data:/tutorial/imag_movements2/session' num2str(s) '.bdf'];
+    filename = ['bcilab:/userdata/tutorial/imag_movements2/session' num2str(s) '.bdf'];
     % load & retain the first 32 channels
     session{s} = exp_eval_optimized(io_loadset(filename,'channels',1:32));
     % override the channel locations (they are incorrect in the original data)
-    session{s}.chanlocs = set_infer_chanlocs('data:/tutorial/imag_movements2/mi32.loc');
+    session{s}.chanlocs = set_infer_chanlocs('bcilab:/userdata/tutorial/imag_movements2/mi32.loc');
 end
 
 % concatenate the first 3 sessions as training data (leave the 4th session for testing)
@@ -84,7 +84,7 @@ disp(['online mis-classification rate: ' num2str((1-accuracy)*100,3) '%']);
 run_readdataset('Dataset',session{end});
 
 % process it in real time using lastmodel, and visualize outputs
-run_writevisualization('Model',lastmodel, 'VisFunction','bar(y)');
+run_writevisualization('Model',lastmodel);
 
 % make sure that the online processing gets terminated...
 disp('Click into the figure to stop online processing.'); 
@@ -151,7 +151,8 @@ approaches.hkl = {'CSP' 'Prediction',{'MachineLearning',{'Learner','hkl'}}};
 
 % for each of the above approaches...
 for app = fieldnames(approaches)'
-    fprintf(['\n==== now testing "' app{1} '" ====\n\n']);
+    fprintf(['\n==== now testing "' app{1} '" ====\n']);
+    fprintf([utl_printapproach(approaches.(app{1})) '\n\n']);
     % train & cross-validate
     [trainloss,lastmodel,laststats] = bci_train('Data',traindata,'Approach',approaches.(app{1}),'TargetMarkers',{'0','16','30'})    
     disp(['training mis-classification rate: ' num2str(trainloss*100,3) '%']);
@@ -162,8 +163,8 @@ for app = fieldnames(approaches)'
     [predictions,latencies] = onl_simulate(session{end},lastmodel,'markers',{'0','16','30'},'offset',3.5);
     disp(['pseudo-online test mis-classification rate: ' num2str(mean(argmax(predictions') ~= targets')*100,3) '%']);
     % visualize in real time
-    run_readdataset('Dataset',session{end}); run_writevisualization('Model',lastmodel, 'VisFunction','bar(y)'); 
-    waitforbuttonpress; onl_clear; close(gcf);
+    run_readdataset('Dataset',session{end}); run_writevisualization('Model',lastmodel); 
+    waitforbuttonpress; clear laststream; close(gcf);
 end
 
 
@@ -227,7 +228,8 @@ approaches.specm_cohen = {'Spectralmeans', 'SignalProcessing',{'IIRFilter',{[0.1
 
 % for each of the above approaches...
 for app = fieldnames(approaches)'
-    fprintf(['\n==== now testing "' app{1} '" ====\n\n']);
+    fprintf(['\n==== now testing "' app{1} '" ====\n']);
+    try fprintf([utl_printapproach(approaches.(app{1})) '\n\n']); catch,end
     % train & cross-validate
     [trainloss,lastmodel,laststats] = bci_train('Data',traindata,'Approach',approaches.(app{1}),'TargetMarkers',{'0','16','30'})    
     disp(['training mis-classification rate: ' num2str(trainloss*100,3) '%']);
@@ -238,8 +240,8 @@ for app = fieldnames(approaches)'
     [predictions,latencies] = onl_simulate(session{end},lastmodel,'markers',{'0','16','30'},'offset',3.5);
     disp(['pseudo-online test mis-classification rate: ' num2str(mean(argmax(predictions') ~= targets')*100,3) '%']);
     % visualize in real time
-    run_readdataset('Dataset',session{end}); run_writevisualization('Model',lastmodel, 'VisFunction','bar(y)'); 
-    waitforbuttonpress; onl_clear; close(gcf);
+    run_readdataset('Dataset',session{end}); run_writevisualization('Model',lastmodel); 
+    waitforbuttonpress; clear laststream; close(gcf);
 end
 
 

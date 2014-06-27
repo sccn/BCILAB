@@ -148,6 +148,9 @@ function [signal,state] = flt_ica(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-17
 
+% flt_ica_version<1.2.11> -- for the cache
+
+
 if ~exp_beginfun('filter') return; end
 
 % has its own highpass filter, sometimes applied on re-referenced data
@@ -355,8 +358,6 @@ arg_define([0 2],varargin, ...
     arg({'dodebug','DebugMode','debug'},false,[],'Debug mode. Stops and waits for user input in case of an exception.','guru',true), ...
     arg({'normalize_weights','NormalizeWeights','NormalizeWights'},false,[],'Normalize weights.'), ...
     arg_nogui({'state','State'}));
-
-% flt_ica_version<1.2.8> -- for the cache
 
 if ~isempty(state)
     % online case: annotate the data
@@ -854,15 +855,17 @@ else
                 sig = cov(pre.data');
                 if ~isempty(variant.anchorlabels)
                     % calc beamformer penalty matrix for selected locations
-                    [B,dummy,chanmask] = hlp_diskcache('filterdesign',@calc_beamformer_constraints,{pre.chanlocs.labels},variant.anchorlabels,sig,variant.reference); %#ok<ASGLU>
+                    [B,init_W,chanmask] = hlp_diskcache('filterdesign',@calc_beamformer_constraints,{pre.chanlocs.labels},variant.anchorlabels,sig,variant.reference); %#ok<ASGLU>
                     % remove missing channels
                     if ~any(chanmask)
                         error('None of your channels is in the head model; the AnchorLabels option can currently only be used for data with 10-20 labels.'); end
-                    pre = pop_select(pre,'nochannel',find(~chanmask));
+                    pre.data = pre.data(chanmask,:,:,:,:,:,:,:);
+                    pre.chanlocs = pre.chanlocs(chanmask);
+                    pre.nbchan = size(pre.data,1);
                 else
                     B = {};
                 end
-                [pre.icaweights,pre.icasphere] = beamica(pre.data,B,[],[],[],variant.max_iter,variant.lrate,variant.tradeoff,variant.verbose,variant.usegpu,variant.convergence_check);
+                [pre.icaweights,pre.icasphere] = hlp_diskcache('filterdesign',@beamica,pre.data,B,[],[],[],variant.max_iter,variant.lrate,variant.tradeoff,variant.verbose,variant.usegpu,variant.convergence_check);
             case 'fastica'
                 % translate all booleans into 'on'/'off'
                 variant = structfun(@(p) fastif(islogical(p),fastif(p,'on','off'),p),variant,'UniformOutput',false);
@@ -882,9 +885,9 @@ else
                 variant.solverOptions.LS_multi = hlp_rewrite(variant.solverOptions.LS_multi,'Default',[],'SameOrder',0,'HigherOrder',1);
                 variant.chan_labels = {pre.chanlocs.labels};
                 if doforce
-                    [pre.icaweights,pre.icasphere,pre.icachansind] = rica(pre.data,rmfield(variant,'solverOptions'),rmfield(variant.solverOptions,'arg_direct'));
+                    [pre.icaweights,pre.icasphere,pre.icachansind] = rica(pre.data,variant,variant.solverOptions);
                 else
-                    [pre.icaweights,pre.icasphere,pre.icachansind] = hlp_diskcache('icaweights',@rica,pre.data,rmfield(variant,'solverOptions'),rmfield(variant.solverOptions,'arg_direct'));
+                    [pre.icaweights,pre.icasphere,pre.icachansind] = hlp_diskcache('icaweights',@rica,pre.data,variant,variant.solverOptions);
                 end
             case 'dictica'
                 % use dictionary learning
@@ -978,6 +981,7 @@ else
         state.amica = signal.etc.amica; end
 end
 
+
 % keep track of the last ICA decomposition for inspection
 global tracking; tracking.inspection.ica = state;
 
@@ -1042,6 +1046,14 @@ switch amica_version
                     qname{l} = vals{1};
                     qavail(l) = str2num(vals{availrow});
                     qdata{l} = [vals{1} ':' vals{availrow}];
+                end
+                % optionally backtrack to a 50% smaller queue
+                if ~isempty(qavail) && ~any(qavail>=args.numprocs) && any(qavail>=args.numprocs/2)
+                    args.numprocs = args.numprocs/2;
+                    retain = qavail>=args.numprocs;
+                    qdata = qdata(retain);
+                    qname = qname(retain);
+                    qavail = qavail(retain);
                 end
                 % our options
                 options = intersect(args.use_queue,qdata);

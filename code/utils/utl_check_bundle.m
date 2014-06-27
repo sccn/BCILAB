@@ -52,7 +52,7 @@ xmin = max(xmin);
 xmax = min(xmax);
 for s=1:length(str)    
     if xmin > str{s}.xmin || xmax < str{s}.xmax
-        str{s} = pop_select(str{s},'time',[xmin xmax]); end
+        str{s} = exp_eval(set_selinterval(str{s},[xmin xmax],'seconds')); end;
 end
 
 % collect markers across all streams

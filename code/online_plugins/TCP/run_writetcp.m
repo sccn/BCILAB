@@ -26,6 +26,10 @@ function run_writetcp(varargin)
 %
 %   UpdateFrequency : update frequency (default: 10)
 %
+%   PredictAt : Predict at markers. If nonempty, this is a cell array of online target markers relative 
+%               to which predictions shall be made. If empty, predictions are always made on the most recently 
+%               added sample. (default: {})
+%
 %   PredictorName : name for new predictor, in the workspace (default: 'lastpredictor')
 %
 %   Verbose : whether to display verbose outputs (e.g. connection failure) (default: false)
@@ -49,7 +53,7 @@ function run_writetcp(varargin)
 declare_properties('name','TCP');
 
 % define arguments
-arg_define(varargin, ...
+opts = arg_define(varargin, ...
     arg({'pred_model','Model'}, 'lastmodel', [], 'Predictive model. As obtained via bci_train or the Model Calibration dialog.','type','expression'), ...
     arg({'in_stream','SourceStream'}, 'laststream',[],'Input Matlab stream. This is the stream that shall be analyzed and processed.'), ...
     arg({'out_hostname','OutputHost'}, '127.0.0.1',[],'Destination TCP hostname. Can be a computer name, URL, or IP address.'), ...
@@ -57,36 +61,55 @@ arg_define(varargin, ...
     arg({'out_form','OutputForm'},'distribution',{'expectation','distribution','mode'},'Output form. Can be the expected value (posterior mean) of the target variable, or the distribution over possible target values (probabilities for each outcome, or parametric distribution), or the mode (most likely value) of the target variable.'), ...
     arg({'msg_format','MessageFormat'},'@(D)[sprintf(''%.3f '',D) ''/n'']',[],'Message Format. Either a formatting function (Data to string) or an fprintf-style format string (in quotes).','type','expression'), ...
     arg({'update_freq','UpdateFrequency'},10,[],'Update frequency. This is the rate at which the graphics are updated.'), ...
+    arg({'predict_at','PredictAt'}, {},[],'Predict at markers. If nonempty, this is a cell array of online target markers relative to which predictions shall be made. If empty, predictions are always made on the most recently added sample.','type','expression'), ...
     arg({'pred_name','PredictorName'}, 'lastpredictor',[],'Name of new predictor. This is the workspace variable name under which a predictor will be created.'), ...
     arg({'verbose_output','Verbose'}, false,[],'Verbose output. Whether to display verbose outputs (e.g., connection failure).'));
 
 % convert format strings to formatting functions
-if ischar(msg_format)
-    msg_format = @(D) sprintf(msg_format,D); end
+if ischar(opts.msg_format)
+    opts.msg_format = @(D) sprintf(opts.msg_format,D); end
 
 % get a fresh connection id
 id = sprintf('c%.0f',fresh_id('tcpsocket'));
 
 % start background writer job
-onl_write_background(@(y)send_message(y,verbose_output,id,out_hostname,out_port,msg_format),in_stream,pred_model,out_form,update_freq,0,pred_name);
+onl_write_background( ...
+    'ResultWriter',@(y)send_message(y,opts.verbose_output,id,opts.out_hostname,opts.out_port,opts.msg_format),...
+    'MatlabStream',opts.in_stream, ...
+    'Model',opts.pred_model, ...
+    'OutputFormat',opts.out_form, ...
+    'UpdateFrequency',opts.update_freq, ...
+    'PredictorName',opts.pred_name, ...
+    'PredictAt',opts.predict_at, ...
+    'Verbose',opts.verbose_output, ...
+    'StartDelay',0,...
+    'EmptyResultValue',[]);
+
+disp('Now writing...');
+
 
 % background message sending function
-function send_message(y,verbose_output,id,host,port,formatter)
+function send_message(yy,verbose_output,id,host,port,formatter)
 persistent conns;
 try
     % try to connect if necessary
     if ~isfield(conns,id)
         conns.(id) = connect(host,port); end
-    try
-        strm = conns.(id).strm;
-        strm.writeBytes(char(formatter(y)));
-        strm.flush();
-    catch e1
-        if strcmp(e1.identifier, 'MATLAB:Java:GenericException')
-            % failed to send: try to re-connect...
-            conns.(id) = connect(host,port);
-        else
-            rethrow(e1);
+    % for each prediction...
+    for k=1:size(yy,1)        
+        y = yy(k,:);
+        % send it off
+        try
+            strm = conns.(id).strm;
+            strm.writeBytes(char(formatter(y)));
+            strm.flush();
+        catch e1
+            if strcmp(e1.identifier, 'MATLAB:Java:GenericException')
+                % failed to send: try to re-connect...
+                conns.(id) = connect(host,port);
+            else
+                rethrow(e1);
+            end
         end
     end
 catch e2

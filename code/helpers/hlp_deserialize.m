@@ -200,7 +200,7 @@ pos = pos + length(fnChars);
 ndms = double(typecast(m(pos:pos+3),'uint32'));
 pos = pos + 4;
 % Dimensions
-dms = typecast(m(pos:pos+ndms*4-1),'uint32')';
+dms = double(typecast(m(pos:pos+ndms*4-1),'uint32')');
 pos = pos + ndms*4;
 % Field names.
 fieldNames = cell(length(fnLengths),1);
@@ -278,7 +278,7 @@ switch kind
         ndms = double(m(pos));
         pos = pos + 1;
         % Dimensions
-        dms = typecast(m(pos:pos+ndms*4-1),'uint32')';
+        dms = double(typecast(m(pos:pos+ndms*4-1),'uint32')');
         pos = pos + ndms*4;
         % Create content
         v = repmat({prot},dms);
@@ -289,7 +289,7 @@ switch kind
         ndms = double(m(pos));
         pos = pos + 1;
         % Dimensions
-        dms = typecast(m(pos:pos+ndms*4-1),'uint32')';
+        dms = double(typecast(m(pos:pos+ndms*4-1),'uint32')');
         pos = pos + ndms*4;
         % Create content
         v = repmat({prot},dms);
@@ -382,11 +382,17 @@ switch kind
                 % to a nested function. This is not natively supported by MATLAB and can only be made
                 % to work if your function's parent implements some mechanism to return such a handle.
                 % The below call assumes that your function uses the BCILAB arg system to do this.
-                next_v = arg_report('handle',v,parentage{k});
-                if isempty(next_v)
+                try
+                    next_v = arg_report('handle',v,parentage(k));
+                catch
+                    warn_once('hlp_deserialize:lookup_failed',['Could not look report properties of scoped/nested function handle "' parentage{k} '" from enclosing function "' char(v) '".']);
+                    v = @error_deserializing_function;
+                    return
+                end
+                if isempty(next_v{1})
                     warn_once('hlp_deserialize:lookup_failed',['Could not look up scoped/nested function handle "' parentage{k} '" from enclosing function "' char(v) '".']);
                 end
-                v = next_v;
+                v = next_v{1};
             end
             if ~isempty(v)
                 db_nested.(key) = v; 

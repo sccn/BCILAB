@@ -57,7 +57,7 @@ if iscell(signal.data)
 end
 
 % bring chanlocs into an appropriate format
-try  signal.chanlocs = hlp_microcache('setnew',@set_infer_chanlocs,signal.chanlocs); catch end
+try signal.chanlocs = hlp_microcache('setnew',@set_infer_chanlocs,signal.chanlocs); catch,end
 
 % if necessary, create chanlocs from scratch, according to the data size
 if ~isfield(signal,'chanlocs') || isempty(signal.chanlocs)
@@ -68,27 +68,30 @@ if ~isfield(signal,'chanlocs') || isempty(signal.chanlocs)
     end
 end
 
-
-% derive xmax, nbchan, pnts, trials
-[signal.nbchan,signal.pnts, signal.trials] = size(signal.data);
+% derive .xmax, .nbchan, .pnts, .trials
+[signal.nbchan,signal.pnts, signal.trials, extra_dims] = size(signal.data); %#ok<NASGU>
 signal.xmax = signal.xmin + (signal.pnts-1)/signal.srate;
 
-% derive additional event & urevent info
-if isfield(signal,'event')
-    signal = eeg_checkset(signal,'eventconsistency'); 
-    signal = eeg_checkset(signal,'makeur'); 
-end
+% if epoched and there are events, derive the .epoch field
+if signal.trials > 1 && ~isempty(signal.event) && isempty(signal.epoch)
+    signal = eeg_checkset(signal,'eventconsistency'); end
 
-% add epoch.latency if possible
+% add .epoch.latency if possible
 if ~isfield(signal.epoch,'latency')
     for i=1:length(signal.epoch)
         try
-        tle = [signal.epoch(i).eventlatency{:}]==0;
-        if any(tle)
-            signal.epoch(i).latency = b.event(b.epoch(i).event(tle)).latency; end
+            tle = [signal.epoch(i).eventlatency{:}]==0;
+            if any(tle)
+                signal.epoch(i).latency = b.event(b.epoch(i).event(tle)).latency; end
         catch
         end
     end
+end
+
+% create .urevent field if applicable
+if isempty(signal.urevent) && ~isempty(signal.event)
+    signal.urvent = signal.event;
+    [signal.event.urevent] = arraydeal(1:length(signal.event));
 end
 
 % do minimal consistency checks
@@ -108,8 +111,9 @@ end
 if isfield(signal,'epoch') && ~isempty(signal.epoch) && length(signal.epoch) ~= size(signal.data,3)
     error('The number of data epochs does not match the number of entries in the epoch field'); end
 
-% ensure that this field is present (to speed processing)
-signal.tracking.timeseries_fields = {};
+% ensure that .tracking.timeseries_fields is present
+if ~isfield(signal,'tracking') || ~isfield(signal.tracking,'timeseries_fields')
+    signal.tracking.timeseries_fields = {}; end
 
 if isfield(signal,'tracking') && isfield(signal.tracking,'online_expression')
     % if an online expression was explicitly assigned in set_new, use that

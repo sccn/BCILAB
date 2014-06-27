@@ -226,56 +226,57 @@ if isempty(state)
 end
 
 [b,n] = deal(state.b,length(state.b));
-% process each known time series field
-for fld = utl_timeseries_fields(signal)
-    field = fld{1};
-    if isfield(signal,field) && ~isempty(signal.(field)) && ~isequal(signal.(field),1)
-        if ~isfield(state,field)
-            state.(field) = []; end
+% for each time series field...
+for f = utl_timeseries_fields(signal)
+    if ~isempty(signal.(f{1}))
+        if ~isfield(state,f{1})
+            state.(f{1}) = []; end
+        
+        % flip dimensions so that we can filter along the 1st dimension
+        [X,dims] = spatialize_transpose(double(signal.(f{1})));
 
-        % phase 2: filter the data
-        sig = double(signal.(field))';
-        if isempty(state.(field))
-            % no prior state: prepend the signal with a mirror section of itself, to minimize
-            % start-up transients (and if the signal is too short, we repeat it as much as we need)
-            sig = [repmat(2*sig(1,:),n,1) - sig(1+mod(((n+1):-1:2)-1,size(sig,1)),:); sig];
+        % initialize filter state if necessary
+        if isempty(state.(f{1}))
+            % we prepend the signal with a mirror section of itself, to minimize start-up transients
+            % (and if the signal is too short, we repeat it as much as we need)
+            X = [repmat(2*X(1,:),n,1) - X(1+mod(((n+1):-1:2)-1,size(X,1)),:); X];
             if strcmp(ftype,'zero-phase')
                 % to get a zero-phase filter, we run the filter backwards first
                 % reverse the signal and prepend it with a mirror section (to minimize start-up transients)
-                sig = sig(end:-1:1,:); sig = [repmat(2*sig(1,:),n,1) - sig((n+1):-1:2,:); sig];
+                X = X(end:-1:1,:); X = [repmat(2*X(1,:),n,1) - X((n+1):-1:2,:); X];
                 % run the filter
-                sig = filter_fast(b,1,sig);
+                X = filter_fast(b,1,X);
                 % reverse and cut startup segment again
-                sig = sig(end:-1:(n+1),:);
+                X = X(end:-1:(n+1),:);
             end
             prepended = true;
         else
+            prepended = false;
             % online case: check for misuses
             if strcmp(ftype,'zero-phase')
                 error('zero-phase filters are non-causal and cannot be run online (or on continued data); use linear-phase or minimum-phase filters, or flt_iir.'); end
-            prepended = false;
         end
         
-        % apply the filter
-        S = size(sig,1);
+        % apply the filter in chunks to save memory
+        S = size(X,1);
         numsplits = ceil(S/chunk_length);
         for i=0:numsplits-1
             range = 1+floor(i*S/numsplits) : min(S,floor((i+1)*S/numsplits));
-            [sig(range,:),state.(field)] = filter_fast(b,1,sig(range,:),state.(field),1);
+            [X(range,:),state.(f{1})] = filter_fast(b,1,X(range,:),state.(f{1}),1);
         end
         
         % cut off the data segment that we previously prepended
         if prepended
-            sig(1:n,:) = []; end
+            X(1:n,:) = []; end
         
-        % write the data back
-        signal.(field) = sig';
+        % unflip dimensions and write the result back
+        signal.(f{1}) = unspatialize_transpose(X,dims);
     end
 end
 
+% update filter_delay annotation
 if ~isfield(signal.etc,'filter_delay')
     signal.etc.filter_delay = 0; end
-
 if strcmp(ftype,'linear-phase')
     signal.etc.filter_delay = signal.etc.filter_delay + (length(b)/2-1)/signal.srate;
 elseif strcmp(ftype,'minimum-phase')

@@ -381,6 +381,7 @@ else
     if lambdaSearch.return_reggrid
         model.regularization_grid = model_seq; end
     model.classes = classes;
+    model.continuous_targets = continuous_targets;
     model.includebias = includebias;
     model.vectorize_trials = vectorize_trials;
     model.featureshape = featureshape;
@@ -714,7 +715,7 @@ x = x(:);
 function x = prox_nuclear_simple(z, gamma, shape)
 % for the trace norm on first 2 dimensions
 z = reshape(z,shape);
-if ~ismatrix(z)
+if ndims(z)>2
     siz = size(z);
     z = reshape(z,siz(1),siz(2),[]);
     for k=1:size(z,3)
@@ -743,7 +744,7 @@ n = sum(n(:));
 function n = norm_nuclear_simple(z, shape)
 % for the trace norm on first 2 dimensions
 z = reshape(z,shape);
-if ~ismatrix(z)
+if ndims(z)>2
     siz = size(z);
     z = reshape(z,siz(1),siz(2),[]);
     n = 0;

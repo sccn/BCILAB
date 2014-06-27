@@ -43,6 +43,8 @@ meta = utl_parse_metadata(in_metadata);
 global ds_lib;
 if isempty(ds_lib)
     disp('Loading DataSuite...');
+    if ~exist('startup_ds','file')
+        error('DataSuite is not installed.'); end
     startup_ds;
 end
 
@@ -55,6 +57,8 @@ onl_newstream(new_stream,meta);
 
 % create background reading job
 onl_read_background(new_stream,@()read_block(datariver_stream),update_freq)
+
+disp('Now reading...');
 
 
 % background data reading function

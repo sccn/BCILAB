@@ -41,7 +41,7 @@ if isempty(parent) %#ok<NODEF>
                 parent = uimenu(toolsmenu, 'Label','BCILAB');
                 set(toolsmenu,'Enable','on');
             end
-        catch
+        catch %#ok<CTCH>
             disp('Unable to link BCILAB menu into EEGLAB menu.');
         end
     end
@@ -58,7 +58,8 @@ if isempty(parent) %#ok<NODEF>
         scrheight = gd.getDisplayMode().getHeight();
         pos = [from_left, scrheight-from_top, width, height];        
         % create figure
-        figtitle = ['BCILAB ' env_version ' (on ' hlp_hostname ')'];
+        release = version; try release = release(find(release=='(')+1:find(release==')')-1); catch end
+        figtitle = sprintf('BCILAB %s (%s on %s)',env_version,release,hlp_hostname);
         parent = figure('DockControls','off','NumberTitle','off','Name',figtitle,'Resize','off','MenuBar','none','Position',pos,'Tag','bcilab_toolwnd');
     end
 end
@@ -123,7 +124,7 @@ for d={dirs(3:end).name}
             else
                 warning('env_showmenu:missing_guiname','The online plugin %s does not declare a GUI name; ignoring...',idents{f});
             end
-        catch
+        catch %#ok<CTCH>
             disp(['Could not integrate the online plugin ' idents{f} '.']);
         end
     end
@@ -162,7 +163,7 @@ uimenu(helping,'Label','File bug report...','Callback','arg_guidialog(@env_bugre
 
 % toolbar (if not linked into the EEGLAB menu)
 if ~(within_eeglab && ~forcenew)
-    global tracking;
+    global tracking; %#ok<TLEV>
     cluster_requested = isfield(tracking,'cluster_requested') && ~isempty(tracking.cluster_requested);
     cluster_requested = hlp_rewrite(cluster_requested,false,'off',true,'on');
     

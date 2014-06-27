@@ -535,9 +535,9 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             args = arg_define(varargin, ...
                 arg_norep({'signal','Signal'}), ...
                 arg_sub({'flt','SignalProcessing'}, self.preprocessing_defaults(), @flt_pipeline, 'Signal processing stages. These parameters control filter stages that run on the signal level; they can be enabled, disabled and configured for the given paradigm. The prediction operates on the outputs of this stage.'), ...
-                arg_sub({'pred','Prediction'}, {}, @self.calibrate_prediction_function, 'Prediction stage. These parameters control the calibration and processing of stages that run on the output of the signal processing.'), ...
+                arg_sub({'pred','Prediction'}, {}, self.cached_method('calibrate_prediction_function'), 'Prediction stage. These parameters control the calibration and processing of stages that run on the output of the signal processing.'), ...
                 arg({'arg_dialogsel','ConfigLayout'},self.dialog_layout_defaults(),[],'Parameters displayed in the config dialog. Cell array of parameter names to display (dot-notation allowed); blanks are translated into empty rows in the dialog. Each string refers to an argument (or structure thereof) of the paradigm''s calibrate function. If a structure is identified, all parameters of that struture are listed, except if it is a switchable structure - in this case, a pulldown menu with switch options is displayed.','type','cellstr','shape','row'));
-            
+            %@self.calibrate_prediction_function
             
             % first pre-process the data (symbolically)
             % this means that signal is turned into an unevaluated expression (data structure) like
@@ -606,26 +606,37 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
         end
         
         
-        function visualize(self,model,varargin)
+        function visualize(self,varargin)
             % Optionally override this function to implement your visualization code
             % visualize(Model)
             %
             % In:
-            %   Model: a model as created by your calibrate() function;
-            %          a plot or GUI will be produced to inspect the model
+            %   Model : a model as created by your calibrate() function;
+            %           a plot or GUI will be produced to inspect the model
+            %
+            %   Options : cell array or struct of name-value pairs.
+
+            args = arg_define(varargin, ...
+                arg_norep({'model','Model'},[],[],'BCI Model to visualize.'), ...
+                quickif(arg_supported(@self.visualize_model), ...
+                    arg_sub({'options','Options'},{}, @self.visualize_model, 'Plotting options.'), ...
+                    arg({'options','Options'},{},[],'Plotting options. Cell array of name-value pairs.','type','expression')));
+            
+            if ~iscell(args.options)
+                args.options = {args.options}; end
             
             % visualize the model, either using one figure or multiple in case of voting
-            if ~isfield(model,'voting')
+            if ~isfield(args.model,'voting')
                 p = figure();
-                self.visualize_model(p,model.featuremodel,model.predictivemodel,varargin{:});
+                self.visualize_model(p,args.model.featuremodel,args.model.predictivemodel,args.options{:});
             else
-                numcl = length(model.classes);
-                numclx = length(model.classes)-1;
+                numcl = length(args.model.classes);
+                numclx = length(args.model.classes)-1;
                 for i=1:numcl
                     for j=i+1:numcl
                         p = figure('NumberTitle','off','MenuBar','none','Toolbar','none','Units','normalized', 'Name',sprintf('%d vs. %d',i,j), ...
                             'Position',[(i-0.9)/numclx (j-1-0.9)/numclx 0.8/numclx 0.8/numclx]);
-                        self.visualize_model(p,model.voting{i,j}.featuremodel,model.voting{i,j}.predictivemodel,varargin{:});
+                        self.visualize_model(p,args.model.voting{i,j}.featuremodel,args.model.voting{i,j}.predictivemodel,args.options{:});
                     end
                 end
             end
@@ -634,5 +645,5 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
     end
 end
 
-% disable a dumb warning about self...
+% disable a warning about self...
 %#ok<*MANU>

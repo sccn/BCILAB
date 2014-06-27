@@ -18,12 +18,15 @@ function env_clear_memcaches
 
 global tracking;
 
+% clear data cache
 tracking.cache.data = struct();
 tracking.cache.times = struct();
 tracking.cache.sizes = struct();
 
-% clear all micro-caches
-hlp_microcache('clear');
+% clear microcache and nanocache
+clear hlp_microcache
+clear hlp_nanocache
+clear functions
 
 % and get rid of class instances, too...
 env_clear_classes;

@@ -1,0 +1,2 @@
+stream_simulated_1.marker_pos(:,1+mod(stream_simulated_1.smax:stream_simulated_1.smax+size(stream_simulated_1_marker_pos,2)-1,stream_simulated_1.buffer_len)) = stream_simulated_1_marker_pos+logical(stream_simulated_1_marker_pos)*stream_simulated_1.mmax;
+stream_simulated_1.mmax = stream_simulated_1.mmax + nnz(stream_simulated_1_marker_pos);

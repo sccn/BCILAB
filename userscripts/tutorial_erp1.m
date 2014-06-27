@@ -29,10 +29,10 @@ mrks = {{'S101','S102'},{'S201','S202'}};
 wnds = [0.25 0.3;0.3 0.35;0.35 0.4; 0.4 0.45;0.45 0.5;0.5 0.55;0.55 0.6];
 
 % define load training data (BrainVision format)
-traindata = io_loadset('data:/tutorial/flanker_task/12-08-002_ERN.vhdr');
+traindata = io_loadset('bcilab:/userdata/tutorial/flanker_task/12-08-002_ERN.vhdr');
 
 % define approach
-myapproach = {'Windowmeans' 'SignalProcessing', {'EpochExtraction',[0 0.8],'SpectralSelection',[0.1 15]}, 'Prediction',{'FeatureExtraction',{'TimeWindows',wnds}}};
+myapproach = {'Windowmeans' 'SignalProcessing', {'Resampling','off','EpochExtraction',[-0.2 0.8],'SpectralSelection',[0.1 15]}, 'Prediction',{'FeatureExtraction',{'TimeWindows',wnds}}};
 
 %learn model 
 [trainloss,lastmodel,laststats] = bci_train('Data',traindata,'Approach',myapproach,'TargetMarkers',mrks);
@@ -45,14 +45,23 @@ bci_visualize(lastmodel)
 %% --- test on the twin's data set ---
 
 % define test data
-testdata = io_loadset('data:/tutorial/flanker_task/12-08-001_ERN.vhdr');
+testdata = io_loadset('bcilab:/userdata/tutorial/flanker_task/12-08-001_ERN.vhdr');
+[prediction,loss,teststats,targets] = bci_predict(lastmodel,testdata);
 
-[prediction,loss,teststats,targets] = bci_predict(lastmodel,testdata); 
 % result visualization
 disp(['test mis-classification rate: ' num2str(loss*100,3) '%']);
 disp(['  predicted classes: ',num2str(round(prediction{2}*prediction{3})')]);  % class probabilities * class values
 disp(['  true classes     : ',num2str(round(targets)')]);
 
+
+%% --- do a pseudo-online simulation ---
+
+% simulate online processing with 10 updates per second, and epoch extraction relative to the same target markers
+prediction2 = onl_simulate('Data',testdata,'Model',lastmodel,'UpdateRate',10,'TargetMarkers',{'S101','S102','S201','S202'});
+fprintf('mean difference in predicted classes: %f\n',mean(abs(argmax(prediction{2}')-argmax(prediction2'))));
+
+% also simulate sliding-window online processing, without locking to markers (updating 5x per second for faster analysis)
+prediction3 = onl_simulate('Data',testdata,'Model',lastmodel,'UpdateRate',5);
 
 %% --- do a real-time test ---
 % (note that you would query the online stream only after distinct events)
@@ -62,7 +71,7 @@ disp(['  true classes     : ',num2str(round(targets)')]);
 run_readdataset('Dataset',testdata);
 
 % process it in real time using lastmodel, and visualize outputs
-run_writevisualization('Model',lastmodel, 'VisFunction','bar(y)');
+run_writevisualization('Model',lastmodel, 'VisFunction','bar(y);ylim([0 1])');
 
 % make sure that the online processing gets terminated...
 disp('Click into the figure to stop online processing.'); 
@@ -81,7 +90,7 @@ mrks = {{'S101','S102'},{'S201','S202'}};
 wnds = [0.25 0.3;0.3 0.35;0.35 0.4; 0.4 0.45;0.45 0.5;0.5 0.55;0.55 0.6];
 
 % define load training data (BrainVision format)
-traindata = io_loadset('data:/tutorial/flanker_task/12-08-002_ERN.vhdr');
+traindata = io_loadset('bcilab:/userdata/tutorial/flanker_task/12-08-002_ERN.vhdr');
 
 % define approach
 myapproach = {'Windowmeans' ...
@@ -98,8 +107,8 @@ bci_visualize(lastmodel)
 %% --- try a few alternative ERP approaches ---
 
 wnds = [0.25 0.3;0.3 0.35;0.35 0.4; 0.4 0.45;0.45 0.5;0.5 0.55;0.55 0.6];
-traindata = io_loadset('data:/tutorial/flanker_task/12-08-002_ERN.vhdr');
-testdata = io_loadset('data:/tutorial/flanker_task/12-08-001_ERN.vhdr');
+traindata = io_loadset('bcilab:/userdata/tutorial/flanker_task/12-08-002_ERN.vhdr');
+testdata = io_loadset('bcilab:/userdata/tutorial/flanker_task/12-08-001_ERN.vhdr');
 
 approaches = [];
 
@@ -148,7 +157,8 @@ approaches.waveletsprox = {'DataflowSimplified' 'SignalProcessing',{'Resampling'
 
 % for each of the above approaches...
 for app = fieldnames(approaches)'
-    fprintf(['\n==== now testing "' app{1} '" ====\n\n']);
+    fprintf(['\n==== now testing "' app{1} '" ====\n']);
+    fprintf([utl_printapproach(approaches.(app{1})) '\n\n']);
     % train & cross-validate
     [trainloss,lastmodel,laststats] = bci_train('Data',traindata,'Approach',approaches.(app{1}),'TargetMarkers',{{'S101','S102'},{'S201','S202'}})
     disp(['training mis-classification rate: ' num2str(trainloss*100,3) '%']);

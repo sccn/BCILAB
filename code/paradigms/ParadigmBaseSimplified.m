@@ -128,6 +128,7 @@ classdef ParadigmBaseSimplified < ParadigmBase
             %   Model: a model as created by your calibrate() function;
             %          a plot or GUI will be produced to inspect the model
             %
+            %   Options : cell array or struct of name-value pairs
             
             error('This paradigm implements no visualize() function.');
         end
@@ -179,7 +180,7 @@ classdef ParadigmBaseSimplified < ParadigmBase
             end
             
             % call calibrate_simple with the signal passed in as additional argument
-            model = self.calibrate_simple(varargin{:}, 'signal',signal);
+            model = self.calibrate_simple('signal',signal,varargin{:});
         end
         
         

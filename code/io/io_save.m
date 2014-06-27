@@ -17,6 +17,9 @@ function io_save(fname, varargin)
 %                   -prunehandles : prune unreferenced variables from anonymous function handles; these are normally not used but saved anyway since cases
 %                                   can be constructed in which they are actually needed by the function (e.g. using evalin('caller',...))
 %                                   since these can be extremely large, they can easily cause save() to fail
+%                   -serialized : compress the data using hlp_serialize (often faster and smaller)
+%                                 (when loading with io_load, the data will be automatically uncompressed,
+%                                 not so when using load directly)
 %
 % Example:
 %   % save the variables a,b, and c to a .mat file
@@ -47,6 +50,7 @@ variables = {};       % names of variables to save (subset of saveargs)
 makedirs = false;     % whether to create directories
 retryinput = false;   % whether to ask the user for a retry
 prunehandles = false; % whether to prune unreferenced workspace variables from function handles in arguments
+serialized = false;
 fileattriblist = [];  % the list of attributes for files & directories
 i = 1;
 while i <= length(varargin)
@@ -63,6 +67,8 @@ while i <= length(varargin)
                 i = i+1; % skip next arg, too
             case '-prunehandles'
                 prunehandles = true;
+            case {'-serialized','-serialize'}
+                serialized = true;
             otherwise
                 % regular argument; append it
                 saveargs{end+1} = arg;
@@ -75,15 +81,28 @@ while i <= length(varargin)
     i = i+1; % go to next argument
 end
 
+% move variables into a local workspace for optional processing
+if isempty(variables)
+    % no variables listed: obtain all
+    varinfos = evalin('caller','whos');
+    variables = {varinfos.name};
+    saveargs = [saveargs variables];
+end
+for k=1:length(variables)
+    wkspace.(variables{k}) = evalin('caller',variables{k}); end
+
+% prune their handles
 if prunehandles
-    if isempty(variables)
-        % no variables listed: obtain all
-        varinfos = evalin('caller','whos');
-        variables = {varinfos.name};
-    end
-    % prune their handles and put them in the wkspace struct
     for k=1:length(variables)
-        wkspace.(variables{k}) = utl_prune_handles(evalin('caller',variables{k})); end
+        wkspace.(variables{k}) = utl_prune_handles(wkspace.(variables{k})); end
+end
+
+% serialize the variables
+if serialized
+    for k=1:length(variables)
+        wkspace.(variables{k}) = hlp_serialize(wkspace.(variables{k})); end
+    wkspace.is_serialized__ = ['variables were serialized using ' hlp_funcversion(@hlp_serialize) '; use hlp_deserialize (see File Exchange) to return them to their original form.'];
+    saveargs{end+1} = 'is_serialized__';
 end
 
 % reformat the save-args into a string
@@ -116,13 +135,8 @@ while 1
     
     % now save
     try
-        if exist('wkspace','var')
-            % we have copied the variables to be saved into the 'wkspace' variable...
-            save_workspace(fname,saveargs,wkspace);
-        else
-            % we directly save in the caller's workspace
-            evalin('caller',['save ''' fname ''' ' saveargs ';']);
-        end
+        % we have copied the variables to be saved into the 'wkspace' variable...
+        save_workspace(fname,saveargs,wkspace);
         if ~isempty(fileattriblist)
             % try to set file fileattriblist...
             if ~isempty(fileattriblist)
@@ -131,8 +145,8 @@ while 1
             end            
         end
         break;
-    catch
-        warning('BCILAB:io_save:cannot_save_file',['Error saving target file ' fname '. Please review your permissions.']);
+    catch e
+        warning('BCILAB:io_save:cannot_save_file',['Error saving target file ' fname '. Please review your permissions: ' e.message]);
         if retryinput
             if strcmp(input('Would you like to retry? [yes/no]','s'),'no') 
                 disp('Did not save the data.');

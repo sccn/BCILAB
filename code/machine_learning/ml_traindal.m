@@ -176,6 +176,9 @@ else
         if any(ni)
             % if necessary, set NaN shape parameters appropriately
             shape(ni) = nf / shape(~ni);
+        elseif length(shape) >= 3
+            % tensor-shaped features are grouped over 2d tensor pages
+            shape = repmat([shape(1),shape(2)],prod(shape(3:end)),1);
         elseif nf ~= shape(1)*shape(2)
             % otherwise check for consistency
             error('shape parameter is inconsistent with feature space dimension.');

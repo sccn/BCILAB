@@ -1,4 +1,4 @@
-function arg_toworkspace(args)
+function arg_toworkspace(s)
 % Copy the arguments in the given Struct into the workspace of the calling function. 
 % arg_toworkspace(Struct)
 %
@@ -33,6 +33,6 @@ function arg_toworkspace(args)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-% place the variables in the caller's workspace
-for fn=fieldnames(args)'
-    assignin('caller',fn{1},args.(fn{1})); end
+% place the variables in the caller's workspace one-by-one
+for fn=fieldnames(s)'
+    assignin('caller',fn{1},s.(fn{1})); end

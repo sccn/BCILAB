@@ -61,6 +61,7 @@ if isempty(handles.approach)
     guidata(hObject, handles);
     close(handles.figure1);
 else
+    fprintf('Generating approach GUI...');
     calibrate_func = handles.approach.paradigm;
     if ischar(calibrate_func)
         instance = eval(calibrate_func); %#ok<NASGU>
@@ -70,6 +71,7 @@ else
     handles.hProperties = arg_guipanel(handles.uipanel2, 'Function',calibrate_func,'Parameters',handles.approach.parameters);
     % Update handles structure
     guidata(hObject, handles);
+    fprintf('done.\n');
 end
 
 % --- Outputs from this function are returned to the command line.
@@ -86,6 +88,9 @@ try
     if strcmp(handles.output,'OK')
         % get the edited specification
         spec = handles.hProperties.GetPropertySpecification();
+        % for nodes where the children have been removed (unchecked subtoggle),
+        % reinstate an arg_selection argument..
+        spec = reinstate_empty_children(spec);
         % turn it into a parameter structure and store that in the approach
         handles.approach.parameters = {arg_tovals(spec)};
         % get rid of hidden references...
@@ -104,6 +109,14 @@ catch
     % someone closed the figure...
     varargout = {[],'Cancel'};
 end
+
+
+% --- Reinstate empty children of unchecked subtoggles
+function x = reinstate_empty_children(x)
+empty_children = cellfun('isempty',{x.children});
+fix_pos = empty_children & ~cellfun('isempty',{x.alternatives});
+[x(fix_pos).children] = celldeal(cellfun(@(v)cached_argument('arg_selection',v),{x(fix_pos).value},'UniformOutput',false));
+[x(~empty_children).children] = celldeal(cellfun(@reinstate_empty_children,{x(~empty_children).children},'UniformOutput',false));
 
 
 % --- Executes on button press in pushbutton1.

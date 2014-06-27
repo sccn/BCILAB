@@ -85,7 +85,7 @@ opts = hlp_varargin2struct(varargin, ...
     {'show_removed_portions','ShowRemovedPortions'},true, ...% whether to show removed data portions (if only one set is passed in)
     {'show_events','ShowEvents'},true, ...      % whether to show events
     {'show_eventlegend','ShowEventLegend'},false, ...  % whether to show a legend for the currently visible events
-    {'scale_by','ScaleBy'},'new',...            % the data set according to which the display should be scaled
+    {'scale_by','ScaleBy'},'allnew',...         % the data set according to which the display should be scaled (can be allold, allnew, wndold, or wndnew)
     {'channel_subset','ChannelSubset'},[], ...  % optionally a channel subset to display
     {'time_subset','TimeSubset'},[],...         % optionally a time subrange to display
     {'display_mode','DisplayMode'},'both',...   % what should be displayed: 'both', 'new', 'old', 'diff'
@@ -131,26 +131,27 @@ if ~isempty(opts.time_subset)
 end
 
 if opts.equalize_channel_scaling    
-    rescale = 1./mad(old.data,[],2);
+    rescale = 1./mad(old.data,1,2);
     new.data = bsxfun(@times,new.data,rescale);
     old.data = bsxfun(@times,old.data,rescale);
 end
 
 % generate event colormap
-opts.event_colormap = gen_colormap(old.event,'jet');
+if ~isempty(old.event)
+    opts.event_colormap = gen_colormap(old.event,'jet'); end
 
-% create a unique name for this visualization and store the options it in the workspace
-taken = evalin('base','whos(''vis_*'')');
-visname = genvarname('vis_artifacts_opts',{taken.name});
-visinfo.opts = opts;
-assignin('base',visname,visinfo);
+% calculate whole-data scale
+old_iqr = 2*mad(old.data',1)';
+old_iqr(isnan(old_iqr)) = deal(mean(old_iqr(~isnan(old_iqr))));
+new_iqr = 2*mad(new.data',1)';
+new_iqr(isnan(new_iqr)) = deal(mean(new_iqr(~isnan(new_iqr))));
 
 % create figure & slider
 lastPos = 0;
 hFig = figure('ResizeFcn',@on_window_resized,'KeyPressFcn',@(varargin)on_key(varargin{2}.Key)); hold; axis();
 hAxis = gca;
 hSlider = uicontrol('style','slider','KeyPressFcn',@(varargin)on_key(varargin{2}.Key)); on_resize();
-jSlider = findjobj(hSlider);
+jSlider = handle(findjobj(hSlider),'CallbackProperties');
 jSlider.AdjustmentValueChangedCallback = @on_update;
 
 % do the initial update
@@ -164,9 +165,6 @@ on_update();
         if relPos == lastPos && moved
             return; end
         
-        % get potentially updated options
-        visinfo = evalin('base',visname);
-                
         % axes
         cla;
         
@@ -180,20 +178,27 @@ on_update();
         channel_y = (ylr(2):(ylr(1)-ylr(2))/(size(new.data,1)-1):ylr(1))';
         
         % compute sample range
-        wndsamples = visinfo.opts.wndlen * new.srate;
+        wndsamples = opts.wndlen * new.srate;
         pos = floor((size(new.data,2)-wndsamples)*relPos);
         wndindices = 1 + floor(0:wndsamples/pixels:(wndsamples-1));
         wndrange = pos+wndindices;
         
         oldwnd = old.data(:,wndrange);
         newwnd = new.data(:,wndrange);
-        if strcmp(opts.scale_by,'old')
-            iqrange = iqr(oldwnd')';
-        else
-            iqrange = iqr(newwnd')';
-            iqrange(isnan(iqrange)) = iqr(oldwnd(isnan(iqrange),:)')';
+        switch opts.scale_by
+            case 'allnew'                
+                iqrange = new_iqr;
+            case 'allold'
+                iqrange = old_iqr;
+            case {'wndnew','new'}
+                iqrange = mad(newwnd',1)';
+                iqrange(isnan(iqrange)) = mad(oldwnd(isnan(iqrange),:)',1)';
+            case {'wndold','old'}
+                iqrange = mad(oldwnd',1)';
+            otherwise
+                error('Unsupported scale_by option.');
         end
-        scale = ((ylr(2)-ylr(1))/size(new.data,1)) ./ (visinfo.opts.yscaling*iqrange); scale(~isfinite(scale)) = 0;
+        scale = ((ylr(2)-ylr(1))/size(new.data,1)) ./ (opts.yscaling*iqrange); scale(~isfinite(scale)) = 0;
         scale(scale>median(scale)*3) = median(scale);
         scale = repmat(scale,1,length(wndindices));
                 
@@ -208,28 +213,30 @@ on_update();
             tit = [tit sprintf('[%.1f - %.1f]',new.xmin + (wndrange(1)-1)/new.srate, new.xmin + (wndrange(end)-1)/new.srate)];        
         end
         
-        switch visinfo.opts.display_mode            
+        xrange = xl(1):(xl(2)-xl(1))/(length(wndindices)-1):xl(2);
+        yoffset = repmat(channel_y,1,length(wndindices));
+        switch opts.display_mode            
             case 'both'                
                 title([tit '; superposition'],'Interpreter','none');
-                h_old = plot(xl(1):(xl(2)-xl(1))/(length(wndindices)-1):xl(2), (repmat(channel_y,1,length(wndindices)) + scale.*oldwnd)','Color',opts.oldcol,'LineWidth',opts.line_width(1));
-                h_new = plot(xl(1):(xl(2)-xl(1))/(length(wndindices)-1):xl(2), (repmat(channel_y,1,length(wndindices)) + scale.*newwnd)','Color',opts.newcol,'LineWidth',opts.line_width(2));
+                h_old = plot(xrange, (yoffset + scale.*oldwnd)','Color',opts.oldcol,'LineWidth',opts.line_width(1));
+                h_new = plot(xrange, (yoffset + scale.*newwnd)','Color',opts.newcol,'LineWidth',opts.line_width(2));
             case 'new'
                 title([tit '; cleaned'],'Interpreter','none');
-                plot(xl(1):(xl(2)-xl(1))/(length(wndindices)-1):xl(2), (repmat(channel_y,1,length(wndindices)) + scale.*newwnd)','Color',opts.newcol,'LineWidth',opts.line_width(2));
+                plot(xrange, (yoffset + scale.*newwnd)','Color',opts.newcol,'LineWidth',opts.line_width(2));
             case 'old'
                 title([tit '; original'],'Interpreter','none');
-                plot(xl(1):(xl(2)-xl(1))/(length(wndindices)-1):xl(2), (repmat(channel_y,1,length(wndindices)) + scale.*oldwnd)','Color',opts.oldcol,'LineWidth',opts.line_width(1));
+                plot(xrange, (yoffset + scale.*oldwnd)','Color',opts.oldcol,'LineWidth',opts.line_width(1));
             case 'diff'
                 title([tit '; difference'],'Interpreter','none');
-                plot(xl(1):(xl(2)-xl(1))/(length(wndindices)-1):xl(2), (repmat(channel_y,1,length(wndindices)) + scale.*(oldwnd-newwnd))','Color',opts.newcol,'LineWidth',opts.line_width(1));
+                plot(xrange, (yoffset + scale.*(oldwnd-newwnd))','Color',opts.newcol,'LineWidth',opts.line_width(1));
         end
         
         % also plot events
-        if visinfo.opts.show_events
+        if opts.show_events && ~isempty(old.event)
             evtlats = [old.event.latency];
             evtindices = find(evtlats>wndrange(1) & evtlats<wndrange(end));
             if ~isempty(evtindices)
-                evtpos = xl(1) + (evtlats(evtindices)-wndrange(1))/length(wndrange)*(xl(2)-xl(1));                
+                evtpos = xl(1) + (evtlats(evtindices)-wndrange(1))/wndsamples*(xl(2)-xl(1));                
                 evttypes = {old.event(evtindices).type};
                 % for each visible type
                 visible_types = unique(evttypes);
@@ -238,13 +245,13 @@ on_update();
                 for ty = visible_types(:)'
                     % plot line instances in the right color
                     curtype = ty{1};
-                    curcolor = visinfo.opts.event_colormap.values(strcmp(visinfo.opts.event_colormap.keys,curtype),:);
+                    curcolor = opts.event_colormap.values(strcmp(opts.event_colormap.keys,curtype),:);
                     matchpos = strcmp(evttypes,curtype);
                     h = line([evtpos(matchpos);evtpos(matchpos)],repmat([0;1],1,nnz(matchpos)),'Color',curcolor);
                     handles(end+1) = h(1);
                     labels{end+1} = curtype;
                 end
-                if visinfo.opts.show_eventlegend
+                if opts.show_eventlegend
                     legend(handles,labels,'Location','NorthWest'); 
                     have_eventlegend = true;
                 elseif have_eventlegend
@@ -309,38 +316,37 @@ on_update();
     end
 
     function on_key(key)
-        visinfo = evalin('base',visname);
         switch lower(key)
             case {'add','+'}
                 % decrease datascale
-                visinfo.opts.yscaling = visinfo.opts.yscaling*0.9;
+                opts.yscaling = opts.yscaling*0.9;
             case {'subtract','-'}
                 % increase datascale
-                visinfo.opts.yscaling = visinfo.opts.yscaling*1.1;
+                opts.yscaling = opts.yscaling*1.1;
             case {'multiply','*'}
                 % increase timerange
-                visinfo.opts.wndlen = visinfo.opts.wndlen*1.1;                
+                opts.wndlen = opts.wndlen*1.1;                
             case {'divide','/'}
                 % decrease timerange
-                visinfo.opts.wndlen = visinfo.opts.wndlen*0.9;                
+                opts.wndlen = opts.wndlen*0.9;                
             case 'pagedown'
                 % shift display page offset down
-                visinfo.opts.pageoffset = visinfo.opts.pageoffset+1;                
+                opts.pageoffset = opts.pageoffset+1;                
             case 'pageup'
                 % shift display page offset up
-                visinfo.opts.pageoffset = visinfo.opts.pageoffset-1;
+                opts.pageoffset = opts.pageoffset-1;
             case 'n'
-                visinfo.opts.display_mode = 'new';
+                opts.display_mode = 'new';
             case 'o'
-                visinfo.opts.display_mode = 'old';
+                opts.display_mode = 'old';
             case 'b'
-                visinfo.opts.display_mode = 'both';
+                opts.display_mode = 'both';
             case 'd'
-                visinfo.opts.display_mode = 'diff';
+                opts.display_mode = 'diff';
             case 'l'
-                visinfo.opts.show_eventlegend = ~visinfo.opts.show_eventlegend;
+                opts.show_eventlegend = ~opts.show_eventlegend;
             case 'e'
-                visinfo.opts.show_events = ~visinfo.opts.show_events;
+                opts.show_events = ~opts.show_events;
             case 'h'
                 if strcmp(get(hSlider,'Visible'),'on')
                     set(hSlider,'Visible','off')
@@ -348,18 +354,24 @@ on_update();
                     set(hSlider,'Visible','on')
                 end
         end        
-        assignin('base',visname,visinfo);
         on_update();
     end
 end
 
 % create a mapping from event types onto colors
 function map = gen_colormap(eventstruct,mapname)
-map.keys = unique({eventstruct.type});
-if ~isempty(map.keys)
-    tmp = colormap(mapname);
-    map.values = tmp(1+floor((0:length(map.keys)-1)/(length(map.keys)-1)*(length(tmp)-1)),:);
+if isempty(eventstruct)
+    map = struct('keys',[],'values',[]);
 else
-    map.values = [];
+	map.keys = unique({eventstruct.type});
+	if isscalar(map.keys)
+		tmp = colormap(mapname);
+		map.values = tmp(round(end/2),:);
+	elseif ~isempty(map.keys)
+		tmp = colormap(mapname);
+		map.values = tmp(1+floor((0:length(map.keys)-1)/(length(map.keys)-1)*(length(tmp)-1)),:);
+	else
+		map.values = [];
+	end
 end
 end

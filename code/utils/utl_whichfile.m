@@ -33,7 +33,7 @@ persistent filenames; % table of m file names, indexed by identifier
 try
     % look up the record for this file name
     filename = filenames.(identifier);
-catch
+catch %#ok<CTCH>
     if isempty(filenames)
         % file table is empty (first-time run): build it recursively from root directories
         global tracking; %#ok<TLEV>
@@ -49,7 +49,7 @@ catch
     end
     try
         filename = filenames.(identifier);
-    catch
+    catch %#ok<CTCH>
         error('No record for the file %s was found. Make sure it is in the searched directories.',identifier);
     end
 end
@@ -64,7 +64,7 @@ end
                 if ~any(strcmp(info.name,{'.','..'}))
                     populate_records([path filesep info.name]); end
             else
-                % found a file --? add it to the table if an .m file
+                % found a file? add it to the table if an .m file
                 if length(info.name) > 2 && strcmp(info.name(end-1:end),'.m')                    
                     filenames.(info.name(1:end-2)) = [path filesep info.name]; end
             end

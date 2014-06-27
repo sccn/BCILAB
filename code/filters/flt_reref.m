@@ -92,7 +92,7 @@ switch ref_type
         ref_signal = median(signal.data(ref_chns,:));
     case 'huber'
         if isempty(huber_cut)
-            huber_cut = median(mad(signal.data,1,2))*1.4826; end
+            huber_cut = median(median(abs(bsxfun(@minus,signal.data,median(signal.data,2))),2))*1.4826; end
         ref_signal = robust_mean(signal.data(ref_chns,:)/huber_cut,1,huber_iters)*huber_cut;
     otherwise
         error('Unsupported reference type.');
@@ -101,7 +101,12 @@ end
 signal.data = bsxfun(@minus,signal.data,ref_signal);
 
 if ~keepref && ~isempty(ref_chn)
-    signal = pop_select(signal,'nochannel',ref_chns); end
+    retain_channels = true(1,size(signal.data,1)); 
+    retain_channels(ref_chns) = false;
+    signal.data = signal.data(retain_channels,:,:,:,:,:,:,:);
+    signal.chanlocs = signal.chanlocs(retain_channels);
+    signal.nbchan = size(signal.data,1);    
+end
 if keepref && length(ref_chn)>1
     signal.data(end+1,:) = ref_signal;
     signal.nbchan = size(signal.data,1);

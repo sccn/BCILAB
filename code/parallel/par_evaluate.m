@@ -53,7 +53,7 @@ try
 catch e
     try
         % try to display and serialize the error
-        disp(['Exception during task processing: ' e.message]);
+        fprintf('exception during task processing: %s\n',e.message);
         if exist('hlp_handleerror','file')
             hlp_handleerror(e);
         else
@@ -68,10 +68,10 @@ catch e
     catch
         % fall back to minimal reporting
         try
-            disp(['Exception during error serialization: ' e.message]);
+            fprintf('exception during error serialization: %s\n',e.message);
             result = hlp_serialize({NaN,['Error during error serialization: ' e.message]});
         catch
-            disp('Serialization failed completely.');
+            fprintf('serialization failed completely.\n');
             result = uint8(200);
         end
     end

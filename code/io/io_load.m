@@ -30,6 +30,12 @@ else
     contents = load(env_translatepath(varargin{1}),varargin{2:end});
 end
 
+if isfield(contents,'is_serialized__')
+    contents = rmfield(contents,'is_serialized__');
+    for fn = fieldnames(contents)'
+        contents.(fn{1}) = hlp_deserialize(contents.(fn{1})); end
+end
+
 if nargout > 0
     res = contents;
 else

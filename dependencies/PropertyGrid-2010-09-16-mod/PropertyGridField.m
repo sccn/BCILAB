@@ -177,7 +177,7 @@ classdef PropertyGridField < hgsetget
         % generate a property hierarchy from a struct, specification, or class...
         function fields = GenerateFrom(obj)        
             % +++ cko
-            if all(isfield(obj,{'head','names','value','assigner','children','alternatives','range','type','shape','help','cat','displayable'}))
+            if all(isfield(obj,{'head','names','value','children','alternatives','range','type','shape','help','cat','displayable'}))
                 fields = PropertyGridField.GenerateFromSpec(obj);                
             % --- cko
             elseif isstruct(obj)
@@ -200,6 +200,12 @@ classdef PropertyGridField < hgsetget
             % for each specifier
             for f=1:length(spec)
                 s = spec(f);
+                
+                if s.skippable
+                    s.type = 'char';
+                    s.shape = 'row';
+                    s.value = '__arg_unassigned__';
+                end
 
                 % convert unsupported types to expressions...                
                 if isa(s.value,'function_handle') || (iscell(s.value) && ~iscellstr(s.value)) || isstruct(s.value)
@@ -254,13 +260,17 @@ classdef PropertyGridField < hgsetget
                         'Description',gui_help, ...
                         'ReadOnly',false, ...
                         'Dependent',false, ...
-                        'Hidden',~s.displayable || (s.experimental && ~tracking.gui.show_experimental), ...
+                        'Hidden',~s.displayable || s.skippable || (s.experimental && ~tracking.gui.show_experimental), ...
                         'Expert',s.guru, ...
                         'Specification',s);
                 catch
                     env_handleerror(lasterror);
                     disp('The given argument specification (shown below) could not be converted into a GUI-supported PropertyGridField. You are now in debug mode.');
-                    t = PropertyType(gui_type,s.shape,s.range); x = s.value;
+                    try
+                        t = PropertyType(gui_type,s.shape,s.range); 
+                    catch
+                    end
+                    x = s.value;
                     s
                     x
                     keyboard

@@ -62,14 +62,11 @@ elseif isstruct(data) && isfield(data,{'data','chanlocs'})
 elseif isstruct(data) && isfield(data,{'streams'})
     % stream bundle
     res = utl_partition_bundle(data,inds,varargin{:});
-end
-
-
-if ~exist('res','var')
+elseif isnumeric(data) || iscell(data)
     % no special case: get the highest non-singleton dimension in the data
     dim = find(size(data)~=1,1,'last');
+    % in the numeric array case, we never partition along the first dimension
     if isnumeric(data)
-        % in the numeric array case, we never partition along the first dimension
         dim = max(2,dim); end
     
     if isempty(inds) 
@@ -88,4 +85,7 @@ if ~exist('res','var')
                 error('More than 4-dimensional data is not (yet) supported.');
         end
     end
-end
+end    
+
+if ~exist('res','var')
+    error('The given data is not in a form that can be partitioned by the default partitioner of utl_crossval.'); end

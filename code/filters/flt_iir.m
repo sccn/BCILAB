@@ -84,7 +84,6 @@ function [signal,state] = flt_iir(varargin)
 
 if ~exp_beginfun('filter') return; end
 
-% running after the FIR can improve numeric stability; makes no sense on epoched data
 declare_properties('name','IIRFilter', 'cannot_follow','set_makepos', 'independent_channels',true, 'independent_trials',true);
 
 arg_define(varargin, ...
@@ -145,21 +144,20 @@ if isempty(state)
     [sos,g] = hlp_diskcache('filterdesign',@zp2sos,z,p,k);
     
    % initialize state
-    for fld = utl_timeseries_fields(signal)
-        state.(fld{1}).sos = sos;
-        state.(fld{1}).g = g;
-        state.(fld{1}).zi = repmat({[]},1,size(sos,1));
+    for f = utl_timeseries_fields(signal)
+        state.(f{1}).sos = sos;
+        state.(f{1}).g = g;
+        state.(f{1}).zi = repmat({[]},1,size(sos,1));
     end
 end
 
-for fld = utl_timeseries_fields(signal)
-    field = fld{1};
-    if isfield(signal,field) && ~isempty(signal.(field)) && ~isequal(signal.(field),1)
+for f = utl_timeseries_fields(signal)
+    if ~isempty(signal.(f{1}))
         % apply filter for each section
-        for s = 1:size(state.(field).sos,1)
-            [signal.(field),state.(field).zi{s}] = filter(state.(field).sos(s,1:3),state.(field).sos(s,4:6),double(signal.(field)),state.(field).zi{s},2); end
+        for s = 1:size(state.(f{1}).sos,1)
+            [signal.(f{1}),state.(f{1}).zi{s}] = filter(state.(f{1}).sos(s,1:3),state.(f{1}).sos(s,4:6),double(signal.(f{1})),state.(f{1}).zi{s},2); end
         % apply gain
-        signal.(field) = signal.(field)*state.(field).g;
+        signal.(f{1}) = signal.(f{1})*state.(f{1}).g;
     end
 end
 

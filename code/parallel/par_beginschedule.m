@@ -28,6 +28,9 @@ function sched = par_beginschedule(tasks,varargin)
 %               'pushscope' : whether to "push" the current symbol scope (see hlp_scope and hlp_resolve)
 %                             over the network (default: true)
 %
+%               'keep': keep this scheduler alive for later re-use (default: false)
+%                       if false, the scheduler will be destroyed after use, and re-created during the next run
+%
 % Out:
 %   Id : output handle; used to collect the results
 %
@@ -42,7 +45,7 @@ function sched = par_beginschedule(tasks,varargin)
 %   results = par_endschedule(id);
 %
 % Expert note:
-%  The 'keep' option of par_schedule is also available here and in par_endschedule, but it is much harder to use correctly:
+%  The 'keep' option is easy to use with the wrapper function par_schedule; otherwise, the following holds:
 %   * if passed as true to par_beginschedule, it *must* also be passed as true to par_endschedule
 %   * nested schedules are not allowed if they use the same worker pool
 %
@@ -68,6 +71,7 @@ opts = hlp_varargin2struct(varargin, ...
      'engine','global', ...
      'pool', 'global', ...
      'policy', 'global', ...
+     'verbosity', 'global', ...
      'receiver_backlog', 5, ...
      'receiver_timeout', 1, ...
      'reschedule_interval',5, ...
@@ -75,36 +79,19 @@ opts = hlp_varargin2struct(varargin, ...
      'pushscope', true ...
     );
 
-
 % look up global settings, if requested
-global tracking;
 if strcmp(opts.engine,'global')
-    try
-        opts.engine = tracking.parallel.engine; 
-    catch
-        opts.engine = 'BLS'; tracking.parallel.engine = opts.engine;
-    end
-end
+    opts.engine = par_globalsetting('engine'); end
 if strcmp(opts.pool,'global')
-    try
-        opts.pool = tracking.parallel.pool;
-    catch
-        disp('No global scheduling pool (tracking.parallel.pool) defined; initializing as empty.');
-        opts.pool = {}; tracking.parallel.pool = opts.pool;
-    end
-end
+    opts.pool = par_globalsetting('pool'); end
 if strcmp(opts.policy,'global')
-    try 
-        opts.policy = tracking.parallel.policy;
-    catch
-        opts.policy = 'par_reschedule_policy'; tracking.parallel.policy = opts.policy;
-    end
-end
+    opts.policy = par_globalsetting('policy'); end
+if strcmp(opts.verbosity,'global')
+    opts.verbosity = par_globalsetting('verbosity'); end
 if isa(opts.policy,'function_handle')
     opts.policy = char(opts.policy); end
 if strcmp(opts.engine,'BLS') && isempty(opts.pool)
     opts.engine = 'local'; end
-
 
 % canonlicalize task format to {function-handle,arguments...}
 for t=1:length(tasks)
@@ -120,7 +107,6 @@ for t=1:length(tasks)
     end
 end
 
-
 % push current symbol context over the network
 if opts.pushscope && ~strcmp(opts.engine,'local')
     % get the current scope
@@ -130,24 +116,21 @@ if opts.pushscope && ~strcmp(opts.engine,'local')
         tasks{t} = [{@hlp_scope, scope} tasks{t}]; end
 end
 
-
 % create a scheduler (Java code, see dependencies/Scheduling-*)
 if strcmp(opts.engine,'BLS')
     if opts.keep
-        tmp = hlp_microcache('schedulers',@(varargin)Scheduler(varargin{:}),opts.pool,opts.policy,opts.receiver_backlog,round(1000*opts.receiver_timeout),round(1000*opts.reschedule_interval));
+        tmp = hlp_microcache('schedulers',@(varargin)Scheduler(varargin{:}),opts.pool,opts.policy,opts.receiver_backlog,round(1000*opts.receiver_timeout),round(1000*opts.reschedule_interval),opts.verbosity,length(tasks));
     else
-        tmp = Scheduler(opts.pool,opts.policy,opts.receiver_backlog,round(1000*opts.receiver_timeout),round(1000*opts.reschedule_interval));
+        tmp = Scheduler(opts.pool,opts.policy,opts.receiver_backlog,round(1000*opts.receiver_timeout),round(1000*opts.reschedule_interval),opts.verbosity,length(tasks));
     end
     sched = struct('sched',{tmp},'finisher',{onCleanup(@()tmp.clear())});
 end
 
-
 % serialize tasks for network transmission (and prepend order id)
 if any(strcmp(opts.engine,{'BLS','Reference'}))
     for t=1:length(tasks)        
-        tasks{t} = base64encode(hlp_serialize([{t} tasks{t}])); end
+        tasks{t} = fast_encode(hlp_serialize([{t} tasks{t}])); end
 end
-
 
 % submit tasks for execution
 switch opts.engine
@@ -165,7 +148,7 @@ switch opts.engine
     case 'Reference'
         % evaluate locally, but go through the same evaluation function as the BLS workers
         for t=1:length(tasks)
-            tasks{t} = base64encode(par_evaluate(base64decode(tasks{t}))); end
+            tasks{t} = fast_encode(par_evaluate(fast_decode(tasks{t}))); end
         % return the collected result in sched
         sched = struct('ReferenceResults',{tasks});
     otherwise

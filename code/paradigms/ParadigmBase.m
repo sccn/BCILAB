@@ -157,10 +157,31 @@ classdef ParadigmBase
             % In:
             %   Model: a model as created by your calibrate() function;
             %          a plot or GUI will be produced to inspect the model
+            %
+            %   Options : cell array or struct of name-value pairs
             
             error('This paradigm implements no visualize() function.');
         end
-        
+
+        function h = cached_method(self,name)
+            % Return a handle to a static method.
+            % Handle = cached_method(Name)
+            %
+            % In:
+            %   Name : name of the method
+            %
+            % Out:
+            %   Handle : same as @self.Name, but cached such that 
+            %            two instances of the handle are the same under isequal()
+            
+            persistent cache;
+            try
+                h = cache.([class(self) name]);
+            catch                 %#ok<CTCH>
+                h = eval(['@self.' name]);
+                cache.([class(self) name]) = h;
+            end
+        end        
     end
 end
 

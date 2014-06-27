@@ -47,6 +47,9 @@ onl_newstream(opts.new_stream,'srate',opts.sample_rate,'chanlocs',conn.channels(
 % start background acquisition
 onl_read_background(opts.new_stream,@()read_block(conn,opts),opts.update_freq);
 
+disp('Now reading...');
+
+
 
 % background block reader function
 function block = read_block(conn,opts)

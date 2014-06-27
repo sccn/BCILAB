@@ -98,7 +98,7 @@ classdef ParadigmFBCSP < ParadigmDataflowSimplified
                     % filter trial subrange in time and frequency
                     data = exp_eval_optimized(flt_spectrum('signal',flt_window('signal',set_picktrials(args.signal,'rank',k),time_args{w}),freq_args{w}));
                     if args.robust_cov
-                        covar{k} = hlp_diskcache('featuremodels',@cov_blockgeom,reshape(data.data,size(data.data,1),[])',max([data.nbchan*2,data.srate*2,size(data,3)]),args.shrinkage_cov);
+                        covar{k} = hlp_diskcache('featuremodels',@cov_blockgeom,reshape(data.data,size(data.data,1),[])',max([data.nbchan*2,data.srate*2,size(data,3)]));
                     else
                         if args.shrinkage_cov
                             covar{k} = hlp_diskcache('featuremodels',@cov_shrink,reshape(data.data,size(data.data,1),[])');
@@ -130,19 +130,41 @@ classdef ParadigmFBCSP < ParadigmDataflowSimplified
             end
         end
         
-        function visualize_model(self,parent,featuremodel,predictivemodel,varargin) %#ok<*INUSD>
+        function visualize_model(self,varargin) %#ok<*INUSD>
+            args = arg_define([0 3],varargin, ...
+                arg_norep({'myparent','Parent'},[],[],'Parent figure.'), ...
+                arg_norep({'featuremodel','FeatureModel'},[],[],'Feature model. This is the part of the model that describes the feature extraction.'), ...
+                arg_norep({'predictivemodel','PredictiveModel'},[],[],'Predictive model. This is the part of the model that describes the predictive mapping.'), ...
+                arg({'patterns','PlotPatterns'},true,[],'Plot patterns instead of filters. Whether to plot spatial patterns (forward projections) rather than spatial filters.'), ...
+                arg({'weight_scaled','WeightScaled'},false,[],'Scaled by weight. Whether to scale the patterns by weight.'));
+            arg_toworkspace(args);
+            
             % find the relevant components
             scores = predictivemodel.model.w;
+            scores = sqrt(abs(scores));
             % optionally remove the bias if included in w
             if length(scores) == size(featuremodel.patterns,2)+1
                 scores = scores(1:end-1); end 
             % frequency labels
-            titles = repmat({'delta','theta','alpha','beta','gamma'},8,1); titles = titles(:);
+            % titles = repmat({'delta','theta','alpha','beta','gamma'},8,1); titles = titles(:);
             % extract relevant patterns
-            patterns = featuremodel.patterns(:,find(scores));
+            patterns = featuremodel.patterns(:,find(scores)); %#ok<FNDSB>
+            filters = featuremodel.filters(:,find(scores)); %#ok<FNDSB>
             % plot them
-            % figure;topoplot_grid(patterns,featuremodel.chanlocs,'titles',titles(find(scores)),'scales',scores(find(scores))/max(scores)*1);
-            topoplot_grid(patterns,featuremodel.chanlocs);
+            if args.weight_scaled
+                if args.patterns
+                    topoplot_grid(patterns,featuremodel.chanlocs,'scales',scores(find(scores))/max(scores)*1);
+                else
+                    topoplot_grid(filters,featuremodel.chanlocs,'scales',scores(find(scores))/max(scores)*1);
+                end
+            else
+                if args.patterns
+                    topoplot_grid(patterns,featuremodel.chanlocs);
+                else
+                    topoplot_grid(filters,featuremodel.chanlocs);
+                end
+            end
+            % figure;
         end
         
         function layout = dialog_layout_defaults(self)

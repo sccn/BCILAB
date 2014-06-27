@@ -5,8 +5,15 @@ function [results,errors] = par_endschedule(sched,varargin)
 % In:
 %   Id : scheduler id, obtained from par_beginschedule
 %
+%   Options... : optional name-value pairs;
+%               'keep': keep this scheduler alive for later re-use (default: false)
+%                       if false, the scheduler will be destroyed after use, and re-created during the next run
+%
+%               'spin_interval' : the period at which par_endschedule will check if the scheduler
+%                                 has finished its job (default: 0.1)
+%
 % Out:
-%   Results : cell array of results of the scheduled computations (evaluated strings)
+%   Results : cell array of results of the scheduled computations
 %   Errors  : cell array of {position,exception struct} for those results that could not be evaluated
 %             the position may also be unknown in case of more severe errors
 %
@@ -34,7 +41,7 @@ results = {};
 errors = {};
 
 % read options
-opts = hlp_varargin2struct(varargin,'keep',false, 'spin_interval',0.1);
+opts = hlp_varargin2struct(varargin,'keep',false, 'spin_interval',0.25);
 
 if iscell(sched)
     % locally computed results
@@ -71,8 +78,8 @@ else
     for r=1:length(raw)
         try
             % deserialize result
-            raw{r} = hlp_deserialize(base64decode(raw{r}));
-            if isfield(raw{r}{2},{'message','identifier','stack'})
+            raw{r} = hlp_deserialize(fast_decode(raw{r}));
+            if all(isfield(raw{r}{2},{'message','identifier','stack'}))
                 % append to errors
                 errors{end+1} = raw{r};
             else

@@ -88,6 +88,9 @@ if ~exist('func','var')
     varargin = {'Parameters',evalin('caller','varargin'),'Invoke',nargout==0};
 end
 
+if ischar(func)
+    func = str2func(func); end
+
 % parse arguments...
 hlp_varargin2struct(varargin, ...
     {'params','Parameters','parameters'},{}, ...
@@ -111,6 +114,16 @@ if ~isempty(subset) && subset{1}==-1
     subset = allnames(~ismember(allnames,[subset 'arg_direct']));
 end
 [spec,subset] = obtain_items(rawspec,subset,'',show_guru);
+
+% trim unnecessary blank margins at the beginning and end
+while isempty(spec{1}) && isempty(subset{1})
+    spec = spec(2:end);
+    subset = subset(2:end);
+end
+while isempty(spec{end}) && isempty(subset{end})
+    spec = spec(1:end-1);
+    subset = subset(1:end-1);
+end
 
 % create an inputgui() dialog...
 geometry = repmat({[0.6 0.35]},1,length(spec)+length(buttons)/2);
@@ -178,13 +191,6 @@ catch
     disp('Cannot deduce help topic.');
 end
 
-% % strip geometry for guru arguments
-% if ~show_guru
-%     tmpspec = [spec{:}];
-%     geometry([tmpspec.guru]) = [];
-%     geomvert([tmpspec.guru]) = [];
-% end
-
 [outs,dummy,okpressed] = inputgui('geometry',geometry, 'uilist',uilist,'helpcom',['env_doc ' helptopic], 'title',dialogtitle,'geomvert',geomvert); %#ok<ASGLU>
 
 if ~isempty(okpressed)
@@ -194,7 +200,7 @@ if ~isempty(okpressed)
     subset = subset(~cellfun('isempty',subset));
     % turn the raw specification into a parameter struct (a non-direct one, since we will mess with
     % it)
-    params = arg_tovals(rawspec,false);
+    params = arg_tovals(rawspec);
 
     % for each parameter produced by the GUI...
     for k = 1:length(outs)
@@ -225,7 +231,7 @@ if ~isempty(okpressed)
     
     % now send the result through the function to check for errors and obtain a values structure...
     params = arg_report('rich',func,{params});
-    params = arg_tovals(params,false);
+    params = arg_tovals(params);
 
     % invoke the function, if so desired
     if ischar(func)

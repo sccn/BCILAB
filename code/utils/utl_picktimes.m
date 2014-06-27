@@ -36,7 +36,7 @@ lc = wnd(:,2) - max(lo,wnd(:,1));
 % calc fully overlapped sample range, inverse length
 for r=1:W
     full{r} = fo(r)+1:lo(r)-1; end
-ilen = 1./(fc+cellfun(@length,full)'+lc); 
+ilen = 1./(fc+cellfun('length',full)'+lc); 
 
 Y = zeros(C,W,T);
 % accumulate for every range...

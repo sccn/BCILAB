@@ -6,7 +6,15 @@ function res = hlp_findscaling(X, scaling)
 %
 % In:
 %   Data        : data matrix of [Observations x Variables]
-%   Scale-Mode  : scaling mode, one of {std,minmax,whiten}
+%   Scale-Mode  : scaling mode, with the following options:
+%                 'center' : shift the data to make them zero-mean
+%                 'std' : center and standardize the data
+%                 'minmax' : scale the data to the range 0-1
+%                 'whiten' : whiten/sphere the data in a multivariate manner (rotates into PCA space)
+%                 'rescale' : rescale the data by 1 / median standard deviation
+%                 'decorrelate' : sphere/whiten/decorrelate the data without rotating
+%                 'decorrelate_shrinkage' : sphere/whiten/decorrelate the data without rotating, using shrinkage regularization
+%                 'decorrelate_robust' : sphere/whiten/decorrelate the data without rotating, using outlier-robust estimation
 %
 % Out:
 %   Scale-Info  : scaling structure that can be used with hlp_applyscaling, to scale data
@@ -51,6 +59,18 @@ switch scaling
         [Uc,Lc] = eig(cov(X));
         res = struct('add',{-mean(X)},'project',{Uc * sqrt(inv(Lc))'});
         res.project(~isfinite(res.project(:))) = 1;
+    case 'decorrelate'
+        res = struct('add',{-mean(X)},'project',{cov(X)^(-1/2)});
+        res.project(~isfinite(res.project(:))) = 1;
+    case 'decorrelate_shrinkage'
+        res = struct('add',{-mean(X)},'project',{cov_shrink(X)^(-1/2)});
+        res.project(~isfinite(res.project(:))) = 1;
+    case 'decorrelate_robust'
+        res = struct('add',{-median(X)},'project',{cov_blockgeom(X)^(-1/2)});
+        res.project(~isfinite(res.project(:))) = 1;
+    case 'rescale'
+        res = struct('add',{zeros(1,size(X,2))}, 'mul',{ones(1,size(X,2)) ./ median(std(X))});
+        res.mul(~isfinite(res.mul(:))) = 1;
     otherwise
         if ~isempty(scaling) && ~strcmp(scaling,'none')
             error('hlp_findscaling: unknown scaling mode specified'); end

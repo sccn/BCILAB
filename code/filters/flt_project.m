@@ -12,6 +12,7 @@ function signal = flt_project(varargin)
 %                      * matrix : use the given matrix as-is
 %
 %   ChannelNames     : optional cell array of new channel names (default: {'1','2','3',...})
+%                      If this is set to false, the old channel labels will be retained.
 %
 %   ComponentSubset  : List of component indicies to which the result shall be restricted; can also 
 %                      be expressed as fractional intervals as in [0.1 0.3; 0.7 0.9], denoting components
@@ -55,7 +56,7 @@ declare_properties('name','Projection', 'follows',{'flt_ica','flt_selvolume'}, '
 arg_define(varargin,...
     arg_norep({'signal','Signal'}), ...
     arg({'projmat','ProjectionMatrix'}, '.icaweights*.icasphere', {'.icaweights*.icasphere','.icawinv'}, 'Projection matrix. The data is multiplied by this matrix, which can therefore implement any linear spatial filter. If left empty, flt_project will try to apply the ICA projection matrix, if present.'),...
-    arg({'newchans','ChannelNames'}, [], [], 'New channel names. Cell array of new channel names, if known.','type','cellstr','shape','row'), ...
+    arg({'newchans','ChannelNames'}, [], [], 'New channel names. Cell array of new channel names, if known. If empty, channels will be named 1:n; if false, the old channel labels will be retained.','type','cellstr','shape','row'), ...
     arg({'subcomps','ComponentSubset'}, [], [], 'Component subset. List of component indices to which the result shall be restricted (or []).'), ...
     arg({'subchans','ChannelSubset'}, [], [], 'Channel subset. List of channel indices (or names) to which the data shall be restricted prior to application of the matrix.'));
 
@@ -65,7 +66,7 @@ if strcmp(projmat,'.icaweights*.icasphere') || isempty(projmat)
         % project using AMICA weights
         subchans = signal.icachansind;
         for m=1:size(signal.etc.amica.W,3)
-            tmp{m} = signal.etc.amica.W(:,:,m)*signal.etc.amica.S; end
+            tmp{m} = signal.etc.amica.W(:,:,m)*signal.etc.amica.S; end %#ok<AGROW>
         projmat = cat(1,tmp{:});        
     elseif isfield(signal,'icaweights') && ~isempty(signal.icaweights)
         % project using ICA weights
@@ -90,8 +91,11 @@ end
 
 if ~isempty(subchans)
     subset = set_chanid(signal,subchans);
-    if ~isequal(subset,1:signal.nbchan)
-        signal = pop_select(signal,'channel',subset,'sorttrial','off'); end 
+    if ~isequal(subset,1:signal.nbchan)        
+        signal.data = signal.data(subset,:,:,:,:,:,:,:);
+        signal.chanlocs = signal.chanlocs(subset);
+        signal.nbchan = size(signal.data,1);
+    end
 end
 
 % project data
@@ -114,8 +118,10 @@ elseif length(newchans) == signal.nbchan
     else
         error('The chanlocs format is unsupported.');
     end
+elseif isequal(newchans,false) && size(projmat,1)==size(projmat,2)
+    % retain current labels
 else
-    error('The number of provided channels does not match the data dimension.');
+    error('The number of provided channel labels does not match the data dimension.');
 end
 
 if ~isempty(subcomps)
@@ -124,16 +130,17 @@ if ~isempty(subcomps)
         subcomps = 1 + floor(subcomps*(signal.nbchan-1));
         tmp = [];
         for k=1:size(subcomps,1)
-            tmp = [tmp subcomps(k,1):subcomps(k,2)]; end
+            tmp = [tmp subcomps(k,1):subcomps(k,2)]; end %#ok<AGROW>
         subset = set_chanid(signal,tmp);
-        if ~isequal(subset,1:signal.nbchan)
-            signal = pop_select(signal,'channel',subset,'sorttrial','off'); end
     else
         % components are given as indices
         subset = set_chanid(signal,subcomps);
-        if ~isequal(subset,1:signal.nbchan)
-            signal = pop_select(signal,'channel',subset,'sorttrial','off'); end
     end
+    if ~isequal(subset,1:signal.nbchan)
+        signal.data = signal.data(subset,:,:,:,:,:,:,:);
+        signal.chanlocs = signal.chanlocs(subset);
+        signal.nbchan = size(signal.data,1);
+    end            
 end
 
 exp_endfun('append_online',append_online);

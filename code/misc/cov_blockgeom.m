@@ -27,4 +27,4 @@ for k=1:blocksize
     range = min(n,k:blocksize:(n+k-1));
     U = U + reshape(bsxfun(@times,reshape(X(range,:),[],1,m),reshape(X(range,:),[],m,1)),size(U));
 end
-rcov = real(reshape(block_geometric_median(U/blocksize),m,m));
+rcov = real(reshape(geometric_median(U/blocksize),m,m));

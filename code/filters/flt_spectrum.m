@@ -66,7 +66,7 @@ declare_properties('name','SpectralSelection', 'depends','set_makepos', 'follows
 
 arg_define(varargin, ... 
     arg_norep({'signal','Signal'}), ...
-    arg({'freq','FrequencySpecification'}, [], [], ['Frequency-domain selection. Can be specified either as [low high] or [low high; low high; low high; ...] for a brickwall filter or sum of brickwall filters, ' ...
+    arg({'freq','FrequencySpecification','Frequencies'}, [], [], ['Frequency-domain selection. Can be specified either as [low high] or [low high; low high; low high; ...] for a brickwall filter or sum of brickwall filters, ' ...
                                                     'or alternatively as [low_begin low_end high_begin high_end; ...] for a linearly sloped filter or sum of sloped filters (frequencies in Hz).']));
 
 if ~isempty(freq) %#ok<*NODEF>    
@@ -96,12 +96,9 @@ if ~isempty(freq) %#ok<*NODEF>
                 flt = freq(frqs);
             end
             % fix the filter beyond the Nyquist freq
-            flt = repmat(flt(:)' .* (frqs<(signal.srate/2)),size(signal.(field),1),1);
+            flt = (flt(:) .* (frqs(:)<(signal.srate/2)))';
             % filter the data
-            signal.(field) = fft(signal.(field),[],2);
-            for t=1:size(signal.(field),3)
-                signal.(field)(:,:,t) = signal.(field)(:,:,t).*flt; end
-            signal.(field) = 2*real(ifft(signal.(field),[],2));
+            signal.(field) = 2*real(ifft(bsxfun(@times,fft(signal.(field),[],2),flt),[],2));
         end
     end
 end

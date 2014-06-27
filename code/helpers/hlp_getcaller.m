@@ -36,16 +36,24 @@ function [name,file] = hlp_getcaller(indirection)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
+stack = dbstack;
 try
-    throw; %#ok<LTARG> % fast way to get an exception
-catch context
-    if ~exist('indirection','var')
-        indirection = 1; end
-    if length(context.stack) > indirection+1
-        name = context.stack(indirection+2).name;
-        file = context.stack(indirection+2).file;
+    if nargout > 1
+        if nargin < 1
+            name = stack(3).name;
+            file = stack(3).file;
+        else
+            name = stack(2+indirection).name;
+            file = stack(2+indirection).file;
+        end
     else
-        name = [];
-        file = [];
+        if nargin < 1
+            name = stack(3).name;
+        else
+            name = stack(2+indirection).name;
+        end
     end
+catch
+    name = 'base';
+    file = '';
 end

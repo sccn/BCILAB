@@ -87,11 +87,6 @@ end
 [signal.data,state.hist,state.H_n,state.R_n] = compute(signal.data,state.hist,state.H_n,state.R_n,state.eeg,state.eog,ffact);
 
 if removeeog
-    % Note: the proper way would be to use pop_select...
-    %signal.data = X(state.eeg,:);
-    %signal.nbchan = size(signal.data,1);
-    %signal.chanlocs = signal.chanlocs(state.eeg);
-    
     removed_channel_mask = true(1,size(signal.data,1));
     removed_channel_mask(state.eeg) = false;
     % annotate the data with what was removed (for visualization)
@@ -99,8 +94,11 @@ if removeeog
         signal.etc.clean_channel_mask = true(1,signal.nbchan); end
     signal.etc.clean_channel_mask(signal.etc.clean_channel_mask) = ~removed_channel_mask;
     % perform removal
-    if any(removed_channel_mask)
-        signal = pop_select(signal,'nochannel',find(removed_channel_mask)); end
+    if any(removed_channel_mask) 
+        signal.data = signal.data(~removed_channel_mask,:,:,:,:,:,:,:);
+        signal.chanlocs = signal.chanlocs(~removed_channel_mask);
+        signal.nbchan = size(signal.data,1);
+    end
 end
 
 exp_endfun;

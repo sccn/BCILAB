@@ -31,4 +31,4 @@ end
 
 % and record both the real test targets (result{1}) and the prediction on the test data (result{2})
 testset = opts.partitioner(data,inds{2});
-result = {opts.target(testset), opts.tester(testset,model)};
+result = {opts.target(testset), opts.tester(testset,model),quickif(opts.collect_models,model,struct())};

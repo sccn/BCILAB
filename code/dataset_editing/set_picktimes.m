@@ -36,4 +36,4 @@ arg_define(varargin, ...
     
 signal.data = utl_picktimes(signal.data, (ranges-signal.xmin) * signal.srate);
 
-eeg_enddef;
+exp_endfun;

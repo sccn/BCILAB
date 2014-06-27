@@ -56,19 +56,11 @@ function par_worker(port,portrange,timeout_heartbeat,varargin)
 %                'token': the token used to indicate a heartbeat message (default: some random
 %                         string)
 %
+%                'verbosity' : verbosity level; -2=only task messages,-1=only critical messages,0=only key messages,1=any message (default: 1)
+%
 % Notes:
 %  * use multiple workers to make use of multiple cores
 %  * use only ports that are not accessible from the internet
-%  * request format: <task_id><collectoraddress_length><collectoraddress><body_length><body>
-%    <task_id>: identifier of the task (needs to be forwarded, with the result,
-%               to a some data collector upon task completion) (int)
-%    <collectoraddress_length>: length, in bytes, of the data collector's address (int)
-%    <collectoraddress>: where to send the result for collection (string, formatted as host:port)
-%    <body_length>: length, in bytes, of the message body (int)
-%    <body>: a MATLAB command that yields, when evaluated, some result in ans
-%            (string, as MATLAB expression)
-%            if an exception occurs, the exception struct (as from lasterror) replaces ans
-%  * response format: <task_id><body_length><body>
 %
 % Examples:
 %   % start a worker process on one of the default ports (and use a successively higher port number)
@@ -130,16 +122,22 @@ if ~isnumeric(portrange) || ~isscalar(portrange) || portrange-round(portrange) >
     error('The PortRange must be given as an integer.'); end
 
 % read additional options
-opts = hlp_varargin2struct(varargin, 'backlog',1, 'timeout_accept',3, 'timeout_dialout',10, 'timeout_send',10, ...
-    'timeout_recv',5, 'min_keepalive',300, 'receive_buffer',64000, 'retries_send',2,'retry_wait',2, 'linger_send',3, 'update_check',[],'matlabthreads',4,'token','dsfjk45djf');
+opts = hlp_varargin2struct(varargin, 'backlog',1, 'timeout_accept',3, 'timeout_dialout',10, ...
+    'timeout_send',10, 'timeout_recv',5, 'min_keepalive',300, 'receive_buffer',64000, ...
+    'retries_send',2,'retry_wait',2, 'linger_send',3, 'update_check',[],'matlabthreads',4, ...
+    'token','dsfjk45djf','verbosity',1);
+verbosity = opts.verbosity;
 
 % make sure that the necessary Java/MATLAB code is present
 if ~exist('ChunkReader','class')
-    disp(['Trying to add Java class files in ' pwd]);
+    if verbosity >= 0 
+        fprintf('trying to add Java class files in %s\n',pwd); end
     javaaddpath(pwd);
 end
 if ~exist('ChunkReader','class')
-    error('Cannot find the ChunkReader.class; please make sure that you have bundled it with the worker.'); end
+    fprintf('Cannot find the ChunkReader.class; please make sure that you have bundled it with the worker; now exiting.\n'); 
+    return;
+end
 
 % set portrange
 if portrange == 0
@@ -152,7 +150,8 @@ try
     warning off MATLAB:maxNumCompThreads:Deprecated
     maxNumCompThreads(opts.matlabthreads);
 catch
-    disp('Note: could not restrict the # of threads to be used by MATLAB.');
+    if verbosity >= 0
+        fprintf('note: could not restrict the # of threads to be used by MATLAB.\n'); end
 end
 
 % open a new server socket (trying the specified portrange)
@@ -167,10 +166,12 @@ end
 
 % display status, or exit, if no port found
 if opened
-    disp(['This is ' char(InetAddress.getLocalHost()) '.']);
-    disp(['Listening on port ' num2str(serv.getLocalPort()) '.']);
+    if verbosity >= -1
+        fprintf('this is %s.\n',char(InetAddress.getLocalHost()));
+        fprintf('listening on port %i.\n',serv.getLocalPort());
+    end
 else
-    disp('No free port found; exiting.');
+    fprintf('no free port found; exiting.\n');
     return; 
 end
 
@@ -185,56 +186,82 @@ if timeout_heartbeat
     % this value is the time when we will terminate if no heartbeat is received before that time
     terminate_at = toc(uint64(0)) + max(opts.min_keepalive,timeout_heartbeat);
     try
-        fprintf('Setting up heartbeat server... ');
+        if verbosity >= 0
+            fprintf('setting up heartbeat server...'); end
         % we listen on the same port as the corresponding TCP port
         heartbeat = DatagramSocket(p);
         heartbeat.setSoTimeout(50);    % this is just the receive timeout (in ms)
         closer = onCleanup(@()heartbeat.close());
-        disp('success.');
+        if verbosity >= 0
+            fprintf('success.\n'); end
     catch e
-        disp(['could not open heartbeat socket, exiting now. Reason: ' e.message]);
+        fprintf('could not open heartbeat socket, exiting now. Reason: %s\n',e.message);
         return;
     end
 end
 
 tasknum = 1;
-disp('waiting for connections...');
+if verbosity >= 0
+    fprintf('waiting for connections...\n'); end
 while 1
     try
         % wait for an incoming request
         conn = serv.accept();
         conn.setSoTimeout(round(1000*opts.timeout_recv));
         conn.setTcpNoDelay(1);
-        disp('connected.');
+        if verbosity >= 1
+            fprintf('connected.\n'); end
 
         try
+            out = DataOutputStream(conn.getOutputStream());
+            if verbosity >= 1
+                fprintf('confirming ready-to-send...'); end
+            % confirm that we are ready to receive jobs
+            out.writeInt(12345);
+            out.flush();
+            if verbosity >= 1
+                fprintf('done.\n'); end
             % parse request
             in = DataInputStream(conn.getInputStream());
             cr = ChunkReader(in);
             taskid = in.readInt();
             collector = char(cr.readFully(in.readInt())');
             task = char(cr.readFully(in.readInt())');
-            if ~isempty(opts.update_check)
-                fprintf('received data (%.0fkb); checking for update first...\n',length(task)/1024);
-                if par_haveupdate(opts.update_check{:})
-                    disp('update available; terminating.');
-                    conn.close();
-                    return;
-                else                    
-                    disp('no update; now hand-shaking.');
-                end
+            % optionally check for code update
+            if isempty(opts.update_check)
+                if verbosity >= 1
+                    fprintf('received data (%.0fkb); hand-shaking.\n',length(task)/1024); end
             else
-                fprintf('received data (%.0fkb); hand-shaking.\n',length(task)/1024);
+                if verbosity >= 1
+                    fprintf('received data (%.0fkb); checking for update first...\n',length(task)/1024); end
+                if par_haveupdate(opts.update_check{:})
+                    if isdeployed
+                        if verbosity >= 1
+                            fprintf('update available; terminating.\n'); end
+                        conn.close();
+                    else
+                        if verbosity >= 1
+                            fprintf('update available; clearing functions.\n'); end
+                        clear functions;
+                    end
+                    return;
+                else
+                    if verbosity >= 1
+                        fprintf('no update; now hand-shaking.\n'); end
+                end
             end
-            out = DataOutputStream(conn.getOutputStream());
+            % reply with checksum
             out.writeInt(taskid+length(collector)+length(task));
             out.flush();
             conn.close();
             
             % process task
-            disp(['processing task ' num2str(taskid) ' (' num2str(tasknum) ') ...']); tasknum = tasknum+1;
-            result = base64encode(par_evaluate(base64decode(task)));
-            disp('done with task; opening back link...');
+            if verbosity >= 1
+                fprintf('processing task %i (%i) ...\n',taskid,tasknum); end
+            tasknum = tasknum+1;
+            result = fast_encode(par_evaluate(fast_decode(task)));
+            if verbosity >= 1
+                fprintf('done with task; opening back link...\n'); end
             
             for retry = 1:opts.retries_send
                 try
@@ -246,35 +273,45 @@ while 1
                     outconn.setTcpNoDelay(1);
                     outconn.setSoTimeout(round(1000*opts.timeout_send));
                     outconn.setSoLinger(true,3);
-                    fprintf('connected; now sending (%.0fkb)...',length(result)/1024);
+                    if verbosity >= 1
+                        fprintf('connected; now sending (%.0fkb)...',length(result)/1024); end
                     out = DataOutputStream(outconn.getOutputStream());
                     out.writeInt(taskid);
                     out.writeInt(length(result));
                     out.writeBytes(result);
                     out.flush();
-                    fprintf('done; now closing...');
+                    if verbosity >= 1
+                        fprintf('done; now closing...'); end
                     outconn.close();
-                    disp('done.');
-                    disp('waiting for connections...');
+                    if verbosity >= 1
+                        fprintf('done.\n'); end
+                    if verbosity >= 1
+                        fprintf('waiting for connections...\n'); end
                     break;
                 catch e
-                    if isempty(strfind(e.message,'timed out'))
-                        disp(['Exception during result forwarding: ' e.message]); end
-                    disp('waiting before retry...');
+                    if verbosity >= -1 && isempty(strfind(e.message,'timed out')) 
+                            fprintf('exception during result forwarding: %s\n', e.message); end
+                    if verbosity >= 0
+                        fprintf('waiting before retry...\n'); end
                     pause(opts.retry_wait);
-                    disp('retrying to open back link...');
+                    if verbosity >= 0
+                        fprintf('retrying to open back link...\n'); end
                 end
             end
             
         catch e
             conn.close();
             if ~isempty(strfind(e.message,'EOFException'))
-                disp('cancelled by scheduler.');
+                if verbosity >= 0
+                    fprintf('cancelled by scheduler.\n'); end
+                if verbosity >= 1
+                    fprintf('waiting for connections...\n'); end
             elseif isempty(strfind(e.message,'timed out'))
-                disp(['Exception during task receive: ' e.message]); 
+                if verbosity >= -1
+                    fprintf('exception during task receive: %s\n',e.message); end
             end
         end
-               
+
     catch e
         % accept timed out 
         if timeout_heartbeat
@@ -295,13 +332,13 @@ while 1
             end
             % check if the heartbeat timeout has expired
             if toc(uint64(0)) > terminate_at
-                disp('No keep-alive message has been received in time; now terminating.');
+                fprintf('no keep-alive message has been received in time; now terminating.\n');
                 return;
             end
         end
         
         % check if we need to display an error message
-        if isempty(strfind(e.message,'timed out'))
-            disp(['Exception during accept: ' e.message]); end
+        if verbosity >= -1 && isempty(strfind(e.message,'timed out'))
+            fprintf('exception during accept: %s\n',e.message); end
     end
 end

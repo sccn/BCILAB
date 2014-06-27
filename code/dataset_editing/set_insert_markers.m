@@ -143,7 +143,7 @@ opts = arg_define([0 1],varargin, ...
         },'Insertion interval definition. Events can be inserted either in fixed, absolute time window of the data set (absoluterange), or in time windows relative to reference events of a certain type (relativerange), or in time window spanned by two subsequent events of certain types (called the opening event and the closing event), optionally with ignored events in between (spannedrange).','cat','Time Ranges','mapper',@parse_segment), ...
     arg({'limits','Limits'},[-Inf Inf],[],'Time limits for event placement. Events that fall outside these bounds will be skipped. Therefore, intervals that intersect these boundaries may have fewer events than others.','cat','Time Ranges'),...
     arg({'event','InsertedType','Event'},'newevent',[],'Type of inserted events. The event type for the newly inserted events.','cat','Placement'), ...
-    arg({'count','Count'},uint32(1),[],'Number of inserted events. This is either per interval or per second, depending on the Counting argument.','cat','Placement'), ...
+    arg({'count','Count'},1,[],'Number of inserted events. This is either per interval or per second, depending on the Counting argument.','cat','Placement'), ...
     arg({'counting','Counting'},'perinterval',{'perinterval','persecond'},'Counting measure. Events can be inserted in a certain number per interval or per second','cat','Placement'), ...
     arg({'placement','Placement'},'equidistant',{'equidistant','random'},'Event placement scheme. Events can be inserted at equal (regular) distance from each other, or at random positions.','cat','Placement'), ...
     arg({'repeatable','Repeatable'},1,[],'Repeatable versus random placement. If 0, placement is random, if different from 0, the number is taken as the random seed, giving a unique repeatable run per number.','cat','Placement'), ...
@@ -222,10 +222,12 @@ switch opts.segmentspec.arg_selection
 end
 % sort the events by latency...
 newsignal.event = newsignal.event(hlp_getresult(2,@sort,[newsignal.event.latency]));
-% reproduce urevents if necessary
-if isempty(newsignal.urevent)
-    newsignal = eeg_checkset(newsignal,'makeur'); end
 
+% update .urevent field if trivial
+if isempty(newsignal.urevent) || isequal([newsignal.event.urevent],1:length(newsignal.event))
+    newsignal.urevent = newsignal.event;
+    [newsignal.event.urevent] = arraydeal(1:length(newsignal.event));
+end
 
 % conclude randomization
 if strcmp(opts.placement,'random') && opts.repeatable && hlp_matlab_version < 707
@@ -277,12 +279,15 @@ if length(ival) == 2 && ival(1) <= ival(2)
     if ~isempty(ival)
         % compute the individual latencies
         lats = ival(ival>=opts.limits(1) & ival<=opts.limits(2));
+        % sanitize latencies
+        lats = min(max(lats,1),signal.pnts);
         if ~isempty(signal.urevent)
             signal.urevent = []; end
         if isempty(signal.event)
             signal.event = setfield(setfield(opts.event,'latency',1),'type','dummy'); end; %#ok<SFLD>
-        for l = lats
-            signal.event(end+1) = setfield(opts.event,'latency',l); end %#ok<SFLD>
+        range = length(signal.event) + (1:length(lats));
+        [signal.event(range)] = deal(opts.event);
+        [signal.event(range).latency] = arraydeal(lats);
     end
 end
 
@@ -304,6 +309,12 @@ end
 function [selection,spec] = parse_segment(spec)
 if isempty(spec)
     selection = 'absoluterange';
+elseif ischar(spec) && any(strcmp(spec,{'absoluterange','relativerange','spannedrange'}))
+	selection = spec;
+    spec = {};
+elseif iscell(spec) && any(strcmp(spec{1},{'absoluterange','relativerange','spannedrange'})) 
+    selection = spec{1};
+    spec = {};
 elseif isfield(spec{1},'arg_selection')
     selection = spec{1}.arg_selection;
 elseif any(strcmp(spec{1},{'absoluterange','relativerange','spannedrange'}))

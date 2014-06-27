@@ -9,6 +9,8 @@ function [signal,state] = flt_analytic_phasor(varargin)
 % 4) compute analytic amp as A = sqrt(Re.^2 + Im.^2)
 % 5) compute phase as Phi = atan2(Im,Re)
 %
+% This filter applies to all time-series fields of the given signal.
+%
 % In:
 %   Signal : EEGLAB data set structure
 %
@@ -56,12 +58,8 @@ function [signal,state] = flt_analytic_phasor(varargin)
 %
 %   State : final filter state
 % 
-%
-% Notes:
-%	Requires the Signal Processing toolbox for filter design.
-%
-%                                Tim Mullen, Swartz Center for Computational Neuroscience, UCSD
-%                                2012-03-27
+%                 Tim Mullen and Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+%                 2012-03-27
 
 if ~exp_beginfun('filter') return; end
 
@@ -72,17 +70,17 @@ arg_define(varargin,...
     arg_norep({'signal','Signal'}), ...
     arg_subswitch({'flt','DiffFilter','diffFilter'},'hilbert', ...
         {'hilbert' ...
-            {arg({'freqband','FrequencyBand'}, [7 8 12 13], [], 'Frequency band to use. The 4 numbers characterize the onset, pass-band limits, and offset frequency of the filter.'), ...
+            {arg({'freqband','FrequencyBand'}, [7 8 12 13], [], 'Frequency band to use. The 4 numbers characterize the onset, pass-band limits, and offset frequency of the filter.','type','expression'), ...
              arg({'fltlen','FilterLength'}, [], [], 'Filter length. This determines both the quality and the delay of the differentiator. If left empty, the optimal order will be estimated based on tolerated pass/stopband ripple.','shape','scalar'), ...
              arg({'passripple','PassbandRipple'}, -20, [-180 1], 'Maximum relative ripple amplitude in pass-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'), ...
              arg({'stopripple','StopbandRipple'}, -30, [-180 1], 'Maximum relative ripple amplitude in stop-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'), ...
-             arg({'designrule','DesignRule'}, 'Parks-McClellan', {'Least-Squares','Parks-McClellan'}, 'Filter design rule. Can be either least-squares filter design or Parks-McClellan filter design.')}, ...
+             arg({'designrule','DesignRule'}, 'Frequency Sampling', {'Frequency Sampling','Least-Squares','Parks-McClellan'}, 'Filter design rule. Can be either least-squares filter design or Parks-McClellan filter design.')}, ...
          'differentiator' ...
-            {arg({'freqband','FrequencyBand'}, [7 8 12 13], [], 'Frequency band to use. The 4 numbers characterize the onset, pass-band limits, and offset frequency of the filter.'), ...
+            {arg({'freqband','FrequencyBand'}, [7 8 12 13], [], 'Frequency band to use. The 4 numbers characterize the onset, pass-band limits, and offset frequency of the filter.','type','expression'), ...
              arg({'fltlen','FilterLength'}, [], [], 'Filter length. This determines both the quality and the delay of the differentiator. If left empty, the optimal order will be estimated based on tolerated pass/stopband ripple.','shape','scalar'), ...
              arg({'passripple','PassbandRipple'}, -20, [-180 1], 'Maximum relative ripple amplitude in pass-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'), ...
              arg({'stopripple','StopbandRipple'}, -30, [-180 1], 'Maximum relative ripple amplitude in stop-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'), ...
-             arg({'designrule','DesignRule'}, 'Parks-McClellan', {'Least-Squares','Parks-McClellan'}, 'Filter design rule. Can be either least-squares filter design or Parks-McClellan filter design.')}, ...
+             arg({'designrule','DesignRule'}, 'Frequency Sampling', {'Frequency Sampling','Least-Squares','Parks-McClellan'}, 'Filter design rule. Can be either least-squares filter design or Parks-McClellan filter design.')}, ...
          'smooth_diff' ...
             {arg({'fltlen','FilterLength'}, 10, [], 'Filter length. This determines both the quality and the delay of the differentiator. The default should be fine.','shape','scalar')} ...
         },'Differencing filter. The smooth_diff implementation is currently experimental; hilbert and differentiator should be fine.'), ...
@@ -100,46 +98,78 @@ if isempty(state)
             state.b_im = hlp_microcache('fdesign',@smooth_diff,flt.fltlen);
             state.b_re = abs(state.b_im);
         case {'hilbert','differentiator'}
+            if ~iscell(flt.freqband)
+                flt.freqband = {flt.freqband}; end
+            nFreqs = length(flt.freqband);
             % build firpm freq spec
             if flt.passripple < 0
                 flt.passripple = 10^(flt.passripple/10); end
             if flt.stopripple < 0
                 flt.stopripple = 10^(flt.stopripple/10); end            
-            % estimate filter order if necessary (using firpmord in all cases)
-            if isempty(flt.fltlen)
-                pmspec = hlp_diskcache('filterdesign',@firpmord,flt.freqband,[0 1 0],flt.stopripple + [0 1 0]*(flt.passripple-flt.stopripple),signal.srate,'cell');
-                pmspec{1} = max(3,pmspec{1});
+            if isempty(flt.fltlen) && ~any(strcmp(flt.designrule,{'Frequency Sampling','fs'}))
+                % optionally estimate filters order for each band
+                for f=nFreqs:-1:1
+                    pmspec{f} = hlp_diskcache('filterdesign',@firpmord,flt.freqband{f},[0 1 0],flt.stopripple + [0 1 0]*(flt.passripple-flt.stopripple),signal.srate,'cell'); end
+                % make sure that each filter uses the same order (=delay)
+                maxlen = max([3,cellfun(@(x)x{1},pmspec)]);
+                for f=nFreqs:-1:1
+                    pmspec{f}{1} = maxlen; end
             else
-                pmspec = {flt.fltlen,[0 flt.freqband*2/signal.srate 1],[0 0 1 1 0 0]};
+                for f=nFreqs:-1:1
+                    pmspec{f} = {flt.fltlen,[0 flt.freqband{f}*2/signal.srate 1],[0 0 1 1 0 0]}; end
             end
             % design filters
-            switch flt.designrule
-                case {'Parks-McClellan','pm'}
-                    state.b_im = hlp_diskcache('filterdesign',@firpm,pmspec{:},flt.arg_selection); 
-                    state.b_re = hlp_diskcache('filterdesign',@firpm,pmspec{:}); 
-                case {'Least-Squares','ls'}
-                    state.b_im = hlp_diskcache('filterdesign',@firls,pmspec{1},[0 flt.freqband*2/signal.srate 1],[0 0 1 1 0 0],flt.arg_selection);
-                    state.b_re = hlp_diskcache('filterdesign',@firls,pmspec{1},[0 flt.freqband*2/signal.srate 1],[0 0 1 1 0 0]);
-                otherwise 
-                    error(['Unrecognized filter design rule:' hlp_tostring(flt.designrule)]);
+            for f=nFreqs:-1:1
+                switch flt.designrule
+                    case {'Parks-McClellan','pm'}                    
+                        state.b_im{f} = hlp_diskcache('filterdesign',@firpm,pmspec{f}{:},flt.arg_selection); 
+                        state.b_re{f} = hlp_diskcache('filterdesign',@firpm,pmspec{f}{:}); 
+                    case {'Least-Squares','ls'}
+                        state.b_im{f} = hlp_diskcache('filterdesign',@firls,pmspec{f}{:},flt.arg_selection);
+                        state.b_re{f} = hlp_diskcache('filterdesign',@firls,pmspec{f}{:});
+                    case {'Frequency Sampling','fs'}
+                        % get frequencies and amplitudes
+                        freqs = [0 flt.freqband{f}*2/signal.srate 1];
+                        amps = [0 0 1 1 0 0];
+                        % design window
+                        if isempty(flt.fltlen)
+                            [dummy,pos] = min(diff(freqs)); %#ok<ASGLU>
+                            wnd = design_kaiser(freqs(pos),freqs(pos+1),-20*log10(flt.stopripple),false);
+                        else
+                            wnd = window_func('kaiser',flt.fltlen+1-mod(flt.fltlen,2));
+                        end
+                        % design filters
+                        state.b_im{f} = design_fir(length(wnd)-1,freqs,amps,[],wnd,true);
+                        state.b_re{f} = design_fir(length(wnd)-1,freqs,amps,[],wnd);
+                    otherwise 
+                        error(['Unrecognized filter design rule:' hlp_tostring(flt.designrule)]);
+                end
             end
         otherwise
             error(['Unrecognized differentiator type selected: ' hlp_tostring(flt.arg_selection)])
     end
     % set up initial state
+    state.cached_chanlocs = update_chanlocs(signal.chanlocs,nFreqs);
     for fld = utl_timeseries_fields(signal)
-        state.(fld{1}) = struct('zi_re',[],'zi_im',[]); end
+        state.(fld{1}) = struct('zi_re',{cell(1,length(flt.freqband))},'zi_im',{cell(1,length(flt.freqband))}); end
 end
 
 % filter bandpassed signal with differentiator to get sine part
+nFreqs = length(state.b_im);
 for fld = utl_timeseries_fields(signal)
     field = fld{1};
-    if ~isempty(signal.(field)) && ~isequal(signal.(field),1)
+    if ~isempty(signal.(field))
         % get rid of NaN's and Inf's
         signal.(field)(~isfinite(signal.(field)(:))) = 0;
         % apply differentiator to get real (cosine) and imaginary (sine) part of signal
-        [impart,state.(field).zi_im] = filter_fast(state.b_im,1,signal.(field),state.(field).zi_im,2);
-        [repart,state.(field).zi_re] = filter_fast(state.b_re,1,signal.(field),state.(field).zi_re,2);
+        [impart,repart] = deal(cell(1,nFreqs));
+        for f=1:nFreqs
+            [impart{f},state.(field).zi_im{f}] = filter_fast(state.b_im{f},1,signal.(field),state.(field).zi_im{f},2);
+            [repart{f},state.(field).zi_re{f}] = filter_fast(state.b_re{f},1,signal.(field),state.(field).zi_re{f},2);
+        end
+        % concatenate across all frequencies
+        impart = vertcat(impart{:});
+        repart = vertcat(repart{:});
         % compute analytic phase and amplitude
         aamp = sqrt(repart.^2 + impart.^2);
         if include_aphase || include_afreq
@@ -156,8 +186,19 @@ for fld = utl_timeseries_fields(signal)
             signal = utl_register_field(signal,'timeseries',[field '_afreq'],afreq/(2*pi)*signal.srate);
         end
         if override_original
-            signal.(field) = aamp; end
+            signal.(field) = aamp; 
+            % also override channel labels
+            signal.etc.orig_chanlocs = signal.chanlocs;
+            signal.chanlocs = state.cached_chanlocs;
+            signal.nbchan = length(signal.chanlocs);
+        end
     end
 end
 
 exp_endfun;
+
+
+function locs = update_chanlocs(locs,nFreqs)
+nChans = length(locs);
+locs = repmat(locs,1,nFreqs);
+[locs.labels] = celldeal(cellfun(@strcat,{locs.labels},vec(repmat(cellfun(@(f)sprintf('_%i',f),num2cell(1:nFreqs),'UniformOutput',false),nChans,1))','UniformOutput',false));

@@ -36,28 +36,28 @@ arg_define(varargin, ...
 % handle inputs
 b = ones(1,fltlength)/fltlength;
 
-for fld = utl_timeseries_fields(signal)
-    field = fld{1};
-    if ~isempty(signal.(field))        
+for f = utl_timeseries_fields(signal) %#ok<NODEF>
+    if ~isempty(signal.(f{1}))        
         % get the data (transposed)
-        sig = double(signal.(field))';
-        
+        [X,dims] = spatialize_transpose(double(signal.(f{1})));        
         % if necessary prepend the signal with a mirror section of itself, to minimize start-up transients
-        if ~isfield(state,field) || isempty(state.(field))
-            sig = [repmat(2*sig(1,:),length(b),1) - sig((length(b)+1):-1:2,:); sig];
-            state.(field) = [];
+        prepend = ~isfield(state,f{1});
+        if prepend
+            X = [repmat(2*X(1,:),length(b),1) - X(1+mod(((length(b)+1):-1:2)-1,size(X,1)),:); X]; %#ok<AGROW>
+            state.(f{1}) = [];
         end
-        
         % apply the filter
-        [sig,state.(field)] = filter(b,1,sig,state.(field),1);
-        
+        [X,state.(f{1})] = filter(b,1,X,state.(f{1}),1);
         % check if we need to cut off a data segment that we previously prepended
-        if isempty(state.(field))
-            sig(1:length(b),:) = []; end
-        
+        if prepend
+            X(1:length(b),:) = []; end
         % write the data back
-        signal.(field) = sig';
+        signal.(f{1}) = unspatialize_transpose(X,dims);        
     end
 end
+
+if ~isfield(signal.etc,'filter_delay')
+    signal.etc.filter_delay = 0; end
+signal.etc.filter_delay = signal.etc.filter_delay + fltlength/(2*signal.srate);
 
 exp_endfun;

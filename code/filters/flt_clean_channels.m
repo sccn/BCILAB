@@ -133,6 +133,7 @@ if ~exist('removed_channel_mask','var')
     % mark all channels for removal which have more flagged samples than the maximum number of
     % ignored samples
     removed_channel_mask = sum(flagged,2)*window_len > max_broken_time;
+    fprintf('Removing %i channels...\n',nnz(removed_channel_mask));
     
     % remove the channels in the protect list
     if ~isempty(protect_channels)
@@ -146,6 +147,9 @@ signal.etc.clean_channel_mask(signal.etc.clean_channel_mask) = ~removed_channel_
 
 % execute
 if any(removed_channel_mask)
-    signal = pop_select(signal,'nochannel',find(removed_channel_mask)); end
+    signal.data = signal.data(~removed_channel_mask,:,:,:,:,:,:,:);
+    signal.chanlocs = signal.chanlocs(~removed_channel_mask);
+    signal.nbchan = size(signal.data,1);
+end
 
 exp_endfun('append_online',{'removed_channel_mask',removed_channel_mask});
