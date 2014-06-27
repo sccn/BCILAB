@@ -171,7 +171,10 @@ resource_dir = [base_dir 'resources'];
 script_dir = [base_dir 'userscripts'];
 build_dir = [base_dir 'build'];
 
-        
+% note: if you want other paths to work with utl_whichfile you need to append them to this cell array;
+% if they are in dependencies, it's best to make it something like [base_dir 'dependencies' filesep 'mytoolbox-x.y'],
+toolbox_dirs = {[base_dir 'code' filesep]};
+
 % add them all to the MATLAB path (except for dependencies, which are loaded separately)
 if ~isdeployed
     
@@ -302,7 +305,10 @@ end
 
 % set global variables
 global tracking
-tracking.paths = struct('bcilab_path',{base_dir(1:end-1)}, 'function_path',{function_dir}, 'data_paths',{opts.data}, 'store_path',{opts.store}, 'dependency_path',{dependency_dir},'resource_path',{resource_dir},'temp_path',{opts.temp}, 'private_path',{opts.private});
+tracking.paths = struct('bcilab_path',{base_dir(1:end-1)}, 'function_path',{function_dir}, ...
+    'data_paths',{opts.data}, 'store_path',{opts.store}, 'dependency_path',{dependency_dir}, ...
+    'resource_path',{resource_dir},'temp_path',{opts.temp}, 'private_path',{opts.private}, ...
+    'toolboxes',{toolbox_dirs});
 for d=1:length(opts.cache)
     location = rmfield(opts.cache{d},'tag');
     % convert GiB to bytes

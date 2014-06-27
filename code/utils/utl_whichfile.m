@@ -65,7 +65,7 @@ end
                     populate_records([path filesep info.name]); end
             else
                 % found a file? add it to the table if an .m file
-                if length(info.name) > 2 && strcmp(info.name(end-1:end),'.m')                    
+                if length(info.name) > 2 && strcmp(info.name(end-1:end),'.m') && isvarname(info.name(1:end-2))
                     filenames.(info.name(1:end-2)) = [path filesep info.name]; end
             end
         end
