@@ -135,6 +135,7 @@ classdef lsl_inlet < handle
             %                    * 'robust' : return a robust linear fit in the given time window 
             %                                 (slowest but best tradeoff between accuracy and
             %                                 robustness)
+            %                    * 'zero' : return zero (i.e., dismiss time-correction)
             %                    note: if you switch the post-processing you need to wait for up to
             %                          5 seconds until the estimator has updated
             %
@@ -148,7 +149,6 @@ classdef lsl_inlet < handle
             if ~exist('postproc','var') || isempty(postproc) postproc = 'raw'; end
             if ~exist('winlen','var') || isempty(winlen) winlen = 60; end
             result = lsl_time_correction(self.LibHandle, self.InletHandle,timeout);            
-            disp(result);
             % do post-processing if requested (and don't attempt to post-process NaN values)
             if ~isnan(result) && ~strcmp(postproc,'raw')
                 t0 = lsl_local_clock(self.LibHandle);
@@ -197,6 +197,8 @@ classdef lsl_inlet < handle
                 end
                 % predict the time-correction
                 switch postproc
+                    case 'zero'
+                        result = 0;
                     case 'median'
                         result = median(self.CorrectionBuffer);
                     case {'linear','trimmed','robust','robust_linear'}

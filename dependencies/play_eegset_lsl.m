@@ -1,4 +1,4 @@
-function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping,background,update_interval,jitter)
+function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping,background,update_interval,jitter,consistent_jitter)
 % Play back a continuous EEGLAB dataset over LSL.
 % Handle = play_eegset_lsl(Dataset,DataStreamName,EventStreamName,Looping,Background,UpdateInterval)
 %
@@ -18,6 +18,10 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
 %   BlockJitter : Artificial timing jitter per transmitted block, for tests of timing resilience. In
 %                 seconds of standard deviations; should typically be lower than the 
 %                 update interval (default: 0)
+%
+%   ConsistentJitter : Whether the block jitter is consistent with the marker jitter; if not then 
+%                      the data blocks are jittered relative to the markers and for correct
+%                      alignment the jitter needs to be regressed out (default: true)
 %
 % Out:
 %   Handle : A handle that can be used to stop background playback, by calling stop(myhandle).
@@ -55,6 +59,8 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
         update_interval = 0; end
     if ~exist('jitter','var') || isempty(jitter)
         jitter = 0; end
+    if ~exist('consistent_jitter','var') || isempty(consistent_jitter)
+        consistent_jitter = true; end
 
     if ~ischar(datastreamname)
         error('The given DataStreamName must be a string.'); end
@@ -68,6 +74,8 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
         error('The given UpdateInterval must be a numeric scalar.'); end
     if ~isnumeric(jitter) || ~isscalar(jitter)
         error('The given Jitter argument must be a numeric scalar.'); end    
+    if ~isequal(consistent_jitter,0) && ~isequal(consistent_jitter,1)
+        error('The given ConsistentJitter argument must be a boolean.'); end
     if background && ~nargout
         error('To play back in the background you need to specify a return value (otherwise you playback could not be stopped).'); end
     
@@ -119,7 +127,7 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
     end
 
     disp('Now playing back...');
-    start_time = lsl_local_clock(lib);
+    start_time = lsl_local_clock(lib); 
     last_time = 0;
     last_pos = 0;
     if background
@@ -156,7 +164,7 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
                 % get the position of the markers covered by the wraprange, but measured in samples relative to the beginning of the recording
                 marker_offsets = sample_indices(:) + vec(residuals(marker_indices)) + wraprange(1) - 1;
                 % the time stamps are deduced analytically from the sample position within the data (i.e., do not depend on wall-clock time)
-                marker_times = start_time + (loop_offset + marker_offsets - 1)/dataset.srate + jitter_offset;
+                marker_times = start_time + (loop_offset + marker_offsets - 1)/dataset.srate + consistent_jitter*jitter_offset;
                 % send them off
                 for m=1:length(marker_times)
                     markeroutlet.push_sample(marker_types(marker_indices(m)),marker_times(m)); end
@@ -208,7 +216,7 @@ function [B,R] = sparse_binning(V,rows,columns)
     %
     %   Residuals : optionally the fractional offset between the values and the bin indices.
 
-    [V,order] = sort(V(:)'); %#ok<UDIM,TRSRT>
+    [V,order] = sort(V(:)'); %#ok<TRSRT>
     % get the bin index where each value falls
     bins = round(V);
     % get the within-bin rank of each value
