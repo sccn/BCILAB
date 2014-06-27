@@ -140,11 +140,16 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             %            this is in almost all configurations an expoched data set
             %
             %   GroupInto : Feature grouping. This controls how the processed data in each epoch is
-            %               vectorized into a feature vector; either the resulting vector has a block
-            %               with all channels of the first sample in succession, followed by a block
-            %               with all channels of the second sample and so on (channel grouping), or a
-            %               block with all samples for the first channel, followed by a block with all
-            %               samples of the second channel, and so on (samples grouping).
+            %               vectorized into a feature vector; either the resulting vector has a
+            %               block with all channels of the first sample in succession, followed by a
+            %               block with all channels of the second sample and so on (channel
+            %               grouping), or a block with all samples for the first channel, followed
+            %               by a block with all samples of the second channel, and so on (samples
+            %               grouping). The tensor setting will forward tensor-shaped features (for
+            %               signals with arbitrary extra dimensions), and the vectorized setting
+            %               will vectorize features, regardless of signal dimensionality. The matrix
+            %               setting will use [channels x time-points] feature matrices and give an
+            %               error if the signal has additional dimensions.
             %
             %               GroupInto is a sample user parameter; other feature extraction functions may
             %               define arbitrary other parameters (or none -- see some other paradigms for
@@ -159,7 +164,7 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             
             arg_define(varargin, ...
                 arg_norep({'signal','Signal'}), ...
-                arg({'group_into','GroupInto'},'channels',{'channels','samples','matrix'},'Feature grouping. This controls how the processed data in each epoch is vectorized into a feature vector; either the resulting vector has a block with all channels of the first sample in succession, followed by a block with all channels of the second sample and so on (channel grouping), or a block with all samples for the first channel, followed by a block with all samples of the second channel, and so on (samples grouping).'));
+                arg({'group_into','GroupInto'},'channels',{'channels','samples','matrix','tensor','vectorized'},'Feature grouping. This controls how the processed data in each epoch is vectorized into a feature vector; either the resulting vector has a block with all channels of the first sample in succession, followed by a block with all channels of the second sample and so on (channel grouping), or a block with all samples for the first channel, followed by a block with all samples of the second channel, and so on (samples grouping). The tensor setting will forward tensor-shaped features (for signals with arbitrary extra dimensions), and the vectorized setting will vectorize features, regardless of signal dimensionality.'));
             
             % pack our group_into parameter into the featuremodel for later use in feature_extract().
             featuremodel.group_into = group_into;
@@ -196,14 +201,29 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             
             switch featuremodel.group_into
                 case 'channels'
-                    % group by channels
+                    % pass on feature vectors grouped by channels
+                    if ndims(signal.data)>3
+                        error('Your signal has extra dimensions: to use this type of signal, you need to set GroupInto either to ''tensor'' or to ''vectorized''.'); end
                     features = squeeze(reshape(signal.data,[],1,size(signal.data,3)))';
                 case 'samples'
-                    % group by samples
+                    % pass on feature vectorss grouped by samples
+                    if ndims(signal.data)>3
+                        error('Your signal has extra dimensions: to use this type of signal, you need to set GroupInto either to ''tensor'' or to ''vectorized''.'); end
                     features = squeeze(reshape(permute(signal.data,[2 1 3]),[],1,size(signal.data,3)))';
                 case 'matrix'
-                    % pass on feature matrices
+                    % pass on [CxTxN] feature matrices
+                    if ndims(signal.data)>3
+                        error('Your signal has extra dimensions: to use this type of signal, you need to set GroupInto either to ''tensor'' or to ''vectorized''.'); end
                     features = signal.data;
+                case 'tensor'
+                    % pass on [AxBxCx...xN] feature tensors
+                    features = permute(signal.data,[1:2 4:ndims(signal.data) 3]);
+                case 'vectorized'
+                    % pass on [NxF] feature vectors
+                    features = permute(signal.data,[3 1:2 4:ndims(signal.data)]);
+                    features = features(:,:);
+                otherwise
+                    error('Unsupported setting for the GroupInto parameter: %s',featuremodel.group_into);
             end
         end
         
@@ -617,7 +637,7 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             %   Options : cell array or struct of name-value pairs.
 
             args = arg_define(varargin, ...
-                arg_norep({'model','Model'},[],[],'BCI Model to visualize.'), ...
+                arg_norep({'model','Model'},struct(),[],'BCI Model to visualize.'), ...
                 quickif(arg_supported(@self.visualize_model), ...
                     arg_sub({'options','Options'},{}, @self.visualize_model, 'Plotting options.'), ...
                     arg({'options','Options'},{},[],'Plotting options. Cell array of name-value pairs.','type','expression')));

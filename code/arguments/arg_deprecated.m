@@ -5,7 +5,8 @@ function res = arg_deprecated(varargin)
 % This type of function argument specifier behaves like arg(), but indicates that the argument in 
 % question is deprecated and may become obsolete in the future. The argument will still be passed on
 % to the function as normal, but will by default not be displayed in the GUI and will display a one-
-% time-per-session warning (that can be disabled) when a non-default value is assigned to it.
+% time-per-session warning (that can be disabled) when a non-default value is assigned to it. Also,
+% type, range and shape checking upon assignment is disabled by default.
 %
 % In:
 %   Names : The name(s) of the argument. At least one must be specified, and if multiple are
@@ -61,11 +62,11 @@ function res = arg_deprecated(varargin)
 % USA
 
 if nargin == 1
-    res = {'expand_arg',[varargin {[],[],[],'displayable',false,'deprecated',true}]};
+    res = {'expand_arg',[varargin {[],[],[],'displayable',false,'deprecated',true,'typecheck',false,'shapecheck',false,'rangecheck',false}]};
 elseif nargin >= 4
-    res = {'expand_arg',[varargin {'displayable',false,'deprecated',true}]};
+    res = {'expand_arg',[varargin(1:4) {'displayable',false,'deprecated',true,'typecheck',false,'shapecheck',false,'rangecheck',false} varargin(5:end)]};
 elseif nargin == 2
-    res = {'expand_arg',[varargin {[],[],'displayable',false,'deprecated',true}]};
+    res = {'expand_arg',[varargin {[],[],'displayable',false,'deprecated',true,'typecheck',false,'shapecheck',false,'rangecheck',false}]};
 else
-    res = {'expand_arg',[varargin {[],'displayable',false,'deprecated',true}]};
+    res = {'expand_arg',[varargin {[],'displayable',false,'deprecated',true,'typecheck',false,'shapecheck',false,'rangecheck',false}]};
 end

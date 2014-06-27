@@ -74,7 +74,7 @@ catch
     if ~isfield(tracking,'stack') || ~isfield(tracking.stack,'frameids')        
         % need to create the id repository first
         tracking.stack.frameids = java.util.concurrent.LinkedBlockingDeque();
-        for k=50000:-1:1
+        for k=10000:-1:1
             tracking.stack.frameids.addLast(sprintf('f%d',k)); end
     else
         if tracking.stack.frameids.size() == 0

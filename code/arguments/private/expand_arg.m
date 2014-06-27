@@ -51,16 +51,19 @@ function spec = expand_specifier(names,default,range,help,varargin)
             % if both the value and the range are cell-string arrays and the value is a subset of
             % the range, the type is 'logical'
             spec.type = 'logical';
-        elseif ~isempty(default)
+        elseif ~isempty(default) && ~(isequal(default,'__arg_mandatory__') || isequal(default,'__arg_unassigned__'))
             % if the value is non-empty, the type is deduced from the value
             spec.type = deduce_type(default);
-        elseif isnumeric(spec.range)
-            % if the range is numeric, the type is deduced from the range
+        elseif isnumeric(spec.range) && ~isempty(spec.range)
+            % if the range is numeric and non-empty, the type is deduced from the range
             spec.type = deduce_type(spec.range);
         elseif iscell(spec.range) && isscalar(unique(cellfun(@deduce_type,spec.range,'UniformOutput',false)))
             % if the range is a cell array of uniformly-typed values, the type is the unique
             % type of the cell entries
             spec.type = deduce_type(spec.range{1});
+        elseif isempty(default) && isempty(spec.range) && ~isa(default,'double')
+            % if both default and range are empty, and the default is not [], we deduce the type from the default
+            spec.type = deduce_type(default);
         else
             % if no other rule applies, the type is expression
             spec.type = 'expression';
@@ -72,7 +75,13 @@ function spec = expand_specifier(names,default,range,help,varargin)
         % if the shape is unspecified, it is deduced
         if ~isempty(default)
             % if the value is not empty, the shape is deduced from the value
-            spec.shape = deduce_shape(default);
+            if (isequal(default,true) || isequal(default,false)) && iscellstr(spec.range)
+                % except in the special case where the default value is true or false, but the range
+                % is a cell array of strings, the shape is set to row
+                spec.shape = 'row';
+            else
+                spec.shape = deduce_shape(default);
+            end
         elseif ischar(default) && isempty(default)
             % if the value is an empty char array, the shape is by default 'row'
             spec.shape = 'row';
@@ -125,46 +134,3 @@ function spec = expand_specifier(names,default,range,help,varargin)
     % set up the sequence of defaults
     spec.defaults = {default};
 end
-
-
-% deduce the type of the given value in a manner that is compatible with the PropertyGrid, with the
-% addition of the type 'expression', which is to be converted to char() before it goes into the GUI
-% and evaluated back into the correct MATLAB type when the GUI is done
-function type = deduce_type(value)
-    type = class(value);
-    switch type
-        case {'single','double'}
-            if ndims(type) == 2 %#ok<ISMAT>
-                type = [quickif(issparse(value),'sparse','dense') quickif(isreal(value),'real','complex') type];
-            else
-                type = 'expression';
-            end
-        case 'cell'
-            type = quickif(iscellstr(value),'cellstr','expression');
-        case {'logical','char','int8','uint8','int16','uint16','int32','uint32','int64','uint64'}
-            % nothing to do
-        otherwise
-            type = 'expression';
-    end
-end
-
-
-% determine the shape of the given value in a manner that is compatible with the PropertyGrid, with
-% the addition of the type 'tensor' (which may be handled by treating the type as an expression)
-function shape = deduce_shape(value)
-    siz = size(value);
-    if isequal(siz,[1,1])
-        shape = 'scalar';
-    elseif isequal(siz,[0,0])
-        shape = 'empty';
-    elseif length(siz) > 2
-        shape = 'tensor';
-    elseif siz(1) == 1
-        shape = 'row';
-    elseif siz(2) == 1
-        shape = 'column';
-    else
-        shape = 'matrix';
-    end
-end
-

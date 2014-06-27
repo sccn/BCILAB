@@ -67,6 +67,30 @@ arg_define(varargin, ...
     arg_nogui({'online_epoching','OnlineEpoching'}, 'at_end', {'at_end','at_targets'}, 'Online epoch extraction. If set to at_end, an single epoch is extracted at the end of the signal; if set to at_target_markers, one epoch per target marker in the signal is extracted.'), ...
     arg_nogui({'state','State'}));
 
+% input validation
+if ~isequal(size(time_bounds),[1 2])
+    error('The given time bounds must be a 2-element row vector.'); end
+if time_bounds(1) > time_bounds(2)
+    error('The time bounds must be given as [lower,upper].'); end
+if ~isreal(time_bounds)
+    error('The time bounds must be real-valued.'); end
+utl_check_fields(signal,{'srate','data','event','pnts'},'signal','signal');
+if ~isempty(signal.event)
+    if ~isfield(signal.event,'latency')
+        error('The given signal has a non-empty field .event but is missing the required field .event.latency.'); end
+    latency_numels = cellfun('prodofsize',{signal.event.latency});
+    if any(latency_numels == 0)
+        error('The given signal has one or more events with empty .latency field. This is not permitted.');
+    elseif any(latency_numels ~= 1)
+        error('The given signal has one or more events with a .latency value that is not a scalar. This is not permitted.');
+    end
+end
+if signal.srate == 0
+    error('The given signal must have a positive sampling rate.'); end
+if ~isempty(state)
+    utl_check_fields(state,{'timeseries_fields','buffer','sample_bounds','sample_range', ...
+        'sample_points','time_bounds','events','prepend_samples'},'state','state');
+end    
 
 % handle previous state for incremental processing (if any)
 if isempty(state) %#ok<*NODEF>
@@ -74,6 +98,8 @@ if isempty(state) %#ok<*NODEF>
     state.sample_bounds = round(time_bounds*signal.srate);
     state.sample_range = state.sample_bounds(1):state.sample_bounds(2);
     state.sample_points = length(state.sample_range);
+    if ~state.sample_points
+        disp_once('WARNING: your epoch time range is empty.'); end
     state.time_bounds = state.sample_bounds/signal.srate;    
     % initialize data buffer
     state.timeseries_fields = utl_timeseries_fields(signal);
@@ -87,7 +113,15 @@ if isempty(state) %#ok<*NODEF>
 else
     % have state: prepend the buffer to the signal
     for f = state.timeseries_fields
-        signal.(f{1}) = cat(2,state.buffer.(f{1}),signal.(f{1})); end
+        try
+            signal.(f{1}) = cat(2,state.buffer.(f{1}),signal.(f{1})); 
+        catch e
+            if ~isfield(signal,f{1})
+                error('The given signal is lacking the time-series field .%s which is present in the prior state. Fields may not be dropped when applying set_makepos to successive chunks.',f{1}); end
+            size_info = hlp_tostring({size(state.buffer.(f{1})),size(signal.(f{1}))});
+            error('Concatenating the time-seriels field .%s of the prior state and the given signal failed; make sure that the number of channels is consistent when applying set_makepos to successive chunks; detailed error message: %s (the data sizes were: %s)',f{1},e.message,size_info);
+        end
+    end
     [signal.nbchan,signal.pnts,signal.trials,extra_dims] = size(signal.data); %#ok<NASGU>
    % increment marker latencies by amount of prepended data
     if ~isempty(signal.event)
@@ -96,7 +130,7 @@ else
     try
         signal.event = [state.events signal.event];
     catch %#ok<CTCH>
-        disp('Event structure changed; discarding buffered events.');
+        disp('Warning: The event structure has changed across successive chunks passed to set_makepos; discarding buffered events.');
         state.events = [];
     end
 end
@@ -124,6 +158,8 @@ if strcmp(online_epoching,'at_targets') || ~onl_isonline
         % make sure that the necessary fields are present
         if isfield(signal,'epoch') && ~isempty(signal.epoch)
             error('The signal is already epoched; can only extract epochs from continuous data.'); end
+        if size(signal.data,3) > 1
+            error('The given signal''s data is apparently already epoched; set_makepos can only be applied to continuous data.'); end
         if ~isfield(signal.event,'latency')
             error('The markers of this signal must have a field named .latency (which holds the latency of each marker).'); end
         if ~isfield(signal.event,'target')
@@ -139,6 +175,7 @@ if strcmp(online_epoching,'at_targets') || ~onl_isonline
         % make sure that all event latencies fall within the signal bounds
         out_of_bounds = round(latencies)<1 | round(latencies)>signal.pnts;
         if any(out_of_bounds)
+            disp_once('WARNING: your signal had %i events at out-of-bounds latencies that were removed.',nnz(out_of_bounds));
             signal.event(out_of_bounds) = [];
             latencies(out_of_bounds) = [];
         end
@@ -162,7 +199,14 @@ if strcmp(online_epoching,'at_targets') || ~onl_isonline
             for f = state.timeseries_fields
                 siz = size(signal.(f{1}));
                 if ~isempty(signal.(f{1}))
-                    signal.(f{1}) = reshape(signal.(f{1})(:,ranges,1,:,:,:,:,:),[siz(1),size(ranges,1),size(ranges,2),siz(4:end)]); end
+                    if siz ~= signal.pnts
+                        error('The time-series field .%s has a different number of time-points (%i) than signal.pnts (%i); this is not permitted by set_makepos.',f{1},siz(2),signal.pnts); end
+                    try
+                        signal.(f{1}) = reshape(signal.(f{1})(:,ranges,1,:,:,:,:,:),[siz(1),size(ranges,1),size(ranges,2),siz(4:end)]); 
+                    catch e
+                        error('Failsed to extract epochs from time-series field .%s with error: %s.',f{1},e.message);
+                    end
+                end
             end
 
             % epoch sparse event latencies and collect retained event indices and latencies

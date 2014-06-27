@@ -159,7 +159,7 @@ if ~isequal(varargin,{'update'})
         end
     else
         % unknown data specification
-        error('Data is specified in an unsupported format.');
+        error('Data is specified in an unsupported format (must be a 1/2/3-element cell array).');
     end
     
     if isempty(targets)

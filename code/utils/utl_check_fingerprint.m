@@ -13,7 +13,7 @@ function x = utl_check_fingerprint(x,opts,ctx,exp)
 %                                        Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                        2010-04-15
 
-if ~exist('opts','var')
+if nargin < 2
     opts.fingerprint_check = true;
     exp = [];
     ctx = [];
@@ -27,7 +27,7 @@ if isfield(x,'tracking') && all(isfield(x.tracking,{'expression','fingerprint'})
     % (the expression for which we are about to execute the check)
     if hlp_microcache('fprint_lookup',@is_enabled,opts.fingerprint_check,exp)
         if ~isequal(hlp_fingerprint(rmfield(x,'tracking')),x.tracking.fingerprint)
-            error('expression is inconsistent with the attached value'); end
+            error('The fingerprint of the given data structure does not match that of its expression.'); end
     end
 end
 

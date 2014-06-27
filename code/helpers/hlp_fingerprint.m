@@ -1,4 +1,4 @@
-function fp = hlp_fingerprint(data)
+function fp = hlp_fingerprint(data,hashed)
 % Make a fingerprint (hash) of the given data structure.
 % Fingerprint = hlp_fingerprint(Data)
 %
@@ -6,10 +6,13 @@ function fp = hlp_fingerprint(data)
 % thorough checking, use hlp_cryptohash.
 %
 % In:
-%   Data        : some data structure
+%   Data   : some data structure
+%
+%   Hashed : whether to return a hash of the fingerprint instead of the full fingerprint string
+%            (default: true)
 %
 % Out:
-%   Fingerprint : an integer that identifies the data
+%   Fingerprint : an integer that identifies the data (or string if Hashed=false)
 %
 % Notes:
 %   The fingerprint is not unique and identifies the data set only with a certain (albeit high)
@@ -42,17 +45,20 @@ function fp = hlp_fingerprint(data)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
+if nargin < 2
+    hashed = true; end
+
 warning off MATLAB:structOnObject
 
 if hlp_matlab_version >= 707
-    fp = fingerprint(data,RandStream('swb2712','Seed',5183));
+    fp = fingerprint(data,RandStream('swb2712','Seed',5183),hashed);
 else
     try
         % save & override random state
         randstate = rand('state'); %#ok<*RAND>
         rand('state',5183);
         % make the fingerprint
-        fp = fingerprint(data,0);
+        fp = fingerprint(data,0,hashed);
         % restore random state
         rand('state',randstate);
     catch e
@@ -64,14 +70,18 @@ end
 
 
 % make a fingerprint of the given data structure
-function fp = fingerprint(data,rs)
+function fp = fingerprint(data,rs,hashed)
 % convert data into a string representation
 data = summarize(data,rs);
 % make sure that it does not contain 0's
 data(data==0) = 'x';
-% obtain a hash code via Java (MATLAB does not support proper integer arithmetic...)
-str = java.lang.String(data);
-fp = str.hashCode()+2^31;
+if hashed
+    % obtain a hash code via Java (MATLAB does not support proper integer arithmetic...)
+    str = java.lang.String(data);
+    fp = str.hashCode()+2^31;
+else
+    fp = data;
+end
 
 
 % get a recursive string summary of arbitrary data

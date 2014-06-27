@@ -72,7 +72,7 @@ function res = hlp_aggregatestructs(structs,defaultop,varargin)
 
 warning off MATLAB:warn_r14_function_handle_transition
 
-if ~exist('defaultop','var')
+if nargin < 2
     defaultop = 'cat'; end
 if ~iscell(structs)
     structs = {structs}; end
@@ -211,10 +211,12 @@ else
             case 'random'
                 op = {@(a,b)[a b], @(x) x(min(length(x),ceil(eps+rand(1)*length(x))))};
             case 'fillblanks'
-                op = @(a,b)fastif(isempty(a),b,a);
+                op = @(a,b)quickif(isempty(a),b,a);
             otherwise
-                error('unsupported combiner op specified');
+                error('Unsupported combiner operation specified: %s',op);
         end
+    elseif ~isa(op,'function_handle')
+        error('The given combiner operation must be either a string or a function handle, but was: %s',hlp_tostring(op,1000));        
     end
     % add finalizer if missing
     if ~iscell(op)
@@ -231,7 +233,7 @@ for k=1:numel(arg)
 
 
 % for the 'fillblanks' translate op
-function val = fastif(cond,trueval,falseval)
+function val = quickif(cond,trueval,falseval)
 if cond
     val = trueval;
 else

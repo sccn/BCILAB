@@ -44,7 +44,7 @@ classdef ParadigmRSSD2 < ParadigmDataflowSimplified
         end
         
         function defaults = machine_learning_defaults(self)
-            defaults = {'dal', 2.^(8:-0.25:-1), 'scaling','none'};
+            defaults = {'dal', 2.^(4:-0.25:-3), 'scaling','none'};
             %defaults = {'logreg', 'variant',{'lars','ElasticMixing',0.5}};
         end
                 
@@ -55,15 +55,37 @@ classdef ParadigmRSSD2 < ParadigmDataflowSimplified
                     arg({'temporal_prior','TemporalPrior'},@(t)1,[],'Temporal prior. Likelihood function of time in s.','guru',true), ...
                     arg({'spatial_prior','SpatialPrior'},@(p)1,[],'Spatial prior. Likelihood function of MNI coordinate vector.','guru',true), ...
                     arg({'anatomical_prior','AnatomicalPrior'},{'Left Cerebrum','Right Cerebrum','Left Cerebellum','Right Cerebellum','Left Brainstem','Right Brainstem','Inter-Hemispheric'},{'-- Hemispheres --','Left Cerebrum','Right Cerebrum','Left Cerebellum','Right Cerebellum','Left Brainstem','Right Brainstem','Inter-Hemispheric','-- Lobes --','Anterior Lobe','Frontal Lobe','Frontal-Temporal Space','Limbic Lobe','Medulla','Midbrain','Occipital Lobe','Parietal Lobe','Pons','Posterior Lobe','Sub-lobar','Temporal Lobe','-- Gyri --','Angular Gyrus','Anterior Cingulate','Caudate','Cerebellar Lingual','Cerebellar Tonsil','Cingulate Gyrus','Claustrum','Culmen','Culmen of Vermis','Cuneus','Declive','Declive of Vermis','Extra-Nuclear','Fastigium','Fourth Ventricle','Fusiform Gyrus','Inferior Frontal Gyrus','Inferior Occipital Gyrus','Inferior Parietal Lobule','Inferior Semi-Lunar Lobule','Inferior Temporal Gyrus','Insula','Lateral Ventricle','Lentiform Nucleus','Lingual Gyrus','Medial Frontal Gyrus','Middle Frontal Gyrus','Middle Occipital Gyrus','Middle Temporal Gyrus','Nodule','Orbital Gyrus','Paracentral Lobule','Parahippocampal Gyrus','Postcentral Gyrus','Posterior Cingulate','Precentral Gyrus','Precuneus','Pyramis','Pyramis of Vermis','Rectal Gyrus','Subcallosal Gyrus','Sub-Gyral','Superior Frontal Gyrus','Superior Occipital Gyrus','Superior Parietal Lobule','Superior Temporal Gyrus','Supramarginal Gyrus','Thalamus','Third Ventricle','Transverse Temporal Gyrus','Tuber','Tuber of Vermis','Uncus','Uvula','Uvula of Vermis'}, 'Anatomical prior. Select anatomical structures that are likely to contain processes of interest.'),...
-                    arg({'vectorize_features','VectorizeFeatures'},true,[],'Vectorize feature tensors. This is for classifiers that cannot handle matrix or tensor-shaped features.'));
+                    arg({'vectorize_features','VectorizeFeatures'},true,[],'Vectorize feature tensors. This is for classifiers that cannot handle matrix or tensor-shaped features.'),...
+                    arg({'normalize_features','NormalizeFeatures'},true,[],'Normalize time/frequency features. If enabled, features will be normalized by a rank-1 normalization matrix (rather than pixelwise).'));
+%
             model = rmfield(args,'signal');
-            % TODO: implement the priors again
-            % apply feature extraction to the data to get the shape information
-            [dummy,model.shape] = self.feature_extract(args.signal,model); %#ok<ASGLU>
+            % determine data rescaling factors
+            if args.normalize_features
+                tdata = permute(args.signal.data,[1 2 4 3]);
+                sdata = permute(args.signal.data,[1 4 2 3]);
+                for c=size(args.signal.data,1):-1:1
+                    % temporal scale vector
+                    temp = 1./median(abs(bsxfun(@minus,tdata(c,:,:),median(tdata(c,:,:),3))),3);
+                    % spectral scale vector
+                    spec = 1./median(abs(bsxfun(@minus,sdata(c,:,:),median(sdata(c,:,:),3))),3);
+                    % time/freq scaling matrix
+                    model.scaling(c,:,:) = sqrt(temp')*sqrt(spec);
+                end
+            end
+            % determine model shape
+            model.shape = size(args.signal.data);
+            model.shape = model.shape([2 4 1]);
         end
         
         function [features,shape] = feature_extract(self,signal,featuremodel)
-            features = permute(signal.data,[2 3 1 4]);
+            signal.data = permute(signal.data,[1 2 4 3]);
+            % optionally apply normalization
+            if featuremodel.normalize_features
+                features = bsxfun(@times,signal.data,featuremodel.scaling);
+            else
+                features = signal.data;
+            end
+            features = permute(features,[2 3 1 4]);
             % determine feature shape
             siz = size(features);
             shape = siz(1:3);

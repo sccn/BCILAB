@@ -21,7 +21,7 @@ function result = utl_evaluate_fold(opts,data,inds)
 %                                2010-04-07
 
 
-% learn a model
+% learn a model on the training partition
 trainset = opts.partitioner(data,inds{1});
 if length(inds) >= 3
     model = opts.trainer(trainset,opts.args{:},inds{3}{:});
@@ -29,6 +29,7 @@ else
     model = opts.trainer(trainset,opts.args{:});
 end
 
-% and record both the real test targets (result{1}) and the prediction on the test data (result{2})
+% and record both the known targets (result{1}) and predictions (result{2}) on the test partition,
+% and optionally the trained model (result{3})
 testset = opts.partitioner(data,inds{2});
-result = {opts.target(testset), opts.tester(testset,model),quickif(opts.collect_models,model,struct())};
+result = {opts.target(testset), opts.tester(testset,model), quickif(opts.collect_models,model,struct())};

@@ -46,12 +46,22 @@ elseif isfield(data,'labels')
 elseif iscell(data)
     labels = data;
 else
-    error('chanlocs data structure or EEGLAB data expected');
+    error('Chanlocs data structure or EEGLAB data set struct expected.');
 end
 
+if ~iscellstr(labels)
+    error('The given channel labels must all be strings.'); end
 labels = lower(labels);
 
+% check for duplicates in the labels array
+tmp = sort(labels);
+duplicates = strcmp(tmp(1:end-1),tmp(2:end));
+if any(duplicates)
+    error('Your channel labels must all be unique but the following duplicates were found: %s.',hlp_tostring(tmp(duplicates))); end
+
 if iscell(lookup)
+    if ~iscellstr(lookup)
+        error('If channel labels are provided as cell array they must all be strings.'); end
     lookup = lower(lookup);
     if isequal(lookup,labels)
         % fast path
@@ -70,3 +80,9 @@ elseif isnumeric(lookup)
 	remaining = lookup(1:min(length(lookup),size(data.data,1)));
     notfound = lookup((1+size(data.data,1)):end);
 end
+
+% check for duplicates in the lookup array
+tmp = sort(lookup);
+duplicates = strcmp(tmp(1:end-1),tmp(2:end));
+if any(duplicates)
+    error('Your channel labels/indices must all be unique but the following duplicates were found: %s.',hlp_tostring(tmp(duplicates))); end

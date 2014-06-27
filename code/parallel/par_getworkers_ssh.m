@@ -146,9 +146,9 @@ global tracking;
 
 opts = arg_define(varargin,...
     ... % resources to acquire
-    arg({'hostnames','Hostnames'},{''},[],'Host names to acquire. Host names or IP addresses of machines on which to consider starting workers. If this is left empty, the current global worker pool will be used.'), ...
-    arg({'processors_per_node','WorkersPerNode','ProcessorsPerNode'},4,[],'Workers per node. A value of 0 means that as many instances as there are cores on each node shall be used, but divided by the value of the "matlabthreads" (Number of MATLAB threads) parameter.'), ...
-    arg({'matlabthreads','MatlabThreads'},4,[],'Number of MATLAB threads. This is the number of threads that each worker uses internally.'), ...
+    arg({'hostnames','Hostnames'},{''},[],'Host names to acquire. Host names or IP addresses of machines on which to consider starting workers. If this is left empty, the current global worker pool will be used.','type','expression','shape','row'), ...
+    arg({'processors_per_node','WorkersPerNode','ProcessorsPerNode'},4,uint32([1 1024]),'Workers per node. A value of 0 means that as many instances as there are cores on each node shall be used, but divided by the value of the "matlabthreads" (Number of MATLAB threads) parameter.'), ...
+    arg({'matlabthreads','MatlabThreads'},4,uint32([1 32]),'Number of MATLAB threads. This is the number of threads that each worker uses internally.'), ...
     ... % SSH command
     arg({'identity_file','IdentityFile'},'', [], 'SSH identity file. Optional, if needed for passwordless login. This corresponds to the -i option in ssh.'), ...
     ... % startup commands within MATLAB
@@ -161,7 +161,7 @@ opts = arg_define(varargin,...
     arg({'binary_name','BinaryName'},'build', [], 'Name of the binary. The name of the BCILAB binary (if using compiled workers).'), ...
     ... % port allocation
     arg({'share_resources','ShareResources'},true,[],'Share resources. Whether workers that are already running (started by other users) will be returned as part of the worker set, and are thus potentially shared with other users. If false, the requested number of workers will always be started and be private to the requester -- however, potentially over-subscribing the capacity of the node.'),...
-    arg({'sharing_port','SharingPort'},0, [], 'Port for sharing. The lowest port used by shared workers -- if 0, this is computed based on the startup_command (recommended).'), ...
+    arg({'sharing_port','SharingPort'},0, uint32([0 65535]), 'Port for sharing. The lowest port used by shared workers -- if 0, this is computed based on the startup_command (recommended).'), ...
     ... % worker status and logging
     arg({'logging_path','LoggingPath'},env_translatepath('home:/.bcilab/logs/workers'), [], 'Logging path. Make sure that this does not conflict with other users'' log paths.'), ...
     arg({'verbose_output','VerboseOutput'},true, [], 'Verbose output. Whether to display information about the acquisition process.'), ...
@@ -174,15 +174,14 @@ opts = arg_define(varargin,...
     arg({'path_exists_command','PathExistsCommand'},'ls %s;', [], 'Path-check command. This command should return success if the path exists, and otherwise yield an error return value.','guru',true), ...   
     arg({'binary_exists_command','BinaryExistsCommand'},'which %s;', [], 'Binary-check command. This command should return success if the binary exists, and otherwise yield an error return value.','guru',true), ...   
     ... % exclusion criteria
-    arg({'min_memory','MinFreeMemory'},2^32,[], 'Minimum free memory. Minimum amount of RAM memory (in bytes) that needs to be available for an instance to be started.'),...
-    arg({'max_cpuload','MaxCPULoad'},Inf, [], 'Maximum CPU load. The maximum acceptable average CPU load (summed over all cores) for a node to be considered.'), ...
-    arg({'load_window','LoadWindow'},15,[],'Load estimation window. The time window in seconds (into the past) over which the CPU load will be estimated to determine whether a worker shall be started on a given node.'), ...
+    arg({'min_memory','MinFreeMemory'},2^32,[0 Inf], 'Minimum free memory. Minimum amount of RAM memory (in bytes) that needs to be available for an instance to be started.'),...
+    arg({'max_cpuload','MaxCPULoad'},Inf, [0 Inf], 'Maximum CPU load. The maximum acceptable average CPU load (summed over all cores) for a node to be considered.'), ...
+    arg({'load_window','LoadWindow'},15,[0 Inf],'Load estimation window. The time window in seconds (into the past) over which the CPU load will be estimated to determine whether a worker shall be started on a given node.'), ...
     arg({'avoid_proc','AvoidProcess'},'avoidme',[],'Process to avoid. Optionally a process name that indicates that no workers shall be spawned if the process is running on some machine (e.g. a time-critical computation).'),...
     ... % shutdown management
-    arg({'shutdown_timeout','ShutdownTimeout'},0,[],'Shutdown timeout. If non-zero, the worker will be shut down if it has not received a heartbeat signal from a client in the given time frame, in seconds. For this to work, the function env_acquire_cluster should be used as it sets up the heartbeat timer.'),...
+    arg({'shutdown_timeout','ShutdownTimeout'},0,[0 Inf],'Shutdown timeout. If non-zero, the worker will be shut down if it has not received a heartbeat signal from a client in the given time frame, in seconds. For this to work, the function env_acquire_cluster should be used as it sets up the heartbeat timer.'),...
     ... % misc
     arg({'recruit_machines','RecruitMachines'},true,[],'Recruit workers. Whether to actually recruit other machines, rather than just list them.'));
-
 
 % no arguments were passed? bring up GUI dialog
 if isempty(varargin)
@@ -198,20 +197,18 @@ if ispc
     disp('You can always fall back to starting your worker processes (either as MATLAB instances or compiled binaries) by hand and listing their host:port''s in the worker pool (see Cluster Settings GUI).');
 end
 
-if isempty(hostnames) || isequal(hostnames,{''})
-    hostnames = par_globalsetting('pool'); end
-
-if isempty(hostnames)
-    disp('The list of hostnames to connect to is empty; exiting.');
-    return;
-end
-
 if isempty(mcr_root)
     mcr_root = ''; end
 if isempty(identity_file)
     identity_file = ''; end
+if isempty(hostnames) || isequal(hostnames,{''})
+    hostnames = par_globalsetting('pool'); end
 
 % sanity checks
+if isempty(hostnames)
+    disp('The list of hostnames to connect to is empty; exiting.');
+    return;
+end
 if ~iscellstr(hostnames)
     error('The hostnames must be given as a cell array of strings.'); end
 if ~isscalar(processors_per_node) || ~isnumeric(processors_per_node)
@@ -245,9 +242,29 @@ if ~isscalar(shutdown_timeout) || ~isnumeric(shutdown_timeout)
 window_remap = [1 1 1 2 2 2 2 2 2 2 3 3 3 3 3];
 load_window = window_remap(min(load_window,15));
 if ~isempty(identity_file)
-    identity_file = ['-i ' identity_file]; end
+    identity_file = env_translatepath(identity_file);
+    if ~exist(identity_file,'file')
+        disp_once('The given SSH identitity file does not appear to exist: %s',identity_file); end
+    identity_file = ['-i ' identity_file]; 
+end
 if ~isempty(avoidcheck_command)
     avoidcheck_command = sprintf(avoidcheck_command,avoid_proc); end
+
+% give some recommendations regarding good input ranges
+if opts.processors_per_node > 64
+    disp_once('The WorkersPerNode setting is unusually large -- make sure that you do not use more workers than you have cores.'); end
+if opts.matlabthreads > 8
+    disp_once('The MatlabThreads setting is relatively large; typically MATLAB wastes increasingly many CPU cycles with more than 8-16 threads (except for some very streamlined operations).'); end
+if ~exist(opts.logging_path,'dir')
+    disp_once('The logging path does not exist on the local file system; make sure that it is accessible to remote workers.'); end
+if ~exist(opts.mcr_root,'dir')
+    disp_once('The matlab compiler root does not exist on the local file system; make sure that it is accessible to remote workers.'); end
+if opts.min_memory < (2^10 * 500)
+    disp_once('The MinFreeMemory setting is very small; MATLAB alone often needs more than 500MB free memory to run.'); end
+if opts.load_window > 15
+    disp_once('The LoadWindow setting is larger than what is typically tracked on Linux systems (15 minutes).'); end
+if opts.shutdown_timeout == 0
+    disp_once('It is recommended that a nonzero ShutdownTimeout value is used (otherwise workers can linger on forever).'); end
 
 % generate in the bcilab-specific startup command
 if strcmp(startup_command,'autogenerate')

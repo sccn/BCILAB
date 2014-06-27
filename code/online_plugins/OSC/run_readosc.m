@@ -6,9 +6,10 @@ function run_readosc(varargin)
 %       (i.e. there is no pattern matching implemented).
 %
 % In:
-%   MatlabStream : name of the stream to create in the MATLAB environment (default: 'laststream')
+%   StreamName : Name of the stream; a variable with this name will be created in the MATLAB workspace 
+%                to hold the stream's data. If such a variable already exists it will be overridden.
 %
-%   InputPort : port at which to listen for OSC input data (default: 12345)
+%   InputPort : Port at which to listen for OSC input data (default: 12345)
 %
 %   InputPath : OSC path at which to listen for input data (default: '/data')
 %
@@ -20,7 +21,8 @@ function run_readosc(varargin)
 %                   Optionally, the field 'datasource' can be set to point to a dataset on disk or
 %                   to a MATLAB workspace variable, to serve as the source of meta-data.
 %
-%   UpdateFrequency : update frequency, in Hz (default: 25)
+%   UpdateFrequency : The rate at which new chunks of data is polled from the device, in Hz. 
+%                     (default: 20)
 %
 % Example:
 %   % open an OSC input stream, listening at port 22050 under address /data
@@ -37,11 +39,11 @@ declare_properties('name','OSC');
 
 % read options
 arg_define(varargin, ...
-    arg({'new_stream','MatlabStream'}, 'laststream',[],'New Stream to create. This is the name of the stream within the MATLAB environment.'), ...
-    arg({'in_port','InputPort'}, 12345,[],'Input OSC listen port. This is the network port at which the stream will listen for data.'), ...
+    arg({'new_stream','StreamName','MatlabStream'}, 'laststream',[],'MATLAB Stream Name. A variable with this name will be created in the MATLAB workspace to hold the stream''s data. If such a variable already exists it will be overridden.'), ...
+    arg({'in_port','InputPort'}, 12345,uint32([1 65535]),'Input OSC listen port. This is the network port at which the stream will listen for data.'), ...
     arg({'in_path','InputPath'}, '/data',[],'Input OSC method path. This is the method/address name at which to listen for input data.'), ...
     arg_sub({'in_metadata','InputMetadata'},{},@utl_parse_metadata, 'Meta-data of the input stream. These are fields as they appear in EEGLAB data sets; only sampling rate and channel labels are mandatory.'), ...
-    arg({'update_freq','UpdateFrequency'},25,[],'Update frequency. New data is polled at this rate, in Hz.'));
+    arg({'update_freq','UpdateFrequency'},25,[0 Inf],'Update frequency. The rate at which new chunks of data is polled from the device, in Hz.'));
 
 % parse the meta-data spec
 meta = utl_parse_metadata(in_metadata);

@@ -72,7 +72,7 @@ function state = asr_calibrate(X,srate,cutoff,blocksize,B,A,window_len,window_ov
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2012-08-31
 
-% asr_calibrate_version<1.03> -- for the cache
+% asr_calibrate_version<1.05> -- for the cache
 
 % UC Copyright Notice
 % This software is Copyright (C) 2013 The Regents of the University of California. All Rights Reserved.
@@ -183,7 +183,18 @@ T = diag(mu + cutoff*sig)*V';
 disp('done.');
 
 % initialize the remaining filter state
-state = struct('M',M,'T',T,'B',B,'A',A,'cov',[],'carry',[],'iir',iirstate,'last_R',[],'last_trivial',true);
+if length(B) > 9
+    % for more than 8'th order we try to initialize a second-order-sections filter implementation
+    try
+        [SOS,G] = tf2sos(B,A);
+    catch e
+        fprintf('Cannot use second-order section filter due to error: %s\n',e.message);
+        [SOS,G] = deal([]);
+    end
+else
+    [SOS,G] = deal([]);
+end
+state = struct('M',M,'T',T,'B',B,'A',A,'SOS',SOS,'G',G,'Zi',{repmat({[]},1,size(SOS,1))},'cov',[],'carry',[],'iir',iirstate,'last_R',[],'last_trivial',true);
 
 
 

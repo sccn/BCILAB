@@ -7,9 +7,17 @@ function run_writesnap(varargin)
 % forwarded to a program running the SNAP framework.
 %
 % In:
-%   Model : predictive model to use (see onl_newpredictor) (default: 'lastmodel')
+%   Model : A model data structure (as obtained from bci_train) based on which the predictor shall be 
+%           created; typically this is a model struct, but for convenience it can be a file name, 
+%           variable name in the base workspace, or a cell array of {file name, variable name} to 
+%           refer to a variable inside a .mat file. The model is not modified by this function.
+%           (default: 'lastmodel')
 %
-%   SourceStream : real-time stream name to read from (in MATLAB workspace) (default: 'laststream')
+%   SourceStreamNames : Optional names of stream data structures in the MATLAB base workspace to
+%                       consider as possible data sources (previously created with onl_newstream); 
+%                       if a stream contains all channels that are needed by the predictor, or 
+%                       alternatively has the right number and type of channels it will be considered 
+%                       as a potential source stream unless ambiguous. (default: 'laststream')
 %
 %   OutputHost : destination host name to send results to (computer name, URL or IP address)
 %                (default: 'localhost')
@@ -21,13 +29,15 @@ function run_writesnap(varargin)
 %   TargetVariable : name of the variable in the SNAP module which should carry the BCI predictions
 %                    (default: 'bci')
 %
-%   UpdateFrequency : update frequency (default: 10)
+%   UpdateFrequency : The rate at which new outputs will be computed. (default: 10)
 %
 %   PredictAt : Predict at markers. If nonempty, this is a cell array of online target markers relative 
 %               to which predictions shall be made. If empty, predictions are always made on the most recently 
 %               added sample. (default: {})
 %
-%   PredictorName : name for new predictor, in the workspace (default: 'lastpredictor')
+%   PredictorName : Name of the predictor to be created; a variable of this name will be created in 
+%                   the MATLAB base workspace to hold the predictor's state. If a variable with this
+%                   name already exists it will be overridden. (default: 'lastpredictor')
 %
 %   Verbose : whether to display verbose outputs (e.g. connection failure) (default: false)
 %
@@ -51,14 +61,14 @@ declare_properties('name','SNAP');
 % define arguments
 opts = arg_define(varargin, ...
     arg({'pred_model','Model'}, 'lastmodel', [], 'Predictive model. As obtained via bci_train or the Model Calibration dialog.','type','expression'), ...
-    arg({'in_stream','SourceStream'}, 'laststream',[],'Input Matlab stream. This is the stream that shall be analyzed and processed.'), ...
+    arg({'in_stream','SourceStreamNames','SourceStream'}, 'laststream',[],'Input Matlab stream name(s). Optional names of stream data structures in the MATLAB base workspace to consider as possible data sources (previously created with onl_newstream); if a stream contains all channels that are needed by the predictor, or alternatively has the right number and type of channels it will be considered as a potential source stream unless ambiguous.','typecheck',false,'shapecheck',false), ...
     arg({'out_hostname','OutputHost','Host'}, 'localhost',[],'Destination TCP hostname. Can be a computer name, URL, or IP address.'), ...
     arg({'out_port','OutputPort','Port'}, 7897, [],'Destination TCP port. Matches the SNAP default.'), ...
-    arg({'out_form','OutputForm','Form'},'expectation',{'expectation','distribution','mode'},'Output form. Can be the expected value (posterior mean) of the target variable, or the distribution over possible target values (probabilities for each outcome, or parametric distribution), or the mode (most likely value) of the target variable.'), ...
+    arg({'out_form','OutputForm','Form'},'expectation',{'expectation','distribution','mode','raw'},'Output form. Can be the expected value (posterior mean) of the target variable, or the distribution over possible target values (probabilities for each outcome, or parametric distribution), or the mode (most likely value) of the target variable.'), ...
     arg({'target_variable','TargetVariable','Target'},'bci',[],'Target Variable. This is the variable name in the SNAP module that should receive the BCI value'), ...
-    arg({'update_freq','UpdateFrequency'},10,[],'Update frequency. This is the rate at which the output is updated.'), ...
+    arg({'update_freq','UpdateFrequency'},10,[0 Inf],'Update frequency. The rate at which new outputs will be computed.'), ...
     arg({'predict_at','PredictAt'}, {},[],'Predict at markers. If nonempty, this is a cell array of online target markers relative to which predictions shall be made. If empty, predictions are always made on the most recently added sample.','type','expression'), ...
-    arg({'pred_name','PredictorName'}, 'lastpredictor',[],'Name of new predictor. This is the workspace variable name under which a predictor will be created.'), ...
+    arg({'pred_name','PredictorName'}, 'lastpredictor',[],'Name of new predictor. A variable of this name will be created in the MATLAB base workspace to hold the predictor''s state. If a variable with this name already exists it will be overridden.'), ...
     arg({'verbose_output','Verbose'}, false,[],'Verbose output. Whether to display verbose outputs (e.g., connection failure).'));
 
 % convert format strings to formatting functions

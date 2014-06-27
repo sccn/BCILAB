@@ -6,17 +6,19 @@ function run_readlsl(varargin)
 % is specified by means of a query (some allowed properties are type, name, channel_count, and srate).
 %
 % In:
-%   MatlabStream : name of the stream to create in the MATLAB environment (default: 'laststream')
+%   StreamName : name of the stream; a variable with this name will be created in the MATLAB workspace 
+%                to hold the stream's data. If such a variable already exists it will be overridden.
 %
-%   DataStreamQuery : Data stream query. Allows to select a data stream to read from (e.g., by setting 
+%   DataStreamQuery : Data stream query. Allows to select an LSL data stream to read from (e.g., by setting 
 %                     it to 'type=''EEG''' or 'name=''BioSemi'''). (default: 'type=''EEG''')
 %
-%   MarkerStreamQuery : Marker stream query. Allows to select a marker stream to read from (e.g., by setting 
+%   MarkerStreamQuery : Marker stream query. Allows to select an LSL marker stream to read from (e.g., by setting 
 %                       it to 'type=''Markers'''). Leave it empty to ignore markers. (default: 'type=''Markers''')
 %
 %   ConvertToDouble : Always convert the signal to double precision. (default: true)
 %   
-%   UpdateFrequency : this is rate at which new data is polled from the device, in Hz (default: 100)
+%   UpdateFrequency : The rate at which new chunks of data is polled from the device, in Hz. 
+%                     (default: 20)
 %
 %   BufferLength : Internal buffering length. This is the maximum amount of backlog that you can
 %                  get, in seconds. (default: 30)
@@ -79,18 +81,18 @@ function run_readlsl(varargin)
 
     % read options
     opts = arg_define(varargin, ...
-        arg({'new_stream','MatlabStream'}, 'laststream',[],'New Stream to create. This is the name of the stream within the MATLAB environment.'), ...
+        arg({'new_stream','MatlabStreamName','MatlabStream'}, 'laststream',[],'MATLAB Stream Name. A variable with this name will be created in the MATLAB workspace to hold the stream''s data. If such a variable already exists it will be overridden.','type','char'), ...
         arg({'data_query','DataStreamQuery','DataQuery'}, 'type=''EEG''',[],'Data stream query. Allows to select a data stream to read from (e.g., by setting it to type=''EEG'' or name=''BioSemi'').'), ...
         arg({'marker_query','MarkerStreamQuery','MarkerQuery'},'type=''Markers''',[],'Marker stream query. Allows to select a marker stream to read from (e.g., by setting it to type=''Markers''). Leave it empty to ignore markers.','shape','row','type','char'), ...
         arg({'always_double','ConvertToDouble'},true,[],'Convert to double. Always convert the signal to double precision.'), ...
-        arg({'update_freq','UpdateFrequency'},20,[],'Update frequency. New data is polled at this rate, in Hz.'), ...
-        arg({'buffer_len','BufferLength'},10,[],'Internal buffering length. This is the maximum amount of backlog that you can get.'), ...
+        arg({'update_freq','UpdateFrequency'},20,[0 0.0001 200 Inf],'Update frequency. The rate at which new chunks of data is polled from the device, in Hz.'), ...
+        arg({'buffer_len','BufferLength'},10,[0 0.1 300 Inf],'Internal buffering length. This is the maximum amount of backlog that you can get.'), ...
         arg({'channel_override','ChannelOverride'}, [], [], 'Override channel labels. This allows to replace the channel labels that are provided by the stream.','type','cellstr','shape','row'), ...
         arg({'srate_override','SamplingRateOverride'}, 0, [], 'Override sampling rate. This allows to replace the sampling rate that is provided by the stream.'), ...
         arg({'marker_placement','MarkerPlacement'}, 'nearest', {'nearest','interpolated'}, 'Marker placement rule. Controls how the latency of markers is determined -- can use interpolated placement, which is based on the sampling rate (but requires that the sampling rate is well within 1% of the true value) or placement next to the nearest sample (works for streams that have irregular sampling rate).','guru',true), ...
         arg({'clock_alignment','ClockAlignment'}, 'median', {'trimmed','median','robust','linear','raw','zero'}, 'Clock alignment algorithm. The algorithm used to smooth clock alignment measurements; if the clock drift between data and markers is assumed to be low (e.g., come from same machine), then median is the safest choice. If drift is substantial (e.g., on a networked installation) then one may use linear to correct for that, but if the network is under heavy load it is better to use the trimmed or robust estimator. The trimmed estimator survives occasional extreme load spikes, and the robust estimator further improves that tolerance by 2x. The only issue with the robust estimator is that whenever it updates (every 5s) it delays the BCI output by an extra 15ms of processing time. Most estimators other than median can introduce a few-ms jitter between data and markers. Zero disables the time-correction.','guru',true), ...
         arg({'jitter_correction','JitterCorrection'}, true, [], 'Correct for jittered time stamps. This corrects jitter in the time stamps of the data stream chunks assuming that the underlying sampling rate is regular.','guru',true), ...
-        arg({'forget_halftime','ForgetHalftime'}, 30, [], 'Forget factor as information half-life. In estimating the effective sampling rate a sample which is this many seconds old will be weighted 1/2 as much as the current sample in an exponentially decaying window.','guru',true), ...
+        arg({'forget_halftime','ForgetHalftime'}, 30, [1 10 60 Inf], 'Forget factor as information half-life. In estimating the effective sampling rate a sample which is this many seconds old will be weighted 1/2 as much as the current sample in an exponentially decaying window.','guru',true), ...
         arg_deprecated({'property','SelectionProperty'}, '',[],'Selection property. The selection criterion by which the desired device is identified on the net. This is a property that the desired device must have (e.g., name, type, desc/manufacturer, etc.'), ...
         arg_deprecated({'value','SelectionValue'}, '',[],'Selection value. This is the value that the desired device must have for the selected property (e.g., EEG if searching by type, or Biosemi if searching by manufacturer).'));
 
@@ -129,7 +131,6 @@ function run_readlsl(varargin)
     else
         channels = opts.channel_override;
     end
-
     if length(channels) ~= info.channel_count()
         disp('The number of channels in the stream does not match the number of labeled channel records. Using numbered labels.');
         channels = cellfun(@(k)['Ch' num2str(k)],num2cell(1:info.channel_count(),1),'UniformOutput',false);
@@ -157,7 +158,6 @@ function run_readlsl(varargin)
     else
         marker_inlet = [];
     end
-
     
     % initialize marker buffer
     marker_data = {};       % marker samples gathered so far and to be committed with next overlapping chunk

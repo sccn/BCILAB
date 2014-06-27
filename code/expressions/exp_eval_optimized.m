@@ -31,8 +31,11 @@ function varargout = exp_eval_optimized(x,iters)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-15
 
-if ~exist('iters','var')
-    iters = 1; end
+if nargin < 2
+    iters = 1;
+elseif ~(isnumeric(iters) && isreal(iters) && isscalar(iters) && round(iters) == iters) || iters < 1
+    error('The given Iterations argument must be a positive integer.');
+end
 
 varargout = {x};
 if isfield(x,{'head','parts'})

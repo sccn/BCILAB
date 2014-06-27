@@ -27,42 +27,62 @@ function fields = utl_timeseries_fields(signal)
 persistent keys;
 persistent values;
 
-% generate the query (assuming that the signal usually has the right fields)
 try
-    query = [fieldnames(signal)' {'|'} signal.tracking.timeseries_fields];
-catch
-    query = fieldnames(signal)';
-end
-
-% turn into a string
-query = [query{:}];
-
-try
-    % look up from the database (assuming that it is already contained)
-    fields = values{strcmp(keys,query)};
-catch
-    % not yet in DB: actually determine the timeseries fields
-    if isfield(signal,'tracking') && isfield(signal.tracking,'timeseries_fields')
-        fields = get_timeseries_fields(fieldnames(signal),signal.tracking.timeseries_fields);
-    else
-        fields = get_timeseries_fields(fieldnames(signal),[]);
+    % generate the query (assuming that the signal usually has the right fields)
+    try
+        query = [fieldnames(signal)' {'|'} signal.tracking.timeseries_fields];
+    catch
+        query = fieldnames(signal)';
     end
-    % initialize the DB if necessary, otherwise append
-    if ~iscell(keys)
-        keys = {query};
-        values = {fields};
+
+    % turn into a string
+    query = [query{:}];
+
+    try
+        % look up from the database (assuming that it is already contained)
+        fields = values{strcmp(keys,query)};
+    catch
+        % not yet in DB: actually determine the timeseries fields
+        if isfield(signal,'tracking') && isfield(signal.tracking,'timeseries_fields')
+            fields = get_timeseries_fields(fieldnames(signal),signal.tracking.timeseries_fields);
+        else
+            fields = get_timeseries_fields(fieldnames(signal),[]);
+        end
+        % initialize the DB if necessary, otherwise append
+        if ~iscell(keys)
+            keys = {query};
+            values = {fields};
+        else
+            keys{end+1} = query;
+            values{end+1} = fields;
+        end
+    end
+catch e
+    % diagnose the error
+    if ~isstruct(signal)
+        error('The given argument must be a signal struct.'); end
+    if ~isscalar(signal)
+        error('The given argument must be a 1x1 struct.'); end
+    if ~isfield(signal,'tracking')
+        if ~any(isfield(signal,{'data','srate'}))
+            if all(isfield(signal,{'head','parts'}))
+                error('The given input is an unevaluated expression but this function expects a signal data structure. You may have to first evaluate the data using exp_eval.');
+            else
+                error('The given data structure does not appear to be a valid signal struct.');
+            end
+        else
+            error('The given signal is lacking the required .tracking field.'); 
+        end
     else
-        keys{end+1} = query;
-        values{end+1} = fields;
+        rethrow(e);
     end
 end
-
  
 function fields = get_timeseries_fields(field_names,ts_fields)
 % This function performs the actual computation
 
 % generate initial list of candidates
-candidates = {'data','icaact','srcpot'};
+candidates = {'data','icaact','srcpot','stamps'};
 
 % append whatever is registered in the signal's .tracking.timeseries_fields
 candidates = unique([candidates(:); ts_fields(:)]);

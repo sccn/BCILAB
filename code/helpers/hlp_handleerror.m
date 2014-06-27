@@ -1,11 +1,14 @@
-function s = hlp_handleerror(e,level)
+function s = hlp_handleerror(e,level,hyperlinks)
 % Displays a formatted error message for some error object, including a full stack trace.
 % hlp_handleerror(Error, Indent)
 %
 % In:
 %   Error   : error object, as received from lasterror or via a catch clause
 %             (if omitted, lasterror is used)
-%   Indent  : optional indentation level, in characters
+%
+%   Indent  : optional indentation level, in characters (default: 0)
+%
+%   Hyperlinks : whether to embed hyperlinks in the message (default: true)
 %
 % Out:
 %   Formatted : optionally the formatted error report
@@ -40,42 +43,39 @@ function s = hlp_handleerror(e,level)
 % USA
 
 try
-    if ~exist('e','var')
+    if nargin < 1
         e = lasterror; end %#ok<LERR>
     
     % compute the appropriate indentation level
-    if ~exist('level','var')
+    if nargin < 2
         level = '';
     else
         level = repmat(' ',1,level);
     end
     
-    if nargout == 0    
-        % display the message
-        for message = hlp_split(e.message,[10 13])
-            fprintf('%s %s\n',level,message{1}); end
-        fprintf('%s occurred in: \n',level);
-        for st = e.stack'
-            if ~isdeployed
-                try
-                    fprintf('%s   <a href="matlab:opentoline(''%s'',%i)">%s</a>: %i\n',level,st.file,st.line,st.name,st.line);
-                catch
-                    fprintf('%s   <a href="matlab:edit %s">%s</a>: %i\n',level,st.file,st.name,st.line);
-                end
-            else
-                % links are not supported in deployed mode
-                fprintf('%s   %s: %i\n',level,st.file,st.line);
+    if nargin < 3
+        hyperlinks = true; end
+    
+    lines = {};
+    % build the message
+    for message = hlp_split(e.message,[10 13])
+        lines{end+1} = sprintf('%s %s\n',level,message{1}); end
+    lines{end+1} = sprintf('%s occurred in: \n',level);
+    for st = e.stack'
+        if hyperlinks && ~isdeployed
+            try
+                lines{end+1} = sprintf('%s   <a href="matlab:opentoline(''%s'',%i)">%s</a>: %i\n',level,st.file,st.line,st.name,st.line);
+            catch
+                lines{end+1} = sprintf('%s   <a href="matlab:edit %s">%s</a>: %i\n',level,st.file,st.name,st.line);
             end
+        else
+            % links are not supported in deployed mode
+            lines{end+1} = sprintf('%s   %s: %i\n',level,st.file,st.line);
         end
-    else
-        % print message into a string
-        s = [];
-        for message = hlp_split(e.message,[10 13])
-            s = [s sprintf('%s %s\n',level,message{1})]; end
-        s = [s sprintf('%s occurred in: \n',level)];
-        for st = e.stack'
-            s = [s sprintf('%s   %s: %i\n',level,st.file,st.line)]; end
     end
-catch err
-    disp('An error occurred, but the traceback could not be displayed due to another error...');
+    s = [lines{:}];
+    if nargout == 0
+        disp(s); end
+catch traceerr
+    fprintf('An error occurred (%s), but the traceback could not be displayed due to another error (%s)\n',e.message,traceerr.message);
 end

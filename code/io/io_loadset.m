@@ -42,6 +42,14 @@ function res = io_loadset(varargin)
 %                                       for how events shall be derived from it. This is a cell
 %                                       array of parameters to set_infer_markers(), ideally name-value 
 %                                       pairs.
+%                     'montage_disambiguation' : rule for handling ambiguous montages (i.e., the file's
+%                                                channel labels match multiple montage files similarly well):
+%                                                * 'coverage' : picks the one with maximum coverage
+%                                                * 'first' : picks the first one in the list of candidates
+%                                                             (out of those that have reasonable coverage)
+%                                                * 'deduce' : uses correlation analysis to deduce the best fit
+%                                                * filename : uses the montage with the given file name
+%                                                (default: 'deduce')
 %
 %                     --- format-specific importing parameters ---
 %                    .sna: 'gain', see pop_snapread
@@ -96,7 +104,7 @@ if ~exp_beginfun('filter') return; end
 
 % read options
 allopts = arg_define([0 1],varargin,...
-    arg_norep({'filename','Filename'},mandatory,[],'File name to load. Any format that is recognized by EEGLAB should be supported.'), ...
+    arg_norep({'filename','Filename'},mandatory,[],'File name to load. Any format that is recognized by EEGLAB should be supported.','type','char','shape','row'), ...
     ... % data reductions
     arg({'channels','ChannelSubset','chans'},[],[],'Channel index subset. Restrict the loaded channels to a subset.'), ...
     arg({'samplerange','SampleRange','srange'},[],[],'Sample range. Restrict the loaded data to a sub-range, in samples.'), ...
@@ -108,6 +116,7 @@ allopts = arg_define([0 1],varargin,...
     arg_sub({'markerchannel','MarkerChannel'},{},@set_infer_markers,'Marker channel processing. Optional parameters to control the marker channel processing function.'), ...
     ... % chanlocs handling
     arg({'infer_chanlocs','InferChanlocs'},true,[],'Infer channel locations if necessary. This will look up locations from standard tables if missing and attempt to deduce the channel types.'), ...
+    arg({'montage_disambiguation','MontageDisambiguation'},'deduce',[],'Rule for handling ambiguous montages. This situation occurs when the file''s channel labels match multiple montage files similarly well). Options are: ''coverage'': picks the one with maximum coverage, ''deduce'': uses correlation analysis to deduce the best fit, filename : uses the montage with the given file name'), ...
     ... % added annotations
     arg({'setname','DatasetName'},'',[],'Data set name. This is meta-information of potential use in study-level processing.'), ...
     arg({'subject','SubjectIdentifier'},'',[],'Subject identifier. This is meta-information of potential use in study-level processing.'), ...
@@ -119,10 +128,11 @@ allopts = arg_define([0 1],varargin,...
     arg_norep('gain',unassigned), arg_norep('keystroke',unassigned), arg_norep('memmapfile',unassigned), arg_norep('scale',unassigned), arg_norep('dataformat',unassigned), ...
     arg_norep('blockread',unassigned), arg_norep('triggerfile',unassigned), arg_norep('range_trials',unassigned), arg_norep('range_typeeeg',unassigned), arg_norep('range_response',unassigned), ...
     arg_norep('format',unassigned), arg_norep('trials',unassigned), arg_norep('mergeposition',unassigned), arg_norep('concatruns',unassigned), arg_norep('maxevents',unassigned), ...
-    arg_norep('samplerate',unassigned), arg_norep('blockrange',unassigned),arg_norep('ref',unassigned),arg_norep('rmeventchan',unassigned), ...
+    arg_norep('samplerate',unassigned), arg_norep('blockrange',unassigned),arg_norep('ref',unassigned),arg_norep('rmeventchan',unassigned), arg_norep('exclude_markerstreams',unassigned),...
+    arg_norep('streamname',unassigned), arg_norep('streamtype',unassigned), arg_norep('effective_rate',unassigned), ...
     arg_deprecated('nofixups',false,[],'This parameter has been retired.'));
 
-opts = rmfield(allopts,{'filename','types','casttodouble','setname','subject','group','condition','session','comments','markerchannel','subsampled','infer_chanlocs','nofixups'});
+opts = rmfield(allopts,{'filename','types','casttodouble','setname','subject','group','condition','session','comments','markerchannel','subsampled','infer_chanlocs','montage_disambiguation','nofixups'});
 filename = env_translatepath(allopts.filename);
 [base,name,ext] = fileparts(filename);
 
@@ -143,7 +153,7 @@ if ~isempty(opts.samplerange) && ~isempty(opts.timerange)
     error('Please do not specify both a sample subset and time subset.'); end
 
 % bitrate test function (for some formats)
-wrong_bitrate = @(eeg) mad(mean(eeg.data(:,1:2:end),2)./mean(eeg.data(:,2:2:end),2)) > 0.5;
+wrong_bitrate = @(eeg) mad(mean(eeg.data(:,1:2:end),2)./mean(eeg.data(:,2:2:end),2),1) > 0.5;
 
 disp(['io_loadset(): loading ' filename '...']);
 try
@@ -152,7 +162,28 @@ try
         case '.set'
             % EEGLAB data set
             args = hlp_struct2varargin(opts,'suppress',{'channels','samplerange','timerange'});
-            res = pop_loadset('filepath',[base filesep], 'filename', [name ext], args{:});
+            try
+                res = pop_loadset('filepath',[base filesep], 'filename', [name ext], args{:});
+            catch e
+                % fall back to direct import attempt
+                fprintf('pop_loadset failed with error: %s\n',e.message);
+                fprintf('attempting direct import...\n');
+                res = getfield(io_load(filename,'-mat'),'EEG');
+                if ischar(res.data)
+                    binfile = [base filesep res.data];
+                    if ~exist(binfile,'file')
+                        error('The associated raw-data file %s was not found.',binfile); end
+                    f = fopen(binfile,'r','ieee-le');
+                    if f==-1
+                        error('The associated raw-data file %s does could not be opened. Please check your file permissions.',binfile); end
+                    if strcmp(res.data(end-3:end),'.fdt')
+                        res.data = fread(f,[res.nbchan Inf], 'float32');
+                    elseif strcmp(res.data(end-3:end),'.dat')
+                        res.data = fread(f,[res.trials*res.pnts EEG.nbchan], 'float32')';
+                    end
+                    fclose(f);
+                end
+            end
             if ~isfield(res,'tracking') || ~isfield(res.tracking,'online_expression')
                 % it comes fresh from EEGLAB
                 disp('The loaded EEGLAB set is lacking an online expression; assuming it contains unfiltered data.')
@@ -223,6 +254,7 @@ try
                 opts.timerange = [];
             end
         case '.avr'
+
             % ANT EEProbe average file
             try
                 res = pop_loadeep_avg(filename);
@@ -249,14 +281,12 @@ try
         case {'.bdf','.edf'}
             % BioSEMI BDF/EDF
             try
-                if isempty(opts.timerange) 
-                    opts = rmfield(opts,'timerange'); end
-                args = hlp_struct2varargin(opts,'suppress',{'channels','samplerange'}, 'rewrite',{'timerange','range'});
+                args = hlp_struct2varargin(opts,'suppress',{'channels','samplerange','timerange'}, 'rewrite',{'timerange','range'});
                 res = pop_readbdf(filename,args{:});
                 opts.timerange = [];
             catch
                 % backup variant
-                disp('EEGLAB importer failed; falling back to Biosig.');
+                disp('EEGLAB importer failed; falling back...');
                 args = hlp_struct2varargin(opts,'suppress',{'samplerange'}, 'rewrite',{'timerange','blockrange'});
                 res = pop_biosig(filename,args{:});
                 opts.timerange = [];
@@ -271,11 +301,16 @@ try
         case '.mat'
             % BrainVision Analyzer Matlab file or BCI competition file
             try
-                res = pop_loadbva(filename);
+                evalc('res = pop_loadbva(filename)');
                 disp('Imported .mat file as a BrainVision Analyzer file.');
             catch
                 % backup
                 res = load(filename);
+                % if this contains a single variable take that as the output
+                if length(fieldnames(res)) == 1
+                    res = struct2cell(res);
+                    res = res{1};
+                end
                 % check if this is a BCI competition file
                 if all(isfield(res,{'cnt','nfo'}))
                     disp('Parsing .mat file as a BCI competition MATLAB file.');
@@ -312,19 +347,35 @@ try
             % XDF files
             args = hlp_struct2varargin(opts);
             res = eeg_load_xdf(filename,args{:});
+        case '.sto'
+            % Storage files (specific to BCILAB)
+            res = getfield(io_load(filename),'EEG');
         otherwise
             error('This file format has no known handler in BCILAB.');
     end
 catch specific_error
     % the specific importers failed, fall back to the generic ones
     try
+        % try to use FieldTrip
         warning off FieldTrip:unknown_filetype
-        % try File-IO
-        args = hlp_struct2varargin(opts,'suppress',{'channels','timerange','samplerange'});
-        res = pop_fileio(filename,args{:});
+        hdr = ft_read_header(filename);
+        res = struct('setname','','filename','','filepath','','subject','','group','','condition','','session',[],'comments','','nbchan',hdr.nChans,...
+            'trials',hdr.nTrials,'pnts',hdr.nSamples,'srate',hdr.Fs,'xmin',-hdr.nSamplesPre/hdr.Fs,'xmax',0,'times',[],'data',[],'icaact',[],'icawinv',[], ...
+            'icasphere',[],'icaweights',[],'icachansind',[],'chanlocs',struct('labels',hdr.label),'urchanlocs',[],'chaninfo',[],'ref',[],'event',[],'urevent',[], ...
+            'eventdescription',{{}}, 'epoch',[],'epochdescription',{{}},'reject',[],'stats',[],'specdata',[],'specicaact',[],'splinefile','','icasplinefile','', ...
+            'dipfit',[],'history','','saved','no','etc',[]);
+        if res.trials > 1
+            error('This importer does not support epoched data.'); end
+        if ~isempty(opts.timerange)
+            opts.samplerange = 1+round((opts.timerange-res.xmin)*res.srate); end
+        res.data = ft_read_data(filename,'chanindx',opts.channels,'begsample',opts.samplerange(1:end-1),'endsample',opts.samplerange(2:end));
+        evt = ft_read_event(filename);
+        res.event = struct('type',{evt.value},'category',{evt.type},'latency',{evt.sample},'duration',{evt.duration});
+        res.xmax = res.xmin + (res.pnts-1)*res.srate;
+        [opts.channels,opts.samplerange,opts.timerange] = deal([]);
     catch fileio_error
         try
-            % try BioSig
+            % try to use BioSig
             args = hlp_struct2varargin(opts,'suppress',{'channels','samplerange','timerange'});
             res = pop_biosig(filename,args{:});
         catch biosig_error
@@ -351,7 +402,7 @@ if isempty(res.event) || allopts.markerchannel.force_processing
 
 % infer chanlocs fields (e.g. coordinates)
 if allopts.infer_chanlocs
-    res = set_infer_chanlocs(res); end
+    res = set_infer_chanlocs(res,allopts.montage_disambiguation); end
 
 % convert numeric event types to string
 if isfield(res.event,'type') 
@@ -370,7 +421,10 @@ if ~isempty(allopts.types)
     matches = false;
     for t=1:length(allopts.types)
         matches = matches | strcmp({res.chanlocs.type},allopts.types{t}); end
-    res = pop_select(res,'channel',find(matches));
+    keep = find(matches);
+    res.data = res.data(keep,:,:,:,:,:,:,:);
+    res.chanlocs = res.chanlocs(keep);
+    res.nbchan = size(signal.data,1);
 end
 
 % add data set meta-data
@@ -384,14 +438,15 @@ res.comments = allopts.comments;
 
 % and reduce the data post-hoc if not already done so in the loader
 if ~isempty(opts.channels)
-    res = pop_select(res,'channel',set_chanid(res,opts.channels),'sorttrial','off'); end
+    res = hlp_scope({'disable_expressions',true},@flt_selchans,res,{res.chanlocs(opts.channels).labels}); end
 if ~isempty(opts.samplerange)
-    res = pop_select(res,'point',opts.samplerange); end
+    res = hlp_scope({'disable_expressions',true},@set_selinterval,res,opts.samplerange,'samples'); end
 if ~isempty(opts.timerange)
-    res = pop_select(res,'time',opts.timerange); end
+    res = hlp_scope({'disable_expressions',true},@set_selinterval,res,opts.timerange,'seconds'); end
 if ~isempty(allopts.subsampled)
-    res = pop_resample(res,allopts.subsampled); end
-
+    res = hlp_scope({'disable_expressions',true},@flt_resample,res,allopts.subsampled);
+    res.data = res.data(:,1+mod(((0:res.pnts-1) + round(res.etc.filter_delay*res.srate)),res.pnts-1));
+end
 
 if length(unique({res.chanlocs.labels})) ~= length(res.chanlocs)
     warning('bcilab:io_loadset:duplicate_channels','Multiple of your channels have the same label; this will likely give you errors during processing.'); end

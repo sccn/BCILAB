@@ -3,15 +3,23 @@ function run_writevisualization(varargin)
 % run_writevisualization(Model,SourceStream,VisFunction,UpdateFrequency,OutputForm,CreateFigure,StartDelay,PredictorName)
 %
 % In:
-%   Model : predictive model to use (see onl_newpredictor) (default: 'lastmodel')
+%   Model : A model data structure (as obtained from bci_train) based on which the predictor shall be 
+%           created; typically this is a model struct, but for convenience it can be a file name, 
+%           variable name in the base workspace, or a cell array of {file name, variable name} to 
+%           refer to a variable inside a .mat file. The model is not modified by this function.
+%           (default: 'lastmodel')
 %
-%   SourceStream : real-time stream name to read from (in MATLAB workspace) (default: 'laststream')
+%   SourceStreamNames : Optional names of stream data structures in the MATLAB base workspace to
+%                       consider as possible data sources (previously created with onl_newstream); 
+%                       if a stream contains all channels that are needed by the predictor, or 
+%                       alternatively has the right number and type of channels it will be considered 
+%                       as a potential source stream unless ambiguous. (default: 'laststream')
 %
 %   VisFunction : visualization function (default: 'bar(y);ylim([0 1]);')
 %                 y is the current signal value, f is the figure handle
 %                 can also be given as a unary or binary function handle
 %
-%   UpdateFrequency : update frequency (default: 10)
+%   UpdateFrequency : The rate at which new outputs will be computed. (default: 10)
 %
 %   OutputForm : output data form, see onl_predict (default: 'distribution')
 %
@@ -21,7 +29,9 @@ function run_writevisualization(varargin)
 %   StartDelay : Delay before real-time processing begins; grace period until figure is created 
 %                (default: 1)
 %
-%   PredictorName : name for new predictor, in the workspace (default: 'lastpredictor')
+%   PredictorName : Name of the predictor to be created; a variable of this name will be created in 
+%                   the MATLAB base workspace to hold the predictor's state. If a variable with this
+%                   name already exists it will be overridden. (default: 'lastpredictor')
 %
 % Examples:
 %   % open a new processing stream, reading from an input stream called 'mystream', and using a 
@@ -46,14 +56,14 @@ declare_properties('name','MATLAB visualization');
 % define arguments
 opts = arg_define(varargin, ...
     arg({'pred_model','Model'}, 'lastmodel', [], 'Predictive model. As obtained via bci_train or the Model Calibration dialog.','type','expression'), ...
-    arg({'in_stream','SourceStream'}, 'laststream',[],'Input Matlab stream. This is the stream that shall be analyzed and processed.'), ...
+    arg({'in_stream','SourceStreamNames','SourceStream'}, 'laststream',[],'Input Matlab stream name(s). Optional names of stream data structures in the MATLAB base workspace to consider as possible data sources (previously created with onl_newstream); if a stream contains all channels that are needed by the predictor, or alternatively has the right number and type of channels it will be considered as a potential source stream unless ambiguous.','typecheck',false,'shapecheck',false), ...
     arg({'vis_func','VisFunction'},'bar(y);ylim([0 1]);',[],'Visualization function. Function of y (the current prediction) and possibly f (the target figure); can be an expression or a function handle.'), ...
-    arg({'update_freq','UpdateFrequency'},10,[],'Update frequency. This is the rate at which the graphics are updated.'), ...
-    arg({'out_form','OutputForm'},'distribution',{'expectation','distribution','mode'},'Form of the produced output values. Can be the expected value (posterior mean) of the target variable, or the distribution over possible target values (probabilities for each outcome, or parametric distribution), or the mode (most likely value) of the target variable.'), ...
+    arg({'update_freq','UpdateFrequency'},10,[0 Inf],'Update frequency. The rate at which new outputs will be computed.'), ...
+    arg({'out_form','OutputForm'},'distribution',{'expectation','distribution','mode','raw'},'Form of the produced output values. Can be the expected value (posterior mean) of the target variable, or the distribution over possible target values (probabilities for each outcome, or parametric distribution), or the mode (most likely value) of the target variable.'), ...
     arg({'create_fig','CreateFigure'}, true, [],'Create a figure. If the VisFunction assumes that a figure is present, this should be set to true.'), ...
     arg({'start_delay','StartDelay'}, 1, [],'Start-up delay. Delay before real-time processing begins; grace period until figure is created.'), ...
     arg({'predict_at','PredictAt'}, {},[],'Predict at markers. If nonempty, this is a cell array of online target markers relative to which predictions shall be made. If empty, predictions are always made on the most recently added sample.','type','expression'), ...
-    arg({'pred_name','PredictorName'}, 'lastpredictor',[],'Name of new predictor. This is the workspace variable name under which a predictor will be created.'), ...
+    arg({'pred_name','PredictorName'}, 'lastpredictor',[],'Name of new predictor. A variable of this name will be created in the MATLAB base workspace to hold the predictor''s state. If a variable with this name already exists it will be overridden.'), ...
     arg({'verbose','Verbose'}, false,[],'Verbose output. If false, the console output of the online pipeline will be suppressed.'));
 
 % visualization function given as function handle?

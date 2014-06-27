@@ -16,6 +16,8 @@ function io_loadworkspace(filename)
 % set default
 if ~exist('filename','var') || isempty(filename)
     filename = 'bcilab:/resources/workspaces'; end
+if ~ischar(filename)
+    error('The file name must be given as a string.'); end
 
 % translate to platform-specific path
 filename = env_translatepath(filename);

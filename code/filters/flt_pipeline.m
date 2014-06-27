@@ -320,7 +320,7 @@ if ~isequal(varargin,{'update'})
     allflt = list_filters();
     
     % sort filters in the preferred order (and remove filters for which no preferences are known)
-    custom_order = arg_extract(varargin,{'fltorder','FilterOrdering','order'},[],{});
+    custom_order = arg_extract(varargin,{'fltorder','FilterOrdering','FilterOrder','order'},[],{});
     [ordering,unlinked] = hlp_microcache('ordering',@order_filters,struct('name',{allflt.name},'properties',{allflt.properties}),custom_order);
     filters = allflt(ordering);
     
@@ -330,6 +330,9 @@ if ~isequal(varargin,{'update'})
         arg({'fltorder','FilterOrdering','order'},{},[],'Override filter order. Filters listed in this cell-string array are (partially) reordered according to this list. Example: {''set_makepos'',''flt_ica'',''flt_resample''}. See also the help of flt_pipeline.','type','cellstr','shape','row'), ...
         ... % list the argument specifications for all filters
         filters.spec);
+    
+    if any(cellfun(@(f)any(f==' '),args.fltorder))
+        error('The FilterOrdering parameter is malformed; should be a cell array of strings, but was: %s',hlp_tostring(args.fltorder,10000)); end
     
     % check if there were conflicts / problems
     if ~isempty(unlinked)
@@ -349,7 +352,7 @@ if ~isequal(varargin,{'update'})
                 'Their position in the filter chain is therefore not defined, but they are in use. Please include these filters in the filtering order definition, to specify their position.']);
         end
         % also note other conflicts (for filters that were not used in the current pipeline)
-        disp(['Note: the ordering relationship ' hlp_tostring(args.fltorder) ' is in conflict with the ordering preferences for the following' fastif(~isempty(problematic),' further ',' ') 'nodes:']);
+        disp(['Note: the ordering relationship ' hlp_tostring(args.fltorder) ' is in conflict with the ordering preferences for the following' quickif(~isempty(problematic),' further ',' ') 'nodes:']);
         disp(hlp_tostring({allflt(setdiff(unlinked,problematic)).name}));
         disp('Their position is currently not defined, but it is advisable to define it, if the filters are to be enabled eventually.');
     end
@@ -383,6 +386,12 @@ end
 % get a list of all existing filter specifications
 function filters = list_filters(update_list)
 debug = false;
+% determine list of filters that are known to be unlistable here
+known_incompliant = {'set_gettarget','set_combine','set_merge','set_joinepos','set_concat'};
+% if SIFT is not installed, some more filters fall into that category
+if ~exist('hlp_getModelingApproaches','file')
+    known_incompliant = [known_incompliant {'flt_siftpipeline','flt_zscore'}]; end
+
 persistent memo;
 % if we need to (re-)collect the list
 if isempty(memo) || exist('update_list','var') && update_list
@@ -447,15 +456,22 @@ if isempty(memo) || exist('update_list','var') && update_list
             retain(f) = false;
             continue;
         end
-        try
-            report = arg_report('rich',funcs{f}); %#ok<NASGU>
-        catch e
-            % otherwise there is an actual error
-            known_incompliant = {'set_gettarget','set_combine','set_merge','set_joinepos','set_concat'};
-            if ~any(strcmp(char(funcs{f}),known_incompliant)) && disp_once(['Cannot query arguments of function ' char(funcs{f}) ' (likely an issue with the argument definition): ' e.message]) && debug
-                hlp_handleerror(e); end
+        if ~any(strcmp(char(funcs{f}),known_incompliant))
+            if strcmp(debug,'hard')
+                report = arg_report('rich',funcs{f}); %#ok<NASGU>
+            else
+                try
+                    report = arg_report('rich',funcs{f}); %#ok<NASGU>
+                catch e
+                    % otherwise there is an actual error            
+                    if ~disp_once(['Cannot query arguments of function ' char(funcs{f}) ' (likely an issue with the argument definition): ' e.message]) && debug
+                        hlp_handleerror(e); end
+                    retain(f) = false;
+                    continue;
+                end
+            end
+        else
             retain(f) = false;
-            continue;
         end
     end
     memo = struct('name',names(retain),'tag',tags(retain),'func',funcs(retain),'properties',props(retain),'spec',specs(retain));
@@ -579,7 +595,17 @@ filters = filters(retain);
 % create a mapping from name to index in filters...
 remap = struct();
 for f=1:length(filters)
-    remap.(filters(f).name) = f; end
+    remap.(filters(f).name) = f;  end
+for f=1:length(filters)
+    if isfield(filters(f),'properties') && isfield(filters(f).properties,'name')
+        for n=1:length(filters(f).properties.name)
+            name = filters(f).properties.name{n};
+            if isfield(remap,name)
+                error('BCILAB:flt_pipeline:duplicate_name','The given filter %s declares a name property (%s) that was already declared by some other filter.',filters(f).name,name);  end
+            remap.(name) = f; 
+        end
+    end
+end
 
 % create a graph according to the filters' ordering preferences/constraints, as an edge list (of the
 % type 'src precedes dst')

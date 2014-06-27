@@ -51,14 +51,22 @@ arg_define(varargin, ...
     arg({'selunit','IntervalUnit','Unit','unit'},'seconds',{'seconds','samples','fraction','range'}, 'Interval unit. The unit of measurement for selection intervals (does not apply to SampleRange).'), ...
     arg({'insert_boundary_markers','InsertBoundaryMarkers'},false,[], 'Insert boundary markers. Whether to insert boundary markers (for EEGLAB compatibility).'));
 
-if ~isempty(signal.epoch) || size(signal.data,3)>1
-    error('This function cannot be applied to epoched data. Use flt_window to apply window functions to epoched data.'); end
+utl_check_fields(signal,{'epoch','event','data','pnts','srate','xmin'},'signal','signal');
+if signal.srate == 0 
+    error('Your signal needs to have a nonzero .srate value.'); end
+if ~isempty(signal.epoch) || size(signal.data,3) > 1
+    error('This function cannot be applied to epoched data. Use flt_window to perform interval selection on epoched data.'); end
 
 switch selunit
-    case 'fraction'
+    case 'fraction'        
+        if any(intervals<0 | intervals>1) %#ok<*NODEF>
+            error('Fractional intervals must be in the [0,1] range.'); end
         intervals = 1+round(intervals*(size(signal.data,2)-1));
         samplerange = [];
     case 'seconds'
+        intervals(intervals==Inf) = (size(signal.data,2)-1)/signal.srate;
+        if any(intervals<0 | (1+round(intervals*signal.srate)) > size(signal.data,2))
+            error('Your intervals exceed the data limit.'); end
         intervals = min(1+round(intervals*signal.srate),size(signal.data,2));
         samplerange = [];
     case 'range'
@@ -79,6 +87,10 @@ if isempty(samplerange)
 elseif isa(samplerange,'logical')
     samplerange = find(samplerange);
 end
+if any(round(samplerange) ~= samplerange)
+    error('Your sample range contains non-integer indices: %s',hlp_tostring(samplerange)); end
+if any(samplerange<1 | samplerange>size(signal.data,2))
+    error('Your sample range exceeds the data bounds (%i); range is: %s.',size(signal.data,2),hlp_tostring(samplerange)); end
 
 if isempty(samplerange)
     % clear data
@@ -90,13 +102,29 @@ elseif ~isequal(samplerange,1:size(signal.data,2))
     % select range within the time series fields
     for field = utl_timeseries_fields(signal)
         if ~isempty(signal.(field{1}))
-            signal.(field{1}) = signal.(field{1})(:,samplerange,:,:,:,:,:,:); end
+            try
+                signal.(field{1}) = signal.(field{1})(:,samplerange,:,:,:,:,:,:); 
+            catch e
+                error('The given sample range could not be extracted from the time-series field .%s with error: %s. Field size was: %i, epoch indices were: %s',field{1},e.message,size(signal.(field{1}),2),hlp_tostring(samplerange));
+            end
+        end
     end
     % select range within the events
     if ~isempty(signal.event)
+        if ~isfield(signal.event,'latency')
+            error('Your signal is lacking the required .event.latency field.'); end
+        latency_numels = cellfun('prodofsize',{signal.event.latency});
+        if any(latency_numels == 0)
+            error('The given signal has one or more events with empty .latency field. This is not permitted.');
+        elseif any(latency_numels ~= 1)
+            error('The given signal has one or more events with a .latency value that is not a scalar. This is not permitted.');
+        end
         % trim out-of-bounds events
         event_latency = [signal.event.latency];
-        signal.event(event_latency<1 | event_latency>signal.pnts) = [];
+        out_of_bounds = event_latency<1 | event_latency>signal.pnts;
+        if any(out_of_bounds)
+            disp_once('WARNING: your signal had %i events at out-of-bounds latencies that were removed.',nnz(out_of_bounds)); end
+        signal.event(out_of_bounds) = [];
         % bin latencies into sparse array and apply selection
         [event_positions,residuals] = sparse_binning([signal.event.latency],[],signal.pnts);
         [ranks,sample_indices,event_indices] = find(event_positions(:,samplerange));

@@ -46,7 +46,7 @@ function [predictions,predict_at,timings] = onl_simulate(varargin)
 %
 % In:
 %   Data         : raw EEGLAB data set that shall be streamed through the online pipeline,
-%                  or stream bundle, or cell array of EEGLAB data sets
+%                  or stream bundle
 %
 %   Model        : the predictive model (as produced by bci_train) that should be used to make
 %                  predictions at certain latencies in the data (specified in the Options)
@@ -114,51 +114,63 @@ function [predictions,predict_at,timings] = onl_simulate(varargin)
 arg_define([0 2],varargin, ...
     arg_norep({'signal','Data','Signal'}), ...
     arg_norep({'mdl','Model'}), ...
-    arg({'sampling_rate','UpdateRate','update_rate','SamplingRate'},[],[],'Predict at this rate. If set, produce outputs at the given sampling rate.'), ...
-    arg({'locksamples','Latencies'}, [], [], 'Predict at these latencies. Produce outputs at the given data sample latencies.'), ...
-    arg({'lockmrks','Markers','markers'}, {}, [], 'Predict at these events. Produce outputs at the latencies of these events.'), ...
-    arg({'relshift','Shift','offset'},0,[],'Add time offset. Shift the time points at which to predict by this amount (in seconds).'), ...
-    arg({'target_markers','TargetMarkers'},{},[],'Target markers for prediction. If non-empty, predictions will only be generated per each target marker; if empty, a prediction will be generated for each sample where onl_predict is called.','type','expression'), ...
+    arg({'sampling_rate','UpdateRate','update_rate','SamplingRate'},[],[0 Inf],'Update at this rate. If set, update outputs at the given sampling rate.'), ...
+    arg({'locksamples','Latencies'}, [], uint32([1 1000000000]), 'Update at these latencies. Update outputs at the given data sample latencies (in samples).','shape','row'), ...
+    arg({'lockmrks','Markers','markers'}, {}, [], 'Update at these events. Update outputs at the latencies of these events.'), ...
+    arg({'relshift','Shift','offset'},0,[],'Time offset for update positions. Shift the time points at which to update by this amount (in seconds).'), ...
+    arg({'target_markers','TargetMarkers'},{},[],'Target markers for prediction. If non-empty most types of models will generate predictions only per each target marker (even though the model will still be updated at all specified positions); if empty, a prediction will be generated for each update is called.'), ...
     arg({'outformat','Format','format'},'distribution',{'expectation','distribution','mode'},'Prediction format. See utl_formatprediction.'), ...
     arg({'dowaitbar','Waitbar'},false,[],'Display progress update. A waitbar will be displayed if enabled.'), ...
     arg({'dofeedback','Feedback'},false,[],'Display BCI outputs. BCI outputs will be displayed on the fly if enabled.'), ...
-    arg({'restrict_to','Interval','interval'},[0 1],[],'Restrict to time interval. Process only this interval of the data, in seconds (if both ends <= 1, assume that the interval is a fraction)'), ...
+    arg({'restrict_to','Interval','interval'},[0 1],[0 Inf],'Restrict to time interval. Process only this interval of the data, in seconds (if both ends <= 1, assume that the interval is a fraction). Note: this is relative to the beginning of the data, and ignores .xmin.'), ...
     arg({'tighten_buffer','TightenBuffer'},false,[],'Tighten data buffer. Optional speed optimization that is specific to offline simulation.'), ...
     arg({'verbose_output','Verbose','verbose'}, false,[],'Verbose output. If false, the console output of the online pipeline will be suppressed.'), ...
     arg({'force_array','ForceArrayOutputs'},true,[],'Force outputs into array. If true, the predictions, which would normally be a cell array, are returned as a numeric array. If no target markers are specified then all predictions that yielded xno results are replaced by appropriately-sized NaN vectors.'));
 
-% uniformize the data
-if all(isfield(signal,{'data','srate'}))
+% input validation
+if ~isstruct(mdl) || ~isscalar(mdl)
+    error('The given Model argument must be a 1x1 struct.'); end
+if ~isfield(mdl,'tracking') || ~all(isfield(mdl.tracking,{'prediction_function','filter_graph','prediction_channels'}))
+    error('The given Model argument is lacking some required fields (required are: .tracking.prediction_function, .tracking.filter_graph, .tracking.prediction_channels), but got: %s',hlp_tostring(model,10000)); end
+if all(isfield(signal,{'data','srate'})) %#ok<*NODEF>
     signal = struct('streams',{{signal}}); end
 if iscell(signal)
-    signal = struct('streams',{signal}); end
-
-% and make sure that it is well-formed and evaluated
+    error('This function does not support dataset collections; you need to apply onl_simulate to each set in the collection separately (note: a previously permitted syntax in which a cell array of datasets was taken to be a stream bundle has been dropped after version 1.1)'); end
+if ~iscellstr(lockmrks)
+    error('The given markers argument must be a cell array of strings, but was: %s.',hlp_tostring(lockmrks)); end
 signal = utl_check_bundle(signal);
-for s=1:length(signal.streams)
-    signal.streams{s} = exp_eval_optimized(signal.streams{s}); end
 
 % we use the sampling rate and bounds of the first stream to determine the prediction points
-stream_srate = signal.streams{1}.srate;
-stream_xmax = signal.streams{1}.xmax;
+stream = signal.streams{1};
 if all(restrict_to <= 1)
-    restrict_to = max(0,min(1,restrict_to)) * stream_xmax;
+    restrict_to = 1 + restrict_to * (stream.pnts-1);
 else
-    restrict_to = max(0,min(stream_xmax,restrict_to));
+    restrict_to = max(1,min(stream/pnts,restrict_to*stream.srate));
 end
 
-% aggregate the time points at which the model should be invoked
+% aggregate the sample points at which the model should be invoked
 predict_at = [];
 for m=1:length(lockmrks)
-    predict_at = [predict_at ([signal.streams{1}.event(strcmp(lockmrks{m},{signal.streams{1}.event.type})).latency]-1)/stream_srate]; end
+    predict_at = [predict_at signal.streams{1}.event(strcmp(lockmrks{m},{signal.streams{1}.event.type})).latency]; end %#ok<AGROW>
 if ~isempty(sampling_rate)
-    predict_at = [predict_at 0:(1/sampling_rate):stream_xmax]; end
+    predict_at = [predict_at round(1:(stream.srate/sampling_rate):stream.pnts)]; end
 if ~isempty(locksamples)
-    predict_at = [predict_at locksamples/stream_srate]; end
-predict_at = predict_at + relshift;
-predict_at = predict_at(predict_at >= restrict_to(1) & predict_at <= restrict_to(2));
+    predict_at = [predict_at locksamples]; end
+predict_at = predict_at + relshift*stream.srate;
 predict_at = sort(predict_at);
-predictions = cell(1,length(predict_at));
+
+% sanity checks
+fractionals = round(predict_at) ~= predict_at;
+if any(fractionals)
+    fprintf('NOTE: some portion (%.1f%%) of specified sample points at which to predict are not integers; the actual prediction points might differ by up to one sample due to rounding.\n',100 * mean(fractionals)); end
+out_of_bounds = predict_at<1 | predict_at>stream.pnts;
+if any(out_of_bounds)
+    fprintf('NOTE: some portion (%.1f%%) of specified sample points at which to predict are outside the data bounds; these will be removed.\n',100 * mean(out_of_bounds)); end
+
+% round and restrict to desired range
+predict_at = round(predict_at);
+predict_at = predict_at(predict_at >= restrict_to(1) & predict_at <= restrict_to(2));
+
 
 % optionally clear any existing target markers in the given streams
 if ~isempty(target_markers)
@@ -171,9 +183,9 @@ end
 % initialize the online stream(s)
 stream_names = {};
 for s=1:length(signal.streams)
-    stream_names{s} = sprintf('stream_simulated_%.0f',s);
+    stream_names{s} = sprintf('stream_simulated_%i',s);
     if tighten_buffer
-        onl_newstream(stream_names{s}, signal.streams{s}, 'buffer_len',max(diff(predict_at)) + 10/signal.streams{s}.srate);
+        onl_newstream(stream_names{s}, signal.streams{s}, 'buffer_len',max(diff(predict_at))*stream.srate + 10/stream.srate);
     else
         onl_newstream(stream_names{s}, signal.streams{s});
     end
@@ -192,13 +204,14 @@ for s=length(signal.streams):-1:1
 % for each latency of interest...
 cursors = zeros(1,length(signal.streams)); % signal up to an including this sample latency has been streamed in
 timings = zeros(1,length(predict_at));
+predictions = cell(1,length(predict_at));
 for k=1:length(predict_at)    
     t0 = tic;
     
     % skip ahead to the position of the next prediction
     % (i.e. feed all samples and markers from the current cursor up to that position)
     for s=1:length(signal.streams)
-        next_sample = 1 + round(predict_at(k)*signal.streams{s}.srate);
+        next_sample = predict_at(k);
         range = (cursors(s)+1) : next_sample;
         events = signal.streams{s}.event(event_latencies{s}>=range(1)&event_latencies{s}<=range(end));
         if ~isempty(events)

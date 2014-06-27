@@ -35,7 +35,7 @@ function X = arg_setdirect(X,value)
 % USA
 
 if nargin < 2
-    error('please supply a value'); end
+    error('please supply a value.'); end
 
 if isempty(X), return; end
 

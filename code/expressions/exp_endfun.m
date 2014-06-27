@@ -36,6 +36,8 @@ if evalin('caller','exist(''arg_nvps'',''var'')')
     context.expression_posteval.parts = evalin('caller','arg_nvps'); end
 
 % assign additional exp_endfun options to the context's options...
+if ~iscellstr(varargin(1:2:end))
+    error('The given arguments must be name-value pairs.'); end
 for k=1:2:length(varargin)
     context.opts.(varargin{k}) = varargin{k+1}; end
 
@@ -82,9 +84,6 @@ if ~isempty(context.memoize_id) && isfield(context.ws_output_post,context.outarg
         try obj = [obj {context.ws_output_post.(context.outargs{k})}]; catch break; end
     end
     
-    % for each location... (currently: memory or disk)
-    for c=1:length(context.memoize_id)
-        id = context.memoize_id{c};
-        utl_memoize_commit(obj,id,context.input_size);
-    end
+    % commit object to cache
+    utl_memoize_commit(obj,context.memoize_id,context.input_size);
 end

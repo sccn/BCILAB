@@ -57,6 +57,9 @@ function res = par_globalsetting(name,val)
 
 global tracking
 
+if ~any(strcmp(name,{'engine','pool','policy','verbosity'}))
+    error('Unsupported parallel setting name: %s.',name); end
+
 % look up current setting
 try
     res = tracking.parallel.(name);
@@ -68,4 +71,22 @@ end
 
 % optionally override current setting
 if nargin >= 2
-    tracking.parallel.(name) = val; end
+    % perform sanity checks
+    switch name
+        case 'engine'
+            if ~ischar(val) || ~any(strcmp(val,{'BLS','local','ParallelComputingToolbox','Reference'}))
+                error('Unsupported value for the ''engine'' setting: %s.',hlp_tostring(val)); end
+        case 'pool'
+            if ~iscellstr(val)
+                error('The ''pool'' setting must be a cell array of strings.'); end
+        case 'policy'
+            if ~ischar(val) || ~exist(val,'file')
+                error('The ''policy'' setting must be a string an refer to an existing function.'); end
+        case 'verbosity'
+            if ~isscalar(val) || ~isnumeric(val) || val~=round(val) || val<0
+                error('The ''verbosity'' setting must be a nonnegative integer.'); end
+        otherwise
+            error('Unsupported parallel setting: %s.',name);
+    end
+    tracking.parallel.(name) = val; 
+end

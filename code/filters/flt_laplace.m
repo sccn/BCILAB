@@ -40,7 +40,7 @@ function signal = flt_laplace(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-06-29
 
-% flt_laplace_version<1.0> -- for the cache
+% flt_laplace_version<1.01> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -48,7 +48,7 @@ declare_properties('name','SurfaceLaplacian', 'follows','flt_selchans', 'cannot_
 
 arg_define(varargin, ...
     arg_norep({'signal','Signal'}), ...
-    arg({'neighs','NeighbourCount'}, 8, [3 16], 'Number of neighbors per channel. Typical values are 4-8.'),...
+    arg({'neighs','NeighbourCount'}, 8, uint32([3 4 8 16]), 'Number of neighbors per channel. Typical values are 4-8.'),...
     arg_norep('M',unassigned), ...
     arg_norep('ok',unassigned));
 
@@ -56,7 +56,7 @@ arg_define(varargin, ...
 if ~exist('M','var')
     % look up standard locations if necessary
     if ~all(isfield(signal.chanlocs,{'X','Y','Z'})) || all(cellfun('isempty',{signal.chanlocs.X}))
-        signal.chanlocs = pop_chanedit(signal.chanlocs,'lookup','standard-10-5-cap385.elp'); end
+        signal.chanlocs = hlp_microcache('chanlocs',@set_infer_chanlocs,signal.chanlocs); end
     
     % map admissible ("ok") channels into a spherical coordinate system (that has no seams across
     % the scalp)

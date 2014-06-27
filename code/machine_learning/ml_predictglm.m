@@ -19,29 +19,34 @@ function pred = ml_predictglm(trials,model)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-06-25
 
-% vectorize data if necessary
-if model.vectorize
-    trials = double(reshape(trials,[],size(trials,3))'); end
-
 if isfield(model,'voted')
     % dispatch to the voter
     pred = ml_predictvote(trials,model);
 else
+    % vectorize data if necessary
+    if model.vectorizeTrials
+        trials = double(reshape(trials,prod(model.featureShape),[])'); end
+
     % scale data
     trials = hlp_applyscaling(trials,model.sc_info);
+
+    % add bias term to data
+    if model.includeBias
+        trials = [trials ones(size(trials,1),1)]; end
+
+    model.w = model.w(:);
     
-    % add bias term
-    if isfield(model,'b') && ~isempty(model.b)
-        model.w(end+1) = model.b;    
-        trials = [trials ones(size(trials,1),1)];
-    end
-    
-    if strcmp(model.ptype,'classification')
+    if strcmp(model.type,'classification')
         % map to probabilities
         probs = 1 ./ (1 + exp(-trials*full(model.w)));
-        pred = {'disc', [1-probs probs], model.classes};
+        if ~model.continuousTargets
+            pred = {'disc', [1-probs probs], model.classes};
+        else
+            pred = probs;
+        end
     else
         % do linear regression
         pred = trials*full(model.w);
     end
 end
+

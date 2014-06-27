@@ -57,12 +57,15 @@ if isempty(varargin)
 else
     % do a regular merge
     [result,indexmap] = exp_eval(set_merge(varargin{:}));
-
-    % but set each epoch's target value to the k of the respective combined set
-    indexmap = num2cell(indexmap);
-    if length(result.epoch) < length(indexmap)
-        result.epoch(length(indexmap)).target = []; end
-    [result.epoch.target] = indexmap{:};
+    if ~isempty(result.epoch)
+        % but set each epoch's target value to the k of the respective combined set
+        indexmap = num2cell(indexmap);
+        if length(result.epoch) < length(indexmap)
+            result.epoch(length(indexmap)).target = []; end
+        [result.epoch.target] = indexmap{:};
+    else
+        disp_once('Warning: the dataset after set_merge() does not appear to be epoched.'); 
+    end
 end
 
 % take over the online expression of the merge result

@@ -17,6 +17,20 @@ function chunk = utl_buffer(chunk,buffer,desired_length)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2013-11-12
 
+% input validation
+utl_check_fields(chunk,{'data','event','xmax','srate'},'chunk','signal');
+utl_check_fields(buffer,{'data','event'},'buffer','signal');
+if ~isempty(chunk.event)
+    if ~isfield(chunk.event,'latency')
+        error('The chunk is missing the required .event.latency field.'); end
+    latency_numels = cellfun('prodofsize',{chunk.event.latency});
+    if any(latency_numels == 0)
+        error('The given chunk has one or more events with empty .latency field. This is not permitted.');
+    elseif any(latency_numels ~= 1)
+        error('The given chunk has one or more events with a .latency value that is not a scalar. This is not permitted.');
+    end
+end
+
 % concatenate markers if necessary
 if (desired_length ~= size(chunk.data,2)) && (~isempty(buffer.event) || ~isempty(chunk.event))
     if size(chunk.data,2) > desired_length
@@ -61,14 +75,18 @@ for fld = utl_timeseries_fields(chunk)
     % if some other amount of data than what's in the chunk was requested
     if desired_length ~= size(chunk.(field),2)
         if size(chunk.(field),2) < desired_length
-            if size(buffer.(field),2) == desired_length
-                % we can do an in-place update without reallocations
-                chunk.(field) = cat(2,buffer.(field)(:,size(chunk.(field),2)+1:end,:,:,:,:,:,:),chunk.(field));
-            else
-                % append new samples & cut excess data
-                chunk.(field) = cat(2,buffer.(field),chunk.(field));
-                if size(chunk.(field),2) > desired_length
-                    chunk.(field) = chunk.(field)(:,end-desired_length+1:end,:,:,:,:,:,:); end
+            try
+                if size(buffer.(field),2) == desired_length
+                    % we can do an in-place update without reallocations
+                    chunk.(field) = cat(2,buffer.(field)(:,size(chunk.(field),2)+1:end,:,:,:,:,:,:),chunk.(field));
+                else
+                    % append new samples & cut excess data
+                    chunk.(field) = cat(2,buffer.(field),chunk.(field));
+                    if size(chunk.(field),2) > desired_length
+                        chunk.(field) = chunk.(field)(:,end-desired_length+1:end,:,:,:,:,:,:); end
+                end
+            catch e
+                error('Error trying to concatenate time-series field .%s of buffer (size=%s) and incoming chunk (size=%s); error message: %s.',field,hlp_tostring(size(buffer.(field))),hlp_tostring(size(chunk.field)),e.message);
             end
         else
             % if the chunk is longer than what's requested cut the excess data

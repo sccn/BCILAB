@@ -55,10 +55,10 @@ declare_properties('name','Projection', 'follows',{'flt_ica','flt_selvolume'}, '
 
 arg_define(varargin,...
     arg_norep({'signal','Signal'}), ...
-    arg({'projmat','ProjectionMatrix'}, '.icaweights*.icasphere', {'.icaweights*.icasphere','.icawinv'}, 'Projection matrix. The data is multiplied by this matrix, which can therefore implement any linear spatial filter. If left empty, flt_project will try to apply the ICA projection matrix, if present.'),...
+    arg({'projmat','ProjectionMatrix'}, '.icaweights*.icasphere', {'.icaweights*.icasphere','.icawinv'}, 'Projection matrix. The data is multiplied by this matrix, which can therefore implement any linear spatial filter. If left empty, flt_project will try to apply the ICA projection matrix, if present.','type','expression'),...
     arg({'newchans','ChannelNames'}, [], [], 'New channel names. Cell array of new channel names, if known. If empty, channels will be named 1:n; if false, the old channel labels will be retained.','type','cellstr','shape','row'), ...
-    arg({'subcomps','ComponentSubset'}, [], [], 'Component subset. List of component indices to which the result shall be restricted (or []).'), ...
-    arg({'subchans','ChannelSubset'}, [], [], 'Channel subset. List of channel indices (or names) to which the data shall be restricted prior to application of the matrix.'));
+    arg({'subcomps','ComponentSubset'}, [], [], 'Component subset. List of component indices to which the result shall be restricted (or []).','shape','row'), ...
+    arg({'subchans','ChannelSubset'}, [], [], 'Channel subset. List of channel indices (or names) to which the data shall be restricted prior to application of the matrix.','type','expression','shape','row'));
 
 append_online = {}; % this is a set of arguments that shall be appended during online use
 if strcmp(projmat,'.icaweights*.icasphere') || isempty(projmat)
@@ -100,6 +100,8 @@ end
 
 % project data
 [C,S,T] = size(signal.data); %#ok<*NODEF>
+if size(projmat,2) ~= C
+    error('The given projection matrix needs to have the same number of rows as the data has channels (%i), but had: %i',C,size(projmat,2)); end
 signal.data = reshape(projmat*reshape(signal.data,C,[]),[],S,T); 
 signal.nbchan = size(signal.data,1);
 
@@ -112,7 +114,7 @@ elseif length(newchans) == signal.nbchan
     if isfield(newchans,'labels')
         signal.chanlocs = newchans;
     elseif iscellstr(newchans)
-        signal.chanlocs = pop_chanedit(struct('labels',newchans),'lookup',[]);        
+        signal.chanlocs = struct('labels',newchans);
     elseif isnumeric(newchans)
         signal.chanlocs = signal.chanlocs(newchans);
     else

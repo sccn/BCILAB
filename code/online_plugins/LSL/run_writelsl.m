@@ -7,19 +7,27 @@ function run_writelsl(varargin)
 % the lab streaming layer for use by other programs.
 %
 % In:
-%   Model : predictive model to use (see onl_newpredictor) (default: 'lastmodel')
+%   Model : A model data structure (as obtained from bci_train) based on which the predictor shall be 
+%           created; typically this is a model struct, but for convenience it can be a file name, 
+%           variable name in the base workspace, or a cell array of {file name, variable name} to 
+%           refer to a variable inside a .mat file. The model is not modified by this function.
+%           (default: 'lastmodel')
 %
-%   SourceStream : real-time stream name to read from in MATLAB workspace (default: 'laststream')
+%   SourceStreamNames : Optional names of stream data structures in the MATLAB base workspace to
+%                       consider as possible data sources (previously created with onl_newstream); 
+%                       if a stream contains all channels that are needed by the predictor, or 
+%                       alternatively has the right number and type of channels it will be considered 
+%                       as a potential source stream unless ambiguous. (default: 'laststream')
 %
-%   LabStreamName : name of the stream in the lab streaming layer (default: 'BCI')
+%   LabStreamName : Name of the output stream in the lab streaming layer (default: 'BCI')
 %
 %   ChannelNames : labels for each output channel (if this is for classification and the output form 
 %                  is set to distribution, the channels correspond to the labels of the respective classes 
 %                  (default: {'class1','class2', ..., 'classN'} depending on the # of classes)
 %
-%   OutputForm : output data form, see onl_predict (default: 'distribution')
+%   OutputForm : Output data form, see onl_predict (default: 'distribution')
 %
-%   UpdateFrequency : update frequency (default: 10)
+%   UpdateFrequency : The rate at which new outputs will be computed. (default: 10)
 %
 %   PredictAt : Predict at markers. If nonempty, this is a cell array of online target markers relative 
 %               to which predictions shall be made. If empty, predictions are always made on the most 
@@ -28,10 +36,9 @@ function run_writelsl(varargin)
 %   Verbose : Verbose output. If false, the console output of the online pipeline will be suppressed.
 %             (default: false)
 %
-%   PredictorName : name for new predictor, in the workspace (default: 'lastpredictor')
-%
-% Notes:
-%   This code is currently untested.
+%   PredictorName : Name of the predictor to be created; a variable of this name will be created in 
+%                   the MATLAB base workspace to hold the predictor's state. If a variable with this
+%                   name already exists it will be overridden. (default: 'lastpredictor')
 %
 % Examples:
 %   % open a new BCILAB processing stream, using the previously learned predictive model 'mymodel',
@@ -54,15 +61,15 @@ declare_properties('name','Lab streaming layer');
 % define arguments
 opts = arg_define(varargin, ...
     arg({'pred_model','Model'}, 'lastmodel', [], 'Predictive model. As obtained via bci_train or the Model Calibration dialog.','type','expression'), ...
-    arg({'in_stream','SourceStream'}, 'laststream',[],'Input Matlab stream. This is the stream that shall be analyzed and processed.'), ...
+    arg({'in_stream','SourceStreamNames','SourceStream'}, 'laststream',[],'Input Matlab stream name(s). Optional names of stream data structures in the MATLAB base workspace to consider as possible data sources (previously created with onl_newstream); if a stream contains all channels that are needed by the predictor, or alternatively has the right number and type of channels it will be considered as a potential source stream unless ambiguous.','typecheck',false,'shapecheck',false), ...
     arg({'out_stream','LabStreamName','Target'},'bci',[],'Name of the lab stream. This is the name under which the stream is provided to the lab streaming layer.'), ...
     arg({'channel_names','ChannelNames'},{'class1','class2'},[],'Output channel labels. These are the labels of the stream''s channels. In a typical classification setting each channel carries the probability for one of the possible classes.'), ...
-    arg({'out_form','OutputForm','Form'},'expectation',{'expectation','distribution','mode'},'Output form. Can be the expected value (posterior mean) of the target variable, or the distribution over possible target values (probabilities for each outcome, or parametric distribution), or the mode (most likely value) of the target variable.'), ...
-    arg({'update_freq','UpdateFrequency'},10,[],'Update frequency. This is the rate at which the output is updated.'), ...
+    arg({'out_form','OutputForm','Form'},'expectation',{'expectation','distribution','mode','raw'},'Output form. Can be the expected value (posterior mean) of the target variable, or the distribution over possible target values (probabilities for each outcome, or parametric distribution), or the mode (most likely value) of the target variable.'), ...
+    arg({'update_freq','UpdateFrequency'},10,[0 Inf],'Update frequency. The rate at which new outputs will be computed.'), ...
     arg({'predict_at','PredictAt'}, {},[],'Predict at markers. If nonempty, this is a cell array of online target markers relative to which predictions shall be made. If empty, predictions are always made on the most recently added sample.','type','expression'), ...
     arg({'verbose','Verbose'}, false,[],'Verbose output. If false, the console output of the online pipeline will be suppressed.'), ...
     arg({'source_id','SourceID'}, 'input_data',{'input_data','model'},'Use as source ID. This is the data that determines the source ID of the stream (if the stream is restarted, readers will continue reading from it if it has the same source ID). Can be input_data (use a hash of dataset ID + target markers used for training) or model (use all model parameters).'), ...
-    arg({'pred_name','PredictorName'}, 'lastpredictor',[],'Name of new predictor. This is the workspace variable name under which a predictor will be created.'));
+    arg({'pred_name','PredictorName'}, 'lastpredictor',[],'Name of new predictor. A variable of this name will be created in the MATLAB base workspace to hold the predictor''s state. If a variable with this name already exists it will be overridden.'));
 
 % load the model
 model = utl_loadmodel(opts.pred_model);

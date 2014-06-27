@@ -156,8 +156,8 @@ try
     [loss,mdl,stats] = bci_train(parameters{:}); %#ok<ASGLU>
 catch e
     fprintf('\nComputation failed; error trace:\n');
-    env_handleerror(e);
-    errordlg2(sprintf([e.message '\n(See the MATLAB command window for a detailed stack trace.)']),'Error during model calibration');
+    hlp_handleerror(e);
+    errordlg2([hlp_handleerror(e,0,false) sprintf('\n') '(See the MATLAB command window for a detailed stack trace.)'],'Error during model calibration');
     return;
 end
     
@@ -228,7 +228,7 @@ set(handles.popupmenu5,'String',printed);
 % --- loss popup 
 
 function popupmenu2_Callback(hObject, eventdata, handles)
-shortlosses = {[], 'kld', 'nll', 'mcr', 'mae', 'mse', 'smse', 'max', 'rms', 'bias', 'medse', 'auc', 'cond_entropy', 'cross_entropy', 'f_measure'};
+shortlosses = {'auto', 'kld', 'nll', 'mcr', 'mae', 'mse', 'smse', 'max', 'rms', 'bias', 'medse', 'auc', 'cond_entropy', 'cross_entropy', 'f_measure'};
 handles.metric = shortlosses{get(hObject,'Value')};
 guidata(hObject,handles);
 
@@ -293,9 +293,9 @@ catch e
     return
 end
 try
-    pop_eegplot(data);
+    vis_artifacts(data,data,'ShowEventLegend',true);
 catch e
-    env_handleerror(e);
+    hlp_handleerror(e);
     errordlg2(sprintf([e.message '\n(See the MATLAB command window for a detailed stack trace.)']),'Cannot open the data viewer.');
 end
     

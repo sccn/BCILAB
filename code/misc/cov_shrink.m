@@ -84,7 +84,7 @@ if p ~= 1
                     ix = 1+bx*blen : blen+bx*blen;
                     iy = 1+by*blen : blen+by*blen;
                     % calc a block of the sample covariance tensor
-                    B = repmat(reshape(X(:,ix)',[length(ix) 1 n]),[1 length(ix) 1]) .* repmat(reshape(X(:,iy)',[1 length(iy) n]), [length(iy) 1 1]);
+                    B = bsxfun(@times,permute(X(:,ix),[2 3 1]),permute(X(:,iy),[3 2 1]));
                     % calc a block of the per-element weighted variance of the correlation matrix
                     VR(ix,iy) = var(B,w,3)*n^2/((n-1)^3);
                     % and calc a block of the mean of the correlation matrix

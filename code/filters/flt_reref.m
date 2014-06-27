@@ -55,9 +55,6 @@ function signal = flt_reref(varargin)
 %   % as previous, but passing the arguments by name
 %   eeg = flt_reref('Signal',eeg,'ExcludeChannels',{'EOGV','EOGH'})
 %
-% See also:
-%   pop_reref
-%
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-03-28
 
@@ -65,7 +62,7 @@ function signal = flt_reref(varargin)
 
 if ~exp_beginfun('filter') return; end
 
-declare_properties('name',{'Rereferencing','ref'}, 'independent_channels',false,'independent_trials',true);
+declare_properties('name',{'Rereferencing','ref','Rereference'}, 'independent_channels',false,'independent_trials',true);
 
 arg_define(varargin,...
     arg_norep({'signal','Signal'}), ...
@@ -73,8 +70,8 @@ arg_define(varargin,...
     arg({'exclude_chn','ExcludeChannels','exclude'}, [], [], 'Cell array of channels to exclude.','type','cellstr','shape','row'),...
     arg({'keepref','KeepReference'}, false, [], 'Keep the reference channel.'), ...
     arg({'ref_type','ReferenceType'}, 'mean', {'mean','median','huber'}, 'Type of reference. The traditional average reference operation uses the mean. If this is set to median, the median of the reference channels will be removed, and if set to huber the robust mean under the Huber loss will be removed (slower than median but statistically a more efficient estimator).'), ...
-    arg({'huber_cut','HuberCutoff'}, [], [], 'Cutoff for huber function. If left empty this is set to one (robust) standard deviation of the signal.','guru',true), ...
-    arg({'huber_iters','HuberIterations'}, 100, [], 'Iterations for huber fitting. A larger number yields tolerance to larger outliers.','guru',true));
+    arg({'huber_cut','HuberCutoff'}, [], [], 'Cutoff for huber function. If left empty this is set to one (robust) standard deviation of the signal.','shape','scalar','guru',true), ...
+    arg({'huber_iters','HuberIterations'}, 100, uint32([1 10 1000 10000]), 'Iterations for huber fitting. A larger number yields tolerance to larger outliers.','guru',true));
 
 if ~isempty(ref_chn)
     ref_chns = set_chanid(signal,ref_chn);

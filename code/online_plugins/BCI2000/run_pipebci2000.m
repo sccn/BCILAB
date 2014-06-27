@@ -28,8 +28,9 @@ function run_pipebci2000(varargin)
 % default, the most recently saved classifier in /path/to/bcilab/resources/models would be used.
 %
 % In:
-%	BCI2000Directory: a file or struct that contains a predictive model as previously computed by bci_train
-%                     (default: 'lastmodel')
+%	BCI2000Directory: BCI2000 install directory. This is the location where bci2000 was installed;\n
+%                     after clicking OK, BCILAB will be usable from within BCI2000 whenever the 
+%                     MatlabSignalProcessing module is used.
 %
 % Examples:
 %   After having executed this function (also found in the GUI under Online Analysis / Process Data within...),

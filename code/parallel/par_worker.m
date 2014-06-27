@@ -116,10 +116,10 @@ if ~exist('portrange','var') || isempty(portrange)
     portrange = 0; end
 if ~exist('timeout_heartbeat','var') || isempty(timeout_heartbeat)
     timeout_heartbeat = 0; end
-if ~isnumeric(port) || ~isscalar(port) || port-round(port) > eps
-    error('The Port must be given as an integer.'); end
-if ~isnumeric(portrange) || ~isscalar(portrange) || portrange-round(portrange) > eps
-    error('The PortRange must be given as an integer.'); end
+if ~isnumeric(port) || ~isscalar(port) || port ~= round(port) || port < 1
+    error('The Port must be given as a positive integer.'); end
+if ~isnumeric(portrange) || ~isscalar(portrange) || portrange~=round(portrange) || portrange<0
+    error('The PortRange must be given as a nonnegative integer.'); end
 
 % read additional options
 opts = hlp_varargin2struct(varargin, 'backlog',1, 'timeout_accept',3, 'timeout_dialout',10, ...

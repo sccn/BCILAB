@@ -19,6 +19,9 @@ function signal = flt_delayembed(varargin)
 %   
 %   NumLags : the number of lags that shall be used for delay-embedding (default: 1)
 %
+%   IncludeIntermediates : Include intermediate lags. If this is set to false, only the 0''th and
+%                          the N''th lag will be embedded. (default: true)
+%
 % Out:
 %   Signal : the processed signal; will have more channels
 %
@@ -30,6 +33,8 @@ function signal = flt_delayembed(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2013-11-17
 
+% flt_delayembed_version<1.00> -- for the cache
+
 if ~exp_beginfun('filter') return; end
 
 % requires epoched data, works best on spatially filtered data
@@ -38,9 +43,10 @@ declare_properties('name','DelayEmbedding', 'depends','set_makepos', 'follows',{
 % declare arguments
 arg_define(varargin,...
     arg_norep({'signal','Signal'}), ...
-    arg({'numlags','NumLags'}, 1, [], 'Number of lags. For delay-embedding.'));
+    arg({'numlags','NumLags'}, 1, uint32([1 1 20 1000]), 'Number of lags. For delay-embedding.'), ...
+    arg({'includeIntermediates','IncludeIntermediates'}, true, [], 'Include intermediate lags. If this is set to false, only the 0''th and the N''th lag will be embedded.'));
 
-for k=0:numlags
+for k=quickif(includeIntermediates,0:numlags,[0 numlags])
     tmp{k+1} = signal.data(:,k+(1:end-numlags),:); end
 signal.data = cat(1,tmp{:});
 [signal.nbchan,signal.pnts,signal.trials] = size(signal.data);

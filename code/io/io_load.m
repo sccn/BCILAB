@@ -24,12 +24,29 @@ function res = io_load(varargin)
 %                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                               2010-06-21
 
-if ~isempty(varargin{1}) && varargin{1}(1) == '-' && ~any(varargin{1}=='.')
-    contents = load(varargin{1},env_translatepath(varargin{2}),varargin{3:end});
+fname = varargin{1};
+if length(fname)>4 && strcmpi(fname(end-3:end),'.sto')
+    % load from .sto file
+    f = fopen(env_translatepath(fname),'r');
+    try
+        bytes = fread(f);
+        fclose(f);
+    catch e
+        if ~exist(fname,'file')
+            error('The file named "%s" does not exist.',fname);
+        else
+            rethrow(e);
+        end
+    end
+    contents = hlp_deserialize(bytes);
 else
-    contents = load(env_translatepath(varargin{1}),varargin{2:end});
+    if ~isempty(varargin{1}) && varargin{1}(1) == '-' && ~any(varargin{1}=='.')
+        contents = load(varargin{1},env_translatepath(varargin{2}),varargin{3:end});
+    else
+        contents = load(env_translatepath(varargin{1}),varargin{2:end});
+    end
 end
-
+    
 if isfield(contents,'is_serialized__')
     contents = rmfield(contents,'is_serialized__');
     for fn = fieldnames(contents)'

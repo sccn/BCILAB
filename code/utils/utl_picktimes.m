@@ -22,10 +22,16 @@ function Y = utl_picktimes(X,wnd)
 
 [C,S,T] = size(X);
 
+if any(wnd(:,1) > wnd(:,2))
+    error('Some of the windows are malformed: %s',hlp_tostring(wnd(wnd(:,1) > wnd(:,2),:))); end
+if any(wnd(:,1)>S | wnd(:,2)<1)
+    error('Some windows are entirely outside the data dimensions (%i): %s',S,hlp_tostring(wnd(wnd(1,:)>S|wnd(2,:)<1,:))); end
+if any(wnd(:)>S | wnd(:)<1)
+    disp_once('WARNING: some windows passed to utl_picktimes exceed the data dimensions; windows trimmed.'); end
+
 % fix the windows, if necessary
 wnd = min(max(wnd,1),S);
 wnd(:,2) = wnd(:,2)+1;
-wnd = wnd(wnd(:,2)>wnd(:,1),:);
 W = size(wnd,1);
 
 % calc offset & coverage values for first & last sample

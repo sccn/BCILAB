@@ -34,15 +34,43 @@ if ~exp_beginfun('editing') return; end
 
 declare_properties('name','Concatenate','independent_channels',true,'independent_trials',false);
 
+% input validation
+for k=1:length(varargin)
+    utl_check_fields(varargin{k},{'data','event','pnts','xmin','xmax','srate'},'input','signal');
+    if ~isempty(varargin{k}.event)
+        if ~isfield(varargin{k}.event,'latency')
+            error('A dataset passed to set_concat is lacking the .event.latency field.'); end
+        latency_numels = cellfun('prodofsize',{varargin{k}.event.latency});
+        if any(latency_numels == 0)
+            error('One or more of the events in the given data set have an empty .latency field, which is not permitted.'); end
+        if any(latency_numels ~= 1)
+            error('One or more of the events in the given data set have a .latency value that is not a scalar, which is not permitted.'); end
+    end
+    if isfield(varargin{k},'epoch') && ~isempty(varargin{k}.epoch)
+        error('Only continuous data can be concatenated with set_concat -- use set_joinepos for epoched data.'); end        
+end
+
 if ~isempty(varargin)
-    if any(cellfun(@(x)isfield(x,'epoch') && ~isempty(x.epoch),varargin))
-        error('Only continuous data can be concatenated with set_concat -- use set_joinepos for epoched data.'); end
     result = varargin{1};
     if length(varargin) > 1
         % concatenate time series fields
         for field = utl_timeseries_fields(result)
             data = cellfun(@(x)x.(field{1}),varargin,'UniformOutput',false);
-            result.(field{1}) = cat(2,data{:}); 
+            try
+                result.(field{1}) = cat(2,data{:}); 
+            catch e
+                % concatenation failed: produce a reasonable error message
+                if ~isempty(data)
+                    sizes = cellfun('size',data,1);
+                    sizes = sizes(sizes ~= 0);
+                    if length(sizes) > 1 && ~all(sizes==sizes(1))
+                        error('The time-series field .%s must have the same number of channels in each data set.',field{1}); end
+                    if any(cellfun('size',data,3) > 1)
+                        error('One or more of the datasets passed to set_concat were epoched -- use set_joinepos to concatenate epoched data.'); end
+                end
+                size_info = hlp_tostring(cellfun(@size,data,'UniformOutput',false));
+                error('Concatenation of time-series fields failed with error: %s (the data sizes were %s -- make sure that they are mutually compatible).',e.message,size_info);
+            end
             if isempty(result.(field{1}))
                 result.(field{1}) = []; end
         end
@@ -59,7 +87,11 @@ if ~isempty(varargin)
         result.xmax = result.xmin + (result.pnts-1)/result.srate;
     end
 else
-    result = eeg_emptyset;
+    result = struct('setname','','filename','','filepath','','subject','','group','','condition','','session',[],'comments','','nbchan',0,...
+        'trials',0,'pnts',0,'srate',1,'xmin',0,'xmax',0,'times',[],'data',[],'icaact',[],'icawinv',[],'icasphere',[],'icaweights',[], ...
+        'icachansind',[],'chanlocs',[],'urchanlocs',[],'chaninfo',[],'ref',[],'event',[],'urevent',[],'eventdescription',{{}}, ...
+        'epoch',[],'epochdescription',{{}},'reject',[],'stats',[],'specdata',[],'specicaact',[],'splinefile','','icasplinefile','', ...
+        'dipfit',[],'history','','saved','no','etc',[]);
 end
 
 exp_endfun;

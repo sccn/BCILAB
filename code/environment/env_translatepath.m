@@ -55,6 +55,11 @@ function filename = env_translatepath(filename)
 
 global tracking;
 
+if ~ischar(filename)
+    error('The file name must be given as a string.'); end
+if size(filename,1) ~= 1
+    error('The file name must be a non-empty row vector of characters.'); end
+
 % function to sanitize file names (replace file separators by system-dependent version)
 sanitize = @(filename) strrep(strrep(strrep(filename,'\',filesep),'/',filesep),[filesep filesep],filesep);
 

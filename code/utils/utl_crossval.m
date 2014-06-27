@@ -48,7 +48,7 @@ function [measure,stats] = utl_crossval(data, varargin)
 %               'tester' : testing function; receives a partition of the data (as produced by 
 %                          the partitioner) and a model (as produced by the trainer), and
 %                          returns a prediction for every index of the input data, in one of the
-%                          formats that can be produced by ml_predict (default: @ml_predict)
+%                          output formats permitted by ml_predict (default: @ml_predict)
 %
 %               'scheme': cross-validation scheme, can be one of the following formats (default: 10)
 %                * 0: skip CV, return NaN and empty statistics
@@ -63,44 +63,55 @@ function [measure,stats] = utl_crossval(data, varargin)
 %                * {'chron', k, m} or {'block', k, m}: k-fold chronological/blockwise CV with m 
 %                                                      indices margin width (between training and 
 %                                                      test set)
-%                * 'trainerr': This is the training-set error, i.e. it is a measure of the 
-%                              separability of the data (not of the generalization ability of the 
-%                              classifier); it is usually an error to report this number in a paper
+%                * 'trainerr': Return the training-set error (a measure of the separability of the 
+%                              data, not of the generalization ability of the classifier); it is 
+%                              usually an error to report this number in a paper.
 %
 %               'partitioner': partitioning function for the data, receives two parameters: 
 %                              (data, index vector)
 %                              * if the index vector is empty, should return the highest index in 
-%                                the data OR a cell array of {training-partition,test-partition}
-%                                for each fold (in the latter case, the partitioner fully controls
-%                                the cross-validation scheme); for each fold, these two outputs
-%                                will be fed into the partitioner as second argument to generate the 
-%                                training set and the test set, respectively
-%                              * otherwise, it should return data subindexed by the index vector
-%                              default: provides support for cell arrays, numeric arrays, struct
-%                                       arrays and {Data,Target} cell arrays 
+%                                the data. For more custom control it may return a cell array of the form
+%                                {{train-partition-1,test-partition-1},{train-partition-2,test-partition-2}, ...}
+%                                with a cell for each fold. In this case it fully controls the 
+%                                cross-validation scheme; the X-partition-n arrays should ideally 
+%                                be index ranges, but they will not be inspected by utl_crossval; 
+%                                instead, for each fold the X-partition-n arrays will be passed back 
+%                                in to the partitioner together with the whole data, which allows the
+%                                partitioner to decide on its own format; if the cells generated have
+%                                a third element, it will taken as a cell array of options that are 
+%                                to be passed into the trainer on the respective fold as extra arguments.
+%                              * if the index vector is nonempty, it should return data subindexed 
+%                                by the index vector
+%
+%                              default: a function that can partition cell arrays, numeric arrays, struct
+%                                       arrays, {Data,Target} cell arrays, and EEGLAB dataset structs
 %
 %               'target': a function to derive the target variable from a partition of the data 
 %                         (as produced by the partitioner), for evaluation; the allowed format is
-%                         anything that may be output by ml_predict default: provides support for
+%                         anything that may be output by ml_predict; default: provides support for
 %                         {Data,Target} cell arrays
 %
-%               'metric': metric to be employed, applied both to results of each fold and results 
-%                         aggregated over all folds
-%                         * function handle: a custom, user-supplied loss function; receives target 
-%                           data in the first argument and prediction data in the second argument;
-%                           each can be in any format that can be produced by ml_predict (but can be
-%                           expected to be mutually consistent). shall return a real number
-%                           indicating the summary metric over all data, and optionally additional
-%                           statistics in a struct
-%                         * string: use ml_calcloss, with 'metric' determining the loss type
-%                         * default/empty: use 'mcr','mse','nll','kld' depending on supplied target 
-%                           and prediction data formats, via ml_calcloss
+%               'metric': loss metric employed to measure the quality of predictions on a test 
+%                         partition given its known target values; applied both to results in each 
+%                         fold and results aggregated over all folds. can be one of the following:
+%                         * function handle: a custom, user-supplied loss function; receives an 
+%                           array of target values in the first argument and an array of predictions 
+%                           in the second argument; each can be in any format that can be produced 
+%                           by ml_predict (but can be expected to be mutually consistent). shall 
+%                           return a real number indicating the summary metric over all data, and 
+%                           optionally additional statistics in a second output struct
+%                         * string: use ml_calcloss, with 'metric' determining the loss type to use
+%                         * default/empty/'auto': use 'mcr','mse','nll','kld' depending on supplied 
+%                           target and prediction data formats; see also ml_calcloss
 %
 %               'args': optional arguments to the training function, packed in a cell array 
 %                       (default: empty)
-%                       note: if using the default trainer/tester combination, args must at least 
-%                             specify the learning function to be used, e.g. {'lda'} for linear
-%                             discriminant analysis (see ml_train* functions for options)
+%                       note: if using the default trainer/tester functions, args must at least 
+%                             specify the learning function to be used, optionally followed by 
+%                             arguments to that learning function, e.g. {'lda'} for linear
+%                             discriminant analysis or {'logreg','lambda',0.1} for logistic regression 
+%                             with 'lambda',0.1 passed in as user parameters (see ml_train* functions 
+%                             for options)
 %
 %               'repeatable': whether the randomization procedure shall give repeatable results 
 %                             (default: 1); different numbers (aside from 0) give different
@@ -116,9 +127,9 @@ function [measure,stats] = utl_crossval(data, varargin)
 %
 % Out:
 %   Measure : a measure of the overall performance of the trainer/tester combination, w.r.t. to the 
-%             target variable returned by the target function computed by the metric
+%             target variable returned by the target function. Computed according to the selected metric.
 %
-%   Stats   : additional statistics, as produced by the metric
+%   Stats   : additional statistics, as produced by the selected metric
 %
 % Example:
 %   % assuming a feature matrix called trials and a label vector called targets, sized as:
@@ -179,67 +190,122 @@ opts = hlp_varargin2struct(varargin, ...
     'pool','global', ...
     'policy','global');
 
-% string arguments are considered to be variants of the default metric
+% --- input validation ---
+
+% validate the partitioner argument
+if ~isa(opts.partitioner,'function_handle')
+    error('The given partitioner must be a function handle, but was: %s',hlp_tostring(opts.partitioner,10000)); end
+try
+    indexset = opts.partitioner(data,[]);
+catch e
+    error('The given partitioner failed to calculate the index set (arguments Data,[]) with error: %s',hlp_handleerror(e));
+end
+if isnumeric(indexset) && isscalar(indexset)
+    try
+        wholedata = opts.partitioner(data,1:indexset); %#ok<NASGU>
+    catch e
+        error('The given partitioner failed to partition the data (arguments Data,1:N) with error: %s',hlp_handleerror(e));
+    end
+elseif iscell(indexset)    
+    if isempty(indexset) || any(~cellfun('isclass',indexset,'cell')) || any(cellfun('prodofsize',indexset)<2)
+        error('The index-set format returned by the partitioner is unsupported (needs to be either a scalar or a cell array of 2-element cells, but was: %s.',hlp_tostring(indexset,10000)); end
+    try
+        opts.partitioner(data,indexset{1}{1});
+    catch e
+        error('The given partitioner failed to partition the data (arguments Data,train-partition-1) with error: %s.',hlp_handleerror(e));
+    end
+else
+    error('The partitioner returned an unsupported index set format: %s',hlp_tostring(indexset,10000));
+end
+
+% derive partition index ranges from CV scheme & indexset
+inds = make_indices(opts.scheme,indexset,opts.repeatable);
+
+% validate the target argument
+if ~isa(opts.target,'function_handle')
+    error('The given target argument must be a function handle, but was: %s',hlp_tostring(opts.target,10000)); end
+try
+    tmptargets = opts.target(data);
+catch e
+    error('The given target function failed to extract target values from the data with error: %s',hlp_handleerror(e));
+end
+
+% parse and validate the metric argument
 if isempty(opts.metric) || ischar(opts.metric) || (iscell(opts.metric) && all(cellfun(@ischar,opts.metric)))
     opts.metric = @(T,P)ml_calcloss(opts.metric,T,P); end
 if ~has_stats(opts.metric)
     opts.metric = @(T,P)add_stats(opts.metric(T,P)); end
+try
+    [measure,stats] = opts.metric(tmptargets,tmptargets);
+catch e
+    error('Failed to apply the loss metric to target values: %s',hlp_handleerror(e));
+end
+if ~isscalar(measure) && isnumeric(measure)
+    error('The given loss metric returned its measure in an unsupported format (should be numeric scalar, but was: %s)',hlp_tostring(measure)); end
+if ~isstruct(stats)
+    error('The given loss metric returned its statistics in an unsupported format (should be struct, but was: %s)',hlp_tostring(stats)); end
 
-% derive indices from CV scheme & N
-inds = make_indices(opts.scheme,opts.partitioner(data,[]),opts.repeatable);
+% validate misc arguments
+if ~iscell(opts.args)
+    error('The given args argument must be a cell array, but was: %s',hlp_tostring(opts.args,10000)); end
+if ~isa(opts.trainer,'function_handle')
+    error('The given trainer argument must be a function handle, but was: %s',hlp_tostring(opts.trainer,10000)); end
+if ~isa(opts.tester,'function_handle')
+    error('The given tester argument must be a function handle, but was: %s',hlp_tostring(opts.tester,10000)); end
 
-if isempty(inds)
-    measure = NaN;
-    stats = struct();
-else
-    
+
+% --- cross-validation ---
+
+measure = NaN;
+stats = struct();    
+if ~isempty(inds)
     time0 = tic;
  
-    % generate tasks for each fold
-    for p = 1:length(inds)
+    % generate parallelizable tasks for each fold
+    for p = length(inds):-1:1
         tasks{p} = {@utl_evaluate_fold,opts,data,inds{p}}; end
 
     % schedule the tasks
     results = par_schedule(tasks, 'engine',opts.engine_cv, 'pool',opts.pool, 'policy',opts.policy);
     
     % collect results
-    for p=1:length(inds)
-        % collect results
+    for p=length(inds):-1:1
         targets{p} = results{p}{1};
         predictions{p} = results{p}{2};
         if opts.collect_models
             models{p} = results{p}{3}; end
     end
         
-    % compute aggregate metric
+    % compute aggregate metric / stats
     [dummy,stats] = opts.metric(utl_aggregate_results(targets{:}),utl_aggregate_results(predictions{:})); %#ok<ASGLU>
 
-    % add per-fold metric    
-    for p=1:length(targets)
-        stats.per_fold(p) = hlp_getresult(2,opts.metric,targets{p},predictions{p}); end
+    % compute per-fold metric / stats
+    for p=length(targets):-1:1
+        [measure(p),stats.per_fold(p)] = opts.metric(targets{p},predictions{p}); end
     
-    % calculate basic cross-validation statistics
-    tmp = [stats.per_fold.(stats.measure)];
-    stats.(stats.measure) = mean(tmp);
-    stats.([stats.measure '_mu']) = mean(tmp);
-    stats.([stats.measure '_std']) = std(tmp);
-    stats.([stats.measure '_med']) = median(tmp);
-    stats.([stats.measure '_mad']) =  median(abs(tmp-median(tmp)));
-    measure = mean(tmp);
+    % attach basic summary statistics
+    if ~isfield(stats,'measure')
+        stats.measure = 'loss'; end
+    stats.(stats.measure) = mean(measure);
+    stats.([stats.measure '_mu']) = mean(measure);
+    stats.([stats.measure '_std']) = std(measure);
+    stats.([stats.measure '_med']) = median(measure);
+    stats.([stats.measure '_mad']) =  median(abs(measure-median(measure)));
+    measure = mean(measure);
     
-    % also add the original targets & predictions
+    % add per-fold targets & predictions
     for p=1:length(targets)
         stats.per_fold(p).targ = targets{p};
         stats.per_fold(p).pred = predictions{p};
     end
 
-    % add original index sets
+    % add per-fold index sets
     if all(cellfun(@(inds) length(inds{1}) < 10000 && length(inds{2}) < 10000,inds))
         for p=1:length(targets)
             stats.per_fold(p).indices = inds{p}; end
     end                
 
-    % add collected models, if any
+    % add per-fold models, if any
     if opts.collect_models
         for p=1:length(models)
             stats.per_fold(p).model = models{p}; end
@@ -247,142 +313,185 @@ else
     
     % add additional stats
     stats.time = toc(time0);
-    
 end
 end
 
 
+% --- index set generation for data partitioning ---
 
 function inds = make_indices(S,N,repeatable)
 % Inds = make_indices(Scheme,Index-Cardinality)
 % make cross-validation indices for each fold, from the scheme and the index set cardinality
 
-if iscell(N) && all(cellfun('isclass',N,'cell')) && all(cellfun('prodofsize',N)>=2)
+if isnumeric(N) && isscalar(N)
+    % set parameter defaults
+    k = 10;                     % foldness or fraction of holdout data
+    repeats = 1;                % # of monte carlo repartitions
+    randomized = 1;             % randomized indices or not
+    margin = 0;                 % width of the index margin between training and evaluation sets
+    subblocks = 1;              % number of sub-blocks within which to cross-validate
+
+    % parse scheme grammar
+    if isnumeric(S)
+        % one or more numbers
+        switch length(S)
+            case 1
+                % 0 (skipped CV)
+                if S == 0
+                    inds = {};
+                    return;
+                else                    
+                    % "folds" format
+                    k = S;
+                end
+            case 2
+                % "[repeats, folds]" format
+                repeats = S(1);
+                k = S(2);
+            case 3
+                % "[repeats, folds, margin]" format
+                repeats = S(1);
+                k = S(2);
+                margin = S(3);
+            otherwise
+                error('Unsupported format for cross-validation scheme: %s',hlp_tostring(S));
+        end
+    elseif ischar(S)
+        switch S
+            case 'loo'                    
+                % "'loo'" format
+                k = N;
+            case 'trainerr'
+                % index set for computing the training-set error
+                inds = {{1:N,1:N}};
+                return;
+            otherwise
+                error('Unsupported format for cross-validation scheme: %s',hlp_tostring(S));
+        end
+    elseif iscell(S) && ~isempty(S)
+        if all(cellfun('isclass',S,'cell')) && all(cellfun('prodofsize',S)==2)
+            % direct specification of index sets "{{train-inds,test-inds}, {train-inds,test-inds}, ...}"
+            inds = S; 
+            return;
+        elseif ischar(S{1}) && all(cellfun('isclass',S(2:end),'double') | cellfun('isclass',S(2:end),'single')) && all(cellfun('prodofsize',S(2:end))==1)
+            % specification as {'string', scalar, scalar, ...}
+            switch S{1}
+                case {'chron','block'}
+                    % "{'chron', k, m}" format
+                    randomized = 0;
+                    if length(S) > 1
+                        k = S{2}; end
+                    if length(S) > 2
+                        margin = S{3}; end
+                    if length(S) == 1 || length(S) > 3
+                        error('The {''chron'',...} format must have 1 or 2 numeric parameters; but got: %s',hlp_tostring(S)); end
+                case {'subchron','subblock'}
+                    % "{'subchron', b, k, m}" format
+                    randomized = 0;
+                    if length(S) > 1 && isscalar(S{2})
+                        subblocks = S{2}; end
+                    if length(S) > 2 && isscalar(S{3})
+                        k = S{3}; end
+                    if length(S) > 3 && isscalar(S{4})
+                        margin = S{4}; end
+                    if length(S) == 1 || length(S) > 4
+                        error('The {''subchron'',...} format must have between 1 and 3 numeric parameters; but got: %s',hlp_tostring(S)); end
+                otherwise
+                    error('Unsupported format for cross-validation scheme: %s',hlp_tostring(S));
+            end
+        else
+            error('Unsupported format for cross-validation scheme: %s',hlp_tostring(S));
+        end
+    else
+        error('Unsupported cross-validation scheme format: %s',hlp_tostring(S));
+    end
+    
+    % sanity-check parameters
+    if k > 1 && round(k) ~= k
+        error('The number of folds (k) must be an integer (or a fraction between 0 and 1 to hold out a fraction of the data).'); end
+    if k < 0
+        error('The number of folds must be nonnegative.'); end
+    if round(repeats) ~= repeats
+        error('The number of repeats must be an integer.'); end
+    if repeats < 1
+        error('The number of repeats must be positive.'); end
+    if round(margin) ~= margin || margin < 0
+        error('The given margin must be a nonnegative integer.'); end
+    if round(subblocks) ~= subblocks || subblocks < 1
+        error('The given number of sub-blocks for sub-block cross-valdiatio nmust be a positive integer.'); end
+        
+    % initialize random number generation
+    if randomized && repeatable
+        if hlp_matlab_version < 707
+            % save & override RNG state
+            randstate = rand('state'); %#ok<*RAND>
+            rand('state',5182+repeatable);
+        else
+            % create a legacy-compatible RandStream
+            randstream = RandStream('swb2712','Seed',5182+repeatable);
+        end
+    end
+
+    % generate evaluation index sets from the parameters
+    try
+        % set up permutation
+        if subblocks == 1
+            perm = 1:N;
+        elseif subblocks <= N
+            Nblock = N + subblocks-mod(N,subblocks);
+            perm = reshape(1:Nblock,[],subblocks)';
+            perm = round(perm(:)*N/Nblock);
+        else
+            error('There are more subblocks than trials in the data.');
+        end
+
+        % build indices
+        inds = {};
+        for r=1:repeats
+            if randomized
+                if hlp_matlab_version < 707
+                    perm = randperm(N);
+                else
+                    perm = randstream.randperm(N);
+                end
+            end
+            if k < 1
+                % p-holdout
+                inds{end+1} = {sort(perm(1+(0:(round(N*k)-1))))}; %#ok<AGROW>
+            else
+                % k-fold
+                for i=0:k-1
+                    inds{end+1} = sort(perm(1+floor(i*N/k) : min(N,floor((i+1)*N/k)))); end %#ok<AGROW>
+            end
+        end
+    catch err
+        % % this error is thrown only after the subsequent delicate RNG state restoration
+        indexgen_error = err;
+    end
+    
+    % restore saved RNG state
+    if randomized && repeatable && hlp_matlab_version < 707        
+        rand('state',randstate); end;
+    
+    % optionally throw any error that happened during previous index set creation
+    if exist('indexgen_error','var')
+        rethrow(indexgen_error); end 
+
+    % add complementary training index sets, handling the margin
+    for i=1:length(inds)
+        tmpinds = true(1,N);
+        tmpinds(inds{i}) = 0;
+        for j=1:margin
+            tmpinds(max(1,inds{i}-j)) = 0;
+            tmpinds(min(N,inds{i}+j)) = 0;
+        end
+        inds{i} = {find(tmpinds),inds{i}}; %#ok<AGROW>
+    end
+elseif iscell(N)
     % the partitioner returned the index sets already; pass them through
     inds = N;
 else
-    if strcmp(S,'trainerr')
-        % special case: index set for computing the training-set error
-        inds = {{1:N,1:N}};
-    else
-        % regular case: proper cross-validation
-        
-        % set parameter defaults
-        k = 10;                     % foldness or fraction of holdout data
-        repeats = 1;                % # of monte carlo repartitions
-        randomized = 1;             % randomized indices or not
-        margin = 0;                 % width of the index margin between training and evaluation sets
-        subblocks = 1;              % number of sub-blocks within which to cross-validate
-        
-        % parse scheme grammar
-        if isnumeric(S) && length(S) == 3
-            % "[repeats, folds, margin]" format
-            repeats = S(1);
-            k = S(2);
-            margin = S(3);
-        elseif isnumeric(S) && length(S) == 2
-            % "[repeats, folds]" format
-            repeats = S(1);
-            k = S(2);
-        elseif iscell(S) && ~isempty(S) && ischar(S{1}) && ...
-                (strcmp('chron',S{1}) || strcmp('block',S{1}))
-            % "{'chron', k, m}" format
-            randomized = 0;
-            if length(S) > 1 && isscalar(S{2})
-                k = S{2}; end
-            if length(S) > 2 && isscalar(S{3})
-                margin = S{3}; end
-        elseif iscell(S) && ~isempty(S) && ischar(S{1}) && ...
-                (strcmp('subchron',S{1}) || strcmp('subblock',S{1}))
-            % "{'subchron', b, k, m}" format
-            randomized = 0;
-            if length(S) > 1 && isscalar(S{2})
-                subblocks = S{2}; end
-            if length(S) > 2 && isscalar(S{3})
-                k = S{3}; end
-            if length(S) > 3 && isscalar(S{4})
-                margin = S{4}; end
-        elseif isscalar(S)
-            % "k" format
-            k = S;
-        elseif ischar(S) && strcmp(S,'loo')
-            % "'loo'" format
-            k = N;
-        elseif iscell(S) && all(cellfun('isclass',S,'cell')) && all(cellfun('prodofsize',S)>=2)
-            % direct specification
-            inds = S; 
-            return;
-        else
-            error('unknown cross-validation scheme format');
-        end
-        
-        % check for skipped CV
-        inds = {};
-        if k <= 0
-            return; end
-        
-        if randomized && repeatable
-            if hlp_matlab_version < 707
-                % save & override RNG state
-                randstate = rand('state'); %#ok<*RAND>
-                rand('state',5182+repeatable); %#ok<RAND>
-            else
-                % create a legacy-compatible RandStream
-                randstream = RandStream('swb2712','Seed',5182+repeatable);
-            end
-        end
-        
-        % generate evaluation index sets from the parameters
-        try
-            if subblocks == 1
-                perm = 1:N;
-            else
-                Nblock = N + subblocks-mod(N,subblocks);
-                perm = reshape(1:Nblock,[],subblocks)';
-                perm = round(perm(:)*N/Nblock);
-            end
-            
-            for r=1:repeats
-                if randomized
-                    if hlp_matlab_version < 707
-                        perm = randperm(N);
-                    else
-                        perm = randstream.randperm(N);
-                    end
-                end
-                if k < 1
-                    % p-holdout
-                    inds{end+1} = {sort(perm(1+(0:(round(N*k)-1))))};
-                else
-                    % k-fold
-                    for i=0:k-1
-                        inds{end+1} = sort(perm(1+floor(i*N/k) : min(N,floor((i+1)*N/k)))); end
-                end
-            end
-        catch err
-            % % this error is thrown only after the subsequent delicate RNG state restoration
-            indexgen_error = err;
-        end
-        
-        if randomized && repeatable && hlp_matlab_version < 707
-            % restore saved RNG state
-            rand('state',randstate); %#ok<RAND>
-        end
-        
-        if exist('indexgen_error','var')
-            rethrow(indexgen_error); end % throw the error that happened during previous index set creation
-        
-        % add complementary training index sets
-        for i=1:length(inds)
-            tmpinds = true(1,N);
-            tmpinds(inds{i}) = 0;
-            for j=1:margin
-                tmpinds(max(1,inds{i}-j)) = 0;
-                tmpinds(min(N,inds{i}+j)) = 0;
-            end
-            inds{i} = {find(tmpinds),inds{i}};
-        end
-    end
+    error('Unsupported index set format: %s',hlp_tostring(N));
 end
 end
 

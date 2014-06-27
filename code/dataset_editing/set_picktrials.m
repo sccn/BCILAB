@@ -56,52 +56,58 @@ arg_define([0 1],varargin,...
     arg({'rangesel','RangeSelection','range'},[],[],'Range of target values. Two-element cell array of the lower and higher end of the range (inclusive).','type','expression','shape','row'), ...
     arg({'ranksel','RankSelection','rank'},[],[],'Set of selected ranks. Either a single rank value or a cell array of rank values.','type','expression','shape','row'));
 
-if ~isfield(signal,'epoch')
-    error('The data set should contain epochs.'); end
-if ~isfield(signal.epoch,'target')
-    error('The data set does not contain an epoch field named target (denoting the target variable).'); end
-if ~isempty(ranksel) + ~isempty(valuesel) + ~isempty(rangesel) ~= 1
-    error('Exactly a single criterion is allowed at a time.'); end
+utl_check_fields(signal,{'epoch','data'},'signal','signal');
+if isempty(signal.epoch) && ~size(signal.data,3) > 1
+    error('The given signal is epoched but has an empty .epoch field; this is not permitted (do not use pop_epoch for epoching but set_makepos).'); end
 
-variable = vertcat(signal.epoch.target);
+if ~isempty(signal.epoch)
+    if ~isfield(signal.epoch,'target')
+        error('The data set does not contain the required field .epoch.target; see set_gettarget for more info.'); end
+    if ~isempty(ranksel) + ~isempty(valuesel) + ~isempty(rangesel) ~= 1
+        error('Exactly a single criterion is allowed at a time.'); end
 
-if ~isempty(ranksel)
-    % do rank-based selection
-    if size(variable,2) > 1
-        error('Rank-based selection is only supported for one-dimensional target values.'); end
-    % rank-transform the variable
-    [a,b,variable] = unique(variable); %#ok<ASGLU>
-    valuesel = ranksel;
-end
+    variable = vertcat(signal.epoch.target);
 
-if ~isempty(valuesel)
-    % do value-based selection
-    if ~iscell(valuesel)
-        valuesel = {valuesel}; end
-    inds = [];
-    for i=1:length(valuesel)
-        inds = [inds; find(prod(single(variable == repmat(valuesel{i},size(variable,1),1)),2))]; end        
-end
-
-if ~isempty(rangesel)
-    % do range-based selection
-    if ~iscell(rangesel)
-        error('Range-based testing requires pairs (two-element cell arrays) of values.'); end
-    if ~iscell(rangesel{1})
-        rangesel = {rangesel}; end
-    inds = [];
-    for i=1:length(rangesel)
-        if length(rangesel{i}) ~= 2
-            error('Range-based testing requires pairs (two-element cell arrays) of values.'); end
-        inds = [inds; intersect(find(prod(single(variable >= repmat(rangesel{i}{1},size(variable,1),1)),2)), ...
-                                find(prod(single(variable <= repmat(rangesel{i}{2},size(variable,1),1)),2)))]; 
+    if ~isempty(ranksel)
+        if ~iscell(ranksel)
+            ranksel = {ranksel}; end
+        if any(round([ranksel{:}]) ~= [ranksel{:}]) || any([ranksel{:}] < 1)
+            error('Rank-based selection requires positive integer values.'); end
+        % do rank-based selection
+        if size(variable,2) > 1
+            error('Rank-based selection is only supported for one-dimensional target values.'); end
+        % rank-transform the variable
+        [a,b,variable] = unique(variable); %#ok<ASGLU>
+        valuesel = ranksel;
     end
-end
 
-if isempty(inds)
-    error('BCILAB:set_picktrial:no_trials','This data set contains no trials for one of your target classes: please check whether your target markers are correct.\n\nAlso note that while the entire recording might have trials for each class, the subset used for training may not, for example when doing a block-wise cross-validation on a block experiment design that has no repetitions.');
-else
-    signal = exp_eval(set_selepos(signal,inds));
+    if ~isempty(valuesel)
+        % do value-based selection
+        if ~iscell(valuesel)
+            valuesel = {valuesel}; end
+        inds = [];
+        for i=1:length(valuesel)
+            inds = [inds; find(prod(single(variable == repmat(valuesel{i},size(variable,1),1)),2))]; end        
+    end
+
+    if ~isempty(rangesel)
+        % do range-based selection
+        if ~iscell(rangesel)
+            error('Range-based testing requires pairs (two-element cell arrays) of values.'); end
+        if ~iscell(rangesel{1})
+            rangesel = {rangesel}; end
+        inds = [];
+        for i=1:length(rangesel)
+            if length(rangesel{i}) ~= 2
+                error('Range-based testing requires pairs (two-element cell arrays) of values.'); end
+            inds = [inds; intersect(find(prod(single(variable >= repmat(rangesel{i}{1},size(variable,1),1)),2)), ...
+                                    find(prod(single(variable <= repmat(rangesel{i}{2},size(variable,1),1)),2)))]; 
+        end
+    end
+
+    if isempty(inds)
+        disp_once('WARNING: This data set contains no trials for one of your target classes: please check whether your target marker naming is correct, and ensure that your data has enough target events in each of its required subsets (e.g., in a (nested) cross-validation).'); end
+    signal = exp_eval(set_selepos(signal,inds(:)'));
 end
 
 exp_endfun;

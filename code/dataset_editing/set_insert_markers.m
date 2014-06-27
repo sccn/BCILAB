@@ -151,10 +151,30 @@ opts = arg_define([0 1],varargin, ...
     arg({'maxlen','MaxLength'},Inf,[],'Maximum segment length. Ignore segments that are longer than this, in seconds.'));
 
 signal = opts.signal;
-if isfield(signal,'epoch') && ~isempty(signal.epoch)
-    error('the data set appears to contain epochs: only continuous data set are supported for now.'); end
+
+% input validation
+utl_check_fields(signal,{'data','xmax','xmin','srate'},'signal','signal');
+if (isfield(signal,'epoch') && ~isempty(signal.epoch)) || size(signal.data,3) > 1
+    error('the data set appears to contain epochs: only continuous data set are supported by this implementation.'); end
+if ~isfield(signal,'event')
+    signal.event = []; end
+if ~isempty(signal.event)
+    if ~isfield(signal.event,'latency')
+        error('The given signal has a non-empty field .event but is missing the required field .event.latency.'); end
+    if ~isfield(signal.event,'type')
+        error('The given signal has a non-empty field .event but is missing the required field .event.type.'); end
+    latency_numels = cellfun('prodofsize',{signal.event.latency});
+    if any(latency_numels == 0)
+        error('The given signal has one or more events with empty .latency field. This is not permitted.');
+    elseif any(latency_numels ~= 1)
+        error('The given signal has one or more events with a .latency value that is not a scalar. This is not permitted.');
+    end    
+end
+if ~isequal(size(opts.limits),[1 2]) || ~isreal(opts.limits) || opts.limits(1)>opts.limits(2)
+    error('The given Limits argument needs to be of the form [lower,upper].'); end
 
 % refine options
+opts.count = round(double(opts.count));
 opts.limits = sort(max(min(opts.limits,signal.xmax),signal.xmin));
 opts.limits = opts.limits*signal.srate;
 opts.segmentspec.lo = opts.segmentspec.lo*signal.srate;
@@ -280,7 +300,7 @@ if length(ival) == 2 && ival(1) <= ival(2)
         % compute the individual latencies
         lats = ival(ival>=opts.limits(1) & ival<=opts.limits(2));
         % sanitize latencies
-        lats = min(max(lats,1),signal.pnts);
+        lats = min(max(lats,1),size(signal.data,2));
         if ~isempty(signal.urevent)
             signal.urevent = []; end
         if isempty(signal.event)
@@ -290,6 +310,7 @@ if length(ival) == 2 && ival(1) <= ival(2)
         [signal.event(range).latency] = arraydeal(lats);
     end
 end
+
 
 % create a default event from an event array
 function evt = make_default_event(evts,type)
@@ -305,22 +326,33 @@ else
 end
 
 
-% parse a segmentspec specification into a cell array {tag,name,value,name,value,...}
+% parse a SegmentSpec specification into a cell array {tag,name,value,name,value,...}
+% in addition to the typical arg_subswitch syntax, we also allow cell arrays that contain time
+% values and marker labels as in the documentation of SegmentSpec above
 function [selection,spec] = parse_segment(spec)
+% sanitize
+if ~iscell(spec)
+    if isstruct(spec) || ischar(spec)
+        spec = {spec};
+    elseif isequal(spec,[])
+        spec = {};
+    else
+        error(['It is not allowed to assign anything other than a cell, a struct, or a (selector) string to an arg_subswitch argument (here:' names{1} ')']); 
+    end
+end
+
+% check for standard mappings
 if isempty(spec)
     selection = 'absoluterange';
-elseif ischar(spec) && any(strcmp(spec,{'absoluterange','relativerange','spannedrange'}))
-	selection = spec;
-    spec = {};
-elseif iscell(spec) && any(strcmp(spec{1},{'absoluterange','relativerange','spannedrange'})) 
-    selection = spec{1};
-    spec = {};
 elseif isfield(spec{1},'arg_selection')
     selection = spec{1}.arg_selection;
 elseif any(strcmp(spec{1},{'absoluterange','relativerange','spannedrange'}))
     [selection,spec] = deal(spec{1},spec(2:end));
+elseif any(strcmp(spec(1:end-1),'arg_selection'))
+    pos = find(strcmp('arg_selection',spec(1:end-1)),1,'last');
+    [selection,spec] = deal(spec{pos+1},spec([1:pos-1 pos+2:end]));
 else
-    % we have a custom segmentspec specification (as indicated in the function's help text)
+    % we have a custom SegmentSpec specification (as indicated in the function's help text)
     % parse it.
     mrks = {};
     lats = [];
@@ -346,5 +378,18 @@ else
             ignored = {};
         end
         selection = 'spannedrange'; spec = {'openevent' mrks{1} 'closeevent' mrks{2} 'lo' lats(1) 'hi' lats(2) 'ignored' ignored};
+    else
+        error('Unsupported segment specification: %s.',hlp_tostring(spec));
     end
+end
+
+% If this error is triggered, an value was passed for an argument which has a flexible structure (chosen out of a set of possibilities), but the possibility
+% which was chosen according to the passed value does not match any of the specified ones. For a value that is a cell array of arguments, the choice is 
+% made based on the first element in the cell. For a value that is a structure of arguments, the choice is made based on the 'arg_selection' field.
+% The error is usually resolved by reviewing the argument specification of the offending function carefully, and comparing the passed value to the Alternatives
+% declared in the arg_subswitch() clause in which the offending argument is declared.
+if isempty(selection)
+    error('The chosen selector argument (empty) does not match any of the possible options {''absoluterange'', ''relativerange'', ''spannedrange''} in the function argument SegmentSpec.');
+elseif ~any(strcmpi(selection,{'absoluterange','relativerange','spannedrange'}))
+    error(['The chosen selector argument (' selection ') does not match any of the possible options {''absoluterange'', ''relativerange'', ''spannedrange''} in the function argument SegmentSpec.']); 
 end

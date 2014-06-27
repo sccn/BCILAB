@@ -11,14 +11,19 @@ function run_readbiosemi(varargin)
 % parameters.
 %
 % In:
-%   MatlabStream : name of the stream to create in the MATLAB environment (default: 'laststream')
+%   StreamName : Name of the stream; a variable with this name will be created in the MATLAB workspace 
+%                to hold the stream's data. If such a variable already exists it will be overridden.
 %
-%   ChannelRange : numeric vector of channel indices that should be recorded (referring to the 
+%   ChannelRange : Numeric vector of channel indices that should be recorded (referring to the 
 %                  default BioSemi channel order); default: 3:131
 %
-%   SamplingRate : sampling rate for the amplifier, in Hz (default: 256)
+%   SamplingRate : Sampling rate for the amplifier, in Hz (default: 256)
 %
-%   UpdateFrequency : update frequency, in Hz (default: 25)
+%   BufferLength : Internal buffering length. This is the maximum amount of backlog that you can
+%                  get, in seconds. (default: 30)
+%
+%   UpdateFrequency : The rate at which new chunks of data is polled from the device, in Hz. 
+%                     (default: 10)
 %
 % Examples:
 %   % open a biosemi input stream that is sampled at 512 Hz and updated at 30 Hz 
@@ -33,16 +38,17 @@ declare_properties('name','BioSemi amplifier');
 
 % read options
 opts = arg_define(varargin, ...
-    arg({'new_stream','MatlabStream'}, 'laststream',[],'New Stream to create. This is the name of the stream within the MATLAB environment.'), ...
-    arg({'channel_range','ChannelRange'}, 3:128+3,[],'Reduced channel range. Allows to specify a sub-range of the default BioSemi channels.'), ...
-    arg({'sample_rate','SamplingRate'}, 256,[],'Sampling rate. In Hz.'), ...
-    arg({'update_freq','UpdateFrequency'},10,[],'Update frequency. New data is polled at this rate, in Hz.'));
+    arg({'new_stream','StreamName','MatlabStream'}, 'laststream',[],'MATLAB Stream Name. A variable with this name will be created in the MATLAB workspace to hold the stream''s data. If such a variable already exists it will be overridden.'), ...
+    arg({'channel_range','ChannelRange'}, 3:128+3,uint32([1 1000]),'Reduced channel range. Allows to specify a sub-range of the default BioSemi channels.'), ...
+    arg({'sample_rate','SamplingRate'}, 256,[1 100000],'Sampling rate. In Hz.'), ...
+    arg({'update_freq','UpdateFrequency'},10,[0 Inf],'Update frequency. The rate at which new chunks of data is polled from the device, in Hz.'), ...
+    arg({'buffer_len','BufferLength'},10,[],'Internal buffering length. This is the maximum amount of backlog that you can get.'));
 
 % open a BioSemi connection (using an explicit path because it should also work if the toolbox is compiled)
 conn = bs_open(env_translatepath('dependencies:/BioSemi-2010-11-19'));
 
 % create online stream (using appropriate meta-data from the connection)
-onl_newstream(opts.new_stream,'srate',opts.sample_rate,'chanlocs',conn.channels(opts.channel_range),'xmin',toc(uint64(0)));
+onl_newstream(opts.new_stream,'srate',opts.sample_rate,'chanlocs',conn.channels(opts.channel_range),'xmin',toc(uint64(0)),'buffer_len',opts.buffer_len);
 
 % start background acquisition
 onl_read_background(opts.new_stream,@()read_block(conn,opts),opts.update_freq);

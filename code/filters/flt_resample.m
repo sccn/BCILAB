@@ -56,7 +56,7 @@ function [signal,state] = flt_resample(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-03-28
 
-% flt_resample_version<1.0> -- for the cache
+% flt_resample_version<1.04> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -65,9 +65,9 @@ declare_properties('name',{'Resampling','srate'}, 'precedes',{'flt_selchans','fl
 
 arg_define(varargin, ...
     arg_norep({'signal','Signal'}), ...
-    arg({'srate','SamplingRate'}, [], [], 'Sampling rate after resampling.','shape','scalar'), ...
-    arg({'fltlen','FilterLength'}, 10, [], 'Filter length. This determines both the quality and the delay of the resampling. The default should be fine.','shape','scalar','guru',true), ...
-    arg({'stopweight','StopbandWeight'}, 1, [], 'Stop-band weight. Relative weight of the stop-band.','shape','scalar','guru',true), ...
+    arg({'srate','SamplingRate'}, [], [0 Inf], 'Sampling rate after resampling.','shape','scalar'), ...
+    arg({'fltlen','FilterLength'}, 10, uint32([1 5 50 10000]), 'Filter length. This determines both the quality and the delay of the resampling. The default should be fine.','shape','scalar','guru',true), ...
+    arg({'stopweight','StopbandWeight'}, 1, [0 0.05 20 Inf], 'Stop-band weight. Relative weight of the stop-band.','shape','scalar','guru',true), ...
     arg_norep({'state','State'},unassigned));
 
 % if no srate is specified, we adopt the sampling rate of the signal
@@ -91,14 +91,29 @@ if srate ~= signal.srate
         H = p*firlp(len,2*cutoff,2*cutoff,stopweight) .* lanczos(len);
         H = [zeros(1,floor(q-mod((len-1)/2,q))) H(:).'];
         % construct state struct
-        state = struct('conds',[],'H',H,'p',p,'q',q);
+        state = struct('H',H,'p',p,'q',q);
     end
     
-    % resample the data itself
-    signal.data = single(signal.data)';
-    [tmp,state.conds] = upfirdn2(signal.data,state.H,state.p,state.q,state.conds);
-    signal.data = tmp';
+    % resample each time-series field
+    n = length(state.H);
+    for f = utl_timeseries_fields(signal)
+        if isempty(signal.(f{1}))
+            continue; end
+        if ~isfield(state,f{1})
+            state.(f{1}).conds = []; end        
+
+        % flip dimensions so that we can filter along the 1st dimension & convert to single for mex code
+        [X,dims] = spatialize_transpose(single(signal.(f{1})));
+        % do processing
+        [X,state.(f{1}).conds] = upfirdn2(X,state.H,state.p,state.q,state.(f{1}).conds);
+        % unflip dimensions and write the result back; also convert back to double
+        signal.(f{1}) = double(unspatialize_transpose(X,dims));
+    end
+    
     % update signal meta-data
+    if ~isfield(signal.etc,'filter_delay')
+        signal.etc.filter_delay = 0; end    
+    signal.etc.filter_delay = signal.etc.filter_delay + ceil(argmax(state.H))/signal.srate;
     signal.icaact = [];
     signal.srate = srate;
     signal.pnts = size(signal.data,2);

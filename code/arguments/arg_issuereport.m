@@ -30,12 +30,16 @@ global tracking;
 try
     ticket = tracking.arg_sys.tickets.removeLast();
 catch %#ok<CTCH>
+    max_inflight_tickets = 10000;
     % initialize data structures if necessary
     if ~isfield(tracking,'arg_sys')
         tracking.arg_sys = struct(); end
     if ~isfield(tracking.arg_sys,'tickets')
         tracking.arg_sys.tickets = java.util.concurrent.LinkedBlockingDeque();
-        max_inflight_tickets = 50000;
+        for t=max_inflight_tickets:-1:1
+            tracking.arg_sys.tickets.addLast(t); end
+    else
+        warning('BCILAB ran out of report tickets; if this happens it means that tickets did not get reclaimed properly elsewhere in the system, perhaps due to an error.');
         for t=max_inflight_tickets:-1:1
             tracking.arg_sys.tickets.addLast(t); end
     end

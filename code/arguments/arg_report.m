@@ -73,6 +73,10 @@ function result = arg_report(type,func,args)
 % check inputs
 if ischar(func)
     func = str2func(func); end
+if ~isa(func,'function_handle')
+    error('The given Function argument must be a function handle.'); end
+if ~ischar(type)
+    error('The given Type argument must be a string.'); end
 if nargin < 3
     if strcmp(type,'properties')
         % for the properties report we implicitly pad the arguments with blanks to allow functions
@@ -88,15 +92,15 @@ elseif ~iscell(args)
 end
 
 % make use of exp_eval when used within BCILAB
-persistent use_eval;
-if isempty(use_eval)
-    use_eval = exist('exp_eval','file'); end
+persistent handle_expressions;
+if isempty(handle_expressions)
+    handle_expressions = exist('exp_eval','file'); end
 
 result = {};
 try
     % evaluate the funtion with two special arguments appended
-    if use_eval && nargout(func) > 0
-        exp_eval(func(args{:},'__arg_report__',type));
+    if handle_expressions
+        hlp_scope({'disable_expressions',1},func,args{:},'__arg_report__',type);
     else
         func(args{:},'__arg_report__',type);
     end
@@ -108,7 +112,13 @@ catch report
         % read out the payload and return the ticket
         result = tracking.arg_sys.reports{ticket};
         tracking.arg_sys.tickets.addLast(ticket);
-    elseif ~strcmp(type,'properties')
-        rethrow(report);
+    elseif ~strcmp(type,'properties')        
+        % got a genuine error: rerun the code to propagate it properly
+        % (we're not using rethrow here to not confuse dbstop if error)
+        if handle_expressions
+            hlp_scope({'disable_expressions',1},func,args{:},'__arg_report__',type);
+        else
+            func(args{:},'__arg_report__',type);
+        end
     end
 end

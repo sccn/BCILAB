@@ -37,12 +37,9 @@ function result = hlp_iscaller(func, level)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-try
-    throw; %#ok<LTARG> % fastest way to get an exception
-catch context
-    if ~exist('level','var')
-        level = 2:length(context.stack); end
-    level = level+1;
-    level(level < 1 | level > length(context.stack)) = [];
-    result = any(strcmp(char(func),{context.stack(level).name}));
-end
+stack = dbstack;
+if nargin < 2
+    level = 2:length(stack); end
+level = level+1;
+level(level < 1 | level > length(stack)) = [];
+result = any(strcmp(char(func),{stack(level).name}));

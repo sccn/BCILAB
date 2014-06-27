@@ -32,7 +32,7 @@ else
     trials = utl_kernelize(trials,model.basis,model.kernel,model.gamma,model.degree);
     
     % add a bias if necessary
-    if model.bias        
+    if model.bias
         trials = [ones(size(trials,1),1) trials]; end
     
     if strcmp(model.kernel,'linear')

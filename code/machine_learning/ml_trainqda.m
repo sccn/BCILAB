@@ -21,8 +21,6 @@ function model = ml_trainqda(varargin)
 %   Kappa        : between-class covariance regularization parameter, reasonable range: 0:0.1:1, greater is stronger (default: [])
 %
 %   Options  : optional name-value parameters to control the training details:
-%              'weight_bias' -> 0/1, take unequal class priors into account for bias calculation
-%                               default: 0 -- note: this parameter is currently ignored
 %              'weight_cov' -> 0/1, take unequal class priors into account for covariance calculation
 %                              default: 0
 %              'regularization' -> 'shrinkage': covariance shrinkage, depends on lambda 
@@ -62,18 +60,19 @@ function model = ml_trainqda(varargin)
 arg_define([0 4],varargin, ...
     arg_norep('trials'), ...
     arg_norep('targets'), ...
-    arg({'lambda','Lambda'}, [], [], 'Within-class covariance regularization parameter. Reasonable range: 0:0.1:1 - greater is stronger. Requires that the regularization mode is set to either "shrinkage" or "independence".'), ...
-    arg({'kappav','Kappa','kappa'}, [], [], 'Between-class covariance regularization parameter. Reasonable range: 0:0.1:1 - greater is stronger. Requires that the regularization mode is set to either "shrinkage" or "independence".'), ...
+    arg({'lambda','Lambda'}, [], [0 1], 'Within-class covariance regularization parameter. Reasonable range: 0:0.1:1 - greater is stronger. Requires that the regularization mode is set to either "shrinkage" or "independence".'), ...
+    arg({'kappav','Kappa','kappa'}, [], [0 1], 'Between-class covariance regularization parameter. Reasonable range: 0:0.1:1 - greater is stronger. Requires that the regularization mode is set to either "shrinkage" or "independence".'), ...
     arg({'regularization','Regularizer'}, 'auto', {'auto','shrinkage','independence'}, 'Regularization type. Regularizes the robustness / flexibility of covariance estimates. Auto is analytical covariance shrinkage, shrinkage is shrinkage as selected via lambda, and independence is feature independence, also selected via lambda.'), ...
-    arg({'weight_bias','WeightedBias'}, false, [], 'Account for class priors in bias. If you do have unequal probabilities for the different classes, this should be enabled.'), ...
-    arg({'weight_cov','WeightedCov'}, false, [], 'Account for class priors in covariance. If you do have unequal probabilities for the different classes, it makes sense to enable this.'));
+    arg({'weight_cov','WeightedCov'}, false, [], 'Account for class priors in covariance. If you do have unequal probabilities for the different classes, it makes sense to enable this.'), ...
+    arg({'votingScheme','VotingScheme'},'1vR',{'1v1','1vR'},'Voting scheme. If multi-class classification is used, this determine how binary classifiers are arranged to solve the multi-class problem. 1v1 gets slow for large numbers of classes (as all pairs are tested), but can be more accurate than 1vR.'), ...
+    arg_deprecated({'weight_bias','WeightedBias'},false));
 
 
 % find the class labels
 classes = unique(targets);
 if length(classes) > 2
     % learn a voting arrangement
-    model = ml_trainvote(trials,targets,'1vR',@ml_trainqda,@ml_predictqda,varargin{:}); %#ok<*NODEF>
+    model = ml_trainvote(trials,targets,votingScheme,@ml_trainqda,@ml_predictqda,varargin{:}); %#ok<*NODEF>
 elseif length(classes) == 1
     error('BCILAB:only_one_class','Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.');
 else
@@ -118,7 +117,7 @@ else
     
     if ~isempty(kappav)
         % regularize the covariance matrices w.r.t. each other
-        ns = fastif(weight_cov,n,{1 1});
+        ns = quickif(weight_cov,n,{1 1});
         sigma = (sig{1}*ns{1} + sig{2}*ns{2}) / (ns{1}+ns{2});
         sig{1} = sig{1} * (1-kappav) + sigma*kappav;
         sig{2} = sig{2} * (1-kappav) + sigma*kappav;

@@ -53,8 +53,15 @@ while len >= 1
     catch e
         % got an exception, check if it is outarg-related
         if ~any(strcmp(e.identifier,{'MATLAB:TooManyOutputs','MATLAB:maxlhs','MATLAB:unassignedOutputs'}))
-            % it isn't: rethrow
-            rethrow(e); end
+            % it isn't: propagate the error
+            settings = dbstatus;
+            if any(strcmp({settings.cond},'error'))
+                % if in dbstop if error mode, we're re-running the line to get the debugger to stop at the right place
+                [a{1:len}] = f(varargin{:});
+            else
+                rethrow(e);
+            end
+        end
         % but if it was, we need to retry with fewer out-arguments
         len = len-1;
     end

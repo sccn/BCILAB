@@ -3,8 +3,8 @@ function outargs = hlp_resolveall(context)
 % Scope = hlp_resolveall(Context)
 %
 % In:
-%   Context : Optionally the execution context (stack) at this point, if known.
-%             Can be obtained via try/catch.
+%   Context : Optionally the execution context (struct with field .stack) at this point, if known.
+%             Can be obtained via dbstack or try/catch.
 %
 % Out:
 %   Scope : a struct with values assigned to symbol names
@@ -32,11 +32,10 @@ function outargs = hlp_resolveall(context)
 
 global tracking;
 
-try
-    % obtain the current stack frame entries from the context
-    entries = {context.stack.name};
-catch context
-    % or get the entries from the exception that was just thrown
+if nargin < 1
+    stack = dbstack;
+    entries = {stack.name};
+else
     entries = {context.stack.name};
 end
 

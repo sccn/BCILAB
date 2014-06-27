@@ -23,7 +23,8 @@ if isfield(f,{'head','parts'})
             name = char(f.parts{1});
             if name(1) == '@'
                 % normalize if it has a symbolic lambda name
-                name = name(28:end-21); end
+                name = name(28:end-21); 
+            end
             % try to store the name-x relationship in the dictionary
             [r,dict] = update_dict(dict,name,x);
         end
@@ -39,7 +40,8 @@ if isfield(f,{'head','parts'})
         % f is a non-pattern expression... match recursively
         if isfield(x,'tracking') && isfield(x.tracking,'expression')
             % normalize impure x
-            x = x.tracking.expression; end
+            x = x.tracking.expression; 
+        end
         if isfield(x,{'head','parts'})
             % x has substructure: we have to match recursively
             if ~isequal(x.head,f.head) || (length(x.parts) ~= length(f.parts))
@@ -65,7 +67,7 @@ elseif isa(f,'function_handle') && isa(x,'function_handle')
     r = strcmp(char(f),char(x));
 else
     % f is atomic; x must be identical
-    r = isequalwithequalnans(f,x);
+    r = isequalwithequalnans(f,x); %#ok<DISEQN>
 end
 
 % update the given dictionary with a name-value pair; also return whether the naming is still consistent

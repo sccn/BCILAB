@@ -35,8 +35,9 @@ function model = ml_trainrvm(varargin)
 %                         * 'poly':		Polynomial
 %                         * 'cauchy':	Cauchy
 %
-%              'gamma': scaling parameter of the kernel (for regularization), default: 0.3
-%                        reasonable range: 2.^(-16:2:4)
+%              'gamma': scaling parameter of the kernel (for regularization); if multiple values
+%                       are given, the optimal gamma will be searched via evidence maximization
+%                       default: 2.^(-16:0.2:10)
 %
 %              'degree': degree of the polynomial kernel, if used (default: 3)
 %
@@ -93,17 +94,18 @@ opts = arg_define([0 2],varargin, ...
     arg_norep('targets'), ...
     arg({'ptype','Type'}, 'classification', {'classification','regression'}, 'Type of problem to solve.','cat','Core Parameters'), ...
     arg({'kernel','Kernel'}, 'rbf', {'linear','rbf','laplace','poly','cauchy'}, 'Kernel type. Linear, or Non-linear kernel types: Radial Basis Functions (general-purpose), Laplace (sparse), Polynomial (rarely preferred), and Cauchy (slightly experimental).','cat','Core Parameters'), ...
-    arg({'gammap','KernelScale','gamma'}, search(2.^(-16:2:4)), [], 'Scaling of the kernel functions. Should match the size of structures in the data. A reasonable range is 2.^(-16:2:4).','cat','Core Parameters'), ...
-    arg({'polydegree','PolyDegree','degree'}, uint32(3), [], 'Degree of the polynomial kernel, if chosen.','cat','Core Parameters'), ...
+    arg({'gammap','KernelScale','gamma'}, 2.^(-16:0.5:10), [0 2^-20 2^10 Inf], 'Scaling of the kernel functions. Should match the size of structures in the data. A reasonable range is 2.^(-16:2:4).','cat','Core Parameters','shape','row'), ...
+    arg({'polydegree','PolyDegree','degree'}, 3, uint32([1 100]), 'Degree of the polynomial kernel, if chosen.','cat','Core Parameters'), ...
     arg({'bias','Bias'}, true, [], 'Include a bias term in the model.','cat','Core Parameters'), ...
     arg({'scaling','Scaling'}, 'std', {'none','center','std','minmax','whiten'}, 'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.','cat','Core Parameters'), ...
     ...
-    arg({'iterations','MaxIterations'}, uint32(10000), [], 'Number of iterations to run.','cat','Miscellaneous'), ...
-    arg({'time','MaxTime'}, '10000 seconds', [], 'Maximum time to run. Can use ''seconds'', ''minutes'', ''hours'' in the string.','cat','Miscellaneous'), ...
+    arg({'iterations','MaxIterations'}, 100, uint32([1 100000]), 'Number of iterations to run.','cat','Miscellaneous'), ...
+    arg({'time','MaxTime'}, '1000 seconds', [], 'Maximum time to run. Can use ''seconds'', ''minutes'', ''hours'' in the string.','cat','Miscellaneous'), ...
     arg({'fixednoise','NoiseFixed'}, false, [], 'Keep the Gaussian noise estimate fixed.','cat','Miscellaneous'), ...
     arg({'noiseinvvar','NoiseInvVariance','beta'}, [], [], 'Inverse variance of the Gaussian noise term.','cat','Miscellaneous','shape','scalar'), ...
     arg({'noisestd','NoiseVariance'}, [], [], 'Variance of the Gaussian noise term.','cat','Miscellaneous','shape','scalar'), ...
-    arg({'diagnosticlevel','Verbosity'}, 'none', {'none','low','medium','high','ultra'}, 'Verbosity level.','cat','Miscellaneous'),...
+    arg({'diagnosticlevel','Verbosity'}, 'none', {'none','minimal','low','medium','high','ultra'}, 'Verbosity level.','cat','Miscellaneous'),...
+    arg({'votingScheme','VotingScheme'},'1vR',{'1v1','1vR'},'Voting scheme. If multi-class classification is used, this determine how binary classifiers are arranged to solve the multi-class problem. 1v1 gets slow for large numbers of classes (as all pairs are tested), but can be more accurate than 1vR.'), ...    
     arg({'monitor','DisplayInterval'}, uint32(0), [], 'Iterations between diagnostic outputs.','cat','Miscellaneous'));
 
 arg_toworkspace(opts);
@@ -111,16 +113,18 @@ arg_toworkspace(opts);
 if is_search(gammap)
     gammap = 0.3; end
 
-
+% pre-process arguments
 ptype = hlp_rewrite(ptype,'classification','c','regression','r'); %#ok<*NODEF>
 likelihood = hlp_rewrite(ptype,'c','bernoulli','r','gaussian'); 
+args1 = [hlp_struct2varargin(opts,'restrict',{'iterations','time','monitor','fixednoise','freebasis','callback','callbackdata'}),{'diagnosticlevel',hlp_rewrite(opts.diagnosticlevel,'minimal','none')}];
+args2 = hlp_struct2varargin(opts,'restrict',{'beta','noisestd','relevant','weights','alpha'},'rewrite',{'beta','noiseinvvar'});
 
 % remap targets for classification
 if strcmp(ptype,'c')
     classes = unique(targets);
     if length(classes) > 2
         % multiclass case: use the voter
-        model = ml_trainvote(trials,targets,'1v1',@ml_trainrvm,@ml_predictrvm,varargin{:});
+        model = ml_trainvote(trials,targets,votingScheme,@ml_trainrvm,@ml_predictrvm,varargin{:});
         return;
     elseif length(classes) == 1
         error('BCILAB:only_one_class','Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.');
@@ -135,18 +139,42 @@ end
 % prescale the data
 sc_info = hlp_findscaling(trials,scaling);
 trials = hlp_applyscaling(trials,sc_info);
-
-% kernelize the data
 basis = trials;
-trials = utl_kernelize(trials,basis,kernel,gammap,polydegree);
-% add a bias
-if bias
-    trials = [ones(size(trials,1),1) trials]; end
 
+if length(gammap)>1
+    if ~strcmp(opts.diagnosticlevel,'none')
+        disp('Now optimizing gamma parameter using evidence maximization...'); end
+    % optimize gamma parameter using marginal log-likelihood    
+    bestgam = NaN;      % best gamma parameter so far
+    likelihoods = nan(length(gammap),1);
+    bestlike = -Inf;    % best likelihood so far
+    for k=1:length(gammap)
+        gam = gammap(k);
+        if ~strcmp(opts.diagnosticlevel,'none')
+            fprintf('gamma=%.3f\n',gam); end
+        % kernelize the data and add bias
+        ktrials = utl_kernelize(trials,basis,kernel,gam,polydegree);
+        ktrials = quickif(bias,[ones(size(ktrials,1),1) ktrials],ktrials);
+        % run the RVM
+        [param, hyperparam, diag] = hlp_diskcache('predictivemodels',@SparseBayes,likelihood,ktrials,targets,SB2_UserOptions(args1{:}),SB2_ParameterSettings(args2{:})); %#ok<ASGLU>        
+        if ~isempty(diag.Likelihood)
+            likelihoods(k) = diag.Likelihood(end);
+            if diag.Likelihood(end) > bestlike
+                bestlike = diag.Likelihood(end);
+                bestgam = gam;
+            end
+        end
+    end
+    gammap = bestgam;
+else
+    likelihoods = [];
+end
+
+% kernelize the data and add bias
+ktrials = utl_kernelize(trials,basis,kernel,gammap,polydegree);
+ktrials = quickif(bias,[ones(size(ktrials,1),1) ktrials],ktrials);
 % run the RVM
-args1 = hlp_struct2varargin(opts,'restrict',{'iterations','time','diagnosticlevel','monitor','fixednoise','freebasis','callback','callbackdata'});
-args2 = hlp_struct2varargin(opts,'restrict',{'beta','noisestd','relevant','weights','alpha'},'rewrite',{'beta','noiseinvvar'});
-[param, hyperparam, diag] = hlp_diskcache('predictivemodels',@SparseBayes,likelihood,trials,targets,SB2_UserOptions(args1{:}),SB2_ParameterSettings(args2{:}));
+[param, hyperparam, diag] = hlp_diskcache('predictivemodels',@SparseBayes,likelihood,ktrials,targets,SB2_UserOptions(args1{:}),SB2_ParameterSettings(args2{:}));
 
 % preselect relevant basis vectors
 if ~strcmp(kernel,'linear')
@@ -169,4 +197,4 @@ end
 
 model = struct('sc_info',{sc_info},'classes',{classes},'basis',{basis},'param',{param},'hyperparam',{hyperparam},...
                'diag',{diag},'ptype',{ptype},'feature_sel',{feature_sel},'bias',{bias}, ...
-               'kernel',{kernel},'gamma',{gammap},'degree',{polydegree});
+               'kernel',{kernel},'gamma',{gammap},'gamma_likelihoods',likelihoods,'degree',{polydegree});

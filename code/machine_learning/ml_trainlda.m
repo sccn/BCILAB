@@ -86,15 +86,17 @@ function model = ml_trainlda(varargin)
 arg_define([0 3],varargin, ...
     arg_norep('trials'), ...
     arg_norep('targets'), ...
-    arg({'plambda','Lambda','lambda'}, [], [], 'Optional regularization parameter. Reasonable range: 0:0.1:1 - greater is stronger. Requires that the regularization mode is set to either "shrinkage" or "independence" (not necessary in "auto" mode).'), ...
+    arg({'plambda','Lambda','lambda'}, [], [0 1], 'Optional regularization parameter. Reasonable range: 0:0.1:1 - greater is stronger. Requires that the regularization mode is set to either "shrinkage" or "independence" (not necessary in "auto" mode).'), ...
     arg({'regularization','Regularizer'}, 'auto', {'none','auto','shrinkage','independence'}, 'Type of regularization. Regularizes the robustness / flexibility of covariance estimates. Auto is analytical covariance shrinkage, shrinkage is shrinkage as selected via plambda, and independence is feature independence, also selected via plambda.'), ...
     arg({'weight_bias','WeightedBias'}, false, [], 'Account for class priors in bias. If you do have unequal probabilities for the different classes, this should be enabled.'), ...
-    arg({'weight_cov','WeightedCov'}, false, [], 'Account for class priors in covariance. If you do have unequal probabilities for the different classes, it makes sense to enable this.'));
+    arg({'weight_cov','WeightedCov'}, false, [], 'Account for class priors in covariance. If you do have unequal probabilities for the different classes, it makes sense to enable this.'), ...
+    arg({'votingScheme','VotingScheme'},'1vR',{'1v1','1vR'},'Voting scheme. If multi-class classification is used, this determine how binary classifiers are arranged to solve the multi-class problem. 1v1 gets slow for large numbers of classes (as all pairs are tested), but can be more accurate than 1vR.'));
+
 % find the class labels
 classes = unique(targets);
 if length(classes) > 2
     % learn a voting arrangement of models...
-    model = ml_trainvote(trials, targets, '1vR', @ml_trainlda, @ml_predictlda, varargin{:},'weight_bias',true);    %#ok<*NODEF>
+    model = ml_trainvote(trials, targets, votingScheme, @ml_trainlda, @ml_predictlda, varargin{:},'weight_bias',true);    %#ok<*NODEF>
 elseif length(classes) == 1
     error('BCILAB:only_one_class','Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.');
 else
@@ -133,8 +135,8 @@ else
         end
     end
     
-    ns = fastif(weight_cov,n,{1 1});
-    nb = fastif(weight_bias,n,{1 1});
+    ns = quickif(weight_cov,n,{1 1});
+    nb = quickif(weight_bias,n,{1 1});
     % do the math
     mu_both = (mu{1}*nb{2} + mu{2}*nb{1}) / (nb{1}+nb{2});    
     sig_both = (sig{1}*ns{1} + sig{2}*ns{2}) / (ns{1}+ns{2});

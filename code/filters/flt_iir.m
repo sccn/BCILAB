@@ -23,13 +23,12 @@ function [signal,state] = flt_iir(varargin)
 %
 %   Type         :   'butter' for a Butterworth filter -- pro: flat response overall; con: slow
 %                             attenuation (default)
-%                    'cheb1' for a Chebychev Type I filter -- pro: steep attennuation; con:
-%                            strong passband ripple
-%                    'cheb2' for a Chebychev Type II filter -- pro: flat
-%                            passband response; con: slower
-%                            attenuation than cheb1
+%                    'cheb1' for a Chebychev Type I filter -- pro: steep attenuation; con:
+%                            passband ripple, moderate phase distortion
+%                    'cheb2' for a Chebychev Type II filter -- pro: steep attenuation; 
+%                            con: stopband ripple, moderate phase distortion
 %                    'ellip' for an Elliptic filter -- pro: steepest rolloff, lowest latency;
-%                            con: passband ripple
+%                            con: passband and stopband ripple, strong phase distortion
 %                    'yulewalk' for a Yule-Walker filter -- allows for free-form designs, but can 
 %                            be erratic (automatic for free-form mode)
 %
@@ -80,7 +79,7 @@ function [signal,state] = flt_iir(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-17
 
-% flt_iir_version<1.01> -- for the cache
+% flt_iir_version<1.04> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -91,10 +90,10 @@ arg_define(varargin, ...
     arg({'fspec','Frequencies','f'}, [], [], 'Frequency specification of the filter. For a low/high-pass filter, this is: [transition-start, transition-end], in Hz and for a band-pass/stop filter, this is: [low-transition-start, low-transition-end, hi-transition-start, hi-transition-end], in Hz. For a free-form filter, this is a 2d matrix of the form [frequency,frequency,frequency, ...; amplitude, amplitude, amplitude, ...].'), ...
     arg({'fmode','Mode'}, 'bandpass', {'bandpass','highpass','lowpass','bandstop','freeform'}, 'Filtering mode. Determines how the Frequencies parameter is interpreted.'), ...
     arg({'ftype','Type'},'butterworth', {'butterworth','chebychev1','chebychev2','elliptic','yule-walker'}, 'Filter type. Butterworth has a flat response overall but a slow/gentle rolloff. Chebychev Type I has a steep rolloff, but strong passband ripples. Chebychev Type II has a flat passband response, but a slower rolloff than Type I. The elliptic filter has the steepest rolloff (or lowest latency at comparable steepness) but passband rippling. Yule-walker is enabled implicitly for free-form filter design.'), ...
-    arg({'atten','Attenuation'}, 60, [0 180], 'Minimum signal attenuation in the stop band. In db.'),...
+    arg({'atten','Attenuation'}, 60, [0 20 80 180], 'Minimum signal attenuation in the stop band. In db.'),...
     arg({'ripple','Ripple'}, 0.1, [0 60], 'Maximum peak-to-peak ripple in pass band. In db.'), ...
-    arg({'chunk_length','ChunkLength'},50000,[], 'Maximum chunk length. Process the data in chunks of no larger than this (to avoid memory limitations).','guru',true), ...
-    arg({'yulewalk_order','YulewalkerOrder'},8,[], 'Order for Yule-Walker design. Only used if that design is selected.','guru',true), ...
+    arg({'chunk_length','ChunkLength'},50000,uint32([1 1000 100000 1000000000]), 'Maximum chunk length. Process the data in chunks of no larger than this (to avoid memory limitations).','guru',true), ...
+    arg({'yulewalk_order','YulewalkerOrder'},8,uint32([1 2 30 100]), 'Order for Yule-Walker design. Only used if that design is selected.','guru',true), ...
     arg_nogui({'state','State'}));
 
 if signal.trials > 1
@@ -141,24 +140,52 @@ if isempty(state)
         otherwise 
             error(['Unrecognized filter type specified: ' hlp_tostring(ftype)]);
     end
-    [sos,g] = hlp_diskcache('filterdesign',@zp2sos,z,p,k);
+    [state.sos,state.g] = hlp_diskcache('filterdesign',@zp2sos,z,p,k);
     
-   % initialize state
-    for f = utl_timeseries_fields(signal)
-        state.(f{1}).sos = sos;
-        state.(f{1}).g = g;
-        state.(f{1}).zi = repmat({[]},1,size(sos,1));
-    end
+    % fix the sign and estimate filter delay
+    X = zeros(1000,1); X(500) = 1;
+    for s = 1:size(state.sos,1)
+        X = filter(state.sos(s,1:3),state.sos(s,4:6),X,[],1); end
+    X = X*state.g;
+    if -min(X) > max(X)
+        state.g = -state.g; end
+    state.conds = struct();
+    state.filter_delay = argmax(abs(X))-500;
+    extrapolate = min(signal.pnts,round(600*signal.srate));
+else
+    extrapolate = 0;
 end
 
 for f = utl_timeseries_fields(signal)
     if ~isempty(signal.(f{1}))
+        if ~isfield(state.conds,f{1})
+            state.conds.(f{1}) = repmat({[]},1,size(state.sos,1)); end
+
+        % flip dimensions so that we can filter along the 1st dimension
+        [X,dims] = spatialize_transpose(double(signal.(f{1})));
+                
+        % extrapolate the signal into the past
+        if extrapolate
+            X = [repmat(2*X(1,:),extrapolate,1) - X(1+mod(((extrapolate+1):-1:2)-1,size(X,1)),:); X]; end
+        
         % apply filter for each section
-        for s = 1:size(state.(f{1}).sos,1)
-            [signal.(f{1}),state.(f{1}).zi{s}] = filter(state.(f{1}).sos(s,1:3),state.(f{1}).sos(s,4:6),double(signal.(f{1})),state.(f{1}).zi{s},2); end
+        for s = 1:size(state.sos,1)
+            [X,state.conds.(f{1}){s}] = filter(state.sos(s,1:3),state.sos(s,4:6),X,state.conds.(f{1}){s},1); end
         % apply gain
-        signal.(f{1}) = signal.(f{1})*state.(f{1}).g;
+        X = X*state.g;
+        
+        % remove extrapolated part again
+        if extrapolate
+            X = X(1+extrapolate:end,:); end
+        
+        % unflip dimensions and write the result back
+        signal.(f{1}) = unspatialize_transpose(X,dims);
     end
 end
+
+if ~isfield(signal.etc,'filter_delay')
+    signal.etc.filter_delay = 0; end
+signal.etc.filter_delay = signal.etc.filter_delay + state.filter_delay/signal.srate;
+
 
 exp_endfun;

@@ -1,7 +1,7 @@
 % RUN_READBRAINVISION  Receives real-time data from BrainVision Recorder
 %     RUN_READBRAINVISION(MATLABSTREAM, CHANNELRANGE, SAMPLINGRATE, UPDATEFREQUENCY)
 %     In:
-%     MatlabStream : name of the stream to create in the MATLAB environment (default: 'laststream')
+%     StreamName : name of the stream to create in the MATLAB environment (default: 'laststream')
 %     ChannelRange : numeric vector of channel indices that should be recorded   
 %     SamplingRate : sampling rate for the amplifier, in Hz (default: 256)
 %     UpdateFrequency : update frequency, in Hz (default: 25)
@@ -47,8 +47,8 @@ declare_properties('name','BrainVision Recorder');
 % read options
 opts = arg_define(varargin, ...
     arg({'src_hostname','InputHost'}, bvhostname,[],'Source TCP hostname. Can be a computer name, URL, or IP address.'), ...
-    arg({'new_stream','MatlabStream'}, bvstreamname,[],'New Stream to create. This is the name of the stream within the MATLAB environment.'), ...
-    arg({'update_freq','UpdateFrequency'}, bvfreq,[],'Update frequency. New data is polled at this rate, in Hz.'));
+    arg({'new_stream','StreamName','MatlabStream'}, 'laststream',[],'MATLAB Stream Name. A variable with this name will be created in the MATLAB workspace to hold the stream''s data. If such a variable already exists it will be overridden.'), ...
+    arg({'update_freq','UpdateFrequency'}, bvfreq,[0 Inf],'Update frequency. New data is polled at this rate, in Hz.'));
 
 bvhostname = opts.src_hostname;
 bvstreamname = opts.new_stream;

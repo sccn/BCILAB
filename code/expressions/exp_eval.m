@@ -106,54 +106,56 @@ function varargout = exp_eval(x,iters)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-15
 
-global tracking;
 if nargin < 2
-    iters = 1; end
+    iters = 1;
+elseif ~(isnumeric(iters) && isreal(iters) && isscalar(iters) && round(iters) == iters) || iters < 1
+    error('The given Iterations argument must be a positive integer.');
+end
 
 varargout = {x};
 while iters > 0
     % check if we got a canonically represented expression
-    if isfield(x,{'head','parts'})
+    if isscalar(x) && all(isfield(x,{'head','parts'}))
         chead = char(x.head);
         % we did, check if it's an application of a lambda or builtin function
         if chead(1) == '@' || (exist(char(x.head),'builtin') && ~exist(char(x.head),'file'))
             % if so, need to pre-evaluate the parts
             x.parts = cellfun(@(v)exp_eval(v,iters),x.parts,'UniformOutput',false);
-            if ~all(cellfun(@is_evaluated,x.parts))
-                % not all of the args could be evaluated: return unevaluated
+            % if not all of the args could be evaluated: return unevaluated
+            if ~all(cellfun(@is_evaluated,x.parts))                
                 return; end
         end
         % apply the function
-        if isfield(tracking,'debug') && isfield(tracking.debug,'dbstop_if_error') && tracking.debug.dbstop_if_error && nargout > 0
-            % rare case to allow for use of "dbstop if error": call the function without a surrounding try/catch
-            [varargout{1:nargout}] = x.head(x.parts{:});
-        else
-            % use the regular calling mode
-            try
-                varargout = hlp_wrapresults(x.head,x.parts{:});
-            catch e
-                if ~(strcmp(e.identifier,'MATLAB:UndefinedFunction') && strcmp(e.stack(1).name,'hlp_wrapresults'))
-                    % got a legitimate error: throw it                
-                    rethrow(e);
+        try
+            varargout = hlp_wrapresults(x.head,x.parts{:});
+        catch e
+            if ~(strcmp(e.identifier,'MATLAB:UndefinedFunction') && strcmp(e.stack(1).name,'hlp_wrapresults'))
+                % got a legitimate error, check if we're in dbstop-if-error mode
+                settings = dbstatus;
+                if any(strcmp({settings.cond},'error'))
+                    % if in dbstop if error mode, we're re-running the line to get the debugger to stop at the right place
+                    varargout = hlp_wrapresults(x.head,x.parts{:});
                 else
-                    % otherwise we just return unevaluated
-                    return;
+                    rethrow(e);
                 end
+            else
+                % otherwise we just return unevaluated
+                return;
             end
         end
     elseif isa(x,'function_handle')
         str = char(x);
         if str(1) ~= '@'
-            % regular function handle
-            if is_undefined_function(x)
-                % and undefined: do a lookup
+            % regular function handle and undefined?: do a lookup
+            if is_undefined_function(x)                
                 varargout = {hlp_resolve(x,x)}; end
         else
             % lambda function
             try
                 % try to obtain the function symbol, if it's a symbolic lambda function
                 varargout = {hlp_resolve(get_function_symbol(x),x)};
-            catch,end
+            catch
+            end
         end
     end
     

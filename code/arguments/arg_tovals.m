@@ -96,7 +96,7 @@ function res = arg_tovals(spec,set_direct,format,mandatory_check,unassigned_chec
                 try
                     [values{expressions}] = celldeal(evalin('base',format_cellstr(values(expressions))));
                 catch %#ok<CTCH>
-                    for e=find(expressions)
+                    for e=expressions
                         try
                             values{e} = evalin('base',values{e});
                         catch %#ok<CTCH>

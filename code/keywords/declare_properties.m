@@ -113,6 +113,8 @@ if length(caller_args)>1 && isequal(caller_args(end-1:end),{'__arg_report__','pr
     caller = hlp_getcaller();
     
     % collect properties as name-value pairs
+    if ~iscellstr(varargin(1:2:end))
+        error('The given arguments must be name-value pairs.'); end
     nvps = reshape([{'depends',{},'cannot_follow',{},'cannot_precede',{},'follows',{},'precedes',{},'independent_channels',[], ...
         'independent_trials',[],'name',caller,'deprecated',false,'experimental',false} varargin],2,[]);
     % find the indices of the last assignment for each name and convert them to a struct

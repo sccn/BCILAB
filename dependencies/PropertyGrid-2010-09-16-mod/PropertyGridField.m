@@ -201,12 +201,17 @@ classdef PropertyGridField < hgsetget
             for f=1:length(spec)
                 s = spec(f);
                 
+                % handle skippable arguments
                 if s.skippable
                     s.type = 'char';
                     s.shape = 'row';
                     s.value = '__arg_unassigned__';
                 end
 
+                % handle numeric ranges augmented by typical intervals
+                if isnumeric(s.range) && isequal(size(s.range),[1 4])
+                    s.range = s.range([1 end]); end
+                
                 % convert unsupported types to expressions...                
                 if isa(s.value,'function_handle') || (iscell(s.value) && ~iscellstr(s.value)) || isstruct(s.value)
                     if isa(s.value,'function_handle')
@@ -225,7 +230,9 @@ classdef PropertyGridField < hgsetget
                 end
                 
                 if strcmp(s.type,'expression') && ~ischar(s.value)
-                    s.value = hlp_tostring(s.value); end
+                    s.value = hlp_tostring(s.value); 
+                    s.range = []; % reset the domain
+                end
 
                 if strcmp(s.type,'logical') && iscell(s.range)
                     s.shape = 'row';
@@ -240,8 +247,13 @@ classdef PropertyGridField < hgsetget
                 
                 gui_name = s.names{min(2,end)};
                 gui_type = s.type;
+                gui_shape = s.shape;
+                gui_range = s.range;
                 if strcmp(gui_type,'expression')
-                    gui_type = 'char'; end
+                    gui_type = 'char'; 
+                    gui_shape = 'row';
+                    gui_range = [];
+                end
                 if strcmp(gui_type,'object')
                     gui_type = 'denserealdouble'; end
                 gui_category = s.cat;
@@ -254,7 +266,7 @@ classdef PropertyGridField < hgsetget
                 end
                 try
                     fields(end+1) = PropertyGridField(gui_name, s.value, ...
-                        'Type', PropertyType(gui_type,s.shape,s.range), ...
+                        'Type', PropertyType(gui_type,gui_shape,gui_range), ...
                         'Category',gui_category, ...
                         'DisplayName',gui_name, ...
                         'Description',gui_help, ...
@@ -267,7 +279,7 @@ classdef PropertyGridField < hgsetget
                     env_handleerror(lasterror);
                     disp('The given argument specification (shown below) could not be converted into a GUI-supported PropertyGridField. You are now in debug mode.');
                     try
-                        t = PropertyType(gui_type,s.shape,s.range); 
+                        t = PropertyType(gui_type,gui_shape,gui_range); 
                     catch
                     end
                     x = s.value;

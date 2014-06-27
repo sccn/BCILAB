@@ -131,7 +131,7 @@ classdef ParadigmDAL < ParadigmDataflowSimplified
                 arg_sub({'fex','FeatureExtraction'},{},...
                     {arg_nogui('chan_prior'), ... 
                      arg_nogui('time_prior'), ... 
-                     arg({'freqwnds','WindowFreqs'},[0.5 5; 7 30],[],'Frequency bands of interest. Matrix containing one row for the start and end of each frequency band on which DAL shall operate. Values in Hz.','cat','Feature Extraction'), ...
+                     arg({'freqwnds','WindowFreqs'},[0.5 5; 7 30],[0 0.1 200 1000],'Frequency bands of interest. Matrix containing one row for the start and end of each frequency band on which DAL shall operate. Values in Hz.','cat','Feature Extraction'), ...
                      arg({'timewnds','WindowTimes'},[],[],'Time intervals of interest. Matrix containing one row for the start and end of the time window for each region. Values in seconds. If both this and the freqwnds parameter are non-empty, they should have the same number of rows.','cat','Feature Extraction'), ...
                      arg({'norms','WindowNorms'},[],[],'Normalization coefficients. One pair for each window, see [1] (Nx2 matrix, or []).','cat','Feature Extraction'), ...
                      arg({'orders','WindowOrders'},[],[],'Per-window order. This is the order (1 or 2) for each signal window (Nx1 matrix, or []).','cat','Feature Extraction'), ...
@@ -166,7 +166,7 @@ classdef ParadigmDAL < ParadigmDataflowSimplified
                 % we assume the region to be first-order if any retained frequency is below 6, otherwise second-order
                 reg.order = orders(r,:);
                 if isempty(reg.order)
-                    reg.order = fastif(all(reg.freq.freq<6),1,2); end
+                    reg.order = quickif(all(reg.freq.freq<6),1,2); end
                 % we only use the window function & parameter for second-order regions
                 if reg.order == 2
                     reg.time = arg_report('vals',@flt_window,{'time',{twnds(r,:),args.fex.winfunc,args.fex.winparam}});
@@ -177,7 +177,7 @@ classdef ParadigmDAL < ParadigmDataflowSimplified
                 % squared data needs a different power than raw data
                 reg.norm = norms(r,:);                
                 if isempty(reg.norm)
-                    reg.norm = fastif(reg.order==1,{-0.25,-0.25},{-0.5,-0.5}); end
+                    reg.norm = quickif(reg.order==1,{-0.25,-0.25},{-0.5,-0.5}); end
                 if isnumeric(reg.norm) && length(reg.norm)==2
                     reg.norm = {reg.norm(1),reg.norm(2)}; end
                 

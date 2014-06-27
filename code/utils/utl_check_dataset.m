@@ -12,7 +12,8 @@ function sig = utl_check_dataset(sig,opts,ctx,exp)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-15
-if ~exist('opts','var')
+
+if nargin < 2
     opts.fingerprint_check = true;
     ctx = [];
     exp = [];
@@ -92,7 +93,7 @@ if isfield(sig,{'data','srate'})
         fprint = hlp_fingerprint(rmfield(sig,'tracking')); end
     
     % flush data to disk, if not already there...
-    filepath = ['temp:/flushedsets/' num2str(fprint) '.set'];
+    filepath = ['temp:/flushedsets/' num2str(fprint) '.sto'];
     if ~exist(env_translatepath(filepath),'file')
         disp('Flushing data set to disk...');
         EEG = sig; %#ok<NASGU>
@@ -100,7 +101,7 @@ if isfield(sig,{'data','srate'})
     end
     % change the expression into a re-loading
     sig = io_loadset(filepath);
-elseif isfield(sig,{'head','parts'})
+elseif isscalar(sig) && all(isfield(sig,{'head','parts'}))
     % we have an expression: check parts recursively...
     for p=1:length(sig.parts)
         sig.parts{p} = utl_check_dataset(sig.parts{p},opts,ctx,exp); end

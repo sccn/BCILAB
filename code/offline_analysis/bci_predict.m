@@ -153,15 +153,27 @@ opts = arg_define([0 2],varargin, ...
     arg({'outformat','Format','format'},'raw',{'raw','expectation','distribution','mode'},'Prediction format. See utl_formatprediction.'),...
     arg({'field','EventField'}, 'frommodel', [], 'Assumed target field. Event field to search for target markers, provided as a string.','type','char','shape','row'));
 
+% input validation
+if ~isstruct(opts.model) || ~isscalar(opts.model)
+    error('The given Model argument must be a 1x1 struct.'); end
+if ~isfield(opts.model,'tracking') || ~all(isfield(opts.model.tracking,{'prediction_function','filter_graph','prediction_channels'}))
+    error('The given Model argument is lacking some required fields (required are: .tracking.prediction_function, .tracking.filter_graph, .tracking.prediction_channels), but got: %s',hlp_tostring(opts.model,10000)); end
 
+% evaluate and check the prediction funtion
 if ischar(opts.model.tracking.prediction_function)
     % prediction function given as a string
     if strncmp(opts.model.tracking.prediction_function,'Paradigm',8)
         % class reference: instantiate
-        instance = eval(opts.model.tracking.prediction_function); %#ok<NASGU>
+        try
+            instance = eval(opts.model.tracking.prediction_function); %#ok<NASGU>
+        catch e
+            error('Failed to instantiate paradigm class (%s) with error: %s',opts.model.tracking.prediction_function,e.message);
+        end
         opts.model.tracking.prediction_function = eval('@instance.predict');
     else
         % some other function
+        if ~exist(opts.model.tracking.prediction_function,'file')
+            error('The given prediction function was not found on the MATLAB path: %s',opts.model.tracking.prediction_function); end
         opts.model.tracking.prediction_function = str2func(opts.model.tracking.prediction_function);
     end
 end
@@ -182,11 +194,11 @@ if ~has_stats(opts.metric)
 
 % uniformize data
 dataset = opts.dataset;
+if iscell(dataset)
+    error('The bci_predict function cannot be applied to dataset collections -- you need to apply it to each dataset individually.'); end
 if ~isfield(dataset,'streams')
     dataset = struct('streams',{{dataset}}); end
-
-% ... and annotate with target markers
-% (there are 3 possible TargetMarker formats to handle)
+% and annotate with target markers (there are 3 possible TargetMarker formats to handle)
 if length(opts.markers) == 1 && ischar(opts.markers{1}) && strcmp(opts.markers{1}, 'actualvalues')
     dataset.streams{1} = set_targetmarkers('Signal',dataset.streams{1},'EventMap',opts.markers,'EpochBounds',opts.model.epoch_bounds, 'EventField', opts.field );
 elseif all(cellfun('isclass',opts.markers,'char') | cellfun('isclass',opts.markers,'cell'))
@@ -194,6 +206,8 @@ elseif all(cellfun('isclass',opts.markers,'char') | cellfun('isclass',opts.marke
 else
    dataset.streams{1} = set_targetmarkers('Signal',dataset.streams{1},'EventMap',opts.markers,'EpochBounds',opts.model.epoch_bounds, 'EventField', opts.field );
 end
+% and do final checks and fixups
+dataset = utl_check_bundle(dataset);
 
 % attach the passed stream bundle to the model's filter graph
 model = opts.model;

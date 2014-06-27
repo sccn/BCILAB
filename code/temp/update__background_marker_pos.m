@@ -1,0 +1,2 @@
+background.marker_pos(:,1+mod(background.smax:background.smax+size(background_marker_pos,2)-1,background.buffer_len)) = background_marker_pos+logical(background_marker_pos)*background.mmax;
+background.mmax = background.mmax + nnz(background_marker_pos);

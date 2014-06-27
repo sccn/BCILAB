@@ -553,23 +553,23 @@ if length(varargin) == 1 && iscell(varargin{1})
     varargin = varargin{1}; end
 
 % get the options
-opts = arg_define(varargin, ...
+opts = arg_define(0,varargin, ...
     ... % core parameters ...
     arg_norep({'data','Data'},mandatory,[],'Data set. EEGLAB data set, or stream bundle, or cell array of data sets / stream bundles to use for calibration/evaluation.'), ...
-    arg({'approach','Approach'},[],[],'Computational approach. Specification of a computational approach (usually a cell array, alternatively a struct).'), ...
+    arg({'approach','Approach'},[],[],'Computational approach. Specification of a computational approach (usually a cell array, alternatively a struct).','type','expression'), ...
     arg({'markers','TargetMarkers'},{},[],'Target markers. List of types of those markers around which data shall be used for BCI calibration; each marker type encodes a different target class (i.e. desired output value) to be learned by the resulting BCI model. This can be specified either as a cell array of marker-value pairs, in which case each marker type of BCI interest is associated with a particular BCI output value (e.g., -1/+1), or as a cell array of marker types (in which case each marker will be associated with its respective index as corresponding BCI output value, while nested cell arrays are also allowed to group markers that correspond to the same output value). See help of set_targetmarkers for further explanation.'), ...
     arg({'metric','EvaluationMetric','Metric','cvmetric'},'auto',{'auto','mcr','mse','smse','sign','nll','kld','mae','max','rms','bias','medse','auc','cond_entropy','cross_entropy','f_measure'},'Evaluation metric. The metric to use in the assessment of model performance (via cross-validation); see also ml_calcloss.'), ...
-    arg({'eval_scheme','EvaluationScheme'},[],[],'Evaluation scheme. Cross-validation scheme to use for evaluation. See utl_crossval for the default settings when operating on a single recording, and utl_collection_partition when operating on a collection of data sets.'), ...
-	arg({'opt_scheme','OptimizationScheme'},{'chron',5,5},[],'Optimization scheme. Cross-validation scheme to use for parameter search (this is a nested cross-validation, only performed if there are parameters to search).'), ...
+    arg({'eval_scheme','EvaluationScheme'},[],[],'Evaluation scheme. Cross-validation scheme to use for evaluation. See utl_crossval for the default settings when operating on a single recording, and utl_collection_partition when operating on a collection of data sets.','type','expression'), ...
+	arg({'opt_scheme','OptimizationScheme'},{'chron',5,5},[],'Optimization scheme. Cross-validation scheme to use for parameter search (this is a nested cross-validation, only performed if there are parameters to search).','type','expression'), ...
     arg({'field','EventField'},'type',[],'Event field to search for target markers.'), ...
     ... % misc parameters ...
-    arg({'goal_identifier','GoalIdentifier'},{},[],'Goal identifier. This is only used for training on multiple recordings and serves to identify the data set on which the BCI shall eventually be used (e.g., Subject Id, Day, etc.).'), ...
-    arg({'epoch_bounds','EpochBounds'},[],[],'Epoch bounds override. Tight upper bound of epoch windows used for epoching (by default the parameter to set_makepos / EpochExtraction). This is only used if the cross-validation needs to run on continuous data because a continuous-data statistic needs to be computed over the training set (such as ICA).'), ...
+    arg({'goal_identifier','GoalIdentifier'},{},[],'Goal identifier. This is only used for training on multiple recordings and serves to identify the data set on which the BCI shall eventually be used (e.g., Subject Id, Day, etc.).','type','expression'), ...
+    arg({'epoch_bounds','EpochBounds'},[],[],'Epoch bounds override. Tight upper bound of epoch windows used for epoching (by default the parameter to set_makepos / EpochExtraction). This is only used if the cross-validation needs to run on continuous data because a continuous-data statistic needs to be computed over the training set (such as ICA).','shape','row'), ...
     ... % parallel computing parameters
     arg({'engine_cv','CrossvalidationResources'},'global',{'global','local','BLS','ParallelComputingToolbox','Reference'},'Cross-validation parallelization. If set to ''global'', the global BCILAB setting will be used to determine when to run this computation. If set to ''local'', the computation will be done on the local machine. Otherwise,the respective scheduler will be used to distribute the computation across a cluster.'), ...
     arg({'engine_gs','GridSearchResources'},'local',{'global','local','BLS','ParallelComputingToolbox','Reference'},'Grid search parallelization. If set to ''global'', the global BCILAB setting will be used to determine when to run this computation. If set to ''local'', the computation will be done on the local machine. Otherwise,the respective scheduler will be used to distribute the computation across a cluster.'), ...
     arg({'engine_ncv','NestedCrossvalResources'},'local',{'global','local','BLS','ParallelComputingToolbox','Reference'},'Nested Cross-validation parallelization. If set to ''global'', the global BCILAB setting will be used to determine when to run this computation. If set to ''local'', the computation will be done on the local machine. Otherwise,the respective scheduler will be used to distribute the computation across a cluster.'), ...
-    arg({'pool','ResourcePool'},'global',[],'Parallel compute resouces. If set to ''global'', the globally set BCILAB resource pool will be used, otherwise this should be a cell array of hostname:port strings.'), ...
+    arg({'pool','ResourcePool'},'global',[],'Parallel compute resouces. If set to ''global'', the globally set BCILAB resource pool will be used, otherwise this should be a cell array of hostname:port strings.','type','expression'), ...
     ... % some more misc parameters
     arg({'per_fold_models','PerFoldModels'},false,[],'Collect per-fold models. If true, models of each fold of the cross-validation will be collected (uses more memory).'), ...
     arg({'prune_datasets','PruneDatasets'},true,[],'Prune datasets from results. If true, any occurrence of a data set in the resulting model or stats struct will be replaced by its symbolic expression or a placeholder string.'), ...
@@ -584,7 +584,7 @@ if ~hlp_resolve('fingerprint_create',true)
 if ~hlp_resolve('fingerprint_check',true)
     disp('WARNING: Data fingerprint checking is currently disabled (fingerprint_check set to 0). You can re-enable it by calling exp_set_scoped(@fingerprint_check,1) in the command line.'); end
 
-% --- pre-process the inputs ---
+% --- validate and pre-process the inputs ---
 
 % parse the approach (either it's a paradigm name string, a cell array, or a struct)
 if ischar(opts.approach)
@@ -592,26 +592,30 @@ if ischar(opts.approach)
 elseif iscell(opts.approach) && ~isempty(opts.approach)
     opts.approach = struct('paradigm',opts.approach{1}, 'parameters',{opts.approach(2:end)}); 
 elseif ~all(isfield(opts.approach,{'paradigm','parameters'}))
-    error('The approach must be given either as struct with fields ''paradigm'' and ''parameters'' or as a cell array of the form {paradigmname, param1, param2, param3, ...}'); 
+    error('The approach must be given either as struct with fields ''paradigm'' and ''parameters'' or as a cell array of the form {paradigmname, param1, param2, param3, ...}, but was: %s',hlp_tostring(opts.approach));
 end
-
 
 % parse the paradigm identifier of the approach
-paradigm_name = opts.approach.paradigm;
-if ischar(paradigm_name)
-    if exist(['Paradigm' paradigm_name],'class')
-        paradigm_name = ['Paradigm' paradigm_name]; end
-    if ~exist(paradigm_name,'class')
-        error('A paradigm class with the name (%s) was not found.',paradigm_name); end
-elseif isa(paradigm_name,'function_handle')
-    info = functions(paradigm_name);
-    paradigm_name = class(info.workspace{1}.instance);
-    if ~strncmp(paradigm_name,'Paradigm',8)
-        error('The Paradigm argument must be the name of a Paradigm class.'); end
+paradigm_ref = opts.approach.paradigm;
+if ischar(paradigm_ref)
+    if exist(['Paradigm' paradigm_ref],'class')
+        paradigm_ref = ['Paradigm' paradigm_ref]; end
+    if ~exist(paradigm_ref,'class')
+        error('A paradigm class with the name (%s) was not found.',paradigm_ref); end
+elseif isa(paradigm_ref,'function_handle')
+    info = functions(paradigm_ref);
+    paradigm_ref = class(info.workspace{1}.instance);
+    if ~strncmp(paradigm_ref,'Paradigm',8)
+        error('The paradigm referred to by the given Approach must be the name of a Paradigm class (i.e., start with ''Paradigm''), but was: %s',paradigm_ref); end
 else
-    error('The Paradigm argument must be the name of a class (optionally omitting the "Paradigm" prefix).');
+    error('The paradigm referred to by the given Approach must be the name of a class (optionally omitting the "Paradigm" prefix), but was: %s',hlp_tostring(paradigm_ref));
 end
-instance = eval(paradigm_name); %#ok<NASGU>
+
+try
+    instance = eval(paradigm_ref); %#ok<NASGU>
+catch e
+    error('Failed to instantiate paradigm class (%s) with error: %s',paradigm_ref,e.message);
+end
 calibrate_func = eval('@instance.calibrate');
 predict_func = eval('@instance.predict');
 
@@ -640,6 +644,8 @@ if isempty(opts.epoch_bounds)
         % parameter search, or if different bounds are assigned to multiple streams) plus some slack
         opts.epoch_bounds = [min(bounds(:,1))-0.1 max(bounds(:,2))+0.1];
     end
+elseif ~isequal(size(opts.epoch_bounds),[1 2]) || opts.epoch_bounds(1) > opts.epoch_bounds(2)    
+    error('The give EpochBounds argument, when non-empty, must be given as [lower,upper], but was: %s',hlp_tostring(opts.epoch_bounds));
 end
 
 paradigm_parameters = {paradigm_parameters};
@@ -650,15 +656,23 @@ paradigm_parameters = {paradigm_parameters};
 
 % turn data into a trivial collection, if necessary
 if isstruct(opts.data)
-    opts.data = {opts.data}; end
+    opts.data = {opts.data};
+elseif ~iscell(opts.data) || ~all(cellfun('isclass',opts.data,'struct'))
+    error('The given Data argument must be either a struct or a cell array of structs, but was: %s',hlp_tostring(opts.data,1000));
+end
 
 % do some pre-processing and uniformization of the data
 for k=1:length(opts.data)
     % turn each data set into a stream bundle, if necessary
     if ~isfield(opts.data{k},'streams')
-        opts.data{k} = struct('streams',{opts.data(k)}); end
+        opts.data{k} = struct('streams',{opts.data(k)}); 
+    elseif ~iscell(opts.data{k}.streams) || isempty(opts.data{k}.streams) || ~all(cellfun('isclass',opts.data{k}.streams,'struct'))
+        error('The given dataset''s .streams field must be a nonempty cell array of structs, but was: %s',hlp_tostring(opts.data{k}.streams,10000));
+    end
     % annotate target markers in 1st stream according to the specified event types
     if ~isempty(opts.markers)
+        if ~iscell(opts.markers)
+            error('The given TargetMarkers argument must be a cell array, but was: %s',hlp_tostring(opts.markers,1000)); end
         if isempty(opts.epoch_bounds)
             disp('Note: TargetMarkers were specified, but epoch bounds could not be deduced from the data (likely processing is not using epoch extraction). Assuming some default bounds [-0.5 0.5].'); 
             opts.epoch_bounds = [-0.5 0.5];
@@ -739,7 +753,7 @@ crossval_args = [{rmfield(opts,{'data','approach','markers','goal_identifier','e
 % annotate the result with additional info
 stats.is_result = true;
 stats.timestamp = now;
-model.paradigm = paradigm_name;
+model.paradigm = paradigm_ref;
 model.options = paradigm_parameters;
 model.source_data = source_data;
 model.control_options = rmfield(opts,'data');
@@ -747,7 +761,7 @@ model.epoch_bounds = opts.epoch_bounds;
 if isfield(stats,'per_fold') && isfield(stats.per_fold,'model')
     for k=1:length(stats.per_fold)
         if ~isempty(stats.per_fold(k).model)
-            stats.per_fold(k).model.paradigm = paradigm_name; end
+            stats.per_fold(k).model.paradigm = paradigm_ref; end
     end
 end
 % remove some additional data overhead from model & stats to keep them small
@@ -757,7 +771,7 @@ if opts.prune_datasets
 end
 model = utl_prune_handles(model);
 stats = utl_prune_handles(stats);
-model.tracking.prediction_function = paradigm_name;
+model.tracking.prediction_function = paradigm_ref;
 stats.model = model;
 
 
@@ -798,3 +812,6 @@ elseif iscell(x)
     for c=1:numel(x)
         res = [res collect_instances(x{c},field)]; end
 end
+
+
+    

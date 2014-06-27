@@ -1,5 +1,5 @@
 function [closest,rest] = utl_collection_closest(collection,identifier,varargin)
-% find the best-matching data set(s) in a collection for a given identifier record
+% Find the best-matching data set(s) in a collection for a given identifier record
 %
 % In:
 %   Collection : data set collection
@@ -16,13 +16,15 @@ function [closest,rest] = utl_collection_closest(collection,identifier,varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-08-29
 
+if ~iscell(collection) || ~all(cellfun('isclass',collection,'struct'))
+    error('The given Collection argument must be a cell array of structs.'); end
 
 if ~isempty(identifier)
     if ~isscalar(identifier) || ~isstruct(identifier)
         error('The identifier should be a 1x1 struct'); end
     
     % our default ordering hierarchy of dis-similarity (first is largest granularity, last is finest)
-    scale_orders = {'subject','day','montage','session','recording'};
+    scale_orders = {'subject','day','montage','session','recording','block'};
     
     
     % first tag all collection items with a tracking index

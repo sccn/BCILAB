@@ -1,7 +1,9 @@
 function [chunk,p] = onl_filtered(p,desired_length,suppress_output,set_online_scope)
 % Obtain processed data from a filter pipeline online.
+% [Chunk,Pipeline] = onl_filtered(Pipeline,DesiredLength,SuppressOutput,SetOnlineScope)
 %
-% This function returns a chunk of most recent filtered output from a filter pipeline.
+% This function returns a chunk of most recent filtered output from a filter pipeline data structure 
+% previously created with onl_newpipeline.
 % 
 % A filter pipeline is a recursive data structure (like a tree) whose nodes are the filter stages and 
 % whose edges represent the output of one stage going into the input of another stage. The leaf
@@ -9,7 +11,7 @@ function [chunk,p] = onl_filtered(p,desired_length,suppress_output,set_online_sc
 % nodes are evaluated by calling the filter function on its input data (recursively).
 %
 % In:
-%   Pipeline : previous filter pipeline struct
+%   Pipeline : filter pipeline struct to update and to read data from.
 %
 %   DesiredLength : number of samples to get (or 0 to get all new samples) (default: 0)
 %
@@ -53,12 +55,28 @@ function [chunk,p] = onl_filtered(p,desired_length,suppress_output,set_online_sc
 if nargin < 4
     set_online_scope = true;
     if nargin < 1
-        error('You need to pass a pipeline structure.'); end
+        error('You need to pass a pipeline structure to onl_predict.'); end
     if nargin < 2
-        desired_length = 0; end
+        desired_length = 0; 
+    elseif ~(isnumeric(desired_length) && isscalar(desired_length)) || islogical(desired_length)
+        error('The given DesiredLength argument must be a numeric scalar, but was: %s',hlp_tostring(desired_length,10000));
+    end
     if nargin < 3
-        suppress_output = true; end
+        suppress_output = true; 
+    elseif ~islogical(suppress_output)
+        error('The given SuppressOutput argument must be logical (true or false), but was: %s',hlp_tostring(suppress_output,10000));
+    end
+else
+    if ~(isnumeric(desired_length) && isscalar(desired_length)) || islogical(desired_length)
+        error('The given DesiredLength argument must be a numeric scalar, but was: %s',hlp_tostring(desired_length,10000)); end
+    if ~islogical(suppress_output)
+        error('The given SuppressOutput argument must be logical (true or false), but was: %s',hlp_tostring(suppress_output,10000)); end
+    if ~islogical(set_online_scope)
+        error('The given SetOnlineScope argument must be logical (true or false), but was: %s',hlp_tostring(set_online_scope,10000)); end
 end
+
+if ~all(isfield(p,{'head','parts','subnodes'}))    
+    error('The given Pipeline argument is not a valid filter pipeline (must be a struct with fields .head, .parts and .subnodes).'); end
 
 % run update_pipeline() with appropriate options
 if suppress_output

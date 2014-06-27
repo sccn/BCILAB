@@ -36,11 +36,11 @@ else
             D = exp(-dist_squared(X,V));
         case 'poly'
             D = (X*V' + 1).^lam;
-        case 'laplace'
-            D = exp(-sqrt(dist_squared(X,V)));
         case 'cauchy'
             D = 1./(1+dist_squared(X,V));
+        case 'laplace'
+            D = exp(-sqrt(dist_squared(X,V)));
         otherwise
-            error('unknown kernel type');
+            error('Unknown kernel type: %s',hlp_tostring(type));
     end
 end

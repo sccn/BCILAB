@@ -64,7 +64,7 @@ function res = arg_nogui(varargin)
 if nargin == 1
     res = {'expand_arg',[varargin {[],[],[],'displayable',false}]};
 elseif nargin >= 4
-    res = {'expand_arg',[varargin {'displayable',false}]};
+    res = {'expand_arg',[varargin(1:4) {'displayable',false} varargin(5:end)]};
 elseif nargin == 2
     res = {'expand_arg',[varargin {[],[],'displayable',false}]};
 else

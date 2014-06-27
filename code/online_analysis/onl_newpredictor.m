@@ -1,6 +1,6 @@
 function id = onl_newpredictor(name, model, streams, predict_at)
 % Create a new predictor from a predictive model, and tie it to some stream(s).
-% Id = onl_newpredictor(Name,Model,Streams,PredictAt)
+% Id = onl_newpredictor(PredictorName,Model,StreamNames,PredictAt)
 %
 % A predictor is created from a predictive model (which was previously calibrated via bci_train or
 % the GUI), and linked to streams, from which it reads data. Once data is available (after some data
@@ -8,24 +8,19 @@ function id = onl_newpredictor(name, model, streams, predict_at)
 % recently supplied data.
 % 
 % In:
-%   Name : name of the predictor to be created; a variable of this name will be created in the base
-%          workspace to hold the predictor's data; calling 'clear' in the workspace will erase the
-%          predictor.
+%   PredictorName : name of the predictor to be created; a variable of this name will be created in 
+%                   the MATLAB base workspace to hold the predictor's state.
 %
-%   Model : A model to be turned into a predictor; this can be a model struct, or a base workspace 
-%           variable name, or a file name, or a cell array of {file name, variable name} to refer
-%           to a variable inside a file. Models are calibrated via bci_train or the GUI.
+%   Model : A model data structure (as obtained from bci_train) based on which the predictor shall be 
+%           created; typically this is a model struct, but for convenience it can be a file name, 
+%           variable name in the base workspace, or a cell array of {file name, variable name} to 
+%           refer to a variable inside a .mat file. The model is not modified by this function.
 %
-%   Streams : optional names of streams (previously created with onl_newstream) to consider as
-%             possible data sources; any stream that contains channels that are needed by the
-%             predictor will be linked to it (assuming that the choice of stream to use is not
-%             ambiguous). 
-%
-%             The identification of needed channels is primarily done on the basis of the channel
-%             labels -- if a stream has channels with labels that are required by a filter pipeline,
-%             it will be used as a source for this pipeline. The framework attempts to gracefully
-%             handle cases where a stream only provides a subset of the channels that were in the 
-%             training set and the model only effectively operates on this subset via flt_selchans.
+%   SourceStreamNames : Optional names of stream data structures in the MATLAB base workspace to
+%                       consider as possible data sources (previously created with onl_newstream); 
+%                       if a stream contains all channels that are needed by the predictor, or 
+%                       alternatively has the right number and type of channels it will be considered 
+%                       as a potential source stream unless ambiguous.
 %
 %   PredictAt : Determines where predictions are made when onl_predict is called; if {}, the
 %               prediction is made at the most recently added sample of the stream, and if nonempty
@@ -33,7 +28,7 @@ function id = onl_newpredictor(name, model, streams, predict_at)
 %               array of event types (which may also contain wildcard characters).
 %
 % Out:
-%   Id : a unique id number for the predictor; same as name.predictorid
+%   Id : a unique id number for the predictor; same as PredictorName.predictorid
 %
 % Notes:
 %   When a detector gets linked to a stream, it will stop to function after the stream has been 

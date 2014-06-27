@@ -7,15 +7,15 @@ function res = set_partition(varargin)
 % of the raw samples, the target events, or of the epochs), and returns a reduced (subset) data set.
 % 
 % In:
-%   Signal   : continuous or epoched input data set
+%   Signal   : Continuous or epoched input data set.
 %
-%   IndexSet : either [] or a vector of indices;
+%   IndexSet : Either [] or a vector of indices;
 %               * if [], the function returns the cardinality (highest allowed index) of the index set,
-%               * if a vector of indices, the function returns the data set reduced to those indices
+%               * if a vector of indices, the function returns the data set reduced to those indices;
 %                 if the indices refer to target events, but the data is continuous, then the 
 %                 partition function tries to respect the implied epoch bounds when partitioning
 %
-%   EpochBounds : only required when partitioning a continuous data set based on target events; 
+%   EpochBounds : Only required when partitioning a continuous data set based on target events; 
 %                 this is done with the help of implied epoch bounds (as in set_makepos)
 %
 % Out:
@@ -48,11 +48,13 @@ declare_properties('independent_channels',true,'independent_trials',false);
 
 arg_define(varargin, ...
     arg_norep({'signal','Signal'}), ...
-    arg({'idxset','IndexSet'},[],[], 'Index set. This is either [] (indicating that the function should return the index set cardinality), or a vector of indices (indicating that the function shall partition the data set accordingly).'), ...
-    arg({'epoch_bounds','EpochBounds'},[],[], 'Epoch bounds. Only required when partitioning on a continuous data set based on target events; this is performed using the epoch bounds (as in set_makepos).'));
+    arg({'idxset','IndexSet'},[],uint32([1 1000000]), 'Index set. This is either [] (indicating that the function should return the index set cardinality), or a vector of indices (indicating that the function shall partition the data set accordingly).','shape','row'), ...
+    arg({'epoch_bounds','EpochBounds'},[],[], 'Epoch bounds. Only required when partitioning on a continuous data set based on target events; this is performed using the epoch bounds (as in set_makepos).','shape','row'));
 
-is_continuous = isempty(signal.epoch) && (isempty(signal.data) || size(signal.data,3) == 1); %#ok<NODEF>
-
+% input validation
+utl_check_fields(signal,{'data','srate','event'},'signal','signal'); %#ok<NODEF>
+is_continuous = (~isfield(signal,'epoch') || isempty(signal.epoch)) && (isempty(signal.data) || size(signal.data,3) == 1); 
+    
 if isempty(idxset) %#ok<NODEF>
     % --- calc index set size ---
     
@@ -89,7 +91,7 @@ else
                 %  set_targetmarkers, and assuming that the given epoch bounds are an upper bound of those
                 %  used in set_makepos)
                 if isempty(epoch_bounds) %#ok<NODEF>
-                    disp_once('Warning: Attempting to partition a continuous data set based on target events, but no EpochBounds argument is present. Assuming 1-sample epochs.'); 
+                    disp_once('WARNING: Attempting to partition a continuous data set based on target events, but no EpochBounds argument is present. Assuming 1-sample epochs.'); 
                     ival = 0;
                 else
                     % make sure that the epoch bounds include the event itself (and add a bit more slack 
@@ -110,6 +112,14 @@ else
                 deselect_mask = false(1,size(signal.data,2));
                 
                 % find all target event latencies and the selected latencies
+                if ~isfield(signal.event,'latency')
+                    error('The given signal is lacking a .event.latency field.'); end
+                latency_numels = cellfun('prodofsize',{signal.event.latency});
+                if any(latency_numels == 0)
+                    error('The signal contains events with an empty .latency field; this is not permitted.'); end
+                if any(latency_numels ~= 1)
+                    error('The signal contains events with a .latency value that is not a scalar; this is not permitted.'); end
+                
                 targlats = round([signal.event(targetmask).latency]);                
                 selected = targlats(idxset);
                 

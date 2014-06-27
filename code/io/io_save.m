@@ -6,7 +6,9 @@ function io_save(fname, varargin)
 % especially for long-running batch scripts.
 %
 % In:
-%   Filename    :   Platform-Independent file name.
+%   Filename    :   Platform-Independent file name. If no ending is given, .mat will be assumed.
+%                   If the ending is .sto, then BCILAB's Storage file format will be used (10-50x as
+%                   fast as .mat).
 %
 %   Arguments...:   optional arguments to save; in addition to what is supported by save(), the following options are allowed:
 %                   -makedirs   : make directories (recursively), if possible
@@ -17,7 +19,7 @@ function io_save(fname, varargin)
 %                   -prunehandles : prune unreferenced variables from anonymous function handles; these are normally not used but saved anyway since cases
 %                                   can be constructed in which they are actually needed by the function (e.g. using evalin('caller',...))
 %                                   since these can be extremely large, they can easily cause save() to fail
-%                   -serialized : compress the data using hlp_serialize (often faster and smaller)
+%                   -serialized : compress the data using hlp_serialize
 %                                 (when loading with io_load, the data will be automatically uncompressed,
 %                                 not so when using load directly)
 %
@@ -43,6 +45,8 @@ function io_save(fname, varargin)
 
 % translate the file name
 fname = env_translatepath(fname);
+if length(fname)<4 || ~any(fname(end-3:end-1)=='.')
+    fname = [fname '.mat']; end
 
 % parse arguments...
 saveargs = {'-v7.3'}; % args to save()
@@ -50,14 +54,15 @@ variables = {};       % names of variables to save (subset of saveargs)
 makedirs = false;     % whether to create directories
 retryinput = false;   % whether to ask the user for a retry
 prunehandles = false; % whether to prune unreferenced workspace variables from function handles in arguments
-serialized = false;
+serialized = false;   % whether to write variables as serialized
+nooverwrite = false;  % whether to disable overwriting existing files
 fileattriblist = [];  % the list of attributes for files & directories
 i = 1;
 while i <= length(varargin)
     arg = varargin{i};
     if ischar(arg) && ~isempty(arg) && arg(1) == '-'
         % we are dealing with an option argument
-        switch(arg)
+        switch(strtrim(arg))
             case '-makedirs'
                 makedirs = true;
             case '-retryinput'
@@ -69,6 +74,8 @@ while i <= length(varargin)
                 prunehandles = true;
             case {'-serialized','-serialize'}
                 serialized = true;
+            case '-nooverwrite'
+                nooverwrite = true;
             otherwise
                 % regular argument; append it
                 saveargs{end+1} = arg;
@@ -133,10 +140,20 @@ while 1
         end
     end
     
-    % now save
+    % we have copied the variables to be saved into the 'wkspace' variable; now save
     try
-        % we have copied the variables to be saved into the 'wkspace' variable...
-        save_workspace(fname,saveargs,wkspace);
+        if nooverwrite && exist(fname,'file')
+            return; end
+        if length(fname)>4 && strcmpi(fname(end-3:end),'.sto')
+            % save as .sto file (fast)
+            bytes = hlp_serialize(wkspace);
+            f = fopen(fname,'w');
+            fwrite(f,bytes);
+            fclose(f);
+        else            
+            % save as .mat file (slow)
+            save_workspace(fname,saveargs,wkspace);
+        end
         if ~isempty(fileattriblist)
             % try to set file fileattriblist...
             if ~isempty(fileattriblist)

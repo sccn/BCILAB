@@ -4,7 +4,6 @@ function cvx_setup( varargin )
 %    This function is to be called any time CVX is installed on a new machine,
 %    to insure that the paths are set properly and the MEX files are compiled.
 
-disp( ' ' );
 dd = pwd;
 
 % Clear out the global CVX structure
@@ -240,63 +239,9 @@ elseif exist( sedpath, 'dir' ),
     end
 end
 
-path(newpath);
-disp( 'Testing the cvx distribution. If this script aborts with' );
-disp( 'an error, please report the error to the authors.' );
-disp( '-------------------------------------------------------------' );
-
-m = 16; n = 8;
-A = randn(m,n);
-b = randn(m,1);
-xls = A \ b;
-cvx_begin
-    cvx_quiet(true);
-    variable('x(n)');
-    minimize( norm(A*x-b) );
-cvx_end
 try
+    path(newpath);
     cvx_clearpath;
-end
-
-if norm( x - xls ) > 0.01 * norm( x ),
-    err = norm( x - xls ) / norm( x );
-    disp( '-------------------------------------------------------------' );
-    fprintf( 1, 'cvx differs from native Matlab by %g%%\n', 100 * err );
-    disp( 'Unexpected numerical errors were found when solving the test problem.' );
-    disp( 'Please report this to the authors.' );
-    disp( ' ' );
-    return
-else
-    disp( 'No errors! cvx has been successfully installed.' );
-    disp( ' ' );
-end
-
-if ~strcmp(newpath,oldpath),
-    disp( 'NOTE: The MATLAB path has been updated to point to the cvx distribution.' );
-    disp( 'In order to use cvx regularly, you must save this new path definition.' );
-    switch computer,
-        case 'PCWIN',
-        case 'MAC',
-        case 'MACI',
-            disp( 'To accomplish this, type the command' );
-            if ver >= 7,
-                disp( '    savepath' );
-                disp( 'at the MATLAB prompt. Alternatively, type the command' );
-            end
-            disp( '    pathtool' );
-            disp( 'at the MATLAB prompt, which brings up the ''Set Path'' dialog. Press' );
-            disp( 'the ''Save'' button, and then the ''Close'' button.' );
-        otherwise,
-            disp( 'To accomplish this, add these lines to your startup.m file:' );
-            for k = 1 : length( delepaths ),
-                disp( [ '    rmpath ', delepaths{k} ] );
-            end
-            for k = length( addpaths ) : -1 : 1,
-                disp( [ '    addpath ', addpaths{k} ] );
-            end
-            disp( 'Consult the MATLAB documentation if necessary.' );
-    end
-    disp( ' ' );
 end
 
 % Copyright 2010 Michael C. Grant and Stephen P. Boyd.

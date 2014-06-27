@@ -185,7 +185,7 @@ if ~isdeployed
         retain = cellfun('isempty',strfind(paths,bad_path));
         path(sprintf(['%s' pathsep],paths{retain}));
         if ~all(retain)
-            disp('  BCILAB sub-directories have been detected in the MATLAB path, removing them.'); end
+            disp('BCILAB sub-directories have been detected in the MATLAB path, removing them.'); end
     end
 
     % add core function paths
@@ -235,6 +235,8 @@ if ischar(opts.worker)
 elseif ~isequal(opts.worker,false)
     fprintf('Worker was given as a %s with value %s\n',class(opts.worker),hlp_tostring(opts.worker));
 end
+if ~isequal(opts.worker,false) && ~iscell(opts.worker)
+    error('The given worker argument must be a cell array or false.'); end
 
 if ischar(opts.parallel)
     try
@@ -314,15 +316,15 @@ for d=1:length(opts.cache)
         import java.io.*; 
         % try to add a free space checker (Java File object), which we use to check the quota, etc.
         location.space_checker = File(opts.cache{d}.dir);
-        filename = [opts.cache{d}.dir filesep '__probe_cache_ ' num2str(round(rand*2^32)) '__.mat'];
+        filename = [opts.cache{d}.dir filesep '__probe_cache_ ' num2str(round(rand*2^32)) '__.sto'];
         if exist(filename,'file') 
             delete(filename); end
         oldvalue = location.space_checker.getFreeSpace;
         testdata = double(rand(1024)); %#ok<NASGU>
         objinfo = whos('testdata');
         % do a quick read/write test
-        t0=tic; save(filename,'testdata'); location.writestats = struct('size',{0 objinfo.bytes},'time',{0 toc(t0)});
-        t0=tic; load(filename); location.readstats = struct('size',{0 objinfo.bytes},'time',{0 toc(t0)});
+        t0=tic; io_save(filename,'testdata'); location.writestats = struct('size',{0 objinfo.bytes},'time',{0 toc(t0)});
+        t0=tic; io_load(filename); location.readstats = struct('size',{0 objinfo.bytes},'time',{0 toc(t0)});
         newvalue = location.space_checker.getFreeSpace;
         if exist(filename,'file') 
             delete(filename); end
@@ -388,6 +390,8 @@ hlp_diskcache('statistics','folder',opts.temp,'subdir','statistics','exactmatch_
 hlp_diskcache('general','folder',opts.temp,'subdir','general');
 hlp_diskcache('finegrained','folder',opts.temp,'subdir','finegrained');
 hlp_diskcache('temporary','folder',opts.temp,'subdir','temporary');
+hlp_diskcache('montages','folder',opts.temp,'subdir','montages','exactmatch_cutoff',0);
+hlp_diskcache('montage_quality','folder',opts.temp,'subdir','montages','exactmatch_cutoff',0,'spot_hashing',true);
 
 
 % show toolbox status

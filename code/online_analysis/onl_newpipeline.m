@@ -1,25 +1,30 @@
 function pipeline = onl_newpipeline(filterapp, streams, needed_channels)
 % Create a new filter pipeline from a filter expression and a set of stream names to bind to.
-% Pipeline = onl_newpipeline(FilterExpression, StreamNames, NeededChannels)
+% Pipeline = onl_newpipeline(FilterApplication, StreamNames, NeededChannels)
 %
-% This is an expert function that is not needed for normal BCILAB operation. See onl_filtered
-% for more details.
+% Expert function: create a new filter pipeline data structure that can be used to perform signal
+% processing online, using onl_filtered. Note that for normal BCI usage this function does not have
+% to be called manually since a filter pipeline is a part of a predictor, and will be created and
+% automatically managed by onl_newpredictor and onl_predict. This function is only useful if one
+% wants to run nothing but a series of filters (flt_ functions) online, with no machine learning,
+% BCI paradigms, feature extraction, or prediction involved.
 %
 % In:
-%   FilterApplication : The result of applying some filter chain to a calibration data set.
-%                       This contains as an annotation the necessary information to resume the 
-%                       processing online on raw data (e.g. filter state, etc.).
+%   FilterApplication : The result of applying some filter functions to a calibration data set.
+%                       This contains as an annotation the necessary information to replicate the 
+%                       applied processing online on raw data (e.g. filter state, etc.).
 %
-%   Streams : optional names of streams (previously created with onl_newstream) to consider as
-%             possible data sources; any stream that contains channels that are needed by the
-%             predictor will be linked to it (assuming that the choice of stream to use is not
-%             ambiguous). 
+%   StreamNames : optional names of stream data structures in the MATLAB base workspace to consider
+%                 as possible data sources (previously created with onl_newstream); any stream that 
+%                 contains channels that are needed by the predictor will be linked to it (assuming 
+%                 that the choice of stream to use is not ambiguous). 
 %
-%             The identification of needed channels is primarily done on the basis of the channel
-%             labels -- if a stream has channels with labels that are required by a filter pipeline,
-%             it will be used as a source for this pipeline. The framework attempts to gracefully
-%             handle cases where a stream only provides a subset of the channels that were in the 
-%             training set and the model only effectively operates on this subset via flt_selchans.
+%                 The identification of needed channels is primarily done on the basis of the channel
+%                 labels -- if a stream has channels with labels that are required by a filter pipeline,
+%                 it will be used as a source for this pipeline. The framework attempts to gracefully
+%                 handle cases where a stream only provides a subset of the channels that were in the 
+%                 training set and where the model effectively operates on only this subset via 
+%                 flt_selchans.
 %
 %   NeededChannels : optionally a cell array of channel names that shall be present in the output of 
 %                    the pipeline (default: all)
@@ -38,8 +43,8 @@ function pipeline = onl_newpipeline(filterapp, streams, needed_channels)
 %                                2012-05-13
 
 % handle the pipeline description (filter application)
-if ~exist('filterapp','var')
-    error('Please specify a filter expression to wrap into a pipeline.'); end
+if nargin < 1
+    error('At least the FilterApplication argument must be given.'); end
 
 % take the online expression if not yet done so
 if isfield(filterapp,'tracking') && isfield(filterapp.tracking,'online_expression')
@@ -82,8 +87,7 @@ try
     % initialize misc properties of the pipeline
     pipeline = init_pipeline(pipeline);
 catch e
-    hlp_handleerror(e);
-    error('BCILAB:onl_newpipeline:unexpected','Could not match the channels required by the pipeline with what the stream provides.');
+    error('BCILAB:onl_newpipeline:unexpected','Could not match the channels required by the pipeline with what the stream provides with error: %s',hlp_handleerror(e));
 end
 
 

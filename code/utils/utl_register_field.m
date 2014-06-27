@@ -32,16 +32,20 @@ if nargin < 2
 if nargin < 3
     error('You need to pass in the field name.'); end
 
-switch fieldtype
-    case 'timeseries'
-        if ~isfield(signal,'tracking') || ~isfield(signal.tracking,'timeseries_fields')
-            signal.tracking.timeseries_fields = {fieldname};
-        else
-            signal.tracking.timeseries_fields = [signal.tracking.timeseries_fields {fieldname}];
-        end
-    otherwise
-        error(['Unrecognized field type passed in: ' hlp_tostring(fieldtype)]);
+if isequal(fieldtype,'timeseries')
+    if ~isfield(signal,'tracking') || ~isfield(signal.tracking,'timeseries_fields')
+        signal.tracking.timeseries_fields = {fieldname};
+    else
+        signal.tracking.timeseries_fields = [signal.tracking.timeseries_fields {fieldname}];
+    end
+elseif ischar(fieldtype)
+    error('Unrecognized field type passed in: %s',fieldtype);
+else
+    error('The second input needs to be type of field to append (e.g.,''timeseries''), but was: %s',hlp_tostring(fieldtype));
 end
 
 if nargin >= 4
-    signal.(fieldname) = fieldvalue; end
+    signal.(fieldname) = fieldvalue;
+elseif ~isvarname(fieldname)
+    error('The given Fieldname argument is not a valid field name: %s',hlp_tostring(fieldname));
+end

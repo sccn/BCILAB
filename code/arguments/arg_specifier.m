@@ -63,6 +63,9 @@ spec = struct(...
     'empty_overwrites',{true}, ...  % whether an empty value does replace the default (or any previous) value (true/false)
     'to_double',{false}, ...        % convert numeric values to double before returning them to the function (true/false)
     'skippable',{false}, ...        % whether the argument is supposed to be skipped under some circumstances in positional argument lists (true/false) (INTERNAL)
+    'typecheck',{true}, ...         % whether to perform a type check upon assignment of a value
+    'shapecheck',{true}, ...        % whether to perform a shape check upon assignment of a value
+    'rangecheck',{true}, ...        % whether to perform a range check upon assignment of a value
     ... % misc fields
     'version',{1.1} ...             % version of the argument specification
     );
@@ -72,7 +75,7 @@ for k=1:2:length(varargin)
     if isfield(spec,varargin{k})
         spec.(varargin{k}) = varargin{k+1};
     else
-        error('BCILAB:arg_specifier:no_new_fields','It is not allowed to introduce fields in an argument declaration that are not declared in arg_specifier: %s',varargin{k});
+        error('BCILAB:arg_specifier:no_new_fields','It is not allowed to introduce fields in an argument declaration that are not declared in arg_specifier: %s',hlp_tostring(varargin{k},1000));
     end
 end
 

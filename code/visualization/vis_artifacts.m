@@ -121,13 +121,13 @@ if isscalar(opts.line_width)
 
 % optionally pick a subrange to work on
 if ~isempty(opts.channel_subset)
-    old = pop_select(old,'channel',opts.channel_subset);
-    new = pop_select(new,'channel',opts.channel_subset);
+    old = exp_eval(flt_selchans(old,opts.channel_subset));
+    new = exp_eval(flt_selchans(new,opts.channel_subset));
 end
 
 if ~isempty(opts.time_subset)
-    old = pop_select(old,'time',opts.time_subset);
-    new = pop_select(new,'time',opts.time_subset);
+    old = exp_eval(set_selinterval(old,time_subset));
+    new = exp_eval(set_selinterval(new,opts.time_subset));
 end
 
 if opts.equalize_channel_scaling    
