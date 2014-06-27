@@ -92,7 +92,8 @@ function run_readlsl(varargin)
         arg({'marker_placement','MarkerPlacement'}, 'nearest', {'nearest','interpolated'}, 'Marker placement rule. Controls how the latency of markers is determined -- can use interpolated placement, which is based on the sampling rate (but requires that the sampling rate is well within 1% of the true value) or placement next to the nearest sample (works for streams that have irregular sampling rate).','guru',true), ...
         arg({'clock_alignment','ClockAlignment'}, 'median', {'trimmed','median','robust','linear','raw','zero'}, 'Clock alignment algorithm. The algorithm used to smooth clock alignment measurements; if the clock drift between data and markers is assumed to be low (e.g., come from same machine), then median is the safest choice. If drift is substantial (e.g., on a networked installation) then one may use linear to correct for that, but if the network is under heavy load it is better to use the trimmed or robust estimator. The trimmed estimator survives occasional extreme load spikes, and the robust estimator further improves that tolerance by 2x. The only issue with the robust estimator is that whenever it updates (every 5s) it delays the BCI output by an extra 15ms of processing time. Most estimators other than median can introduce a few-ms jitter between data and markers. Zero disables the time-correction.','guru',true), ...
         arg({'jitter_correction','JitterCorrection'}, true, [], 'Correct for jittered time stamps. This corrects jitter in the time stamps of the data stream chunks assuming that the underlying sampling rate is regular.','guru',true), ...
-        arg({'forget_halftime','ForgetHalftime'}, 30, [1 10 60 Inf], 'Forget factor as information half-life. In estimating the effective sampling rate a sample which is this many seconds old will be weighted 1/2 as much as the current sample in an exponentially decaying window.','guru',true), ...
+        arg({'forget_halftime','ForgetHalftime'}, 30, [1 20 60 Inf], 'Forget factor as information half-life. In estimating the effective sampling rate a sample which is this many seconds old will be weighted 1/2 as much as the current sample in an exponentially decaying window.','guru',true), ...
+        arg({'clock_est_window','ClockEstimationWindow'}, 30, [1 10 120 Inf], 'Clock alignment estimation window. This is the time window over which clock alignment between the marker stream and data stream will be estimated (using the estimator selected by the ClockAlignment option). Note that JitterCorrection, when enabled, will implicitly also smooth any jitter in the clock alignment.','guru',true), ...
         arg_deprecated({'property','SelectionProperty'}, '',[],'Selection property. The selection criterion by which the desired device is identified on the net. This is a property that the desired device must have (e.g., name, type, desc/manufacturer, etc.'), ...
         arg_deprecated({'value','SelectionValue'}, '',[],'Selection value. This is the value that the desired device must have for the selected property (e.g., EEG if searching by type, or Biosemi if searching by manufacturer).'));
 
@@ -179,7 +180,8 @@ function run_readlsl(varargin)
     function result = read_data(data_inlet,marker_inlet,always_double)
         % get a new chunk of data
         [chunk,stamps] = data_inlet.pull_chunk();
-        stamps = stamps + data_inlet.time_correction([],opts.clock_alignment);
+        data_clock = data_inlet.time_correction([],opts.clock_alignment,opts.clock_est_window);
+        stamps = stamps + data_clock;
         if opts.jitter_correction
             stamps = update_regression(stamps); end
         if always_double
@@ -187,12 +189,12 @@ function run_readlsl(varargin)
         
         if ~isempty(marker_inlet) && ~isempty(stamps)
             % receive any available markers
-            corr = marker_inlet.time_correction([],opts.clock_alignment);
+            marker_clock = marker_inlet.time_correction([],opts.clock_alignment,opts.clock_est_window);
             while true
                 [sample,ts] = marker_inlet.pull_sample(0.0);
                 if ts                
                     marker_data(end+1) = sample; %#ok<AGROW>
-                    marker_stamps(end+1) = ts+corr; %#ok<AGROW>
+                    marker_stamps(end+1) = ts + marker_clock; %#ok<AGROW>
                 else
                     break;
                 end
