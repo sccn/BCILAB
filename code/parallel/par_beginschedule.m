@@ -149,8 +149,8 @@ end
 % submit tasks for execution
 switch opts.engine
     case 'local'
-        sched = {};
-        for t=length(tasks):-1:1
+        sched = cell(1,length(tasks));
+        for t=1:length(tasks)
             sched(t) = {{t,tasks{t}{1}(tasks{t}{2:end})}}; end
     case 'ParallelComputingToolbox'
         sched = {};
