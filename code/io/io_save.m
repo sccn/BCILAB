@@ -101,7 +101,7 @@ end
 if serialized
     for k=1:length(variables)
         wkspace.(variables{k}) = hlp_serialize(wkspace.(variables{k})); end
-    wkspace.is_serialized__ = ['variables were serialized using ' utl_funcversion(@hlp_serialize) '; use hlp_deserialize (see File Exchange) to return them to their original form.'];
+    wkspace.is_serialized__ = ['variables were serialized using ' hlp_funcversion(@hlp_serialize) '; use hlp_deserialize (see File Exchange) to return them to their original form.'];
     saveargs{end+1} = 'is_serialized__';
 end
 

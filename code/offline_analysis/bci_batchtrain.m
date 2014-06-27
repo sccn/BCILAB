@@ -222,6 +222,8 @@ else
                 infos = rdir(env_translatepath(ds));
                 infos(strcmp({infos.name},'.') | strcmp({infos.name},'..')) = [];
                 opts.datasets = [opts.datasets(1:d-1) {infos.name} opts.datasets(d+1:end)];
+                if isempty(opts.datasets)
+                    continue; end
                 ds = opts.datasets{d};
             end
             % try to load
@@ -257,6 +259,8 @@ if ~isempty(opts.predictsets)
                 infos = rdir(env_translatepath(ps));
                 infos(strcmp({infos.name},'.') | strcmp({infos.name},'..')) = [];
                 opts.predictsets = [opts.predictsets(1:d-1) {infos.name} opts.predictsets(d+1:end)];
+                if isempty(opts.predictsets)
+                    continue; end
                 ps = opts.predictsets{d};
             end            
             % then wrap into a cell

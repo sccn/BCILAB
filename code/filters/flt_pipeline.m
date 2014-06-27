@@ -494,7 +494,7 @@ if ~isempty(args)
         if strcmp(nvps{k},'arg_direct')
             continue; end
         if ~any(strcmp(nvps{k},known_identifiers_flat))
-            if isempty(nvps{k+1}) || strcmp(nvps{k+1},'off') || isfield(nvps{k+1},'arg_selection') && nvps{k+1}.arg_selection==0
+            if isempty(nvps{k+1}) || isequal(nvps{k+1},'off') || (isfield(nvps{k+1},'arg_selection') && isscalar(nvps{k+1}) && nvps{k+1}.arg_selection==0)
                 dropped_empty(end+1) = k;
             else
                 dropped_nonempty(end+1) = k;

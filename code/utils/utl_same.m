@@ -23,7 +23,7 @@ if isstruct(a) && isstruct(b)
         b = b.tracking.expression; end
     
     % or canonically represented expressions
-    if isfield(a,{'head','parts'}) & isfield(b,{'head','parts'}) %#ok<AND2>
+    if isscalar(a) && isscalar(b) && all(isfield(a,{'head','parts'})) && all(isfield(b,{'head','parts'})) %#ok<AND2>
         if ~isequal(a.head,b.head) || (length(a.parts) ~= length(b.parts))
             r = false;
         else

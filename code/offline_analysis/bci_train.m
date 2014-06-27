@@ -589,7 +589,7 @@ if ~hlp_resolve('fingerprint_check',true)
 % parse the approach (either it's a paradigm name string, a cell array, or a struct)
 if ischar(opts.approach)
     opts.approach = struct('paradigm',opts.approach, 'parameters',{{}});
-elseif iscell(opts.approach)
+elseif iscell(opts.approach) && ~isempty(opts.approach)
     opts.approach = struct('paradigm',opts.approach{1}, 'parameters',{opts.approach(2:end)}); 
 elseif ~all(isfield(opts.approach,{'paradigm','parameters'}))
     error('The approach must be given either as struct with fields ''paradigm'' and ''parameters'' or as a cell array of the form {paradigmname, param1, param2, param3, ...}'); 
@@ -744,7 +744,7 @@ model.options = paradigm_parameters;
 model.source_data = source_data;
 model.control_options = rmfield(opts,'data');
 model.epoch_bounds = opts.epoch_bounds;
-if isfield(stats.per_fold,'model')
+if isfield(stats,'per_fold') && isfield(stats.per_fold,'model')
     for k=1:length(stats.per_fold)
         if ~isempty(stats.per_fold(k).model)
             stats.per_fold(k).model.paradigm = paradigm_name; end

@@ -2,13 +2,13 @@ function bcilab(varargin)
 % BCILAB startup function
 %
 % The startup function determines startup options according to a config file and then starts the
-% BCILAB toolbox by calling env_startup() with the config options. If a file named bcilab_config.m 
-% exists in the user's home directory (under .bcilab) it will take precedence, otherwise the file 
-% of the same name in the bcilab folder will be used. The file name (or path) can also be specified 
-% directly as the first argument to this function.
+% BCILAB toolbox based on config options. If a file named bcilab_config.m exists in the user's home
+% directory (under .bcilab) it will take precedence, otherwise the file of the same name in the
+% bcilab folder will be used. The file name (or path) can also be specified directly as the first
+% argument to this function.
 %
 % In addition, startup options can also be passed directly to this function, in the form of name-
-% value pairs. These options override those that are specified in the config file.
+% value pairs. These options selectively override those that are specified in the config file.
 %
 % Generally, the way to load bcilab is to cd into the BCILAB path, and execute this function.
 % The BCILAB path should not be added to the default MATLAB path, especially *never* recursively.
@@ -21,9 +21,9 @@ function bcilab(varargin)
 %                see env_startup
 %
 % Notes:
-%   The config file is a regular MATLAB script and may include conditional statements (depending on
-%   the platform used), etc. However, to allow modification of this file via the GUI, it is 
-%   recommended to keep this file simple.
+%   The config files are regular MATLAB script and may include conditional statements (depending on
+%   the platform used), etc. However, to allow modification of these files via the GUI, it is
+%   recommended to keep them simple.
 %
 % Examples:
 %   % start the toolbox using default settings (found in bcilab_config.m)
@@ -49,10 +49,14 @@ if mod(nargin,2) == 0
 else
     % an odd number of arguments was passed 
     % --> the first argument is the name of the config script
+    if ~ischar(varargin{1})
+        error('If an odd number of parameters is provided then the first parameter must be the name of a config script.'); end
     configscript = varargin{1};
     % ... and the rest are the options.
     varargin = varargin(2:end);
 end
+if ~iscellstr(varargin(1:2:end))
+    error('The arguments to bcilab.m must be name-value pairs.'); end
 
 % check if the user's home directory (.bcilab sub-directory) contains a bcilab_config.m, and prefer 
 % that if present

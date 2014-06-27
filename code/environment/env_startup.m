@@ -338,7 +338,7 @@ for d=1:length(opts.cache)
     tracking.cache.disk_paths.(opts.cache{d}.tag) = location;     
 end
 if opts.mem_capacity < 1
-    free_mem = hlp_memavail();
+    free_mem = hlp_memfree();
     tracking.cache.capacity = round(opts.mem_capacity * free_mem);
     if free_mem < 1024*1024*1024
         sprintf('Warning: You have less than 1 GB of free memory (reserving %.0f%% = %.0fMB for data caches).\n',100*opts.mem_capacity,tracking.cache.capacity/(1024*1024));

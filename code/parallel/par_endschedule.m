@@ -79,7 +79,7 @@ else
         try
             % deserialize result
             raw{r} = hlp_deserialize(fast_decode(raw{r}));
-            if isfield(raw{r}{2},{'message','identifier','stack'})
+            if all(isfield(raw{r}{2},{'message','identifier','stack'}))
                 % append to errors
                 errors{end+1} = raw{r};
             else

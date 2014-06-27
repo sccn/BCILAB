@@ -28,7 +28,7 @@ function [ nearestvalue, indexofnearest ] = utl_nearest( valuestosearch, targetv
 %                               2012-11-20
 
 
-   [~, indexofnearest] = arrayfun(@(x) min(abs(valuestosearch(:) - x)), targetvalue);
+   [dummy, indexofnearest] = arrayfun(@(x) min(abs(valuestosearch(:) - x)), targetvalue); %#ok<ASGLU>
    nearestvalue = valuestosearch(indexofnearest);
     
 end

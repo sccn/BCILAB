@@ -84,7 +84,6 @@ function [signal,state] = flt_iir(varargin)
 
 if ~exp_beginfun('filter') return; end
 
-% running after the FIR can improve numeric stability; makes no sense on epoched data
 declare_properties('name','IIRFilter', 'cannot_follow','set_makepos', 'independent_channels',true, 'independent_trials',true);
 
 arg_define(varargin, ...

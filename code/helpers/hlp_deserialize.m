@@ -382,7 +382,13 @@ switch kind
                 % to a nested function. This is not natively supported by MATLAB and can only be made
                 % to work if your function's parent implements some mechanism to return such a handle.
                 % The below call assumes that your function uses the BCILAB arg system to do this.
-                next_v = arg_report('handle',v,parentage(k));
+                try
+                    next_v = arg_report('handle',v,parentage(k));
+                catch
+                    warn_once('hlp_deserialize:lookup_failed',['Could not look report properties of scoped/nested function handle "' parentage{k} '" from enclosing function "' char(v) '".']);
+                    v = @error_deserializing_function;
+                    return
+                end
                 if isempty(next_v{1})
                     warn_once('hlp_deserialize:lookup_failed',['Could not look up scoped/nested function handle "' parentage{k} '" from enclosing function "' char(v) '".']);
                 end

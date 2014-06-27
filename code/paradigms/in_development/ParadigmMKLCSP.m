@@ -153,7 +153,7 @@ classdef ParadigmMKLCSP < ParadigmBase
             % define the default configuration dialog layout 
             layout = {'SignalProcessing.Resampling.SamplingRate', 'SignalProcessing.FIRFilter.Frequencies', ...
                 'SignalProcessing.FIRFilter.Type', 'SignalProcessing.EpochExtraction', '', ...
-                'Prediction.FeatureExtraction.PatternPairs', '', 'Prediction.MachineLearning.Learner'};
+                'PatternPairs', '', 'MachineLearning.Learner'};
         end
                 
     end

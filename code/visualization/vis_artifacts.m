@@ -131,7 +131,7 @@ if ~isempty(opts.time_subset)
 end
 
 if opts.equalize_channel_scaling    
-    rescale = 1./mad(old.data,[],2);
+    rescale = 1./mad(old.data,1,2);
     new.data = bsxfun(@times,new.data,rescale);
     old.data = bsxfun(@times,old.data,rescale);
 end
@@ -151,7 +151,7 @@ lastPos = 0;
 hFig = figure('ResizeFcn',@on_window_resized,'KeyPressFcn',@(varargin)on_key(varargin{2}.Key)); hold; axis();
 hAxis = gca;
 hSlider = uicontrol('style','slider','KeyPressFcn',@(varargin)on_key(varargin{2}.Key)); on_resize();
-jSlider = findjobj(hSlider);
+jSlider = handle(findjobj(hSlider),'CallbackProperties');
 jSlider.AdjustmentValueChangedCallback = @on_update;
 
 % do the initial update

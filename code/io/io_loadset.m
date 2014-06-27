@@ -131,11 +131,11 @@ if ~exist(filename,'file')
     error(['The file ' filename ' does not exist.']); end
 
 % ... and whether it can be opened
-try
-    f=fopen(filename,'r');
-    fclose(f);
-catch
+f = fopen(filename,'r');
+if f==-1
     error(['The file ' filename ' could not be opened; please check your file permissions.']);
+else
+    fclose(f);
 end
 
 % sanity check

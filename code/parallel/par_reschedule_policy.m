@@ -25,7 +25,7 @@ function result = par_reschedule_policy(batchid,inflight,waiting,times,msgs)
 %                (or the empty Vector).
 %
 % Notes:
-%   A log of what is was rescheduled when is collected in the global variable 
+%   A log of what was rescheduled and when is collected in the global variable 
 %   tracking.temp.rescheduled.
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD

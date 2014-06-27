@@ -74,7 +74,7 @@ function varargout = hlp_nanocache(groupname,poolsize,func,varargin)
     
     try
         % retrieve the pool of size-equivalent objects
-        pool = cache.([groupname,char(func)]).(poolid);
+        pool = cache.(groupname).(char(func)).(poolid);
         % search for the key in the pool
         for k=1:length(pool.keys)
             if isequal(varargin,pool.keys{k})
@@ -94,5 +94,5 @@ function varargout = hlp_nanocache(groupname,poolsize,func,varargin)
     idx = 1+mod(length(pool.keys),poolsize);
     pool.keys{idx} = varargin;
     pool.values{idx} = varargout;
-    cache.([groupname,char(func)]).(poolid) = pool;
+    cache.(groupname).(char(func)).(poolid) = pool;
 end

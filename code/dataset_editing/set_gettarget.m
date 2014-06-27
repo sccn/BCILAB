@@ -39,7 +39,7 @@ else
     if isfield(signal,'streams')
         signal = signal.streams{1}; end
     
-    if all(isfield(signal,{'head','parts'})) && strcmp(char(signal.head),'set_partition')
+    if all(isfield(signal,{'head','parts'})) && strcmp(char(signal.head),'set_partition') && length(signal.parts) >= 2
         % a computational shortcut applies if we're operating on partitioned data: this allows us to skip
         % the actual partitioning and instead look just at the target markers
         sourcetargets = set_gettarget(signal.parts{1});
@@ -55,28 +55,28 @@ else
             targetmask = ~cellfun('isempty',targets);
             if any(targetmask)
                 targ = concat_targets(targets(targetmask));
-                return
+                return;
             end
         end
         
         % continuous data set: check for events with non-empty target field
-        if isfield(signal.event,'target')
+        if isfield(signal,'event') && isfield(signal.event,'target')
             targets = {signal.event.target};
             targetmask = ~cellfun('isempty',targets);
             if any(targetmask)
                 if ~issorted([signal.event.latency])
                     warning('BCILAB:unsorted_events','The events in this data set are unsorted - this is likely an error in your processing pipeline.'); end
                 targ = concat_targets(targets(targetmask));
-                return
+                return;
             end
         end
         
-        if isfield(signal,'chanlocs') && isfield(signal.chanlocs,'type') && size(signal.data,3) == 1
+        if isfield(signal,'chanlocs') && isfield(signal.chanlocs,'type') && isfield(signal,'data') && size(signal.data,3) == 1
             % continuous data set: get per-sample epoch targets
             targchans = strcmpi('target',{signal.chanlocs.type});
             if any(targchans)
                 targ = signal.data(targchans,:)';
-                return
+                return;
             end
         end
         

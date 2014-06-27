@@ -40,7 +40,11 @@ if (desired_length ~= size(chunk.data,2)) && (~isempty(buffer.event) || ~isempty
             if isempty(chunk.event)
                 chunk.event = buffer.event(latency>=0.5);
             else
-                chunk.event = [buffer.event(latency>=0.5) chunk.event];
+                try
+                    chunk.event = [buffer.event(latency>=0.5) chunk.event];
+                catch e
+                    fprintf('WARNING: Trying to concatenate incompatible event structs in the buffer (%s) and the incoming chunk (%s); dropping buffer contents; error message: %s\n',hlp_tostring(fieldnames(buffer.event)),hlp_tostring(fieldnames(chunk.event)),e.message);
+                end
             end
         end
     end

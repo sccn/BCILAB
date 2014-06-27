@@ -56,7 +56,10 @@ args = arg_define(varargin, ...
 signal = args.signal;
 signal.data = double(signal.data);
 if isempty(args.tapers)    
-    args.tapers = 2*args.bandwidth-1; end
+    args.tapers = round(2*args.bandwidth-1);
+elseif ~isscalar(args.tapers) || round(args.tapers) ~= args.tapers || args.tapers < 1
+    error('The tapers argument, if given, must be a scalar integer.');
+end
 if args.subsample_spectrum > 1
     N = 2 * args.subsample_spectrum;
     wnd = 0.5 * (1-cos(2*pi*(0:(N-1))/(N-1)));
@@ -71,7 +74,7 @@ if ~isempty(args.feature_filters)
             % calculate single-trial cross-spectrum
             cs = abs(CrossSpecMatc(signal.data(:,:,t)',signal.pnts/signal.srate,struct('tapers',[2*args.bandwidth args.tapers],'pad',args.padding,'Fs',signal.srate,'fpass',args.freqwnd)));
             % filter and sub-sample
-            if args.subsample_spectrum > 1 && args. filtered_subsampling
+            if args.subsample_spectrum > 1 && args.filtered_subsampling
                 cs = filter(wnd,1,cs,1); end
             cs = permute(cs(1:args.subsample_spectrum:end,:,:),[2 3 1]);
             % extract spectral features

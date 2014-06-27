@@ -42,7 +42,7 @@ try
     fields = values{strcmp(keys,query)};
 catch
     % not yet in DB: actually determine the timeseries fields
-    if isfield(signal.tracking,'timeseries_fields')
+    if isfield(signal,'tracking') && isfield(signal.tracking,'timeseries_fields')
         fields = get_timeseries_fields(fieldnames(signal),signal.tracking.timeseries_fields);
     else
         fields = get_timeseries_fields(fieldnames(signal),[]);
