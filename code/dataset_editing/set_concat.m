@@ -13,7 +13,7 @@ function result = set_concat(varargin)
 %
 % Notes:
 %   This function returns a new data set with meta-data set to that of the first input set, and the
-%   time series field sjoined across all sets. No checks for meta-data consistency are done. There
+%   time series fields joined across all sets. No checks for meta-data consistency are done. There
 %   is a heavy-duty function for merging inconsistent sets called set_merge, which can merge cats
 %   and dogs. This function does not attempt to keep miscellaneous EEGLAB meta-data consistent,
 %   including: setname,filename,filepath,subject,group,condition,session,comments,urevent,reject,stats,history,etc

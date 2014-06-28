@@ -321,7 +321,7 @@ function direct_mode = is_direct_mode(vals,structmask)
         direct_mode = vals{end}.arg_direct;
     else
         direct_mode = false;
-        % if a report is requested, we cannot be in direct mode
+        % search for it
         indices = find(structmask | strcmp(vals,'arg_direct'));
         for k = indices(end:-1:1)
             if ischar(vals{k}) && k<length(vals)
@@ -506,6 +506,7 @@ function nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,fir
         for k=find(cellfun(@(s)all(s>='0'&s<='9'),violations))
             violations{k} = vals{str2num(violations{k})}; end %#ok<ST2NM>
         if length(violations) == 1
+            % if there's only one violation (e.g., typo) generate a suggestion
             mindist = Inf;
             suggestion = '';
             for k=1:length(flat_names)
@@ -617,7 +618,6 @@ end
 function spec = assign_nvps(spec,nvps,name2idx,report_type,caller_name,deprecation_warning)
     if ~strcmp(report_type,'rich')
         report_type = 'lean'; end
-    % note: this part needs to be changed to accommodate arg_ref()
     for k=1:2:length(nvps)
         try 
             idx = name2idx.(nvps{k});

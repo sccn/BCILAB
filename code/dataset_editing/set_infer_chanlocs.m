@@ -254,7 +254,7 @@ else
     data = locs;
 end
 
-
+% function for sub-string matching between labels and a location struct array
 function [found,idx_in_res,idx_in_locdb] = do_matching(fitlocs,locdb,use_lower)
 found = {};
 idx_in_res = [];

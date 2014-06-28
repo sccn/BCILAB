@@ -30,8 +30,7 @@ if any(structmask)
         end
         splicepos = indexcache.(field);
     catch %#ok<CTCH>
-        % pre-calculate splice points from inputs_isstruct
-        % and cache results
+        % pre-calculate splice points and cache results
         splicepos = [];
         k = 1;
         while k <= length(args)

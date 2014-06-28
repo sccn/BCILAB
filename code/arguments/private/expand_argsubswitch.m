@@ -38,9 +38,9 @@ function spec = expand_specifier(reptype,names,defaults,sources,help,varargin)
         sources = mat2cell(sources,1,repmat(2,length(sources)/2,1)); end % we turn the NVP form of sources into a cell array of cell arrays
     if nargin < 5
         help = ''; end
-    [reflag,suppress,range,case_defaults] = deal({},{},cellfun(@(c)c{1},sources,'UniformOutput',false),cell(1,length(sources)));
     
     % extract special options unique to arg_subswitch
+    [reflag,suppress,range,case_defaults] = deal({},{},cellfun(@(c)c{1},sources,'UniformOutput',false),cell(1,length(sources)));
     for k=length(varargin)-1:-2:1
         if any(strcmp(varargin{k},{'reflag','suppress'}))
             eval([varargin{k} ' = varargin{k+1}; varargin([k k+1]) = [];']); end

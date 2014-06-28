@@ -382,10 +382,10 @@ hlp_microcache('verybig','max_key_size',2^30,'max_result_size',2^30);
 
 % set up some fine-grained disk-cache locations
 hlp_diskcache('filterdesign','folder',opts.temp,'subdir','filterdesign','exactmatch_cutoff',0);
-hlp_diskcache('icaweights','folder',opts.temp,'subdir','icaweights','exactmatch_cutoff',0);
+hlp_diskcache('icaweights','folder',opts.temp,'subdir','icaweights','exactmatch_cutoff',0,'spot_hashing',true);
 hlp_diskcache('dipfits','folder',opts.temp,'subdir','dipfits','exactmatch_cutoff',0);
-hlp_diskcache('featuremodels','folder',opts.temp,'subdir','featuremodels','exactmatch_cutoff',0);
-hlp_diskcache('predictivemodels','folder',opts.temp,'subdir','predictivemodels','exactmatch_cutoff',0);
+hlp_diskcache('featuremodels','folder',opts.temp,'subdir','featuremodels','exactmatch_cutoff',0,'spot_hashing',true);
+hlp_diskcache('predictivemodels','folder',opts.temp,'subdir','predictivemodels','exactmatch_cutoff',0,'spot_hashing',true);
 hlp_diskcache('statistics','folder',opts.temp,'subdir','statistics','exactmatch_cutoff',0);
 hlp_diskcache('general','folder',opts.temp,'subdir','general');
 hlp_diskcache('finegrained','folder',opts.temp,'subdir','finegrained');

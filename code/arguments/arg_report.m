@@ -91,7 +91,7 @@ elseif ~iscell(args)
     error('Arguments must be a cell array, if given.'); 
 end
 
-% make use of exp_eval when used within BCILAB
+% disable the expression features of functions called by arg_report
 persistent handle_expressions;
 if isempty(handle_expressions)
     handle_expressions = exist('exp_eval','file'); end

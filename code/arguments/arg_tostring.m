@@ -4,7 +4,7 @@ function str = arg_tostring(val,strip_direct,indent,subindent)
 %
 % Converts a value to a string that is functionally equivalent to the result of hlp_tostring, but
 % which follows the formatting guidelines of the arg functions (particularly arg_subtoggle and
-% arg_subswitch), plus support indentation and line breaks for readability.
+% arg_subswitch), plus support for indentation and line breaks for readability.
 %
 % In:
 %   Value : the value to convert; this is a result as produced by arg_report for

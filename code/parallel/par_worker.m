@@ -167,7 +167,7 @@ end
 % display status, or exit, if no port found
 if opened
     if verbosity >= -1
-        fprintf('this is %s.\n',char(InetAddress.getLocalHost()));
+        fprintf('this is bcilab worker %s.\n',char(InetAddress.getLocalHost()));
         fprintf('listening on port %i.\n',serv.getLocalPort());
     end
 else

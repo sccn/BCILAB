@@ -9,7 +9,7 @@ function env_load_dependencies(dependency_dir,autocompile)
 %     after executing the script (it is set to true before running the script), and no exception 
 %     had occured, the containing directory is added using addpath.
 %
-%  3. Scripts called env_compile.m. The presence of such a function indicates to the loader function
+%  3. Scripts called env_compile.m. The presence of such a file indicates to the loader function
 %     that any mex or Java source files in the given directory should be automatically compiled.
 %     Additional compiler inputs (such as defines, libraries and include directories), if any, may 
 %     be declared as Name=value; statements in the file itself; These will be passed as named arguments
@@ -28,8 +28,8 @@ function env_load_dependencies(dependency_dir,autocompile)
 %   env_load_dependencies('C:\mydependencies')
 %
 % Notes:
-%   If you intend to compile your toolbox, you cannot use empty .m files. Therefore, your marker files
-%   must contain at least a space character to satisfy the compiler.
+%   If you intend to compile your toolbox using the MATLAB compiler, you cannot have empty .m files. 
+%   Therefore, your env_add etc. files must contain at least a space character to satisfy the compiler.
 %
 % See also:
 %   env_startup
