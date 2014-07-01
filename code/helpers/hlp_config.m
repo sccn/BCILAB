@@ -142,135 +142,145 @@ catch
     error('hlp_config:permissions_error','Could not update the config file %s. Please check file permissions and try again.',filename);
 end
 
-% temporarily replace stray semicolons by a special character and contract ellipses,
-% so that the subsequent assignment regex matching will not get derailed)
-evalstr = contents;
-comment_flag = false;
-string_flag = false;
-bracket_level = 0;
-ellipsis_flag = false;
-substitute = false(1,length(evalstr)); % this mask indicates where we have to subsitute reversibly by special characters
-spaceout = false(1,length(evalstr));   % this mask indicates where we can substitute irreversibly by whitespace characters...
-for k=1:length(evalstr)
-    if ellipsis_flag
-        % everything that follows an ellipsis will be spaced out (including the subsequent newline that resets it)
-        spaceout(k) = true; end    
-    switch evalstr(k)
-        case ';' % semicolon
-            % in strs, brackets or comments: indicate need for substitution
-            if string_flag || bracket_level>0 || comment_flag
-                substitute(k) = true; end
-        case '''' % quotes
-            % flip str flag, unless in comment
-            if ~comment_flag
-                string_flag = ~string_flag; end
-        case 10 % newline
-            % reset bracket level, unless in ellipsis
-            if ~ellipsis_flag
-                bracket_level = 0; end
-            % reset comment flag, str flag and ellipsis flag
-            comment_flag = false;
-            string_flag = false;
-            ellipsis_flag = false;
-        case {'[','{'} % opening array bracket
-            % if not in str nor comment, increase bracket level
-            if ~string_flag && ~comment_flag
-                bracket_level = bracket_level+1; end
-        case {']','}'} % closing array bracket
-            % if not in str nor comment, decrease bracket level
-            if ~string_flag && ~comment_flag
-                bracket_level = bracket_level-1; end
-        case '%' % comment character
-            % if not in str, switch on comment flag
-            if ~string_flag
-                comment_flag = true; end
-        case '.' % potential ellipsis character
-            % if not in comment nor in str, turn on ellipsis and comment
-            if ~string_flag && ~comment_flag && k>2 && strcmp(evalstr(k-2:k),'...')
-                ellipsis_flag = true;
-                comment_flag = true;
-                % we want to replace the ellipsis and everything that follows up to and including the next newline
-                spaceout(k-2:k) = true;
-            end
-    end
-end
-% replace the characters that need to be substituted (by the bell character)
-evalstr(substitute) = 7;
-evalstr(spaceout) = ' ';
-% replace all assignments of the form "varname = *;" by "varname{end+1} = num;"
-[starts,ends] = regexp(evalstr,[varname '\s*=[^;\n]*;']);
-for k=length(starts):-1:1
-    evalstr = [evalstr(1:starts(k)-1) varname '{end+1} = struct(''assignment'',' num2str(k) ');' evalstr(ends(k)+1:end)]; end
-% add initial assignment
-evalstr = [sprintf('%s = {};\n',varname) evalstr];
-% back-substitute the special character by semicolons
-evalstr(evalstr==7) = ';';
-
-% evaluate contents and get the matching assignment id's
-ids = run_protected(evalstr,varname);
-
-% check validity of the updated value, and of the updated config file
-try
-    % check if the value str can in fact be evaluated
-    newvalue_eval = eval(newvalue);
-catch
-    error('hlp_config:incorrect_value','The value "%s" (to be assigned to variable "%s") cannot be evaluated properly. Note that, for example, string values need to be quoted.',newvalue,varname);
-end
-% evaluate the original config script and record the full variable assignment
-[dummy,wspace_old] = run_protected(contents); %#ok<ASGLU>
-% splice the new value into the config file contents, for the last assignment in ids
-id = ids{end}.assignment;
-contents = [contents(1:starts(id)-1) varname ' = ' newvalue ';' contents(ends(id)+1:end)];
-% evaluate the new config script and record the full variable assignment
-[dummy,wspace_new] = run_protected(contents); %#ok<ASGLU>
-% make sure that the only thing that has changed is the assignment to the variable of interest
-wspace_old.(varname) = newvalue_eval;
-if ~isequalwithequalnans(wspace_old,wspace_new)
-    error('hlp_config:update_failed','The config file can not be properly updated.'); end
-
-% apparently, everything went well, except for the following possibilities
-%  * the newly assigned value makes no sense (--> usage error)
-%  * the settings were changed for unanticipated platforms (--> this needs to be documented properly)
-if makebackup
-    try
-        % make a backup of the original config file using a fresh name (.bak00X)
-        [p,n,x] = fileparts(filename);
-        files = dir([p filesep n '*.bak*']);
-        backup_numbers = cellfun(@(n)str2num(n(end-2:end)),{files.name},'UniformOutput',false);
-        backup_numbers = [backup_numbers{:}];
-        if ~isempty(backup_numbers)
-            new_number = 1 + max(backup_numbers);
-        else
-            new_number = 1;
-        end
-        backup_name = [p filesep n '.bak' sprintf('%03i',new_number)];
-        copyfile(filename,backup_name);
-        % set read permissions
-        warning off MATLAB:FILEATTRIB:SyntaxWarning
-        fileattrib(backup_name,'+w','a');
-    catch
-        error('hlp_config:permissions_error','Could not create a backup of the original config file %s. Please check file permissions and try again.',filename);
-    end
-end
-    
-% split the contents into lines again
-contents = strsplit(contents,10);
-try
-    % re-create the file, line by line
-    f = fopen(filename,'w+');
-    for k=1:length(contents)
-        fwrite(f,contents{k});
-        fprintf(f,'\n');
-    end
+% if the desired config variables does not occur at all in the file (assuming that this is a legacy file)...
+% (note that this check will not catch cases where the variable name might plausibly appear in comments or
+% some sub-string)
+if isempty(strfind(contents,varname))
+    % ... append the assignment to the end
+    f = fopen(filename,'a');
+    fprintf(f,['\n%% the following variable was appended by hlp_config\n' varname ' = ' newvalue ';\n']);
     fclose(f);
-    % set file attributes
-    warning off MATLAB:FILEATTRIB:SyntaxWarning
-    fileattrib(filename,'+w','a');
-catch
-    try fclose(f); catch,end
-    error('hlp_config:permissions_error','Could not override the config file %s. Please check file permissions and try again.',filename);
-end
+    fprintf('Note: the variable %s did not occur in your config file %s; appended it to the end.\n',varname,filename);
+else
+    % temporarily replace stray semicolons by a special character and contract ellipses,
+    % so that the subsequent assignment regex matching will not get derailed)
+    evalstr = contents;
+    comment_flag = false;
+    string_flag = false;
+    bracket_level = 0;
+    ellipsis_flag = false;
+    substitute = false(1,length(evalstr)); % this mask indicates where we have to subsitute reversibly by special characters
+    spaceout = false(1,length(evalstr));   % this mask indicates where we can substitute irreversibly by whitespace characters...
+    for k=1:length(evalstr)
+        % everything that follows an ellipsis will be spaced out (including the subsequent newline that resets it)
+        if ellipsis_flag
+            spaceout(k) = true; end    
+        switch evalstr(k)
+            case ';' % semicolon
+                % in strs, brackets or comments: indicate need for substitution
+                if string_flag || bracket_level>0 || comment_flag
+                    substitute(k) = true; end
+            case '''' % quotes
+                % flip str flag, unless in comment
+                if ~comment_flag
+                    string_flag = ~string_flag; end
+            case 10 % newline
+                % reset bracket level, unless in ellipsis
+                if ~ellipsis_flag
+                    bracket_level = 0; end
+                % reset comment flag, str flag and ellipsis flag
+                comment_flag = false;
+                string_flag = false;
+                ellipsis_flag = false;
+            case {'[','{'} % opening array bracket
+                % if not in str nor comment, increase bracket level
+                if ~string_flag && ~comment_flag
+                    bracket_level = bracket_level+1; end
+            case {']','}'} % closing array bracket
+                % if not in str nor comment, decrease bracket level
+                if ~string_flag && ~comment_flag
+                    bracket_level = bracket_level-1; end
+            case '%' % comment character
+                % if not in str, switch on comment flag
+                if ~string_flag
+                    comment_flag = true; end
+            case '.' % potential ellipsis character
+                % if not in comment nor in str, turn on ellipsis and comment
+                if ~string_flag && ~comment_flag && k>2 && strcmp(evalstr(k-2:k),'...')
+                    ellipsis_flag = true;
+                    comment_flag = true;
+                    % we want to replace the ellipsis and everything that follows up to and including the next newline
+                    spaceout(k-2:k) = true;
+                end
+        end
+    end
+    % replace the characters that need to be substituted (by the bell character)
+    evalstr(substitute) = 7;
+    evalstr(spaceout) = ' ';
+    % replace all assignments of the form "varname = *;" by "varname{end+1} = num;"
+    [starts,ends] = regexp(evalstr,[varname '\s*=[^;\n]*;']);
+    for k=length(starts):-1:1
+        evalstr = [evalstr(1:starts(k)-1) varname '{end+1} = struct(''assignment'',' num2str(k) ');' evalstr(ends(k)+1:end)]; end
+    % add initial assignment
+    evalstr = [sprintf('%s = {};\n',varname) evalstr];
+    % back-substitute the special character by semicolons
+    evalstr(evalstr==7) = ';';
 
+    % evaluate contents and get the matching assignment id's
+    ids = run_protected(evalstr,varname);
+
+    % check validity of the updated value, and of the updated config file
+    try
+        % check if the value str can in fact be evaluated
+        newvalue_eval = eval(newvalue);
+    catch
+        error('hlp_config:incorrect_value','The value "%s" (to be assigned to variable "%s") cannot be evaluated properly. Note that, for example, string values need to be quoted.',newvalue,varname);
+    end
+    % evaluate the original config script and record the full variable assignment
+    [dummy,wspace_old] = run_protected(contents); %#ok<ASGLU>
+    % splice the new value into the config file contents, for the last assignment in ids
+    id = ids{end}.assignment;
+    contents = [contents(1:starts(id)-1) varname ' = ' newvalue ';' contents(ends(id)+1:end)];
+    % evaluate the new config script and record the full variable assignment
+    [dummy,wspace_new] = run_protected(contents); %#ok<ASGLU>
+    % make sure that the only thing that has changed is the assignment to the variable of interest
+    wspace_old.(varname) = newvalue_eval;
+    if ~isequalwithequalnans(wspace_old,wspace_new)
+        error('hlp_config:update_failed','The config file can not be properly updated.'); end
+
+    % apparently, everything went well, except for the following possibilities
+    %  * the newly assigned value makes no sense (--> usage error)
+    %  * the settings were changed for unanticipated platforms (--> this needs to be documented properly)
+    if makebackup
+        try
+            % make a backup of the original config file using a fresh name (.bak00X)
+            [p,n,x] = fileparts(filename);
+            files = dir([p filesep n '*.bak*']);
+            backup_numbers = cellfun(@(n)str2num(n(end-2:end)),{files.name},'UniformOutput',false);
+            backup_numbers = [backup_numbers{:}];
+            if ~isempty(backup_numbers)
+                new_number = 1 + max(backup_numbers);
+            else
+                new_number = 1;
+            end
+            backup_name = [p filesep n '.bak' sprintf('%03i',new_number)];
+            copyfile(filename,backup_name);
+            % set read permissions
+            warning off MATLAB:FILEATTRIB:SyntaxWarning
+            fileattrib(backup_name,'+w','a');
+        catch
+            error('hlp_config:permissions_error','Could not create a backup of the original config file %s. Please check file permissions and try again.',filename);
+        end
+    end
+
+    % split the contents into lines again
+    contents = strsplit(contents,10);
+    try
+        % re-create the file, line by line
+        f = fopen(filename,'w+');
+        for k=1:length(contents)
+            fwrite(f,contents{k});
+            fprintf(f,'\n');
+        end
+        fclose(f);
+        % set file attributes
+        warning off MATLAB:FILEATTRIB:SyntaxWarning
+        fileattrib(filename,'+w','a');
+    catch
+        try fclose(f); catch,end
+        error('hlp_config:permissions_error','Could not override the config file %s. Please check file permissions and try again.',filename);
+    end
+end
 
 
 % run the given config script and obtain the current value of the given variable...
