@@ -452,8 +452,12 @@ if isempty(memo) || exist('update_list','var') && update_list
         catch e
             % otherwise there is an actual error
             known_incompliant = {'set_gettarget','set_combine','set_merge','set_joinepos','set_concat'};
-            if ~any(strcmp(char(funcs{f}),known_incompliant)) && disp_once(['Cannot query arguments of function ' char(funcs{f}) ' (likely an issue with the argument definition): ' e.message]) && debug
-                hlp_handleerror(e); end
+            if ~any(strcmp(char(funcs{f}),known_incompliant))
+                if disp_once(['Cannot query arguments of function ' char(funcs{f}) ' (likely an issue with the argument definition): ' e.message])
+                    if debug
+                        hlp_handleerror(e); end
+                end
+            end
             retain(f) = false;
             continue;
         end
