@@ -441,7 +441,9 @@ if isequal(opts.worker,false) || isequal(opts.worker,0)
             delete(tracking.logfile); 
             warning on MATLAB:DELETE:Permission
         end
-    catch,end
+    catch e
+        disp(['Error trying to set up the logfile: ' e.message]);
+    end
     
     try 
         % create directories in the user's .bcilab folder...
@@ -472,7 +474,9 @@ if isequal(opts.worker,false) || isequal(opts.worker,0)
                 disp(['Could not create file ' add_file ': ' e.message]);
             end
         end
-    catch,end
+    catch e
+        disp(['Error trying to set up directories in ~/.bcilab: ' e.message]);
+    end
 
     % add private plugin directories to the path
     if ~isempty(opts.private)
@@ -527,8 +531,8 @@ else
     disp('Now entering worker mode...');
     
     % -- worker mode ---
+    % disable standard dialogs in the workers
     if ~isdeployed
-        % disable standard dialogs in the workers
         addpath(env_translatepath('dependencies:/disabled_dialogs')); end
     
     % close EEGLAB main menu
