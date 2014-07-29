@@ -76,8 +76,11 @@ function env_startup(varargin)
 %                                   testing. Please use this facility at your own risk and report
 %                                   any issues (e.g., starving jobs) that you may encounter.
 %
-%               'aquire_options' : Cell array of arguments as expected by par_getworkers_ssh 
-%                                  (with bcilab-specific defaults for unspecified arguments) 
+%               'acquire_method' : name of the method to use to acquire worker processes (default:
+%                                  'SSH')
+%
+%               'aquire_options' : Cell array of arguments as expected by par_getworkers_<Method>
+%                                  (with bcilab-specific defaults for unspecified arguments)
 %                                  (default: {})
 %
 %               'worker' : whether this toolbox instance is started as a worker process or not; if 
@@ -213,7 +216,7 @@ if hlp_matlab_version < 706
 
 % get options
 opts = hlp_varargin2struct(varargin,'data',[],'store',[],'cache',[],'temp',[],'private',[],'mem_capacity',2,'data_reuses',3, ...
-    'parallel',{'use','local'}, 'menu',true, 'configscript','', 'worker',false, 'autocompile',true, 'acquire_options',{}, ...
+    'parallel',{'use','local'}, 'menu',true, 'configscript','', 'worker',false, 'autocompile',true, 'acquire_method','SSH', 'acquire_options',{}, ...
     'show_experimental',false,'show_guru',false);
 
 % load all dependencies, recursively...
@@ -336,6 +339,10 @@ for d=1:length(opts.cache)
             location.free = location.free*location.space_checker.getTotalSpace; end
     catch e
         disp(['Could not probe cache file system speed; reason: ' e.message]);
+        location.writestats = struct('size',{0 1024},'time',{0 0.01});
+        location.readstats = struct('size',{0 1024},'time',{0 0.01});
+        if location.free < 1
+            location.free = 60*2^20; end % if space check fails, assume that 60GB are free
     end
     tracking.cache.disk_paths.(opts.cache{d}.tag) = location;     
 end
@@ -364,6 +371,7 @@ tracking.parallel = hlp_varargin2struct(opts.parallel, ...
     'pool',{'localhost:23547','localhost:23548','localhost:23549','localhost:23550','localhost:23551','localhost:23552','localhost:23553','localhost:23554'}, ...
     'policy','par_reschedule_policy',...
     'verbosity',0);
+tracking.acquire_method = opts.acquire_method;
 tracking.acquire_options = opts.acquire_options;
 tracking.configscript = opts.configscript;
 % set GUI settings

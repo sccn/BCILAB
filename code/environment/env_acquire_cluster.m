@@ -23,15 +23,19 @@ import java.lang.*
 
 % interpret as cell array of arguments to par_getworkers_ssh
 arguments = tracking.acquire_options;
+method = tracking.acquire_method;
+if ~ischar(method)
+    error('The given worker acquire method (global tracking.acquire_method) must be a string, but was: %s',hlp_tostring(method,1000)); end
 if isempty(arguments)
     disp('No settings for acquiring the cluster have been specified, no startup command will be issued.'); 
 elseif ~iscell(arguments)
     disp('The acquire_options parameter should be a cell array of name-value pairs which form arguments to par_getworkers_ssh.');
-elseif isunix
+elseif isunix    
     % invoke, but also impose default arguments (if unspecified)
     % by default, workers do not recruit (but only list) other workers, preventing a cascading effect
     try
-        par_globalsetting('pool',par_getworkers_ssh(arguments{:}));
+        pool = feval(['par_getworkers_' lower(method)],arguments{:});
+        par_globalsetting('pool',pool);
         par_globalsetting('engine','BLS');
         disp('Set default compute scheduler to BLS (parallel).');
     catch e

@@ -22,7 +22,7 @@ function varargout = gui_configcluster(varargin)
 
 % Edit the above text to modify the response to help gui_configcluster
 
-% Last Modified by GUIDE v2.5 12-Apr-2012 22:13:01
+% Last Modified by GUIDE v2.5 30-Jun-2014 15:35:56
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -55,10 +55,18 @@ global tracking;
 
 % get the current cache setup from the config file
 try
-    handles.parallel = hlp_config(tracking.configscript,'get','parallel');
-    handles.acquire_options = hlp_config(tracking.configscript,'get','acquire_options');
+    handles.acquire_method = hlp_config(tracking.configscript,'get','acquire_method');
+catch    
+    handles.acquire_method = 'SSH';
+end
+try
+    handles.parallel = hlp_config(tracking.configscript,'get','parallel');    
 catch
     handles.parallel = {};
+end
+try 
+    handles.acquire_options = hlp_config(tracking.configscript,'get','acquire_options');
+catch
     handles.acquire_options = {};
 end
 % turn into a struct
@@ -67,9 +75,8 @@ handles.parallel = hlp_varargin2struct(handles.parallel, ...
     'pool',{'localhost:23547','localhost:23548','localhost:23549','localhost:23550','localhost:23551','localhost:23552','localhost:23553','localhost:23554'}, ...
     'policy','par_reschedule_policy',...
     'verbosity',0);
-
-engines = {'local', 'BLS', 'ParallelComputingToolbox', 'Reference'};
-set(handles.popupmenu1,'Value',find(strcmp(engines,handles.parallel.engine)));
+set(handles.popupmenu1,'Value',find(strcmp({'local','BLS','ParallelComputingToolbox','Reference'},handles.parallel.engine)));
+set(handles.popupmenu6,'Value',find(strcmpi(get(handles.popupmenu6,'String'),handles.acquire_method)));
 set(handles.edit1,'String',hlp_tostring(handles.parallel.pool));
 tmp = hlp_tostring(handles.acquire_options);
 set(handles.edit2,'String',tmp(2:end-1));
@@ -102,8 +109,10 @@ function pushbutton1_Callback(hObject, eventdata, handles)
 global tracking;
 % get acquire options
 handles.acquire_options = eval(['{' get(handles.edit2,'String') '}']);
+methods = get(handles.popupmenu6,'String');
+handles.acquire_method = methods{get(handles.popupmenu6,'Value')};
 % get engine
-engines = {'local', 'BLS', 'ParallelComputingToolbox', 'Reference'};
+engines = {'local','BLS','ParallelComputingToolbox','Reference'};
 handles.parallel.engine = engines{get(handles.popupmenu1,'Value')};
 % get workers
 handles.parallel.pool = eval(get(handles.edit1,'String'));
@@ -113,14 +122,15 @@ if strcmp(handles.parallel.policy,'par_reschedule_policy')
 % turn back into cell-string array
 handles.parallel = hlp_struct2varargin(handles.parallel);
 % and assign
-if utl_update_config('set','parallel',hlp_tostring(handles.parallel),'acquire_options',hlp_tostring(handles.acquire_options))
+if utl_update_config('set','parallel',hlp_tostring(handles.parallel),'acquire_options',hlp_tostring(handles.acquire_options),'acquire_method',hlp_tostring(handles.acquire_method))
     tracking.acquire_options = handles.acquire_options;
+    tracking.acquire_method = handles.acquire_method;
     tracking.parallel = hlp_varargin2struct(handles.parallel);
     uiresume(handles.figure1);
 end
 
 function popupmenu1_Callback(hObject, eventdata, handles)
-engines = {'local', 'BLS', 'ParallelComputingToolbox', 'Reference'};
+engines = {'local','BLS','ParallelComputingToolbox','Reference'};
 handles.parallel.engine = engines{get(hObject,'Value')};
 guidata(hObject,handles);
 
@@ -149,12 +159,19 @@ function pushbutton4_Callback(hObject, eventdata, handles)
 acquireargs = get_cell_args(handles.edit2,[]);
 % sanitize legacy arguments
 acquireargs = hlp_varargin2struct(acquireargs);
-if ~ischar(acquireargs.identity_file)
+if isfield(acquireargs,'identity_file') && ~ischar(acquireargs.identity_file)
     acquireargs.identity_file = ''; end
-if ~ischar(acquireargs.mcr_root)
+if isfield(acquireargs,'mcr_root') && ~ischar(acquireargs.mcr_root)
     acquireargs.mcr_root = ''; end
 % make a dialog for this
-acquireargs = arg_guidialog(@par_getworkers_ssh,'Parameters',hlp_struct2varargin(acquireargs),'Title','Cluster acquistion options','Invoke',false);
+methods = get(handles.popupmenu6,'String');
+method = methods{get(handles.popupmenu6,'Value')};
+try
+    acquireargs = arg_guidialog(str2func(['par_getworkers_' lower(method)]),'Parameters',hlp_struct2varargin(acquireargs),'Title','Cluster acquistion options','Invoke',false);
+catch
+    acquireargs = arg_guidialog(str2func(['par_getworkers_' lower(method)]),'Parameters',{},'Title','Cluster acquistion options','Invoke',false);
+end
+% acquireargs = arg_guidialog(@par_getworkers_ssh,'Parameters',hlp_struct2varargin(acquireargs),'Title','Cluster acquistion options','Invoke',false);
 % and assign to the edit field, if not empty
 if ~isempty(acquireargs)
     tmp = hlp_tostring(hlp_struct2varargin(acquireargs));
@@ -182,3 +199,6 @@ if ~isempty(args)
 else
     args = {};
 end
+
+function popupmenu6_Callback(hObject, eventdata, handles)
+function popupmenu6_CreateFcn(hObject, eventdata, handles)

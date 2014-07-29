@@ -94,6 +94,7 @@ show_guru = true;
 % Custom options to control how workers are acquired; parameters to par_getworkers_* these options
 % are editable in the cluster settings dialog and are used when calling env_acquire_cluster (or
 % clicking the "request cluster availability" button).
+acquire_method = 'SSH';
 acquire_options = {'Hostnames',{'localhost'},'ShutdownTimeout',300};
 
 

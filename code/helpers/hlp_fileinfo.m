@@ -102,7 +102,7 @@ else
         else
             % the record has to be renewed
             try
-                filedata.version = hlp_funcversion(identifier,fname);
+                filedata(1).version = hlp_funcversion(identifier,fname);
             catch e
                 hlp_handleerror(e);
             end

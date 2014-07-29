@@ -34,7 +34,13 @@ function res = arg(varargin)
 %             string); the value may either be one of the options, or a cell array of a subset of
 %             allowed values (usually values being strings).
 %           * If a 2-element numeric vector, the two values are considered the numeric range of the
-%             data (inclusive).
+%             data (inclusive). If a value is assigned that lies outside this range an error message
+%             is generated.
+%           * If a 4-element numeric vector, the first and last value are considered the numeric range of 
+%             the data (inclusive), and the second and third values are considered the typical
+%             range. An informational message is displayed when a value is assigned that lies
+%             outside the typical range, and an error message is generate if the value is outside of
+%             the numeric range.
 %
 %   Help : The help text for this argument (displayed inside GUIs), optional. (default: '').
 %          (Developers: Please do *not* omit this, as it is the key bridge between ease of use and
@@ -76,6 +82,12 @@ function res = arg(varargin)
 %                                      previous (or default) value. Setting this to false yields the
 %                                      same behavior as in some well-known MATLAB functions, like
 %                                      for the TOL parameter in pcg() (default: true)
+%
+%                 'typecheck' Whether to perform a type check upon assignment of a value (default: true)
+%
+%                 'shapecheck' Whether to perform a shape check upon assignment of a value (default: true)
+%
+%                 'rangecheck' Whether to perform a range check upon assignment of a value (default: true)
 %
 % Out:
 %   Spec : A specification of the argument that can be used in arg_define. Technically it is a cell

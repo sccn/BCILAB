@@ -127,6 +127,7 @@ opts = arg_define(varargin,...
     arg({'job_manager','JobManager'},'SGE',{'SGE','OGE','Torque','PBS','SLURM','LSF','OwnMachine'},'Job manager system. This is the type of job manager to submit to.'), ...
     arg({'queues','Queues'},{},[],'Queues to submit to. This is a cell array of strings that lists the queues to which jobs shall be submitted to (in a round-robin manner or in a merged manner). If empty, no queue is specified.','type','cellstr','shape','row'), ...
     arg({'harvest_timeout','HarvestTimeout'},180,[],'Harvesting timeout. Any workers that have not fully launched within this timeout will be abandoned (and will terminate themselves). Note that when multiple MATLABs try to launch simultaneously, it can take longer than normal.'), ...
+    arg({'harvest_ips','HarvestIPs'},true,[],'Harvest IP addresses instead of hostnames. Whether to harvest and return the IP addresses of the workers rather than their hostnames.'), ...
     ... % startup commands for MATLAB
     arg({'matlab_command','MATLABCommand'},'autogenerate', [], 'Command to start MATLAB. This is the command to run on the command line to start the desired version of MATLAB (does not include the script launch). If this is set to ''autogenerate'' the same path that runs the par_getworkers_qsub command will be used (useful on clusters with identical file systems). A good fallback on most installations is to set it to ''matlab''.'), ...
     arg({'startup_prefix','StartupPrefix'},'',[], 'Startup prefix. Any MATLAB startup lines to run before running the main BCILAB command.'),...
@@ -143,7 +144,7 @@ opts = arg_define(varargin,...
     arg({'shutdown_timeout','ShutdownTimeout'},300,[0 60 3600 Inf],'Shutdown timeout. If non-zero, the worker will be shut down if it has not received a heartbeat signal from a client in the given time frame, in seconds. For this to work, the function env_acquire_cluster should be used as it sets up the heartbeat timer.'), ...
     ... % worker tracking and logging
     arg({'jobid_format','JobIdFormat'},'jobmanager_%user_%host_b%batch_i%num', [], 'Job ID format. This is a pattern according to which job ids are generated.','guru',true), ...
-    arg({'logging_path','LoggingPath'},'home:/.bcilab/logs/workers/qsub-%jobid.log', [], 'Logging path pattern. For each worker job a new file will be created according to this pattern.'));
+    arg({'logging_path','LoggingPath'},'home:/.bcilab/logs/workers/qsub_b%batch/%jobid.log', [], 'Logging path pattern. For each worker job a new file will be created according to this pattern.'));
 
 % no arguments were passed? bring up GUI dialog
 if isempty(varargin)
@@ -153,7 +154,7 @@ if isempty(varargin)
 end
 
 % copy options to workspace
-[num_workers,matlab_threads,submit_node,job_manager,queues,harvest_timeout,matlab_command,startup_prefix,startup_command,no_display,clean_path,binary_worker,mcr_root,binary_name,start_port,num_ports,shutdown_timeout,jobid_format,logging_path] = arg_toworkspace(opts);
+[num_workers,matlab_threads,submit_node,job_manager,queues,harvest_timeout,harvest_ips,matlab_command,startup_prefix,startup_command,no_display,clean_path,binary_worker,mcr_root,binary_name,start_port,num_ports,shutdown_timeout,jobid_format,logging_path] = arg_toworkspace(opts);
 
 % pre-generate job ids according to the jobid_format
 batchid = num2str(10000 + round(rand*89999));
@@ -222,7 +223,7 @@ if isempty(logging_path)
     error('The logging path must not be empty (since log files will be used to identify what workers launched successfully).'); end
 logpaths = cell(1,length(job_ids));
 for k=1:length(job_ids)
-    logpaths{k} = env_translatepath(strrep(logging_path,'%jobid',job_ids{k}));
+    logpaths{k} = env_translatepath(strrep_multi(logging_path,'%jobid',job_ids{k},'%batch',batchid,'%user',username,'%host',hostname,'%num',num2str(k,'%03i')));
     try
         % ensure that the logging path exists
         io_mkdirs(logpaths{k},{'+w','a'});
@@ -255,19 +256,19 @@ switch job_manager
     case {'SGE','OGE'}
         if ~isempty(queues)
             qsub_options = [qsub_options ' -q %queue ']; end
-        launch_command = ['echo "' job_cmdline '" | qsub -N %jobid ' qsub_options ' -cwd -o %workingdir -e %workingdir'];
+        launch_command = ['echo "' job_cmdline '" | qsub -N %jobid ' qsub_options ' -cwd -o %outputdir -e %outputdir'];
     case {'Torque','PBS'}
         if ~isempty(queues)
             qsub_options = [qsub_options ' -q %queue ']; end
-        launch_command = ['echo "' job_cmdline '" | qsub -N %jobid ' qsub_options ' -d "%workingdir" -o "%workingdir" -e "%workingdir"'];
+        launch_command = ['echo "' job_cmdline '" | qsub -N %jobid ' qsub_options ' -d "%outputdir" -o "%outputdir" -e "%outputdir"'];
     case 'LSF'
         if ~isempty(queues)
             qsub_options = [qsub_options ' -q %queue ']; end
-        launch_command = ['echo "' job_cmdline '" | bsub -J %jobid ' qsub_options ' -o %workingdir%jobid.out -e %workingdir%jobid.err'];
+        launch_command = ['echo "' job_cmdline '" | bsub -J %jobid ' qsub_options ' -o %outputdir%jobid.out -e %outputdir%jobid.err'];
     case 'SLURM'
         if ~isempty(queues)
             qsub_options = [qsub_options ' --partition=%queue ']; end
-        launch_command = ['srun --job-name=%jobid ' qsub_options ' --output=%workingdir%jobid.out --error=%workingdir%jobid.err ' job_cmdline];
+        launch_command = ['srun --job-name=%jobid ' qsub_options ' --output=%outputdir%jobid.out --error=%outputdir%jobid.err ' job_cmdline];
     case 'OwnMachine'
         launch_command = job_cmdline;
     otherwise
@@ -281,15 +282,13 @@ if length(queues) > 1 && any(strcmp(job_manager,{'SGE','OGE'}))
     queues = {queues(1:end-1)};
 end
 
-if ~isempty(submit_node)
-    io_mkdirs(env_translatepath('temp:/job_management/'),{'+w','a'}); end
-
-working_dir = pwd;
-if any(working_dir== ' ') 
-    fprintf('Note: your current working directory contains a space character; jobs will be launched from your home directory instead.\n');
-    working_dir = hlp_homedir; 
+io_mkdirs(env_translatepath('temp:/job_management/'),{'+w','a'});
+output_dir = env_translatepath('temp:/job_management');
+if any(output_dir== ' ') 
+    fprintf('Note: your BCILAB temp directory contains a space character; job output will be dumped into your home directory instead.\n');
+    output_dir = hlp_homedir;
 end
-working_dir = [working_dir filesep];
+output_dir = [output_dir filesep];
 queue = '';
 
 % submit the jobs
@@ -301,7 +300,7 @@ for k=1:num_workers
     
     % perform substitutions in the launch command
     issue_commandline = strrep_multi(launch_command, ...
-        '%jobid',job_id, '%workingdir',working_dir, '%queue',queue, '%logpath',logpaths{k});
+        '%jobid',job_id, '%outputdir',output_dir, '%queue',queue, '%logpath',logpaths{k});
     
     % invoke command and check for errors
     fprintf('Scheduling worker #%i (%s): %s...\n',k,job_id,issue_commandline);
@@ -328,7 +327,8 @@ end
 fprintf('\nWaiting for workers to start up to establish connections...\n');
 
 % harvest the host:port information from the log files...
-match_line = 'this is bcilab worker';
+host_line = 'this is bcilab worker';
+port_line = 'listening on port';
 harvested_addresses = {};   % the list of host:port addresses harvested from log files so far
 active_logfiles = logpaths; % the log files that are still actively being scanned
 t0 = tic;
@@ -341,12 +341,12 @@ while toc(t0) < harvest_timeout
                 if fid==-1
                     continue; end
                 content = vec(fread(fid,Inf,'*char'))';
-                match = strfind(content,match_line);
-                if ~isempty(match)
-                    startofs = match(1)+length(match_line);
-                    endofs = startofs + find(content(startofs:end)==10,1);
-                    section = strtrim(content(startofs:endofs-3));
-                    harvested_addresses{end+1} = section; %#ok<AGROW>
+                host_match = strfind(content,host_line);
+                port_match = strfind(content,port_line);
+                if ~isempty(host_match) && ~isempty(port_match)
+                    port_startofs = port_match(1)+length(port_line); port_endofs = port_startofs + find(content(port_startofs:end)==10,1); port_section = strtrim(content(port_startofs:port_endofs-3));
+                    host_startofs = host_match(1)+length(host_line); host_endofs = host_startofs + find(content(host_startofs:end)==10,1); host_section = hlp_split(strtrim(content(host_startofs:host_endofs-3)),'/');
+                    harvested_addresses{end+1} = [host_section{1+harvest_ips} ':' port_section]; %#ok<AGROW>
                     active_logfiles(k) = [];
                 end
             catch e
