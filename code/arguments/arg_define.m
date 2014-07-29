@@ -641,7 +641,8 @@ function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,de
     skip_arg = {'__arg_skip__',true};
     nodefault_arg = {'__arg_nodefaults__',true};
     % check whether this value is assignable
-    if ~isequal(newvalue,'__arg_unassigned__') && (~respect_empty_overwrites || (~spec.empty_overwrites && (isempty(newvalue) || isequal(newvalue,'__arg_mandatory__'))))
+    overwrite_if_empty = spec.empty_overwrites || ~respect_empty_overwrites;
+    if ~isequal(newvalue,'__arg_unassigned__') && ~(~overwrite_if_empty && (isempty(newvalue) || isequal(newvalue,'__arg_mandatory__')))
         % warn about deprecation
         if deprecation_warning && spec.deprecated && ~isequal_weak(spec.value,newvalue)
             warn_deprecation(spec,caller_name); end
