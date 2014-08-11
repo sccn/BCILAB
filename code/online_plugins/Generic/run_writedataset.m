@@ -33,6 +33,8 @@ arg_define(varargin, ...
     arg({'update_freq','UpdateFrequency'},1,[0 Inf],'Update frequency. This is the rate at which new chunks of data are appended to the file.'), ...
     arg({'start_delay','StartDelay'}, 3, [0 Inf],'Start-up delay. Delay before real-time operation begins; grace period until file is written.'));
 
+if ~any(out_filename=='/' | out_filename=='\') %#ok<NODEF>
+    out_filename = ['bcilab:/userdata/' out_filename]; end
 out_filename = env_translatepath(out_filename);
 
 % open the stream and write the initial set file header...
@@ -45,7 +47,7 @@ stream.timestamp_at_beginning = toc(uint64(0));
 
 % prepare .set file for saving
 [fp,fn,fe] = fileparts(out_filename); %#ok<ASGLU>
-EEG = rmfield(stream,{'buffer','smax','buffer_len','timestamps','timestamps_len','timestamps_ptr','streamid','timestamp_at_beginning'});
+EEG = rmfield(stream,{'buffer','smax','buffer_len','timestamps','timestamps_len','tmax','streamid','timestamp_at_beginning'});
 [EEG.data,EEG.datfile] = deal([fn,fe]);
 io_save(out_filename,'-mat','-makedirs','-attributes','''+w'',''a''','EEG');
 
