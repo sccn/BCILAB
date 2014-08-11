@@ -114,6 +114,8 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
                     features = signal.srcpot_all;
                 case 'components'
                     features = signal.icaact;
+                otherwise
+                    error('Unsupported type of time series selected as source data: %s',hlp_tostring(featuremodel.apply_to));
             end
             for t=1:size(features,3)
                 features(:,:,t) = featuremodel.P{1}*features(:,:,t)*featuremodel.P{2}; end
