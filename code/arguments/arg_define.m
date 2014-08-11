@@ -446,7 +446,7 @@ function spec = expand_spec(spec,report_type,assign_defaults,caller_name)
     if assign_defaults
         for s=1:length(spec)
             for def=spec(s).defaults
-                spec(s) = assign_value(spec(s),def{1},report_type,caller_name,false,false); end
+                spec(s) = assign_value(spec(s),def{1},report_type,caller_name,false,false,false); end
         end
     end    
 end
@@ -627,21 +627,22 @@ function spec = assign_nvps(spec,nvps,name2idx,report_type,caller_name,deprecati
             if any(strcmp({spec.first_name},nvps{k}))
                 error(['Cannot insert a duplicate field into the specification: ' nvps{k}]); end
             % append it to the spec
-            spec(end+1) = cached_argument(nvps{k},nvps{k+1});
+            spec(end+1) = cached_argument(nvps{k},nvps{k+1}); %#ok<AGROW>
             name2idx.(nvps{k}) = length(spec);
             continue;
         end
-        spec(idx) = assign_value(spec(idx),nvps{k+1},report_type,caller_name,true,deprecation_warning);
+        spec(idx) = assign_value(spec(idx),nvps{k+1},report_type,caller_name,true,deprecation_warning,true);
     end
 end
 
 
 % assign a given value to a single element in a spec
-function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,deprecation_warning)
+function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,deprecation_warning,respect_empty_overwrites)
     skip_arg = {'__arg_skip__',true};
     nodefault_arg = {'__arg_nodefaults__',true};
     % check whether this value is assignable
-    if ~isequal(newvalue,'__arg_unassigned__') && ~(~spec.empty_overwrites && (isempty(newvalue) || isequal(newvalue,'__arg_mandatory__')))
+    overwrite_if_empty = spec.empty_overwrites || ~respect_empty_overwrites;
+    if ~isequal(newvalue,'__arg_unassigned__') && ~(~overwrite_if_empty && (isempty(newvalue) || isequal(newvalue,'__arg_mandatory__')))
         % warn about deprecation
         if deprecation_warning && spec.deprecated && ~isequal_weak(spec.value,newvalue)
             warn_deprecation(spec,caller_name); end
