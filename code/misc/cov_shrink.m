@@ -43,22 +43,19 @@ block_increment = 1.5;  % consider incrementally larger numbers of blocks (incre
 
 [n,p] = size(X);
 if nargin < 2
-    w = 0;
+    w = ones(n,1)/n;
 else
     w = w/sum(w);
 end
 
-S = var(X,w);
+S = var(X,w)*n/(n-1);
+
 if p ~= 1
-    scale = diag(sqrt(S));
+    SD = sqrt(S);
+    scale = diag(SD);
     % center & standardize
-    if ~isequal(w,0)
-        X = bsxfun(@minus,X,sum(bsxfun(@times,X,w)));        
-        X = bsxfun(@times,X,(n-1)./(n*std(X,w)));
-    else
-        X = bsxfun(@minus,X,sum(X)./n);
-        X = bsxfun(@times,X,(n-1)./(n*std(X)));
-    end
+    X = bsxfun(@minus,X,sum(bsxfun(@times,X,w)));
+    X = bsxfun(@times,X,1./SD);
     % the following computation can be quite memory intensive; do it in successively smaller blocks (if it fails)...
     VR = zeros(p);
     R = zeros(p);
@@ -88,11 +85,7 @@ if p ~= 1
                     % calc a block of the per-element weighted variance of the correlation matrix
                     VR(ix,iy) = var(B,w,3)*n^2/((n-1)^3);
                     % and calc a block of the mean of the correlation matrix
-                    if ~isequal(w,0)
-                        R(ix,iy) = sum(bsxfun(@times,permute(w,[3 2 1]),B),3)*n/(n-1);
-                    else
-                        R(ix,iy) = sum(B,3)/(n-1);
-                    end
+                    R(ix,iy) = sum(bsxfun(@times,permute(w,[3 2 1]),B),3)*n/(n-1);
                 end
             end
             % remove zeros
@@ -108,6 +101,7 @@ if p ~= 1
     lam = max(0,min(1,sum(sum(tril(VR,-1)))/sum(sum(tril(R,-1).^2))));
     % calc correlation matrix with shrinkage
     R = (1-lam)*R;
+    % Round-off error compensation
     R(logical(eye(p))) = 1;
     % scale back to covariance matrix
     S = scale*R*scale;
