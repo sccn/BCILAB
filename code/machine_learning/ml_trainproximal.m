@@ -386,7 +386,7 @@ else
     if isempty(tmp)
         joint_best_regweights = [];
     else
-        joint_best_regweights = tmp(:,round(end/2));
+        joint_best_regweights = tmp(round(end/2),:);
     end
 
     % pick the model at the minimum...
