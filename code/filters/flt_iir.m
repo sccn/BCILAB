@@ -79,7 +79,7 @@ function [signal,state] = flt_iir(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-17
 
-% flt_iir_version<1.04> -- for the cache
+% flt_iir_version<1.05> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -102,6 +102,12 @@ if signal.trials > 1
 if isempty(state)
     % compute filter parameters
     f = 2*fspec/signal.srate;
+    
+    if any(strcmp(fmode,{'lowpass','lp','highpass','hp'})) && isnumeric(fspec) && length(fspec)==4
+        disp_once('flt_iir: received 4 frequency coefficients instead of 2; assuming that a bandpass is desired.');
+        fmode = 'bandpass';
+    end
+    
     if length(f) < 4 && any(strcmp(fmode,{'bp','bs'}))
         error('For an IIR bandpass/bandstop filter, four frequencies must be specified.'); end
     switch fmode
@@ -183,9 +189,15 @@ for f = utl_timeseries_fields(signal)
     end
 end
 
+% update filter delay
 if ~isfield(signal.etc,'filter_delay')
     signal.etc.filter_delay = 0; end
 signal.etc.filter_delay = signal.etc.filter_delay + state.filter_delay/signal.srate;
+
+% append IIR filter kernel
+if ~isfield(signal.etc,'iir_kernels')
+    signal.etc.iir_kernels = {}; end
+signal.etc.iir_kernels{end+1} = struct('sos',state.sos,'g',state.g);
 
 
 exp_endfun;

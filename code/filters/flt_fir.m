@@ -106,7 +106,7 @@ function [signal,state] = flt_fir(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-17  
 
-% flt_fir_version<1.04> -- for the cache
+% flt_fir_version<1.05> -- for the cache
 
 if ~exp_beginfun('filter') return; end
 
@@ -133,6 +133,11 @@ if isempty(state)
         stopripple = 10^(stopripple/10); end
     
     if ~(iscell(fspec) && isscalar(fspec))
+        
+        if any(strcmp(fmode,{'lowpass','lp','highpass','hp'})) && isnumeric(fspec) && length(fspec)==4
+            disp_once('flt_fir: received 4 frequency coefficients instead of 2; assuming that a bandpass is desired.');
+            fmode = 'bandpass';
+        end
         
         % create a filter specification accepted by firpmord or kaiserord
         switch fmode
@@ -282,6 +287,11 @@ if strcmp(ftype,'linear-phase')
 elseif strcmp(ftype,'minimum-phase')
     [dummy,maxidx] = max(b); %#ok<ASGLU>
     signal.etc.filter_delay = signal.etc.filter_delay + (maxidx-1)/signal.srate;
-end    
+end
+
+% append filter kernel
+if ~isfield(signal.etc,'fir_kernels')
+    signal.etc.fir_kernels = {}; end
+signal.etc.fir_kernels{end+1} = state.b; % visualize as: fvtool(signal.etc.fir_kernels{1}, 'Fs',signal.srate, 'FrequencyScale','log')
 
 exp_endfun;
