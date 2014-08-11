@@ -207,11 +207,16 @@ while 1
     try
         % wait for an incoming request
         conn = serv.accept();
+        
+        % got one
         conn.setSoTimeout(round(1000*opts.timeout_recv));
         conn.setTcpNoDelay(1);
         if verbosity >= 1
             fprintf('connected.\n'); end
-
+        % advance heartbeat timeout also whenever we get a new command
+        if timeout_heartbeat
+            terminate_at = max(toc(uint64(0)) + timeout_heartbeat, terminate_at); end
+        
         try
             out = DataOutputStream(conn.getOutputStream());
             if verbosity >= 1
