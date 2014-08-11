@@ -52,6 +52,7 @@ approaches = {};
 names = {};
 times = [];
 vars = evalin('base','whos');
+% scan for approaches in struct format
 for v=find(strcmp({vars.class},'struct'))
     var = evalin('base',vars(v).name);
     if isfield(var,{'paradigm','parameters'})
@@ -67,6 +68,19 @@ for v=find(strcmp({vars.class},'struct'))
         else
             names{end+1} = [vars(v).name  ' (based on ' char(var.paradigm) ')']; 
         end
+    end
+end
+
+% get list of permitted paradigm names
+tmp = gui_listapproaches;
+paradigm_names = cellfun(@(x){x.paradigm(9:end)},tmp{2});
+% scan for approaches in cell format
+for v=find(strcmp({vars.class},'cell'))
+    var = evalin('base',vars(v).name);
+    if length(var)>1 && ischar(var{1}) && ((strncmp(var{1},'Paradigm',8) && length(var{1})>8 && any(strcmp(var{1}(9:end),paradigm_names))) || any(strcmp(var{1},paradigm_names)))
+        approaches{end+1} = struct('paradigm',quickif(strncmp(var{1},'Paradigm',8),var{1},['Paradigm',var{1}]),'name',vars(v).name,'parameters',{var(2:end)},'description',''); 
+        times(end+1) = 0;
+        names{end+1} = [vars(v).name ' (based on ' approaches{end}.paradigm ')'];
     end
 end
 handles.approaches = approaches;
