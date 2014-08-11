@@ -1,4 +1,4 @@
-function [h_old,h_new] = vis_artifacts(new,old,varargin)
+function hFig = vis_artifacts(new,old,varargin)
 % vis_artifacts(NewEEG,OldEEG,Options...)
 % Display the artifact rejections done by any of the artifact cleaning functions.
 %
