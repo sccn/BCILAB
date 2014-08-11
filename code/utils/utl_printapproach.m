@@ -1,4 +1,4 @@
-function string = utl_printapproach(app,strip_direct,indent,indent_incr)
+function string = utl_printapproach(app,strip_direct,indent,indent_incr,subset)
 % Convert an approach to a string representation
 % String = utl_printapproach(Approach)
 %
@@ -11,6 +11,10 @@ function string = utl_printapproach(app,strip_direct,indent,indent_incr)
 %
 %   IndentIncrement : indentation increment (default: 4)
 %
+%   Subset : subset of parameters to display; if 'all' then all parameters are printed, 
+%            and if 'diff' then only those parameters are printed that differ from the defaults
+%            of the respective paradigm (default: 'diff')
+%
 % Out:
 %   String : a string representation of the approach, for use in scripts
 %
@@ -18,12 +22,14 @@ function string = utl_printapproach(app,strip_direct,indent,indent_incr)
 %                                2013-10-22
 
 % check inputs
-if nargin < 2
+if nargin < 2 || isempty(strip_direct)
     strip_direct = true; end
-if nargin < 3
+if nargin < 3 || isempty(indent)
     indent = 0; end
-if nargin < 4
+if nargin < 4 || isempty(indent_incr)
     indent_incr = 4; end
+if nargin < 5 || isempty(subset)
+    subset = 'diff'; end
 if ~isa(strip_direct,'logical')
     error('The StripDirect argument must be a logical/boolean value.'); end
 
@@ -60,7 +66,13 @@ defaults = clean_fields(arg_report('rich',func));
 settings = clean_fields(arg_report('lean',func,parameters));
 
 % get the difference between the defaults and settings
-specdiff = arg_diff(defaults,settings);
+if strcmp(subset,'diff')
+    specdiff = arg_diff(defaults,settings);
+elseif strcmp(subset,'all')
+    specdiff = settings;
+else
+    error('Unsupported subset: %s',hlp_tostring(subset,100));
+end
 
 % convert to nested cell arrays of human-readable name-value pairs
 difference = arg_tovals(specdiff,[],'HumanReadableCell',false);
