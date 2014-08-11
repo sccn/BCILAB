@@ -226,6 +226,8 @@ args = arg_define([0 2],varargin, ...
     arg({'verbosity','Verbosity'},0,uint32([0 3]),'Verbosity level. Set to 0=disable output, 1=show progress dots, 2=show outer-loop output, too, 3=show inner-loop outputs, too.'));
 
 [trials,targets,lambdas,type,priors,shape,scaling,includeBias,solverOptions,continuousTargets,votingScheme,verbosity] = arg_toworkspace(args);
+trials = double(trials);
+targets = double(targets);
 
 % check if we need to handle multi-class classification by voting
 classes = unique(targets);
