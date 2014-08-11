@@ -157,6 +157,11 @@ end
 [num_workers,matlab_threads,submit_node,job_manager,queues,harvest_timeout,harvest_ips,matlab_command,startup_prefix,startup_command,no_display,clean_path,binary_worker,mcr_root,binary_name,start_port,num_ports,shutdown_timeout,jobid_format,logging_path] = arg_toworkspace(opts);
 
 % pre-generate job ids according to the jobid_format
+if hlp_matlab_version >= 712
+    rng shuffle
+else
+    rand('seed',sum(100*clock)); %#ok<RAND>
+end
 batchid = num2str(10000 + round(rand*89999));
 username = char(java.lang.System.getProperty('user.name'));
 hostname = hlp_hostname;
@@ -329,6 +334,7 @@ fprintf('\nWaiting for workers to start up to establish connections...\n');
 % harvest the host:port information from the log files...
 host_line = 'this is bcilab worker';
 port_line = 'listening on port';
+error_line = 'no free port found; exiting';
 harvested_addresses = {};   % the list of host:port addresses harvested from log files so far
 active_logfiles = logpaths; % the log files that are still actively being scanned
 t0 = tic;
@@ -343,9 +349,14 @@ while toc(t0) < harvest_timeout
                 content = vec(fread(fid,Inf,'*char'))';
                 host_match = strfind(content,host_line);
                 port_match = strfind(content,port_line);
-                if ~isempty(host_match) && ~isempty(port_match)
+                if ~isempty(strfind(content,error_line))
+                    % worker had an error: remove it from the set of logfiles being tracked
+                    active_logfiles(k) = [];                    
+                elseif ~isempty(host_match) && ~isempty(port_match)
+                    % found host and port lines
                     port_startofs = port_match(1)+length(port_line); port_endofs = port_startofs + find(content(port_startofs:end)==10,1); port_section = strtrim(content(port_startofs:port_endofs-3));
                     host_startofs = host_match(1)+length(host_line); host_endofs = host_startofs + find(content(host_startofs:end)==10,1); host_section = hlp_split(strtrim(content(host_startofs:host_endofs-3)),'/');
+                    % record harvested address and remove it from the set of tracked logfiles
                     harvested_addresses{end+1} = [host_section{1+harvest_ips} ':' port_section]; %#ok<AGROW>
                     active_logfiles(k) = [];
                 end
