@@ -92,7 +92,7 @@ function signal = flt_clean_channels(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2014-05-12
 
-% flt_clean_channels_version<0.9.7> -- for the cache
+% flt_clean_channels_version<0.9.8b> -- for the cache
 
 if ~exp_beginfun('filter') return; end;
 
@@ -104,15 +104,16 @@ arg_define(varargin, ...
     arg({'noise_threshold','LineNoiseThreshold'},4,[],'Line-noise threshold. If a channel has more line noise relative to its signal than this value, in standard deviations from the channel population mean, it is considered abnormal.'), ...
     arg({'window_len','WindowLength'}, 5, [0 0.25 5 Inf], 'Window length to compute correlations. Length of the windows (in seconds) for which correlation is computed; ideally short enough to reasonably capture periods of global artifacts (which are ignored), but not shorter (for statistica reasons).'), ...
     arg({'max_broken_time','MaxBrokenTime','ignored_time','MaxIgnoredTime'}, 0.4, [0 Inf], 'Maximum duration/fraction of broken data to tolerate. Maximum time (either in seconds or as fraction of the recording) during which a retained channel may be broken. Reasonable range: 0.1 (very aggressive) to 0.6 (very lax).'), ...
-    arg({'num_samples','NumSamples'}, 50, [], 'Number of RANSAC samples. This is the number of samples to generate in the random sampling consensus process.','guru',true), ...
-    arg({'subset_size','SubsetSize'}, 0.25, [], 'Subset size. This is the size of the channel subsets to use, as number of channels or a fraction of the total number of channels.','guru',true), ...
+    arg({'subset_size','SubsetSize'}, 0.15, [0 0.1 0.3 1], 'Subset size. This is the size of the channel subsets to use, as number of channels or a fraction of the total number of channels. Lower numbers (e.g., 0.15) will yield better robustness in the presence of very noisy channels, but that requires a higher number of samples to compensate for the reduction in data.'), ...
+    arg({'num_samples','NumSamples'}, 200, uint32([1 50 500 10000]), 'Number of RANSAC samples. This is the number of samples to generate in the random sampling consensus process. The more samples you use the more stable the estimates are going to be.'), ...
     arg({'protect_channels','ProtectChannels'},[],[],'Channels to protect from removal. This protects the channels with the given names from being removed.','type','cellstr','shape','row'), ...
     arg({'keep_unlocalized_channels','KeepUnlocalizedChannels'},false,[],'Keep unlocalized channels. Whether to keep channels which have no localiztion information and can therefore not be checked based on location information.'), ...
     arg({'use_gpu','UseGPU'}, false, [], 'Whether to run on the GPU. Makes sense for offline processing if you have a GTX Titan or better.'), ...
+    arg({'ignore_chanlocs','IgnoreChanlocs'}, false, [], 'Ignore channel locations. If enabled, a fallback algorithm will be used that relies on the MinimumCorrelation and IgnoredQuantile parameters; this method is also used if no channel locations are present.'), ...
+    arg({'min_corr','MinimumCorrelation'}, 0.5, [0 1], 'Minimum correlation between channels. If the measure falls below this threshold in some time window, the window is considered abnormal.'), ...
+    arg({'ignored_quantile','IgnoredQuantile'}, 0.1, [0 1], 'Quantile of highest correlations ignored. Upper quantile of the correlation values that may be arbitrarily high without affecting the outcome - avoids problems with shorted channels.'), ...
     arg_deprecated({'linenoise_aware','LineNoiseAware'},true,[],'Line-noise aware processing. Whether the operation should be performed in a line-noise aware manner. If enabled, the correlation measure will not be affected by the presence or absence of line noise.','guru',true), ...
     arg_deprecated({'rereferenced','Rereferenced'},false,[],'Run calculations on re-referenced data. This can improve performance in environments with extreme EM noise, but will decrease robustness against individual channels with extreme excursions.'), ...
-    arg_deprecated({'min_corr','MinimumCorrelation'}, 0.5, [0 1], 'Minimum correlation between channels. If the measure falls below this threshold in some time window, the window is considered abnormal.'), ...
-    arg_deprecated({'ignored_quantile','IgnoredQuantile'}, 0.1, [0 1], 'Quantile of highest correlations ignored. Upper quantile of the correlation values that may be arbitrarily high without affecting the outcome - avoids problems with shorted channels.'), ...
     arg_norep('removed_channel_mask',unassigned)); 
 
 % flag channels
@@ -130,7 +131,6 @@ if ~exist('removed_channel_mask','var')
     wnd = 0:window_len-1;
     offsets = round(1:window_len:S-window_len);
     W = length(offsets);
-    retained = 1:(C-ceil(C*ignored_quantile));
 
     if linenoise_aware && signal.srate > 100
         % remove signal content above 50Hz
@@ -151,7 +151,7 @@ if ~exist('removed_channel_mask','var')
     if rereferenced
         X = bsxfun(@minus,X,mean(X,2)); end
     
-    if isfield(signal.chanlocs,'X') && isfield(signal.chanlocs,'Y') && isfield(signal.chanlocs,'Z') && all([length([signal.chanlocs.X]),length([signal.chanlocs.Y]),length([signal.chanlocs.Z])] > length(signal.chanlocs)*0.5)
+    if (isfield(signal.chanlocs,'X') && isfield(signal.chanlocs,'Y') && isfield(signal.chanlocs,'Z') && all([length([signal.chanlocs.X]),length([signal.chanlocs.Y]),length([signal.chanlocs.Z])] > length(signal.chanlocs)*0.5)) && ~ignore_chanlocs
         fprintf('Scanning for bad channels...');
         
         % get the matrix of all channel locations [3xN]
@@ -163,22 +163,15 @@ if ~exist('removed_channel_mask','var')
         P = hlp_diskcache('filterdesign',@calc_projector,locs,num_samples,subset_size);
         corrs = zeros(length(usable_channels),W);
         
-        if use_gpu
-            P = gpuArray(P);
-            X = gpuArray(X);
-            corrs = gpuArray(corrs);
-        end
-        
         % calculate each channel's correlation to its RANSAC reconstruction for each window
         for o=1:W
             XX = X(offsets(o)+wnd,:);
-            YY = sort(reshape(XX*P,length(wnd),length(usable_channels),num_samples),3);
-            YY = YY(:,:,round(end/2));
+            YY = reshape(XX*P,[],num_samples)';
+            YY = fast_median(YY);
+            YY = reshape(YY,length(wnd),length(usable_channels));
             corrs(:,o) = sum(XX.*YY)./(sqrt(sum(XX.^2)).*sqrt(sum(YY.^2)));
         end
         
-        if use_gpu
-            corrs = gather(corrs); end
         flagged = corrs < corr_threshold;
         
         % mark all channels for removal which have more flagged samples than the maximum number of
@@ -186,10 +179,11 @@ if ~exist('removed_channel_mask','var')
         removed_channel_mask = quickif(keep_unlocalized_channels,false(C,1),true(C,1));
         removed_channel_mask(usable_channels) = sum(flagged,2)*window_len > max_broken_time;
     else
-        fprintf('No channel locations were available; falling back to determining bad channels based on their mutual correlation...');    
+        fprintf('Not using channel locations for bad-channel removal...');    
         % for each window, flag channels with too low correlation to any other channel (outside the
         % ignored quantile)
         flagged = zeros(C,W);
+        retained = 1:(C-ceil(C*ignored_quantile));
         for o=1:W
             sortcc = sort(abs(corrcoef(X(offsets(o)+wnd,:))));
             flagged(:,o) = all(sortcc(retained,:) < min_corr);
@@ -225,6 +219,8 @@ exp_endfun('append_online',{'removed_channel_mask',removed_channel_mask});
 
 % calculate a bag of reconstruction matrices from random channel subsets
 function P = calc_projector(locs,num_samples,subset_size)
+% calc_projector_version<0.9.0> -- for the cache
+fprintf('flt_clean_channels: analyzing correlation structure of cap, this may take a while on first run...\n');
 stream = RandStream('mt19937ar','Seed',435656);
 rand_samples = {};
 for k=num_samples:-1:1
