@@ -30,9 +30,7 @@ classdef ParadigmSIFT < ParadigmDataflowSimplified
                 'Rereferencing', 'on' ...
                 'FIRFilter', { ...
                     'Frequencies', [45 50] ...
-                    'Mode', 'lowpass' ...
-                    'StopbandRipple', -30 ...
-                    'NormalizeAmplitude', true} ...
+                    'Mode', 'lowpass'} ...
                 'EpochExtraction', { ...
                     'TimeWindow', [-0.5 1.5]}};
         end
@@ -105,6 +103,7 @@ classdef ParadigmSIFT < ParadigmDataflowSimplified
                     arg({'valueFormat','ValueFormat'},'log-magnitude',{'complex','components','mixed','magnitude','sqrt-magnitude','log-magnitude','phase','polar'},'Output value format. Formatting for partially complex-valued features. Mixed means as-is, components means to separate real and imaginary components (both as real), magnitude retains only the complex magnitude, phase retains only the phase, and polar retains both magnitude and phase as real numbers.'), ...
                     arg({'featureShape','FeatureShape'},'[CxCxFxTxM] (5d tensor)',{'[CCFTMx1] (unstructured vector)','[CxCxFxTxM] (5d tensor)','[CCMxFT] (time/freq row sparsity matrix)','[CCxFTM] (per-link column sparsity matrix)','[CCxFT]_m1,..,[CCxFT]_mk (low-rank space/time structure, sparse methods)','[FxT]_c11,..,[FxT]_cnn (low-rank time/freq structure, sparse links)','[CxC]_ft1,..,[CxC]_ft2 (low-rank link structure, sparse time/freq)'},'Feature tensor arrangement. Features can be arranged in tensor or matrix or block-diagonal matrix form - most useful with the DAL classifier.'), ...
                     arg({'vectorizeFeatures','VectorizeFeatures'},true,[],'Vectorize feature tensors. This is for classifiers that cannot handle matrix or tensor-shaped features.'), ...
+                    arg({'cacheFeatures','CacheFeatures'},'disk',{'no','memory','disk'},'Whether/how to cache features. This generally applies only to offline processing. If set to memory, features will be cached in-memory. If set to disk, features will be cached on disk and reused across MATLAB sessions/instances. Note that the latter will produce huge amounts of data.'), ...
                     arg({'logBias','LogBias'},1e-4,[],'Bias for logarithms. This is to shift connectivity values to a Gaussian distribution and also to prevent negative infinities from occurring.'), ...
                     arg({'verb','Verbosity','verbosity'},true,[],'Verbose output'));
  
@@ -182,6 +181,7 @@ classdef ParadigmSIFT < ParadigmDataflowSimplified
             model.valueFormat = g.valueFormat;
             model.featureShape = g.featureShape;
             model.vectorizeFeatures = g.vectorizeFeatures;
+            model.cacheFeatures = g.cacheFeatures;
             model.logBias = g.logBias;
             model.args = g;
             
@@ -192,6 +192,9 @@ classdef ParadigmSIFT < ParadigmDataflowSimplified
         end
         
         function [features,shape] = feature_extract(self,signal,featuremodel)            
+            if ~isfield(featuremodel,'cacheFeatures')
+                featuremodel.cacheFeatures = 'memory'; end
+            
             % pre-calculate the placement indices within each epoch
             winStartIdx = 1 : round(featuremodel.siftPipelineConfig.modeling.winstep*signal.srate) : signal.pnts - ceil(featuremodel.siftPipelineConfig.modeling.winlen * signal.srate);
             % calculate placement indices across all epochs (after make_continuous)
@@ -199,11 +202,16 @@ classdef ParadigmSIFT < ParadigmDataflowSimplified
             featuremodel.siftPipelineConfig.modeling.winStartIdx = winStartIdx(:);
             
             % extract connectivity features per epoch
-            if onl_isonline
-                EEG = onl_siftpipeline(featuremodel.siftPipelineConfig,'EEG',self.make_continuous(signal),'arg_direct',true);
-            else
+            call = {@onl_siftpipeline,featuremodel.siftPipelineConfig,'EEG',self.make_continuous(signal),'arg_direct',true};
+            if onl_isonline || strcmp(featuremodel.cacheFeatures,'no')
+                EEG = call{1}(call{2:end});
+            elseif strcmp(featuremodel.cacheFeatures,'memory')
                 hlp_microcache('conn','max_key_size',2^30,'max_result_size',2^30);
-                EEG = hlp_microcache('conn',@onl_siftpipeline,featuremodel.siftPipelineConfig,'EEG',self.make_continuous(signal),'arg_direct',true);
+                EEG = hlp_microcache('conn',call{:});
+            elseif strcmp(featuremodel.cacheFeatures,'disk')
+                EEG = hlp_diskcache('features',call{:});
+            else
+                error('Unsupported CacheFeatures setting: %s',hlp_tostring(featuremodel.cacheFeatures,100));
             end
             
             rawfeatures = cellfun(@(connmethod) EEG.CAT.Conn.(connmethod), ...

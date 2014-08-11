@@ -400,7 +400,7 @@ hlp_diskcache('finegrained','folder',opts.temp,'subdir','finegrained');
 hlp_diskcache('temporary','folder',opts.temp,'subdir','temporary');
 hlp_diskcache('montages','folder',opts.temp,'subdir','montages','exactmatch_cutoff',0);
 hlp_diskcache('montage_quality','folder',opts.temp,'subdir','montages','exactmatch_cutoff',0,'spot_hashing',true);
-
+hlp_diskcache('features','folder',opts.temp,'subdir','features','exactmatch_cutoff',0,'spot_hashing',true);
 
 % show toolbox status
 fprintf('\n');
