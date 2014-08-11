@@ -2,10 +2,10 @@
 							  
   MEX file for the tcpip toolbox.
                                                           */
-#define VERSION "Version  2.0.5  2003-09-16"
+#define VERSION "Version  2.0.5 + PTBMods by Mario Kleiner - 2012-09-10"
 
 /*
-%   This file(s) is part of the tcp_udp_ip toolbox (C) Peter Rydes�ter et al.
+%   This file(s) is part of the tcp_udp_ip toolbox (C) Peter Rydesater et al.
 %   et al.  1998-2003 for running in MATLAB(R) as scripts and/or plug-ins.
 %
 %   This program is free software; you can redistribute it and/or modify
@@ -22,7 +22,7 @@
 %   along with this program; if not, write to the Free Software
 %   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 %
-%   In addition, as a SPECIAL EXCEPTION, Peter Rydes�ter, SWEDEN,
+%   In addition, as a SPECIAL EXCEPTION, Peter Rydesater, SWEDEN,
 %   gives permission to link the code of this program with any library,
 %   and distribute linked combinations of it. You must obey the GNU
 %   General Public License in all respects for all of the code in the
@@ -37,21 +37,25 @@
   Notes for Unix implementation
   Compile this with:
   
-  mex -O pnet.c
+  mex -g -v -largeArrayDims pnet.c
   
+  On Linux + gcc 4.6+ + Matlab use:
+ 
+  mex -O -g -v CFLAGS='$CFLAGS -fPIC -fexceptions' -largeArrayDims pnet.c
+ 
   Notes for Windows implementation
  
   When using LCC, compile this with:
   mex -O pnet.c {MATLAB_INSTALL_DIR}\sys\lcc\lib\wsock32.lib -DWIN32
 
   When using Visual C++, compile this with:
-  mex -O pnet.c ws2_32.lib -DWIN32
+  mex -O pnet.c ws2_32.lib winmm.lib -DWIN32 -largeArrayDims
   
   
   == Main Authour ==           == Windows support ==      == Earlie/Basic UDP support ==
-  Peter Rydes�ter              Mario Bergeron             Mike Medeiros at 23-Jan-2001.
+  Peter Rydesater              Mario Bergeron             Mike Medeiros at 23-Jan-2001.
                                LYRtech
-  �stersund, Sweden            Qu�bec, Canada
+  Ostersund, Sweden            Quebec, Canada
   +46 70 560 68 16             
   Peter.Rydesater@mh.se        Mario.Bergeron@lyrtech.com
 
@@ -68,8 +72,7 @@
 #include <ctype.h>
 
 /******* WINDOWS ONLY DEFINES *********/
-#ifdef _WIN32
-#pragma comment(lib, "wsock32.lib")
+#ifdef WIN32
 #define IFWINDOWS(dothis) dothis 
 #define IFUNIX(dothis)
 //#include <windows.h>
@@ -80,15 +83,15 @@
 #define EWOULDBLOCK WSAEWOULDBLOCK
 #define usleep(a) Sleep((a)/1000)
 #define MSG_NOSIGNAL 0
+#define DEFAULT_USLEEP        1000		/* MK: Changed from 10 msecs to 1 msec == 1000 microsecs. for lower latency. Can't go lower than 1 msec on Windoze.  :-( */
 
 /******* NON WINDOWS DEFINES *********/
 #else
-
 #define IFWINDOWS(dothis) 
 #define IFUNIX(dothis) dothis
 
 #include <errno.h>
-#define s_errno errno
+#define s_errno errno // ?? Is this OK ??
 #include <netdb.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -96,14 +99,18 @@
 #include <arpa/inet.h> 
 #include <unistd.h>
 #include <fcntl.h>
+#include <time.h>
+#include <sys/time.h>
+
 #define nonblockingsocket(s)  fcntl(s,F_SETFL,O_NONBLOCK)
+#define DEFAULT_USLEEP        500		/* MK: Changed from 10 msecs to 0.5 msec == 500 microsecs. for lower latency. Should not be a problem on good OS/X and Linux :-) */
 #endif
 
 #ifndef INADDR_NONE
 #define INADDR_NONE (-1)
 #endif
 
-/* Do this hack cause SIGPIPE that kills matlab on any platform??? */
+// Do this hack cause SIGPIPE that kills matlab on any platform???
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif
@@ -113,7 +120,7 @@
 
 /********** DEFINES related to pnet own functionality *****************/
 /*   Set debuging on/off   */
-#define debug_view_con_status(X)   /* __debug_view_con_status(X)  */
+#define debug_view_con_status(X)   // __debug_view_con_status(X)
 
 #define MAX_CON         100       /* Maximum number of simultanius tcpip connections.*/
 #define NAMEBUFF_LEN    100
@@ -128,16 +135,15 @@
 #define DEFAULT_WRITETIMEOUT  double_inf
 #define DEFAULT_READTIMEOUT   double_inf
 #define DEFAULT_INPUT_SIZE    50000
-#define DEFAULT_USLEEP        10000
 
 /* Different status of a con_info struct handles a file descriptor    */
 #define STATUS_FREE       -1
-#define STATUS_NOCONNECT   0    /* Disconnected pipe that is note closed  */
+#define STATUS_NOCONNECT   0    // Disconnected pipe that is note closed 
 #define STATUS_TCP_SOCKET  1 
-#define STATUS_IO_OK       5    /* Used for IS_... test */
+#define STATUS_IO_OK       5    // Used for IS_... test
 #define STATUS_UDP_CLIENT  6
 #define STATUS_UDP_SERVER  8
-#define STATUS_CONNECT     10   /* Used for IS_... test */
+#define STATUS_CONNECT     10   // Used for IS_... test
 #define STATUS_TCP_CLIENT  11
 #define STATUS_TCP_SERVER  12
 #define STATUS_UDP_CLIENT_CONNECT 18
@@ -169,7 +175,7 @@ typedef struct
 } con_info;
 
 
-/**********************************************************************/
+/////////////////////////////////////////////////////////////////////////////////////////////////
 /* Some global variables */
 int        gret_args=0;         /* Global variable that holds number of matlab return argumens returned */
 int            gnlhs;           /* number of expected outputs */
@@ -188,7 +194,7 @@ void Print_Start_Message(){
 	      "Loaded pnet MEX-file for the tcp/udp/ip-toolbox Compiled @ "
 	      __DATE__ " " __TIME__  "\n"
 	      VERSION "\n"
-	      "Copyright (C) Peter Rydes�ter, Sweden, et al. , 1998 - 2003\n"
+	      "Copyright (C) Peter Rydesater, Sweden, et al. , 1998 - 2003\n"
 	      "GNU General Public License, se license.txt for full license notis.\n"
 	      "You are allowed to (dynamicaly) link this file with non-free code. \n\n"
 	      "   http://www.rydesater.com \n\n"
@@ -224,7 +230,7 @@ void *myrealloc(char *ptr,int newsize)
 /* A "wrapper" function for memory allocation. Most for debuging /tracing purpose */
 void newbuffsize(io_buff *buff,int newsize)
 {
-    /*    fprintf(stderr,"NEWSIZE:%d\n",newsize); */
+    //    fprintf(stderr,"NEWSIZE:%d\n",newsize);
     if(newsize==-1){
 	free(buff->ptr);
 	buff->ptr=NULL;
@@ -234,12 +240,12 @@ void newbuffsize(io_buff *buff,int newsize)
 	newsize=buff->pos;
     if(newsize<256)
 	newsize=256;
-    if(newsize>buff->len){   /* Grow....  */
-	/*	fprintf(stderr,"NEWSIZE UP %d -> %d\n",buff->len,newsize*2); */
+    if(newsize>buff->len){   // Grow....
+	//	fprintf(stderr,"NEWSIZE UP %d -> %d\n",buff->len,newsize*2);
 	buff->ptr=myrealloc(buff->ptr,newsize*2);
 	buff->len=newsize*2;
-    }else if(newsize*4 < buff->len){ /* Decrease...  */
-	/*	fprintf(stderr,"NEWSIZE DOWN %d -> %d\n",buff->len,newsize*2); */
+    }else if(newsize*4 < buff->len){ // Decrease...
+	//	fprintf(stderr,"NEWSIZE DOWN %d -> %d\n",buff->len,newsize*2);
 	buff->ptr=myrealloc(buff->ptr,newsize*2);
 	buff->len=newsize*2;
     }
@@ -257,7 +263,7 @@ mxClassID str2classid(const char *str)
     if(myoptstrcmp("UINT16",str)==0)	return mxUINT16_CLASS;
     if(myoptstrcmp("INT32",str)==0)	    return mxINT32_CLASS;
     if(myoptstrcmp("UINT32",str)==0)	return mxUINT32_CLASS;
-    return mxCHAR_CLASS; /* Default to char; */
+    return mxCHAR_CLASS; // Default to char;
 }
 
 /********************************************************************/
@@ -279,6 +285,7 @@ mxClassID classid2size(const mxClassID id)
 /* Windows implementation of perror() function */
 #ifdef WIN32
 /********************************************************************/
+/*
 void perror(const char *context )
 {
     int wsa_err;
@@ -316,26 +323,27 @@ void perror(const char *context )
     }
     return;
 }
+ **/
 #endif
 
 /********************************************************************/
 /*Makes byte swapping, or not depending on the mode argument        */
 void byteswapdata(char *ptr,const int elements,const int elementsize,int mode)
 {
-    /* MODE=0 Do nothing, MODE=1 Swap, MODE=2 network byte order, MODE=3 Intel byte order. */
+    // MODE=0 Do nothing, MODE=1 Swap, MODE=2 network byte order, MODE=3 Intel byte order.
 #ifndef SWAPDATA
 #define SWAPDATA(a,b) { a^=b; b^=a; a^=b; }
 #endif
-    /* A little smart ckeck of byte the machine byte order. */
+    // A little smart ckeck of byte the machine byte order.
     const int ordertest=1;
     const char *is_intel_order=(const char *)(&ordertest);
-    /*    fprintf(stderr,"SWAP FUNCTION...E:%d SI:%d\n",elements,elementsize);  */
+    //    fprintf(stderr,"SWAP FUNCTION...E:%d SI:%d\n",elements,elementsize);
     if(elementsize<2) return;
     if(is_intel_order[0]==1 && mode==2)   mode=1;
     if(is_intel_order[0]==0 && mode==3)   mode=1;
     if(mode==1){
 	int e;
-	/*	fprintf(stderr,"SWAP DATA\n"); */
+	//	fprintf(stderr,"SWAP DATA\n");
 	switch(elementsize){
 	case 2: for(e=0;e<elements*elementsize;e+=elementsize)
 	    SWAPDATA(ptr[e],ptr[e+1]) break;
@@ -359,25 +367,25 @@ void byteswapdata(char *ptr,const int elements,const int elementsize,int mode)
 /*Makes byte swapping, or not depending on the mode argument        */
 void byteswapcopy(char *dest,char *src,const int elements,const int elementsize,int mode)
 {
-    /* MODE=0 Do nothing, MODE=1 Swap, MODE=2 network byte order, MODE=2 Intel byte order. */
-    /* A little smart ckeck of byte the machine byte order. */
+    // MODE=0 Do nothing, MODE=1 Swap, MODE=2 network byte order, MODE=2 Intel byte order.
+    // A little smart ckeck of byte the machine byte order.
     const int ordertest=1;
     const char *is_intel_order=(const char *)(&ordertest);
     if(is_intel_order[0]==1 && mode==2)   mode=1;    
     if(is_intel_order[0]==0 && mode==3)   mode=1;
-    /*    fprintf(stderr,"SWAP COPY E:%d SI:%d SWAP:%d\n",elements,elementsize,mode); */
+    //    fprintf(stderr,"SWAP COPY E:%d SI:%d SWAP:%d\n",elements,elementsize,mode);
     if(mode==1){
 	int e,n;
-	/*	fprintf(stderr,"SWAP COPY\n"); */
+	//	fprintf(stderr,"SWAP COPY\n");
 	for(e=0;e<elements;e++){
 	    char *dp=&dest[e*elementsize];
 	    char *sp=&src[e*elementsize];
 	    for(n=0;n<elementsize;n++){
 		dp[n]=sp[elementsize-1-n];
-		/*		fprintf(stderr,"E:%d/%d N:%d/%d\n",e,elements,n,elementsize); */
+		//		fprintf(stderr,"E:%d/%d N:%d/%d\n",e,elements,n,elementsize);
 	    }
 	}
-	/*	fprintf(stderr,"SWAP COPY END\n"); */
+	//	fprintf(stderr,"SWAP COPY END\n");
     }
     else
 	    memmove(dest,src,elements*elementsize);
@@ -408,25 +416,42 @@ void __debug_view_con_status(char *str)
     mexPrintf("--------------------\n");
 }
 
+#ifdef WIN32
 /********************************************************************/
 /* Portable time function using matlabs NOW                         */
 double my_now(){
     double sec;
+    
+    sec = ((double) timeGetTime()) / 1000.0;
+    return(sec);
+    
+  /* 
     double dotimenow;
     static double lastdotime;
     mxArray *plhs[1]={NULL};
     mxArray *prhs[1]={NULL};
     mexCallMATLAB(1,plhs,0,prhs,"now");
-    sec=mxGetScalar(plhs[0])*60*60*24; /* Return time as sec from 1970  */
-    dotimenow=floor(sec*10)/10; /* Do calls every 1/10 Sec */
+    sec=mxGetScalar(plhs[0])*60*60*24; //Return time as sec from 1970
+    dotimenow=floor(sec*10)/10; // Do calls every 1/10 Sec
     mxDestroyArray(plhs[0]);
-    if(lastdotime!=dotimenow){  /* Call drawnow once evry X second */
+    if(lastdotime!=dotimenow){  //Call drawnow once evry X second
 	    int ret=mexCallMATLAB(0,plhs,0,prhs,"drawnow");
-	    /*mexPrintf("wait... drawnow returns: %d\n",ret); */
+	    //mexPrintf("wait... drawnow returns: %d\n",ret);
 	    lastdotime= dotimenow;
     }
-    return sec;
+    return sec;   
+  */
 }
+#else
+double my_now()
+{
+    struct timeval tv;
+    double sec;
+    gettimeofday(&tv, NULL);
+    sec = (double) tv.tv_sec + ((double) tv.tv_usec) / (double) 1e6;
+    return(sec);
+}
+#endif
 
 /*******************************************************************************/
 /* Checks that given index is valid index and set current index, "con_index"   */
@@ -463,7 +488,7 @@ int move_con(int idx)
 /* Returns true if specified argument exist                                                  */
 int my_mexIsInputArgOK(const int argno)
 {
-    /*    fprintf(stderr,"IS_INPUT_ARG_OK NO:%d of %d\n",argno,gnrhs);          */
+    //    fprintf(stderr,"IS_INPUT_ARG_OK NO:%d of %d\n",argno,gnrhs);        // DEBUG
     if(gnrhs>argno)
 	return 1;
     return 0;
@@ -473,7 +498,7 @@ int my_mexIsInputArgOK(const int argno)
 /* Returns specified input argument as scalar. Global and error tolerant replacement for mxGetScalar */
 const mxArray *my_mexInputArg(const int argno)
 {
-    /*    fprintf(stderr,"GET_INPUT_ARG NO:%d\n",argno);                       */
+    //    fprintf(stderr,"GET_INPUT_ARG NO:%d\n",argno);                      // DEBUG
     if(!my_mexIsInputArgOK(argno))
 	mexErrMsgTxt("Missing input argument.");
     return gprhs[argno];
@@ -583,12 +608,12 @@ int my_mexInputArray2Buff(const int argno,io_buff *buff)
     newbuffsize(buff,buff->pos+len*si);
 
     if(id==mxCHAR_CLASS){
-	mxChar *ptr = (mxChar *)mxGetPr(gprhs[argno]);
+	mxChar *ptr = (mxChar *)mxGetData(gprhs[argno]);
 	int a;
 	for(a=0;a<len;a++)
 	    buff->ptr[buff->pos++]=(char)(unsigned char)ptr[a];
     }else{
-	char *ptr = (char *)mxGetPr(gprhs[argno]);
+	char *ptr = (char *)mxGetData(gprhs[argno]);
 	byteswapcopy(&buff->ptr[buff->pos],ptr,len,si,swap);
 	buff->pos+=(len*si);
     }
@@ -609,7 +634,7 @@ void my_mexReturnValue(double val)
 	*mxGetPr(gplhs[gret_args])=val;
 	gret_args++;
     }
-/*    mexPrintf("DEBUG MEX RETURN VALUE:%g\n",val);   */
+//    mexPrintf("DEBUG MEX RETURN VALUE:%g\n",val);  // DEBUG
 }
 
 /*******************************************************************************/
@@ -645,7 +670,7 @@ void my_mexReturnArrayFromBuff(const int argno,io_buff *buff,const int line)
 {
     const int maxelements=my_mexInputSize(argno);
     const mxClassID id=str2classid(my_mexInputOptionString(argno+1));
-    int dims[20]={0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0 };
+    mwSize dims[20]={0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0, 0,0,0,0,0 };
     const int si=classid2size(id);
     int returnelements= ( (buff->pos/si)< maxelements )?(buff->pos/si):maxelements;
     int deleteelements=returnelements;
@@ -666,25 +691,25 @@ void my_mexReturnArrayFromBuff(const int argno,io_buff *buff,const int line)
 	for(n=0;n<returnelements;n++)
 	    if(buff->ptr[n]=='\n')
 		break;
-	if(n==maxelements)                             /* If no new-line found inside limit... */
-	    deleteelements=returnelements=maxelements; /* ...return first part of splited line. */
-	else if(n==returnelements)                     /* If new-line not recived inside limit... */
-	    deleteelements=returnelements=0;           /* ...return empty string, and delete nothing. */
-	else if(n>0 && buff->ptr[n-1]=='\r')           /* If(*3) new-line, return line of char but not nl chars. */
+	if(n==maxelements)                             // If no new-line found inside limit...
+	    deleteelements=returnelements=maxelements; // ...return first part of splited line.
+	else if(n==returnelements)                     // If new-line not recived inside limit...
+	    deleteelements=returnelements=0;           // ...return empty string, and delete nothing.
+	else if(n>0 && buff->ptr[n-1]=='\r')           // If(*3) new-line, return line of char but not nl chars.
 	   deleteelements=2+(returnelements=n-1);
 	else
 	   deleteelements=1+(returnelements=n);
 	return_no_dims=1;
     }
-    if(return_no_dims>1){                 /* If shape of return argument is specified..... */
-	if(returnelements==maxelements){        /* ...then only accept correct shape. */
+    if(return_no_dims>1){                 // If shape of return argument is specified.....
+	if(returnelements==maxelements){        // ...then only accept correct shape.
 	    int n;
 	    for(n=0;n<return_no_dims;n++)
-		dims[n]=(int)my_mexInputCell(argno,n);
+		dims[n]=(mwSize) my_mexInputCell(argno,n);
 	}
-    }else if(returnelements>0){           /* else... Just return row of available elements */
-	dims[0]=1;
-	dims[1]=returnelements;
+    }else if(returnelements>0){           // else... Just return row of available elements
+	dims[0] = 1;
+	dims[1] = (mwSize) returnelements;
 	return_no_dims=2;
     }
     if(! (gret_args>gnlhs && gret_args>1) ){
@@ -698,27 +723,27 @@ void my_mexReturnArrayFromBuff(const int argno,io_buff *buff,const int line)
 	if(dims[0]!=0){
 	    if(id==mxCHAR_CLASS){
 		int i;
-		mxChar *p=(mxChar *)mxGetPr(gplhs[gret_args]);
+		mxChar *p=(mxChar *)mxGetData(gplhs[gret_args]);
 		for(i=0;i<returnelements;i++)
 		    p[i]=buff->ptr[i];
 	    }else{
-		char *p=(char *)mxGetPr(gplhs[gret_args]);
+		char *p=(char *)mxGetData(gplhs[gret_args]);
 		byteswapcopy(p,buff->ptr,returnelements,si,swap);
 	    }
 	}
 	gret_args++;
     }
-       /*    debug_view_con_status("GET_ARRAY N�STAN KLAR"); */
-    /* Delete from read buffer if not "VIEW" option and dims filled */
+       //    debug_view_con_status("GET_ARRAY NSTAN KLAR");
+    // Delete from read buffer if not "VIEW" option and dims filled
     if(my_mexFindInputOption(argno+1,"VIEW")==0 && deleteelements>0 ){
 	buff->pos-=deleteelements*si;
 	memmove(buff->ptr,&buff->ptr[deleteelements*si],buff->pos);
 	newbuffsize(buff,buff->pos);
     }
-    /* mexPrintf("DEBUG MEX RETURN ARRAY OF:%d\n",returnelements);   */
+    // mexPrintf("DEBUG MEX RETURN ARRAY OF:%d\n",returnelements);  // DEBUG
 
-    /*    fprintf(stderr,"DIMS:[%d %d] DEL:%d RET:%d SI:%d POS:%d LEN:%d PTR:%08X\n", */
-    /*	    dims[0],dims[1],deleteelements,returnelements,si,buff->pos,buff->len,buff->ptr); */
+    //    fprintf(stderr,"DIMS:[%d %d] DEL:%d RET:%d SI:%d POS:%d LEN:%d PTR:%08X\n",
+    //	    dims[0],dims[1],deleteelements,returnelements,si,buff->pos,buff->len,buff->ptr);
 }
 
 
@@ -732,7 +757,7 @@ int ipv4_lookup(const char *hostname,int port)
 	/*Can't resolve host string as dot notation IP number...
 	  try lookup IP from hostname */
 	struct hostent *he;
-	/*	fprintf(stderr,"Trying nameserverlookup:%s\n",hostname); */
+	//	fprintf(stderr,"Trying nameserverlookup:%s\n",hostname);
 	he=gethostbyname(hostname);
 	if(he==NULL){
 	    mexPrintf("\nUNKNOWN HOST:%s\n",hostname);
@@ -761,8 +786,8 @@ int writedata()
     int lastsize=1000000;
     if(con[con_index].status<STATUS_IO_OK)
 	return 0;
-    /*    if( !IS_STATUS_TCP_CONNECTED(con[con_index].status)  && len>65534 )    */
-    /*	len=65534; */
+    //    if( !IS_STATUS_TCP_CONNECTED(con[con_index].status)  && len>65534 )   // TODO: Ta bort!
+    //	len=65534;
     while(sentlen<len)
     {
 	if(lastsize<1000)
@@ -774,7 +799,14 @@ int writedata()
 	    retval=send(fid,&ptr[sentlen],len-sentlen,MSG_NOSIGNAL);
 	lastsize=retval>0?retval:0;
 	sentlen+=lastsize;
-	if(retval<0 && s_errno!=EWOULDBLOCK) {
+	/*	if( retval==0){
+		mexPrintf("\nREMOTE HOST DISCONNECTED\n");
+		con[con_index].status=STATUS_NOCONNECT;
+		break;
+		}*/
+	if(retval<0 && s_errno!=EWOULDBLOCK
+	   //	   IFWINDOWS( && s_errno!=WSAECONNRESET  )           // DEBUG: REMOVE THIS LINE?
+	   ){
 	    con[con_index].status=STATUS_NOCONNECT;
 	    perror( "sendto() / send()" );
 	    mexPrintf("\nREMOTE HOST DISCONNECTED\n");
@@ -856,9 +888,9 @@ int read2buff(const int len,int newline,int noblock)
     if(con[con_index].read.len<len)
 	newbuffsize(&con[con_index].read,len);
 
-    while(1) {
+    while(1){
 	int readlen=len-con[con_index].read.pos;
-/*	mexPrintf("DEBUG: READLINE: readlen:%d\n",readlen);  */
+//	mexPrintf("DEBUG: READLINE: readlen:%d\n",readlen);
 	if(readlen>0){
 	    if(IS_STATUS_CONNECTED(con[con_index].status))
 		retval=recv(con[con_index].fid,&con[con_index].read.ptr[con[con_index].read.pos],readlen ,MSG_NOSIGNAL);
@@ -866,7 +898,7 @@ int read2buff(const int len,int newline,int noblock)
 		struct sockaddr_in my_addr;
 		int fromlen=sizeof(my_addr); 
 
-		/* Copy 0.0.0.0 adress and 0 port to remote_addr as init-value. */
+		// Copy 0.0.0.0 adress and 0 port to remote_addr as init-value.
 		memset(&my_addr,0,sizeof(my_addr));
 		con[con_index].remote_addr.sin_addr = my_addr.sin_addr;
 		con[con_index].remote_addr.sin_port = my_addr.sin_port;
@@ -883,20 +915,21 @@ int read2buff(const int len,int newline,int noblock)
 		break;
 	    }
 	    if(retval<0 && s_errno!=EWOULDBLOCK
+	       //	       IFWINDOWS( && s_errno!=WSAECONNRESET )// DEBUG: REMOVE THIS LINE?
 	       ) {
 		con[con_index].status=STATUS_NOCONNECT;
 		perror( "recvfrom() or recv()" );
 		break;
 	    }
 	}
-	/*	fprintf(stderr,"RET:%d/%d ",retval,s_errno); */
+	//	fprintf(stderr,"RET:%d/%d ",retval,s_errno);
 	readlen=retval>0?retval:0;
 	con[con_index].read.pos+=readlen;
 	if( !IS_STATUS_TCP_CONNECTED(con[con_index].status) && con[con_index].read.pos>0 )
 	    break;
 	if( con[con_index].read.pos>=len )
 	    break;
-	if(timeoutat<=my_now() || noblock)
+	if(noblock || timeoutat<=my_now())
 	    break;
 	if(newline){
 	    int n;
@@ -910,7 +943,7 @@ int read2buff(const int len,int newline,int noblock)
     return con[con_index].read.pos;
 }
 
-/***************************************************************************/  
+/***************************************************************************/   // BORT???
 /* Read specified length & type from UDP or TCP network to input buffer    */
 int readtype2buff(int len,mxClassID datatype,int newline,int noblock)
 {
@@ -949,6 +982,14 @@ int tcp_udp_socket(int port,int dgram_f)
     int sockfd;
     struct sockaddr_in my_addr;    /* my address information */
     const int on=1;
+
+    #ifndef WIN32
+        #ifndef IPTOS_LOWDELAY
+        #define IPTOS_LOWDELAY          0x10
+        #endif
+        int tos = IPTOS_LOWDELAY;
+    #endif
+
     if(dgram_f)
 	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     else
@@ -967,6 +1008,14 @@ int tcp_udp_socket(int port,int dgram_f)
     }
     listen(sockfd,BACKLOG);
     nonblockingsocket(sockfd);
+
+    /* Try to enable low-latency send/receive operations on socket: */
+    #ifndef WIN32
+    if (-1 == setsockopt(sockfd, IPPROTO_IP, IP_TOS, &tos, sizeof(tos))) {
+        mexPrintf("pnet: Warning: Could not enable low-latency mode on socket! [%s]\n", strerror(errno));
+    }
+    #endif
+
     return sockfd;
 }
 
@@ -983,7 +1032,7 @@ int tcpiplisten(int noblock)
     while(1){
 	    if ((new_fd = accept(sock_fd, (struct sockaddr *)&con[con_index].remote_addr,&sin_size)) > -1)
             break;
-        if(timeoutat<=my_now()|| noblock)
+        if(noblock || timeoutat<=my_now())
 	        return -1;
 	    usleep(DEFAULT_USLEEP);
     }
@@ -1058,7 +1107,7 @@ void mexFunction(
     if(mxIsChar(my_mexInputArg(0))){
 	/* GET FIRST ARGUMENT -- The "function" name */
 	strncpy(fun,my_mexInputOptionString(0),80);
-/*	mexPrintf("DEBUG MEX(1):[%d] %s\n",con_index,fun);   // DEBUG */
+//	mexPrintf("DEBUG MEX(1):[%d] %s\n",con_index,fun);   // DEBUG
 	
 	/* Find of the function name corresponds to a non connection associated function */
 	if(myoptstrcmp(fun,"CLOSEALL")==0){
@@ -1098,11 +1147,11 @@ void mexFunction(
     }
     /* Get connection handler and suppose that it is a connection assosiated function */
     /* Find given handel */
-    /*       if(strncasecmp(fun,"DEF",3)!=0) */
+    //       if(strncasecmp(fun,"DEF",3)!=0)
     if(move_con((int)my_mexInputScalar(0))==0) 
 	mexErrMsgTxt("Unknown connection handler");
     strncpy(fun,my_mexInputOptionString(1),80);
- /*   mexPrintf("DEBUG MEX(2):[%d] %s\n",con_index,fun);   // DEBUG */
+ //   mexPrintf("DEBUG MEX(2):[%d] %s\n",con_index,fun);   // DEBUG
     debug_view_con_status("CON_MOVED!!");
        
        if(myoptstrcmp(fun,"CLOSE")==0){
@@ -1132,7 +1181,7 @@ void mexFunction(
 	mxArray *plhs[1]={NULL};
 	if(gnrhs<3) return;
 	mexCallMATLAB(1,plhs, gnrhs-2, (mxArray **)&(gprhs[2]),"sprintf");
-	gprhs=(const mxArray **)plhs; gnrhs=1; /* HACK: Move return arg from sprintf to input arg of this mex. */
+	gprhs=(const mxArray **)plhs; gnrhs=1; // HACK: Move return arg from sprintf to input arg of this mex.
 	my_mexInputArray2Buff(0,&con[con_index].write);
 	if(IS_STATUS_TCP_CONNECTED(con[con_index].status))
 	    writedata();
@@ -1145,11 +1194,11 @@ void mexFunction(
 	    return;
     }
     if(myoptstrcmp(fun,"READLINE")==0){
-    /*	mexPrintf("DEBUG: READLINE....\n"); */
+    //	mexPrintf("DEBUG: READLINE....\n");
 	    if(IS_STATUS_TCP_CONNECTED(con[con_index].status))
 	        read2buff(my_mexInputSize(2),1,my_mexFindInputOption(2,"noblock"));
 	    my_mexReturnArrayFromBuff(2,&con[con_index].read,1);
-    /*	mexPrintf("DEBUG: READLINE END\n"); */
+    //	mexPrintf("DEBUG: READLINE END\n");
 	return;
     }
     if(myoptstrcmp(fun,"READTOFILE")==0){
@@ -1165,7 +1214,7 @@ void mexFunction(
 	    writelen=fwrite(con[con_index].read.ptr,1,readlen,f);
 	    fclose(f);
 	}
-	/* Delete from read buffer if not "VIEW" option and dims filled */
+	// Delete from read buffer if not "VIEW" option and dims filled
 	if(my_mexFindInputOption(2+1,"VIEW")==0 ){
 	    con[con_index].read.pos-=writelen;
 	    memmove(con[con_index].read.ptr,&con[con_index].read.ptr[writelen],con[con_index].read.pos);
@@ -1247,11 +1296,11 @@ void mexFunction(
 	mexPrintf("     FID:%d\n",con[con_index].fid);
 	mexPrintf("  STATUS:%d\n",con[con_index].status);
 	mexPrintf("WRITE  TO:%g\n",con[con_index].writetimeout);
-	mexPrintf("WRITE PTR:%x\n",(int)con[con_index].write.ptr);
+	mexPrintf("WRITE PTR:%p\n",con[con_index].write.ptr);
 	mexPrintf("WRITE POS:%d\n",con[con_index].write.pos);
 	mexPrintf("WRITE LEN:%d\n",con[con_index].write.len);
 	mexPrintf("READ  TO:%g\n",con[con_index].readtimeout);
-	mexPrintf("READ PTR:%x\n",(int)con[con_index].read.ptr);
+	mexPrintf("READ PTR:%p\n",con[con_index].read.ptr);
 	mexPrintf("READ POS:%d\n",con[con_index].read.pos);
 	mexPrintf("READ LEN:%d\n",con[con_index].read.len);
 	return;
