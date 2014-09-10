@@ -52,7 +52,9 @@ ns_sendpacket(h.handle,'CTRL',3,5,0);
     
     h.totalChan = h.numChan + h.numEventChan;
     
-    h.markerChanIdx = 41;
+    if h.numEventChan ~= 0
+        h.markerChanIdx = h.numChan + 1;
+    end
     
     % number of bytes for neuroscan header
     h.headerSize = 12;
