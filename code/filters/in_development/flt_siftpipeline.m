@@ -171,4 +171,11 @@ else
     signal.CAT = preproc.CAT;
 end
 
+% append time-series fields
+for f=vec(hlp_getConnMethodNames(signal.CAT.Conn))'
+    fname = f{1};
+    signal = utl_register_field(signal,'timeseries',fname,signal.CAT.Conn.(fname));  % [space,space,freq,time]
+    signal.(fname) = permute(signal.(fname),[1 4 5 2 3]);                            % [space,time,epoch,space,freq]
+end
+
 exp_endfun;
