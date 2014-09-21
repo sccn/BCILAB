@@ -96,7 +96,12 @@ try
     % update meta-data
     [chunk.nbchan,chunk.pnts,chunk.trials] = size(chunk.data);
     chunk.chanlocs = chunk.chanlocs(channels_to_get);
-    chunk.xmax = chunk.xmin + (chunk.pnts-1)/chunk.srate;
+    if chunk.xmin == 0
+        chunk.xmax = (chunk.smax-1)/chunk.srate;
+        chunk.xmin = chunk.xmax - (chunk.pnts-1)/chunk.srate;
+    else
+        chunk.xmax = chunk.xmin + (chunk.pnts-1)/chunk.srate;
+    end
 
 catch e
     if ~ischar(unit) || isempty(unit)
