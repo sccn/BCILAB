@@ -11,7 +11,7 @@ arg_define(varargin, ...
         arg_norep({'signal','Signal'}), ...
         arg({'squareData','SquareData'},false,[],'Return abs(x).^2. Otherwise only abs(x) is returned.'));
 
-for f = utl_timeseries_fields(signal)
+for f = utl_registered_fields(signal,'timeseries')
     if ~isreal(signal.(f{1})) || ~squareData
         signal.(f{1}) = abs(signal.(f{1})); end
     if squareData

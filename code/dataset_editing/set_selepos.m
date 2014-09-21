@@ -47,7 +47,7 @@ if ~isempty(signal.epoch)
         error('The epoch range to select exceeds the length of the signal''s .epoch field (%i): %s.',length(signal.epoch),hlp_tostring(epoch_range)); end
 
     % select epochs within time series fields
-    for field = utl_timeseries_fields(signal) 
+    for field = utl_registered_fields(signal,{'timeseries','timeaxis'})
         if ~isempty(signal.(field{1}))
             try
                 signal.(field{1}) = signal.(field{1})(:,:,epoch_range,:,:,:,:,:); 

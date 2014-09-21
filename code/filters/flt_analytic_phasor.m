@@ -160,13 +160,13 @@ if isempty(state)
     end
     % set up initial state
     state.cached_chanlocs = update_chanlocs(signal.chanlocs,nFreqs);
-    for fld = utl_timeseries_fields(signal)
+    for fld = utl_registered_fields(signal,'timeseries')
         state.(fld{1}) = struct('zi_re',{cell(1,length(flt.freqband))},'zi_im',{cell(1,length(flt.freqband))}); end
 end
 
 % filter bandpassed signal with differentiator to get sine part
 nFreqs = length(state.b_im);
-for fld = utl_timeseries_fields(signal)
+for fld = utl_registered_fields(signal,'timeseries')
     field = fld{1};
     if ~isempty(signal.(field))
         % get rid of NaN's and Inf's

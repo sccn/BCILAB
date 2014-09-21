@@ -92,8 +92,14 @@ try
             onl_append(stream_name,block);
         end
     catch e
-        disp('Error in block-reading function:');
-        hlp_handleerror(e);
+        if strcmp(e.identifier,'BCILAB:EndOfStream')
+            disp('Encountered end-of-stream.');
+            stop(timer_handle);
+            delete(timer_handle);
+        else
+            disp('Error in block-reading function:');
+            hlp_handleerror(e);
+        end
     end
 catch e
     if ~strcmp(e.identifier,'MATLAB:UndefinedFunction')

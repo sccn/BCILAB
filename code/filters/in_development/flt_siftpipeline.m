@@ -65,7 +65,7 @@ end
 if isempty(preproc.epoch)
     % initialize state if necessary
     if isempty(state)
-        for f = utl_timeseries_fields(signal)
+        for f = utl_registered_fields(signal,'timeseries')
             state.(f{1}).buffer = zeros(size(signal.(f{1}),1),0); % buffer of data carried over to next call
             state.(f{1}).next_index = 1;                          % window start index relative to beginning of buffer (1-based)
         end
@@ -77,7 +77,7 @@ if isempty(preproc.epoch)
     srcFieldMap = struct('Channels','data','Sources','srcpot','Components','icaact');    
     f = {srcFieldMap.(g.preproc.sigtype.arg_selection)};
     % prepend buffer contents to data (consistently for all time-series fields)
-    for tf = utl_timeseries_fields(preproc)
+    for tf = utl_registered_fields(preproc,'timeseries')
         preproc.(tf{1}) = [state.(tf{1}).buffer preproc.(tf{1})]; end
     % determine the correct window positions for the desired source signal
     g.modeling.winStartIdx = state.(f{1}).next_index:winstep:(size(preproc.(f{1}),2)-winlen+1);
@@ -85,18 +85,21 @@ if isempty(preproc.epoch)
     if ~isempty(g.modeling.winStartIdx)
         % buffer all data that will be needed on the next call
         next_index = max(g.modeling.winStartIdx)+winstep;
-        for tf = utl_timeseries_fields(preproc)
+        for tf = utl_registered_fields(preproc,'timeseries')
             state.(tf{1}).buffer = preproc.(tf{1})(:,next_index:end); end
         % decrement next_index based on how much we at the beginning
         state.(f{1}).next_index = next_index - (size(preproc.(f{1}),2) - size(state.(f{1}).buffer,2));
     else
         % if we cannot make a prediction keep everything buffered
-        for tf = utl_timeseries_fields(preproc)
+        for tf = utl_registered_fields(preproc,'timeseries')
             state.(tf{1}).buffer = preproc.(tf{1}); end
     end
     % consistently update signal meta-data
     preproc.pnts = size(preproc.data,2);
     preproc.xmax = preproc.xmin + (preproc.pnts-1)/preproc.srate;
+else
+    % handle epoched data
+    
 end
 
 if isempty(preproc.epoch) && isempty(g.modeling.winStartIdx)

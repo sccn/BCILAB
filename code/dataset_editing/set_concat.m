@@ -54,7 +54,7 @@ if ~isempty(varargin)
     result = varargin{1};
     if length(varargin) > 1
         % concatenate time series fields
-        for field = utl_timeseries_fields(result)
+        for field = utl_registered_fields(result,{'timeseries','timeaxis'})
             data = cellfun(@(x)x.(field{1}),varargin,'UniformOutput',false);
             try
                 result.(field{1}) = cat(2,data{:}); 

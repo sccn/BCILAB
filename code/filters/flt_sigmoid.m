@@ -16,7 +16,7 @@ g = arg_define(varargin, ...
 
 signal = g.signal;
 % sigmoid transform parameters: [amp, phase, slope, x_shift, y_shift]
-for f=utl_timeseries_fields(signal)
+for f=utl_registered_fields(signal,'timeseries')
     if ~isempty(signal.(f{1}))
         signal.(f{1}) = sigmoid([g.amp,g.phase,g.slope,g.x_shift,g.y_shift],signal.(f{1})); end
 end

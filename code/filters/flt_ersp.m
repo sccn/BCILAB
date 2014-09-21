@@ -36,7 +36,7 @@ if isempty(numtapers)
     numtapers = 2*timebandwidth-1; end
 
 % for each non-empty time-series field...
-for f = utl_timeseries_fields(signal)
+for f = utl_registered_fields(signal,'timeseries')
     if ~isempty(signal.(f{1}))
         X = double(signal.(f{1}));
         dims = size(X);

@@ -95,7 +95,7 @@ if ~isempty(time) && ~isequal(time,false) %#ok<*USENS>
         % trim the time-series fields
         sample_bounds = round(min(1+round((time.trange-signal.xmin)*signal.srate),size(signal.data,2)));
         sample_range = sample_bounds(1):sample_bounds(2);
-        for field = utl_timeseries_fields(signal)
+        for field = utl_registered_fields(signal,'timeseries')
             if ~isempty(signal.(field{1}))
                 signal.(field{1}) = signal.(field{1})(:,sample_range,:,:,:,:,:,:); end
         end
@@ -138,7 +138,7 @@ if ~isempty(time) && ~isequal(time,false) %#ok<*USENS>
     
     % apply window function, if specified    
     if ~isempty(time.winfunc) && ~isequal(time.winfunc,'rect')
-        for f = utl_timeseries_fields(signal)
+        for f = utl_registered_fields(signal,'timeseries')
             if ~isempty(signal.(f{1}))
                 signal.(f{1}) = bsxfun(@times,signal.(f{1}),window_func(time.winfunc,size(signal.(f{1}),2),time.winparam)'); end
         end

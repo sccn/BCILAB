@@ -12,6 +12,9 @@ function signal = utl_register_field(signal,fieldtype,fieldname,fieldvalue)
 %   Fieldtype : type of the field to register; possible options include:
 %               * 'timeseries': the field is a time-series field, and will be filtered by certain
 %                               filters, and will be buffered during online processing
+%               * 'timeaxis': the field is a time-axis field, which will be buffered during online 
+%                             processing but will not be filtered
+%               * 'samplingrate': the field indicates a sampling rate
 %
 %   Fieldname : name of a field that shall be registered in the struct
 %               for use by certain processing functions
@@ -27,16 +30,19 @@ function signal = utl_register_field(signal,fieldtype,fieldname,fieldvalue)
 %                                       Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                       2013-08-16
 
+% this is the list of fields that can be registered
+permitted_fields = {'timeseries', 'timeaxis', 'samplingrate'};
+
 if nargin < 2
     error('You need to pass in the field type.'); end
 if nargin < 3
     error('You need to pass in the field name.'); end
 
-if isequal(fieldtype,'timeseries')
-    if ~isfield(signal,'tracking') || ~isfield(signal.tracking,'timeseries_fields')
-        signal.tracking.timeseries_fields = {fieldname};
+if ischar(fieldtype) && any(strcmp(fieldtype,permitted_fields))
+    if ~isfield(signal,'tracking') || ~isfield(signal.tracking,[fieldtype '_fields'])
+        signal.tracking.([fieldtype '_fields']) = {fieldname};
     else
-        signal.tracking.timeseries_fields = [signal.tracking.timeseries_fields {fieldname}];
+        signal.tracking.([fieldtype '_fields']) = [signal.tracking.([fieldtype '_fields']) {fieldname}];
     end
 elseif ischar(fieldtype)
     error('Unrecognized field type passed in: %s',fieldtype);

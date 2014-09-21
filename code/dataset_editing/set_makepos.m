@@ -102,7 +102,7 @@ if isempty(state) %#ok<*NODEF>
         disp_once('WARNING: your epoch time range is empty.'); end
     state.time_bounds = state.sample_bounds/signal.srate;    
     % initialize data buffer
-    state.timeseries_fields = utl_timeseries_fields(signal);
+    state.timeseries_fields = utl_registered_fields(signal,{'timeseries','timeaxis'});
     for f = state.timeseries_fields
         state.buffer.(f{1}) = []; end
     % initialize marker buffer

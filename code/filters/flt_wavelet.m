@@ -63,7 +63,7 @@ else
 end
 lf = length(lo);
 
-for f = utl_timeseries_fields(signal) %#ok<NODEF>
+for f = utl_registered_fields(signal,'timeseries') %#ok<NODEF>
     if ~isempty(signal.(f{1}))
         % flip dimensions so we can filter along the first dimension
         [X,dims] = spatialize_transpose(signal.(f{1}));

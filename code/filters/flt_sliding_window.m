@@ -77,7 +77,7 @@ signal.pnts = 0;
 if online_options.always_at_end && onl_isonline
     
     % for each time-series fields...
-    for f = utl_timeseries_fields(signal)
+    for f = utl_registered_fields(signal,'timeseries')
         field = f{1};
         if ~isempty(signal.(field))
             % init state if necessary
@@ -102,7 +102,7 @@ else
     % otherwise we return chunks at fixed rate
 
     % for each time series field...
-    for f = utl_timeseries_fields(signal)
+    for f = utl_registered_fields(signal,'timeseries')
         field = f{1};
         if ~isempty(signal.(field))
 
@@ -155,7 +155,7 @@ end
 if ~isempty(signal.data)
     metadata_field = 'data';
 else
-    metadata_field = utl_timeseries_fields(signal);
+    metadata_field = utl_registered_fields(signal,'timeseries');
     metadata_field = metadata_field{1};
 end
 [signal.nbchan,signal.pnts,signal.trials,extra_dims] = size(signal.(metadata_field)); %#ok<NASGU>

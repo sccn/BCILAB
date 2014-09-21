@@ -36,7 +36,7 @@ arg_define(varargin, ...
 % handle inputs
 b = ones(1,fltlength)/fltlength;
 
-for f = utl_timeseries_fields(signal) %#ok<NODEF>
+for f = utl_registered_fields(signal,'timeseries') %#ok<NODEF>
     if ~isempty(signal.(f{1}))        
         % get the data (transposed)
         [X,dims] = spatialize_transpose(double(signal.(f{1})));        

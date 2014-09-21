@@ -156,7 +156,7 @@ else
     extrapolate = 0;
 end
 
-for f = utl_timeseries_fields(signal)
+for f = utl_registered_fields(signal,'timeseries')
     if ~isempty(signal.(f{1}))
         if ~isfield(state.conds,f{1})
             state.conds.(f{1}) = repmat({[]},1,size(state.sos,1)); end

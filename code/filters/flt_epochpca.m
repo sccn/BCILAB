@@ -37,7 +37,7 @@ arg_define(varargin,...
 if ~exist('mapping','var')
     if isempty(reducedim)
         reducedim = signal.pnts; end
-    for f = utl_timeseries_fields(signal)
+    for f = utl_registered_fields(signal,'timeseries')
         X = signal.(f{1});
         if ~isempty(X)
             mapping.(f{1}) = cell(1,size(X,1));
@@ -55,7 +55,7 @@ if ~exist('mapping','var')
 end
 
 % transform each channel into the eigenspace and write back
-for f = utl_timeseries_fields(signal)
+for f = utl_registered_fields(signal,'timeseries')
     X = signal.(f{1});
     if ~isempty(X)
         M = mapping.(f{1});

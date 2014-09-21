@@ -37,8 +37,9 @@ arg_define(varargin, ...
     arg({'in_dataset','Dataset'},'lastdata',[],'Dataset to play back. This is the EEGLAB dataset that shall be played back in real time. Can also be the name of a variable in the MATLAB workspace.','type','expression'), ...
     arg({'update_freq','UpdateFrequency'},20,[0 Inf],'Update frequency. The rate at which new chunks of data is polled from the device, in Hz.'), ...
     arg({'buffer_len','BufferLength'},10,[],'Internal buffering length. This is the maximum amount of backlog that you can get.'), ...
-    arg({'always_double','ConvertToDouble'},true,[],'Convert to double. Always convert the signal to double precision.'));
-
+    arg({'always_double','ConvertToDouble'},true,[],'Convert to double. Always convert the signal to double precision.'), ...
+    arg({'looped_playback','LoopedPlayback'},true,[],'Looped playback. Whether the playback is looping (otherwise the stream will stop at some point).'));
+ 
 % evaluate dataset, if it's an expression
 in_dataset = exp_eval_optimized(in_dataset);
 in_dataset.starttime = tic;
@@ -53,15 +54,17 @@ end
 onl_newstream(new_stream,rmfield(in_dataset,'data'),'buffer_len',buffer_len);
 
 % start a background reading job
-onl_read_background(new_stream,@(stream)read_block(in_dataset,stream,always_double), update_freq);
+onl_read_background(new_stream,@(stream)read_block(in_dataset,stream,always_double,looped_playback), update_freq);
 
 disp('Now reading...');
 
 
 % background block reader function
-function result = read_block(in_dataset,stream,always_double)
+function result = read_block(in_dataset,stream,always_double,looped_playback)
 % get current position and read-out range
 curpos = round(toc(in_dataset.starttime)*in_dataset.srate);
+if curpos > size(in_dataset.data,2) && ~looped_playback
+    error('BCILAB:EndOfStream','End of stream.'); end    
 range = 1+mod(stream.smax : curpos-1,size(in_dataset.data,2));
 % get the next data block
 block = in_dataset.data(:,range);

@@ -96,7 +96,7 @@ if srate ~= signal.srate
     
     % resample each time-series field
     n = length(state.H);
-    for f = utl_timeseries_fields(signal)
+    for f = utl_registered_fields(signal,{'timeseries','timeaxis'})
         if isempty(signal.(f{1}))
             continue; end
         if ~isfield(state,f{1})

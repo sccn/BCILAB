@@ -65,7 +65,7 @@ if (desired_length ~= size(chunk.data,2)) && (~isempty(buffer.event) || ~isempty
 end
 
 % for each time-series field in the chunk...
-for fld = utl_timeseries_fields(chunk)
+for fld = utl_registered_fields(chunk,'timeseries')
     field = fld{1};    
     
     % make sure that we have the requested field in the previous buffer to avoid special cases below

@@ -227,7 +227,7 @@ end
 
 [b,n] = deal(state.b,length(state.b));
 % for each time series field...
-for f = utl_timeseries_fields(signal)
+for f = utl_registered_fields(signal,'timeseries')
     if ~isempty(signal.(f{1}))
         if ~isfield(state,f{1})
             state.(f{1}) = []; end
@@ -262,7 +262,11 @@ for f = utl_timeseries_fields(signal)
         numsplits = ceil(S/chunk_length);
         for i=0:numsplits-1
             range = 1+floor(i*S/numsplits) : min(S,floor((i+1)*S/numsplits));
-            [X(range,:),state.(f{1})] = filter_fast(b,1,X(range,:),state.(f{1}),1);
+            try
+                [X(range,:),state.(f{1})] = filter_fast(b,1,X(range,:),state.(f{1}),1);
+            catch
+                1
+            end
         end
         
         % cut off the data segment that we previously prepended

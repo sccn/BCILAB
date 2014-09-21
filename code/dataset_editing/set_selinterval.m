@@ -94,13 +94,13 @@ if any(samplerange<1 | samplerange>size(signal.data,2))
 
 if isempty(samplerange)
     % clear data
-    for field = utl_timeseries_fields(signal)
+    for field = utl_registered_fields(signal,{'timeseries','timeaxis'})
         signal.(field{1}) = []; end
     signal.event = [];
     signal.pnts = 0;
 elseif ~isequal(samplerange,1:size(signal.data,2))
     % select range within the time series fields
-    for field = utl_timeseries_fields(signal)
+    for field = utl_registered_fields(signal,{'timeseries','timeaxis'})
         if ~isempty(signal.(field{1}))
             try
                 signal.(field{1}) = signal.(field{1})(:,samplerange,:,:,:,:,:,:); 

@@ -70,7 +70,7 @@ if stepsize < 1
 
 % make up prior state if necessary
 if isempty(state)
-    for fld = utl_timeseries_fields(signal)
+    for fld = utl_registered_fields(signal,'timeseries')
         field = fld{1};
         if size(signal.(field),2) > N
             % filter conditions & constant overall data offset (for better numerical accuracy; this is
@@ -87,7 +87,7 @@ else
     prepended = false;
 end
 
-for fld = utl_timeseries_fields(signal)
+for fld = utl_registered_fields(signal,'timeseries')
     field = fld{1};
     if ~isempty(signal.(field)) && isfield(state,field)
         % get rid of NaN's and Inf's

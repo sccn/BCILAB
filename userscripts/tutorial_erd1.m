@@ -18,7 +18,7 @@
 %% --- using the Common Spatial Pattern method ---
 
 % load the data set (BCI2000 format)
-traindata = io_loadset('bcilab:/userdata/tutorial/imag_movements1/calib/DanielS001R01.dat');
+traindata = io_loadset('bcilab:/userdata/tutorial/imag_movements1/calib/DanielS001R01.dat','channels',1:28);
 
 % define the approach (here: Common Spatial Patterns without any customization)
 myapproach = 'CSP';
@@ -33,7 +33,7 @@ bci_visualize(lastmodel)
 %% --- using the Common Spatial Pattern method with some custom options ---
 
 % load the data set (BCI2000 format)
-traindata = io_loadset('bcilab:/userdata/tutorial/imag_movements1/calib/DanielS001R01.dat');
+traindata = io_loadset('bcilab:/userdata/tutorial/imag_movements1/calib/DanielS001R01.dat','channels',1:28);
 
 % define the approach 
 % Note: The settings found in the GUI "Review/Edit Approach" Panel can be translated literally
@@ -81,7 +81,7 @@ disp(['pseudo-online mis-classification rate: ' num2str((1-accuracy)*100,3) '%']
 % may run into a local optimum or over-fit spuriously correlated bands
 
 % load the data set
-traindata = io_loadset('bcilab:/userdata/tutorial/imag_movements1/calib/DanielS001R01.dat');
+traindata = io_loadset('bcilab:/userdata/tutorial/imag_movements1/calib/DanielS001R01.dat','channels',1:28);
 
 % define the approach
 myapproach = {'SpecCSP' 'SignalProcessing',{'EpochExtraction',[0.5 3]}};
@@ -97,7 +97,7 @@ bci_visualize(lastmodel)
 % ( click into the figure to stop the update (and make sure that your click was registered) )
 
 % load feedback session
-testdata = io_loadset('bcilab:/userdata/tutorial/imag_movements1/feedback/DanielS001R01.dat');
+testdata = io_loadset('bcilab:/userdata/tutorial/imag_movements1/feedback/DanielS001R01.dat','channels',1:28);
 
 % play it back in real time
 run_readdataset('Dataset',testdata);
@@ -115,7 +115,7 @@ waitforbuttonpress; onl_clear; close(gcf);
 % (the number of pattern pairs found optimal should be 3 in this case)
 
 % load the data set (BCI2000 format)
-traindata = io_loadset('bcilab:/userdata/tutorial/imag_movements1/calib/DanielS001R01.dat');
+traindata = io_loadset('bcilab:/userdata/tutorial/imag_movements1/calib/DanielS001R01.dat','channels',1:28);
 
 % define approach
 myapproach = {'CSP' 'Prediction',{'FeatureExtraction',{'PatternPairs',search(1,2,3)}}};

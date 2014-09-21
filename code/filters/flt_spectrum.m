@@ -72,7 +72,7 @@ arg_define(varargin, ...
 if ~isempty(freq) %#ok<*NODEF>    
     % apply frequency-domain selection to all known time-series fields in
     % the data
-    for fld = utl_timeseries_fields(signal)
+    for fld = utl_registered_fields(signal,'timeseries')
         field = fld{1};
         if ~isempty(signal.(field))            
             T = size(signal.(field),2);
