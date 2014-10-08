@@ -37,7 +37,7 @@ classdef ParadigmTimewarp < ParadigmDataflowSimplified
             features = signal.data;  % for now use the raw data, not timewarped
             
             % TODO: timewarp features based on signal.event
-            % features = timewarp(features,signal.epoch);
+            % features = timewarp(signal, featuremodel);
             
             % vectorize features for our classifier
             if featuremodel.args.vectorizeFeatures
