@@ -81,7 +81,11 @@ if isnumeric(x)
     if ~isreal(x)
         x = [real(x) imag(x)]; end
     if issparse(x)
-        x = [find(x) nonzeros(x)]; end
+        try
+            x = [find(x) nonzeros(x)];
+        catch
+            x = [find(x)' nonzeros(x)];
+        end
     if numel(x) <= 4096
         % small matrices are hashed completely
         try
