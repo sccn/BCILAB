@@ -1,2 +1,4 @@
  if ispc
-    Libraries = {'ws2_32.lib','winmm.lib'}; end
+    Libraries = {'wsock32','winmm'}; 
+    Defines = {'WIN32'};
+end
