@@ -66,6 +66,8 @@ opts = arg_define(varargin, ...
     arg({'samplingrate','SamplingRate'},100,[0 Inf],'Sampling rate for display. This is the sampling rate that is used for plotting; for faster drawing.'), ...
     arg({'refreshrate','RefreshRate'},10,[0 1000],'Refresh rate for display. This is the rate at which the graphics are updated.'), ...
     arg({'reref','Rereference'},false,[],'Common average reference. Enable this to view the data with a common average reference filter applied.'), ...
+    arg_nogui({'search_timeout','SearchTimeout'},3,[],'Stream search timeout. In seconds. If you set this too short, you may miss streams on the network.'), ... 
+    arg_nogui({'irregular_srate','IrregularSamplingRate'},25,[],'Assumed sampling rate if irregular. This is the sampling rate, in Hz, that the viewer assumes when displaying an irregular stream.'), ... 
     arg_nogui({'pageoffset','PageOffset'},0,[],'Channel page offset. Allows to flip forward or backward pagewise through the displayed channels.'), ...
     arg_nogui({'position','Position'},[],[],'Figure position. Allows to script the position at which the figures should appear.'));
 
@@ -249,7 +251,7 @@ start(th);
         result = {};
         disp(['Looking for a stream with name=' opts.streamname ' ...']);
         while isempty(result)
-            result = lsl_resolve_byprop(lib,'name',opts.streamname); end
+            result = lsl_resolve_byprop(lib,'name',opts.streamname,1,opts.search_timeout); end
         % create a new inlet
         disp('Opening an inlet...');
         inlet = lsl_inlet(result{1},opts.bufferrange);
@@ -259,8 +261,10 @@ start(th);
     % create a new stream buffer in the base workspace
     function stream = create_streambuffer(opts,info)
         stream.srate = info.nominal_srate();                                % sampling rate in Hz
+        if stream.srate == 0
+            stream.srate = opts.irregular_srate; end                        % use assumed sampling rate of irregular streams
         stream.chanlocs = struct('labels',derive_channel_labels(info));     % struct with per-channel meta-data
-        stream.pnts = max(opts.bufferrange*stream.srate,100);               % number of data points in the buffer
+        stream.pnts = round(max(opts.bufferrange*stream.srate,100));        % number of data points in the buffer
         stream.nbchan = info.channel_count();                               % number of channels in the buffer
         stream.trials = 1;                                                  % number of segments in the buffer (always 1)
         stream.data = zeros(stream.nbchan,stream.pnts,stream.trials);       % the circular buffer storage

@@ -209,7 +209,8 @@ try
             opts.channels = [];
             opts.samplerange = [];
             % remove non-standard event fields
-            res.event = rmfield(res.event,intersect({'code','bvtime','channel'},fieldnames(res.event)));
+            if ~isempty(res.event)
+                res.event = rmfield(res.event,intersect({'code','bvtime','channel'},fieldnames(res.event))); end
         case '.raw'
             try
                 % EGI continuous raw data

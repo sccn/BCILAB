@@ -9,6 +9,7 @@ function res = hlp_findscaling(X, scaling)
 %   Scale-Mode  : scaling mode, with the following options:
 %                 'center' : shift the data to make them zero-mean
 %                 'std' : center and standardize the data
+%                 'std-nocenter': just standardize but do not center the data
 %                 'minmax' : scale the data to the range 0-1
 %                 'whiten' : whiten/sphere the data in a multivariate manner (rotates into PCA space)
 %                 'rescale' : rescale the data by 1 / median standard deviation
@@ -53,6 +54,9 @@ switch scaling
         res = struct('add',{-mean(X)});
     case 'std'
         res = struct('add',{-mean(X)}, 'mul',{1./ std(X)});
+        res.mul(~isfinite(res.mul(:))) = 1;
+    case 'std-nocenter'
+        res = struct('add',{zeros(1,size(X,2))}, 'mul',{1./ std(X)});
         res.mul(~isfinite(res.mul(:))) = 1;
     case 'minmax'
         res = struct('add',{-min(X)}, 'mul',{1./ (max(X) - min(X))});

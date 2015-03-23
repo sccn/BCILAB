@@ -2,8 +2,8 @@ function pip = utl_resolve_streams(pip,streams,chanlocs)
 % Substitute "rawdata" placeholder nodes in a given filter pipeline by given candidate streams.
 %
 % This function transforms a filter pipeline expression into one where any placeholder nodes that
-% represent a stream ("rawdata" nodes) have been replaced by a matching stream from a provided set 
-% of candidates.
+% represent a raw data stream ("rawdata" nodes) have been resolved into a matching stream data
+% structure from a provided set of candidates (Streams argument).
 %
 % In:
 %   Pipeline : a filter chain or filter graph (cell array of filter chains) with "rawdata"

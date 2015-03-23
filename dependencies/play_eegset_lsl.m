@@ -1,6 +1,6 @@
-function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping,background,update_interval,jitter,consistent_jitter)
+function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping,background,update_interval,jitter,consistent_jitter,update_jitter)
 % Play back a continuous EEGLAB dataset over LSL.
-% Handle = play_eegset_lsl(Dataset,DataStreamName,EventStreamName,Looping,Background,UpdateInterval)
+% Handle = play_eegset_lsl(Dataset,DataStreamName,EventStreamName,Looping,Background,UpdateInterval,BlockJitter,ConsistentJitter,UpdateJitter)
 %
 % In:
 %   Dataset : EEGLAB dataset struct to play.
@@ -16,12 +16,18 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
 %   UpdateInterval : Interval between updates, in s (default: 0)
 %
 %   BlockJitter : Artificial timing jitter per transmitted block, for tests of timing resilience. In
-%                 seconds of standard deviations; should typically be lower than the 
-%                 update interval (default: 0)
+%                 seconds of standard deviations; should typically be lower than the update interval
+%                 (default: 0)
 %
 %   ConsistentJitter : Whether the block jitter is consistent with the marker jitter; if not then 
 %                      the data blocks are jittered relative to the markers and for correct
 %                      alignment the jitter needs to be regressed out (default: true)
+%
+%   UpdateJitter : Artificial jitter in the update interval; this affects the times at which the 
+%                  chunks are emitted, while the BlockJitter essentially simulates jitter in the 
+%                  time estimation (which is a separate issue that adds to the total jitter). In
+%                  seconds of standard deviations; should typically be lower than the update 
+%                  interval (default: 0)
 %
 % Out:
 %   Handle : A handle that can be used to stop background playback, by calling stop(myhandle).
@@ -43,8 +49,17 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
 %   Play with a different name for the data stream and marker stream
 %   play_eegset_lsl(EEG,'MyDataStream','MyMarkerStream');
 %
+% Changelog:
+%   changes in version 1.1:
+%     - fixed the timestamps of the chunks where the stream wraps around the end of the data set
+%     - added the ability to simulate jitter in the time between updates
+%
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2013-11-23
+%
+%                                version 1.1
+%
+
 
     % parse and check inputs
     if ~exist('datastreamname','var') || isempty(datastreamname)
@@ -61,6 +76,8 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
         jitter = 0; end
     if ~exist('consistent_jitter','var') || isempty(consistent_jitter)
         consistent_jitter = true; end
+    if ~exist('update_jitter','var') || isempty(update_jitter)
+        update_jitter = 0; end
 
     if ~ischar(datastreamname)
         error('The given DataStreamName must be a string.'); end
@@ -137,8 +154,9 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
         while looping || last_pos<dataset.pnts
             if ~update()
                 pause(0.001); end
-            if update_interval > 0
-                pause(update_interval); end
+            wait_interval = update_interval + randn*update_jitter;
+            if wait_interval > 0
+                pause(wait_interval); end
         end
         disp('Reached end of data set.');
     end
@@ -152,7 +170,6 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
         if need_update
             range = (last_pos+1):pos;                           % determine newly revealed block range
             wraprange = 1+mod(range-1,dataset.pnts);            % (wrapped around for looped playback)
-            loop_offset = range(1) - wraprange(1);              % the index offset to add to wraprange
             while true
                 jitter_offset = randn*jitter;                   % additional random offset for this block to simulate jitter
                 if pos/dataset.srate + jitter_offset > last_time
@@ -161,16 +178,33 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
             % push markers in range
             [ranks,sample_indices,marker_indices] = find(marker_map(:,wraprange));
             if any(ranks)
+                % if we are wrapping around we have to correct some of the sample indices into the future
+                % since otherwise our emitted marker timestamps in the output stream would jump backwards
+                if looping 
+                    if (wraprange(end)-wraprange(1)+1 == length(wraprange))
+                        % current range does not wrap around: correction is trivial
+                        sample_indices = sample_indices + range(1) - wraprange(1);
+                    else
+                        % current range wraps around: need to distinguish between marker samples at 
+                        % end vs. at beginning of recording
+                        at_end = sample_indices<dataset.pnts/2;
+                        % the samples at end need to be corrected based on the beginning of the wrapping range
+                        sample_indices(at_end) = sample_indices(at_end) + range(1) - wraprange(1);
+                        % ... and those at the beginning (i.e., those that were late enough in the wraprange
+                        % to wrap around) need to be coorected based on the offset towards the end
+                        sample_indices(~at_end) = sample_indices(~at_end) + range(end) - wraprange(end);                        
+                    end
+                end
                 % get the position of the markers covered by the wraprange, but measured in samples relative to the beginning of the recording
                 marker_offsets = sample_indices(:) + vec(residuals(marker_indices)) + wraprange(1) - 1;
                 % the time stamps are deduced analytically from the sample position within the data (i.e., do not depend on wall-clock time)
-                marker_times = start_time + (loop_offset + marker_offsets - 1)/dataset.srate + consistent_jitter*jitter_offset;
+                marker_times = start_time + (marker_offsets - 1)/dataset.srate + consistent_jitter*jitter_offset;
                 % send them off
                 for m=1:length(marker_times)
                     markeroutlet.push_sample(marker_types(marker_indices(m)),marker_times(m)); end
             end
             % push data chunk
-            data_time = start_time + (loop_offset + wraprange(end) - 1)/dataset.srate + jitter_offset;
+            data_time = start_time + (range(end) - 1)/dataset.srate + jitter_offset;
             dataoutlet.push_chunk(double(dataset.data(:,wraprange)),data_time);
             last_time = pos/dataset.srate + jitter_offset;
             last_pos = pos;
