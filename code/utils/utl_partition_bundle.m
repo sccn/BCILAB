@@ -16,6 +16,7 @@ function res = utl_partition_bundle(bundle,inds,varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-08-28
+dp;
 
 % input validation
 if ~isstruct(bundle) || ~isscalar(bundle)

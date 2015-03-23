@@ -37,15 +37,16 @@ function [results,errors] = par_endschedule(sched,varargin)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
+global tracking;
 results = {};
 errors = {};
 
 % read options
-opts = hlp_varargin2struct(varargin,'keep',false, 'spin_interval',0.25);
-if opts.spin_interval < 0.001
-    disp_once('The given spin interval is unreasonably short.'); end
-if opts.spin_interval > 1
-    disp_once('The given spin interval is unnecessarily long.'); end
+
+% read options
+opts = arg_define('allow-unlisted-names',varargin, ...
+    arg({'keep','RetainScheduler'},false,[], 'Retain scheduler instance. If true, the scheduler instance will be reused on the next call to par_beginschedule. Can be more efficient, but does not allow for nested calls to par_beginschedule.'), ...
+    arg({'spin_interval','CompletionCheckInterval'},0.25,[0 0.001 1 60], 'Completion check interval. In seconds. Time between periodic checks if the parallel computation is complete.'));
 
 if iscell(sched)
     % locally computed results
@@ -79,9 +80,24 @@ else
     end
     
     % deserialize & reorder the string-formatted results
+    to_remove = {};
     for r=1:length(raw)
         try
             % deserialize result
+            if strncmp(raw{r},'tag__',5)
+                % this result is a reference to the global result table; read and remove it from there
+                tag = raw{r};
+                try
+                    raw{r} = tracking.parallel.results.(tag);
+                    to_remove{end+1} = tag;                     %#ok<AGROW>
+                catch e
+                    if isfield(tracking,'parallel') && isfield(tracking.parallel,'results')                        
+                        fprintf('Did not find tag %s in the global results table: %s\n',tag,e.message);
+                    else
+                        fprintf('The global results table does not exist (%s). Was it deleted?\n',e.message);
+                    end
+                end
+            end
             raw{r} = hlp_deserialize(fast_decode(raw{r}));
             if all(isfield(raw{r}{2},{'message','identifier','stack'}))
                 % append to errors
@@ -93,7 +109,12 @@ else
         catch e
             errors{end+1} = {NaN,e}; %#ok<AGROW>
         end
-    end    
+    end
+    try
+        tracking.parallel.results = rmfield(tracking.parallel.results,to_remove);
+    catch e
+        fprintf('The global results table does not exist (%s). Was it deleted?\n',e.message);
+    end
 end
 
 % throw the first error, if not requested as cell array

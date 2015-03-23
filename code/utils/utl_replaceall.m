@@ -25,9 +25,7 @@ function [x,changed,rules] = utl_replaceall(x,rules)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-19
 
-
-
-if isstruct(x) && isfield(x,'head') && strcmp(char(x.head),'Pattern')
+if isstruct(x) && isfield(x,'head') && strcmp(char(x.head),'Pattern') %#ok<ALIGN>
 	% strip off spurious pattern expressions from the expression (they are not allowed there)
     x = x.parts{1}; end
 

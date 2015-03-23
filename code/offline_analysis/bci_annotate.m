@@ -61,6 +61,7 @@ function data = bci_annotate(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-03-28
+dp;
 
 % read arguments
 opts = arg_define([0 2],varargin, ...

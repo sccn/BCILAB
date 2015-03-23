@@ -308,7 +308,7 @@ function signal = flt_pipeline(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-29
-
+dp;
 
 warning off BCILAB:unresolved_dep
 
@@ -317,7 +317,7 @@ if ~isequal(varargin,{'update'})
     % --- collect, order and parameterize filters ---
     
     % scan the directories for available filters and assemble them in a list
-    allflt = list_filters();
+    allflt = hlp_scope({'disable_dbstop_if_error_msg',true},@list_filters);
     
     % sort filters in the preferred order (and remove filters for which no preferences are known)
     custom_order = arg_extract(varargin,{'fltorder','FilterOrdering','FilterOrder','order'},[],{});
@@ -378,13 +378,14 @@ if ~isequal(varargin,{'update'})
     signal = args.signal;
 else
     % just update the list of filters and return
-    list_filters(true);
+    hlp_scope({'disable_dbstop_if_error_msg',true},@list_filters,true);
 end
 
 
 
 % get a list of all existing filter specifications
 function filters = list_filters(update_list)
+dp;
 debug = false;
 % determine list of filters that are known to be unlistable here
 known_incompliant = {'set_gettarget','set_combine','set_merge','set_joinepos','set_concat'};

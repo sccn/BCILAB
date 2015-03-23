@@ -32,7 +32,7 @@ function signal = flt_clean_flatlines(varargin)
 
 if ~exp_beginfun('filter') return; end;
 
-declare_properties('name','FlatlineCleaning', 'independent_channels',true, 'independent_trials',false);
+declare_properties('name','FlatlineCleaning', 'follows','flt_selchans', 'precedes','flt_laplace', 'independent_channels',true, 'independent_trials',true);
 
 arg_define(varargin, ...
     arg_norep({'signal','Signal'}), ...

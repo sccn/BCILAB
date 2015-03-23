@@ -14,6 +14,7 @@ function targets = utl_collection_targets(testcollection)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-08-29
+dp;
 
 % input validation
 if ~iscell(testcollection) || ~all(cellfun('isclass',testcollection,'struct'))

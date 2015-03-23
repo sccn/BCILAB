@@ -112,14 +112,26 @@ classdef ParadigmWindowmeans < ParadigmDataflowSimplified
         function model = feature_adapt(self,varargin)
             arg_define(varargin, ...
                 arg_norep('signal'), ...
-                arg({'wnds','TimeWindows'},[-0.15 -0.10;-0.10 -0.05;-0.05 0],[],'Epoch intervals to take as features. Matrix containing one row for the start and end of each time window over which the signal mean (per every channel) is taken as a feature. Values in seconds.','cat','Feature Extraction'));
+                arg({'wnds','TimeWindows'},[-0.15 -0.10;-0.10 -0.05;-0.05 0],[],'Epoch intervals to take as features. Matrix containing one row for the start and end of each time window over which the signal mean (per every channel) is taken as a feature. Values in seconds.','cat','Feature Extraction'), ...
+                arg_nogui({'split_modalities','SplitModalities'},{},[],'Optionally separate out given modalities. Cell array of channel types. This passes a cell array of channel indices called modality_ranges down to the classifier. Can also be set to true to split all channel types present in the signal.','guru',true,'type','expression'), ...
+                arg({'vectorize_features','VectorizeFeatures'},true,[],'Vectorize features. If disabled, sophisticated classifiers will recognize the channel/windows structure.'));
             model.wnds = wnds;
+            model.vectorize_features = vectorize_features;
             model.chanlocs = signal.chanlocs;
             model.cov = cov(signal.data(:,:)');
+            % allow passing per-modality channel ranges into the classifier (supported only by very few classifiers)
+            if ~isempty(split_modalities)
+                if isequal(split_modalities,true)
+                    split_modalities = unique({signal.chanlocs.type}); end
+                for m=1:length(split_modalities)
+                    model.modality_ranges{m} = find(strcmp({signal.chanlocs.type},split_modalities{m})); end
+            end
         end
         
         function features = feature_extract(self,signal,featuremodel)
-            features = reshape(utl_picktimes(signal.data,(featuremodel.wnds-signal.xmin)*signal.srate),[],size(signal.data,3))';
+            features = utl_picktimes(signal.data,(featuremodel.wnds-signal.xmin)*signal.srate);
+            if featuremodel.vectorize_features
+                features = reshape(features,[],size(signal.data,3))'; end
         end
         
         function visualize_model(self,varargin) %#ok<*INUSD>
@@ -171,9 +183,9 @@ classdef ParadigmWindowmeans < ParadigmDataflowSimplified
                 t=title(['Window' num2str(p) ' (' num2str(fmodel.wnds(p,1)) 's to ' num2str(fmodel.wnds(p,2)) 's)']);
                 if args.paper
                     set(t,'FontUnits','normalized');
-                    set(t,'FontSize',0.1);                    
+                    set(t,'FontSize',0.5);                    
                     set(gca,'FontUnits','normalized');
-                    set(gca,'FontSize',0.1);
+                    set(gca,'FontSize',0.5);
                 end
             end
         end

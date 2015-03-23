@@ -18,8 +18,8 @@
 %#ok<*ASGLU,*NASGU,*SNASGU> % turn off a few editor warnings...
 
 
-%% --- using the WindowMeans method ---
 
+%% --- using the WindowMeans method ---
 % define markers; here, two groups of markers are being defined; the first group represents class 1
 % (correct responses), and the second group represents class 2 (incorrect responses).
 mrks = {{'S101','S102'},{'S201','S202'}};
@@ -115,6 +115,9 @@ approaches = [];
 % the basic approach from earlier
 approaches.wmeans = {'Windowmeans' 'SignalProcessing',{'EpochExtraction',[0 0.8],'SpectralSelection',[0.1 15]}, ...
     'Prediction',{'FeatureExtraction',{'TimeWindows',wnds}}};
+% using hierarchical discriminant component analysis
+approaches.hdca = {'Windowmeans' 'SignalProcessing',{'EpochExtraction',[0 0.8],'SpectralSelection',[0.1 15]}, ...
+   'Prediction',{'FeatureExtraction',{'TimeWindows',wnds,'VectorizeFeatures',false}, 'MachineLearning',{'Learner','hdca'}}};
 % now with logistic regression instead of LDA
 approaches.wmeanslr = {'Windowmeans' 'SignalProcessing',{'EpochExtraction',[0 0.8],'SpectralSelection',[0.1 15]}, ...
    'Prediction',{'FeatureExtraction',{'TimeWindows',wnds}, 'MachineLearning',{'Learner','logreg'}}};

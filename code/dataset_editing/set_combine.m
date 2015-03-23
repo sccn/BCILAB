@@ -45,6 +45,7 @@ function result = set_combine(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-03-31
+dp;
 
 % set_combine_version<1.0> -- for the cache
 

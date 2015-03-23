@@ -54,6 +54,7 @@ function [signal,state] = set_makepos(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-01
+dp;
 
 % set_makepos_version<2.01> -- for the cache
 
@@ -113,13 +114,15 @@ if isempty(state) %#ok<*NODEF>
 else
     % have state: prepend the buffer to the signal
     for f = state.timeseries_fields
-        try
-            signal.(f{1}) = cat(2,state.buffer.(f{1}),signal.(f{1})); 
-        catch e
-            if ~isfield(signal,f{1})
-                error('The given signal is lacking the time-series field .%s which is present in the prior state. Fields may not be dropped when applying set_makepos to successive chunks.',f{1}); end
-            size_info = hlp_tostring({size(state.buffer.(f{1})),size(signal.(f{1}))});
-            error('Concatenating the time-seriels field .%s of the prior state and the given signal failed; make sure that the number of channels is consistent when applying set_makepos to successive chunks; detailed error message: %s (the data sizes were: %s)',f{1},e.message,size_info);
+        if isfield(signal,f{1})
+            try
+                signal.(f{1}) = cat(2,state.buffer.(f{1}),signal.(f{1})); 
+            catch e
+                size_info = hlp_tostring({size(state.buffer.(f{1})),size(signal.(f{1}))});
+                error('Concatenating the time-seriels field .%s of the prior state and the given signal failed; make sure that the number of channels is consistent when applying set_makepos to successive chunks; detailed error message: %s (the data sizes were: %s)',f{1},e.message,size_info);
+            end
+        else
+            warn_once('BCILAB:set_makepos:missing_field','The given signal is lacking the time-series field .%s which is present in the prior state. Fields should not be dropped when applying set_makepos to successive chunks.',f{1}); 
         end
     end
     [signal.nbchan,signal.pnts,signal.trials,extra_dims] = size(signal.data); %#ok<NASGU>
@@ -139,7 +142,9 @@ end
 if nargout > 1
     % retain the last portion of the time series fields
     for f = state.timeseries_fields
-        state.buffer.(f{1}) = signal.(f{1})(:,max(1,end-state.prepend_samples+1):end,:,:,:,:,:,:); end
+        if isfield(signal,f{1})
+            state.buffer.(f{1}) = signal.(f{1})(:,max(1,end-state.prepend_samples+1):end,:,:,:,:,:,:); end
+    end
     if ~isempty(signal.event)
         % retain events that lie in the buffered interval
         state.events = signal.event(round([signal.event.latency]) > (signal.pnts-size(state.buffer.data,2)));
@@ -175,7 +180,7 @@ if strcmp(online_epoching,'at_targets') || ~onl_isonline
         % make sure that all event latencies fall within the signal bounds
         out_of_bounds = round(latencies)<1 | round(latencies)>signal.pnts;
         if any(out_of_bounds)
-            disp_once('WARNING: your signal had %i events at out-of-bounds latencies that were removed.',nnz(out_of_bounds));
+            disp_once('CAUTION: your signal had %i events at out-of-bounds latencies that were removed. This message will not be repeated.',nnz(out_of_bounds));
             signal.event(out_of_bounds) = [];
             latencies(out_of_bounds) = [];
         end
@@ -187,6 +192,7 @@ if strcmp(online_epoching,'at_targets') || ~onl_isonline
         % remove target events whose epoch ranges intersect data boundaries
         out_of_bounds = target_latencies+state.sample_range(1)<1 | target_latencies+state.sample_range(end)>signal.pnts;
         if any(out_of_bounds)
+            disp_once('CAUTION: your signal had %i target events at out-of-bounds latencies that were removed. This might be a spurious note but if your get an epoch/event-related error later, it is possibly due to your target marker assignment routine not respecting epoch sizes around targets. This message will not be repeated.',nnz(out_of_bounds));
             target_events(out_of_bounds) = []; 
             target_latencies(out_of_bounds) = []; 
         end
@@ -197,14 +203,16 @@ if strcmp(online_epoching,'at_targets') || ~onl_isonline
 
             % epoch the time series fields
             for f = state.timeseries_fields
-                siz = size(signal.(f{1}));
-                if ~isempty(signal.(f{1}))
-                    if siz ~= signal.pnts
-                        error('The time-series field .%s has a different number of time-points (%i) than signal.pnts (%i); this is not permitted by set_makepos.',f{1},siz(2),signal.pnts); end
-                    try
-                        signal.(f{1}) = reshape(signal.(f{1})(:,ranges,1,:,:,:,:,:),[siz(1),size(ranges,1),size(ranges,2),siz(4:end)]); 
-                    catch e
-                        error('Failsed to extract epochs from time-series field .%s with error: %s.',f{1},e.message);
+                if isfield(signal,f{1})
+                    siz = size(signal.(f{1}));
+                    if ~isempty(signal.(f{1}))
+                        if siz ~= signal.pnts
+                            error('The time-series field .%s has a different number of time-points (%i) than signal.pnts (%i); this is not permitted by set_makepos.',f{1},siz(2),signal.pnts); end
+                        try
+                            signal.(f{1}) = reshape(signal.(f{1})(:,ranges,1,:,:,:,:,:),[siz(1),size(ranges,1),size(ranges,2),siz(4:end)]); 
+                        catch e
+                            error('Failed to extract epochs from time-series field .%s with error: %s.',f{1},e.message);
+                        end
                     end
                 end
             end
@@ -256,8 +264,10 @@ else
     if signal.pnts > state.sample_points
         % too long: remove excess data
         for f = state.timeseries_fields
-            if ~isempty(signal.(f{1}))
-                signal.(f{1}) = signal.(f{1})(:,end-state.sample_points+1:end,1,:,:,:,:,:); end
+            if isfield(signal,f{1})
+                if ~isempty(signal.(f{1}))
+                    signal.(f{1}) = signal.(f{1})(:,end-state.sample_points+1:end,1,:,:,:,:,:); end
+            end
         end
         % update event latencies and remove out-of-range events
         if ~isempty(signal.event)

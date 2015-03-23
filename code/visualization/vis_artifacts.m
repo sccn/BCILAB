@@ -1,5 +1,5 @@
-function hFig = vis_artifacts(new,old,varargin)
-% vis_artifacts(NewEEG,OldEEG,Options...)
+function hFig = vis_artifacts(varargin)
+% FigureHandle = vis_artifacts(NewEEG,OldEEG,Options...)
 % Display the artifact rejections done by any of the artifact cleaning functions.
 %
 % Keyboard Shortcuts:
@@ -34,6 +34,10 @@ function hFig = vis_artifacts(new,old,varargin)
 %                'EqualizeChannelScaling' : optionally equalize the channel scaling
 %                See also code for more options.
 %
+% Out:
+%   FigureHandle : handle to the display figure; can be used with uiwait to block until it was
+%                  closed by the user.
+%
 % Notes:
 %   This function is primarily meant for testing purposes and is not a particularly high-quality
 %   implementation.
@@ -64,36 +68,42 @@ function hFig = vis_artifacts(new,old,varargin)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-have_signallegend = false;
-have_eventlegend = false;
-
-if nargin < 2
-    old = new; 
-elseif ischar(old)
-    varargin = [{old} varargin];
-    old = new;
-end
-
 % parse options
-opts = hlp_varargin2struct(varargin, ...
-    {'yrange','YRange'}, [0.05 0.95], ...       % y range of the figure occupied by the signal plot
-    {'yscaling','YScaling'}, 3.5, ...           % distance of the channel time series from each other in std. deviations
-    {'wndlen','WindowLength'}, 10, ...          % window length to display
-    {'newcol','NewColor'}, [0 0 0.5], ...       % color of the new (i.e., cleaned) data
-    {'oldcol','OldColor'}, [1 0 0], ...         % color of the old (i.e., uncleaned) data
-    {'highpass_old','HighpassOldData'},true, ...% whether to high-pass the old data if not already done
-    {'show_removed_portions','ShowRemovedPortions'},true, ...% whether to show removed data portions (if only one set is passed in)
-    {'show_events','ShowEvents'},true, ...      % whether to show events
-    {'show_eventlegend','ShowEventLegend'},false, ...  % whether to show a legend for the currently visible events
-    {'scale_by','ScaleBy'},'allnew',...         % the data set according to which the display should be scaled (can be allold, allnew, wndold, or wndnew)
-    {'channel_subset','ChannelSubset'},[], ...  % optionally a channel subset to display
-    {'time_subset','TimeSubset'},[],...         % optionally a time subrange to display
-    {'display_mode','DisplayMode'},'both',...   % what should be displayed: 'both', 'new', 'old', 'diff'
-    {'show_setname','ShowSetname'},true,...     % whether to display the dataset name in the title
-    {'line_spec','LineSpec'},'-',...            % line style for plotting
-    {'line_width','LineWidth'},0.5,...          % line width
-    {'add_legend','AddLegend'},false,...        % add a signal legend
-    {'equalize_channel_scaling','EqualizeChannelScaling'},false);  % optionally equalize the channel scaling
+opts = arg_define(0:2,varargin, ...
+    ... % data selection
+    arg_norep({'new','CorrectedSignal','New'},mandatory,[],'Dataset after artifact removal step.'), ...
+    arg_norep({'old','OriginalSignal','Old'},[],[],'Dataset before artifact removal step.'), ...
+    arg({'channel_subset','ChannelSubset'},[],[],'Channel subset to display. Optional.','type','cellstr','shape','row','typecheck',false), ...
+    arg({'time_subset','TimeSubset'},[],[],'Time subrange to display. In seconds.'), ...
+    ... % what to display
+    arg({'display_mode','DisplayMode'},'both',{'both','new','old','diff'},'Signals to display. Allows to display the super-position of both signals, the difference, or the new/old signal individually. Can be changed at runtime with the b,n,o,d keys.'), ...
+    arg({'show_events','ShowEvents'},true,[],'Show event markers. Can be toggled at runtime with the ''ee'' key.'), ...
+    arg({'show_eventlegend','ShowLegend','ShowEventLegend'},false,[],'Show event legend. Shows a legend for currently visible events. Note that this slows down the graphics. Can be toggled at runtime with the ''l'' key.'), ...
+    arg({'add_legend','ShowSignalLegend','AddLegend'},false,[],'Shows a simple signal legend. This indicates ''Original'' and ''Corrected'' signals.'), ...
+    ... % data scaling
+    arg({'yrange','YRange'},[0.05 0.95],[0 1],'Vertical figure range occupied by signal graph. Determines how large the margin above and below the first/last channel is.'), ...
+    arg({'yscaling','YScaling'},3.5,[0 1 5 10],'Signal scaling. This is how many standard deviations of the signal shall lie in the drawing area of the given channel (until the next channel begins). Can also be adjusted at runtime with +/- keys.'), ...
+    arg({'wndlen','DisplayRange','WindowLength'},10,[0.1 1 60 100000],'Display window length. In seconds. This is the length of the scrollable display area. Can also be adjusted at runtime with * and / keys.'), ...
+    arg({'equalize_channel_scaling','MatchChannelScales','EqualizeChannelScaling'},false,[],'Match all channels to have same scale. This may be useful when signals with different units (e.g., EEG and EMG) are plotted in one graph. Should not be used when assessing the noise level of individual channels.'), ...
+    ... % graphical styling
+    arg({'newcol','NewSignalColor','NewColor'},[0 0 0.5],[0 1],'Color of the new (cleaned) signal. These are the R,G,B values of the color.'), ...
+    arg({'oldcol','OldSignalColor','OldColor'},[1 0 0],[0 1],'Color of the old (non-cleaned) signal. These are the R,G,B values of the color.'), ...
+    arg({'line_width','LineWidth'},[0.5 0.5],[0 5],'Line widths for original and corrected. In pixels.'), ...
+    arg({'line_spec','LineType','LineSpec'},'-',[],'Line type (MATLAB format). For instance, ''.'' displays a dotted line.'), ...
+    ... % misc
+    arg({'highpass_old','HighpassOldData'},true,[],'Ensure old data is high-pass filtered. This applies if the old data hadn''t been filtered yet; relies on filters storing their actions in the .etc field.'), ...
+    arg({'scale_by','ScaleBy'},'allnew',{'allnew','allold','wndnew','wndold'},'Data to use for scaling. Data can be scaled based on only what is in the current window, or based on the entire time series, and based on the new as well as old data.'), ...
+    arg({'show_removed_portions','ShowRemovedPortions'},true,[],'Always indicate removed data portions. Applies particularly if only one set is passed in.'), ...
+    arg({'show_setname','ShowSetname'},true,[],'Show dataset name in title.'));
+
+% reformat arguments a bit
+[new,old] = deal(opts.new,opts.old); opts = rmfield(opts,{'new','old'});
+if isempty(old)
+    old = new; end
+if isscalar(opts.line_width)
+    opts.line_width = [opts.line_width opts.line_width]; end
+
+% === preprocess old and new signals ===
 
 % ensure that the data are not epoched and expand the rejections with NaN's (now both should have the same size)
 if opts.show_removed_portions
@@ -116,25 +126,27 @@ if opts.highpass_old && isfield(new.etc,'clean_drifts_kernel') && ~isfield(old.e
     old.data = old.data';
 end
 
-if isscalar(opts.line_width)
-    opts.line_width = [opts.line_width opts.line_width]; end
-
-% optionally pick a subrange to work on
+% optionally pick a channel range to work on
 if ~isempty(opts.channel_subset)
     old = exp_eval(flt_selchans(old,opts.channel_subset));
     new = exp_eval(flt_selchans(new,opts.channel_subset));
 end
 
+% optionally pick a time range
 if ~isempty(opts.time_subset)
     old = exp_eval(set_selinterval(old,time_subset));
     new = exp_eval(set_selinterval(new,opts.time_subset));
 end
 
+% optionally match channel scales
 if opts.equalize_channel_scaling    
     rescale = 1./mad(old.data,1,2);
     new.data = bsxfun(@times,new.data,rescale);
     old.data = bsxfun(@times,old.data,rescale);
 end
+
+
+% === initialize graphics ===
 
 % generate event colormap
 if ~isempty(old.event)
@@ -146,8 +158,12 @@ old_iqr(isnan(old_iqr)) = deal(mean(old_iqr(~isnan(old_iqr))));
 new_iqr = 2*mad(new.data',1)';
 new_iqr(isnan(new_iqr)) = deal(mean(new_iqr(~isnan(new_iqr))));
 
-% create figure & slider
+% initialize plot state
 lastPos = 0;
+have_signallegend = false;
+have_eventlegend = false;
+
+% create figure & slider
 hFig = figure('ResizeFcn',@on_window_resized,'KeyPressFcn',@(varargin)on_key(varargin{2}.Key)); hold; axis();
 hAxis = gca;
 hSlider = uicontrol('style','slider','KeyPressFcn',@(varargin)on_key(varargin{2}.Key)); on_resize();
@@ -248,8 +264,8 @@ on_update();
                     curcolor = opts.event_colormap.values(strcmp(opts.event_colormap.keys,curtype),:);
                     matchpos = strcmp(evttypes,curtype);
                     h = line([evtpos(matchpos);evtpos(matchpos)],repmat([0;1],1,nnz(matchpos)),'Color',curcolor);
-                    handles(end+1) = h(1);
-                    labels{end+1} = curtype;
+                    handles(end+1) = h(1); %#ok<AGROW>
+                    labels{end+1} = curtype; %#ok<AGROW>
                 end
                 if opts.show_eventlegend
                     legend(handles,labels,'Location','NorthWest'); 
@@ -284,7 +300,8 @@ on_update();
         if ~isempty(hSlider)
             try
                 set(hSlider,'Position',[20,20,wPos(3)-40,20]);
-            catch,end
+            catch
+            end
             on_update;
         end
     end

@@ -59,7 +59,7 @@ try
     lines = {};
     % build the message
     for message = hlp_split(e.message,[10 13])
-        lines{end+1} = sprintf('%s %s\n',level,message{1}); end
+        lines{end+1} = sprintf('%s %s\n',level,message{1}); end %#ok<*AGROW>
     lines{end+1} = sprintf('%s occurred in: \n',level);
     for st = e.stack'
         if hyperlinks && ~isdeployed

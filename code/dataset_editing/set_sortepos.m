@@ -27,7 +27,7 @@ declare_properties('independent_channels',true,'independent_trials',false);
 arg_define(varargin, ...
     arg_norep({'signal','Signal'}));
 
-if isfield(signal,'epoch')
+if isfield(signal,'epoch') %#ok<NODEF>
     if ~isempty(signal.epoch)
         if ~isfield(signal.epoch,'latency')
             error('Your signal is lacking the required .epoch.latency field.'); end

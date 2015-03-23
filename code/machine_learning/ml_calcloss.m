@@ -32,11 +32,14 @@ function [measure,stats] = ml_calcloss(type,T,P)
 %                * 'mae'/'l1': mean absolute error
 %                * 'mse'/'l2': mean square error
 %                * 'smse': standardized mean square error
+%                * 'smae': standardized mean absolute error
 %                * 'max'/'linf': maximum absolute error
 %                * 'sign': mis-classification rate on the sign of continuous outcomes
 %                * 'rms': root mean square error
 %                * 'bias': directed mean bias
 %                * 'medse': median square error
+%                * 'medae': median absolute error
+%                * 'smedae': standardized median absolute error (also using a robust std. dev,)
 %                * 'auc': negative area under ROC, for 2-class outcomes
 %                * 'cond_entropy': conditional entropy of Target given Prediction, for discrete outcomes
 %                * 'cross_entropy': cross-entropy of Target under Prediction
@@ -193,6 +196,8 @@ else
             switch lower(type)
                 case {'mae','l1'}
                     measure = mean(abs(Px-Tx));
+                case {'smae'}
+                    measure = mean(abs(Px-Tx)) ./ std(Tx);
                 case {'mse','l2'}
                     measure = mean((Px-Tx).^2);
                 case 'sign'
@@ -207,6 +212,10 @@ else
                     measure = mean(Px-Tx);
                 case 'medse'
                     measure = median((Px-Tx).^2);
+                case 'medae'
+                    measure = median(abs(Px-Tx));
+                case 'smedae'
+                    measure = median(abs(Px-Tx)) ./ (mad(Tx,1)*1.4826);
                 case 'auc'
                     % derive binary T, continuous P, and the class identities
                     if is_discrete(P)
@@ -225,13 +234,16 @@ else
                     end
                     % compute the AUC
                     if length(classes) ~= 2
-                        error('AUC can only be computed for 2-class outcomes'); end
-                    if length(unique(T)) > 2
-                        error('AUC can only be computed for nonprobabilistic targets.'); end
-                    T = T==classes(2);
-                    nT = sum(T);
-                    ranks = tied_ranks(P);
-                    measure = -(sum(ranks(T)) - (nT^2 + nT)/2) / (nT*(length(T)-nT));
+                        warning('AUC can only be computed for 2-class outcomes. Returning NaN.'); 
+                        measure = NaN;
+                    else
+                        if length(unique(T)) > 2
+                            error('AUC can only be computed for nonprobabilistic targets.'); end
+                        T = T==classes(2);
+                        nT = sum(T);
+                        ranks = tied_ranks(P);
+                        measure = -(sum(ranks(T)) - (nT^2 + nT)/2) / (nT*(length(T)-nT));
+                    end
                 case 'f_measure'
                     classes = [];
                     if is_discrete(T)
@@ -277,6 +289,9 @@ stats.(type) = measure;
 end
 
 
+function Y = mad(X,flag) %#ok<INUSD>
+Y = median(abs(bsxfun(@minus,X,median(X))));
+end
 
 % expectation of distribution D
 function V = expected_value(D)

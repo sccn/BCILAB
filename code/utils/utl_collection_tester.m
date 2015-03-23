@@ -18,6 +18,7 @@ function predictions = utl_collection_tester(testcollection,model,predict_func)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-08-29
+dp;
 
 % input validation
 if ~iscell(testcollection) || ~all(cellfun('isclass',testcollection,'struct'))
@@ -28,5 +29,5 @@ if ~isa(predict_func,'function_handle')
     error('The give PredictionFunction argument must be a function handle.'); end
 
 for k=1:length(testcollection)
-    predictions{k} = predict_func(utl_preprocess_bundle(testcollection{k},model),model); end
+    predictions{k} = predict_func(utl_preprocess_bundle(testcollection{k},model),model); end %#ok<AGROW>
 predictions = utl_aggregate_results(predictions{:});

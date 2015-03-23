@@ -21,7 +21,7 @@ elseif isstruct(x)
             % if array, process each one separately and combine results
             tmp = {};
             for k=1:numel(x)
-                tmp{k} = utl_prune_datasets(x(k)); end
+                tmp{k} = utl_prune_datasets(x(k)); end %#ok<AGROW>
             x = reshape([tmp{:}],size(x));
         else
             % if scalar

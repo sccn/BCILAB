@@ -20,6 +20,7 @@ function signal = set_selepos(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-01
+dp;
 
 % set_selepos_version<2.0> -- for the cache
 

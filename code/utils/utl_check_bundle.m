@@ -6,6 +6,7 @@ function bundle = utl_check_bundle(bundle)
 %  * each stream has all markers (with matching type, latency and target field; each stream may have 
 %    its unique additional marker meta-data)
 %  * the expression associated with each stream (if any) matches the data (via a stored fingerprint)
+%    unless that functionality is disabled
 % 
 % In:
 %   Bundle : stream bundle to be checked; 
@@ -19,6 +20,7 @@ function bundle = utl_check_bundle(bundle)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-08-28
+dp;
 
 % turn into a bundle if necessary
 if ~isfield(bundle,'streams')
@@ -84,6 +86,16 @@ for s=1:length(str)
         if any(epochevents < 1 | epochevents > length(str{s}.event))
             error('The given signal has invalid (out-of-bounds) .epoch.event indices.'); end
     end
+    
+    % check if the bundle contains a non-trivial online expression
+    if isfield(str{s},'tracking') && isfield(str{s}.tracking,'online_expression')
+        if ~strcmp(char(str{s}.tracking.online_expression.head),'rawdata')
+            % in this case we forget about all processing applied to the dataset and treat it as if it were "raw"            
+            disp_once('WARNING: The given dataset has non-trivial BCILAB filters applied to it. Such filters should be applied in the approach instead, and will not be reflected in the model:\n         %s',hlp_tostring(str{s}.tracking.expression,1000));
+            str{s} = rmfield(str{s},'tracking');
+        end
+    end
+    
     % some more sanity checks
     if size(str{s}.data,1) ~= length(str{s}.chanlocs)
         error('The number of channels in the .data field (%i) does not match the length of the .chanlocs field (%i).',size(str{s}.data,1),length(str{s}.chanlocs)); end
@@ -125,17 +137,17 @@ end
 for s=length(str):-1:1
     % collect marker types, latencies and target values across streams
     if ~isempty(str{s}.event)
-        mrk_type = [mrk_type {str{s}.event.type}];
-        mrk_latency = [mrk_latency {str{s}.event.latency}];    
+        mrk_type = [mrk_type {str{s}.event.type}]; %#ok<AGROW>
+        mrk_latency = [mrk_latency {str{s}.event.latency}];     %#ok<AGROW>
         if ~isfield(str{s}.event,'target')
             str{s}.event(1).target = []; end
-        mrk_target = [mrk_target {str{s}.event.target}];
-        mrk_source = [mrk_source s*ones(1,length(str{s}.event))];
+        mrk_target = [mrk_target {str{s}.event.target}]; %#ok<AGROW>
+        mrk_source = [mrk_source s*ones(1,length(str{s}.event))]; %#ok<AGROW>
     end
 end
 
 % map all markers onto their unique identifier (latency_type)
-uids = cellfun(@(a,b)[num2str(b) '_' a],mrk_type,mrk_latency,'UniformOutput',false);
+uids = cellfun(@(a,b)sprintf('%i_%s',b,a),mrk_type,mrk_latency,'UniformOutput',false);
 % for each stream..
 for s=1:length(str)
     % get the list of markers indices that need to be added to it
@@ -155,3 +167,4 @@ end
 
 % finalize
 bundle.streams = str;
+

@@ -113,12 +113,18 @@ catch report
         result = tracking.arg_sys.reports{ticket};
         tracking.arg_sys.tickets.addLast(ticket);
     elseif ~strcmp(type,'properties')        
-        % got a genuine error: rerun the code to propagate it properly
-        % (we're not using rethrow here to not confuse dbstop if error)
-        if handle_expressions
-            hlp_scope({'disable_expressions',1},func,args{:},'__arg_report__',type);
+        % got a genuine error
+        settings = dbstatus;
+        if any(strcmp({settings.cond},'error')) && ~hlp_resolve('disable_dbstop_if_error_msg',false)
+            % rerun the code to propagate it properly (we're not using rethrow here to not confuse dbstop if error)
+            disp_once('arg_report: caught error while in "dbstop if error" mode; re-running offending code to get break point...\n  error traceback was: %s\n',hlp_handleerror(report));
+            if handle_expressions
+                hlp_scope({'disable_expressions',1},func,args{:},'__arg_report__',type);
+            else
+                func(args{:},'__arg_report__',type);
+            end
         else
-            func(args{:},'__arg_report__',type);
+            rethrow(report);
         end
     end
 end

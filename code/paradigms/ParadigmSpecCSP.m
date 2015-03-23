@@ -189,35 +189,48 @@ classdef ParadigmSpecCSP < ParadigmDataflowSimplified
                 arg_norep({'featuremodel','FeatureModel'},[],[],'Feature model. This is the part of the model that describes the feature extraction.'), ...
                 arg_norep({'predictivemodel','PredictiveModel'},[],[],'Predictive model. This is the part of the model that describes the predictive mapping.'), ...
                 arg({'patterns','PlotPatterns'},true,[],'Plot patterns instead of filters. Whether to plot spatial patterns (forward projections) rather than spatial filters.'), ...
-                arg({'paper','PaperFigure'},false,[],'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'));
+                arg({'paper','PaperFigure'},false,[],'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'), ...
+                arg_nogui({'nosedir_override','NoseDirectionOverride'},'',{'','+X','+Y','-X','-Y'},'Override nose direction.'));
             arg_toworkspace(args);
 
             % no parent: create new figure
             if isempty(myparent)
                 myparent = figure('Name','Common Spatial Patterns'); end
+            % determine nose direction for EEGLAB graphics
+            try
+                nosedir = args.fmodel.signal.info.chaninfo.nosedir;
+            catch
+                disp_once('Nose direction for plotting not store in model; assuming +X');
+                nosedir = '+X';
+            end
+            if ~isempty(nosedir_override)
+                nosedir = nosedir_override; end            
             % number of pairs, and index of pattern per subplot
             np = size(featuremodel.W,2)/2; idxp = [1:np np+(2*np:-1:np+1)]; idxf = [np+(1:np) 2*np+(2*np:-1:np+1)];
             % for each CSP pattern...
             for p=1:np*2
                 subplot(4,np,idxp(p),'Parent',myparent);
                 if args.patterns
-                    topoplot(featuremodel.P(:,p),featuremodel.chanlocs);
+                    plotdata = featuremodel.P(:,p);
                 else
-                    topoplot(featuremodel.W(:,p),featuremodel.chanlocs);
+                    plotdata = featuremodel.W(:,p);
                 end
+                topoplot(plotdata,featuremodel.chanlocs,'nosedir',nosedir);
                 subplot(4,np,idxf(p),'Parent',myparent);
                 alpha = featuremodel.alpha(:,p);
                 range = 1:max(find(alpha)); %#ok<MXFND>
                 pl=plot(featuremodel.freqs(range),featuremodel.alpha(range,p));
+                xlim([min(featuremodel.freqs(range)) max(featuremodel.freqs(range))]);
                 l1 = xlabel('Frequency in Hz');
                 l2 = ylabel('Weight');
                 t=title(['Spec-CSP Pattern ' num2str(p)]);
                 if args.paper
                     set([gca,t,l1,l2],'FontUnits','normalized');
                     set([gca,t,l1,l2],'FontSize',0.2);
-                    set(pl,'LineWidth',3);
+                    set(pl,'LineWidth',2);
                 end
-            end            
+            end    
+            try set(gcf,'Color',[1 1 1]); end
         end
         
         function layout = dialog_layout_defaults(self)

@@ -27,8 +27,9 @@ function result = set_concat(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-03-31
+dp;
 
-% set_joinepos_version<1.0> -- for the cache
+% set_concat_version<1.0> -- for the cache
 
 if ~exp_beginfun('editing') return; end
 

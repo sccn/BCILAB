@@ -1,0 +1,1 @@
+any(cellfun(@exist,{'libsvmread', 'libsvmwrite'})==3)

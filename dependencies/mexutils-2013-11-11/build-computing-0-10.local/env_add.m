@@ -1,0 +1,1 @@
+any(cellfun(@exist,{'arraydeal', 'chopdeal', 'cummax'})==3)

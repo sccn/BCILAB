@@ -1,4 +1,4 @@
-function [measure,stats] = utl_crossval(data, varargin)
+function [measure,stats] = utl_crossval(varargin)
 % Run a generic cross-validation over indexable data.
 % [Measure, Stats] = utl_crossval(Data, Arguments...)
 %
@@ -35,9 +35,10 @@ function [measure,stats] = utl_crossval(data, varargin)
 % ground truth used in the comparison), as well as cluster parallelization options.
 %
 % In:
-%   Data : some data that can be partitioned using index sets, such as, for example,
-%          {X,y} with X being the [NxF] training data and y being the [Nx1] labels 
-%          (N=#trials, F=#features)
+%   Data : some data that can be partitioned using index sets, such as, for example, {X,y} with X 
+%          being the [NxF] training data and y being the [Nx1] labels (N=#trials, F=#features). Any
+%          data format that is supported by the given trainer, tester, partitioner and target
+%          functions is supported by utl_crossval.
 %
 %   Arguments : optional name-value pairs specifying the arguments:
 %               'trainer': training function; receives a partition of the data (as produced by 
@@ -117,7 +118,7 @@ function [measure,stats] = utl_crossval(data, varargin)
 %                             (default: 1); different numbers (aside from 0) give different
 %                             repeatable runs, i.e. the value determines the randseed
 %
-%               'return_models': whether to return models trained for each fold (default: false)
+%               'collect_models': whether to return models trained for each fold (default: false)
 %
 %               'engine_cv': parallelization engine to use (default: 'global'); see par_beginsschedule
 %                   
@@ -174,21 +175,31 @@ function [measure,stats] = utl_crossval(data, varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-07
+dp;
 
 % read arguments
-opts = hlp_varargin2struct(varargin, ...
-    'scheme',10, ...
-    'partitioner',@utl_default_partitioner,  ...
-    'target',@utl_default_target, ...
-    'metric',@(T,P) ml_calcloss([],T,P),  ...
-    'trainer',@ml_train,  ...
-    'tester',@utl_default_predict,  ...
-    'args',{}, ...
-    'repeatable',1,  ...
-    'collect_models',false, ...
-    'engine_cv','global', ...
-    'pool','global', ...
-    'policy','global');
+opts = arg_define(0:1,varargin, ...
+    ... % evaluation data
+    arg_norep({'data','Data'},[],[],'Data that can be partitioned using index sets. Such as, for example, {X,y} with X being the [NxF] training data and y being the [Nx1] labels (N=#trials, F=#features).'), ...
+    ... % evaluation parameters
+    arg({'scheme','EvaluationScheme'},10,[],'Cross-validation scheme. Defines what parts of the data shall be used for training or testing in each fold. Supports many different formats, see documentation.','type','expression'), ...
+    arg({'metric','EvaluationMetric'},'auto',{'auto','mcr','auc','mse','medse','smse','mae','medae','smae','smedae','max','sign','rms','bias','kld','nll','cond_entropy','cross_entropy','f_measure'},'Evaluation metric. Loss measure employed to measure the quality of predictions on a test partition given its known target values; applied both to results in each fold and results aggregated over all folds. Can be either a predefined metric supported by ml_calcloss, or a custom function handle which receives an array of target values in the first argument and an array of predictions in the second argument; each can be in any format that can be produced by ml_predict (but can be expected to be mutually consistent). Shall return a real number indicating the summary metric over all data, and optionally additional statistics in a second output struct.','typecheck',false), ...
+    arg({'repeatable','RepeatableResults'},1,[],'Produce repeatable (vs. randomized) results. If nonzero, the value is taken as the random seed to use for the performed calculation. This way, different numbers (aside from 0) give different repeatable runs.'), ...
+    ... % method to evaluate and its arguments
+    arg({'args','TrainingArguments'},{},[],'Arguments to training function. Packed in a cell array. Note: if using the default trainer/tester functions, args must at least specify the learning function to be used, optionally followed by arguments to that learning function, e.g. {''lda''} for linear discriminant analysis or {''logreg'',''lambda'',0.1} for logistic regression with ''lambda'',0.1 passed in as user parameters (see ml_train* functions for options).','type','expression'), ...
+    arg({'trainer','TrainingFunction'},'@ml_train',[],'Training function. Receives a partition of the data (as produced by the specified partitioner), possibly some further arguments as specified in args, and returns a model (of any kind).','type','expression'), ...
+    arg({'tester','PredictionFunction'},'@utl_default_predict',[],'Prediction function. Receives a partition of the data (as produced by the partitioner) and a model (as produced by the trainer), and returns a prediction for every index of the input data, in one of the output formats permitted by ml_predict.','type','expression'), ...
+    ... % support for custom data representations
+    arg({'target','TargetFunction'},'@utl_default_target',[],'Target extraction function. A function to derive the target variable from a partition of the data (as produced by the partitioner), for evaluation; the allowed format is anything that may be output by ml_predict.','type','expression'), ...
+    arg({'partitioner','PartitioningFunction'},'@utl_default_partitioner',[],'Partitioning function. See documentation for the function contract.','type','expression'), ...
+    ... % parallel computing settings
+    arg({'engine_cv','ParallelEngine','engine'},'global',{'global','local','BLS','Reference','ParallelComputingToolbox'}, 'Parallel engine to use. This can either be one of the supported parallel engines (BLS for BCILAB Scheduler, Reference for a local reference implementation, and ParallelComputingToolbox for a PCT-based implementation), or local to skip parallelization altogether, or global to select the currently globally selected setting (in the global tracking variable).'), ...
+    arg({'pool','WorkerPool'},'global',[], 'Worker pool to use. This is typically a cell array, but can also be the string ''gobal'', which stands for the currently globally set up worker pool (see global tracking variable).','type','expression'), ...
+    arg({'policy','ReschedulingPolicy'},'global',[], 'Rescheduling policy. This is the name of the rescheduling policy function that controls if and when tasks are being rescheduled. If set to global, the current global setting will be used.'), ...    
+    ... % misc arguments
+    arg({'collect_models','CollectModels'},false,[],'Collect models per fold. Note that this increases the amount of data returned.'));
+
+data = opts.data; opts = rmfield(opts,'data');
 
 % --- input validation ---
 
@@ -231,6 +242,8 @@ catch e
 end
 
 % parse and validate the metric argument
+if ischar(opts.metric) && ~isempty(opts.metric) && opts.metric(1) == '@'
+    opts.metric = eval(opts.metric); end
 if isempty(opts.metric) || ischar(opts.metric) || (iscell(opts.metric) && all(cellfun(@ischar,opts.metric)))
     opts.metric = @(T,P)ml_calcloss(opts.metric,T,P); end
 if ~has_stats(opts.metric)
@@ -284,6 +297,8 @@ if ~isempty(inds)
         [measure(p),stats.per_fold(p)] = opts.metric(targets{p},predictions{p}); end
     
     % attach basic summary statistics
+    if any(isnan(measure)) && any(~isnan(measure))
+        measure = measure(~isnan(measure)); end
     if ~isfield(stats,'measure')
         stats.measure = 'loss'; end
     stats.(stats.measure) = mean(measure);
@@ -291,6 +306,7 @@ if ~isempty(inds)
     stats.([stats.measure '_std']) = std(measure);
     stats.([stats.measure '_med']) = median(measure);
     stats.([stats.measure '_mad']) =  median(abs(measure-median(measure)));
+    stats.([stats.measure '_N']) = length(measure);
     measure = mean(measure);
     
     % add per-fold targets & predictions

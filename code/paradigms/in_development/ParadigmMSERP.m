@@ -136,7 +136,7 @@ classdef ParadigmMSERP < ParadigmBase
                 case 'full CSD'
                     features = signal.srcpot_all;
                 case 'components'
-                    features = reshape((procdata.icaweights*procdata.icasphere)*procdata.data(procdata.icachansind,:),[],procdata.pnts,procdata.trials);
+                    features = reshape((signal.icaweights*signal.icasphere)*signal.data(signal.icachansind,:),[],signal.pnts,signal.trials);
             end
             for t=1:size(features,3)
                 features(:,:,t) = featuremodel.P{1}*features(:,:,t)*featuremodel.P{2}; end

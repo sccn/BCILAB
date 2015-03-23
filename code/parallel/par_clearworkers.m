@@ -1,6 +1,6 @@
 function par_clearworkers(hostnames)
 % Clear workers from the listed hostnames (or if those are unspecified, from the current pool).
-% par_clearworkers(Hostnames)
+% par_clearworkers(Hostnames,ClearMode)
 %
 % Note: this function erases all of the user's MATLAB processes on the given nodes; if there are
 % unrelated MATLABs running, these will also be killed. This may also shoot down the master process

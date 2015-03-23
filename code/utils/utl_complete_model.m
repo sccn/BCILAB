@@ -1,6 +1,16 @@
 function model = utl_complete_model(model,func,bundle)
 % Internal. Complete the definition of a predicitive model with some meta-data.
 % utl_complete_model(Model, PredictionFunction, Bundle)
+%
+% This function ensures that model structs created by BCI paradigm plugins have a uniform format
+% and contain the set of fields needed by downstream processing functions (e.g., the offline and 
+% online prediction framework). This function relieves the BCI paradigms from specifying each and
+% every of those fields manually, by automatically appending fields that can be deduced from the
+% data or other parts of the model.
+%
+% This function also performs some early validation of the model structure to catch possible errors
+% early on rather than deep into a subsequent processing run.
+%
 % In:
 %   Model : a predictive model that will be finalized by this function; may have the following fields:
 %           .tracking.filter_graph : cell array of symbolic filter expressions, one per inlet of the
@@ -51,6 +61,7 @@ function model = utl_complete_model(model,func,bundle)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-08-28
+dp;
 
 % input validation
 if ~isstruct(model) || ~isscalar(model)
@@ -133,9 +144,9 @@ else
         error('The function referred to by the model''s .tracking.prediction_function field does not exist: %s',char(model.tracking.prediction_function)); end
 end
 
+% add and validate the channel locations (these are technically redundant, as they can be 
+% derived from the preprocessing chain) (deduced from the bundle)
 try
-    % add and validate the channel locations (these are technically redundant, as they can be 
-    % derived from the preprocessing chain) (deduced from the bundle)
     if ~isfield(model.tracking,'prediction_channels')
         if ~exist('bundle','var')
             error('Cannot automatically assign the .tracking.prediction_channels field because the data set from which these channels shall be determined could not be deduced by the framework; consider setting this field manually in the calibrate() function of your paradigm.'); end

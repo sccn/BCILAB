@@ -25,7 +25,7 @@ function [exp,waschanged] = utl_replacerepeated(exp,rules)
 if isstruct(rules) && length(rules) == 1
     dict = rules; rules = {};
     for fn = fieldnames(dict)'
-        rules{end+1} = exp_rule(exp_symbol(fn{1}),dict.(fn{1})); end
+        rules{end+1} = exp_rule(exp_symbol(fn{1}),dict.(fn{1})); end %#ok<AGROW>
 end
 
 waschanged = false;

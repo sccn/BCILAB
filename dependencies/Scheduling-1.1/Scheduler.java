@@ -53,12 +53,27 @@ import matlabcontrol.*; // obtain the jar from http://code.google.com/p/matlabco
 class WorkerNotReadyException extends Exception {}
 
 public class Scheduler implements Runnable {
-    // create a new scheduler with a given set of workers (each specified as "host:port" string)
-    // public Scheduler(String[] workers) throws IOException { Scheduler(workers, "", 5, 1000, 10000); }
-    
-    // create a new scheduler with a given set of workers and a custom MATLAB scheduling policy
-    //   all arguments must be passed; recommended defaults are 'par_reschedule_policy',3,3000,5000)
-    public Scheduler(String[] workers, String custom_policy, int receiver_backlog, int receiver_timeout, int reschedule_interval, int verbosity_level, int size_hint) throws IOException {
+    /** 
+     * Create a new scheduler with a given set of workers and a custom MATLAB scheduling policy.
+     * Note that all arguments must be passed.
+     * @param workers: cell array of workers, in 'host:port' format
+     * @param custom_policy: name of a MATLAB function that implements the rescheduling policy
+     *                       (usually 'hlp_reschedule_policy')
+     * @param result_acceptor: name of a MATLAB callback function that accepts results while the 
+     * %                       scheduler is running (disabled if empty)
+     * @param receiver_backlog: number of connections from workers returning results that can be 
+     *                          queued up until they get processed (5 is a good choice)
+     * @param receiver_timeout: When a worker that has previously announced that it is ready to 
+     *                          transmit results does not start transmitting results within this 
+     *                          time period (in ms) after pinged, the connection will be discarded 
+     *                          and the worker has to re-connect (1000 is a good choice)
+     * @param reschedule_interval: time between periodic checks if jobs have to be re-scheduled, in 
+     *                             ms (5000 is a good choice)
+     * @param verbosity_level: Verbosity level for the scheduling process (0-3)
+     * @param size_hint: expected number of results that will be computed with this scheduler
+     */
+    public Scheduler(String[] workers, String custom_policy, String result_acceptor, int receiver_backlog, int receiver_timeout, int reschedule_interval, int verbosity_level, int size_hint) throws IOException {
+        loglock = new Object();
         log("allocating data structures...");
         waiting = new TreeMap<Integer,String>();
         inflight = new HashMap<Integer,String>(workers.length*3);
@@ -74,9 +89,19 @@ public class Scheduler implements Runnable {
         batchid = global_batchid.incrementAndGet();
         policy_interval = reschedule_interval;
         policy = custom_policy;
+        matlab_acceptor = result_acceptor;
         verbose = verbosity_level;
         shutdown = false;
         log("done.\n");
+        
+        try {
+            log("initializing MATLAB proxy...\n");
+            MatlabProxyFactory factory = new MatlabProxyFactory();
+            proxy = factory.getProxy();
+            log("MATLAB proxy is up.\n");
+        } catch (MatlabConnectionException e) {
+            errlog("MATLAB proxy could not be initialized: " + e.getMessage() + " (see matlabcontrol docs for troubleshooting).\n");
+        }
         
         // start threads (receiver, workers, policy)
         log("launching threads...\n");
@@ -84,7 +109,7 @@ public class Scheduler implements Runnable {
         for (String w : workers)
             exec.execute(new WorkerLink(w,this));
         log("done launching threads.\n");
-        exec.execute(this);
+        exec.execute(this);        
     }
 
     // logging functions at various log levels
@@ -92,10 +117,12 @@ public class Scheduler implements Runnable {
     public void log(String msg) { if (verbose>0) writelog(msg); }
     public void finelog(String msg) { if (verbose>1) writelog(msg); }
     public void veryfinelog(String msg) { if (verbose>2) writelog(msg); }
-    public synchronized void writelog(String msg) { 
+    public void writelog(String msg) { 
         DateFormat df = new SimpleDateFormat("MM/dd HH:mm:ss");
         Date now = Calendar.getInstance().getTime();
-        System.out.print(df.format(now)+": " + msg);
+        synchronized(loglock) {
+	    System.out.print(df.format(now)+": " + msg);
+        }
     }
     
     // submit the given tasks (string-formatted) for scheduling
@@ -224,30 +251,52 @@ public class Scheduler implements Runnable {
     
     // atomically sign an incoming result off the inflight & waiting lists;
     // notifies if both these lists become empty
-    private synchronized void signoff_result(int id, String result) {
-        log("    now signing off result " + Integer.toString(id) + "...\n");
-        // check that the id is actually valid (i.e. inflight or waiting (the latter if rescheduled in the meantime))
-        boolean waits = waiting.containsKey(id);
-        boolean flights = inflight.containsKey(id);
-        if (flights || waits) {
-            log("      result id " + Integer.toString(id) + " found in queue; adding to finished results...\n");
-            // valid: put into the results
-            finished.put(id,result);
-            log("      result with id " + Integer.toString(id) + " has been added to finished results.\n");
-            log("      result id " + Integer.toString(id) + " now being removed from waiting and inflight lists...\n");
-            // and remove from the lists
-            if (waits)
-                waiting.remove(id);
-            if (flights)
-                inflight.remove(id);
-            log("      result id "+ Integer.toString(id) + " has been removed from waiting and inflight lists...\n");
-            if (waiting.isEmpty() && inflight.isEmpty()) {
-                log("waiting and inflight queues now empty.\n");
-                notifyAll();
+    private void signoff_result(int id, String result) {
+        String tag=null, payload=null;  // information that should be transferred to MATLAB if non-null
+        synchronized(this) {
+            log("    now signing off result " + Integer.toString(id) + "...\n");
+            // check that the id is actually valid (i.e. inflight or waiting (the latter if rescheduled in the meantime))
+            boolean waits = waiting.containsKey(id);
+            boolean flights = inflight.containsKey(id);
+            if (flights || waits) {
+                // id is valid...
+                log("      result id " + Integer.toString(id) + " found in queue; adding to finished results...\n");
+                // optionally pass the result out to the matlab_acceptor and store only the tag in results
+                if (!matlab_acceptor.isEmpty()) {
+                    // the tag acts as a reference to the actual result payload that we'll hand out to MATLAB
+                    tag = "tag__" + Integer.toString(rand.nextInt(2000000000));
+                    payload = result;
+                    result = tag;
+                }
+                // put into the results
+                finished.put(id,result);
+                log("      result with id " + Integer.toString(id) + " has been added to finished results.\n");
+                log("      result id " + Integer.toString(id) + " now being removed from waiting and inflight lists...\n");
+                // and remove from the lists
+                if (waits)
+                    waiting.remove(id);
+                if (flights)
+                    inflight.remove(id);
+                log("      result id "+ Integer.toString(id) + " has been removed from waiting and inflight lists...\n");
+                if (waiting.isEmpty() && inflight.isEmpty()) {
+                    log("waiting and inflight queues now empty.\n");
+                    notifyAll();
+                }
+                log("    done signing off result " + Integer.toString(id) + ".\n");
+            } else {
+                log("      result id " + Integer.toString(id) + " is not currently waiting or inflight; ignoring.\n");
             }
-            log("    done signing off result " + Integer.toString(id) + ".\n");
-        } else {
-            log("      result id " + Integer.toString(id) + " is not currently waiting or inflight; ignoring.\n");
+        }
+        if (tag != null && payload != null) {
+            // transfer tag+payload out to MATLAB; done after the synchronized(this) to not block out other threads
+            log("      passing result id " + Integer.toString(id) + " to MATLAB acceptor as tag " + tag + "...\n");
+            try {
+                synchronized(proxy) { proxy.feval(matlab_acceptor,tag,payload); }
+                log("      successfully passed result id " + Integer.toString(id) + " to MATLAB acceptor.\n");
+                result = tag;
+            } catch (Exception e) {
+                errlog("failed to pass result id " + Integer.toString(id) + " out: " + e.getMessage() + "\n");
+            }
         }
     }
     
@@ -430,10 +479,6 @@ public class Scheduler implements Runnable {
     // scheduling policy thread
     public void run() {
         try {
-            log("initializing MATLAB proxy...\n");
-            MatlabProxyFactory factory = new MatlabProxyFactory();
-            MatlabProxy proxy = factory.getProxy();
-            log("MATLAB proxy is up.\n");
             log("entering scheduling policy loop...\n");
             while (!shutdown) {
                 try {
@@ -451,7 +496,8 @@ public class Scheduler implements Runnable {
                             params[3] = events.keySet().toArray();
                             params[4] = events.values().toArray();
                         }
-                        Vector reschedule = (Vector)proxy.returningFeval(policy,1,params)[0];
+                        Vector reschedule;
+                        synchronized(proxy) { reschedule = (Vector)proxy.returningFeval(policy,1,params)[0]; }
                         for (Object id : reschedule)
                             reschedule_task((Integer)id);
                     }
@@ -466,15 +512,15 @@ public class Scheduler implements Runnable {
             log("disconnecting from MATLAB proxy...\n");
             proxy.disconnect();
             log("MATLAB proxy is down.\n");
-        } catch (MatlabConnectionException e) {
-            errlog("Problem with the local MATLAB connection: " + e.getMessage() + ".\n");
         } catch (Exception e) {
             errlog("Unexpected scheduling policy thread exception: " + e.getMessage() + ".\n");
         }
     }
     
 
-    private Random rand;            // random number generator for timings
+    private Random rand;                // random number generator for timings
+    private MatlabProxy proxy;          // allows us to call MATLAB functions
+    private Object loglock;             // a lock to synchronize logging...
 
     private ExecutorService exec;  	// this one executes our threads
     private ServerSocket serv;  	// we wait for incoming results here
@@ -487,7 +533,8 @@ public class Scheduler implements Runnable {
     
     private boolean shutdown;	// shutdown notice for threads
     
-    private String policy;	 	// re-scheduling policy function
+    private String policy;          // re-scheduling policy function
+    private String matlab_acceptor;	// result acceptor function
     private int policy_interval;	// re-scheduling policy interval
     private int verbose;		// verbosity level
     private int batchid;		// id of the current batch of operations

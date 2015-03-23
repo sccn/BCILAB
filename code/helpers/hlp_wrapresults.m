@@ -38,11 +38,12 @@ function a = hlp_wrapresults(f,varargin)
 % You should have received a copy of the GNU General Public License along with this program; if not,
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
+dp;
 
 % find out how many arguments f can maximally produce
 len = nargout(f);
+% for varargout functions, we assume at most 10
 if len < 0
-    % for varargout functions, we assume at most 10
     len = 10; end
 % ... then invoke the function
 while len >= 1
@@ -57,6 +58,8 @@ while len >= 1
             settings = dbstatus;
             if any(strcmp({settings.cond},'error'))
                 % if in dbstop if error mode, we're re-running the line to get the debugger to stop at the right place
+                fprintf('hlp_wrapresults: caught error while in "dbstop if error" mode; re-running offending code to get break point...\n');
+                fprintf('  error traceback was: %s\n',hlp_handleerror(e));
                 [a{1:len}] = f(varargin{:});
             else
                 rethrow(e);

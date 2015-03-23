@@ -30,6 +30,7 @@ function varargout = exp_eval_optimized(x,iters)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-15
+dp;
 
 if nargin < 2
     iters = 1;

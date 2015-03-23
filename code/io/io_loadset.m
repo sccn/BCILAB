@@ -8,8 +8,9 @@ function res = io_loadset(varargin)
 % name-value pairs following the file name. 
 %
 % Some additional support exists for extraction of trigger channels (which has default settings, but
-% which may have to be customized if the trigger channel format is unusual), as well as for tagging
-% data with meta-information (for possible use in study- level processing).
+% which may have to be customized if the trigger channel format is unusual), for tagging data with 
+% meta-information (for possible use in study- level processing), and for fixing up channel
+% locations.
 %
 % In:
 %   Filename      :   name of the file; platform-independent path preferred.
@@ -28,6 +29,11 @@ function res = io_loadset(varargin)
 %                                     processing pipeline: the filter is more general (e.g., will
 %                                     apply properly during online processing while this operation
 %                                     changes the data before the bcilab pipeline sees it) (default: [])
+%                     'submontage'  : sub-sample the montage at load time; this allows to reduce the 
+%                                     channels to an equidistant subset; applies to channels that have 
+%                                     location and leaves the others unaffected (default: [])
+%                     'only_localized_channels' : retain only channels that have a location
+%                                                 (default: false)
 %
 %                     --- parameters for dataset annotation ---
 %                     'setname'     : initial data set name (default: '')
@@ -100,7 +106,7 @@ function res = io_loadset(varargin)
 
 % io_loadset_version<1.0> -- for the cache
 
-if ~exp_beginfun('filter') return; end
+if ~exp_beginfun('import') return; end
 
 % read options
 allopts = arg_define([0 1],varargin,...
@@ -111,7 +117,9 @@ allopts = arg_define([0 1],varargin,...
     arg({'timerange','TimeRange','trange'},[],[],'Time range. Restrict the loaded data to a sub-range, in seconds.'), ...
     arg({'types','ChannelTypes','type'},[],[],'Channel type subset. Restrict the loaded channels to those with matching types; should be a cell-array of strings.','type','expression'), ...
     arg({'casttodouble','CastToDouble'},true,[],'Cast data to double-precision. Takes up more space but helps with filters that are not working properly when a single-precision time series is passed in.'), ...
-    arg({'subsampled','Subsampled'},[],[],'Sub-sample the data at load time. This is not the same as having a resample filter in the processing pipeline: the filter is more general (e.g., will apply properly during online processing while this operation changes the data before the bcilab processing pipeline or the data curation script sees it).'), ...
+    arg({'subsampled','Subsampled','SubSampled'},[],[],'Sub-sample the data at load time. This is not the same as having a resample filter in the processing pipeline: the filter is more general (e.g., will apply properly during online processing while this operation changes the data before the bcilab processing pipeline or the data curation script sees it).'), ...
+    arg({'submontage','SubMontage','Submontage'},[],[],'Sub-sample the montage at load time. This allows to reduce the channels to an equidistant subset; applies to channels that have location and leaves the others unaffected '), ...
+    arg({'only_localized_channels','OnlyLocalizedChannels'},false,[],'Retain only channels with locations. This will discard all channels for which no measured location was stored or inferred.'), ...
     ... % marker channel handling
     arg_sub({'markerchannel','MarkerChannel'},{},@set_infer_markers,'Marker channel processing. Optional parameters to control the marker channel processing function.'), ...
     ... % chanlocs handling
@@ -132,7 +140,7 @@ allopts = arg_define([0 1],varargin,...
     arg_norep('streamname',unassigned), arg_norep('streamtype',unassigned), arg_norep('effective_rate',unassigned), ...
     arg_deprecated('nofixups',false,[],'This parameter has been retired.'));
 
-opts = rmfield(allopts,{'filename','types','casttodouble','setname','subject','group','condition','session','comments','markerchannel','subsampled','infer_chanlocs','montage_disambiguation','nofixups'});
+opts = rmfield(allopts,{'filename','types','casttodouble','setname','subject','group','condition','session','comments','markerchannel','subsampled','submontage','only_localized_channels','infer_chanlocs','montage_disambiguation','nofixups'});
 filename = env_translatepath(allopts.filename);
 [base,name,ext] = fileparts(filename);
 
@@ -439,6 +447,16 @@ res.comments = allopts.comments;
 % and reduce the data post-hoc if not already done so in the loader
 if ~isempty(opts.channels)
     res = hlp_scope({'disable_expressions',true},@flt_selchans,res,{res.chanlocs(opts.channels).labels}); end
+if allopts.only_localized_channels
+    keep = find(~cellfun('isempty',{res.chanlocs.X}) & ~cellfun('isempty',{res.chanlocs.Y}) & ~cellfun('isempty',{res.chanlocs.Z}));
+    res = hlp_scope({'disable_expressions',true},@flt_selchans,res,keep);
+end
+if ~isempty(allopts.submontage)
+    channels_with_locs = find(~cellfun('isempty',{res.chanlocs.X}) & ~cellfun('isempty',{res.chanlocs.Y}) & ~cellfun('isempty',{res.chanlocs.Z}));
+    channels_without_locs = setdiff(1:length(res.chanlocs),channels_with_locs);
+    retained_channels = sort([channels_without_locs channels_with_locs(utl_equidistant_subset([res.chanlocs(channels_with_locs).X],[res.chanlocs(channels_with_locs).Y],[res.chanlocs(channels_with_locs).Z],allopts.submontage,true))]);
+    res = hlp_scope({'disable_expressions',true},@flt_selchans,res,retained_channels); 
+end
 if ~isempty(opts.samplerange)
     res = hlp_scope({'disable_expressions',true},@set_selinterval,res,opts.samplerange,'samples'); end
 if ~isempty(opts.timerange)
@@ -454,11 +472,4 @@ if length(unique({res.chanlocs.labels})) ~= length(res.chanlocs)
 % for faster processing further into the pipeline
 res.tracking.timeseries_fields = {};
 
-% add tracking information (note: the @rawdata expression indicates that this stage produces raw data...)
-if isfield(res,'tracking') && isfield(res.tracking,'online_expression')
-    % if the data set has already an online expression (e.g. processed data from a .set file), use that
-    exp_endfun('set_online',res.tracking.online_expression)
-else
-    % otherwise we treat this stage as producing raw data
-    exp_endfun('set_online',struct('head',@rawdata,'parts',{{{res.chanlocs.labels},unique({res.chanlocs.type})}}));
-end
+exp_endfun;

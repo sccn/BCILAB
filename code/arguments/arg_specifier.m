@@ -66,8 +66,9 @@ spec = struct(...
     'typecheck',{true}, ...         % whether to perform a type check upon assignment of a value
     'shapecheck',{true}, ...        % whether to perform a shape check upon assignment of a value
     'rangecheck',{true}, ...        % whether to perform a range check upon assignment of a value
+    'nowarning',{false}, ...        % whether to suppress name matching warnings for this argument
     ... % misc fields
-    'version',{1.1} ...             % version of the argument specification
+    'version',{1.11} ...            % version of the argument specification
     );
 
 % selectively override fields

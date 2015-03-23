@@ -122,10 +122,10 @@ function model = ml_train(varargin)
 %   ml_trainlda, ml_trainqda (built-in discriminant analysis family),
 %   ml_trainsvm, ml_trainsvmlight, ml_trainsvmperf (built-in Support Vector
 %   Machines family), ml_predict
-
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-03
+dp;
 
 if ~isequal(varargin,{'update'})
     
@@ -179,6 +179,7 @@ end
 
 
 function learners = list_learners(update_list)
+dp;
 % list all the learning functions in code/machine_learning/
 global tracking;
 persistent memo;

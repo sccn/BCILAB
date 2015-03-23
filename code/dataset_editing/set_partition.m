@@ -39,6 +39,7 @@ function res = set_partition(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-01
+dp;
 
 % set_partition_version<1.0> -- for the cache
 
@@ -74,6 +75,7 @@ if isempty(idxset) %#ok<NODEF>
         % otherwise return the number of samples
         res = size(signal.data,2);
     end
+    
 else
     % --- partition the data ---
     

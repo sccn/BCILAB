@@ -43,6 +43,7 @@ function [action,result] = utl_memoize_lookup(exp,settings,varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-05-23
+dp;
 
 action = 'skip';
 result = {};
@@ -64,7 +65,10 @@ for i=1:2:length(settings)
     
     % check whether caching is enabled for this expression/location/scope combo and get a hash of it if so (otherwise false)
     location = settings{i};
-    criterion = settings{i+1};    
+    criterion = settings{i+1};
+    exp_size_mb = getfield(whos('exp'),'bytes')/2^20;
+    if exp_size_mb > 10
+        disp_once('Note: your expression is %.1f MB; this can slow down processing.\n',exp_size_mb); end
     data_hash = hlp_microcache('cache_lookup',@hash_or_false,criterion,exp);
     if ~data_hash
         continue; end
@@ -116,9 +120,9 @@ for i=1:2:length(settings)
                     if exist(filename,'file')                            
                         try
                             % try to load the file...
-                            t0 = tic;
+                            t0 = tic; fprintf('retrieving %s...',filename);                            
                             io_load(filename,'obj');
-                            disp(['loaded ' filename '.']);
+                            fprintf('%.1f seconds.',toc(t0));
                         catch e
                             % failed to load existing file: check if currently being written to
                             fileage = (now - getfield(dir(filename),'datenum'));
@@ -171,7 +175,6 @@ for i=1:2:length(settings)
             % value not in disk cache: remember to memoize later at this location
             action = 'memoize';
             result{end+1} = hash_path; %#ok<AGROW>
-
         otherwise
             disp_once('WARNING: the given location type (%s) is not supported by the cache (valid names are ''disk'' and ''memory'').',location);
     end

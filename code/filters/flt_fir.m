@@ -76,6 +76,9 @@ function [signal,state] = flt_fir(varargin)
 %   % use a 7-30 Hz bandpass filter, with transition regions that are 2 Hz wide
 %   eeg = flt_fir(eeg,[6 8 29 31])
 %
+%   % use an EEG highpass filter for drift removal
+%   eeg = flt_fir(eeg,[0.1 0.5],'highpass')
+%
 %   % use a 1Hz highpass filter (with a transition between 0.9 and 1.1 Hz)
 %   eeg = flt_fir(eeg,[0.9 1.1],'highpass')
 %

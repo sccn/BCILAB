@@ -165,7 +165,7 @@ classdef PropertyGrid < UIControl
             set(model, 'PropertyChangeCallback', @PropertyGrid.OnPropertyChange);
             
             % annoying hack to "repaint" the PropertyGrid for some OS'
-            if ~mod(self.Parent,1)
+            if isnumeric(self.Parent) && ~mod(self.Parent,1)
                 set(self.Parent,'position',get(self.Parent,'Position')+1);
                 set(self.Parent,'position',get(self.Parent,'Position')-1);
             end

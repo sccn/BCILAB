@@ -57,7 +57,7 @@ arg_define(varargin,...
 
 % generate coefficients if necessary
 if ischar(wfamily) %#ok<USENS>
-	[lo,hi] = wfilters(wfamily,'d');
+	[lo,hi] = hlp_diskcache('filterdesign',@wfilters,wfamily,'d');
 else
     [lo,hi] = deal(wfamily{:});
 end

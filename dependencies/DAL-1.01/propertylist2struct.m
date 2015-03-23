@@ -51,7 +51,7 @@ for ff= 1:nFields,
                   iListOffset+2*ff-1));
   end
   prp= varargin{iListOffset+2*ff};
-  opt= setfield(opt, fld, prp);
+  opt.(fld) = prp; %opt= setfield(opt, fld, prp);
 end
 
 

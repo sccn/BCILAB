@@ -15,6 +15,7 @@ function [closest,rest] = utl_collection_closest(collection,identifier,varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-08-29
+dp;
 
 if ~iscell(collection) || ~all(cellfun('isclass',collection,'struct'))
     error('The given Collection argument must be a cell array of structs.'); end
@@ -107,7 +108,7 @@ if ~isempty(identifier)
             present = find(cellfun(@(x)isfield(x,id),collection));
             if ~isempty(present)
                 % retain the numeric field
-                retain_numeric(end+1) = f;
+                retain_numeric(end+1) = f; %#ok<AGROW>
                 % remove collection items that are lacking this field
                 collection = collection(present);
             end
@@ -120,8 +121,8 @@ if ~isempty(identifier)
             for f=retain_numeric
                 id = rest_fields{f};
                 values = cellfun(@(x)x.(id)(:),collection);
-                collection_data = [collection_data; values];
-                identifier_data = [identifier_data; identifier.(id)(:)];
+                collection_data = [collection_data; values]; %#ok<AGROW>
+                identifier_data = [identifier_data; identifier.(id)(:)]; %#ok<AGROW>
             end
             
             % compute euclidean distances

@@ -301,7 +301,7 @@ approaches.DLCSPauto_classifier = {'RCSP' 'Prediction',{'FeatureExtraction',{'be
 % (as it's otherwise too slow in this multi-class constellation; still takes approx. 5-10 minutes)
 approaches.dalosc = {'DALOSC' 'Prediction',{'MachineLearning',{'Learner',{'dal','lambdas',2.^(10:-0.33:-3)}}}};
 % using the generic DAL paradigm is an extension to multiple frequency bands, and in the low-frequency case operates on event-related potentials (like DALERP, see also tutorial_erp1)
-approaches.dalgeneric = {'DAL' 'Prediction',{'FeatureExraction',{'WindowFreqs',[0.5 5; 7 15; 15 25; 7 30]},'MachineLearning',{'Learner',{'dal','lambdas',2.^(10:-0.33:-3)}}}};
+approaches.dalgeneric = {'DAL' 'Prediction',{'FeatureExtraction',{'WindowFreqs',[0.5 5; 7 15; 15 25; 7 30]},'MachineLearning',{'Learner',{'dal','lambdas',2.^(10:-0.33:-3)}}}};
 
 % --- the DataflowSimplified paradigm passes the pre-processed epochs directly to the machine learning stage ---
 % (normally this is the foundation on which other more specific paradigms are implemented)

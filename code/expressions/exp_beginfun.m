@@ -117,6 +117,10 @@ function should_evaluate = exp_beginfun(setting, varargin)
 %                                  ('inapplicable'), also performs EEGLAB-aware input data set
 %                                  checks
 %
+%                    * definining a function that imports or constructs data sets from scratch:
+%                      'import'  : functions that construct a data set from scratch based on
+%                                  arguments that are not data sets
+%
 %                    * defining a function that performs purely symbolic manipulations of
 %                      expressions:
 %                      'symbolic': all inputs are held unevaluated, associated (impure) values are
@@ -273,6 +277,7 @@ function should_evaluate = exp_beginfun(setting, varargin)
 %       
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-14
+dp;
 
 % --- obtain & interpret calling context ---
 

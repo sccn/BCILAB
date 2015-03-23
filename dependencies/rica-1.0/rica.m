@@ -1,6 +1,6 @@
-function [W,S,M] = rica(X,params,options)
+function [W,S,M,initW] = rica(X,params,options)
 % Perform Independent Component Analysis via Reconstruction ICA (RICA)
-% [Weights,Sphere,ChanList] = rica(X,Parameters,SolverOptions)
+% [Weights,Sphere,ChanList,InitWeights] = rica(X,Parameters,SolverOptions)
 %
 % In:
 %   X : the data [#channels x #samples]
@@ -114,12 +114,14 @@ if isempty(params.numFeatures)
 %% calc robust Gaussian stats
 Mu = median(X,2);
 Sigma = hlp_diskcache('filterdesign',@cov_blockgeom,X',params.cov_blocksize);
+params.Sigma = Sigma;
 %% Optionally reject bad samples
 if params.cov_rejection && exist('reject_samples_robcov','file')
     X = reject_samples_robcov(X,params.cov_rejection,Mu,Sigma); end
 %% Whiten the data
 X = bsxfun(@minus,X,Mu);
 mix = sqrtm(Sigma);
+params.mix = mix;
 sphere = inv(mix);
 X = sphere*X; %#ok<*MINV>
 
@@ -171,6 +173,7 @@ end
 %% Init weights
 randn('state',params.randseed); %#ok<RAND>
 initTheta = init_weights(params,sphere);
+%opttheta = initTheta;
 
 %% Run optimization; restart if weights blow up
 for k=1:params.max_restarts
@@ -198,6 +201,7 @@ S = sphere;
 if ~exist('M','var')
     M = true(1,params.n); end
 M = find(M);
+initW = initTheta;
 end
 
 % debug display:
@@ -206,8 +210,35 @@ end
 
 function initTheta = init_weights(params,sphere)
 % initialize randomly
-initTheta = strcmp(params.initialization,'radial') * eye(params.numFeatures,params.n) + randn(params.numFeatures,params.n)*(params.random_init_scale+strcmp(params.initialization,'random'));
+if strcmp(params.initialization,'random_dipoles')
+    atlas = io_load('resources:/sa_montreal_small.mat');
+    % get a matrix of random dipoles...
+    initTheta = [];
+    for k=params.numFeatures:-1:1
+        voxel = 1+floor(rand*(size(atlas.sa.V_medium,2)-1));
+        orientationWeights = randn(3,1);
+        orientationWeights = orientationWeights/norm(orientationWeights);
+        initTheta(k,:) = squeeze(atlas.sa.V_medium(:,voxel,:))*orientationWeights;
+    end
+    % get the chanlocs of the head model (10-20 system)
+    refLocs = getfield(io_load('resources:/caps/Standard-10-5-Cap385.cap','-mat'),'CAP');
+    [dummy,atlasLocIdx,atlasSubset] = intersect(lower({refLocs.labels}),lower(atlas.sa.clab_electrodes)); %#ok<ASGLU>
+    oldLocs = [refLocs(atlasLocIdx).X; refLocs(atlasLocIdx).Y; refLocs(atlasLocIdx).Z];
+    % get the chanlocs of the data 
+    if any([length([params.chan_locs.X]),length([params.chan_locs.Y]),length([params.chan_locs.Z])] < length(params.chan_locs))
+        error('Some of your channels have no locations; cannot use the random_dipoles initialization of rica.'); end
+    % interpolate initial weights from head model locs to data locs
+    newLocs = [params.chan_locs.X; params.chan_locs.Y; params.chan_locs.Z];
+    interpMat = sphericalSplineInterpolate(oldLocs,newLocs);
+    initTheta = initTheta(:,atlasSubset)*interpMat';
+    % handle sphering
+    initTheta = initTheta/params.Sigma;
+    initTheta = initTheta*inv(sphere);
+else
+    initTheta = strcmp(params.initialization,'radial') * eye(params.numFeatures,params.n) + randn(params.numFeatures,params.n)*(params.random_init_scale+strcmp(params.initialization,'random'));
+end
 initTheta = initTheta ./ repmat(sqrt(sum(initTheta.^2,2)), 1, size(initTheta,2));
+
 if strcmp(params.dict_criterion,'cortically_anchored')
     if iscell(params.anchor_init) && ~isempty(params.anchor_init)
         if length(params.anchor_init) == params.numFeatures
@@ -257,6 +288,7 @@ if strcmp(params.dict_criterion,'cortically_anchored')
         error('Unknown anchor initialization');
     end
 end
+
 % renormalize again, for good measure
 initTheta = initTheta ./ repmat(sqrt(sum(initTheta.^2,2)), 1, size(initTheta,2));
 %global debug_chanlocs;figure;topoplot_grid(inv(sphere)^2*(initTheta'*sphere),debug_chanlocs)

@@ -92,7 +92,7 @@ function signal = flt_clean_channels(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2014-05-12
 
-% flt_clean_channels_version<0.9.8b> -- for the cache
+% flt_clean_channels_version<0.9.8c> -- for the cache
 
 if ~exp_beginfun('filter') return; end;
 
@@ -162,15 +162,33 @@ if ~exist('removed_channel_mask','var')
         
         P = hlp_diskcache('filterdesign',@calc_projector,locs,num_samples,subset_size);
         corrs = zeros(length(usable_channels),W);
-        
+
+        % optionally move data to the GPU
+        if use_gpu
+            try
+                X = gpuArray(X);
+                corrs = gpuArray(X);
+            catch
+            end
+        end
+
         % calculate each channel's correlation to its RANSAC reconstruction for each window
+        tic;
         for o=1:W
             XX = X(offsets(o)+wnd,:);
             YY = reshape(XX*P,[],num_samples)';
-            YY = fast_median(YY);
+            if use_gpu
+                YY = median(YY);
+            else
+                YY = fast_median(YY);
+            end
             YY = reshape(YY,length(wnd),length(usable_channels));
             corrs(:,o) = sum(XX.*YY)./(sqrt(sum(XX.^2)).*sqrt(sum(YY.^2)));
         end
+        
+        % get the data back from the GPU
+        if use_gpu
+            corrs = gather(corrs); end
         
         flagged = corrs < corr_threshold;
         

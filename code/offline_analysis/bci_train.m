@@ -547,10 +547,7 @@ function [measure,model,stats] = bci_train(varargin)
 %
 %                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                               2010-04-24
-
-% handle the legacy cell array syntax by reformatting it to the new one
-if length(varargin) == 1 && iscell(varargin{1})    
-    varargin = varargin{1}; end
+dp;
 
 % get the options
 opts = arg_define(0,varargin, ...
@@ -573,25 +570,59 @@ opts = arg_define(0,varargin, ...
     ... % some more misc parameters
     arg({'per_fold_models','PerFoldModels'},false,[],'Collect per-fold models. If true, models of each fold of the cross-validation will be collected (uses more memory).'), ...
     arg({'prune_datasets','PruneDatasets'},true,[],'Prune datasets from results. If true, any occurrence of a data set in the resulting model or stats struct will be replaced by its symbolic expression or a placeholder string.'), ...
-    arg({'prune_nontarget_markers','PruneNontargetMarkers'},false,[],'Prune non-target markers. This usually improves the speed of offline processing at the cost of not being able to access misc markers in BCI analysis.'));
+    arg({'prune_nontarget_markers','PruneNontargetMarkers'},false,[],'Prune non-target markers. This usually improves the speed of offline processing at the cost of not being able to access misc markers in BCI analysis.'), ...
+    arg_nogui({'enforce_fingerprinting','EnforceFingerprinting'},true,[],'Enforce use of fingerprinting. If true, this function will not accept raw dataset structs if fingerprinting is disabled.'));
 
-% if any of the following warnings is ever triggered, the state of data in the caches might have gotten
-% seriously messed up. If disk caching is turned on, it is best to purge the recent cache entries
-% back to when this warning first occurred. note: the toolbox never globally disables these variables;
-% check if a script has turned them off
-if ~hlp_resolve('fingerprint_create',true)
-    disp('WARNING: Data fingerprint creation is currently disabled (fingerprint_create set to 0). If you have been modifying your data sets manually in scripts before calling bci_train, it is recommended that you re-start your session, as some of your edits might have gone unnoticed.'); end
-if ~hlp_resolve('fingerprint_check',true)
-    disp('WARNING: Data fingerprint checking is currently disabled (fingerprint_check set to 0). You can re-enable it by calling exp_set_scoped(@fingerprint_check,1) in the command line.'); end
+% do some checks to ensure that bci_train's use of caching based on datasets' .tracking fields 
+% is not derailed by unchecked direct data editing actions (e.g., in scripts)
+if opts.enforce_fingerprinting
+    % if this is set, but fingerprinting is currently globally disabled in bcilab (this would be a
+    % non-default setting mostly to optimize processing speed under some circumstances), then
+    % bci_train will only accept either raw EEGLAB dataset structs ("payload") without a .tracking
+    % field, or pure expressions (see exp_beginfun) that describe datasets, but will refuse to
+    % accept data structures that have *both* nontrivial data payload and .tracking information
+    % (these are called "impure" expressions) for which it cannot be confirmed that the data payload
+    % is consistent with the tracking expression (since it may have been modified in a MATLAB script
+    % after the tracking info has been generated); this check is to protect users from accidentally
+    % using inconsistent data for processing. Consistency matters because results may be either
+    % computed from the raw data payload or looked up based on the tracking info from a cache,
+    % depending on whether a cache record exists. If fingerprinting is enabled instead (default),
+    % then consistently will be properly handled by the rest of the pipeline.
+    if ~hlp_resolve('fingerprint_create',true) || ~hlp_resolve('fingerprint_check',true)
+        if (isstruct(opts.data) && is_impure_expression(opts.data)) || (iscell(opts.data) && any(cellfun(@is_impure_expression,opts.data)))
+            error('You can only pass raw data into bci_train if fingerprinting is enabled (see env_startup). You can, however, always pass in unevaluated expressions, such as calls to io_loadset, custom loaders, or filter applications.');
+        end
+    end
+else
+    % if any of the following warnings is ever triggered, the state of data in the caches might have
+    % gotten seriously messed up. If disk caching is turned on, it is best to purge the recent cache
+    % entries back to when this warning first occurred. A more caching-friendly approach to edit
+    % data sets is to move the code into a dedicated 'import' function (which is characterized by
+    % exp_beginfun/endfun lines like in io_loadset).
+    if ~hlp_resolve('fingerprint_create',true)
+        disp('WARNING: Data fingerprint creation is currently disabled (fingerprint_create set to 0). If you have been modifying your data sets manually in scripts before calling bci_train, it is recommended that you re-start your session, as some of your edits might have gone unnoticed.'); end
+    if ~hlp_resolve('fingerprint_check',true)
+        disp('WARNING: Data fingerprint checking is currently disabled (fingerprint_check set to 0). You can re-enable it by calling exp_set_scoped(@fingerprint_check,1) in the command line.'); end
+end
 
 % --- validate and pre-process the inputs ---
 
 % parse the approach (either it's a paradigm name string, a cell array, or a struct)
 if ischar(opts.approach)
+    % one of the class names in code/paradigms, without the leading 'Paradigm' prefix, e.g., 'CSP' 
     opts.approach = struct('paradigm',opts.approach, 'parameters',{{}});
 elseif iscell(opts.approach) && ~isempty(opts.approach)
+    % a cell array whose first element is the paradigm name, followed by arguments to the paradigm
+    % (specifically its calibrate() method); this is easiest to type for users
     opts.approach = struct('paradigm',opts.approach{1}, 'parameters',{opts.approach(2:end)}); 
-elseif ~all(isfield(opts.approach,{'paradigm','parameters'}))
+elseif all(isfield(opts.approach,{'paradigm','parameters'}))
+    % a struct array with .paradigm field (paradigm name) and .parameters field (cell array of
+    % name-value pairs); this is the internally used format, e.g., what the design GUIs generate
+elseif isa(opts.approach,'ParadigmBase')
+    % a paradigm class instance (usually not used)
+    classname = class(opts.approach);
+    opts.approach = struct('paradigm',classname(9:end), 'parameters',{{}});    
+else
     error('The approach must be given either as struct with fields ''paradigm'' and ''parameters'' or as a cell array of the form {paradigmname, param1, param2, param3, ...}, but was: %s',hlp_tostring(opts.approach));
 end
 
@@ -611,6 +642,7 @@ else
     error('The paradigm referred to by the given Approach must be the name of a class (optionally omitting the "Paradigm" prefix), but was: %s',hlp_tostring(paradigm_ref));
 end
 
+% get handles to the calibration and prediction methods
 try
     instance = eval(paradigm_ref); %#ok<NASGU>
 catch e
@@ -621,7 +653,7 @@ predict_func = eval('@instance.predict');
 
 
 % parse the parameters of the approach: take the cartesian product over all
-% grid search() expressions in the parameters
+% grid search() expressions in the parameters, if any
 paradigm_parameters = hlp_flattensearch(opts.approach.parameters);
 % update the list of filters and machine learners if necessary (to get up-to-date lists of supported modules)
 flt_pipeline('update');
@@ -636,13 +668,18 @@ else
 end
 
 % if the EpochBounds are undefined, see if we can infer them from the data
+% note: the EpochBounds are *not* what is passed into set_makepos -- instead they have an additional
+% buffer margin around them that is used to determine which epochs are potentially valid and which
+% ones violate exclusion conditions (e.g., too close to dataset bounds or intermittent boundary 
+% markers); this is done by set_targetmarkers
+margin_seconds = 0.1;
 if isempty(opts.epoch_bounds)
     bounds = collect_instances(paradigm_parameters,'time_bounds'); % note: direct name reference to set_makepos's parameter
     if ~isempty(bounds)
         bounds = vertcat(bounds{:});
         % we use an upper bound of the encountered bounds if multiple (can be multiple if in a 
         % parameter search, or if different bounds are assigned to multiple streams) plus some slack
-        opts.epoch_bounds = [min(bounds(:,1))-0.1 max(bounds(:,2))+0.1];
+        opts.epoch_bounds = [min(bounds(:,1))-margin_seconds max(bounds(:,2))+margin_seconds];
     end
 elseif ~isequal(size(opts.epoch_bounds),[1 2]) || opts.epoch_bounds(1) > opts.epoch_bounds(2)    
     error('The give EpochBounds argument, when non-empty, must be given as [lower,upper], but was: %s',hlp_tostring(opts.epoch_bounds));
@@ -654,14 +691,14 @@ paradigm_parameters = {paradigm_parameters};
 
 % --- set up common arguments to the cross-validation & model search ---
 
-% turn data into a trivial collection, if necessary
+% turn data into a trivial collection, if necessary to unify subsequent processing
 if isstruct(opts.data)
     opts.data = {opts.data};
 elseif ~iscell(opts.data) || ~all(cellfun('isclass',opts.data,'struct'))
     error('The given Data argument must be either a struct or a cell array of structs, but was: %s',hlp_tostring(opts.data,1000));
 end
 
-% do some pre-processing and uniformization of the data
+% do some pre-processing and further uniformization of the data
 for k=1:length(opts.data)
     % turn each data set into a stream bundle, if necessary
     if ~isfield(opts.data{k},'streams')
@@ -694,7 +731,7 @@ source_data = opts.data;
 for k=1:length(source_data)
     source_data{k}.streams = cellfun(@utl_purify_expression,source_data{k}.streams,'UniformOutput',false); end
 
-% determine whether we have to send our data over the network
+% determine whether we have to send our data over the network (which prompts further optimizations)
 nonlocal = false;
 for computescope = {'engine_cv','engine_gs','engine_ncv'}
     if strcmp(opts.(computescope{1}),'global')
@@ -712,7 +749,7 @@ if nonlocal
         opts.data{k}.streams = cellfun(@(x)exp_block({exp_rule(@memoize,{'memory',1})},x),opts.data{k}.streams,'UniformOutput',false); end
 end
 
-
+% define arguments for the cross-validation
 if isscalar(opts.data)    
     % got a single recording: cross-validate within it
     opts.data = opts.data{1};
@@ -724,6 +761,8 @@ if isscalar(opts.data)
         'tester', @(testset,model) predict_func(utl_preprocess_bundle(testset,model),model), ...
         'partitioner', @(dataset,inds) utl_partition_bundle(dataset,inds,opts.epoch_bounds), ...
         'target', @(dataset) set_gettarget(dataset.streams{1}), ...
+        'metric',opts.metric, ...
+        'pool',opts.pool, ...
         'argform','clauses', ...
         'collect_models',opts.per_fold_models, ...
         'args',paradigm_parameters};
@@ -731,19 +770,18 @@ else
     % got a data set collection: cross-validate across them
     if isempty(opts.eval_scheme)
         opts.eval_scheme = {}; end
-    % set up the utl_crossval (et al.) arguments for a cross-validation on data sets
+    % set up the utl_crossval (et al.) arguments for a cross-validation over multiple data sets
     crossval_args = { ...
         'trainer', @(traincollection,varargin) utl_complete_model(calibrate_func('collection',traincollection,varargin{:}),predict_func), ...
         'tester', @(testcollection,model) utl_collection_tester(testcollection,model,predict_func), ...
         'partitioner', @(fullcollection,inds) utl_collection_partition(fullcollection,inds,opts.eval_scheme), ...
         'target', @utl_collection_targets, ...
+        'metric',opts.metric, ...
+        'pool',opts.pool, ...
         'argform','clauses', ...
         'collect_models',opts.per_fold_models, ...
         'args',[paradigm_parameters {'goal_identifier',opts.goal_identifier}]};
 end
-
-% pre-pend some user arguments of bci_train (e.g., pool, policy, ...) to the control arguments (to be overridden by what is defined in crossval_args)
-crossval_args = [{rmfield(opts,{'data','approach','markers','goal_identifier','epoch_bounds'})} crossval_args];
 
 % note: the following line is a fancy way of calling [measure,model,stats] = run_computation(opts,crossval_args); 
 % what is different is that the variables fingerprint_check and fingerprint_create will be set to 0
@@ -779,14 +817,21 @@ stats.model = model;
 % run the actual computation of bci_train (model search/training, (nested) cross-validation)
 function [measure,model,stats] = run_computation(opts,crossval_args)
 t0 = tic;
-% issue model search
-job = par_beginschedule({{@hlp_getresult,{1:2}, @utl_searchmodel, opts.data, crossval_args{:}, 'scheme',opts.opt_scheme}}, opts, 'engine',opts.engine_cv, 'keep',false);
-% estimate the model performance, if requested (0-fold cross-validation = cross-validation turned off)
+
+% issue model search job, optionally in parallel
+searchmodel_args = [crossval_args, {'scheme',opts.opt_scheme, 'engine_gs',opts.engine_gs, 'engine_ncv',opts.engine_ncv}];
+parallel_args = {'engine',opts.engine_cv, 'keep',false, 'pool',opts.pool};
+job = par_beginschedule({{@hlp_getresult,{1:2}, @utl_searchmodel, opts.data, searchmodel_args{:}}}, parallel_args{:}); %#ok<CCAT>
+
+% also estimate the model performance, if requested (0-fold cross-validation = cross-validation turned off)
+% this can run in parallel to the model search, if parallel computation is enabled
 if ~isequal(opts.eval_scheme,0)
-    [measure,stats] = utl_nested_crossval(opts.data, crossval_args{:});
+    parallel_args = hlp_struct2varargin(opts,'restrict',{'eval_scheme','opt_scheme','engine_gs','engine_cv','engine_ncv'});
+    [measure,stats] = utl_nested_crossval(opts.data, crossval_args{:}, parallel_args{:});
 else
     measure = NaN;
 end
+
 % collect & aggregate results
 results = par_endschedule(job, 'keep',false);
 [model,stats.modelsearch] = deal(results{1}{:});
@@ -806,11 +851,11 @@ if isstruct(x)
             tmp = collect_instances({x.(fname)},field);
         end
         if ~isempty(tmp)
-            res = [res tmp(:)]; end
+            res = [res tmp(:)]; end %#ok<AGROW>
     end
 elseif iscell(x)
     for c=1:numel(x)
-        res = [res collect_instances(x{c},field)]; end
+        res = [res collect_instances(x{c},field)]; end %#ok<AGROW>
 end
 
 

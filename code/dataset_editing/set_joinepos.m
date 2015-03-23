@@ -30,6 +30,7 @@ function result = set_joinepos(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-03-31
+dp;
 
 % set_joinepos_version<1.0> -- for the cache
 

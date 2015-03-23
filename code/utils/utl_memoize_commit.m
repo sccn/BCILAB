@@ -18,6 +18,7 @@ function utl_memoize_commit(obj,locations,inputbytes) %#ok<INUSD>
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-05-23
+dp;
 
 show_diagnostics = false;   % whether to display diagnostics on caching decisions
 required_speedup = 1.5;     % this is the minimum required speedup by caching below which we don't cache (only for disk cache)
@@ -170,10 +171,11 @@ for loc = locations
                     disp_once(['Note: the disk space on ' location_info.dir ' cannot be queried; disabling capacity constraint for the cache.']);
                 end
                                 
-                t0 = tic;
-                
                 % save result to disk
-                io_save([location_info.dir id],'obj','-serialized','-makedirs','-attributes','''+w'',''a''');                
+                storepath = [location_info.dir id];
+                t0 = tic; fprintf('committing %s...',storepath);
+                io_save(storepath,'obj','-serialized','-makedirs','-attributes','''+w'',''a''');
+                fprintf('%.1f seconds.',toc(t0));
                 
                 % and record some statistics on the write speed to this location
                 stats = struct('size',{objbytes},'time',{toc(t0)});

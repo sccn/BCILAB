@@ -173,7 +173,7 @@ classdef ParadigmBaseSimplified < ParadigmBase
                 else
                     % merge all data sets in the collection
                     tmp = cellfun(@(x)x.streams{1},collection,'UniformOutput',false);
-                    signal = set_merge(tmp{:});
+                    signal = set_concat(tmp{:});
                 end
             else
                 signal = {};

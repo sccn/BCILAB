@@ -695,9 +695,9 @@ for k =1:nLambdas
     if verbosity
         fprintf('  scanning lambda = %f (%i/%i)...',lambdas(k),k,nLambdas); end
     if solverOptions.warmstart
-        [w,y0,rho,hist{k}] = hlp_diskcache('temporary',@consensus_admm,w,[lossfunc tmpregfuncs],solverOptions); %#ok<ASGLU>
+        [w,y0,rho,hist{k}] = hlp_diskcache('intermediate',@consensus_admm,w,[lossfunc tmpregfuncs],solverOptions); %#ok<ASGLU>
     else
-        [w,y0dummy,rho,hist{k}] = hlp_diskcache('temporary',@consensus_admm,zeros(size(w)),[lossfunc tmpregfuncs],solverOptions); %#ok<ASGLU>
+        [w,y0dummy,rho,hist{k}] = hlp_diskcache('intermediate',@consensus_admm,zeros(size(w)),[lossfunc tmpregfuncs],solverOptions); %#ok<ASGLU>
     end
     if verbosity
         fprintf(' %i iters; t = %.1fs\n',length(hist{k}.objval),toc(t0)); end

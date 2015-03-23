@@ -257,7 +257,7 @@ if opts.matlabthreads > 8
     disp_once('The MatlabThreads setting is relatively large; typically MATLAB wastes increasingly many CPU cycles with more than 8-16 threads (except for some very streamlined operations).'); end
 if ~exist(opts.logging_path,'dir')
     disp_once('The logging path does not exist on the local file system; make sure that it is accessible to remote workers.'); end
-if ~exist(opts.mcr_root,'dir')
+if ~isempty(opts.mcr_root) && opts.binary_worker && ~exist(opts.mcr_root,'dir')
     disp_once('The matlab compiler root does not exist on the local file system; make sure that it is accessible to remote workers.'); end
 if opts.min_memory < (2^10 * 500)
     disp_once('The MinFreeMemory setting is very small; MATLAB alone often needs more than 500MB free memory to run.'); end
@@ -343,8 +343,10 @@ for host = hostnames(:)'
     end
 end
 
+
 % start workers if necessary
 pool = {};
+batchid = ['ssh-' hlp_hostname '-' strrep(strrep(datestr(now),':','.'),' ','_')];
 if ~isempty(stats)
     fprintf('%.0f%% of requested hosts are available.\n',100*length(stats)/length(hostnames));
     
@@ -398,11 +400,11 @@ if ~isempty(stats)
             else
                 try
                     % ensure that the logging path exists
-                    io_mkdirs([logging_path filesep],{'+w','a'});
+                    io_mkdirs([logging_path filesep batchid filesep],{'+w','a'});
                 catch
                     disp_once(['Warning: the logging path "' logging_path '" does not exist locally and could not be created.\nPlease make sure that it exists on all worker machines, as otherwise the computation will not start.']);
-                end
-                logpath = sprintf('%s/%s_%d.out',logging_path,host,port);
+                end                
+                logpath = sprintf('%s/%s/%s_%d.out',logging_path,batchid,host,port);
                 if sanity_checks
                     % check whether the logging path is writable on the worker
                     check_command = sprintf('ssh %s -x %s "touch %s"',identity_file,host,logpath);

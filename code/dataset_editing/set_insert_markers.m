@@ -30,6 +30,9 @@ function newsignal = set_insert_markers(varargin)
 %                 * {event_type relative_time {ignore_type1,ignore_type2,...} relative_time event_type}
 %                   as above, except that intermediate events of type ignore_type1/ignore_type2/etc. are ignored
 %                   (if the in-between cell array is empty, any other events are ignored)
+%                 * {event_type relative_time {{forbidden_type1,forbidden_type2,...}} relative_time event_type}
+%                   as above, except that intermediate events of type
+%                   forbidden_type1/forbidden_type2/etc. must not occur
 %
 %   Limits : optional time limits (in seconds) to constrain event placement (default: [-Inf Inf])
 %
@@ -98,6 +101,9 @@ function newsignal = set_insert_markers(varargin)
 %   % as before, but also consider those intervals where other events of type 'p' and/or 'q' occur between the 'A' and the 'B'
 %   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A', {'p','q'}, 0,'B'},'Count',3,'Counting','persecond','Event','X')
 % 
+%   % as before, but also consider those intervals where no other events than type 'p' and/or 'q' occur between the 'A' and the 'B'
+%   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A', {{'p','q'}}, 0,'B'},'Count',3,'Counting','persecond','Event','X')
+%
 %   % as before, but also consider intervals where any other event occurs between the 'A' and the 'B' (except for 'B' obviously)
 %   eeg = set_insert_markers(eeg, 'SegmentSpec',{-5,'A', {}, 0,'B'},'Count',3,'Counting','persecond','Event','X')
 %
@@ -139,7 +145,8 @@ opts = arg_define([0 1],varargin, ...
             arg({'closeevent','CloseEvent'},'event2',[],'Type of closing reference event. New events will be inserted between each pair of successive events with types OpenEvent and CloseEvent.'), ...
             arg({'lo','OpenOffset'},0.5,[],'Offset relative to opening event. This is an offset relative to the position of the opening reference event, which shifts the beginning of a spanned insertion interval. In seconds.'), ...
             arg({'hi','CloseOffset'},-0.5,[],'Offset relative to closing event. This is an offset relative to the position of the closing reference event, which shifts the beginning of a spanned insertion interval. In seconds.'), ...
-            arg({'ignored','IgnoredEvents'},{},[],'Ignored event types. This is the list of event types that may occur between the opening and closing events. If any other event appears between a pair of successive opening and closing events, this range will not be considered for event insertion (it is considered "broken"). If set to ''ignoreall'', any event type may appear in between.', 'type','cellstr','shape','row')} ...
+            arg({'ignored','IgnoredEvents'},{},[],'Ignored event types. This is the list of event types that may occur between the opening and closing events. If any other event appears between a pair of successive opening and closing events, this range will not be considered for event insertion (it is considered "broken"). If set to ''ignoreall'', any event type may appear in between.', 'type','cellstr','shape','row') ...
+            arg({'forbidden','ForbiddenEvents'},{},[],'Forbidden event types. This is the list of event types that may not occur between the opening and closing events. This is typically combined with ignored set to ignoreall.', 'type','cellstr','shape','row')} ...
         },'Insertion interval definition. Events can be inserted either in fixed, absolute time window of the data set (absoluterange), or in time windows relative to reference events of a certain type (relativerange), or in time window spanned by two subsequent events of certain types (called the opening event and the closing event), optionally with ignored events in between (spannedrange).','cat','Time Ranges','mapper',@parse_segment), ...
     arg({'limits','Limits'},[-Inf Inf],[],'Time limits for event placement. Events that fall outside these bounds will be skipped. Therefore, intervals that intersect these boundaries may have fewer events than others.','cat','Time Ranges'),...
     arg({'event','InsertedType','Event'},'newevent',[],'Type of inserted events. The event type for the newly inserted events.','cat','Placement'), ...
@@ -174,7 +181,7 @@ if ~isequal(size(opts.limits),[1 2]) || ~isreal(opts.limits) || opts.limits(1)>o
     error('The given Limits argument needs to be of the form [lower,upper].'); end
 
 % refine options
-opts.count = round(double(opts.count));
+opts.count = double(opts.count);
 opts.limits = sort(max(min(opts.limits,signal.xmax),signal.xmin));
 opts.limits = opts.limits*signal.srate;
 opts.segmentspec.lo = opts.segmentspec.lo*signal.srate;
@@ -214,30 +221,46 @@ switch opts.segmentspec.arg_selection
             opts.event = [opts.segmentspec.event '_i']; end
         if ischar(opts.event)
             opts.event = make_default_event(signal.event,opts.event); end
-        for e=1:length(signal.event)
-            if strcmp(signal.event(e).type,opts.segmentspec.event)
-                newsignal = perform_injection(newsignal,signal.event(e).latency+[opts.segmentspec.lo opts.segmentspec.hi],opts); end
-        end
+        for e=find(strcmp({signal.event.type},opts.segmentspec.event))
+            newsignal = perform_injection(newsignal,signal.event(e).latency+[opts.segmentspec.lo opts.segmentspec.hi],opts); end
 	case 'spannedrange'
-        % inject in between two successive markersputting that
+        % inject in between two successive markers 
         if isempty(opts.event)
             opts.event = [opts.segmentspec.openevent '_' opts.segmentspec.closeevent]; end
         if ischar(opts.event)
             opts.event = make_default_event(signal.event,opts.event); end
-        startlat = [];
-        for e=1:length(signal.event)
-            % ignorance turned off but intermediate marker found?
-            if ~iscell(opts.segmentspec.ignored) && ~strcmp(signal.event(e).type,opts.segmentspec.closeevent)
-                startlat = []; end
-            % selective ignorance turned on but non-ignored intermediate marker found?
-            if ~isequal(opts.segmentspec.ignored,{'ignoreall'}) && ~any(strcmp(signal.event(e).type,[opts.segmentspec.ignored {opts.segmentspec.closeevent}]))
-                startlat = []; end
-            % found the begin-marker: open a new segmentspec
-            if strcmp(signal.event(e).type,opts.segmentspec.openevent)
-                startlat = signal.event(e).latency; end
-            % reached the end-marker & have an open segmentspec: inject.
-            if ~isempty(startlat) && strcmp(signal.event(e).type,opts.segmentspec.closeevent)
-                newsignal = perform_injection(newsignal,[startlat+opts.segmentspec.lo,signal.event(e).latency+opts.segmentspec.hi],opts); end
+        types = {signal.event.type};
+        starts = find(strcmp(types,opts.segmentspec.openevent));
+        starts(end+1) = length(signal.event);
+        ends = strcmp(types,opts.segmentspec.closeevent);
+        % for each potential interval start...
+        for k=1:length(starts)-1
+            valid = true;
+            % for each event index up to the successive interval end point...
+            scanrange = starts(k) : starts(k) + find(ends(starts(k)+1:starts(k+1)-1),1);
+            % check various exclusion criteria
+            if ~isempty(scanrange)
+                % ignorance of intermediate markers turned off but intermediate marker found?
+                if ~iscell(opts.segmentspec.ignored) && any(~ends(scanrange))
+                    continue; end
+                % selective ignorance turned on but non-ignored intermediate marker found?
+                if ~isequal(opts.segmentspec.ignored,{'ignoreall'})
+                    for e=scanrange
+                        if ~any(strcmp(signal.event(e).type,[opts.segmentspec.ignored {opts.segmentspec.closeevent}]))
+                            valid = false; break; end
+                    end
+                end
+                % selectively forbidden events turned on and a match was found?
+                if valid && ~isempty(opts.segmentspec.forbidden)
+                    for e=scanrange
+                        if any(strcmp(signal.event(e).type,opts.segmentspec.forbidden))
+                            valid = false; break; end
+                    end
+                end
+                % if valid, we can inject
+                if valid
+                    newsignal = perform_injection(newsignal,[signal.event(scanrange(1)).latency+opts.segmentspec.lo,signal.event(scanrange(end)+1).latency+opts.segmentspec.hi],opts); end
+            end
         end
 end
 % sort the events by latency...
@@ -357,11 +380,16 @@ else
     mrks = {};
     lats = [];
     ignored = [];
+    forbidden = {};
     for i=1:length(spec)
         if ischar(spec{i})
             mrks{end+1} = spec{i};
         elseif iscell(spec{i})
-            ignored = [ignored spec{i}];
+            if ~isempty(spec{i}) && iscell(spec{i})
+                forbidden = [forbidden spec{i}{1}];
+            else
+                ignored = [ignored spec{i}];
+            end
         else
             lats(end+1) = spec{i};
         end
@@ -372,12 +400,13 @@ else
     elseif length(mrks) == 1
         selection = 'relativerange'; spec = {'event' mrks{1} 'lo' min(lats) 'hi' max(lats)};
     elseif length(mrks) == 2
-        if isequal(ignored,{})
+        selection = 'spannedrange'; 
+        if isequal(ignored,{}) || (~isempty(forbidden) && isequal(ignored,[]))
             ignored = {'ignoreall'};
         elseif isequal(ignored,[])
             ignored = {};
         end
-        selection = 'spannedrange'; spec = {'openevent' mrks{1} 'closeevent' mrks{2} 'lo' lats(1) 'hi' lats(2) 'ignored' ignored};
+        spec = {'openevent' mrks{1} 'closeevent' mrks{2} 'lo' lats(1) 'hi' lats(2) 'ignored' ignored 'forbidden' forbidden};
     else
         error('Unsupported segment specification: %s.',hlp_tostring(spec));
     end

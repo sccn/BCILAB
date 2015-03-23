@@ -49,7 +49,7 @@ if iscellstr(old)
         data = new{match}; end
 else
     % mapping from general structures
-    match = cellfun(@(x)isequalwithequalnans(x,data),old);
+    match = cellfun(@(x)isequalwithequalnans(x,data),old); %#ok<DISEQN>
     if any(match)
         data = new{match}; end        
 end

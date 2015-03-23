@@ -86,6 +86,7 @@ load_dependencies(genpath(dependency_dir),autocompile);
 if ~isdeployed
     % get current path order
     added_paths = strsplit(path,pathsep)';
+    added_paths = sort(added_paths); %#ok<TRSRT>
     added_paths = added_paths(cellfun(@(s)strncmp(dependency_dir,s,length(dependency_dir)),added_paths));
     
     super_dirs = {}; % this is a cell array of super directories with build dirs that may have to be moved
@@ -98,8 +99,8 @@ if ~isdeployed
             k = strfind(cur,[filesep 'build-']);
             if ~isempty(k)
                 % if this is a build directory, add to the potential-move list
-                super_dirs{end+1} = cur(1:k(end)-1);
-                sub_dirs(end+1) = p;
+                super_dirs{end+1} = cur(1:k(end)-1); %#ok<AGROW>
+                sub_dirs(end+1) = p; %#ok<AGROW>
             end
             % check if this is one of the super dirs
             match = strcmp(cur,super_dirs);
@@ -131,7 +132,7 @@ end
 % set to false), and execute all env_exec.m files
 function load_dependencies(pathlist,autocompile)
 compile_problems = {};
-paths = strsplit(pathlist,pathsep);
+paths = sort(strsplit(pathlist,pathsep));
 for px = paths(end:-1:1)
     p = px{1};
     if exist([p filesep 'env_add.m'],'file')
@@ -161,7 +162,7 @@ for px = paths(end:-1:1)
         end
         if ~isequal(settings,false) && docompile
             if ~hlp_trycompile('Directory',p, 'Style','eager', settings);
-                compile_problems{end+1} = p; end
+                compile_problems{end+1} = p; end %#ok<AGROW>
         end
     end
     if isactive

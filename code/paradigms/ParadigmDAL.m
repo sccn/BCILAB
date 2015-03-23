@@ -122,7 +122,7 @@ classdef ParadigmDAL < ParadigmDataflowSimplified
         end
         
         function defaults = machine_learning_defaults(self)
-            defaults = {'dal', 'Lambdas',2.^(10:-1.5:-5), 'NumFolds',5,'FoldMargin',1};
+            defaults = {'dal', 'Lambdas',2.^(4:-0.25:-3), 'NumFolds',5,'FoldMargin',1};
         end
         
         function [featuremodel,conditioningmodel,predictivemodel] = calibrate_prediction_function(self,varargin)
@@ -163,10 +163,10 @@ classdef ParadigmDAL < ParadigmDataflowSimplified
             for r = 1:max(size(fwnds,1),size(twnds,1))
                 % start building a region descriptor
                 reg.freq = arg_report('vals',@flt_spectrum,{'freq',fwnds(r,:)});
-                % we assume the region to be first-order if any retained frequency is below 6, otherwise second-order
+                % we assume the region to be first-order if any retained frequency is below 3, otherwise second-order
                 reg.order = orders(r,:);
                 if isempty(reg.order)
-                    reg.order = quickif(all(reg.freq.freq<6),1,2); end
+                    reg.order = quickif(any(reg.freq.freq<3),1,2); end
                 % we only use the window function & parameter for second-order regions
                 if reg.order == 2
                     reg.time = arg_report('vals',@flt_window,{'time',{twnds(r,:),args.fex.winfunc,args.fex.winparam}});
@@ -237,7 +237,9 @@ classdef ParadigmDAL < ParadigmDataflowSimplified
                     end
                 end
                 
-                % compute & append the block scale of the region
+                % compute & append the block scale of the region (we want to make sure that the
+                % data is properly normalized so that our lambda range does not have to be tuned 
+                % to fit the data scale)
                 X = flt.data; [lhs,rhs] = reg.preproc{:};
                 if reg.order == 1
                     Y = zeros(size(X));
@@ -248,7 +250,7 @@ classdef ParadigmDAL < ParadigmDataflowSimplified
                     for t=1:size(X,3)
                         Y(:,:,t) = lhs*cov(X(:,:,t)')*rhs; end
                 end
-                reg.preproc = [reg.preproc 1/sqrt(sum(sum(var(Y,[],3))))];
+                reg.preproc = [reg.preproc 1/sum(sum(sqrt(var(Y,[],3)))/(size(Y,1)*size(Y,2)))];
                 
                 % finally aggregate the region descriptors
                 regions{r} = reg;                

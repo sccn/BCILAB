@@ -17,8 +17,10 @@ void mexFunction(int nlhs, mxArray *plhs[],
                     plhs[k] = mxCreateDoubleScalar(((double*)data)[k]);
                 break;
             case mxSINGLE_CLASS:
-                for (k=0;k<numel;k++)
-                    plhs[k] = mxCreateSingleScalar(((float*)data)[k]);
+                for (k=0;k<numel;k++) {
+                    plhs[k] = mxCreateNumericMatrix(1,1,mxSINGLE_CLASS,mxREAL);
+                    *(float*)mxGetData(plhs[k]) = ((float*)data)[k];
+                }
                 break;            
             default:
                 mexErrMsgIdAndTxt("arraydeal:unsuppored_class","Input array class not supported: %s",mxGetClassName(prhs[0]));

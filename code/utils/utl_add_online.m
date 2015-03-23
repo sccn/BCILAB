@@ -70,6 +70,30 @@ if ischar(set_online)
         case 'inapplicable'
             % Generate an error when used online. This is the default for the 'offline' setting in exp_begindef.
             final_expression = struct('head',@error,'parts',{{'BCILAB:exp_beginfun:no_online','This function cannot be run online.'}});
+        case 'imported'
+            % Set the initial online expression for data that was freshly imported
+            res = context.ws_output_post.(context.outargs{1});            
+            % check if the object already has an online expression (e.g., result of io_loadset or processed version thereof)
+            if isfield(res,'tracking') && all(isfield(res.tracking,{'online_expression','fingerprint'}))
+                if strcmp(char(raw.tracking.online_expression.head),'rawdata')
+                    % if this is a rawdata (trivial) expression, we can do at least as good a job here if we
+                    % override it based on the data that we actually got in res
+                    final_expression = struct('head',@rawdata,'parts',{{{res.chanlocs.labels},unique({res.chanlocs.type})}});
+                elseif isequal(hlp_fingerprint(rmfield(res,'tracking')),res.tracking.fingerprint)
+                    % the data has been modified since the expression was evaluated: the online expression does not apply and we drop it
+                    % this is not unusual, e.g., when the imported data was manually edited after an
+                    % initial import and/or processing using io_loadset
+                    final_expression = struct('head',@rawdata,'parts',{{{res.chanlocs.labels},unique({res.chanlocs.type})}});
+                else
+                    % the data has a non-trivial expression that matches: we keep it by notify the
+                    % user that an importer is not the best place to do signal processing
+                    disp_once('Best practice for an import function is to leave most signal processing to the BCI approach.');
+                    final_expression = res.tracking.online_expression;
+                end
+            else
+                % there is no online expression available, so we build it 
+                final_expression = struct('head',@rawdata,'parts',{{{res.chanlocs.labels},unique({res.chanlocs.type})}});
+            end
         otherwise
             error('Unsupported value for the ''set_online'' attribute of exp_beginfun/exp_endfun: %s',set_online);
     end    

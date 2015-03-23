@@ -1,1 +1,0 @@
-any(cellfun(@exist,{'libsvmread', 'libsvmwrite', 'llwpredict', 'llwtrain'})==3)

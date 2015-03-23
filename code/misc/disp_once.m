@@ -3,7 +3,8 @@ function got_displayed = disp_once(varargin)
 % GotDisplayed = disp_once(Message,Arguments...)
 %
 % This function displays a message like fprintf (though with implicit newline), except that a 
-% message with the given content is only emitted once per MATLAB session.
+% message with the given content is only emitted once per MATLAB session. The messages can be reset
+% with the command: clear disp_once
 %
 % In:
 %   Message : the message content (as in fprintf)

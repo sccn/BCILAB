@@ -37,7 +37,7 @@ end
 isdefault= [];
 if ~isempty(opt),
   for Fld=fieldnames(opt)',
-    isdefault= setfield(isdefault, Fld{1}, 0);
+      isdefault.(Fld{1}) = 0; %isdefault= setfield(isdefault, Fld{1}, 0);
   end
 end
 
@@ -50,11 +50,10 @@ if length(varargin) > 1
     defopt = propertylist2struct(varargin{:});
       
   else  % otherwise construct defopt from scratch
-    
-    
-    % Create a dummy defopt structure: a terrible Matlab hack to overcome
-    % impossibility of incremental update of an empty structure.
-    defopt = struct('matlabsucks','foo');
+        
+%     % Create a dummy defopt structure: a terrible Matlab hack to overcome
+%     % impossibility of incremental update of an empty structure.
+%     defopt = struct('matlabsucks','foo');
   
     % Check consistency of a field/value list: even number of arguments
     nArgs= length(varargin)/2;
@@ -62,13 +61,15 @@ if length(varargin) > 1
       error('inconsistent field/value list');
     end
     
-    % Write a temporary defopt structure
-    for ii= 1:nArgs,
-      defopt= setfield(defopt, varargin{ii*2-1}, varargin{ii*2});
-    end
+    defopt = cell2struct(varargin(2:2:end),varargin(1:2:end),2);
     
-    % Remove the dummy field from defopt
-    defopt = rmfield(defopt,'matlabsucks');
+%     % Write a temporary defopt structure
+%     for ii= 1:nArgs,
+%         defopt.(varargin{ii*2-1}) = varargin{ii*2}; % defopt= setfield(defopt, varargin{ii*2-1}, varargin{ii*2});
+%     end
+%     
+%     % Remove the dummy field from defopt
+%     defopt = rmfield(defopt,'matlabsucks');
   end
   
 else  
@@ -82,19 +83,21 @@ end
 for Fld=fieldnames(defopt)',
   fld= Fld{1};
   if ~isfield(opt, fld),
-    opt= setfield(opt, fld, getfield(defopt, fld));
-    isdefault= setfield(isdefault, fld, 1);
+      opt.(fld) = defopt.(fld);
+      isdefault.(fld) = 1;
+    %opt= setfield(opt, fld, getfield(defopt, fld));
+    %isdefault= setfield(isdefault, fld, 1);
   end
 end
 
-% Check if some fields in 'opt' are missing in 'defopt': possibly wrong
-% options.
-for Fld=fieldnames(opt)',
-  fld= Fld{1};
-  if ~isfield(defopt,fld)
-%    warning('set_defaults:DEFAULT_FLD',['field ''' fld ''' does not have a valid default option']);
-  end
-end
+% % Check if some fields in 'opt' are missing in 'defopt': possibly wrong
+% % options.
+% for Fld=fieldnames(opt)',
+%   fld= Fld{1};
+%   if ~isfield(defopt,fld)
+% %    warning('set_defaults:DEFAULT_FLD',['field ''' fld ''' does not have a valid default option']);
+%   end
+% end
 
 
 function t = ispropertystruct(opts)

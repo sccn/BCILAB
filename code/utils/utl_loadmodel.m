@@ -47,7 +47,7 @@ if ischar(model)
 elseif iscell(model) && length(model) == 2 && iscellstr(model)
     % two-element cell-string arrays are interpreted as {filename varname}.
     try
-        model = getfield(io_load(model{1},model{2}),model{2}); %#ok<GFLD>
+        model = getfield(io_load(model{1},model{2}),model{2});
     catch %#ok<CTCH>
         error('BCILAB:utl_loadmodel:load_error',['The file ' model{1} ' and/or its variable ' model{2} ' could not be loaded.']);
     end

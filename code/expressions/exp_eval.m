@@ -105,6 +105,7 @@ function varargout = exp_eval(x,iters)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-15
+dp;
 
 if nargin < 2
     iters = 1;
@@ -132,8 +133,9 @@ while iters > 0
             if ~(strcmp(e.identifier,'MATLAB:UndefinedFunction') && strcmp(e.stack(1).name,'hlp_wrapresults'))
                 % got a legitimate error, check if we're in dbstop-if-error mode
                 settings = dbstatus;
-                if any(strcmp({settings.cond},'error'))
+                if any(strcmp({settings.cond},'error')) && ~hlp_resolve('disable_dbstop_if_error_msg',false)
                     % if in dbstop if error mode, we're re-running the line to get the debugger to stop at the right place
+                    disp_once('exp_eval: caught error while in "dbstop if error" mode; re-running offending code to get break point...\n  error traceback was: %s\n',hlp_handleerror(e));
                     varargout = hlp_wrapresults(x.head,x.parts{:});
                 else
                     rethrow(e);

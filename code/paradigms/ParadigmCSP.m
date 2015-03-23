@@ -163,20 +163,31 @@ classdef ParadigmCSP < ParadigmDataflowSimplified
                 arg_norep({'featuremodel','FeatureModel'},[],[],'Feature model. This is the part of the model that describes the feature extraction.'), ...
                 arg_norep({'predictivemodel','PredictiveModel'},[],[],'Predictive model. This is the part of the model that describes the predictive mapping.'), ...
                 arg({'patterns','PlotPatterns'},true,[],'Plot patterns instead of filters. Whether to plot spatial patterns (forward projections) rather than spatial filters.'), ...
-                arg({'paper','PaperFigure'},false,[],'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'));
+                arg({'paper','PaperFigure'},false,[],'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'), ...
+                arg_nogui({'nosedir_override','NoseDirectionOverride'},'',{'','+X','+Y','-X','-Y'},'Override nose direction.'));
             arg_toworkspace(args);
             
+            % determine nose direction for EEGLAB graphics
+            try
+                nosedir = args.fmodel.signal.info.chaninfo.nosedir;
+            catch
+                disp_once('Nose direction for plotting not store in model; assuming +X');
+                nosedir = '+X';
+            end
+            if ~isempty(nosedir_override)
+                nosedir = nosedir_override; end            
             % number of pairs, and index of pattern per subplot
             np = size(featuremodel.patterns,1)/2; 
-            idx = [1:np 2*np:-1:np+1];
+            idx = [1:np 2*np:-1:np+1];            
             % for each CSP pattern...
             for p=1:np*2
                 subplot(2,np,p,'Parent',myparent);
                 if args.patterns
-                    topoplot(featuremodel.patterns(idx(p),:),featuremodel.chanlocs);
+                    plotdata = featuremodel.patterns(idx(p),:);
                 else
-                    topoplot(featuremodel.filters(:,idx(p)),featuremodel.chanlocs);
+                    plotdata = featuremodel.filters(:,idx(p));
                 end
+                topoplot(plotdata,featuremodel.chanlocs,'nosedir',nosedir);
                 t = title(['CSP Pattern ' num2str(idx(p))]);
                 if args.paper
                     set(t,'FontUnits','normalized');

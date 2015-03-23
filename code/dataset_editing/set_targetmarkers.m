@@ -44,6 +44,10 @@ function signal = set_targetmarkers(varargin)
 %
 %   PruneNontarget: Prune non-target events. Whether to prune non-target events from the data.
 %
+%   ClearExistingTargetsOnMatch : Clear existing targets if matching events found. This will clear 
+%                                 existing target markers, if any, if any of the markers match the
+%                                 EventTypes/EventMap specification (default: true).
+%
 %   AvoidBoundaries : Avoid boundary events. Whether potential target markers whose epoch bounds
 %                     would overlap markers with type ''boundary'' should be excluded. (default: true)
 %
@@ -76,10 +80,11 @@ function signal = set_targetmarkers(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-08-27
+dp;
 
-% set_targetmarkers_version<1.1> -- for the cache
+% set_targetmarkers_version<1.12> -- for the cache
 
-if ~exp_beginfun('editing') return; end
+if ~exp_beginfun('editing') return; end %#ok<SEPEX>
 
 declare_properties('name',{'TargetMarkers'},'independent_channels',true,'independent_trials',true);
 
@@ -89,10 +94,11 @@ arg_define(varargin, ...
     arg({'epoch_bounds','EpochBounds'}, [0 0], [], 'Assumed epoch boundaries. How much data around each marker must be present for it to be considered a potential target marker.','shape','row'), ...
     arg({'eventfield','EventField'}, 'type', [], 'Field of event structure containing the events.'), ...
     arg({'prune_nontarget','PruneNontarget'}, false, [], 'Prune non-target events. Whether to prune non-target events from the data.'), ...
+    arg({'clear_existing_targets_on_match','ClearExistingTargetsOnMatch'}, true, [], 'Clear existing targets if matching events found. This will clear existing target markers if any of the markers matched the EventTypes/EventMap specification.'), ...
     arg({'avoid_boundaries','AvoidBoundaries'}, true, [], 'Avoid boundary events. Whether potential target markers whose epoch bounds would overlap markers with type ''boundary'' should be excluded.'));
 
 % input validation
-utl_check_fields(signal,{'event','epoch','srate','pnts'},'signal','signal');
+utl_check_fields(signal,{'event','epoch','srate','pnts'},'signal','signal'); %#ok<NODEF>
 if ~isequal(size(epoch_bounds),[1 2])
     error('The given epoch bounds must be a 2-element row vector.'); end
 if epoch_bounds(1) > epoch_bounds(2)
@@ -115,7 +121,7 @@ if ~isempty(signal.event)
     
     types = {signal.event.(eventfield)};
     matchidx = zeros(size(types));
-    if isequal(eventmap,{'actualvalues'})
+    if isequal(eventmap,{'actualvalues'}) %#ok<USENS>
         matchidx = ~cellfun('isempty',types);
     else
         % translate eventmap to typelist/valuelist
@@ -154,6 +160,12 @@ if ~isempty(signal.event)
     % get candidate target event indices
     candidates = find(matchidx ~= 0);
     if ~isempty(candidates)
+        % optionally reset existing target markers
+        if clear_existing_targets_on_match && isfield(signal.event,'target') && ~isempty([signal.event.target])
+            disp_once('set_targetmarkers: The data had existing target markers in addition to those specified in EventTypes. Clearing previous target state. This can be disabled via the ClearExistingTargetsOnMatch option.');
+            [signal.event.target] = deal([]);
+        end            
+        
         % prune candidates that exceed the data set boundaries
         latencies = round([signal.event(candidates).latency]);
         eporange = round(epoch_bounds(1)*signal.srate) : round(epoch_bounds(2)*signal.srate);
@@ -174,6 +186,8 @@ if ~isempty(signal.event)
                     candidates(any(boundmask(bsxfun(@plus,eporange',latencies)))) = []; end
             end
         end
+    else
+        disp('WARNING: the data set did not contain matching target markers.');
     end
     
     % assign the target values for the retained events

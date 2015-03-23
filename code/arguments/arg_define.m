@@ -70,6 +70,9 @@ function outstruct = arg_define(vals,varargin)
 %      arg_specifier, which holds the names, types, defaults, etc. of the defined arguments),
 %      although some details of this data structure are internal and subject to change in future
 %      releases (particularly fields marked as INTERNAL).
+%    * If Format is the special string 'allow-unlisted-names', it has the same effect as setting
+%      Format to 0, and in addition the list of name-value pairs given may contain names that are 
+%      not among those specified in the arguments.
 %
 % Performance Tips:
 %   1) If a name-value pair 'arg_direct',true is passed (preferably as last argument for best
@@ -174,7 +177,8 @@ function outstruct = arg_define(vals,varargin)
         [spec,flat_names,first_names,name2idx,leading_skippable,checks] = process_spec_cached(caller_name,compressed_spec,report_type,~nodefaults,nargout==0);
 
         % convert vals to a canonical list of name-value pairs (NVPs)
-        nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,first_names,skip*leading_skippable);
+        suppress_warnings_for = [spec(logical([spec.nowarning])).names {}];
+        nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,first_names,skip*leading_skippable,suppress_warnings_for);
 
         % assign the NVPs to the spec
         spec = assign_nvps(spec,nvps,name2idx,report_type,caller_name,true);
@@ -192,7 +196,7 @@ function outstruct = arg_define(vals,varargin)
                 % handle mandatory entries
                 mandatory_entries = find(strcmp('__arg_mandatory__',{spec.value}));
                 if mandatory_entries
-                    error(['The arguments ' format_cellstr({spec(mandatory_entries).first_name}) ' were unspecified but are mandatory.']); end
+                    error(['The arguments ' hlp_tostring({spec(mandatory_entries).first_name}) ' were unspecified but are mandatory.']); end
                 % build output struct and generate full NVP list for assignment to workspace
                 outstruct = arg_tovals(spec,[],'struct',false,checks.unassigned,checks.expression,checks.conversion);
                 nvps = reshape([fieldnames(outstruct)';struct2cell(outstruct)'],1,[]);
@@ -481,7 +485,7 @@ end
 
 
 % transform the cell array of input arguments (vals) to a pure list of name-value pairs (NVPs)
-function nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,first_names,skipped_positionals)
+function nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,first_names,skipped_positionals,suppress_warnings_for)
     permitted_names = [flat_names {'arg_selection','arg_direct'}];
     
     % get the call signature; this is vals with everything replaced by [] that is neither a valid argument 
@@ -520,13 +524,15 @@ function nvps = arguments_to_nvps(caller_name,fmt,vals,structmask,flat_names,fir
         else
             error('arg_define:invalid_arguments','Some of the specified arguments do not appear in the argument specification; %s.',hlp_tostring(violations));
         end
-    elseif ~isempty(ignored)
-        for k=find(cellfun(@(s)all(s>='0'&s<='9'),violations))
-            violations{k} = vals{str2num(violations{k})}; end %#ok<ST2NM>
-        % warn about possible parameter conflicts (unless the parameter in question is called data
-        % or srate, and the passed in object matches the signature of an EEGLAB dataset struct)
-        if ~(length(ignored) == 1 && any(strcmp(ignored{1},{'data','srate'})) && isempty(fast_setdiff({'chanlocs','xmin','etc'},violations)))
-            warn_once('arg_define:possible_conflict','arg_define() in %s: Possible parameter conflict -- both unrecognized parameters %s and matching names %s passed in. Assuming that the function is called with %u positional arguments. This warning will not be repeated for this MATLAB session.',caller_name,hlp_tostring(violations),hlp_tostring(ignored),n); end
+    else
+        ignored = fast_setdiff(ignored,suppress_warnings_for);
+        if ~isempty(ignored)
+            for k=find(cellfun(@(s)all(s>='0'&s<='9'),violations))
+                violations{k} = vals{str2num(violations{k})}; end %#ok<ST2NM>
+            % warn about possible parameter conflicts (unless the parameter in question is called data
+            % or srate, and the passed in object matches the signature of an EEGLAB dataset struct)
+            warn_once('arg_define:possible_conflict','arg_define() in %s: Possible parameter conflict -- both unrecognized parameters %s and matching names %s passed in. Assuming that the function is called with %u positional arguments. This warning will not be repeated for this MATLAB session.',caller_name,hlp_tostring(violations),hlp_tostring(ignored),n);
+        end
     end
     
     % generate a flat list of name-value pairs
@@ -546,71 +552,76 @@ end
 
 % determine the number of positional arguments in a given call signature
 function [num_positionals,violations,ignored] = get_num_positionals(fmt,spec_length,signature,structmask,permitted_names,skipped_positionals)
-    % preprocess fmt
-    max_positionals = min(spec_length,length(signature)+skipped_positionals);
-    if isempty(fmt)
-        % empty Format means that any number of positionals are permitted
-        fmt = 0:max_positionals;
-    else
-        % make sure that 0 positional arguments are always permitted
-        if ~any(fmt==0)
-            fmt = [0 fmt]; end
-        % remap Inf to the max # of positionals
-        fmt(fmt==Inf) = max_positionals;
-        % remove anything else that is out of bounds
-        fmt(fmt>max_positionals | fmt<0) = [];
-        % make sure that it is sorted and contains no duplicates
-        fmt = unique(sort(fmt));
-    end
-
-    % replace the cell arrays in the signature by dummy structs, so we can use flatten_structs
-    for k=find(structmask)
-        signature{k} = cell2struct(cell(1,length(signature{k})),signature{k},2); end
-    
-    % for each permitted number of positional arguments n in fmt...
-    num_positionals = NaN;
     violations = {};
     ignored = {};
-	for n = fmt %#ok<*ALIGN>
-        if skipped_positionals && length(fmt)>1 && n==fmt(2)
-            % pad the signature with dummy positionals if num_skippable is nonzero
-            signature = [repmat({[]},1,skipped_positionals) signature]; %#ok<AGROW>
-            structmask = [false(1,skipped_positionals) structmask]; %#ok<AGROW>
-        end
-        % interpret the arguments after the first n positions als NVPs/structs
-		nvps = flatten_structs(signature(n+1:end),structmask(n+1:end));
-        % perform type check
-		if iscellstr(nvps(1:2:end))
-		    % make sure that only admissible names are used
-		    inadmissible = fast_setdiff(nvps(1:2:end),permitted_names);
-   		    if isempty(inadmissible)
-                % NVP arguments are all admissible: use this as num_positionals
-                num_positionals = n;                
-                if n>0
-                    % assuming n positional arguments; collect any admissible names among those, i.e.,
-                    % names that would have been valid argument names but were ignored
-                    fmt(fmt>=n) = [];
-                    for k=fmt
-                        nvps = flatten_structs(signature(k+1:n),structmask(k+1:n));
-                        if iscellstr(nvps(1:2:end))
-                            ignored = [ignored intersect(nvps(1:2:end),permitted_names)]; %#ok<AGROW>
-                        else
-                            ignored = [ignored intersect(nvps(cellfun('isclass',nvps,'char')),permitted_names)]; %#ok<AGROW>
-                        end
-                    end
-                    ignored = unique(ignored);
-                end                
-                violations = unique(violations);
-                return;
-            else
-                % inadmissible names: collect diagnostic information
-                violations = [violations inadmissible]; %#ok<AGROW>
-		    end
+    if ischar(fmt) && strcmp(fmt,'allow-unlisted-names')
+        num_positionals = 0;
+    else        
+        num_positionals = NaN;
+        
+        % preprocess fmt
+        max_positionals = min(spec_length,length(signature)+skipped_positionals);
+        if isempty(fmt)
+            % empty Format means that any number of positionals are permitted
+            fmt = 0:max_positionals;
         else
-            violations = [violations {'invalid sequence of names and structs'}]; %#ok<AGROW>
+            % make sure that 0 positional arguments are always permitted
+            if ~any(fmt==0)
+                fmt = [0 fmt]; end
+            % remap Inf to the max # of positionals
+            fmt(fmt==Inf) = max_positionals;
+            % remove anything else that is out of bounds
+            fmt(fmt>max_positionals | fmt<0) = [];
+            % make sure that it is sorted and contains no duplicates
+            fmt = unique(sort(fmt));
         end
+
+        % replace the cell arrays in the signature by dummy structs, so we can use flatten_structs
+        for k=find(structmask)
+            signature{k} = cell2struct(cell(1,length(signature{k})),signature{k},2); end
+
+        % for each permitted number of positional arguments n in fmt...
+        for n = fmt %#ok<*ALIGN>
+            if skipped_positionals && length(fmt)>1 && n==fmt(2)
+                % pad the signature with dummy positionals if num_skippable is nonzero
+                signature = [repmat({[]},1,skipped_positionals) signature]; %#ok<AGROW>
+                structmask = [false(1,skipped_positionals) structmask]; %#ok<AGROW>
+            end
+            % interpret the arguments after the first n positions als NVPs/structs
+            nvps = flatten_structs(signature(n+1:end),structmask(n+1:end));
+            % perform type check
+            if iscellstr(nvps(1:2:end))
+                % make sure that only admissible names are used
+                inadmissible = fast_setdiff(nvps(1:2:end),permitted_names);
+                if isempty(inadmissible)
+                    % NVP arguments are all admissible: use this as num_positionals
+                    num_positionals = n;                
+                    if n>0
+                        % assuming n positional arguments; collect any admissible names among those, i.e.,
+                        % names that would have been valid argument names but were ignored
+                        fmt(fmt>=n) = [];
+                        for k=fmt
+                            nvps = flatten_structs(signature(k+1:n),structmask(k+1:n));
+                            if iscellstr(nvps(1:2:end))
+                                ignored = [ignored intersect(nvps(1:2:end),permitted_names)]; %#ok<AGROW>
+                            else
+                                ignored = [ignored intersect(nvps(cellfun('isclass',nvps,'char')),permitted_names)]; %#ok<AGROW>
+                            end
+                        end
+                        ignored = unique(ignored);
+                    end                
+                    violations = unique(violations);
+                    return;
+                else
+                    % inadmissible names: collect diagnostic information
+                    violations = [violations inadmissible]; %#ok<AGROW>
+                end
+            else
+                violations = [violations {'invalid sequence of names and structs'}]; %#ok<AGROW>
+            end
+        end
+        violations = unique(violations);
     end
-    violations = unique(violations);
 end
 
 
@@ -642,7 +653,7 @@ function spec = assign_value(spec,newvalue,report_type,caller_name,nodefaults,de
     nodefault_arg = {'__arg_nodefaults__',true};
     % check whether this value is assignable
     overwrite_if_empty = spec.empty_overwrites || ~respect_empty_overwrites;
-    if ~isequal(newvalue,'__arg_unassigned__') && ~(~overwrite_if_empty && (isempty(newvalue) || isequal(newvalue,'__arg_mandatory__')))
+    if ~isequal(newvalue,'__arg_unassigned__') && ~(~overwrite_if_empty && (isequal(newvalue,[]) || isequal(newvalue,'__arg_mandatory__')))
         % warn about deprecation
         if deprecation_warning && spec.deprecated && ~isequal_weak(spec.value,newvalue)
             warn_deprecation(spec,caller_name); end

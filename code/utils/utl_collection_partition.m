@@ -1,6 +1,10 @@
-function res = utl_collection_partition(collection,inds,settings)
+function res = utl_collection_partition(varargin)
 % Partition a dataset collection according to some settings
 % Result = utl_collection_partition(Collection,IndexSet,Settings)
+%
+% This function is a valid partitioner for utl_crossval, utl_nested_crossval, and utl_searchmodel,
+% which accepts a collection (cell array) of datasets. The datasets may have additional meta-data
+% that is used to determine the desired partitioning (see Settings).
 %
 % In:
 %   Collection : a dataset collection, i.e. cell array of structs with meta-data
@@ -49,24 +53,27 @@ function res = utl_collection_partition(collection,inds,settings)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-08-29
+dp;
 
-if ~iscell(collection) || ~all(cellfun('isclass',collection,'struct'))
-    error('The given Collection argument must be a cell array of structs.'); end
+args = arg_define(0:3, varargin, ...
+    arg({'collection','Collection'},mandatory,[],'A dataset collection. Cell array of structs with meta-data.','type','expression'), ...
+    arg({'inds','IndexSet'},mandatory,[],'Index set to use for partitioning. This partitioner is somewhat special: if this is [], the function generates the partitioning, i.e. returns a cell array of partitions, each of which is a cell array of {training collection, test collection, {''goal_identifier'',identifier for test collection}}. Otherwise, we assume that this is one of the partitioned collections that we generated, and just return it unmodified.','type','expression'), ...
+    arg_sub({'settings','Settings'},{}, {
+        arg({'scope_order','ScopeOrdering'},{'group','subject','day','montage','session','recording','block'},[],'Dataset identifiers ordered from coarsest to finest. This both defines what identifiers are known, and their hierarchical ordering.'), ...    
+        arg({'restrict_to','RestrictTo'},[],[],'Restrict to data with these properties. Optionally a struct where one can set fields to values that all retained sets must have. E.g., by setting .day to 5, only sets with day=5 will be retained.','type','expression'), ...
+        arg({'exclude','Exclude'},{},[],'Exclude data with these properties. Optionally a struct (or cell array of structs) where one can set fields to values that no retained set may have. Opposite of RestrictTo.'), ...
+        arg({'test_on','TestOn'},'',[],'Separate test sets based on this property. This is a dataset identifier that determines which items to use as test sets. By default, this is the coarsest granularity (according to ScopeOrdering) that''s in the data.'), ...
+        arg({'consider','Consider'},'each', {'each','all','last','allexceptfirst'}, 'Consider these items for testing. Allows to test on, for instance, each subject, or the last day of the experiment (using all others for training), or all days except the first (using the prior days for training).'), ...
+        arg({'per','Per'},'',[], 'If consider is not each, determines the context to which the last/allexceptfirst refers (default: next coarsest granularity in the data according to ScopeOrdering).')...
+    }, 'Settings for the partitioning.'));
 
-% just pass through non-empty index sets
-if ~isempty(inds)
-    res = inds; end
-    
-settings = hlp_varargin2struct(settings, ...
-    {'scope_order','ScopeOrdering'}, {'group','subject','day','montage','session','recording','block'}, ... % the known granularities ordered from coarsest to finest
-    {'restrict_to','RestrictTo'}, [], ... % struct with properties to which restrict test considered test sets (default: blank)
-    {'exclude','Exclude'}, {}, ...        % struct with a property signature to exclude from the test sets, or cell array of such structs) (default: blank)
-    {'test_on','TestOn'}, [], ...         % identifier that determines the items to use as test sets (default: coarsest known granularity)
-    {'consider','Consider'},'each', ...   % specifier that determines which items to consider (options: 'each','all','last','allexceptfirst')
-    {'per','Per'},[] ...                  % if consider is not each, determines the context to which the last/allbutfirst refers (default: next coarsest granularity)
-    );
+[collection,inds,settings] = deal(args.collection, args.inds, args.settings);
 
 % input validation
+if ~iscell(collection) || ~all(cellfun('isclass',collection,'struct'))
+    error('The given Collection argument must be a cell array of structs.'); end
+if ~all(cellfun(@(s)isfield(s,'streams'),collection))
+    disp_once('Note: each cell in the collection is expected to be a stream bundle (struct with .streams field), but not all are.'); end
 if ~iscellstr(settings.scope_order)
     error('The given ScopeOrdering argument must be a cell array of strings, but was: %s',hlp_tostring(settings.scope_order)); end
 if length(unique(settings.scope_order)) < length(settings.scope_order)
@@ -81,6 +88,17 @@ if ~any(strcmp(settings.consider,{'each','all','last','allexceptfirst'}))
     error('The given Consider option must be one of: {''each'',''all'',''last'',''allexceptfirst''}, but was: %s',hlp_tostring(settings.consider)); end
 if ~isempty(settings.per) && (~ischar(settings.per) || ~any(strcmp(settings.per,settings.scope_order)))
     error('The given Per setting should be empty or equal to one of the elements in ScopeOrdering (%s), but was: %s.',hlp_tostring(settings.scope_order),hlp_tostring(settings.per)); end    
+
+if ~isempty(inds)
+    % check whether inds is of the right format
+    if ~iscell(inds) || length(inds) ~= 3
+        error('If the given indices are non-empty, the are expected to be a 3-element cell array, but were: %s',hlp_tostring(inds,1000)); end
+    if ~all(cellfun('isclass',inds,'cell'))
+        error('If the given indices are non-empty, it must be a cell array of cell arrays, but was: %s',hlp_tostring(inds,1000)); end
+    % if so, pass it through
+    res = inds;
+    return;
+end
 
 known_granularities = settings.scope_order;
 
@@ -138,7 +156,7 @@ for k=1:length(known_granularities)
     present = cellfun(@(x)isfield(x,gran),test_material);
     if any(present)
         test_material = test_material(present);
-        retain(end+1) = k;
+        retain(end+1) = k; %#ok<*AGROW>
     end
 end
 known_granularities = known_granularities(retain);
@@ -187,7 +205,7 @@ test_sets = {};
 if isempty(settings.test_on)
     % test at the granularity of data sets in the collection (finest)
     for k=1:length(test_material)
-        test_sets{k} = {test_material{k}}; end
+        test_sets{k} = test_material(k); end
 else
     % test at the given granularity
     present = find(cellfun(@(x)isfield(x,settings.test_on),test_material));

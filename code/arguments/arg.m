@@ -78,10 +78,10 @@ function res = arg(varargin)
 %
 %                 'guru' : Whether the argument is marked as guru-level (default: false)
 %
-%                 'empty_overwrites' : Whether assiging empty values to this argument overwrites the
-%                                      previous (or default) value. Setting this to false yields the
-%                                      same behavior as in some well-known MATLAB functions, like
-%                                      for the TOL parameter in pcg() (default: true)
+%                 'empty_overwrites' : Whether assiging [] to this argument overwrites the previous 
+%                                      (or default) value. Setting this to false yields the same
+%                                      behavior as in some well-known MATLAB functions, like for the
+%                                      TOL parameter in pcg() (default: true)
 %
 %                 'typecheck' Whether to perform a type check upon assignment of a value (default: true)
 %

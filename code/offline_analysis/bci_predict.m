@@ -143,6 +143,7 @@ function [prediction, measure, stats, target] = bci_predict(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-05-24
+dp;
 
 % read arguments
 opts = arg_define([0 2],varargin, ...

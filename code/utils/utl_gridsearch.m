@@ -92,6 +92,7 @@ function [minidx, inputs, outputs] = utl_gridsearch(arg1, varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-06
+dp;
 
 % translate the possible formats for the control arguments into the cell-array-of-options form
 if iscell(arg1)
@@ -140,12 +141,12 @@ for c=1:combos
             args{i} = args{i}{1}; end
     end
     % generate tasks
-    tasks{c} = [{@hlp_wrapresults,opts.func},args];
-    inputs{c} = args;
+    tasks{c} = [{@hlp_wrapresults,opts.func},args]; %#ok<AGROW>
+    inputs{c} = args; %#ok<AGROW>
 end
 
 % schedule tasks
-outputs = par_schedule(tasks, 'engine',opts.engine_gs,'pool',opts.pool,'policy',opts.policy);
+outputs = par_schedule(tasks,'engine',opts.engine_gs,'pool',opts.pool,'policy',opts.policy);
 
 try
     minidx = argmin(cellfun(@(x)x{1},outputs));

@@ -38,6 +38,7 @@ function signal = set_selinterval(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-01
+dp;
 
 % set_selinterval_version<2.0> -- for the cache
 

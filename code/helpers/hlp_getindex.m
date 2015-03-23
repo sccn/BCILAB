@@ -1,4 +1,4 @@
-function [idx value error] = hlp_getindex(A,els)
+function [idx,value,error] = hlp_getindex(A,els)
 %
 % function [idx value] = getindex(A,els)
 % Returns the indices of values in vector A that are nearest to those in vector els
@@ -25,8 +25,8 @@ end
 % end
 
 L = length(els);
-[value idx error] = deal(zeros(1,L));
+[value,idx,error] = deal(zeros(1,L));
 for i=1:L
-    [error(i) idx(i)] = min(abs(A-els(i)));
+    [error(i),idx(i)] = min(abs(A-els(i)));
     value(i) = A(idx(i));
 end

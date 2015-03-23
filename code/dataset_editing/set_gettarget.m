@@ -31,6 +31,7 @@ function targ = set_gettarget(signal)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-07
+dp;
 
 targ = [];
 if nargin > 0

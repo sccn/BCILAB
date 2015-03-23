@@ -18,7 +18,10 @@ function data = set_infer_chanlocs(data,disambiguation_rule)
 %   Data   : original set with updated chanlocs field, or the updated chanlocs themselves
 %
 % Notes:
-%   parameters cannot be passed by name to this function.
+%   Parameters cannot be passed by name to this function.
+%   To add a custom cap design to set_infer_chanlocs, see documentation in the
+%   bcilab:/resources/caps folder.
+%
 %
 % Examples:
 %   % given a data set with labeled channels (but no locations), fill in standard channel locations
@@ -164,18 +167,20 @@ if (~all(isfield(locs,{'X','Y','Z'})) || all(cellfun('isempty',{locs.X}))) && ~i
     if ~isnan(bestidx)
         fprintf('  using montage %s.\n',caps{bestidx});
         locs = fitlocs{bestidx};
-        if isstruct(data)
+        if isstruct(data) && isfield(data,'data')
             data.chaninfo.labelscheme = capdata{bestidx}.SCHEME;
             data.chaninfo.nosedir = capdata{bestidx}.NOSE;
         end
     end
-        
-    try
-        % optimize the head center
-        if  mean(cellfun('isempty',{locs.X})) < 0.75
-            locs = hlp_microcache('chanlocs',@pop_chanedit,locs,'eval','chans = pop_chancenter( chans, [],[]);'); end
-    catch e
-        fprintf('Failed trying to optimized the head center location for your cap montage due to error: %s\n',e.message);
+    
+    % optionally optimize the head center
+    if isfield(capdata{bestidx},'RECENTER') && capdata{bestidx}.RECENTER
+        try
+            if  mean(cellfun('isempty',{locs.X})) < 0.75
+                locs = hlp_microcache('chanlocs',@pop_chanedit,locs,'eval','chans = pop_chancenter( chans, [],[]);'); end
+        catch e
+            fprintf('Failed trying to optimized the head center location for your cap montage due to error: %s\n',e.message);
+        end
     end
 end    
 

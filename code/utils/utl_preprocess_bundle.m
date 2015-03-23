@@ -1,6 +1,11 @@
 function outbundle = utl_preprocess_bundle(inbundle,model)
 % Internal. Pre-process a stream bundle with a model's filter graph.
 %
+% BCI models have a "filter graph" (possibly trivial), which represents a directed acyclical graph
+% of filter stages with their parameters. This function takes a multi-stream signal (a stream
+% bundle) and applies the filter graph to it, yielding a new multi-stream bundle that's the output
+% of the graph.
+%
 % In:
 %   Bundle : a stream bundle to pre-process (struct with a field .streams that's a cell array of 
 %            EEGLAB dataset structs)
@@ -12,6 +17,7 @@ function outbundle = utl_preprocess_bundle(inbundle,model)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-11-23
+dp;
 
 % input validation
 if ~isstruct(model) || ~isscalar(model)

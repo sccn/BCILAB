@@ -64,9 +64,18 @@ classdef ParadigmRCSP < ParadigmDataflowSimplified
             for k=1:2
                 % implement objective-function regularization
                 M{k} = covar{k}/(covar{3-k} + args.alpha*args.objtarget);
-                [V{k},D{k}] = eig(M{k});
-                % invert to get forward projection
-                P{k} = inv(V{k});
+                try
+                    [V{k},D{k}] = eig(M{k});
+                    % invert to get forward projection
+                    P{k} = inv(V{k});
+                    if ~(all(isfinite(P{k})) && all(isfinite(V{k})) && all(isfinite(D{k})))
+                        error('Divergence.'); end
+                catch e
+                    % keep going, this particular result will be weeded out by the parameter search
+                    V{k} = randn(size(M{k}));
+                    D{k} = randn(size(M{k}));
+                    P{k} = randn(size(M{k}));
+                end
             end
             
             % wrap up

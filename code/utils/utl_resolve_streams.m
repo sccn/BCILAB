@@ -36,6 +36,7 @@ function pip = utl_resolve_streams(pip,streams,chanlocs)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-11-23
+dp;
 
 % turn pipeline into a cell array & sanity-check
 was_cell = iscell(pip);

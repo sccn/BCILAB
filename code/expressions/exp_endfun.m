@@ -18,6 +18,7 @@ function exp_endfun(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-15
+dp;
 
 % retrieve the context structure
 % If you get an "Undefined function or variable" error here then you forgot to call exp_beginfun

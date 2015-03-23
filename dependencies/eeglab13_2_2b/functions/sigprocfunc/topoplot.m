@@ -581,6 +581,10 @@ if strcmpi(whitebk, 'on')
     BACKCOLOR = [ 1 1 1 ];
 end;
 
+% ensure that we have the good old "jet" color map even on newer MATLABs
+if hlp_matlab_version >= 804
+    colormap('jet'); end
+
 cmap = colormap;
 cmaplen = size(cmap,1);
 

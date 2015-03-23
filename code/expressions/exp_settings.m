@@ -24,6 +24,8 @@ switch(setting)
         defaults = {'argsteps',{@utl_check_dataset}, 'poststeps',{@utl_add_online}, 'set_online','passthrough'};
     case 'offline'
         defaults = {'argsteps',{@utl_check_dataset}, 'poststeps',{@utl_add_online}, 'set_online','inapplicable'};
+    case 'import'
+        defaults = {'argsteps',{@utl_check_dataset}, 'poststeps',{@utl_add_online}, 'set_online','imported'};
     otherwise
         error('Unsupported setting: %s',hlp_tostring(setting));
 end

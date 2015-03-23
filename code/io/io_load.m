@@ -27,15 +27,21 @@ function res = io_load(varargin)
 fname = varargin{1};
 if length(fname)>4 && strcmpi(fname(end-3:end),'.sto')
     % load from .sto file
-    f = fopen(env_translatepath(fname),'r');
-    try
-        bytes = fread(f);
-        fclose(f);
-    catch e
-        if ~exist(fname,'file')
-            error('The file named "%s" does not exist.',fname);
-        else
-            rethrow(e);
+    if strncmp(fname,'cluster:',8)
+        % load over the network
+        bytes = par_fileclient(env_translatepath(fname(9:end)),'Verbosity',2);
+    else
+        % load from disk
+        f = fopen(env_translatepath(fname),'r');
+        try
+            bytes = fread(f,inf,'*uint8');
+            fclose(f);
+        catch e
+            if ~exist(fname,'file')
+                error('The file named "%s" does not exist.',fname);
+            else
+                rethrow(e);
+            end
         end
     end
     contents = hlp_deserialize(bytes);

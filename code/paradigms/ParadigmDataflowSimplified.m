@@ -449,6 +449,18 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
                     warn_once('ParadigmDataflowSimplified:ignoring_shape','The learning function does not appear to support a shape parameter, but the paradigm prefers to supply one; ignoring the shape. This warning will not be shown again during this session.');
                 end
             end
+            if isfield(featuremodel,'modality_ranges') && ~isempty(featuremodel.modality_ranges)
+                % check if the learner supports a modality_ranges parameter...
+                if isfield(args.ml.learner,'modality_ranges')
+                    args.ml.learner.modality_ranges = featuremodel.modality_ranges; 
+                else
+                    warn_once('ParadigmDataflowSimplified:ignoring_modality_ranges','The learning function does not appear to support a modality_ranges parameter, but the paradigm prefers to supply one; ignoring the modality_ranges. This warning will not be shown again during this session.');
+                end
+            end
+            
+            % try to extract some signal-related properties
+            featuremodel.signalinfo.chanlocs = args.signal.chanlocs;
+            featuremodel.signalinfo.chaninfo = args.signal.chaninfo;
             
             % extract features
             features = self.feature_extract(args.signal, featuremodel);
@@ -562,11 +574,11 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             % first pre-process the data (symbolically)
             % this means that signal is turned into an unevaluated expression (data structure) like
             % flt_resample(flt_fir(signal,[7,30]), 200)
-            signal = flt_pipeline('signal',args.signal, args.flt); %#ok<*NODEF>
+            signal_expression = flt_pipeline('signal',args.signal, args.flt); %#ok<*NODEF>
             
             % evaluate this in an optimized fashion (this effectively evaluates the filter expression
             % with some key optimizations, such as caching of intermediate results, turned on)
-            signal = exp_eval_optimized(signal);
+            signal = exp_eval_optimized(signal_expression);
             
             % with signal processing done, we now calibrate the prediction function on it, using
             % calibrate_prediction_function(). If the paradigm needs voting, we here call this function
@@ -634,21 +646,21 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             %   Model : a model as created by your calibrate() function;
             %           a plot or GUI will be produced to inspect the model
             %
-            %   Options : cell array or struct of name-value pairs.
+            %   PlotOptions : cell array or struct of name-value pairs.
 
             args = arg_define(varargin, ...
                 arg_norep({'model','Model'},struct(),[],'BCI Model to visualize.'), ...
                 quickif(arg_supported(@self.visualize_model), ...
-                    arg_sub({'options','Options'},{}, @self.visualize_model, 'Plotting options.'), ...
-                    arg({'options','Options'},{},[],'Plotting options. Cell array of name-value pairs.','type','expression')));
+                    arg_sub({'plotopts','PlotOptions','plotoptions'},{}, @self.visualize_model, 'Plotting options.'), ...
+                    arg({'plotopts','PlotOptions','plotoptions','options','Options'},{},[],'Plotting options. Cell array of name-value pairs.','type','expression')));
             
-            if ~iscell(args.options)
-                args.options = {args.options}; end
+            if ~iscell(args.plotopts)
+                args.plotopts = {args.plotopts}; end
             
             % visualize the model, either using one figure or multiple in case of voting
             if ~isfield(args.model,'voting')
                 p = figure();
-                self.visualize_model(p,args.model.featuremodel,args.model.predictivemodel,args.options{:});
+                self.visualize_model(p,args.model.featuremodel,args.model.predictivemodel,args.plotopts{:});
             else
                 numcl = length(args.model.classes);
                 numclx = length(args.model.classes)-1;
@@ -656,7 +668,7 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
                     for j=i+1:numcl
                         p = figure('NumberTitle','off','MenuBar','none','Toolbar','none','Units','normalized', 'Name',sprintf('%d vs. %d',i,j), ...
                             'Position',[(i-0.9)/numclx (j-1-0.9)/numclx 0.8/numclx 0.8/numclx]);
-                        self.visualize_model(p,args.model.voting{i,j}.featuremodel,args.model.voting{i,j}.predictivemodel,args.options{:});
+                        self.visualize_model(p,args.model.voting{i,j}.featuremodel,args.model.voting{i,j}.predictivemodel,args.plotopts{:});
                     end
                 end
             end

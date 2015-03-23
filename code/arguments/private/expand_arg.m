@@ -43,13 +43,14 @@ function spec = expand_specifier(names,default,range,help,varargin)
     
     % initialize specification struct
     spec = arg_specifier('head','arg', 'names',names, 'range',range, 'help',help, 'to_double',[], varargin{:}, 'mapper',[]);
-
+    
     % parse the type
     if isempty(spec.type)
-        % if the type is unspecified it is deduced        
-        if iscellstr(spec.range) && iscellstr(default) && isempty(fast_setdiff(default,spec.range))
+        % if the type is unspecified it is deduced 
+        if iscellstr(spec.range) && ((iscellstr(default) && isempty(fast_setdiff(default,spec.range))) || (isa(default,'logical') && isscalar(default)))
             % if both the value and the range are cell-string arrays and the value is a subset of
-            % the range, the type is 'logical'
+            % the range, the type is 'logical'; alternatively the default may be a logical scalar,
+            % which stands for all-true/all-false
             spec.type = 'logical';
         elseif ~isempty(default) && ~(isequal(default,'__arg_mandatory__') || isequal(default,'__arg_unassigned__'))
             % if the value is non-empty, the type is deduced from the value
@@ -73,11 +74,11 @@ function spec = expand_specifier(names,default,range,help,varargin)
     % parse the shape    
     if isempty(spec.shape)
         % if the shape is unspecified, it is deduced
-        if ~isempty(default)
+        if ~isempty(default) && ~(isequal(default,'__arg_mandatory__') || isequal(default,'__arg_unassigned__'))
             % if the value is not empty, the shape is deduced from the value
-            if (isequal(default,true) || isequal(default,false)) && iscellstr(spec.range)
-                % except in the special case where the default value is true or false, but the range
-                % is a cell array of strings, the shape is set to row
+            if (isequal(default,true) || isequal(default,false) || iscellstr(default)) && iscellstr(spec.range)
+                % except in the special case where the default value is true, false or a cell array of strings, 
+                % while the range is a cell array of strings, the shape is set to row
                 spec.shape = 'row';
             else
                 spec.shape = deduce_shape(default);

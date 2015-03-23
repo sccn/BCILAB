@@ -38,7 +38,7 @@ function [S,lam] = cov_shrink(X,w)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-mem_quota = 0.2;        % use at most this fraction of the free memory for temp data
+mem_quota = 0.1;        % use at most this fraction of the free memory for temp data
 block_increment = 1.5;  % consider incrementally larger numbers of blocks (incremented by this factor)
 
 [n,p] = size(X);

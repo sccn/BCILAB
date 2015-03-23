@@ -38,17 +38,36 @@ function varargout = hlp_scope(assignments, f, varargin)
 % You should have received a copy of the GNU General Public License along with this program; if not,
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
+dp;
 
 % add a new stack frame with the evaluated assignments & get its unique id
 id = make_stackframe(assignments);
 % also take care that it gets reclaimed after we're done
-reclaimer = onCleanup(@()return_stackframe(id));
+% reclaimer = onCleanup(@()return_stackframe(id));
 
 % make a function that is tagged by id
 func = make_func(id);
 
-% evaluate the function with the id introduced into MATLAB's own stack
-[varargout{1:nargout}] = func(f,varargin);
+try
+    % evaluate the function with the id introduced into MATLAB's own stack
+    [varargout{1:nargout}] = func(f,varargin);
+	return_stackframe(id);
+catch e
+    return_stackframe(id);
+    if strcmp(e.identifier,'BCILAB:arg:report_args')
+        % fast path for expected exceptions that don't need a dbstatus check
+        rethrow(e);
+    else
+        settings = dbstatus;
+        if any(strcmp({settings.cond},'error')) && ~hlp_resolve('disable_dbstop_if_error_msg',false)
+            % if in dbstop if error mode, we're re-running the line to get the debugger to stop at the right place
+            disp_once('hlp_scope: caught error while in "dbstop if error" mode; re-running offending code to get break point...\n  error traceback was: %s\n',hlp_handleerror(e));
+            [varargout{1:nargout}] = func(f,varargin);
+        else
+            rethrow(e);
+        end
+    end
+end
 
 
 

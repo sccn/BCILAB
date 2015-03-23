@@ -9,6 +9,8 @@ function finisher = dp(message,varargin)
 %   enter <functionname>: message
 %   leave <functionname>: message
 %
+% To enable debug printout, you need to set the global variable tracking.debug.stack to true.
+%
 % In:
 %   Message : optional message to display for the given function call (as in sprintf)
 %
@@ -51,30 +53,33 @@ function finisher = dp(message,varargin)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
-% process inputs
-if ~exist('message','var')
-    message = ''; end
-if ~isempty(message)
-    message = sprintf([': ' message],varargin{:}); end
+global tracking;
+if isfield(tracking,'debug') && isfield(tracking.debug,'stack') && tracking.debug.stack
+    % process inputs
+    if ~exist('message','var')
+        message = ''; end
+    if ~isempty(message)
+        message = sprintf([': ' message],varargin{:}); end
 
-% determine indentation
-stack = dbstack;
-stackdepth = length(stack);
-indent = repmat(' ',1,stackdepth*2);
+    % determine indentation
+    stack = dbstack;
+    stackdepth = length(stack);
+    indent = repmat(' ',1,stackdepth*2);
 
-% issue leave message for any previous dp
-if nargout == 0
-    assignin('caller','dp_finalizer__',[]); end
+    % issue leave message for any previous dp
+    if nargout == 0
+        assignin('caller','dp_finalizer__',[]); end
 
-% determine caller
-caller = stack(2).name;
+    % determine caller
+    caller = stack(2).name;
 
-% display enter message
-disp([indent 'enter ' caller message]);
+    % display enter message
+    disp([indent 'enter ' caller message]);
 
-% create leave message printer
-finisher = onCleanup(@()disp([indent 'leave ' caller message]));
+    % create leave message printer
+    finisher = onCleanup(@()disp([indent 'leave ' caller message]));
 
-% and associate it with the calling function, if necessary
-if nargout == 0
-    assignin('caller','dp_finalizer__',finisher); end
+    % and associate it with the calling function, if necessary
+    if nargout == 0
+        assignin('caller','dp_finalizer__',finisher); end
+end

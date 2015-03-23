@@ -63,7 +63,7 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
         end
         
         function defaults = machine_learning_defaults(self)
-            defaults = {'dal', 'Lambdas',2.^(10:-1.5:-5), 'NumFolds',5,'FoldMargin',1};
+            defaults = {'dal', 'Lambdas',2.^(4:-0.25:-3), 'NumFolds',5,'FoldMargin',1};
         end
         
         function model = feature_adapt(self,varargin)
@@ -129,9 +129,11 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
                 arg({'maxcomps','MaxComponents'},Inf,[],'Maximum components to plot. Maximum number of components to plot (if too many).'), ...
                 arg({'regcurve','PlotRegcurve'},true,[],'Plot regularization curve. Whether to plot the regularization curve.'), ...
                 arg({'paper','PaperFigure'},false,[],'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'), ...
-                arg({'patterns','PlotPatterns'},true,[],'Plot patterns instead of filters. Whether to plot spatial patterns (forward projections) rather than spatial filters.'));                
+                arg({'titles','Titles'},true,[],'Show component titles.'), ...
+                arg({'patterns','PlotPatterns'},true,[],'Plot patterns instead of filters. Whether to plot spatial patterns (forward projections) rather than spatial filters.'), ...
+                arg_nogui({'nosedir_override','NoseDirectionOverride'},'',{'','+X','+Y','-X','-Y'},'Override nose direction.'));
             arg_toworkspace(args);
-            
+                        
             % no parent? --> create new figure
             if isempty(myparent)
                 myparent = figure('Name','Per-window weights'); end
@@ -141,12 +143,22 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
             % obtain & reshape the model
             M = reshape(pmodel.model.w,size(P,2),[]);
             % do an SVD to get spatial and temporal filters
-            [U,S,V] = svd(M);
+            [U,S,V] = svd(M);            
+            % determine nose direction for EEGLAB graphics
+            try
+                nosedir = args.fmodel.signal.info.chaninfo.nosedir;
+            catch
+                disp_once('Nose direction for plotting not store in model; assuming +X');
+                nosedir = '+X';
+            end
+            if ~isempty(nosedir_override)
+                nosedir = nosedir_override; end            
             % display the model contents
             N = min(rank(M),args.maxcomps) + double(args.regcurve);
             px = ceil(sqrt(N));
             py = ceil(N/px);
             lim = -Inf;
+            t = [];
             for x=1:N
                 lim = max([lim;abs(inv(Q)*V(:,x)*S(x,x))]); end
             for x=1:N
@@ -156,31 +168,41 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
                 if x < N || (x==N && ~args.regcurve)
                     subplot(2*py,px,idx,'Parent',myparent);
                     if args.patterns
-                        topoplot(fmodel.cov*P*U(x,:)',fmodel.chanlocs);
+                        topoplot(fmodel.cov*P*U(x,:)',fmodel.chanlocs,'nosedir',nosedir);
                     else
-                        topoplot(P*U(x,:)',fmodel.chanlocs);
+                        topoplot(P*U(x,:)',fmodel.chanlocs,'nosedir',nosedir);
                     end
-                    t = title(sprintf('Component %.0f',x));
+                    if args.titles
+                        t = title(sprintf('Component %.0f',x)); end
                     camzoom(1.2);
                     subplot(2*py,px,idx+px,'Parent',myparent);
                     p1 = plot(fmodel.times,inv(Q)*V(:,x)*S(x,x),'black');
-                    ylim([-lim lim]);
+                    ylim([-lim lim]);                    
                     hold; p2 = plot(fmodel.times,zeros(length(Q),1),'black--');
-                    l1 = xlabel('Time in ms');
+                    xlim([min(fmodel.times) max(fmodel.times)]);
+                    l1 = xlabel('Time in s');
                     l2 = ylabel('Weight');
                 elseif args.regcurve
                     subplot(2*py,px,idx+px,'Parent',myparent);
-                    t = title('Regularization curve');
+                    if args.titles
+                        t = title('Regularization curve'); end
                     p1 = plot(mean(pmodel.model.losses)); p2=[];
                     l1 = xlabel('Regularization parameter #');
                     l2 = ylabel('Prediction loss');
                 end
                 if args.paper
-                    set([p1,p2],'LineWidth',3);
-                    set([l1,l2,t],'FontUnits','normalized');
-                    set([l1,l2,t],'FontSize',0.1);
-                    set(gca,'FontUnits','normalized');
-                    set(gca,'FontSize',0.1);
+                    scale = 0.2;
+                    try set(p1,'LineWidth',3); end;
+                    try set(p2,'LineWidth',3); end;
+                    try set(l1,'FontUnits','normalized'); end
+                    try set(l2,'FontUnits','normalized'); end
+                    try set(t,'FontUnits','normalized'); end
+                    try set(l1,'FontSize',scale); end
+                    try set(l2,'FontSize',scale); end
+                    try set(t,'FontSize',scale); end
+                    try set(gca,'FontUnits','normalized'); end
+                    try set(gca,'FontSize',scale); end
+                    try set(gcf,'Color',[1 1 1]); end
                 end
             end
         end

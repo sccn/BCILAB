@@ -102,6 +102,18 @@ function env_startup(varargin)
 %               'show_guru' : whether to show methods and options marked 'guru' in the GUIs
 %                             (default: false)
 %
+%               'fingerprinting' : whether to calculate fingerprints of datasets; this allows to
+%                                  manually curate dataset structs "EEGLAB-style" prior to using
+%                                  them in offline analysis functions (e.g., bci_train). If
+%                                  disabled, all dataset processing must happen in custom filters,
+%                                  loaders, or must have been committed into .set files. Disabling
+%                                  this can give a speed advantage on extremely large data sets.
+%                                  (default: true)
+%
+%               'disabled_caches' : cell array of disabled disk caches; see hlp_diskcache lines at
+%                                   the bottom of this file for available caches (default: {})
+%
+%
 % Examples:
 %  Note that env_startup is usually not being called directly; instead the bcilab.m function in the
 %  bcilab root directory forwards its arguments (and variables declared in a config script) to this 
@@ -146,6 +158,9 @@ function env_startup(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-03-28
+
+% benchmarking
+t_prelaunch = tic;
 
 % determine the BCILAB core directories
 if ~isdeployed
@@ -217,7 +232,7 @@ if hlp_matlab_version < 706
 % get options
 opts = hlp_varargin2struct(varargin,'data',[],'store',[],'cache',[],'temp',[],'private',[],'mem_capacity',2,'data_reuses',3, ...
     'parallel',{'use','local'}, 'menu',true, 'configscript','', 'worker',false, 'autocompile',true, 'acquire_method','SSH', 'acquire_options',{}, ...
-    'show_experimental',false,'show_guru',false);
+    'show_experimental',false,'show_guru',false,'fingerprinting',true,'disabled_caches',{});
 
 % load all dependencies, recursively...
 disp('Loading BCILAB dependencies...');
@@ -319,7 +334,8 @@ for d=1:length(opts.cache)
         import java.io.*; 
         % try to add a free space checker (Java File object), which we use to check the quota, etc.
         location.space_checker = File(opts.cache{d}.dir);
-        filename = [opts.cache{d}.dir filesep '__probe_cache_ ' num2str(round(rand*2^32)) '__.sto'];
+        [pid,pname] = hlp_processid;
+        filename = [opts.cache{d}.dir filesep '__probe_cache_ ' num2str(pid) '_' pname '__.sto'];
         if exist(filename,'file') 
             delete(filename); end
         oldvalue = location.space_checker.getFreeSpace;
@@ -389,20 +405,44 @@ hlp_microcache('findfunction','lambda_equality','fast','group_size',5);
 hlp_microcache('verybig','max_key_size',2^30,'max_result_size',2^30);
 
 % set up some fine-grained disk-cache locations
-hlp_diskcache('filterdesign','folder',opts.temp,'subdir','filterdesign','exactmatch_cutoff',0);
-hlp_diskcache('icaweights','folder',opts.temp,'subdir','icaweights','exactmatch_cutoff',0,'spot_hashing',true);
-hlp_diskcache('dipfits','folder',opts.temp,'subdir','dipfits','exactmatch_cutoff',0);
-hlp_diskcache('featuremodels','folder',opts.temp,'subdir','featuremodels','exactmatch_cutoff',0,'spot_hashing',true);
-hlp_diskcache('predictivemodels','folder',opts.temp,'subdir','predictivemodels','exactmatch_cutoff',0,'spot_hashing',true);
-hlp_diskcache('statistics','folder',opts.temp,'subdir','statistics','exactmatch_cutoff',0);
-hlp_diskcache('general','folder',opts.temp,'subdir','general');
-hlp_diskcache('finegrained','folder',opts.temp,'subdir','finegrained');
-hlp_diskcache('temporary','folder',opts.temp,'subdir','temporary');
-hlp_diskcache('montages','folder',opts.temp,'subdir','montages','exactmatch_cutoff',0);
-hlp_diskcache('montage_quality','folder',opts.temp,'subdir','montages','exactmatch_cutoff',0,'spot_hashing',true);
-hlp_diskcache('features','folder',opts.temp,'subdir','features','exactmatch_cutoff',0,'spot_hashing',true);
+% small designed filter models in signal processing functions (crucial, especially due to toolbox licenses; frequently reused)
+hlp_diskcache('filterdesign','folder',opts.temp,'subdir','filterdesign','exactmatch_cutoff',0,'bypass',ismember('filterdesign',opts.disabled_caches));
+% ICA solutions; small and expensive to recompute
+hlp_diskcache('icaweights','folder',opts.temp,'subdir','icaweights','exactmatch_cutoff',0,'spot_hashing',true,'bypass',ismember('icaweights',opts.disabled_caches));
+% dipole fits: small and expensive to recompute
+hlp_diskcache('dipfits','folder',opts.temp,'subdir','dipfits','exactmatch_cutoff',0,'bypass',ismember('dipfits',opts.disabled_caches));
+% feature-extraction models: fairly small, but produced in large quantities and fast to recompute
+hlp_diskcache('featuremodels','folder',opts.temp,'subdir','featuremodels','exactmatch_cutoff',0,'spot_hashing',true,'bypass',ismember('featuremodels',opts.disabled_caches));
+% machine learning models: can be large, can be expensive to recompute, but produced in large quantities
+hlp_diskcache('predictivemodels','folder',opts.temp,'subdir','predictivemodels','exactmatch_cutoff',0,'spot_hashing',true,'bypass',ismember('predictivemodels',opts.disabled_caches));
+% miscellaneous statistics; currently rarely used
+hlp_diskcache('statistics','folder',opts.temp,'subdir','statistics','exactmatch_cutoff',0,'bypass',ismember('statistics',opts.disabled_caches));
+% montage-related data: small but expensive to recompute (frequently reused)
+hlp_diskcache('montages','folder',opts.temp,'subdir','montages','exactmatch_cutoff',0,'bypass',ismember('montages',opts.disabled_caches));
+% more montage-related data: small but expensive to recompute (frequently reused)
+hlp_diskcache('montage_quality','folder',opts.temp,'subdir','montages','exactmatch_cutoff',0,'spot_hashing',true,'bypass',ismember('montage_quality',opts.disabled_caches));
+% intermediate results: produced in huge quantities
+hlp_diskcache('intermediate','folder',opts.temp,'subdir','intermediate','bypass',ismember('intermediate',opts.disabled_caches));
+% feature representations: used by some expensive methods; moderately expensive to recompute per byte, produced in huge quantities
+hlp_diskcache('features','folder',opts.temp,'subdir','features','exactmatch_cutoff',0,'spot_hashing',true,'bypass',ismember('features',opts.disabled_caches));
+% generic data: currently rarely used
+hlp_diskcache('general','folder',opts.temp,'subdir','general','bypass',ismember('general',opts.disabled_caches));
+% fine-grained data: currently rarely used
+hlp_diskcache('finegrained','folder',opts.temp,'subdir','finegrained','bypass',ismember('finegrained',opts.disabled_caches));
+
+% set up fingerprinting options
+if ~opts.fingerprinting
+    exp_eval(exp_set('fingerprint_create',false));
+    exp_eval(exp_set('fingerprint_check',false));
+end
+
 
 % show toolbox status
+fprintf('\n');
+if ~isempty(opts.disabled_caches)
+    fprintf('The following caches are disabled: %s.\n',hlp_tostring(opts.disabled_caches)); end
+if ~opts.fingerprinting
+    fprintf('Caution: data fingerprinting has been disabled. You cannot pass manually edited datasets into offline analysis functions.\n'); end
 fprintf('\n');
 disp(['code is in ' function_dir]);
 datalocs = [];
@@ -434,24 +474,7 @@ warning off MATLAB:divideByZero %#ok<RMWRN>
 warning off MATLAB:RandStream:ReadingInactiveLegacyGeneratorState % for GMMs....
 
 if isequal(opts.worker,false) || isequal(opts.worker,0)
-    % --- regular mode ---
-    
-    % set up logfile
-    if ~exist([hlp_homedir filesep '.bcilab'],'dir')
-        if ~mkdir(hlp_homedir,'.bcilab');
-            disp('Cannot create directory .bcilab in your home folder.'); end
-    end
-    tracking.logfile = env_translatepath('home:/.bcilab/logs/bcilab_console.log');
-    try 
-        diary(tracking.logfile); 
-        if exist(tracking.logfile,'file')
-            warning off MATLAB:DELETE:Permission
-            delete(tracking.logfile); 
-            warning on MATLAB:DELETE:Permission
-        end
-    catch e
-        disp(['Error trying to set up the logfile: ' e.message]);
-    end
+    % --- regular mode ---   
     
     try 
         % create directories in the user's .bcilab folder...
@@ -486,6 +509,23 @@ if isequal(opts.worker,false) || isequal(opts.worker,0)
         disp(['Error trying to set up directories in ~/.bcilab: ' e.message]);
     end
 
+    % set up logfile
+    if ~exist([hlp_homedir filesep '.bcilab'],'dir')
+        if ~mkdir(hlp_homedir,'.bcilab');
+            disp('Cannot create directory .bcilab in your home folder.'); end
+    end
+    tracking.logfile = env_translatepath(sprintf('home:/.bcilab/logs/bcilab_%s-%s.log',hlp_hostname,strrep(datestr(now),':','.')));
+    try 
+        if exist(tracking.logfile,'file')
+            warning off MATLAB:DELETE:Permission
+            delete(tracking.logfile); 
+            warning on MATLAB:DELETE:Permission
+        end
+        diary(tracking.logfile); 
+    catch e
+        disp(['Error trying to set up the logfile: ' e.message]);
+    end   
+    
     % add private plugin directories to the path
     if ~isempty(opts.private)
         try
@@ -533,10 +573,13 @@ if isequal(opts.worker,false) || isequal(opts.worker,0)
     end
 
     disp([' Welcome to the BCILAB toolbox on ' hlp_hostname '!'])
+    fprintf(' Launch time was: %.1f seconds\n',toc(t_prelaunch));
     fprintf('\n');
 
 else
     disp('Now entering worker mode...');
+    fprintf(' Launch time was: %.1f seconds\n',toc(t_prelaunch));
+    fprintf('\n');
     
     % -- worker mode ---
     % disable standard dialogs in the workers

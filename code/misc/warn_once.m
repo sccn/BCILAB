@@ -3,7 +3,7 @@ function got_displayed = warn_once(varargin)
 % GotDiplayed = warn_once(MessageId,Message,Arguments...)
 %
 % This function behaves like the built-in warning, except that a message with the given content is
-% only emitted once per MATLAB session.
+% only emitted once per MATLAB session. The warnings can be reset with the command: clear warn_once
 %
 % In:
 %   MessageId: optional message ID (see built-in warning)

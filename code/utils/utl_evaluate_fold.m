@@ -19,7 +19,7 @@ function result = utl_evaluate_fold(opts,data,inds)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-07
-
+dp;
 
 % learn a model on the training partition
 trainset = opts.partitioner(data,inds{1});

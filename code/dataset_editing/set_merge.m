@@ -25,6 +25,7 @@ function [data,idxmap] = set_merge(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-03-31
+dp;
 
 % set_merge_version<1.0> -- for the cache
 

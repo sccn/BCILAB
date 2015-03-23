@@ -115,7 +115,7 @@ classdef ParadigmMTCSP < ParadigmDataflowSimplified
                     if onl_isonline
                         features(:,w,:,:) = utl_calc_crossspec(featuremodel.spec_args,'signal',wnd,'feature_filters',squeeze(featuremodel.filters(w,:,:,:)));
                     else
-                        features(:,w,:,:) = hlp_diskcache('general',@utl_calc_crossspec,featuremodel.spec_args,'signal',wnd,'feature_filters',squeeze(featuremodel.filters(w,:,:,:)));
+                        features(:,w,:,:) = hlp_diskcache('features',@utl_calc_crossspec,featuremodel.spec_args,'signal',wnd,'feature_filters',squeeze(featuremodel.filters(w,:,:,:)));
                     end
                     if featuremodel.normalize_spectrum
                         nfreqs = size(features,1);

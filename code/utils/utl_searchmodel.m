@@ -1,4 +1,4 @@
-function [model,stats] = utl_searchmodel(data, varargin)
+function [model,stats] = utl_searchmodel(varargin)
 % Find the best predictive model out of a parameterized set, via cross-validation.
 % [Model,Stats] = utl_searchmodel(Data, Arguments...)
 %
@@ -115,45 +115,50 @@ function [model,stats] = utl_searchmodel(data, varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-22
+dp;
 
-% get options struct, and impose documented defaults (any further arguments
-% have no defaults)
-opts = hlp_varargin2struct(varargin, ...
-    ... % arguments for the model search process
-    'trainer',@ml_train, ...    % the default training function
-    'forcestats',0, ...         % whether a cross-validation should always be done
-    ... % arguments that control the inner cross-validation
-    'engine_ncv','global', ...  % the engine_ncv argument will be used as the engine_cv argument of utl_crossval
-    ... % arguents that control the grid search
-    'engine_gs','global', ...   % the grid searching engine
-    'argform','clauses', ...    % by default we use the 'clauses' grid search format
-    'args',{});
-    
+% parse arguments
+opts = arg_define(0:1,varargin, ...
+    ... % training data
+    arg_norep({'data','Data'},[],[],'Data that can be partitioned using index sets. Such as, for example, {X,y} with X being the [NxF] training data and y being the [Nx1] labels (N=#trials, F=#features).'), ...
+    ... % method to use and its arguments
+    arg({'args','TrainingArguments'},{},[],'Arguments to the training function. Packed in a cell array. Search ranges are defined according to ArgumentFormat; see also utl_gridsearch for additional clarification on this. Note: if using the default trainer/tester functions, args must at least specify the learning function to be used, optionally followed by arguments to that learning function, e.g. {''lda''} for linear discriminant analysis or {''logreg'',''lambda'',0.1} for logistic regression with ''lambda'',0.1 passed in as user parameters (see ml_train* functions for options).','type','expression'), ...
+    arg({'trainer','TrainingFunction'},'@ml_train',[],'Training function. Receives a partition of the data (as produced by the specified partitioner), possibly some further arguments as specified in args, and returns a model (of any kind).','type','expression'), ...
+    arg({'tester','PredictionFunction'},'@utl_default_predict',[],'Prediction function. Receives a partition of the data (as produced by the partitioner) and a model (as produced by the trainer), and returns a prediction for every index of the input data, in one of the output formats permitted by ml_predict.','type','expression'), ...
+    ... % nested cross-validation parameters
+    arg({'scheme','EvaluationScheme'},10,[],'Cross-validation scheme. Defines what parts of the data shall be used for training or testing in each fold. Supports many different formats, see documentation.','type','expression'), ...
+    arg({'metric','EvaluationMetric'},'auto',{'auto','mcr','auc','mse','medse','smse','mae','medae','smae','smedae','max','sign','rms','bias','kld','nll','cond_entropy','cross_entropy','f_measure'},'Evaluation metric. Loss measure employed to measure the quality of predictions on a test partition given its known target values; applied both to results in each fold and results aggregated over all folds. Can be either a predefined metric supported by ml_calcloss, or a custom function handle which receives an array of target values in the first argument and an array of predictions in the second argument; each can be in any format that can be produced by ml_predict (but can be expected to be mutually consistent). Shall return a real number indicating the summary metric over all data, and optionally additional statistics in a second output struct.','typecheck',false), ...
+    arg({'repeatable','RepeatableResults'},1,[],'Produce repeatable (vs. randomized) results. If nonzero, the value is taken as the random seed to use for the performed calculation. This way, different numbers (aside from 0) give different repeatable runs.'), ...
+    ... % support for custom data representations
+    arg({'target','TargetFunction'},'@utl_default_target',[],'Target extraction function. A function to derive the target variable from a partition of the data (as produced by the partitioner), for evaluation; the allowed format is anything that may be output by ml_predict.','type','expression'), ...
+    arg({'partitioner','PartitioningFunction'},'@utl_default_partitioner',[],'Partitioning function. See documentation for the function contract.','type','expression'), ...
+    ... % parallel computing settings
+    arg({'engine_gs','ParallelEngineGS'},'global',{'global','local','BLS','Reference','ParallelComputingToolbox'}, 'Parallel engine for grid search. This can either be one of the supported parallel engines (BLS for BCILAB Scheduler, Reference for a local reference implementation, and ParallelComputingToolbox for a PCT-based implementation), or local to skip parallelization altogether, or global to select the currently globally selected setting (in the global tracking variable).'), ...
+    arg({'engine_ncv','ParallelEngineNCV'},'global',{'global','local','BLS','Reference','ParallelComputingToolbox'}, 'Parallel engine for cross-validation. This can either be one of the supported parallel engines (BLS for BCILAB Scheduler, Reference for a local reference implementation, and ParallelComputingToolbox for a PCT-based implementation), or local to skip parallelization altogether, or global to select the currently globally selected setting (in the global tracking variable).'), ...
+    arg({'pool','WorkerPool'},'global',[], 'Worker pool to use. This is typically a cell array, but can also be the string ''gobal'', which stands for the currently globally set up worker pool (see global tracking variable).','type','expression'), ...
+    arg({'policy','ReschedulingPolicy'},'global',[], 'Rescheduling policy. This is the name of the rescheduling policy function that controls if and when tasks are being rescheduled. If set to global, the current global setting will be used.'), ...    
+    ... % misc arguments
+    arg({'argform','ArgumentFormat'},'clauses',{'clauses','direct'},'Argument search range format. If set to clauses, search ranges for individual arguments can be given using the search() expression; if set to direct, a cell array is expected each of whose elements is a cell array that represents a particular parameter set to try for the training function.'), ...
+    arg({'forcestats','ForceStatistics'},0,[],'Enforce a cross-validation to obtain stats. Even when no search is required.'), ...
+    arg({'collect_models','CollectModels'},false,[],'Collect models per fold. Note that this increases the amount of data returned.'));
+
 % if there are parameters to be searched...
 if opts.forcestats || is_needing_search(opts.argform,opts.args)
     
-    % set up the appropriate options struct that will be used for the nested 
-    % cross-validation; in particular, all our options are forwarded to it, 
-    % but the engine_gs parameter is peeled off...
-    nestedcv_ctrl = rmfield(opts,'engine_gs');
-    % ... and the value for engine_cv (whether present or not) is substituted by the value of engine_ncv
-    nestedcv_ctrl.engine_cv = opts.engine_ncv;
+    % the nested cross-validation (utl_crossval) receives a specific subset of our arguments
+    nestedcv_opts = hlp_struct2varargin(opts,'suppress',{'engine_gs','forcestats','args','argform'},'rewrite',{'engine_ncv','engine_cv'});
 
-    % set up the objective function that will be used for the grid search,
-    % which is utl_crossval, using the control options defined above
-    % The objective function's free parameters are passed down into
-    % the cross-validation as its 'args' parameter, which is the arguments
-    % that are forwarded by it to the 'trainer' function
-    objective_function = @(varargin) utl_crossval(data,nestedcv_ctrl,'args',varargin);
+    % the objective function of our search is utl_crossval with the above-defined options; plus, it
+    % has free arguments that are passed into the cross-validation as the 'args' parameter (i.e.,
+    % the arguments that it passes into its 'trainer' function)
+    objfun = @(varargin) utl_crossval(nestedcv_opts{:}, 'args',varargin);
     
-    % set up the appropriate options struct for utl_gridsearch; in particular, 
-    % the parallelization & clauses behavior of or the gridsearch is determined according to the opts...
-    gridsearch_ctrl = hlp_struct2varargin(opts,'restrict',{'argform','pool','policy','engine_gs'});
-    % ... and the objective function ('func') is the one defined above 
-    gridsearch_ctrl = [gridsearch_ctrl {'func',objective_function}];
+    % the grid search receives the above-defined objective function and a subset of our arguments
+    search_opts = {'argform',opts.argform, 'engine_gs',opts.engine_gs, 'policy',opts.policy, ...
+        'pool',opts.pool, 'func',objfun};
     
-    % now execute the grid search over every specified combination in opts.args
-    [stats.bestidx,stats.inputs,stats.outputs] = utl_gridsearch(gridsearch_ctrl, opts.args{:});
+    % now execute the grid search over every argument combination specified in opts.args
+    [stats.bestidx,stats.inputs,stats.outputs] = utl_gridsearch(search_opts, opts.args{:});
     
 else
     
@@ -162,6 +167,6 @@ else
     
 end
 
-% using the best args, send the complete data through the training function & compute a model on it
+% finally, using the best args, send the input data through the training function & compute a model
 bestargs = stats.inputs{stats.bestidx};
-model = opts.trainer(data,bestargs{:});
+model = opts.trainer(opts.data,bestargs{:});

@@ -5,6 +5,7 @@ function res = utl_default_partitioner(data,inds,varargin)
 %
 % See also:
 %   utl_crossval, utl_partition_bundle, set_partition
+dp;
 
 if ~exist('inds','var')
     inds = []; end
