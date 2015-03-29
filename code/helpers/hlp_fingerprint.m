@@ -86,6 +86,7 @@ if isnumeric(x)
         catch
             x = [find(x)' nonzeros(x)];
         end
+    end
     if numel(x) <= 4096
         % small matrices are hashed completely
         try
