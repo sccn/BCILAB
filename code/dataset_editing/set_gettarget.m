@@ -96,7 +96,8 @@ if nargin > 0
         elseif ~all(fields)
             error('The given data structure is not a complete EEGLAB data set struct (lacking some fields) and no target information was found. See help of set_gettarget and set_targetmarkers for how data sets can be annotated with target information.');
         else
-            error('set_gettarget did not find any target information in this data set. See help of set_gettarget and set_targetmarkers for how data sets can be annotated with target information.');
+            disp('WARNING: set_gettarget did not find any target information in this data set. See help of set_gettarget and set_targetmarkers for how data sets can be annotated with target information.');
+            return;
         end
     end
 end

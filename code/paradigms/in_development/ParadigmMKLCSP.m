@@ -47,24 +47,48 @@ classdef ParadigmMKLCSP < ParadigmBase
                 arg_sub({'flt','SignalProcessing'}, self.preprocessing_defaults(), @flt_pipeline, 'Signal processing stages. These parameters control filter stages that run on the signal level; they can be enabled, disabled and configured for the given paradigm. The prediction operates on the outputs of this stage.'), ...
                 arg_sub({'ml','MachineLearning'},{'Learner',self.machine_learning_defaults()},@ml_train,'Machine learning stage of the paradigm. Operates on the feature vectors that are produced by the feature-extraction stage.'),...
                 arg({'arg_dialogsel','ConfigLayout'},self.dialog_layout_defaults(),[],'Parameters displayed in the config dialog. Cell array of parameter names to display (dot-notation allowed); blanks are translated into empty rows in the dialog. Referring to a structure argument lists all parameters of that struture, except if it is a switchable structure - in this case, a pulldown menu with switch options is displayed.','type','cellstr','shape','row'));
-           
-            % first solve CSP for each subject in the corpus individually
+
             if args.verbose
                 fprintf('Now training model for: %s...\n',hlp_tostring(args.goal_identifier)); end
+
+            % first solve CSP for each subject in the corpus individually and aggregate CSP filters            
             filters = [];
             patterns = [];
+            
+            % find the unique subjects in the collection
+            try
+                corpus = [args.collection{:}];
+            catch e
+                error('The dataset collection must have the same field names for each recording.');
+            end
+            if ~isfield(corpus,'subject')
+                error('The datasets in the collection must each have a .subject field.'); end
+            subjects = {corpus.subject};
+            if all(cellfun('isclass',subjects,'char'))
+                subjects = unique(subjects);
+            elseif all(cellfun('isclass',subjects,'double'))
+                subjects = unique([subjects{:}]);
+            else
+                error('The subject identifiers must either be all strings or all doubles');
+            end
+            
             if args.verbose
-                fprintf('Pre-processing each of %i sets in the corpus and solving CSP...\n',length(args.collection)); end
-            for s=1:length(args.collection)
-                if length(args.collection{s}.streams) > 1
-                    disp_once('Note: ParadigmMKLCSP will use only the first data stream of a recording (no support for multi-modal data).'); end
-                % preprocess
-                procdata = exp_eval_optimized(flt_pipeline('signal',args.collection{s}.streams{1}, args.flt)); %#ok<*NODEF>
-                if procdata.nbchan < patterns
+                fprintf('Pre-processing each of %i recordings (%i subjects) in the corpus and solving CSP...\n',length(args.collection),length(subjects)); end
+
+            % for each subject...
+            for subj=subjects                
+                % find all recordings that match that subject
+                recordings = corpus(cellfun(@(s)isequal(s,subj),{corpus.subject}));
+                % preprocess each of them and concatenate across trials
+                preproc = {};
+                for r=1:length(recordings)
+                    preproc{r} = exp_eval_optimized(flt_pipeline('signal',recordings(r).streams{1}, args.flt)); end
+                preproc = exp_eval(set_joinepos(preproc{:}));
+                if preproc.nbchan < patterns
                     error('CSP requires at least as many channels as you request output patterns. Please reduce the number of pattern pairs.'); end
                 % solve CSP
                 for k=1:2
-                    classdata = exp_eval(set_picktrials(procdata,'rank',k));
+                    classdata = exp_eval(set_picktrials(preproc,'rank',k));
                     covar{k} = reshape(classdata.data,size(classdata.data,1),[])*reshape(classdata.data,size(classdata.data,1),[])'/(size(classdata.data,2)*size(classdata.data,3)); % cov(reshape(classdata.data,size(classdata.data,1),[])');
                     covar{k}(~isfinite(covar{k})) = 0; %#ok<*AGROW>
                     covar{k} = (1-args.shrinkage)*covar{k} + args.shrinkage*eye(size(covar{k}))*trace(covar{k})/length(covar{k});
@@ -73,8 +97,8 @@ classdef ParadigmMKLCSP < ParadigmBase
                 P = inv(V);
                 % if you get an error here then your data sets had varying number of channels
                 filters = [filters V(:,[1:args.patterns end-args.patterns+1:end])];
-                patterns = [patterns P([1:args.patterns end-args.patterns+1:end],:)'];
-            end
+                patterns = [patterns P([1:args.patterns end-args.patterns+1:end],:)'];                
+            end            
             model.featuremodel = struct('filters',filters,'patterns',patterns);
 
             if args.verbose
@@ -88,11 +112,12 @@ classdef ParadigmMKLCSP < ParadigmBase
             % extract features and get target labels
             features = self.feature_extract(refdata,model.featuremodel);
             targets = set_gettarget(refdata);
+            
             if args.verbose
                 fprintf('Training predictive model (this may take a while)...\n'); end
             % train classifier, overriding with the correct feature shape (based on the group size)
             if isfield(args.ml.learner,'shape')
-                args.ml.learner.shape = [2*args.patterns,length(args.collection)]; end
+                args.ml.learner.shape = [2*args.patterns,length(subjects)]; end
             model.predictivemodel = ml_train('data',{features,targets}, args.ml);
             % set the filter graph based on the reference data
             model.tracking.filter_graph = refsets{end};
