@@ -1,11 +1,28 @@
 function [closest,rest] = utl_collection_closest(varargin)
 % Find the best-matching data set(s) in a collection for a given identifier record
 %
-% In:
-%   Collection : Data set collection
+% This function goes through the given Collection (i.e., cell array) of dataset structs (either
+% EEGLAB datasets, or alternatively multi-modal stream bundles), and compares their fields to those
+% in a given a reference struct (called the Identifier). The identifier typically has only a small
+% subset of fields (e.g., 'subject', 'session', or 'day'). It then calculates the a kind of
+% "distance" between any struct in the Collection and the Identifier, and returns those that have
+% minimum distance to the identifier (i.e., best match). This may be multiple sets. The remaining
+% datasets are optionally returned as a second output. 
 %
-%   Identifier : An identifier record, containing meta-data. Either a struct with fields or a cell
-%                array with name-value pairs
+% The distance used here tries to reflect how dissimilar one would expect the data to be from that
+% of the Identifier; for instance, a difference in subject name/id ('subject' field) counts as a
+% greater dissimilarity than, a difference in the session ('session' field). Thus, the function
+% recognizes a set of pre-defined fields; sorted from highest to lowest dissimilarity, these are:
+% {'subject','day','montage','session','recording','block'}. Additional fields may be supported in 
+% the future.
+%
+% In:
+%   Collection : Data set collection; this is a cell array of structs.
+%
+%   Identifier : An identifier record, containing meta-data. This is a struct which has identifying
+%                fields, like 'subject', 'day', 'session', and values assigned to them. This way,
+%                the record specifies the kind of data that you are looking for (e.g., subject
+%                'John', day 3, session 10).
 %
 %   ScopeOrdering : Odering of matching-relevant properties from largest difference to smallest
 %                   (default: {'group','subject','day','montage','session','recording','block'}).
@@ -18,8 +35,10 @@ function [closest,rest] = utl_collection_closest(varargin)
 %                 'montage','block'})
 %
 % Out:
-%   Result : the set in the collection whose meta-data best matches that of the identifier,
-%            or multiple sets if their distance to the identifier is identical
+%   Closest : the set in the Collection whose meta-data best matches that of the identifier,
+%             or multiple sets if their distance to the identifier is identical
+%
+%   Remaining : the remaining sets in the collection that are not in Closest
 %
 % See also:
 %   bci_train
@@ -61,8 +80,8 @@ if ~isempty(identifier)
         id = args.scope_order{s};
         % is the order present in the identifier?
         if isfield(identifier,id)
-            present = find(cellfun(@(x)isfield(x,id),collection));
             % is it present in the collection?
+            present = find(cellfun(@(x)isfield(x,id),collection));
             if ~isempty(present)
                 values = cellfun(@(x)x.(id),collection(present),'UniformOutput',false);
                 if iscellstr(values)
