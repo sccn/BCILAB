@@ -2,9 +2,9 @@ function [closest,rest] = utl_collection_closest(varargin)
 % Find the best-matching data set(s) in a collection for a given identifier record
 %
 % In:
-%   Collection : data set collection
+%   Collection : Data set collection
 %
-%   Identifier : an identifier record, containing meta-data; either a struct with fields or a cell
+%   Identifier : An identifier record, containing meta-data. Either a struct with fields or a cell
 %                array with name-value pairs
 %
 %   ScopeOrdering : Odering of matching-relevant properties from largest difference to smallest
@@ -30,7 +30,7 @@ dp;
 
 args = arg_define(0:2, varargin, ...
     arg({'collection','Collection'},mandatory,[],'A dataset collection. Cell array of structs with meta-data.','type','expression'), ...
-    arg({'identifier','Identifier'},mandatory,[],'An identifier record, containing meta-data; either a struct with fields or a cell array with name-value pairs.','type','expression'), ...
+    arg({'identifier','Identifier'},mandatory,[],'An identifier record, containing meta-data. Either a struct with fields or a cell array with name-value pairs.','type','expression'), ...
     arg({'scope_order','ScopeOrdering'},{'group','subject','day','montage','session','recording','block'},[],'Dataset identifiers ordered from coarsest to finest. This both defines what identifiers are known, and their hierarchical ordering.'), ...    
     arg({'treat_as_flat','TreatAsFlat'},{'group','subject','montage','block'},[],'Cell array of property names to treat as flat. Normally, the closest session to session 1 would be session 2; however, if other sessions shall have the same distance, then ''session'' should be added to this. This will allow to sort, for instance, the data from all other sessions into the "best-matching" set.','type','expression'));
     

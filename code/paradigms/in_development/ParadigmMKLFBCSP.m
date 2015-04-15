@@ -1,25 +1,19 @@
-classdef ParadigmMKLCSP < ParadigmBase
-    % Multiple Kernel Learning Common Spatial Patterns (mklCSP)
+classdef ParadigmMKLFBCSP < ParadigmBase
+    % Multiple Kernel Learning Filter-Bank Common Spatial Patterns (mklFBCSP)
     %
-    % This paradigm implements mklCSP [1], which is a generalization of the Common Spatial Patterns
-    % algorithms to calibration data comprising multiple subjects (or recordings). The basic
-    % approach is to solve CSP for each subject separately and then to concatenate all spatial
-    % filters into a filter bank. Then, to train a model for a particular subject, the calibration
-    % data for that subject is filtered through the filter bank, log-variance features are extracted
-    % (which yields Nsubj x Npatterns features), and a classifier is trained which has a
-    % group-sparsity penalty with groups of size Npatterns (one group per subject), which is set up
-    % to jointly penalize all filters computed for a particular subject.
-    %
-    % Thereby only features are retained that stem from subjects whose spatial filters are
-    % sufficiently applicable to that of the target subject.
+    % This paradigm implements a generalization of mklCSP [1] to multiple frequency bands as in 
+    % FBCSP [2] and to multiple time windows. See also ParadigmFBCSP and ParadigmMKLCSP.
     %
     % References:
     % [1] Samek, W., Binder, A., & Muller, K. R. 
     %     "Multiple kernel learning for brain-computer interfacing."
-    %      In Engineering in Medicine and Biology Society (EMBC) pp. 7048-7051 (2013)
+    %     In Engineering in Medicine and Biology Society (EMBC) pp. 7048-7051 (2013)
+    % [2] Kai K. Ang, Zhang Y. Chin, Haihong Zhang, Cuntai Guan, 
+    %     "Filter Bank Common Spatial Pattern (FBCSP) in Brain-Computer Interface"
+    %     In 2008 IEEE International Joint Conference on Neural Networks (IEEE World Congress on Computational Intelligence) (June 2008), pp. 2390-2397.
     %
     % Name:
-    %   Multiple Kernel Learning Common Spatial Patterns
+    %   Multiple Kernel Learning Filter-Bank Common Spatial Patterns
     %
     %                            Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
     %                            2014-02-05
@@ -27,13 +21,12 @@ classdef ParadigmMKLCSP < ParadigmBase
     methods
         
         function defaults = preprocessing_defaults(self)
-            defaults = {'FIRFilter',{'Frequencies',[6 8 28 32],'Type','minimum-phase'}, 'EpochExtraction',[0.5 3.5], 'Resampling',100};
+            defaults = {'EpochExtraction',[0.5 3.5],'Resampling',200};
         end
                 
         function defaults = machine_learning_defaults(self)
             % set up the default parameters for machine learning
-            defaults = {'dal', 2.^(4:-0.25:-3), 'Scaling','none', 'Regularizer','grouplasso-columns'};
-            % defaults = {'logreg', 'variant','lars'};
+            defaults = {'logreg', 'variant','lars'};
         end
                 
         function model = calibrate(self,varargin)
@@ -43,11 +36,28 @@ classdef ParadigmMKLCSP < ParadigmBase
                 arg_norep({'goal_identifier','GoalIdentifier'}), ...
                 arg({'patterns','PatternPairs'},3,uint32([1 1 64 10000]),'Number of CSP patterns (times two).','cat','Feature Extraction','type','expression','shape','row'),...
                 arg({'shrinkage','ShrinkageLevel'},0,[0 1],'Shrinkage level. The amount of shrinkage (regularization) to apply during covariance estimation.'), ...
+                arg({'freqwnds','FreqWindows'},[0.5 3; 4 7; 8 12; 13 30; 31 42],[0 0.5 200 1000],'Frequency bands of interest. Matrix containing one row for the start and end of each frequency band from which CSP patterns shall be computed. Values in Hz.','cat','Feature Extraction'), ...
+                arg({'timewnds','TimeWindows'},[],[],'Time windows of interest. Matrix containing one row for the start and end of each time window from which CSP patterns shall be computed. Values in seconds. If both this and the freqwnds parameter are non-empty, they should have the same number of rows.','cat','Feature Extraction'), ...
+                arg({'winfunc','WindowFunction'},'rect',{'barthann','bartlett','blackman','blackmanharris','bohman','cheb','flattop','gauss','hamming','hann','kaiser','nuttall','parzen','rect','taylor','triang','tukey'},'Type of window function. Typical choices are rect (rectangular), hann, gauss, blackman and kaiser.'),...
+                arg({'winparam','WindowParameter','param'},[],[],'Parameter of the window function. This is mandatory for cheb, kaiser and tukey and optional for some others.','shape','scalar'), ...
                 arg({'verbose','Verbose'},true,[],'Verbose output.'), ...
                 arg_sub({'flt','SignalProcessing'}, self.preprocessing_defaults(), @flt_pipeline, 'Signal processing stages. These parameters control filter stages that run on the signal level; they can be enabled, disabled and configured for the given paradigm. The prediction operates on the outputs of this stage.'), ...
                 arg_sub({'ml','MachineLearning'},{'Learner',self.machine_learning_defaults()},@ml_train,'Machine learning stage of the paradigm. Operates on the feature vectors that are produced by the feature-extraction stage.'),...
                 arg({'arg_dialogsel','ConfigLayout'},self.dialog_layout_defaults(),[],'Parameters displayed in the config dialog. Cell array of parameter names to display (dot-notation allowed); blanks are translated into empty rows in the dialog. Referring to a structure argument lists all parameters of that struture, except if it is a switchable structure - in this case, a pulldown menu with switch options is displayed.','type','cellstr','shape','row'));
 
+            if ~isempty(args.freqwnds) && ~isempty(args.timewnds) && size(args.freqwnds,1) ~= size(args.timewnds,1)
+                error('If both time and frequency windows are specified, both arrays must have the same number of rows (together they define the windows in time and frequency).'); end
+            if isempty(args.timewnds)
+                args.timewnds = zeros(size(args.freqwnds,1),0); end
+            if isempty(args.freqwnds)
+                args.freqwnds = zeros(size(args.timewnds,1),0); end
+            
+            % pre-parse arguments for flt_window and flt_spectrum (for fast subsequent online use)
+            for w = 1:max(size(args.freqwnds,1),size(args.timewnds,1))                
+                time_args{w} = arg_report('vals',@flt_window,{'time',{args.timewnds(w,:),args.winfunc,args.winparam}});
+                freq_args{w} = arg_report('vals',@flt_spectrum,{'freq',args.freqwnds(w,:)});
+            end
+            
             if args.verbose
                 fprintf('Now training model for: %s...\n',hlp_tostring(args.goal_identifier)); end
 
@@ -82,14 +92,13 @@ classdef ParadigmMKLCSP < ParadigmBase
             for subj=subjects                
                 % find all recordings that match that subject
                 recordings = corpus(cellfun(@(s)isequal(s,subj),{corpus.subject}));
-                % calculate CSP filters
-                [newfilters,newpatterns] = hlp_microcache('filters',@ParadigmMKLCSP.filters_for_subject,recordings, args.flt, args.shrinkage, args.patterns);
+                % calculate FBCSP filters
+                [newfilters,newpatterns,chanlocs] = hlp_microcache('filters',@ParadigmMKLFBCSP.filters_for_subject,recordings, args.flt, time_args, freq_args, args.shrinkage, args.patterns);
                 % if you get an error here then your data sets had varying number of channels
                 filters = [filters newfilters];
                 patterns = [patterns newpatterns];
             end
-            model.featuremodel = struct('filters',filters,'patterns',patterns);
-
+            model.featuremodel = struct('filters',{filters},'patterns',{patterns},'n_subjects',length(subjects),'time_args',{time_args},'freq_args',{freq_args},'chanlocs',{chanlocs});
             if args.verbose
                 fprintf('Preprocessing and extracting features for reference data...\n'); end            
             % get the data of the reference subject
@@ -122,13 +131,22 @@ classdef ParadigmMKLCSP < ParadigmBase
         end
         
         function features = feature_extract(self,signal,featuremodel)
-            % extract log-variance features from an epoched and preprocessed recording
-            features = zeros(size(signal.data,3),size(featuremodel.filters,2));
-            for t=1:size(signal.data,3)
-                features(t,:) = sum((signal.data(:,:,t)'*featuremodel.filters).^2,1); end
+            N = featuremodel.n_subjects;
+            W = length(featuremodel.freq_args);
+            F = size(featuremodel.filters,2)/N;
+            T = size(signal.data,3);
+            features = zeros(T,F*N);
+            for w = 1:W
+                % filter data in time & frequency
+                data = exp_eval(flt_spectrum('signal',flt_window('signal',signal,featuremodel.time_args{w}),featuremodel.freq_args{w}));
+                mask = false(1,F); mask((w-1)*(F/W)+(1:(F/W))) = true; mask = repmat(mask,1,N);
+                for t=1:size(signal.data,3)
+                    features(t,mask) = sum((data.data(:,:,t)'*featuremodel.filters(:,mask)).^2,1); end
+            end
             features = log(features/size(signal.data,2));
         end
         
+
         function visualize(self,varargin) %#ok<*INUSD>
             % visualize an mklCSP model
             args = arg_define(varargin, ...
@@ -173,8 +191,9 @@ classdef ParadigmMKLCSP < ParadigmBase
         end
                 
     end
+    
     methods (Static)
-        function [filters, patterns] = filters_for_subject(recordings, flt, shrinkage, n_patterns)
+        function [filters, patterns, chanlocs] = filters_for_subject(recordings, flt, time_args, freq_args, shrinkage, n_patterns)
             % get the CSP filters for a given subject
             
             % preprocess and concatenate across trials
@@ -183,21 +202,26 @@ classdef ParadigmMKLCSP < ParadigmBase
                 preproc{r} = exp_eval_optimized(flt_pipeline('signal',recordings(r).streams{1}, flt)); end
             preproc = exp_eval(set_joinepos(preproc{:}));
 
-            for k=1:2
-                % filter trial subrange in time and frequency
-                classdata = exp_eval(set_picktrials(preproc,'rank',k));
-                covar{k} = reshape(classdata.data,size(classdata.data,1),[])*reshape(classdata.data,size(classdata.data,1),[])'/(size(classdata.data,2)*size(classdata.data,3)); % cov(reshape(classdata.data,size(classdata.data,1),[])');
-                covar{k}(~isfinite(covar{k})) = 0; %#ok<*AGROW>
-                covar{k} = (1-shrinkage)*covar{k} + shrinkage*eye(size(covar{k}))*trace(covar{k})/length(covar{k});
+            % for each window...
+            filters = [];
+            patterns = [];            
+            for w = 1:length(time_args)
+                for k=1:2
+                    % filter trial subrange in time and frequency
+                    classdata = exp_eval(flt_spectrum('signal',flt_window('signal',set_picktrials(preproc,'rank',k),time_args{w}),freq_args{w}));
+                    covar{k} = reshape(classdata.data,size(classdata.data,1),[])*reshape(classdata.data,size(classdata.data,1),[])'/(size(classdata.data,2)*size(classdata.data,3)); % cov(reshape(classdata.data,size(classdata.data,1),[])');
+                    covar{k}(~isfinite(covar{k})) = 0; %#ok<*AGROW>
+                    covar{k} = (1-shrinkage)*covar{k} + shrinkage*eye(size(covar{k}))*trace(covar{k})/length(covar{k});
+                end
+                [V,D] = eig(covar{1},covar{1}+covar{2}); %#ok<ASGLU,NASGU>
+                P = inv(V);
+                % if you get an error here then your data sets had varying number of channels
+                filters = [filters V(:,[1:n_patterns end-n_patterns+1:end])];
+                patterns = [patterns P([1:n_patterns end-n_patterns+1:end],:)'];                
             end
-            [V,D] = eig(covar{1},covar{1}+covar{2}); %#ok<ASGLU,NASGU>
-            P = inv(V);
-            % if you get an error here then your data sets had varying number of channels
-            filters = V(:,[1:n_patterns end-n_patterns+1:end]);
-            patterns = P([1:n_patterns end-n_patterns+1:end],:)';
+            chanlocs = preproc.chanlocs;
         end        
     end
-    
 end
             
 % (turn off a few editor warnings because some actual implementations are missing in this file)
