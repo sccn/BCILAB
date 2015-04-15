@@ -582,6 +582,7 @@ opts = arg_define(0,varargin, ...
     arg({'per_fold_models','PerFoldModels'},false,[],'Collect per-fold models. If true, models of each fold of the cross-validation will be collected (uses more memory).'), ...
     arg({'prune_datasets','PruneDatasets'},true,[],'Prune datasets from results. If true, any occurrence of a data set in the resulting model or stats struct will be replaced by its symbolic expression or a placeholder string.'), ...
     arg({'prune_nontarget_markers','PruneNontargetMarkers'},false,[],'Prune non-target markers. This usually improves the speed of offline processing at the cost of not being able to access misc markers in BCI analysis.'), ...
+    arg({'no_prechecks','NoPrechecks'},false,[],'Disable pre-checks. This will skip sanity checks of the data prior to launching the actual computation. When the CV is run on a cluster on a large dataset, this can save significant loading time.'), ...
     arg_nogui({'enforce_fingerprinting','EnforceFingerprinting'},true,[],'Enforce use of fingerprinting. If true, this function will not accept raw dataset structs if fingerprinting is disabled.'));
 
 % do some checks to ensure that bci_train's use of caching based on datasets' .tracking fields 
@@ -735,7 +736,8 @@ for k=1:length(opts.data)
         end
     end    
     % check the bundle for consistency: in particular, whether the data matches the .tracking field
-    opts.data{k} = utl_check_bundle(opts.data{k});
+    if ~opts.no_prechecks
+        opts.data{k} = utl_check_bundle(opts.data{k}); end
 end
 % ... and store some tracking information for the resulting model
 source_data = opts.data;

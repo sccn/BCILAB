@@ -76,7 +76,10 @@ classdef ParadigmMKLCSP < ParadigmBase
                 fprintf('Pre-processing each of %i recordings (%i subjects) in the corpus and solving CSP...\n',length(args.collection),length(subjects)); end
 
             % remove actual data from corpus so we can micro-cache it
-            [corpus.streams] = celldeal(cellfun(@(s){{s.tracking.expression}},[corpus.streams]));
+            for s=1:length(corpus)
+                if isfield(corpus(s).streams{1},'tracking')
+                    corpus(s).streams{1} = corpus(s).streams{1}.tracking.expression; end
+            end
             
             % for each subject...
             for subj=subjects                
