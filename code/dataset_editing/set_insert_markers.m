@@ -236,30 +236,31 @@ switch opts.segmentspec.arg_selection
         % for each potential interval start...
         for k=1:length(starts)-1
             valid = true;
-            % for each event index up to the successive interval end point...
-            scanrange = starts(k) : starts(k) + find(ends(starts(k)+1:starts(k+1)-1),1);
-            % check various exclusion criteria
-            if ~isempty(scanrange)
-                % ignorance of intermediate markers turned off but intermediate marker found?
-                if ~iscell(opts.segmentspec.ignored) && any(~ends(scanrange))
-                    continue; end
-                % selective ignorance turned on but non-ignored intermediate marker found?
-                if ~isequal(opts.segmentspec.ignored,{'ignoreall'})
-                    for e=scanrange
-                        if ~any(strcmp(signal.event(e).type,[opts.segmentspec.ignored {opts.segmentspec.closeevent}]))
-                            valid = false; break; end
+            % the range of event indices from start marker to next end marker
+            scan_range = starts(k) : starts(k) + find(ends(starts(k)+1:starts(k+1)-1),1);
+            if length(scan_range) >= 2
+                % the range excluding the start and end marker
+                inner_range = scan_range(2:end-1);
+                % check various exclusion criteria
+                if ~isempty(inner_range)
+                    % selective ignorance turned on but non-ignored intermediate marker found?
+                    if ~isequal(opts.segmentspec.ignored,{'ignoreall'})
+                        for e=inner_range
+                            if ~any(strcmp(signal.event(e).type,opts.segmentspec.ignored))
+                                valid = false; break; end
+                        end
                     end
-                end
-                % selectively forbidden events turned on and a match was found?
-                if valid && ~isempty(opts.segmentspec.forbidden)
-                    for e=scanrange
-                        if any(strcmp(signal.event(e).type,opts.segmentspec.forbidden))
-                            valid = false; break; end
+                    % selectively forbidden events turned on and a match was found?
+                    if valid && ~isempty(opts.segmentspec.forbidden)
+                        for e=inner_range
+                            if any(strcmp(signal.event(e).type,opts.segmentspec.forbidden))
+                                valid = false; break; end
+                        end
                     end
                 end
                 % if valid, we can inject
                 if valid
-                    newsignal = perform_injection(newsignal,[signal.event(scanrange(1)).latency+opts.segmentspec.lo,signal.event(scanrange(end)+1).latency+opts.segmentspec.hi],opts); end
+                    newsignal = perform_injection(newsignal,[signal.event(scan_range(1)).latency+opts.segmentspec.lo,signal.event(scan_range(end)).latency+opts.segmentspec.hi],opts); end
             end
         end
 end

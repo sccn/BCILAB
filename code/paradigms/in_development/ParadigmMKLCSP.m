@@ -32,7 +32,8 @@ classdef ParadigmMKLCSP < ParadigmBase
                 
         function defaults = machine_learning_defaults(self)
             % set up the default parameters for machine learning
-            defaults = {'dal', 2.^(10:-0.25:-1), 'Scaling','none', 'Regularizer','grouplasso-columns'};
+            defaults = {'dal', 2.^(4:-0.25:-3), 'Scaling','none', 'Regularizer','grouplasso-columns'};
+            % defaults = {'logreg', 'variant','lars'};
         end
                 
         function model = calibrate(self,varargin)
@@ -65,10 +66,10 @@ classdef ParadigmMKLCSP < ParadigmBase
                 for k=1:2
                     classdata = exp_eval(set_picktrials(procdata,'rank',k));
                     covar{k} = reshape(classdata.data,size(classdata.data,1),[])*reshape(classdata.data,size(classdata.data,1),[])'/(size(classdata.data,2)*size(classdata.data,3)); % cov(reshape(classdata.data,size(classdata.data,1),[])');
-                    covar{k}(~isfinite(covar{k})) = 0;
+                    covar{k}(~isfinite(covar{k})) = 0; %#ok<*AGROW>
                     covar{k} = (1-args.shrinkage)*covar{k} + args.shrinkage*eye(size(covar{k}))*trace(covar{k})/length(covar{k});
                 end
-                [V,D] = eig(covar{1},covar{1}+covar{2}); %#ok<NASGU>
+                [V,D] = eig(covar{1},covar{1}+covar{2}); %#ok<ASGLU,NASGU>
                 P = inv(V);
                 % if you get an error here then your data sets had varying number of channels
                 filters = [filters V(:,[1:args.patterns end-args.patterns+1:end])];
@@ -79,7 +80,7 @@ classdef ParadigmMKLCSP < ParadigmBase
             if args.verbose
                 fprintf('Preprocessing and extracting features for reference data...\n'); end            
             % get the data of the reference subject
-            [reference,remaining] = utl_collection_closest(args.collection,args.goal_identifier); %#ok<NASGU>
+            [reference,remaining] = utl_collection_closest(args.collection,args.goal_identifier); %#ok<ASGLU,NASGU>
             % preprocess each recording in the reference collection and concatenate them across epochs into a single set
             for r=1:length(reference)
                 refsets{r} = exp_eval_optimized(flt_pipeline('signal',reference{r}.streams{1}, args.flt)); end
@@ -88,9 +89,10 @@ classdef ParadigmMKLCSP < ParadigmBase
             features = self.feature_extract(refdata,model.featuremodel);
             targets = set_gettarget(refdata);
             if args.verbose
-                fprintf('Training predictive model...\n'); end
-            % train classifier, using the correct feature shape (based on the group size)
-            args.ml.learner.shape = [2*args.patterns,length(args.collection)];
+                fprintf('Training predictive model (this may take a while)...\n'); end
+            % train classifier, overriding with the correct feature shape (based on the group size)
+            if isfield(args.ml.learner,'shape')
+                args.ml.learner.shape = [2*args.patterns,length(args.collection)]; end
             model.predictivemodel = ml_train('data',{features,targets}, args.ml);
             % set the filter graph based on the reference data
             model.tracking.filter_graph = refsets{end};

@@ -429,23 +429,34 @@ function [measure,model,stats] = bci_train(varargin)
 %
 %   EvaluationScheme : Evaluation scheme. Cross-validation scheme to use for evaluation. See 
 %                      utl_crossval for the default settings when operating on a single recording
-%                      (there it is called 'scheme'), and utl_collection_partition when operating on
-%                      a collection of data sets. In the case of single data sets, a reasonable
-%                      choice for final results is {'chron',10,5} which stands for 10-fold
-%                      chronological/blockwise cross-validation with 5 trials margin between
-%                      training and test sets. Default: {'chron',5,5}, which is twice as fast, for
-%                      more rapid workflow. A standard choice in machine learning is 10-fold randomized
-%                      cross-validation, which you get by setting this parameter to 10 (though it is
-%                      not ideal for time-series data).
+%                      (there it is called 'scheme'). When opperating on a collection of multiple
+%                      data sets, this is equivalent to the Settings argument of
+%                      utl_collection_partition (see that function for details). In the case of
+%                      single data sets, a reasonable choice for final results is {'chron',10,5}
+%                      which stands for 10-fold chronological/blockwise cross-validation with 5
+%                      trials margin between training and test sets. Default: {'chron',5,5}, which
+%                      is twice as fast, for more rapid workflow. A standard choice in machine
+%                      learning is 10-fold randomized cross-validation, which you get by setting
+%                      this parameter to 10 (though it is not ideal for time-series data).
 %
 %   OptimizationScheme : Optimization scheme. Cross-validation scheme to use for parameter search 
 %                        (this is a nested cross-validation, only performed if there are parameters
 %                        to search). The format is the same as in EvaluationScheme; default is
 %                        {'chron',5,5}, which is a reasonable choice for final results.
 %   
-%   GoalIdentifier : Goal identifier. This is only used for training on multiple recordings and
-%                    serves to identify the data set on which the BCI shall eventually be used
-%                    (e.g., the Subject Id, Day, etc. of the goal data set).
+%   GoalIdentifier : Goal identifier. This is used when training a model on a collection of
+%                    multiple recordings that will subsequently be used to predict given a dataset
+%                    that is somehow related to the training set (e.g., one of the subjects). It
+%                    serves to identify the data set on which the BCI shall eventually be used and
+%                    is a struct that has fields like 'subject', 'session', 'day' (e.g., the Subject
+%                    Id, Day, etc. of the goal data set); for further details, see
+%                    utl_collection_closest, which interprets these parameters to determine what
+%                    data in the collection is most relevant to the future test dataset. Note that
+%                    when one does not actually plan to use the trained model on new data (as is
+%                    often the case), it might be most efficient to just set the GoalIdentifier to
+%                    identify one of the recordings (e.g., {'subject',1}) since otherwise the final
+%                    model produced by bci_train would be trained in a way that's agnostic to which
+%                    is the future subject, and that can be quite time-consuming for some methods.
 %
 %   EpochBounds : Epoch bounds override. Tight upper bound of epoch windows used for epoching (by
 %                 default [-5 5]). This is only used if the cross-validation needs to run on

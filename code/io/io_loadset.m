@@ -423,6 +423,19 @@ if isfield(res.event,'type')
     end
 end
 
+% add data set meta-data
+res.setname = allopts.setname;
+res.filename = [name ext];
+res.filepath = base;
+res.subject = allopts.subject;
+res.group = allopts.group;
+res.condition = allopts.condition;
+res.comments = allopts.comments;
+
+% retain only selected channels
+if ~isempty(opts.channels)
+    res = hlp_scope({'disable_expressions',true},@flt_selchans,res,{res.chanlocs(opts.channels).labels}); end
+
 % retain only channels with the selected type
 if ~isempty(allopts.types)    
     if ischar(allopts.types)
@@ -436,28 +449,21 @@ if ~isempty(allopts.types)
     res.nbchan = size(res.data,1);
 end
 
-% add data set meta-data
-res.setname = allopts.setname;
-res.filename = [name ext];
-res.filepath = base;
-res.subject = allopts.subject;
-res.group = allopts.group;
-res.condition = allopts.condition;
-res.comments = allopts.comments;
-
-% and reduce the data post-hoc if not already done so in the loader
-if ~isempty(opts.channels)
-    res = hlp_scope({'disable_expressions',true},@flt_selchans,res,{res.chanlocs(opts.channels).labels}); end
+% retain only channels that have known locations
 if allopts.only_localized_channels
     keep = find(~cellfun('isempty',{res.chanlocs.X}) & ~cellfun('isempty',{res.chanlocs.Y}) & ~cellfun('isempty',{res.chanlocs.Z}));
     res = hlp_scope({'disable_expressions',true},@flt_selchans,res,keep);
 end
+
+% subsample spatially
 if ~isempty(allopts.submontage)
     channels_with_locs = find(~cellfun('isempty',{res.chanlocs.X}) & ~cellfun('isempty',{res.chanlocs.Y}) & ~cellfun('isempty',{res.chanlocs.Z}));
     channels_without_locs = setdiff(1:length(res.chanlocs),channels_with_locs);
     retained_channels = sort([channels_without_locs channels_with_locs(utl_equidistant_subset([res.chanlocs(channels_with_locs).X],[res.chanlocs(channels_with_locs).Y],[res.chanlocs(channels_with_locs).Z],allopts.submontage,true))]);
     res = hlp_scope({'disable_expressions',true},@flt_selchans,res,retained_channels); 
 end
+
+% subsample temporally
 if ~isempty(opts.samplerange)
     res = hlp_scope({'disable_expressions',true},@set_selinterval,res,opts.samplerange,'samples'); end
 if ~isempty(opts.timerange)

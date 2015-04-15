@@ -52,37 +52,50 @@ function [measure,stats] = utl_crossval(varargin)
 %                          output formats permitted by ml_predict (default: @ml_predict)
 %
 %               'scheme': cross-validation scheme, can be one of the following formats (default: 10)
+%                Generally, in the following k is the number of folds in k-fold CV, or if 0<k<1 
+%                it is the fraction of test trials per fold, as in p-holdout CV. Also m is the
+%                number of trials of margin between any training and test trial, or if 0<m<1, it is
+%                given as a fraction of the number of total trials in the data. r is the number of
+%                repeats for the CV procedure (as in r times repeated k-fold CV).
 %                * 0: skip CV, return NaN and empty statistics
-%                * k: k-fold randomized CV (or, if 0<k<1, k-holdhout CV)
-%                * [r k]: r times repartitioned k-fold randomized CV (or, if 0<k<1, k-holdout CV 
-%                         (with k a fraction))
+%                * k: k-fold randomized CV (or, if 0<k<1, randomized k-holdhout CV)
+%                * [r k]: r times repartitioned k-fold randomized CV (or, if 0<k<1, randomized 
+%                         k-holdout CV (with k a fraction))
 %                * [r k m]: r times repartitioned k-fold randomized CV (or, if 0<k<1, k-holdout CV 
 %                           (with k a fraction)) with m indices margin width (between training and
 %                           test set)
 %                * 'loo': leave-one-out CV
-%                * {'chron', k} or {'block', k}: k-fold chronological/blockwise CV
+%                * {'chron', k} or {'block', k}: k-fold chronological/blockwise CV (or k-holdout 
+%                                                where the held-out test trials are at the end of
+%                                                the data, if 0<k<1)
 %                * {'chron', k, m} or {'block', k, m}: k-fold chronological/blockwise CV with m 
 %                                                      indices margin width (between training and 
-%                                                      test set)
+%                                                      test set) or k-holdout as above
 %                * 'trainerr': Return the training-set error (a measure of the separability of the 
 %                              data, not of the generalization ability of the classifier); it is 
 %                              usually an error to report this number in a paper.
 %
 %               'partitioner': partitioning function for the data, receives two parameters: 
 %                              (data, index vector)
-%                              * if the index vector is empty, should return the highest index in 
-%                                the data. For more custom control it may return a cell array of the form
-%                                {{train-partition-1,test-partition-1},{train-partition-2,test-partition-2}, ...}
-%                                with a cell for each fold. In this case it fully controls the 
-%                                cross-validation scheme; the X-partition-n arrays should ideally 
-%                                be index ranges, but they will not be inspected by utl_crossval; 
-%                                instead, for each fold the X-partition-n arrays will be passed back 
-%                                in to the partitioner together with the whole data, which allows the
-%                                partitioner to decide on its own format; if the cells generated have
-%                                a third element, it will taken as a cell array of options that are 
-%                                to be passed into the trainer on the respective fold as extra arguments.
-%                              * if the index vector is nonempty, it should return data subindexed 
-%                                by the index vector
+%                              * if the index vector is empty: in the simplest case the function
+%                                should return the highest index in the data. For more custom
+%                                control it may return a cell array of the form {{train-partition-1,
+%                                test-partition-1}, {train-partition-2, test-partition-2}, ...}. In
+%                                this case it fully controls the cross-validation scheme for each
+%                                fold; the *-partition-n arrays should ideally be index ranges, but
+%                                they will not be inspected by utl_crossval; instead, to later
+%                                partition the data for each fold, the respective *-partition-n
+%                                array will be passed back in to the partitioner as the "index
+%                                vector" argument (besides with the whole data), which allows the
+%                                partitioner to decide its own format. In the most advanced case the
+%                                per-fold cell arrays returned in response to a call with index
+%                                vector may have a third element as in {train-partition-1,
+%                                test-partition-1, train-options}; then it will be taken as a cell
+%                                array of options that are to be passed into the trainer on the
+%                                respective fold as extra arguments (this allows the trainer to be
+%                                aware of the kind of partition that it received).
+%                              * if the index vector is nonempty: the function should return data
+%                                subindexed by the index vector
 %
 %                              default: a function that can partition cell arrays, numeric arrays, struct
 %                                       arrays, {Data,Target} cell arrays, and EEGLAB dataset structs
@@ -345,6 +358,7 @@ if isnumeric(N) && isscalar(N)
     repeats = 1;                % # of monte carlo repartitions
     randomized = 1;             % randomized indices or not
     margin = 0;                 % width of the index margin between training and evaluation sets
+                                % can also be a fraction of the trials if 0<margin<1
     subblocks = 1;              % number of sub-blocks within which to cross-validate
 
     % parse scheme grammar
@@ -422,6 +436,9 @@ if isnumeric(N) && isscalar(N)
         error('Unsupported cross-validation scheme format: %s',hlp_tostring(S));
     end
     
+    if margin > 0 && margin < 1
+        margin = round(margin * N); end
+    
     % sanity-check parameters
     if k > 1 && round(k) ~= k
         error('The number of folds (k) must be an integer (or a fraction between 0 and 1 to hold out a fraction of the data).'); end
@@ -473,7 +490,7 @@ if isnumeric(N) && isscalar(N)
             end
             if k < 1
                 % p-holdout
-                inds{end+1} = {sort(perm(1+(0:(round(N*k)-1))))}; %#ok<AGROW>
+                inds{end+1} = sort(perm((round(N*(1-k))+1):N)); %#ok<AGROW>
             else
                 % k-fold
                 for i=0:k-1

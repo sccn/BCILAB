@@ -1,10 +1,21 @@
-function [closest,rest] = utl_collection_closest(collection,identifier,varargin)
+function [closest,rest] = utl_collection_closest(varargin)
 % Find the best-matching data set(s) in a collection for a given identifier record
 %
 % In:
 %   Collection : data set collection
 %
-%   Identifier : an identifier record, containing meta-data
+%   Identifier : an identifier record, containing meta-data; either a struct with fields or a cell
+%                array with name-value pairs
+%
+%   ScopeOrdering : Odering of matching-relevant properties from largest difference to smallest
+%                   (default: {'group','subject','day','montage','session','recording','block'}).
+%
+%   TreatAsFlat : Cell array of property names to treat as flat. Normally, the closest session to 
+%                 session 1 would be session 2; however, if other sessions shall have the same
+%                 distance, then ''session'' should be added to this list. This will allow to sort,
+%                 for instance, the data from all other sessions into the "best-matching" set, since
+%                 they will all have the same minimum distance. (default: {'group','subject',
+%                 'montage','block'})
 %
 % Out:
 %   Result : the set in the collection whose meta-data best matches that of the identifier,
@@ -17,15 +28,26 @@ function [closest,rest] = utl_collection_closest(collection,identifier,varargin)
 %                                2011-08-29
 dp;
 
+args = arg_define(0:2, varargin, ...
+    arg({'collection','Collection'},mandatory,[],'A dataset collection. Cell array of structs with meta-data.','type','expression'), ...
+    arg({'identifier','Identifier'},mandatory,[],'An identifier record, containing meta-data; either a struct with fields or a cell array with name-value pairs.','type','expression'), ...
+    arg({'scope_order','ScopeOrdering'},{'group','subject','day','montage','session','recording','block'},[],'Dataset identifiers ordered from coarsest to finest. This both defines what identifiers are known, and their hierarchical ordering.'), ...    
+    arg({'treat_as_flat','TreatAsFlat'},{'group','subject','montage','block'},[],'Cell array of property names to treat as flat. Normally, the closest session to session 1 would be session 2; however, if other sessions shall have the same distance, then ''session'' should be added to this. This will allow to sort, for instance, the data from all other sessions into the "best-matching" set.','type','expression'));
+    
+[collection,identifier] = deal(args.collection, args.identifier);
+
+
 if ~iscell(collection) || ~all(cellfun('isclass',collection,'struct'))
     error('The given Collection argument must be a cell array of structs.'); end
 
 if ~isempty(identifier)
+    if iscell(identifier) && iscellstr(identifier(1:2:end))
+        identifier = hlp_varargin2struct(identifier); end
     if ~isscalar(identifier) || ~isstruct(identifier)
         error('The identifier should be a 1x1 struct'); end
     
     % our default ordering hierarchy of dis-similarity (first is largest granularity, last is finest)
-    scale_orders = {'subject','day','montage','session','recording','block'};
+    args.scope_order = {'subject','day','montage','session','recording','block'};
     
     
     % first tag all collection items with a tracking index
@@ -35,8 +57,8 @@ if ~isempty(identifier)
     
     
     % first go through each scale order and restrict the recordings appropriately
-    for s = 1:length(scale_orders)
-        id = scale_orders{s};
+    for s = 1:length(args.scope_order)
+        id = args.scope_order{s};
         % is the order present in the identifier?
         if isfield(identifier,id)
             present = find(cellfun(@(x)isfield(x,id),collection));
@@ -54,7 +76,11 @@ if ~isempty(identifier)
                     end
                 elseif all(cellfun(@isnumeric,values))
                     % if it's a numeric value, retain those that are closest to the identifier
-                    distance = abs(cellfun(@(x)x,values) - identifier.(id));
+                    if any(strcmp(id, args.treat_as_flat))
+                        distance = double(cellfun(@(x)x,values) ~= identifier.(id));
+                    else
+                        distance = abs(cellfun(@(x)x,values) - identifier.(id));
+                    end
                     retain = distance == min(distance);
                     collection = collection(present(retain));
                 else
@@ -72,7 +98,7 @@ if ~isempty(identifier)
     end
     
     % find remaining fields and values of the identifier
-    rest_fields = setdiff(fieldnames(identifier),scale_orders);
+    rest_fields = setdiff(fieldnames(identifier),args.scope_order);
     
     if ~isempty(rest_fields)
         rest_values = cellfun(@(id)identifier.(id),rest_fields,'UniformOutput',false);
