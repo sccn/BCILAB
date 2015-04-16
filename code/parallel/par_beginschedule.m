@@ -88,6 +88,8 @@ if strcmp(opts.policy,'global')
     opts.policy = par_globalsetting('policy'); end
 if strcmp(opts.verbosity,'global')
     opts.verbosity = par_globalsetting('verbosity'); end
+if ischar(opts.verbosity)
+    opts.verbosity = str2num(opts.verbosity); end
 if isa(opts.policy,'function_handle')
     opts.policy = char(opts.policy); end
 if strcmp(opts.engine,'BLS') && isempty(opts.pool)
@@ -126,6 +128,8 @@ end
 
 % create a scheduler (Java code, see dependencies/Scheduling-*)
 if strcmp(opts.engine,'BLS')
+    if opts.verbosity>0 %#ok<*ST2NM>
+        fprintf('Creating scheduler...\n'); end
     if opts.keep
         tmp = hlp_microcache('schedulers',@(varargin)Scheduler(varargin{:}),opts.pool,opts.policy,'par_accept_results',opts.receiver_backlog,round(1000*opts.receiver_timeout),round(1000*opts.reschedule_interval),opts.verbosity,length(tasks));
     else
@@ -136,8 +140,12 @@ end
 
 % serialize tasks for network transmission (and prepend order id)
 if any(strcmp(opts.engine,{'BLS','Reference'}))
+    if opts.verbosity>0
+        t0=tic; fprintf('Serializing %d tasks...\n', length(tasks)); end
     for t=1:length(tasks)        
         tasks{t} = fast_encode(hlp_serialize([{t} tasks{t}])); end
+    if opts.verbosity>0
+        fprintf('Tasks serialized (%.1f seconds).\n', toc(t0)); end
 end
 
 % submit tasks for execution
@@ -152,6 +160,8 @@ switch opts.engine
             sched(t) = {{t,tasks{t}{1}(tasks{t}{2:end})}}; end
     case 'BLS'
         % over the scheduler
+        if opts.verbosity>0
+            fprintf('Submitting tasks to scheduler...\n'); end
         sched.sched.submit(tasks);
     case 'Reference'
         % evaluate locally, but go through the same evaluation function as the BLS workers

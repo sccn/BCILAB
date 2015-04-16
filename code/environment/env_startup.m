@@ -469,6 +469,7 @@ fprintf('\n');
 
 
 % turn off a few warnings
+warning off MATLAB:structOnObject
 warning off MATLAB:log:logOfZero
 warning off MATLAB:divideByZero %#ok<RMWRN>
 warning off MATLAB:RandStream:ReadingInactiveLegacyGeneratorState % for GMMs....

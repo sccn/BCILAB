@@ -107,7 +107,7 @@ args = arg_define(0:3, varargin, ...
         arg({'exclude','ExcludeFromTestsets'},{},[],'Exclude test sets with these properties. Optionally a struct (or cell array of structs) where one can set fields to values that no retained set may have. Opposite of RestrictTo.','type','expression'), ...
         arg({'test_unit','TestUnit'},'',[],'Group test sets into units according to this property. The remaining test sets are grouped together into units such that each unit has the same value of this property (e.g., if this is set to ''day'', then all datasets for the given day are a considered a single test set. As a result, the cross-validation will have as many folds as there are day in the collection. By default this is the coarsest property that''s in the data (e.g., subject).'), ...
         arg({'consider','Consider'},'each', {'each','all','last','allexceptfirst'}, 'Consider these items for testing. Allows to test on, for instance, each subject, or the last day of the experiment (using all others for training), or all days except the first (using the prior days for training).'), ...
-        arg({'per','Per'},'',[], 'If consider is not each, determines the context to which the last/allexceptfirst refers (default: next coarsest granularity in the data according to ScopeOrdering).')...
+        arg({'per','Per'},'',[], 'Split into one fold per. If consider is not each, determines the context to which the last/allexceptfirst refers (default: next coarsest granularity in the data according to ScopeOrdering).')...
         arg({'scope_order','ScopeOrdering'},{'group','subject','day','montage','session','recording','block'},[],'Dataset identifiers ordered from coarsest to finest. This both defines what identifiers are known, and their hierarchical ordering.'), ...    
     }, 'Settings for the partitioning.'));
 
@@ -339,6 +339,10 @@ if ~strcmp(settings.consider,'each')
     end
 end
 
+% get rid of tracking indices again
+collection_notracking = collection;
+for k=1:length(collection_notracking)
+    collection_notracking{k} = rmfield(collection_notracking{k},{'tracking_index'}); end
 
 % build the final partition
 res = {};
@@ -347,12 +351,10 @@ for s=1:length(test_sets)
     % derive the corresponding training sets
     test_indices = cellfun(@(x)x.tracking_index,testset);
     not_in_test = cellfun(@(x)~ismember(x.tracking_index,test_indices),collection);
-    trainset = collection(not_in_test);
+    trainset = collection_notracking(not_in_test);
     % get rid of tracking indices
-    for k=1:length(trainset)
-        trainset{k} = rmfield(trainset{k},'tracking_index'); end
     for k=1:length(testset)
-        testset{k} = rmfield(testset{k},'tracking_index'); end
+        testset{k} = rmfield(testset{k},{'tracking_index'}); end
     % also derive the common identifying information of the test sets:
     common_fields = setdiff(fieldnames(testset{1}),{'streams'});
     for k=2:length(testset)

@@ -267,7 +267,17 @@ end
 % Function handle
 function m = serialize_handle(v)    
     % get the representation
+    t0 = tic;
     rep = functions(v);
+    % if you are getting this warning, your problem is likely that you created an anonymous function
+    % in a workspace that had references to a large amount of data; function handles generally
+    % reference the data in their scope (implicitly), which is usually unnecessary except in rare 
+    % cases where the handle calls an eval or evalin function. To solve this, you need to create the
+    % handle in a separate function that references only those variables that you actually need.
+    % Note that you may need 2 levels of indirection since the caller's workspace is included in the
+    % anonymous function, as well.
+    if toc(t0) > 5
+        warn_once('hlp_serialize:large_handle','hlp_serialize: the function handle %s took unusually long to process; see hlp_serialize.serialize_handle for how to fix this.\n',char(v)); end
     switch rep.type
         case {'simple','classsimple'}
             % simple function: Tag & name

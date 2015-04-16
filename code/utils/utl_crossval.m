@@ -210,6 +210,7 @@ opts = arg_define(0:1,varargin, ...
     arg({'pool','WorkerPool'},'global',[], 'Worker pool to use. This is typically a cell array, but can also be the string ''gobal'', which stands for the currently globally set up worker pool (see global tracking variable).','type','expression'), ...
     arg({'policy','ReschedulingPolicy'},'global',[], 'Rescheduling policy. This is the name of the rescheduling policy function that controls if and when tasks are being rescheduled. If set to global, the current global setting will be used.'), ...    
     ... % misc arguments
+    arg({'no_prechecks','NoPrechecks'},false,[],'Skip pre-checks that access the data. This can save some time when it would take very long to load the data, especially when performing parallel computation.'), ...
     arg({'collect_models','CollectModels'},false,[],'Collect models per fold. Note that this increases the amount of data returned.'));
 
 data = opts.data; opts = rmfield(opts,'data');
@@ -249,7 +250,8 @@ inds = make_indices(opts.scheme,indexset,opts.repeatable);
 if ~isa(opts.target,'function_handle')
     error('The given target argument must be a function handle, but was: %s',hlp_tostring(opts.target,10000)); end
 try
-    tmptargets = opts.target(data);
+    if ~opts.no_prechecks
+        tmptargets = opts.target(data); end
 catch e
     error('The given target function failed to extract target values from the data with error: %s',hlp_handleerror(e));
 end
@@ -258,19 +260,20 @@ end
 if ischar(opts.metric) && ~isempty(opts.metric) && opts.metric(1) == '@'
     opts.metric = eval(opts.metric); end
 if isempty(opts.metric) || ischar(opts.metric) || (iscell(opts.metric) && all(cellfun(@ischar,opts.metric)))
-    opts.metric = @(T,P)ml_calcloss(opts.metric,T,P); end
+    opts.metric = make_metric(opts.metric); end
 if ~has_stats(opts.metric)
     opts.metric = @(T,P)add_stats(opts.metric(T,P)); end
-try
-    [measure,stats] = opts.metric(tmptargets,tmptargets);
-catch e
-    error('Failed to apply the loss metric to target values: %s',hlp_handleerror(e));
+if ~opts.no_prechecks
+    try
+        [measure,stats] = opts.metric(tmptargets,tmptargets);
+    catch e
+        error('Failed to apply the loss metric to target values: %s',hlp_handleerror(e));
+    end
+    if ~isscalar(measure) && isnumeric(measure)
+        error('The given loss metric returned its measure in an unsupported format (should be numeric scalar, but was: %s)',hlp_tostring(measure)); end
+    if ~isstruct(stats)
+        error('The given loss metric returned its statistics in an unsupported format (should be struct, but was: %s)',hlp_tostring(stats)); end
 end
-if ~isscalar(measure) && isnumeric(measure)
-    error('The given loss metric returned its measure in an unsupported format (should be numeric scalar, but was: %s)',hlp_tostring(measure)); end
-if ~isstruct(stats)
-    error('The given loss metric returned its statistics in an unsupported format (should be struct, but was: %s)',hlp_tostring(stats)); end
-
 % validate misc arguments
 if ~iscell(opts.args)
     error('The given args argument must be a cell array, but was: %s',hlp_tostring(opts.args,10000)); end
@@ -546,3 +549,8 @@ function [result,stats] = add_stats(result)
 stats.value = result;
 end
 
+% create a cross-validation metric
+% (this is a sub-function to keep the created anonymous function lean to serialize)
+function func = make_metric(metric)
+    func = @(T,P) ml_calcloss(metric,T,P);
+end
