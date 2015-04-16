@@ -77,6 +77,11 @@ function pool = par_getworkers_ssh(varargin)
 %
 %   --- misc ---
 %
+%   HarvestTimeout : Harvesting timeout. This function will attempt to harvest process id's from the 
+%                    workers until this timeout has expired (in which case the pid of straggers will
+%                    not be known). Note that when multiple MATLABs try to launch simultaneously, it
+%                    can take longer than normal. (default: 300)
+%
 %   VerboseOutput : whether to show verbose outputs during acquisition (default: true)
 %
 %
@@ -181,6 +186,7 @@ opts = arg_define(varargin,...
     ... % shutdown management
     arg({'shutdown_timeout','ShutdownTimeout'},0,[0 Inf],'Shutdown timeout. If non-zero, the worker will be shut down if it has not received a heartbeat signal from a client in the given time frame, in seconds. For this to work, the function env_acquire_cluster should be used as it sets up the heartbeat timer.'),...
     ... % misc
+    arg({'harvest_timeout','HarvestTimeout'},300,[],'Harvesting timeout. This function will attempt to harvest process id''s from the workers until this timeout has expired (in which case the pid of straggers will not be known). Note that when multiple MATLABs try to launch simultaneously, it can take longer than normal.'), ...
     arg({'recruit_machines','RecruitMachines'},true,[],'Recruit workers. Whether to actually recruit other machines, rather than just list them.'));
 
 % no arguments were passed? bring up GUI dialog
@@ -346,6 +352,7 @@ end
 
 % start workers if necessary
 pool = {};
+logpaths = {};
 batchid = ['ssh-' hlp_hostname '-' strrep(strrep(datestr(now),':','.'),' ','_')];
 if ~isempty(stats)
     fprintf('%.0f%% of requested hosts are available.\n',100*length(stats)/length(hostnames));
@@ -472,6 +479,7 @@ if ~isempty(stats)
                 if stats(k).freemem > min_memory
                     % start, and add to pool
                     system(command);
+                    logpaths{end+1} = logpath;
                     stats(k).freemem = stats(k).freemem - min_memory;
                     pool{end+1} = sprintf('%s:%d',host,port);
                 end
@@ -482,6 +490,31 @@ if ~isempty(stats)
         end
     end
     fprintf('%i processor slots acquired.\n',length(pool));
+    
+    fprintf('\nWaiting for workers to start up to get process IDs...\n');
+    harvested_addresses = par_parse_logfiles(logpaths, harvest_timeout);
+    % now merge the pool into the harvested addresses (PIDs are collected opportunistically)
+    num_matches = 0;
+    for p=1:length(harvested_addresses)
+        addr = harvested_addresses{p};
+        pos = addr=='@';
+        if any(pos)
+            hostport = addr(find(pos,1)+1:end);
+            match = strcmp(pool,hostport);
+            if any(match)
+                pool{find(match,1)} = addr; 
+                num_matches = num_matches+1;
+            end %#ok<AGROW>            
+        end
+    end
+    if num_matches == 0 && length(harvested_addresses) == length(pool)
+        % we couldn't match the reported hostnames with those used to schedule the workers, but we
+        % got the same number of results as we scheduled, so we just replace the pool by
+        % harvested_addresses
+        pool = harvested_addresses;
+        fprintf('Note: the format of the hostnames used to schedule workers does not match the format of hostnames reported by the workers themselves. Please consider changing it.\n');
+    end
+    fprintf('Launched %i workers: %s\n',length(pool),hlp_tostring(pool));    
 else
     disp('None of the listed machines is available; please make sure that:');
     disp(' * you can ssh into these machines without a password prompt"');

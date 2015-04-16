@@ -192,12 +192,24 @@ classdef ParadigmMKLCSP < ParadigmBase
                 covar{k} = reshape(classdata.data,size(classdata.data,1),[])*reshape(classdata.data,size(classdata.data,1),[])'/(size(classdata.data,2)*size(classdata.data,3)); % cov(reshape(classdata.data,size(classdata.data,1),[])');
                 covar{k}(~isfinite(covar{k})) = 0; %#ok<*AGROW>
                 covar{k} = (1-shrinkage)*covar{k} + shrinkage*eye(size(covar{k}))*trace(covar{k})/length(covar{k});
+            end            
+            try
+                [V,D] = eig(covar{1},covar{1}+covar{2}); %#ok<ASGLU,NASGU>
+                P = inv(V);
+                % if you get an error here then your data sets had varying number of channels
+                filters = V(:,[1:n_patterns end-n_patterns+1:end]);
+                patterns = P([1:n_patterns end-n_patterns+1:end],:)';
+            catch e
+                fprintf('Got a degenerate CSP solution, replacing by identity matrix:%s\n',e.message);
+                n_chans = preproc.nbchan;
+                if ~n_chans
+                    % no epochs, need to determine the number of channels in the filter stage prior to epoching
+                    raw = utl_get_argument(utl_find_filter(preproc,'set_makepos'),'signal');
+                    n_chans = raw.nbchan;
+                end
+                filters = eye(n_chans,2*n_patterns);
+                patterns = eye(n_chans,2*n_patterns);
             end
-            [V,D] = eig(covar{1},covar{1}+covar{2}); %#ok<ASGLU,NASGU>
-            P = inv(V);
-            % if you get an error here then your data sets had varying number of channels
-            filters = V(:,[1:n_patterns end-n_patterns+1:end]);
-            patterns = P([1:n_patterns end-n_patterns+1:end],:)';
         end        
     end
     

@@ -53,6 +53,10 @@ if ~isempty(pool)
     tracking.cluster_requested = {};    
     % for each endpoint in the pool...
     for p=1:length(pool)
+        % remove the pid@ portion from the endpoint
+        pos = pool{p}=='@';
+        if any(pos)
+            pool{p} = pool{p}(find(pos,1)+1:end); end
         % make a new socket
         sock = DatagramSocket();
         % and "connect" it to the worker endpoint (its heartbeat server)

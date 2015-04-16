@@ -97,4 +97,9 @@ show_guru = true;
 acquire_method = 'SSH';
 acquire_options = {'Hostnames',{'localhost'},'ShutdownTimeout',300};
 
+% Whether to automatically kill workers when cluster resources are being released
+% Note that workers typically shut themselves down within a preset idle time after having been released,
+% so this option only serves to expedite the process (e.g., to start with fresh workers after a code change)
+autokill_workers = true;
+
 

@@ -169,6 +169,7 @@ if opened
     if verbosity >= -1
         fprintf('this is bcilab worker %s.\n',char(InetAddress.getLocalHost()));
         fprintf('listening on port %i.\n',serv.getLocalPort());
+        fprintf('the process id is %i.\n',hlp_processid);
     end
 else
     fprintf('no free port found; exiting.\n');

@@ -130,10 +130,17 @@ end
 if strcmp(opts.engine,'BLS')
     if opts.verbosity>0 %#ok<*ST2NM>
         fprintf('Creating scheduler...\n'); end
+    % trim the 'pid@' part from opts.pool (the scheduler expects the 'host:port' format)
+    pool = opts.pool;
+    for p=1:length(pool)
+        pos = pool{p}=='@';
+        if any(pos)
+            pool{p} = pool{p}(find(pos,1)+1:end); end
+    end
     if opts.keep
-        tmp = hlp_microcache('schedulers',@(varargin)Scheduler(varargin{:}),opts.pool,opts.policy,'par_accept_results',opts.receiver_backlog,round(1000*opts.receiver_timeout),round(1000*opts.reschedule_interval),opts.verbosity,length(tasks));
+        tmp = hlp_microcache('schedulers',@(varargin)Scheduler(varargin{:}),pool,opts.policy,'par_accept_results',opts.receiver_backlog,round(1000*opts.receiver_timeout),round(1000*opts.reschedule_interval),opts.verbosity,length(tasks));
     else
-        tmp = Scheduler(opts.pool,opts.policy,'par_accept_results',opts.receiver_backlog,round(1000*opts.receiver_timeout),round(1000*opts.reschedule_interval),opts.verbosity,length(tasks));
+        tmp = Scheduler(pool,opts.policy,'par_accept_results',opts.receiver_backlog,round(1000*opts.receiver_timeout),round(1000*opts.reschedule_interval),opts.verbosity,length(tasks));
     end
     sched = struct('sched',{tmp},'finisher',{onCleanup(@()tmp.clear())});
 end

@@ -7,6 +7,9 @@ function par_accept_results(tag, payload)
 % large (or very many) results since the MATLAB Java memory is limited to a maximum of 64GB.
 % Therefore we need to ferry the results out of Java as they are being produced.
 %
+% The function also attempts to check if the results contain errors, and prints them as they are
+% being received.
+%
 % In:
 %   Tag: tag string that uniquely identifies the result; should begin with 'tag__'.
 %
@@ -15,3 +18,13 @@ function par_accept_results(tag, payload)
 global tracking;
 % atomically store payload in global results table
 tracking.parallel.results.(tag) = payload;
+ 
+if length(payload) < 16384
+    try
+        % for short results we check if we got an error, and if so, we print it out
+        decoded = hlp_deserialize(fast_decode(payload));
+        if all(isfield(decoded{2},{'message','identifier','stack'}))
+            fprintf('Got an error during parallel execution: %s\n',hlp_handleerror(decoded{2})); end
+    catch e %#ok<NASGU>
+    end
+end

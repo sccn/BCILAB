@@ -83,6 +83,9 @@ function env_startup(varargin)
 %                                  (with bcilab-specific defaults for unspecified arguments)
 %                                  (default: {})
 %
+%               'autokill_workers' : Whether to automatically kill workers when cluster resources
+%                                    are released (default: true)
+%
 %               'worker' : whether this toolbox instance is started as a worker process or not; if 
 %                          false, diary logging and GUI menus and popups are enabled. If given as a 
 %                          cell array, the cell contents are passed on to the function par_worker,
@@ -232,7 +235,7 @@ if hlp_matlab_version < 706
 % get options
 opts = hlp_varargin2struct(varargin,'data',[],'store',[],'cache',[],'temp',[],'private',[],'mem_capacity',2,'data_reuses',3, ...
     'parallel',{'use','local'}, 'menu',true, 'configscript','', 'worker',false, 'autocompile',true, 'acquire_method','SSH', 'acquire_options',{}, ...
-    'show_experimental',false,'show_guru',false,'fingerprinting',true,'disabled_caches',{});
+    'autokill_workers',true,'show_experimental',false,'show_guru',false,'fingerprinting',true,'disabled_caches',{});
 
 % load all dependencies, recursively...
 disp('Loading BCILAB dependencies...');
@@ -389,6 +392,7 @@ tracking.parallel = hlp_varargin2struct(opts.parallel, ...
     'verbosity',0);
 tracking.acquire_method = opts.acquire_method;
 tracking.acquire_options = opts.acquire_options;
+tracking.autokill_workers = opts.autokill_workers;
 tracking.configscript = opts.configscript;
 % set GUI settings
 tracking.gui.show_experimental = opts.show_experimental;

@@ -12,4 +12,6 @@ global tracking;
 % this will lead to the deletion of any involved heartbeat timer.
 tracking.cluster_requested = [];
 par_globalsetting('engine','local');
+if tracking.autokill_workers
+    par_clearworkers([],true); end
 disp('Set default compute scheduling to local.');

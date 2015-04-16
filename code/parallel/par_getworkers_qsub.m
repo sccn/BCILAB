@@ -24,7 +24,7 @@ function harvested_addresses = par_getworkers_qsub(varargin)
 %   HarvestTimeout : Harvesting timeout. Any workers that have not fully launched within this
 %                    timeout will be abandoned (and will terminate themselves). Note that when
 %                    multiple MATLABs try to launch simultaneously, it can take longer than normal.
-%                    (default: 180)
+%                    (default: 300)
 %
 %   --- startup commands for MATLAB ---
 %   MATLABCommand : Command to start MATLAB. This is the command to run on the command line to start 
@@ -126,7 +126,7 @@ opts = arg_define(varargin,...
     arg({'submit_node','SubmitNode'},'',[],'Machine which can submit jobs. If nonempty, this function will attempt to ssh into the given node in order to submit a job.'), ...
     arg({'job_manager','JobManager'},'SGE',{'SGE','OGE','Torque','PBS','SLURM','LSF','OwnMachine'},'Job manager system. This is the type of job manager to submit to.'), ...
     arg({'queues','Queues'},{},[],'Queues to submit to. This is a cell array of strings that lists the queues to which jobs shall be submitted to (in a round-robin manner or in a merged manner). If empty, no queue is specified.','type','cellstr','shape','row'), ...
-    arg({'harvest_timeout','HarvestTimeout'},180,[],'Harvesting timeout. Any workers that have not fully launched within this timeout will be abandoned (and will terminate themselves). Note that when multiple MATLABs try to launch simultaneously, it can take longer than normal.'), ...
+    arg({'harvest_timeout','HarvestTimeout'},300,[],'Harvesting timeout. Any workers that have not fully launched within this timeout will be abandoned (and will terminate themselves). Note that when multiple MATLABs try to launch simultaneously, it can take longer than normal.'), ...
     arg({'harvest_ips','HarvestIPs'},true,[],'Harvest IP addresses instead of hostnames. Whether to harvest and return the IP addresses of the workers rather than their hostnames.'), ...
     ... % startup commands for MATLAB
     arg({'matlab_command','MATLABCommand'},'autogenerate', [], 'Command to start MATLAB. This is the command to run on the command line to start the desired version of MATLAB (does not include the script launch). If this is set to ''autogenerate'' the same path that runs the par_getworkers_qsub command will be used (useful on clusters with identical file systems). A good fallback on most installations is to set it to ''matlab''.'), ...
@@ -330,47 +330,7 @@ for k=1:num_workers
 end
 
 fprintf('\nWaiting for workers to start up to establish connections...\n');
-
-% harvest the host:port information from the log files...
-host_line = 'this is bcilab worker';
-port_line = 'listening on port';
-error_line = 'no free port found; exiting';
-harvested_addresses = {};   % the list of host:port addresses harvested from log files so far
-active_logfiles = logpaths; % the log files that are still actively being scanned
-t0 = tic;
-while toc(t0) < harvest_timeout
-    for k=length(active_logfiles):-1:1
-        fn = active_logfiles{k};
-        if exist(fn,'file')
-            try
-                fid = fopen(fn,'r');
-                if fid==-1
-                    continue; end
-                content = vec(fread(fid,Inf,'*char'))';
-                host_match = strfind(content,host_line);
-                port_match = strfind(content,port_line);
-                if ~isempty(strfind(content,error_line))
-                    % worker had an error: remove it from the set of logfiles being tracked
-                    active_logfiles(k) = [];                    
-                elseif ~isempty(host_match) && ~isempty(port_match)
-                    % found host and port lines
-                    port_startofs = port_match(1)+length(port_line); port_endofs = port_startofs + find(content(port_startofs:end)==10,1); port_section = strtrim(content(port_startofs:port_endofs-3));
-                    host_startofs = host_match(1)+length(host_line); host_endofs = host_startofs + find(content(host_startofs:end)==10,1); host_section = hlp_split(strtrim(content(host_startofs:host_endofs-3)),'/');
-                    % record harvested address and remove it from the set of tracked logfiles
-                    harvested_addresses{end+1} = [host_section{1+harvest_ips} ':' port_section]; %#ok<AGROW>
-                    active_logfiles(k) = [];
-                end
-            catch e
-                fclose(fid);
-                rethrow(e);
-            end
-        end
-    end
-    if isempty(active_logfiles)
-        break; end
-    pause(5);
-end
-
+harvested_addresses = par_parse_logfiles(logpaths, harvest_timeout, harvest_ips);
 fprintf('Launched %i workers: %s\n',length(harvested_addresses),hlp_tostring(harvested_addresses));
     
 if nargout == 0
