@@ -25,6 +25,8 @@ function res = par_globalsetting(name,val)
 %                 'verbosity' : the current verbosity level of the parallel computing engine
 %                               0=only errors, 1=verbose, 2=extremely verbose (default: 0)
 %
+%                 'logfiles' : logfiles of the known worker processes (default: {})
+%
 %   Value : new value if the given setting shall be overridden (otherwise omitted)
 %
 % Out:
@@ -57,14 +59,14 @@ function res = par_globalsetting(name,val)
 
 global tracking
 
-if ~any(strcmp(name,{'engine','pool','policy','verbosity'}))
+if ~any(strcmp(name,{'engine','pool','policy','verbosity','logfiles'}))
     error('Unsupported parallel setting name: %s.',name); end
 
 % look up current setting
 try
     res = tracking.parallel.(name);
 catch
-    defaults = struct('engine',{'BLS'},'pool',{{}},'policy',{'par_reschedule_policy'},'verbosity',{0});
+    defaults = struct('engine',{'BLS'},'pool',{{}},'policy',{'par_reschedule_policy'},'verbosity',{0},'logfiles',{});
     tracking.parallel.(name) = defaults.(name);
     res = tracking.parallel.(name);
 end
@@ -85,6 +87,9 @@ if nargin >= 2
         case 'verbosity'
             if ~isscalar(val) || ~isnumeric(val) || val~=round(val) || val<0
                 error('The ''verbosity'' setting must be a nonnegative integer.'); end
+        case 'logfiles'
+            if ~iscellstr(val)
+                error('The ''logfiles'' setting must be a cell array of strings.'); end
         otherwise
             error('Unsupported parallel setting: %s.',name);
     end

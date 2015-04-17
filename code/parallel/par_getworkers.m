@@ -1,4 +1,4 @@
-function pool = par_getworkers(varargin)
+function [pool,logpaths] = par_getworkers(varargin)
 % Acquire workers on some remote machines and return hostnames and ports of those that are available.
 % Pool = par_getworkers(...)
 %
@@ -17,6 +17,8 @@ function pool = par_getworkers(varargin)
 %          Note: in the case that no return value is requested, the global variable 
 %                tracking.parallel.pool will receive this result. This is the recommended way to
 %                use par_getworkers_qsub, as par_schedule uses this pool by default.
+%
+%  Logpaths : cell array of file paths of the logfiles corresponding to the workers in pool
 %
 % See also:
 %   par_worker
@@ -49,4 +51,4 @@ opts = arg_define(varargin,...
     arg_subswitch({'system','System'},{'qsub'},{'ssh',@par_getworkers_ssh,'qsub',@par_getworkers_qsub},'Job acquisition system to use. Different systems are available, including ssh (logging into each node and launching a number of workers) and qsub (submitting worker jobs to a job manager).'));
 
 % dispatch to respective sub-function
-pool = feval(['par_getworkers_' opts.system.arg_selection],opts);
+[pool,logpaths] = feval(['par_getworkers_' opts.system.arg_selection],opts);

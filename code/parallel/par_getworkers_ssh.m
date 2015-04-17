@@ -1,4 +1,4 @@
-function pool = par_getworkers_ssh(varargin)
+function [pool,logpaths] = par_getworkers_ssh(varargin)
 % Acquire workers on some remote machines and return hostnames and ports of those that are available.
 % Pool = par_getworkers_ssh(Hostnames,ProcessorsPerNode,MatlabThreads,StartupCommand,ShareResources,SharingPort,LoggingPath,IdentityFile,BinaryWorker,BinaryNmae,MatlabCompilerRoot,MinFreeMemory,MaxCPULoad,LoadWindow,AvoidProcess,RecruitMachines,VerboseOutput)
 %
@@ -91,14 +91,13 @@ function pool = par_getworkers_ssh(varargin)
 %                tracking.parallel.pool will receive this result. This is the recommended way to
 %                use par_getworkers_ssh, as par_schedule uses this pool by default.
 %
+%  Logpaths : cell array of file paths of the logfiles corresponding to the workers in pool
+%
+%
 % Notes:
 %   If workers are shared between users, code which maintains global state (in particular
 %   user-specific configuration options) may show unexpected behavior, as these variables are not
 %   duplicated across users.
-%
-%   If resources are not shared, it must be considered that each call to par_getworkers_ssh will launch
-%   another set of worker processes on the target nodes; there is no mechanism in place to
-%   automatically terminate the remote workers when the MATLAB session ends.
 %
 %   This function works only across POSIX-compliant (Unix/Linux/Mac) systems. On standard Windows
 %   workstations, the workers must be started manually (unless POSIX emulation software is
@@ -525,6 +524,7 @@ end
 if nargout == 0
     % assign to global variable, if necessary...
     par_globalsetting('pool',pool(:)');
+    par_globalsetting('logfiles',logpaths(:)');
 end
 
 

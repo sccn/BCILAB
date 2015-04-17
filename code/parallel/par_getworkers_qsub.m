@@ -1,4 +1,4 @@
-function harvested_addresses = par_getworkers_qsub(varargin)
+function [harvested_addresses,logpaths] = par_getworkers_qsub(varargin)
 % Acquire workers on some remote machines and return hostnames and ports of those that are available.
 % Pool = par_getworkers_qsub(...)
 %
@@ -89,6 +89,8 @@ function harvested_addresses = par_getworkers_qsub(varargin)
 %          Note: in the case that no return value is requested, the global variable 
 %                tracking.parallel.pool will receive this result. This is the recommended way to
 %                use par_getworkers_qsub, as par_schedule uses this pool by default.
+%
+%  Logpaths : cell array of file paths of the logfiles corresponding to the workers in pool
 %
 % See also:
 %   par_worker
@@ -336,6 +338,7 @@ fprintf('Launched %i workers: %s\n',length(harvested_addresses),hlp_tostring(har
 if nargout == 0
     % assign to global variable, if necessary...
     par_globalsetting('pool',harvested_addresses(:)');
+    par_globalsetting('logfiles',logpaths(:)');
 end
 
 function str = strrep_multi(str,varargin)

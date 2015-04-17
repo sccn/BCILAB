@@ -254,6 +254,7 @@ function m = serialize_object(v)
             conts = hlp_serialize(conts);
         else
             % contents is still an object: turn into a struct now
+            warning off MATLAB:structOnObject
             conts = serialize_struct(struct(conts));
         end
     catch

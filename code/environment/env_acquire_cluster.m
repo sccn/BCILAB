@@ -34,8 +34,9 @@ elseif isunix
     % invoke, but also impose default arguments (if unspecified)
     % by default, workers do not recruit (but only list) other workers, preventing a cascading effect
     try
-        pool = feval(['par_getworkers_' lower(method)],arguments{:});
+        [pool,logpaths] = feval(['par_getworkers_' lower(method)],arguments{:});
         par_globalsetting('pool',pool);
+        par_globalsetting('logfiles',logpaths);
         par_globalsetting('engine','BLS');
         disp('Set default compute scheduler to BLS (parallel).');
     catch e

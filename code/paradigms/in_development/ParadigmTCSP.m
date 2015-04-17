@@ -13,13 +13,13 @@ classdef ParadigmTCSP < ParadigmBase
     methods
         
         function defaults = preprocessing_defaults(self)
+            % most basic version
             defaults = {'FIRFilter',{'Frequencies',[6 8 28 32],'Type','minimum-phase'}, 'EpochExtraction',[0.5 3.5], 'Resampling',100};
         end
                 
         function defaults = machine_learning_defaults(self)
             % set up the default parameters for machine learning
-            defaults = {'dal', 2.^(4:-0.25:-3), 'Scaling','none', 'Regularizer','grouplasso-columns'};
-            % defaults = {'logreg', 'variant','lars'};
+            defaults = {'logreg', 'variant','vb'};
         end
                 
         function model = calibrate(self,varargin)
@@ -38,8 +38,6 @@ classdef ParadigmTCSP < ParadigmBase
                 fprintf('Now training model for: %s...\n',hlp_tostring(args.goal_identifier)); end
 
             % first solve CSP for each subject in the corpus individually and aggregate CSP filters            
-            filters = [];
-            patterns = [];
             
             % find the unique subjects in the collection
             try
@@ -61,46 +59,60 @@ classdef ParadigmTCSP < ParadigmBase
             if args.verbose
                 fprintf('Pre-processing each of %i recordings (%i subjects) in the corpus and solving CSP...\n',length(args.collection),length(subjects)); end
 
-            % remove actual data from corpus so we can micro-cache it
-            for s=1:length(corpus)
-                if isfield(corpus(s).streams{1},'tracking')
-                    corpus(s).streams{1} = corpus(s).streams{1}.tracking.expression; end
+            % for each subject in the collection...
+            [preproc,weighted_cov,mean_cov] = deal(cell(1,length(subjects)));
+            for s=subjects
+                % find all recordings that match that subject
+                recordings = args.collection(cellfun(@(x)isequal(x,s),{corpus.subject}));
+                recordings = cellfun(@(x)x.streams(1),recordings);
+                % concatenate and preprocess the data
+                concat = set_concat(recordings{:});
+                preproc{s} = exp_eval_optimized(flt_pipeline('signal',concat,args.flt));
+                % extract class-weighted and average covariance with shrinkage
+                weighted_cov{s} = zeros(preproc{s}.nbchan);
+                mean_cov{s} = zeros(preproc{s}.nbchan);
+                try
+                    for k=1:preproc{s}.trials
+                        weighted_cov{s} = weighted_cov{s} + ParadigmTCSP.cov_shrinkage(preproc{s}.data(:,:,k),args.shrinkage) * preproc{s}.epoch(k).target; 
+                        mean_cov{s} = mean_cov{s} + ParadigmTCSP.cov_shrinkage(preproc{s}.data(:,:,k),args.shrinkage);
+                    end
+                catch e
+                    fprintf('WARNING: could not compute COVs for subject %s: %s',hlp_tostring(s),e.message);
+                end
             end
             
-            % for each subject...
-            for subj=subjects                
-                % find all recordings that match that subject
-                recordings = corpus(cellfun(@(s)isequal(s,subj),{corpus.subject}));
-                % calculate CSP filters
-                [newfilters,newpatterns] = hlp_microcache('filters',@ParadigmMKLCSP.filters_for_subject,recordings, args.flt, args.shrinkage, args.patterns);
-                % if you get an error here then your data sets had varying number of channels
-                filters = [filters newfilters];
-                patterns = [patterns newpatterns];
-            end
+            % aggregate the covariance matrices
+            weighted_cov = sum(cat(3,weighted_cov{:}),3)/length(weighted_cov);
+            mean_cov = sum(cat(3,mean_cov{:}),3)/length(mean_cov);
+            
+            % solve CSP/SPoC
+            [V,D] = eig(weighted_cov,mean_cov); %#ok<ASGLU,NASGU>
+            P = inv(V);
+            filters = V(:,[1:args.patterns end-args.patterns+1:end]);
+            patterns = P([1:args.patterns end-args.patterns+1:end],:);
+            
             model.featuremodel = struct('filters',filters,'patterns',patterns);
 
-            if args.verbose
-                fprintf('Preprocessing and extracting features for reference data...\n'); end            
-            % get the data of the reference subject
-            [reference,remaining] = utl_collection_closest(args.collection,args.goal_identifier); %#ok<ASGLU,NASGU>
-            % preprocess each recording in the reference collection and concatenate them across epochs into a single set
-            for r=1:length(reference)
-                refsets{r} = exp_eval_optimized(flt_pipeline('signal',reference{r}.streams{1}, args.flt)); end
-            refdata = exp_eval(set_joinepos(refsets{:}));
-            % extract features and get target labels
-            features = self.feature_extract(refdata,model.featuremodel);
-            targets = set_gettarget(refdata);
-            
+            % extract features and get target labels for all subjects
             if args.verbose
                 fprintf('Training predictive model (this may take a while)...\n'); end
-            % train classifier, overriding with the correct feature shape (based on the group size)
-            if isfield(args.ml.learner,'shape')
-                args.ml.learner.shape = [2*args.patterns,length(subjects)]; end
+            preproc_concat = exp_eval(set_joinepos(preproc{:}));
+            features = self.feature_extract(preproc_concat,model.featuremodel);
+            targets = set_gettarget(preproc_concat);
+            
+            % train predictive model
+            if args.verbose
+                fprintf('Training predictive model (this may take a while)...\n'); end
             model.predictivemodel = ml_train('data',{features,targets}, args.ml);
-            % set the filter graph based on the reference data
-            model.tracking.filter_graph = refsets{end};
+            
+            % adapt the filter graph, based on the available reference data for the subject
+            [reference,remaining] = utl_collection_closest(args.collection,args.goal_identifier); %#ok<ASGLU,NASGU>
+            reference = cellfun(@(r)r.streams(1),reference);
+            model.tracking.filter_graph = exp_eval_optimized(flt_pipeline('signal',set_concat(reference{:}),args.flt));           
+            %model.tracking.filter_graph = exp_eval_optimized(flt_pipeline('signal',args.collection{1}.streams{1},args.flt));
+            
             % also store channel locations for model visualization
-            model.chanlocs = refdata.chanlocs;
+            model.chanlocs = model.tracking.filter_graph.chanlocs;
         end
         
         function predictions = predict(self,bundle,model)
@@ -163,39 +175,11 @@ classdef ParadigmTCSP < ParadigmBase
                 
     end
     methods (Static)
-        function [filters, patterns] = filters_for_subject(recordings, flt, shrinkage, n_patterns)
-            % get the CSP filters for a given subject
-            
-            % preprocess and concatenate across trials
-            preproc = {};
-            for r=1:length(recordings)
-                preproc{r} = exp_eval_optimized(flt_pipeline('signal',recordings(r).streams{1}, flt)); end
-            preproc = exp_eval(set_joinepos(preproc{:}));
-
-            for k=1:2
-                % filter trial subrange in time and frequency
-                classdata = exp_eval(set_picktrials(preproc,'rank',k));
-                covar{k} = reshape(classdata.data,size(classdata.data,1),[])*reshape(classdata.data,size(classdata.data,1),[])'/(size(classdata.data,2)*size(classdata.data,3)); % cov(reshape(classdata.data,size(classdata.data,1),[])');
-                covar{k}(~isfinite(covar{k})) = 0; %#ok<*AGROW>
-                covar{k} = (1-shrinkage)*covar{k} + shrinkage*eye(size(covar{k}))*trace(covar{k})/length(covar{k});
-            end            
-            try
-                [V,D] = eig(covar{1},covar{1}+covar{2}); %#ok<ASGLU,NASGU>
-                P = inv(V);
-                % if you get an error here then your data sets had varying number of channels
-                filters = V(:,[1:n_patterns end-n_patterns+1:end]);
-                patterns = P([1:n_patterns end-n_patterns+1:end],:)';
-            catch e
-                fprintf('Got a degenerate CSP solution, replacing by identity matrix:%s\n',e.message);
-                n_chans = preproc.nbchan;
-                if ~n_chans
-                    % no epochs, need to determine the number of channels in the filter stage prior to epoching
-                    raw = utl_get_argument(utl_find_filter(preproc,'set_makepos'),'signal');
-                    n_chans = raw.nbchan;
-                end
-                filters = eye(n_chans,2*n_patterns);
-                patterns = eye(n_chans,2*n_patterns);
-            end
+        % estimate covariance with shrinkage for some data X
+        function V = cov_shrinkage(X,shrinkage)
+            V = reshape(X,size(X,1),[])*reshape(X,size(X,1),[])'/(size(X,2)*size(X,3));
+            V(~isfinite(V)) = 0;
+            V = (1-shrinkage)*V + shrinkage*eye(size(V))*trace(V)/length(V);
         end        
     end
     
