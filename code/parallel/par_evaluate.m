@@ -1,4 +1,4 @@
-function result = par_evaluate(task__)
+function result = par_evaluate(task__,noresult)
 % Internal: Task processing function of the worker.
 % Result = par_evaluate(Task)
 %
@@ -9,6 +9,8 @@ function result = par_evaluate(task__)
 %   Task : task record; A sequence of bytes which represents a cell array of the form: 
 %          {Number, Function, Arugment1, Arguments2, ...} where Number is an arbitrary task 
 %          number, Function is the function to evaluate, and ArgumentX are arguments to the function.
+%
+%   NoResult : Whether the task does not produce a result. (default: false)
 %
 % Out:
 %   Result : result record; A sequence of bytes which represents a cell array of the form:
@@ -43,13 +45,20 @@ function result = par_evaluate(task__)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
+if nargin < 2
+    noresult = false; end
+
 try
     % deserialize the task (names mangled as the task may involve an "eval" call).
     task__ = hlp_deserialize(task__);
     % evaluate Function(Argument1,Argument2, ...) and construct the result record
-    result = {task__{1},task__{2}(task__{3:end})};
-    % serialize the result record
-    result = hlp_serialize(result);
+    if noresult
+        task__{2}(task__{3:end});
+    else
+        result = {task__{1},task__{2}(task__{3:end})};
+        % serialize the result record
+        result = hlp_serialize(result);
+    end
 catch e
     try
         % try to display and serialize the error

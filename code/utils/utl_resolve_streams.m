@@ -111,6 +111,7 @@ for p=1:length(pip)
         end
     else
         labels = {};
+        types = {};
     end
     % ... and resolve rawdata nodes in the filter chain given candidate streams and supp info
     pip{p} = resolve_rawdata(pip{p},streams,labels,types);

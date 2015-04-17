@@ -265,13 +265,22 @@ while 1
             if verbosity >= 1
                 fprintf('processing task %i (%i) ...\n',taskid,tasknum); end
             tasknum = tasknum+1;
-            result = fast_encode(par_evaluate(fast_decode(task)));
+            if isempty(collector)
+                par_evaluate(fast_decode(task),true);
+            else
+                result = fast_encode(par_evaluate(fast_decode(task)));
+            end
             if verbosity >= 1
                 fprintf('done with task; opening back link...\n'); end
             
             for retry = 1:opts.retries_send
                 try
                     % send off the result
+                    if isempty(collector)
+                        if verbosity >= 1
+                            fprintf('no recipient specified; done.\n'); end                        
+                        break; 
+                    end
                     idx = find(collector==':',1);
                     outconn = Socket();
                     destination = InetSocketAddress(collector(1:idx-1), str2num(collector(idx+1:end)));

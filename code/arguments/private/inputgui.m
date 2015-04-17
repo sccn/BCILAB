@@ -210,13 +210,19 @@ for index=1:length(allobj)
       end;
    catch, end;
 end;   
-userdat = get(fig, 'userdata');
+try
+    userdat = get(fig, 'userdata');
+catch
+end
 if nargout >= 4
 	resstruct = myguihandles(fig);
 end;
 
 if isempty(g.getresult) && isstr(g.mode) && ( strcmp(g.mode, 'normal') || strcmp(g.mode, 'return') )
-	close(fig);
+    try
+        close(fig);
+    catch
+    end
 end;
 drawnow; % for windows
 

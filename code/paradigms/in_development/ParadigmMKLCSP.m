@@ -204,7 +204,7 @@ classdef ParadigmMKLCSP < ParadigmBase
                 n_chans = preproc.nbchan;
                 if ~n_chans
                     % no epochs, need to determine the number of channels in the filter stage prior to epoching
-                    raw = exp_eval_optmized(utl_get_argument(utl_find_filter(preproc,'set_makepos'),'signal'));
+                    raw = exp_eval_optimized(utl_get_argument(utl_find_filter(preproc,'set_makepos'),'signal'));
                     n_chans = raw.nbchan;
                 end
                 filters = eye(n_chans,2*n_patterns);

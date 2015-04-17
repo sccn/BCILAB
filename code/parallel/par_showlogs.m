@@ -25,9 +25,11 @@ function par_showlogs(run_while)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
+if nargin < 1
+    run_while = @()true; end
+
 logpaths = par_globalsetting('logfiles');
 workers = par_globalsetting('pool');
-
 
 % open files...
 handles = repmat({NaN},1,length(logpaths));
