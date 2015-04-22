@@ -61,31 +61,40 @@ classdef ParadigmDALOSC < ParadigmDataflowSimplified
             args = arg_define(varargin, ...
                 arg_norep('signal'), ...
                 arg({'normalizers','NormalizationExponents'},[-0.5,-0.5],[],'Normalization exponents [lhs, rhs]. Two-element array of powers for the left-hand-side and right-hand-side normalization matrices that are applied to the data from the region.','cat','Feature Extraction','guru',true), ...
-                arg({'shrinkage_rescalers','ShrinkageRescalers'},true,[],'Use shrinkage to estimate rescalers. If enabled, the rescaling matrices will be estimated using shrinkage.'));
+                arg({'shrinkage_rescalers','ShrinkageRescalers'},true,[],'Use shrinkage to estimate rescalers. If enabled, the rescaling matrices will be estimated using shrinkage.'), ...
+                arg({'normalize','Normalize'},true,[],'Perform data normalization.'));
             
-            X = num2cell(args.signal.data,[1 2]);
-            for t=1:length(X)
-                X{t} = cov(X{t}'); end
-            % calc rescaling matrices
-            if args.shrinkage_rescalers
-                model.P = {hlp_diskcache('featuremodels',@cov_shrink,cat(2,X{:})')^args.normalizers(1),hlp_diskcache('featuremodels',@cov_shrink,cat(1,X{:}))^args.normalizers(2)};
-            else
-                model.P = {cov(cat(2,X{:})')^args.normalizers(1),cov(cat(1,X{:}))^args.normalizers(2)};
+            if args.normalize
+                X = num2cell(args.signal.data,[1 2]);
+                for t=1:length(X)
+                    X{t} = cov(X{t}'); end
+                % calc rescaling matrices
+                if args.shrinkage_rescalers
+                    model.P = {hlp_diskcache('featuremodels',@cov_shrink,cat(2,X{:})')^args.normalizers(1),hlp_diskcache('featuremodels',@cov_shrink,cat(1,X{:}))^args.normalizers(2)};
+                else
+                    model.P = {cov(cat(2,X{:})')^args.normalizers(1),cov(cat(1,X{:}))^args.normalizers(2)};
+                end
+                % make sure that the data is properly normalized so that our lambda range does not have 
+                % to be tuned to fit the data scale
+                Y = zeros(size(args.signal.data,1),size(args.signal.data,1),size(args.signal.data,3));
+                for t=1:size(args.signal.data,3)
+                    Y(:,:,t) = model.P{1}*cov(args.signal.data(:,:,t)')*model.P{2}; end                    
+                model.scale = 1/sum(sum(sqrt(var(Y,[],3)))/(size(Y,1)*size(Y,2)));
             end
-            % make sure that the data is properly normalized so that our lambda range does not have 
-            % to be tuned to fit the data scale
-            Y = zeros(size(args.signal.data,1),size(args.signal.data,1),size(args.signal.data,3));
-            for t=1:size(args.signal.data,3)
-                Y(:,:,t) = model.P{1}*cov(args.signal.data(:,:,t)')*model.P{2}; end
-            model.scale = 1/sum(sum(sqrt(var(Y,[],3)))/(size(Y,1)*size(Y,2)));
             model.chanlocs = args.signal.chanlocs;
             model.cov = cov(args.signal.data(:,:)');
+            model.normalize = args.normalize;
         end
         
         function features = feature_extract(self,signal,featuremodel)
             features = zeros(size(signal.data,1),size(signal.data,1),size(signal.data,3));
-            for t=1:size(signal.data,3)
-                features(:,:,t) = featuremodel.scale*(featuremodel.P{1}*cov(signal.data(:,:,t)')*featuremodel.P{2}); end
+            if featuremodel.normalize
+                for t=1:size(signal.data,3)
+                    features(:,:,t) = featuremodel.scale*(featuremodel.P{1}*cov(signal.data(:,:,t)')*featuremodel.P{2}); end
+            else
+                for t=1:size(signal.data,3)
+                    features(:,:,t) = cov(signal.data(:,:,t)'); end
+            end
         end
 
         function visualize_model(self,varargin) %#ok<*INUSD>

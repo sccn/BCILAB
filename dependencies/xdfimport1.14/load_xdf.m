@@ -2,7 +2,7 @@ function [streams,fileheader] = load_xdf(filename,varargin)
 % Import an XDF file.
 % [Streams,FileHeader] = load_xdf(Filename, Options...)
 %
-% This is a MATLAB importer for mult-stream XDF (Extensible Data Format) recordings. All
+% This is a MATLAB importer for multi-stream XDF (Extensible Data Format) recordings. All
 % information covered by the XDF 1.0 specification is imported, plus any additional meta-data
 % associated with streams or with the container file itself.
 %
@@ -212,9 +212,9 @@ if ~have_mex
     disp('NOTE: apparently you are missing a compiled binary version of the inner loop code. Using the slow MATLAB code instead.'); end
 
 
-% ======================
-% === parse the file ===
-% ======================
+% ======================================================
+% === parse the file ([SomeText] refers to XDF Spec) ===
+% ======================================================
 
 % read [MagicCode]
 if ~strcmp(fread(f,4,'*char')','XDF:')
@@ -286,7 +286,7 @@ while 1
                 temp(id).time_stamps{end+1} = timestamps;
             catch e
                 % an error occurred (perhaps a chopped-off file): emit a warning
-                % and return the file up to this point
+                % and scan forward to the next recognized chunk
                 fprintf('  got error "%s" (%s), scanning forward to next boundary chunk.\n',e.identifier,e.message);
                 scan_forward(f);
             end
