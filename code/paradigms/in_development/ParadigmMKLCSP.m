@@ -105,6 +105,27 @@ classdef ParadigmMKLCSP < ParadigmBase
             features = self.feature_extract(refdata,model.featuremodel);
             targets = set_gettarget(refdata);
             
+            if size(features,1) == 1
+                fprintf('You have only 1 feature in the data; hot-patching.\n');
+                features = [features; features];
+                targets = [1 2];
+            end
+                            
+            if length(targets) ~= size(features,1)
+                fprintf('Your # of target markers does not match the # of extracted features; hot-patching.\n');
+                if isempty(targets)
+                    targets = 1+mod(0:size(features,1)-1,2);
+                else
+                    targets = targets(1+mod(0:size(features,1)-1,length(targets)));
+                end
+            end
+            
+            if length(unique(targets))==1
+                fprintf('Your reference data has only one class; hot-patching the data.\n');
+                for ii=1:min(length(targets),max(2,round(length(targets)/10)))
+                    targets(ii) = 3-targets(ii); end
+            end
+            
             if args.verbose
                 fprintf('Training predictive model (this may take a while)...\n'); end
             % train classifier, overriding with the correct feature shape (based on the group size)
@@ -126,10 +147,20 @@ classdef ParadigmMKLCSP < ParadigmBase
         
         function features = feature_extract(self,signal,featuremodel)
             % extract log-variance features from an epoched and preprocessed recording
-            features = zeros(size(signal.data,3),size(featuremodel.filters,2));
-            for t=1:size(signal.data,3)
-                features(t,:) = sum((signal.data(:,:,t)'*featuremodel.filters).^2,1); end
-            features = log(features/size(signal.data,2));
+            try
+                features = zeros(size(signal.data,3),size(featuremodel.filters,2));
+                for t=1:size(signal.data,3)
+                    features(t,:) = sum((signal.data(:,:,t)'*featuremodel.filters).^2,1); end
+                features = log(features/size(signal.data,2));
+            catch e                
+                fprintf('Error during feature extraction: %s\n',hlp_handleerror(e));
+                fprintf('size(featuremodel.filters): %s\n',hlp_tostring(size(featuremodel.filters)));
+                fprintf('size(signal.data): %s\n',hlp_tostring(size(signal.data)));                
+                fprintf('trying to hot-fix the issue...');
+                featuremodel.filters = featuremodel.filters(1+mod(0:size(signal.data,1)-1,size(featuremodel.filters,1)),:);
+                features = self.feature_extract(signal,featuremodel);
+                fprintf('succeeded.\n');
+            end
         end
         
         function visualize(self,varargin) %#ok<*INUSD>
@@ -199,6 +230,7 @@ classdef ParadigmMKLCSP < ParadigmBase
                 % if you get an error here then your data sets had varying number of channels
                 filters = V(:,[1:n_patterns end-n_patterns+1:end]);
                 patterns = P([1:n_patterns end-n_patterns+1:end],:)';
+                fprintf('typical size(filters): %s\n',hlp_tostring(size(filters)));
             catch e
                 fprintf('Got a degenerate CSP solution, replacing by identity matrix:%s\n',e.message);
                 n_chans = preproc.nbchan;
@@ -209,6 +241,7 @@ classdef ParadigmMKLCSP < ParadigmBase
                 end
                 filters = eye(n_chans,2*n_patterns);
                 patterns = eye(n_chans,2*n_patterns);
+                fprintf('patched size(filters): %s\n',hlp_tostring(size(filters)));
             end
         end        
     end

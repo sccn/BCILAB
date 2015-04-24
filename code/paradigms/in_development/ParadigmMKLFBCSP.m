@@ -113,6 +113,27 @@ classdef ParadigmMKLFBCSP < ParadigmBase
             % extract features and get target labels
             features = self.feature_extract(refdata,model.featuremodel);
             targets = set_gettarget(refdata);
+     
+            if size(features,1) == 1
+                fprintf('You have only 1 feature in the data; hot-patching.\n');
+                features = [features; features];
+                targets = [1 2];
+            end
+                            
+            if length(targets) ~= size(features,1)
+                fprintf('Your # of target markers does not match the # of extracted features; hot-patching.\n');
+                if isempty(targets)
+                    targets = 1+mod(0:size(features,1)-1,2);
+                else
+                    targets = targets(1+mod(0:size(features,1)-1,length(targets)));
+                end
+            end
+            
+            if length(unique(targets))==1
+                fprintf('Your reference data has only one class; hot-patching the data.\n');
+                for ii=1:min(length(targets),max(2,round(length(targets)/10)))
+                    targets(ii) = 3-targets(ii); end
+            end
             
             if args.verbose
                 fprintf('Training predictive model (this may take a while)...\n'); end
@@ -134,19 +155,29 @@ classdef ParadigmMKLFBCSP < ParadigmBase
         end
         
         function features = feature_extract(self,signal,featuremodel)
-            N = featuremodel.n_subjects;
-            W = length(featuremodel.freq_args);
-            F = size(featuremodel.filters,2)/N;
-            T = size(signal.data,3);
-            features = zeros(T,F*N);
-            for w = 1:W
-                % filter data in time & frequency
-                data = exp_eval(flt_spectrum('signal',flt_window('signal',signal,featuremodel.time_args{w}),featuremodel.freq_args{w}));
-                mask = false(1,F); mask((w-1)*(F/W)+(1:(F/W))) = true; mask = repmat(mask,1,N);
-                for t=1:size(signal.data,3)
-                    features(t,mask) = sum((data.data(:,:,t)'*featuremodel.filters(:,mask)).^2,1); end
-            end
-            features = log(features/size(signal.data,2));
+            try
+                N = featuremodel.n_subjects;
+                W = length(featuremodel.freq_args);
+                F = size(featuremodel.filters,2)/N;
+                T = size(signal.data,3);
+                features = zeros(T,F*N);
+                for w = 1:W
+                    % filter data in time & frequency
+                    data = exp_eval(flt_spectrum('signal',flt_window('signal',signal,featuremodel.time_args{w}),featuremodel.freq_args{w}));
+                    mask = false(1,F); mask((w-1)*(F/W)+(1:(F/W))) = true; mask = repmat(mask,1,N);
+                    for t=1:size(signal.data,3)
+                        features(t,mask) = sum((data.data(:,:,t)'*featuremodel.filters(:,mask)).^2,1); end
+                end
+                features = log(features/size(signal.data,2));
+            catch
+                fprintf('Error during feature extraction: %s\n',hlp_handleerror(e));
+                fprintf('size(featuremodel.filters): %s\n',hlp_tostring(size(featuremodel.filters)));
+                fprintf('size(signal.data): %s\n',hlp_tostring(size(signal.data)));
+                fprintf('trying to hot-fix the issue...');
+                featuremodel.filters = featuremodel.filters(1+mod(0:size(signal.data,1)-1,size(featuremodel.filters,1)),:);
+                features = self.feature_extract(signal,featuremodel);
+                fprintf('succeeded.\n');
+            end                
         end
         
 
@@ -221,7 +252,7 @@ classdef ParadigmMKLFBCSP < ParadigmBase
                     P = inv(V);
                     % if you get an error here then your data sets had varying number of channels                
                     filters = [filters V(:,[1:n_patterns end-n_patterns+1:end])];
-                    patterns = [patterns P([1:n_patterns end-n_patterns+1:end],:)'];                
+                    patterns = [patterns P([1:n_patterns end-n_patterns+1:end],:)'];                    
                 catch e
                     fprintf('Got a degenerate FBCSP solution, replacing by identity matrix:%s\n',e.message);
                     n_chans = preproc.nbchan;

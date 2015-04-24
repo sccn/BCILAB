@@ -1,6 +1,14 @@
 function par_broadcast(command)
 % Broadcast a command to all registered workers.
 %
+% This function can be used to change the state of all workers while they are running; for instance,
+% when editing parallel code it is sometimes useful to change a function and have all workers update
+% their (cached) version of the function without restarting them, or without clearing other caches
+% on the workers. This can be accomplished by running par_broadcast('clear myfunction')
+%
+% Note that, when a worker is busy it will not be reachable by this function and you will get an
+% error.
+%
 % In:
 %   Command : the command to execute
 %
