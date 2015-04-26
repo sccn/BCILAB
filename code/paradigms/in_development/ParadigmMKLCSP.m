@@ -131,7 +131,17 @@ classdef ParadigmMKLCSP < ParadigmBase
             % train classifier, overriding with the correct feature shape (based on the group size)
             if isfield(args.ml.learner,'shape')
                 args.ml.learner.shape = [2*args.patterns,length(subjects)]; end
-            model.predictivemodel = ml_train('data',{features,targets}, args.ml);
+            try
+                model.predictivemodel = ml_train('data',{features,targets}, args.ml);
+            catch e
+                if ~isempty(strfind(e.message,'Null probability for class'))
+                    fprintf('One of the classes has a probability of 0; hot-patching the data.\n');
+                    targets = 1+mod(0:length(targets)-1,2);
+                    model.predictivemodel = ml_train('data',{features,targets}, args.ml);
+                else
+                    rethrow(e);
+                end
+            end
             % set the filter graph based on the reference data
             model.tracking.filter_graph = refsets{end};
             % also store channel locations for model visualization

@@ -23,10 +23,10 @@ classdef ParadigmMKLFBCSP < ParadigmBase
         function defaults = preprocessing_defaults(self)
             defaults = {'EpochExtraction',[0.5 3.5],'Resampling',200};
         end
-                
+        
         function defaults = machine_learning_defaults(self)
             % set up the default parameters for machine learning
-            defaults = {'logreg', 'variant','lars'};
+            defaults = {'logreg', 'Variant','lars'};
         end
                 
         function model = calibrate(self,varargin)
@@ -140,7 +140,17 @@ classdef ParadigmMKLFBCSP < ParadigmBase
             % train classifier, overriding with the correct feature shape (based on the group size)
             if isfield(args.ml.learner,'shape')
                 args.ml.learner.shape = [2*args.patterns,length(subjects)]; end
-            model.predictivemodel = ml_train('data',{features,targets}, args.ml);
+            try
+                model.predictivemodel = ml_train('data',{features,targets}, args.ml);
+            catch e
+                if ~isempty(strfind(e.message,'Null probability for class'))
+                    fprintf('One of the classes has a probability of 0; hot-patching the data.\n');
+                    targets = 1+mod(0:length(targets)-1,2);
+                    model.predictivemodel = ml_train('data',{features,targets}, args.ml);
+                else
+                    rethrow(e);
+                end
+            end
             % set the filter graph based on the reference data
             model.tracking.filter_graph = refsets{end};
             % also store channel locations for model visualization
@@ -169,7 +179,7 @@ classdef ParadigmMKLFBCSP < ParadigmBase
                         features(t,mask) = sum((data.data(:,:,t)'*featuremodel.filters(:,mask)).^2,1); end
                 end
                 features = log(features/size(signal.data,2));
-            catch
+            catch e
                 fprintf('Error during feature extraction: %s\n',hlp_handleerror(e));
                 fprintf('size(featuremodel.filters): %s\n',hlp_tostring(size(featuremodel.filters)));
                 fprintf('size(signal.data): %s\n',hlp_tostring(size(signal.data)));

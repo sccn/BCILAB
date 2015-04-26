@@ -21,6 +21,12 @@ function result = utl_evaluate_fold(opts,data,inds)
 %                                2010-04-07
 dp;
 
+result = hlp_diskcache('cvfolds',@cached_evaluate,opts,data,inds);
+
+
+function result = cached_evaluate(opts,data,inds)
+% the function that does the actual work
+
 % learn a model on the training partition
 trainset = opts.partitioner(data,inds{1});
 if length(inds) >= 3

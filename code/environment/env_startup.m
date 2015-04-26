@@ -419,6 +419,8 @@ hlp_diskcache('dipfits','folder',opts.temp,'subdir','dipfits','exactmatch_cutoff
 hlp_diskcache('featuremodels','folder',opts.temp,'subdir','featuremodels','exactmatch_cutoff',0,'spot_hashing',true,'bypass',ismember('featuremodels',opts.disabled_caches));
 % machine learning models: can be large, can be expensive to recompute, but produced in large quantities
 hlp_diskcache('predictivemodels','folder',opts.temp,'subdir','predictivemodels','exactmatch_cutoff',0,'spot_hashing',true,'bypass',ismember('predictivemodels',opts.disabled_caches));
+% fine-grained data: currently rarely used
+hlp_diskcache('cvfolds','folder',opts.temp,'subdir','cvfolds','bypass',ismember('cvfolds',opts.disabled_caches));
 % miscellaneous statistics; currently rarely used
 hlp_diskcache('statistics','folder',opts.temp,'subdir','statistics','exactmatch_cutoff',0,'bypass',ismember('statistics',opts.disabled_caches));
 % montage-related data: small but expensive to recompute (frequently reused)
