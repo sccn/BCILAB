@@ -12,6 +12,9 @@ function res = utl_aggregate_results(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-07
 
+% remove empty arguments.
+varargin = varargin(~cellfun('isempty',varargin));
+
 if isnumeric(varargin{1})
     try
         res = vertcat(varargin{:});

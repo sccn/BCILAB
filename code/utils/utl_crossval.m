@@ -139,6 +139,14 @@ function [measure,stats] = utl_crossval(varargin)
 %
 %               'policy': scheduling policy to use (default: 'global'); see par_beginschedule
 %
+%               'cache_fold_results' : whether to cache the per-fold results. (default: false)
+%
+%               'only_cached_results' : load only results that are in the cache. (default: false)
+%
+%               'no_prechecks' : skip pre-checks that access the data. (default: false)
+%
+%               'collect_models' : collect models per fold. (default: false)
+%
 % Out:
 %   Measure : a measure of the overall performance of the trainer/tester combination, w.r.t. to the 
 %             target variable returned by the target function. Computed according to the selected metric.
@@ -210,6 +218,8 @@ opts = arg_define(0:1,varargin, ...
     arg({'pool','WorkerPool'},'global',[], 'Worker pool to use. This is typically a cell array, but can also be the string ''gobal'', which stands for the currently globally set up worker pool (see global tracking variable).','type','expression'), ...
     arg({'policy','ReschedulingPolicy'},'global',[], 'Rescheduling policy. This is the name of the rescheduling policy function that controls if and when tasks are being rescheduled. If set to global, the current global setting will be used.'), ...    
     ... % misc arguments
+    arg({'cache_fold_results','CacheFoldResults'},false,[],'Whether to cache the per-fold results. This is meant to be used when running very long-running computations on machines that crash frequently enough that partial results need to be saved. In this case, any previously computed results will be loaded from disk.'), ...
+    arg({'only_cached_results','OnlyCachedResults'},false,[],'Load only results that are in the cache. This will not run any computations (aside from pre-checks, that can be disabled by setting NoPrechecks to true).'), ...
     arg({'no_prechecks','NoPrechecks'},false,[],'Skip pre-checks that access the data. This can save some time when it would take very long to load the data, especially when performing parallel computation.'), ...
     arg({'collect_models','CollectModels'},false,[],'Collect models per fold. Note that this increases the amount of data returned.'));
 
@@ -310,7 +320,14 @@ if ~isempty(inds)
 
     % compute per-fold metric / stats
     for p=length(targets):-1:1
-        [measure(p),stats.per_fold(p)] = opts.metric(targets{p},predictions{p}); end
+        if ~(isempty(targets{p}) && isempty(predictions{p}))
+            [measure(p),stats.per_fold(p)] = opts.metric(targets{p},predictions{p}); 
+        else
+            % this can happen when we are asked to load incomplete results from disk
+            fprintf('Note: fold %i had empty predictions and targets.\n',p);
+            measure(p) = NaN;
+        end
+    end
     
     % attach basic summary statistics
     if any(isnan(measure)) && any(~isnan(measure))

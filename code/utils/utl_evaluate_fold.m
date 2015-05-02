@@ -19,13 +19,25 @@ function result = utl_evaluate_fold(opts,data,inds)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-07
+
+% utl_evaluate_fold_version<1.0> -- for the cache
 dp;
 
-result = hlp_diskcache('cvfolds',@cached_evaluate,opts,data,inds);
+disp('fold.');
+if opts.cache_fold_results
+    result = hlp_diskcache({'cvfolds' 'load_only', opts.only_cached_results}, ...
+        @cached_evaluate,rmfield(opts,'only_cached_results'),data,inds);
+    % return empty result record if we're in cache loadonly mode
+    if strcmp(result,'hlp_diskcache:notfound')   
+        result = {[],[],struct()}; end
+else
+    result = cached_evaluate(opts,data,inds);
+end
 
 
 function result = cached_evaluate(opts,data,inds)
 % the function that does the actual work
+% cached_evaluate_version<1.0> -- for the cache
 
 % learn a model on the training partition
 trainset = opts.partitioner(data,inds{1});

@@ -27,7 +27,7 @@ function [measure,model,stats] = bci_train(varargin)
 % assumptions match the data and if the required information is sufficiently accessible in the
 % calibration data set. The result is a 'predictive model' in which the information about the
 % connection of interest is captured (usually in some form of statistical mapping).
-% 
+%
 % Almost all paradigms involve some parameters that can be varied to obtain a different variant of
 % the paradigm (e.g., the frequency range of interest in the EEG signal), and the better these
 % parameters are chosen, the better will be the attainable quality of the models that the paradigm
@@ -48,10 +48,10 @@ function [measure,model,stats] = bci_train(varargin)
 % these times is encoded into the EEG as 'events', or 'markers'. In EEGLAB data sets, this is the
 % field EEG.event, and its type (a string) would be used to encode the state value. Usually, events
 % are produced by the software that guides the person though the calibration session and are
-% recorded by the data acquisition system. 
+% recorded by the data acquisition system.
 %
-% Which events in the data set are relevant and what is the desired output of the BCI for each of 
-% these events of interest is specified via the parameter TargetMarkers (or may also be added as an 
+% Which events in the data set are relevant and what is the desired output of the BCI for each of
+% these events of interest is specified via the parameter TargetMarkers (or may also be added as an
 % annotation for the data itself, using set_targetmarkers).
 %
 % Aside from the chosen paradigm's parameters, this is all there is to specify to bci_train in order
@@ -61,7 +61,7 @@ function [measure,model,stats] = bci_train(varargin)
 % values.
 %
 %
-% Simple Example 
+% Simple Example
 % ==============
 %
 % A model that predicts the laterality of imagined hand gestures can be computed as follows
@@ -70,7 +70,7 @@ function [measure,model,stats] = bci_train(varargin)
 % brain signals (Event-Related Desynchronization, see [1]) are assumed to be oscillatory processes
 % that originate in distinct areas of the brain, the CSP (Common Spatial Pattern, see, e.g., [2])
 % paradigm is used here unmodified. The approach can be specified as a string (usually the acronym
-% for one of the ParadigmXXX.m files in code/paradigms) or as a cell array containing that string 
+% for one of the ParadigmXXX.m files in code/paradigms) or as a cell array containing that string
 % followed by optional name-value pairs to override/customize parameters.
 %
 %   calib = io_loadset('data_sets/john/gestures.eeg')
@@ -103,9 +103,9 @@ function [measure,model,stats] = bci_train(varargin)
 % produced by model B with those produced by model A.
 %
 % The majority of approaches override at least one parameter of the paradigm, as for example the
-% EpochExtraction parameter of the signal processing chain, which determines the time range of 
-% interest relative to the events. Thus, calibration of a BCI model usually proceeds in three steps 
-% in BCILAB: 
+% EpochExtraction parameter of the signal processing chain, which determines the time range of
+% interest relative to the events. Thus, calibration of a BCI model usually proceeds in three steps
+% in BCILAB:
 %
 %   calib = io_loadset('data_sets/john/gestures.eeg')
 %   myapproach = {'CSP', 'SignalProcessing',{'EpochExtraction',[0.5 2.5]}};
@@ -120,8 +120,8 @@ function [measure,model,stats] = bci_train(varargin)
 % depending on a predictive model, what overall cost is incurred by (potentially sub-optimal)
 % behavior of the system. Both cases can be covered by a formal 'loss' metric [3]. Different types
 % of systems / types of predictive models require different loss metrics, which can be chosen in the
-% EvaluationMetric parameter from a set of pre-defined ones, or supplied as a custom function. An 
-% introduction to various predefined loss functions and their uses is given in the help of the 
+% EvaluationMetric parameter from a set of pre-defined ones, or supplied as a custom function. An
+% introduction to various predefined loss functions and their uses is given in the help of the
 % function machine_learning/ml_calcloss.
 %
 % The loss of a model can be computed in a variety of settings. Most obviously and realistically, a
@@ -174,13 +174,13 @@ function [measure,model,stats] = bci_train(varargin)
 % Paradigm Customization and Structure
 % ====================================
 %
-% In the Approach declaration, a list of name-value pairs can be specified, for example 
-% {'CSP', 'Resampling',200, 'SpectralSelection',[7 30], 'EpochExtraction',[-1.5 2.5]}, to override the 
+% In the Approach declaration, a list of name-value pairs can be specified, for example
+% {'CSP', 'Resampling',200, 'SpectralSelection',[7 30], 'EpochExtraction',[-1.5 2.5]}, to override the
 % default values of the chosen paradigm for the given named parameters - practically all paradigms have
 % named parameters (although some community-supplied ones may have position-dependent parameters -
 % like most MATLAB functions). All parameters are basically passed through unmodified to the
 % paradigm in question (usually one of the paradigms/ParadigmXXX classes), so the place to
-% look up what can be specified is the help of the respective class, or by bringing up the GUI config 
+% look up what can be specified is the help of the respective class, or by bringing up the GUI config
 % dialog for the given approach (see GUI tutorial).
 %
 % Most paradigms contain similar internal structure, and therefore share common components, which in
@@ -201,7 +201,7 @@ function [measure,model,stats] = bci_train(varargin)
 % such as flt_ica does. Furthermore, most paradigms not only use a subset of the provided filters,
 % but instead use the entire default Signal Processing pipeline of the toolbox, explained in
 % filters/flt_pipeline. For this reason, all parameters of flt_pipeline can be customized by the
-% user for almost any paradigm (and not just those chosen by the paradigm), i.e. the user can enable 
+% user for almost any paradigm (and not just those chosen by the paradigm), i.e. the user can enable
 % and configure stages in the default pipeline which are normally disabled in the given paradigm. Note
 % that flt_pipeline offers a few alias names for some parameters, e.g. 'channels' can be used
 % instead of 'selchans', both controlling filters/flt_selchans; these are listed in flt_pipeline.
@@ -216,15 +216,15 @@ function [measure,model,stats] = bci_train(varargin)
 % Machine Learning. In this, a learning component, which is one of the provided
 % machine_learning/ml_train* functions, computes a statistical model of the feature distributions,
 % and their relation to the desired output values. This component is generally selected via the
-% 'learner' parameter, which is exposed by most paradigms. The learner can be specified as name tag, 
-% such as 'lda', which refers to ml_trainlda. If the learner component contains parameters which shall 
-% be costomized as well, a cell array is passed which contains the name tag followed by the custom 
-% parameters, in the order of appearance in the respective learning function. For example, 
-% 'learner',{'svmlinear',0.5} selects The linear SVM component and sets its Cost parameter to 0.5, 
-% and 'learner',{'logreg',[],'variant','vb-ard'} selects the Logistic Regression component, keeps its 
-% first parameter at the default value, and uses the custom variant 'vb-ard', which stands for 
-% Variational Bayes with Automatic Relevance Determination (see, e.g., [7]). A small but useful subset 
-% of the provided Signal Processing, Feature Extraction and Machine Learning components is compactly 
+% 'learner' parameter, which is exposed by most paradigms. The learner can be specified as name tag,
+% such as 'lda', which refers to ml_trainlda. If the learner component contains parameters which shall
+% be costomized as well, a cell array is passed which contains the name tag followed by the custom
+% parameters, in the order of appearance in the respective learning function. For example,
+% 'learner',{'svmlinear',0.5} selects The linear SVM component and sets its Cost parameter to 0.5,
+% and 'learner',{'logreg',[],'variant','vb-ard'} selects the Logistic Regression component, keeps its
+% first parameter at the default value, and uses the custom variant 'vb-ard', which stands for
+% Variational Bayes with Automatic Relevance Determination (see, e.g., [7]). A small but useful subset
+% of the provided Signal Processing, Feature Extraction and Machine Learning components is compactly
 % described in [5].
 %
 %
@@ -266,7 +266,7 @@ function [measure,model,stats] = bci_train(varargin)
 %
 % Parameter searching
 % ===================
-% 
+%
 % In some cases, the optimal setting of certain parameters of a paradigm might not be known, but may
 % drastically affect the performance of the method. One example are the time boundaries w.r.t. to
 % the supplied events, which may depend on the reaction time of the user, among other things.
@@ -348,13 +348,13 @@ function [measure,model,stats] = bci_train(varargin)
 %       'Prediction',{'MachineLearning',{'Learner',{'dal',search(2.^(8:-0.125:1))}}}};
 %   [loss,model,stats] = bci_train('Data',calib,'Approach',myapproach, 'TargetMarkers',{'err','cor'})
 %
-% This example is for illustrative purposes because the ml_traindal has its own highly optimized 
-% parameter search code, which would kick in if the first parameter was specified as an array of 
+% This example is for illustrative purposes because the ml_traindal has its own highly optimized
+% parameter search code, which would kick in if the first parameter was specified as an array of
 % possible values (i.e. without the search() clause).
 %
 % Statistics
 % ==========
-% 
+%
 % Aside from an average loss measure, a structure of additional statistics can be obtained from
 % bci_train via its third output parameter, Statistics. The most relevant part of the statistics are
 % the per-fold loss measures (computed in each cross-validation fold), which can be used to run
@@ -398,36 +398,33 @@ function [measure,model,stats] = bci_train(varargin)
 %    Data : Data set. EEGLAB data set, or stream bundle, or cell array of data sets / stream bundles
 %           to use for calibration/evaluation.
 %
-%    Approach : Computational approach. Specification of a computational approach (usually a cell 
-%               array, alternatively a struct). If a cell array, the first cell is the name of the 
+%    Approach : Computational approach. Specification of a computational approach (usually a cell
+%               array, alternatively a struct). If a cell array, the first cell is the name of the
 %               paradigm (usually just the acronym of an existing ParadigmXXX class), and the rest are
 %               name-value pairs specifying optional custom arguments for the paradigm.
 %
 %   TargetMarkers : Target markers. List of types of those markers around which data shall be used
 %                   for BCI calibration; each marker type encodes a different target class (i.e.
-%                   desired output value) to be learned by the resulting BCI model. 
-%                   
+%                   desired output value) to be learned by the resulting BCI model.
+%
 %                   This can be specified either as a cell array of marker-value pairs, in which
-%                   case each marker type of BCI interest is associated with a particular BCI output 
-%                   value (e.g., -1/+1), or as a cell array of marker types (in which case each 
-%                   marker will be associated with its respective index as corresponding BCI output 
+%                   case each marker type of BCI interest is associated with a particular BCI output
+%                   value (e.g., -1/+1), or as a cell array of marker types (in which case each
+%                   marker will be associated with its respective index as corresponding BCI output
 %                   value, while nested cell arrays are also allowed to group markers that correspond
 %                   to the same output value). See help of set_targetmarkers for further explanation.
 %
 %
-%   --- miscellaneous arguments ---
-%
-%   EventField : Event field to search for target markers, provided as a string. If not provided,
-%                the field 'type' will be used by default.
+%   --- computational settings ---
 %
 %   EvaluationMetric : Evaluation metric. The metric to use in the assessment of model performance
 %                      (via cross-validation). Can be empty, a string, or a function handle.
-%                      See ml_calcloss() for the options (default: [] = auto-select between 
-%                      kullback-leibler divergence ('kld'), mean square error ('mse'), mis-classification 
-%                      rate ('mcr') and negative log-likelihood ('nll') depending on the type of the 
+%                      See ml_calcloss() for the options (default: [] = auto-select between
+%                      kullback-leibler divergence ('kld'), mean square error ('mse'), mis-classification
+%                      rate ('mcr') and negative log-likelihood ('nll') depending on the type of the
 %                      target and prediction variables, further detailed in ml_calcloss())
 %
-%   EvaluationScheme : Evaluation scheme. Cross-validation scheme to use for evaluation. See 
+%   EvaluationScheme : Evaluation scheme. Cross-validation scheme to use for evaluation. See
 %                      utl_crossval for the default settings when operating on a single recording
 %                      (there it is called 'scheme'). When opperating on a collection of multiple
 %                      data sets, this is equivalent to the Settings argument of
@@ -439,11 +436,11 @@ function [measure,model,stats] = bci_train(varargin)
 %                      learning is 10-fold randomized cross-validation, which you get by setting
 %                      this parameter to 10 (though it is not ideal for time-series data).
 %
-%   OptimizationScheme : Optimization scheme. Cross-validation scheme to use for parameter search 
+%   OptimizationScheme : Optimization scheme. Cross-validation scheme to use for parameter search
 %                        (this is a nested cross-validation, only performed if there are parameters
 %                        to search). The format is the same as in EvaluationScheme; default is
 %                        {'chron',5,5}, which is a reasonable choice for final results.
-%   
+%
 %   GoalIdentifier : Goal identifier. This is used when training a model on a collection of
 %                    multiple recordings that will subsequently be used to predict given a dataset
 %                    that is somehow related to the training set (e.g., one of the subjects). It
@@ -458,13 +455,29 @@ function [measure,model,stats] = bci_train(varargin)
 %                    model produced by bci_train would be trained in a way that's agnostic to which
 %                    is the future subject, and that can be quite time-consuming for some methods.
 %
-%   EpochBounds : Epoch bounds override. Tight upper bound of epoch windows used for epoching (by
-%                 default [-5 5]). This is only used if the cross-validation needs to run on
-%                 continuous data because a continuous-data statistic needs to be computed over the
-%                 training set (such as ICA).
+%   --- selective computation ---
 %
 %   PerFoldModels : Collect per-fold models. If true, models of each fold of the cross-validation
 %                   will be collected (uses more memory). (default: false)
+%
+%   ComputeFinalModel : Whether to compute the final model. If false, the resulting model will be
+%                       empty. (default: true)
+%
+%   NoPrechecks : Disable pre-checks. This will skip sanity checks of the data prior to launching
+%                 the actual computation. When the CV is run on a cluster on a large dataset, this
+%                 can save significant loading time. (default: false)
+%
+%   CacheFoldResults : Whether to cache the per-fold results. This is meant to be used when running
+%                      very long-running computations on machines that crash frequently enough that
+%                      partial results need to be saved. In this case, any previously computed
+%                      results will be loaded from disk. Under normal conditions caching only
+%                      sub-computations necessary for the cross-validation (which is enabled by
+%                      default) should be enough. Implies NoPrechecks. (default: false)
+%
+%   OnlyCachedResults : Load only results that are in the cache. This will not run any computations.
+%                       Implies CacheFoldResults. (default: false)
+%
+%   --- parallel computing options ---
 %
 %   CrossvalidationResources : Cross-validation parallelization. Same meaning and options as the
 %                              ParameterSearchEngine parameter, however for the cross-validations.
@@ -475,7 +488,7 @@ function [measure,model,stats] = bci_train(varargin)
 %                              this computation. If set to 'local', the computation will be done on
 %                              the local machine. Otherwise,the respective scheduler will be used to
 %                              distribute the computation across a cluster (default: 'local')
-%   
+%
 %   NestedCrossvalResources : Nested cross-validation parallelization. If set to 'global', the
 %                             global BCILAB setting will be used (see par_globalsetting) to
 %                             determine when to run this computation. If set to 'local', the
@@ -483,24 +496,46 @@ function [measure,model,stats] = bci_train(varargin)
 %                             respective scheduler will be used to distribute the computation across
 %                             a cluster (default: 'local')
 %
-%   ResourcePool : Parallel compute resouces. If set to ''global'', the globally set BCILAB resource 
+%   ResourcePool : Parallel compute resouces. If set to ''global'', the globally set BCILAB resource
 %                  pool will be used (see par_globalsetting), otherwise this should be a cell array
 %                  of 'hostname:port' strings (default: 'global')
 %
+%   --- miscellaneous options ---
+%
+%   EpochBounds : Epoch bounds override. Tight upper bound of epoch windows used for epoching (by
+%                 default [-5 5]). This is only used if the cross-validation needs to run on
+%                 continuous data because a continuous-data statistic needs to be computed over the
+%                 training set (such as ICA).
+%
+%   EventField : Event field to search for target markers, provided as a string. If not provided,
+%                the field 'type' will be used by default.
+%
+%   PruneDatasets : Prune datasets from results. If true, any occurrence of a data set in the
+%                   resulting model or stats struct will be replaced by its symbolic expression or a
+%                   placeholder string. (default: true)
+%
+%   PruneNontargetMarkers : Prune non-target markers. This usually improves the speed of offline
+%                           processing at the cost of not being able to access misc markers in BCI
+%                           analysis. (default: false)
+%
+%   EnforceFingerprinting : Enforce use of fingerprinting. If true, this function will not accept
+%                           raw dataset structs if fingerprinting is disabled. (default: true)
+%
+%
 % Out:
-%   Loss       : a measure of the overall performance of the paradigm combination, w.r.t. to the 
+%   Loss       : a measure of the overall performance of the paradigm combination, w.r.t. to the
 %                target variable returned by gettarget, computed by the specified loss metric.
 %
-%   Model      : a predictive model ("detector"), as computed by the specified paradigm; can be 
+%   Model      : a predictive model ("detector"), as computed by the specified paradigm; can be
 %                loaded into the online system via onl_loaddetector, applied offline to new data via
 %                bci_predict, and analyzed using various visualizers
 %
-%   Statistics : additional statistics, as produced by the specified metric; if the model itself is 
+%   Statistics : additional statistics, as produced by the specified metric; if the model itself is
 %                determined via parameter search, further statistics from the model searching are in
 %                the subfield stats.model
 %
 % Examples:
-%   % assuming that a data set has been loaded, and a computational approach has been defined 
+%   % assuming that a data set has been loaded, and a computational approach has been defined
 %   % similarly to the following code:
 %   traindata = io_loadset('bcilab:/userdata/tutorial/imag_movements1/calib/DanielS001R01.dat');
 %   myapproach = {'CSP' 'SignalProcessing',{'EpochExtraction',[0 3.5]}};
@@ -524,9 +559,9 @@ function [measure,model,stats] = bci_train(varargin)
 % References:
 %   [1] Pfurtscheller, G., and da Silva, L. "Event-related EEG/MEG synchronization and desynchronization: basic principles."
 %       Clin Neurophysiol 110, 1842-1857, 1999
-%   [2] Ramoser, H., Mueller-Gerking, J., Pfurtscheller G. "Optimal spatial filtering of single trial EEG during imagined hand movement." 
+%   [2] Ramoser, H., Mueller-Gerking, J., Pfurtscheller G. "Optimal spatial filtering of single trial EEG during imagined hand movement."
 %       IEEE Trans Rehabil Eng. Dec 8 (4): 441-6, 2000
-%   [3] MacKay, D. J. C. "Information theory, inference, and learning algorithms." 
+%   [3] MacKay, D. J. C. "Information theory, inference, and learning algorithms."
 %       Cambridge University Press, 2003.
 %   [4] Duda, R., Hart, P., and Stork, D., "Pattern Classification.", Second Ed.
 %       John Wiley & Sons, 2001.
@@ -534,11 +569,11 @@ function [measure,model,stats] = bci_train(varargin)
 %       Ph.D Thesis, University of Potsdam, 2006.
 %   [6] Owen, A. M., McMillan, K. M., Laird, A. R. & Bullmore, E. "N-back working memory paradigm: A meta-analysis of normative functional neuroimaging studies."
 %       Human Brain Mapping, 25, 46-59, 2005
-%   [7] Bishop, C. M. "Pattern Recognition and Machine Learning." 
+%   [7] Bishop, C. M. "Pattern Recognition and Machine Learning."
 %       Information Science and Statistics. Springer, 2006.
-%   [8] Hastie, T., Tibshirani, R., and Friedman, J. H. "The elements of statistical learning (2nd Ed.)." 
+%   [8] Hastie, T., Tibshirani, R., and Friedman, J. H. "The elements of statistical learning (2nd Ed.)."
 %	    Springer, 2009.
-%   [9] Tomioka, R., Dornhege, G., Aihara, K., and Mueller, K.-R.. "An iterative algorithm for spatio-temporal filter optimization." 
+%   [9] Tomioka, R., Dornhege, G., Aihara, K., and Mueller, K.-R.. "An iterative algorithm for spatio-temporal filter optimization."
 %       In Proceedings of the 3rd International Brain-Computer Interface Workshop and Training Course 2006, pages 22-23. Verlag der Technischen Universitaet Graz, 2006.
 %   [10] Buzsaki, G., "Rhythms of the brain"
 %        Oxford University Press US, 2006
@@ -549,7 +584,7 @@ function [measure,model,stats] = bci_train(varargin)
 %   [13] Tomioka, R. and Mueller, K.-R. "A regularized discriminative framework for EEG analysis with application to brain-computer interface"
 %        Neuroimage, 49 (1) pp. 415-432, 2010.
 %   [14] Onton J & Makeig S. "Broadband high-frequency EEG dynamics during emotion imagination."
-%        Frontiers in Human Neuroscience, 2009. 
+%        Frontiers in Human Neuroscience, 2009.
 %
 % See also:
 %   bci_predict, bci_batchtrain, bci_visualize, bci_annotate, io_loadset,
@@ -568,7 +603,7 @@ opts = arg_define(0,varargin, ...
     arg({'markers','TargetMarkers'},{},[],'Target markers. List of types of those markers around which data shall be used for BCI calibration; each marker type encodes a different target class (i.e. desired output value) to be learned by the resulting BCI model. This can be specified either as a cell array of marker-value pairs, in which case each marker type of BCI interest is associated with a particular BCI output value (e.g., -1/+1), or as a cell array of marker types (in which case each marker will be associated with its respective index as corresponding BCI output value, while nested cell arrays are also allowed to group markers that correspond to the same output value). See help of set_targetmarkers for further explanation.'), ...
     arg({'metric','EvaluationMetric','Metric','cvmetric'},'auto',{'auto','mcr','mse','smse','sign','nll','kld','mae','max','rms','bias','medse','auc','cond_entropy','cross_entropy','f_measure'},'Evaluation metric. The metric to use in the assessment of model performance (via cross-validation); see also ml_calcloss.'), ...
     arg({'eval_scheme','EvaluationScheme'},[],[],'Evaluation scheme. Cross-validation scheme to use for evaluation. See utl_crossval for the default settings when operating on a single recording, and utl_collection_partition when operating on a collection of data sets.','type','expression'), ...
-	arg({'opt_scheme','OptimizationScheme'},{'chron',5,5},[],'Optimization scheme. Cross-validation scheme to use for parameter search (this is a nested cross-validation, only performed if there are parameters to search).','type','expression'), ...
+    arg({'opt_scheme','OptimizationScheme'},{'chron',5,5},[],'Optimization scheme. Cross-validation scheme to use for parameter search (this is a nested cross-validation, only performed if there are parameters to search).','type','expression'), ...
     arg({'field','EventField'},'type',[],'Event field to search for target markers.'), ...
     ... % misc parameters ...
     arg({'goal_identifier','GoalIdentifier'},{},[],'Goal identifier. This is only used for training on multiple recordings and serves to identify the data set on which the BCI shall eventually be used (e.g., Subject Id, Day, etc.).','type','expression'), ...
@@ -579,13 +614,16 @@ opts = arg_define(0,varargin, ...
     arg({'engine_ncv','NestedCrossvalResources'},'local',{'global','local','BLS','ParallelComputingToolbox','Reference'},'Nested Cross-validation parallelization. If set to ''global'', the global BCILAB setting will be used to determine when to run this computation. If set to ''local'', the computation will be done on the local machine. Otherwise,the respective scheduler will be used to distribute the computation across a cluster.'), ...
     arg({'pool','ResourcePool'},'global',[],'Parallel compute resouces. If set to ''global'', the globally set BCILAB resource pool will be used, otherwise this should be a cell array of hostname:port strings.','type','expression'), ...
     ... % some more misc parameters
+    arg({'cache_fold_results','CacheFoldResults'},false,[],'Whether to cache the per-fold results. This is meant to be used when running very long-running computations on machines that crash frequently enough that partial results need to be saved. In this case, any previously computed results will be loaded from disk.'), ...
+    arg({'only_cached_results','OnlyCachedResults'},false,[],'Load only results that are in the cache. This will not run any computations (aside from pre-checks, that can be disabled by setting NoPrechecks to true).'), ...
     arg({'per_fold_models','PerFoldModels'},false,[],'Collect per-fold models. If true, models of each fold of the cross-validation will be collected (uses more memory).'), ...
+    arg({'compute_final_model','ComputeFinalModel'},true,[],'Whether to compute the final model. If false, the resulting model will be empty.'), ...
     arg({'prune_datasets','PruneDatasets'},true,[],'Prune datasets from results. If true, any occurrence of a data set in the resulting model or stats struct will be replaced by its symbolic expression or a placeholder string.'), ...
     arg({'prune_nontarget_markers','PruneNontargetMarkers'},false,[],'Prune non-target markers. This usually improves the speed of offline processing at the cost of not being able to access misc markers in BCI analysis.'), ...
     arg({'no_prechecks','NoPrechecks'},false,[],'Disable pre-checks. This will skip sanity checks of the data prior to launching the actual computation. When the CV is run on a cluster on a large dataset, this can save significant loading time.'), ...
     arg_nogui({'enforce_fingerprinting','EnforceFingerprinting'},true,[],'Enforce use of fingerprinting. If true, this function will not accept raw dataset structs if fingerprinting is disabled.'));
 
-% do some checks to ensure that bci_train's use of caching based on datasets' .tracking fields 
+% do some checks to ensure that bci_train's use of caching based on datasets' .tracking fields
 % is not derailed by unchecked direct data editing actions (e.g., in scripts)
 if opts.enforce_fingerprinting
     % if this is set, but fingerprinting is currently globally disabled in bcilab (this would be a
@@ -621,22 +659,28 @@ end
 
 % parse the approach (either it's a paradigm name string, a cell array, or a struct)
 if ischar(opts.approach)
-    % one of the class names in code/paradigms, without the leading 'Paradigm' prefix, e.g., 'CSP' 
+    % one of the class names in code/paradigms, without the leading 'Paradigm' prefix, e.g., 'CSP'
     opts.approach = struct('paradigm',opts.approach, 'parameters',{{}});
 elseif iscell(opts.approach) && ~isempty(opts.approach)
     % a cell array whose first element is the paradigm name, followed by arguments to the paradigm
     % (specifically its calibrate() method); this is easiest to type for users
-    opts.approach = struct('paradigm',opts.approach{1}, 'parameters',{opts.approach(2:end)}); 
+    opts.approach = struct('paradigm',opts.approach{1}, 'parameters',{opts.approach(2:end)});
 elseif all(isfield(opts.approach,{'paradigm','parameters'}))
     % a struct array with .paradigm field (paradigm name) and .parameters field (cell array of
     % name-value pairs); this is the internally used format, e.g., what the design GUIs generate
 elseif isa(opts.approach,'ParadigmBase')
     % a paradigm class instance (usually not used)
     classname = class(opts.approach);
-    opts.approach = struct('paradigm',classname(9:end), 'parameters',{{}});    
+    opts.approach = struct('paradigm',classname(9:end), 'parameters',{{}});
 else
     error('The approach must be given either as struct with fields ''paradigm'' and ''parameters'' or as a cell array of the form {paradigmname, param1, param2, param3, ...}, but was: %s',hlp_tostring(opts.approach));
 end
+
+% set implied arguments
+if opts.only_cached_results
+    opts.cache_fold_results = true; end
+if opts.cache_fold_results
+    opts.no_prechecks = true; end
 
 % parse the paradigm identifier of the approach
 paradigm_ref = opts.approach.paradigm;
@@ -654,14 +698,8 @@ else
     error('The paradigm referred to by the given Approach must be the name of a class (optionally omitting the "Paradigm" prefix), but was: %s',hlp_tostring(paradigm_ref));
 end
 
-% get handles to the calibration and prediction methods
-try
-    instance = eval(paradigm_ref); %#ok<NASGU>
-catch e
-    error('Failed to instantiate paradigm class (%s) with error: %s',paradigm_ref,e.message);
-end
-calibrate_func = eval('@instance.calibrate');
-predict_func = eval('@instance.predict');
+% create an instance of the BCI paradigm
+[calibrate_func, predict_func] = instantiate_paradigm(paradigm_ref);
 
 
 % parse the parameters of the approach: take the cartesian product over all
@@ -682,18 +720,18 @@ end
 % if the EpochBounds are undefined, see if we can infer them from the data
 % note: the EpochBounds are *not* what is passed into set_makepos -- instead they have an additional
 % buffer margin around them that is used to determine which epochs are potentially valid and which
-% ones violate exclusion conditions (e.g., too close to dataset bounds or intermittent boundary 
+% ones violate exclusion conditions (e.g., too close to dataset bounds or intermittent boundary
 % markers); this is done by set_targetmarkers
 margin_seconds = 0.1;
 if isempty(opts.epoch_bounds)
     bounds = collect_instances(paradigm_parameters,'time_bounds'); % note: direct name reference to set_makepos's parameter
     if ~isempty(bounds)
         bounds = vertcat(bounds{:});
-        % we use an upper bound of the encountered bounds if multiple (can be multiple if in a 
+        % we use an upper bound of the encountered bounds if multiple (can be multiple if in a
         % parameter search, or if different bounds are assigned to multiple streams) plus some slack
         opts.epoch_bounds = [min(bounds(:,1))-margin_seconds max(bounds(:,2))+margin_seconds];
     end
-elseif ~isequal(size(opts.epoch_bounds),[1 2]) || opts.epoch_bounds(1) > opts.epoch_bounds(2)    
+elseif ~isequal(size(opts.epoch_bounds),[1 2]) || opts.epoch_bounds(1) > opts.epoch_bounds(2)
     error('The give EpochBounds argument, when non-empty, must be given as [lower,upper], but was: %s',hlp_tostring(opts.epoch_bounds));
 end
 
@@ -714,7 +752,7 @@ end
 for k=1:length(opts.data)
     % turn each data set into a stream bundle, if necessary
     if ~isfield(opts.data{k},'streams')
-        opts.data{k} = struct('streams',{opts.data(k)}); 
+        opts.data{k} = struct('streams',{opts.data(k)});
     elseif ~iscell(opts.data{k}.streams) || isempty(opts.data{k}.streams) || ~all(cellfun('isclass',opts.data{k}.streams,'struct'))
         error('The given dataset''s .streams field must be a nonempty cell array of structs, but was: %s',hlp_tostring(opts.data{k}.streams,10000));
     end
@@ -723,7 +761,7 @@ for k=1:length(opts.data)
         if ~iscell(opts.markers)
             error('The given TargetMarkers argument must be a cell array, but was: %s',hlp_tostring(opts.markers,1000)); end
         if isempty(opts.epoch_bounds)
-            disp('Note: TargetMarkers were specified, but epoch bounds could not be deduced from the data (likely processing is not using epoch extraction). Assuming some default bounds [-0.5 0.5].'); 
+            disp('Note: TargetMarkers were specified, but epoch bounds could not be deduced from the data (likely processing is not using epoch extraction). Assuming some default bounds [-0.5 0.5].');
             opts.epoch_bounds = [-0.5 0.5];
         end
         % (there are 3 possible TargetMarker formats to handle)
@@ -734,7 +772,7 @@ for k=1:length(opts.data)
         else
             opts.data{k}.streams{1} = set_targetmarkers('Signal',opts.data{k}.streams{1},'EventMap',opts.markers,'EpochBounds',opts.epoch_bounds, 'EventField', opts.field, 'PruneNontarget',opts.prune_nontarget_markers);
         end
-    end    
+    end
     % check the bundle for consistency: in particular, whether the data matches the .tracking field
     if ~opts.no_prechecks
         opts.data{k} = utl_check_bundle(opts.data{k}); end
@@ -748,8 +786,8 @@ for k=1:length(source_data)
 nonlocal = false;
 for computescope = {'engine_cv','engine_gs','engine_ncv'}
     if strcmp(opts.(computescope{1}),'global')
-        nonlocal = nonlocal || ~strcmp(par_globalsetting('engine'),'local'); 
-    else 
+        nonlocal = nonlocal || ~strcmp(par_globalsetting('engine'),'local');
+    else
         nonlocal = nonlocal || ~strcmp(opts.(computescope{1}),'local');
     end
 end
@@ -762,43 +800,55 @@ if nonlocal
         opts.data{k}.streams = cellfun(@(x)exp_block({exp_rule(@memoize,{'memory',1})},x),opts.data{k}.streams,'UniformOutput',false); end
 end
 
-% define arguments for the cross-validation
-if isscalar(opts.data)    
+if isscalar(opts.data)
     % got a single recording: cross-validate within it
     opts.data = opts.data{1};
     if isempty(opts.eval_scheme)
         opts.eval_scheme = {'chron',5,5}; end
-    % set up the utl_crossval (et al.) arguments for a within-set cross-validation
-    crossval_args = { ...
-        'trainer', @(trainset,varargin) utl_complete_model(calibrate_func('collection',{trainset},varargin{:}),predict_func), ...
-        'tester', @(testset,model) predict_func(utl_preprocess_bundle(testset,model),model), ...
-        'partitioner', @(dataset,inds) utl_partition_bundle(dataset,inds,opts.epoch_bounds), ...
-        'target', @(dataset) set_gettarget(dataset.streams{1}), ...
-        'metric',opts.metric, ...
-        'pool',opts.pool, ...
-        'argform','clauses', ...
-        'collect_models',opts.per_fold_models, ...
-        'no_prechecks',opts.no_prechecks, ...
-        'args',paradigm_parameters};
 else
     % got a data set collection: cross-validate across them
     if isempty(opts.eval_scheme)
         opts.eval_scheme = {}; end
-    % set up the utl_crossval (et al.) arguments for a cross-validation over multiple data sets
-    crossval_args = { ...
-        'trainer', @(traincollection,varargin) utl_complete_model(calibrate_func('collection',traincollection,varargin{:}),predict_func), ...
-        'tester', @(testcollection,model) utl_collection_tester(testcollection,model,predict_func), ...
-        'partitioner', @(fullcollection,inds) utl_collection_partition(fullcollection,inds,opts.eval_scheme), ...
-        'target', @utl_collection_targets, ...
+end
+
+% create the function handles that go into the cross-validation
+% (we do this in a sub-function because we want to keep the handle objects from picking up whether 
+% the only_cached_results flag is set in opts, because these arguments go into the computation of 
+% cache tags, which must be independent of whether that flag is set or not; also, we want to keep
+% the actual data out of those handles, too)
+crossval_handles = make_crossval_handles('multisubject', ~isscalar(opts.data), ...
+    'epoch_bounds',opts.epoch_bounds, 'eval_scheme',opts.eval_scheme, ...
+    'calibrate_func', calibrate_func, 'predict_func', predict_func);
+
+% define misc arguments for the cross-validation (those that contain no function handles)
+if isscalar(opts.data)
+    % got a single recording: cross-validate within it
+    crossval_misc = { ...
         'metric',opts.metric, ...
         'pool',opts.pool, ...
         'argform','clauses', ...
         'collect_models',opts.per_fold_models, ...
+        'cache_fold_results',opts.cache_fold_results, ...
+        'only_cached_results',opts.only_cached_results, ...
+        'no_prechecks',opts.no_prechecks, ...
+        'args',paradigm_parameters};
+else
+    % got a data set collection: cross-validate across them
+    crossval_misc = { ...
+        'metric',opts.metric, ...
+        'pool',opts.pool, ...
+        'argform','clauses', ...
+        'collect_models',opts.per_fold_models, ...
+        'cache_fold_results',opts.cache_fold_results, ...
+        'only_cached_results',opts.only_cached_results, ...
         'no_prechecks',opts.no_prechecks, ...
         'args',[paradigm_parameters {'goal_identifier',opts.goal_identifier}]};
 end
 
-% note: the following line is a fancy way of calling [measure,model,stats] = run_computation(opts,crossval_args); 
+% string the crossval args together
+crossval_args = [crossval_handles crossval_misc];
+
+% note: the following line is a fancy way of calling [measure,model,stats] = run_computation(opts,crossval_args);
 % what is different is that the variables fingerprint_check and fingerprint_create will be set to 0
 % for the scope of that computation (effectively disabling some unnecessary checks for performance)
 [measure,model,stats] = hlp_scope({'fingerprint_check',0,'fingerprint_create',0},@run_computation,opts,crossval_args);
@@ -826,7 +876,38 @@ model = utl_prune_handles(model);
 stats = utl_prune_handles(stats);
 model.tracking.prediction_function = paradigm_ref;
 stats.model = model;
+end
 
+
+function [calibrate_func,predict_func] = instantiate_paradigm(paradigm_ref)
+try
+    instance = eval(paradigm_ref); %#ok<NASGU>
+catch e
+    error('Failed to instantiate paradigm class (%s) with error: %s',paradigm_ref,e.message);
+end
+calibrate_func = eval('@instance.calibrate');
+predict_func = eval('@instance.predict');
+end
+
+
+function res = make_crossval_handles(varargin)
+args = hlp_varargin2struct(varargin);
+if ~args.multisubject
+    % got a single recording: cross-validate within it
+    res = { ...
+        'trainer', @(trainset,varargin) utl_complete_model(args.calibrate_func('collection',{trainset},varargin{:}),args.predict_func), ...
+        'tester', @(testset,model) args.predict_func(utl_preprocess_bundle(testset,model),model), ...
+        'partitioner', @(dataset,inds) utl_partition_bundle(dataset,inds,args.epoch_bounds), ...
+        'target', @(dataset) set_gettarget(dataset.streams{1})};
+else
+    % got a data set collection: cross-validate across them
+    res = { ...
+        'trainer', @(traincollection,varargin) utl_complete_model(args.calibrate_func('collection',traincollection,varargin{:}),args.predict_func), ...
+        'tester', @(testcollection,model) utl_collection_tester(testcollection,model,args.predict_func), ...
+        'partitioner', @(fullcollection,inds) utl_collection_partition(fullcollection,inds,args.eval_scheme), ...
+        'target', @utl_collection_targets};
+end
+end
 
 
 % run the actual computation of bci_train (model search/training, (nested) cross-validation)
@@ -836,7 +917,8 @@ t0 = tic;
 % issue model search job, optionally in parallel
 searchmodel_args = [crossval_args, {'scheme',opts.opt_scheme, 'engine_gs',opts.engine_gs, 'engine_ncv',opts.engine_ncv}];
 parallel_args = {'engine',opts.engine_cv, 'keep',false, 'pool',opts.pool};
-job = par_beginschedule({{@hlp_getresult,{1:2}, @utl_searchmodel, opts.data, searchmodel_args{:}}}, parallel_args{:}); %#ok<CCAT>
+if opts.compute_final_model
+    job = par_beginschedule({{@hlp_getresult,{1:2}, @utl_searchmodel, opts.data, searchmodel_args{:}}}, parallel_args{:}); end %#ok<CCAT>
 
 % also estimate the model performance, if requested (0-fold cross-validation = cross-validation turned off)
 % this can run in parallel to the model search, if parallel computation is enabled
@@ -848,9 +930,15 @@ else
 end
 
 % collect & aggregate results
-results = par_endschedule(job, 'keep',false);
-[model,stats.modelsearch] = deal(results{1}{:});
+if opts.compute_final_model
+    results = par_endschedule(job, 'keep',false);
+    [model,stats.modelsearch] = deal(results{1}{:});
+else
+    model = struct();
+    stats.modelsearch = struct();
+end
 model.tracking.computation_time = toc(t0);
+end
 
 
 % collect all instances of values of the given field in a data structure
@@ -872,6 +960,5 @@ elseif iscell(x)
     for c=1:numel(x)
         res = [res collect_instances(x{c},field)]; end %#ok<AGROW>
 end
+end
 
-
-    

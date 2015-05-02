@@ -83,8 +83,10 @@ function varargout = hlp_diskcache(options, f, varargin)
 %                                  otherwise the folder will be created if missing (default: false)
 %                                  note: this can be useful to prevent inadvertent littering of directories 
 %                                  with cache files when running from a different installation
-%        overwrite_files: overwrite existing files (can create broken files when multiple processes write
+%      * overwrite_files: overwrite existing files (can create broken files when multiple processes write
 %                         to the same files in parallel) (default: false)
+%      * load_only: if true and no result is in the cache, then this function will return the string
+%                   'hlp_diskcache:notfound' (default: true)
 %
 %
 % Pre-defining and Recalling Settings:
@@ -157,12 +159,18 @@ if isempty(have_translatepath)
     have_translatepath = exist('env_translatepath','file'); end
 
 % parse options
-if iscell(options) || isstruct(options)
+if isstruct(options) || (iscell(options) && mod(length(options),2) == 0 && iscellstr(options(1:2:end)))
     % options are directly given as cell array or struct
     options = assign_defaults(options);
-elseif ischar(options)
-    % options is referring to the name of a profile
-    profilename = options;
+elseif ischar(options) || iscell(options) && mod(length(options),2) == 1 && iscellstr(options([1 2:2:end]))
+    % options is referring to the name of a profile (possibly followed by option overrides)
+    if ischar(options)
+        profilename = options;
+        overrides = {};
+    else
+        profilename = options{1};
+        overrides = options(2:end);
+    end
     if ~isvarname(profilename)
         error('The given profile name is not a valid MATLAB variable name: %s',profilename); end
     % make sure that it exists
@@ -171,6 +179,11 @@ elseif ischar(options)
     if isa(f,'function_handle')
         % recall options from it
         options = settings.(profilename);
+        if ~isempty(overrides)
+            % have more options
+            for o=1:2:length(overrides)
+                options.(overrides{o}) = overrides{o+1}; end
+        end
     elseif ischar(f)
         % assign options to it
         varargin = [{f} varargin];
@@ -241,6 +254,10 @@ if exist(filename,'file')
         error_message('Could not look up result from disk',e);
         disp('Performing a safe fallback...');
     end
+elseif options.load_only
+    fprintf('hlp_diskcache: result not found.\n');
+    varargout = {'hlp_diskcache:notfound'};
+    return;
 end
 
 result.settings = options;
@@ -392,6 +409,8 @@ if ~isfield(options,'bypass_if_folder_missing')
     options.bypass_if_folder_missing = false; end
 if ~isfield(options,'overwrite_files')
     options.overwrite_files = false; end
+if ~isfield(options,'load_only')
+    options.load_only = false; end
 
 
 function x = trim_expression(x)

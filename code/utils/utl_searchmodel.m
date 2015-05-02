@@ -83,6 +83,11 @@ function [model,stats] = utl_searchmodel(varargin)
 %               'forcestats': enforce a cross-validation to obtain stats, even when no search is 
 %                             necessary (default: 0)
 %
+%               further arguments (same as in utl_crossval)
+%               'cache_fold_results' : whether to cache the per-fold results. (default: false)
+%
+%               'only_cached_results' : load only results that are in the cache. (default: false)
+%
 %               further arguments (same as in par_beginschedule, listed below for convenience)
 %               'engine_gs': the parallelization engine to be used for the grid search
 %                            (default: 'local')
@@ -140,6 +145,8 @@ opts = arg_define(0:1,varargin, ...
     ... % misc arguments
     arg({'argform','ArgumentFormat'},'clauses',{'clauses','direct'},'Argument search range format. If set to clauses, search ranges for individual arguments can be given using the search() expression; if set to direct, a cell array is expected each of whose elements is a cell array that represents a particular parameter set to try for the training function.'), ...
     arg({'forcestats','ForceStatistics'},0,[],'Enforce a cross-validation to obtain stats. Even when no search is required.'), ...
+    arg({'cache_fold_results','CacheFoldResults'},false,[],'Whether to cache the per-fold results. This is meant to be used when running very long-running computations on machines that crash frequently enough that partial results need to be saved. In this case, any previously computed results will be loaded from disk.'), ...
+    arg({'only_cached_results','OnlyCachedResults'},false,[],'Load only results that are in the cache. This will not run any computations (aside from pre-checks, that can be disabled by setting NoPrechecks to true).'), ...
     arg({'no_prechecks','NoPrechecks'},false,[],'Skip pre-checks that access the data. This can save some time when it would take very long to load the data, especially when performing parallel computation.'), ...
     arg({'collect_models','CollectModels'},false,[],'Collect models per fold. Note that this increases the amount of data returned.'));
 
