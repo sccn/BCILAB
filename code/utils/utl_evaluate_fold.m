@@ -29,7 +29,7 @@ if opts.cache_fold_results
         @cached_evaluate,rmfield(opts,'only_cached_results'),data,inds);
     % return empty result record if we're in cache loadonly mode
     if strcmp(result,'hlp_diskcache:notfound')   
-        result = {[],[],struct()}; end
+        result = []; end
 else
     result = cached_evaluate(opts,data,inds);
 end

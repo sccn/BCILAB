@@ -307,6 +307,10 @@ if ~isempty(inds)
     % schedule the tasks
     results = par_schedule(tasks, 'engine',opts.engine_cv, 'pool',opts.pool, 'policy',opts.policy);
     
+    % remove empty results (if we're loading in partial results)
+    if opts.only_cached_results
+        results = results(~cellfun('isempty',results)); end
+    
     % collect results
     for p=length(inds):-1:1
         targets{p} = results{p}{1};
