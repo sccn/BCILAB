@@ -266,7 +266,7 @@ function m = serialize_object(v)
 end
 
 % Function handle
-function m = serialize_handle(v)    
+function m = serialize_handle(v) 
     % get the representation
     t0 = tic;
     rep = functions(v);

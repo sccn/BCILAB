@@ -36,11 +36,26 @@ end
 
 
 function result = cached_evaluate(opts,data,inds)
-% the function that does the actual work
+% this function is just an exception-catching wrapper to evaluate_internal
 % cached_evaluate_version<1.0> -- for the cache
+if ~opts.tolerate_exceptions
+    result = evaluate_internal(opts,data,inds);
+else
+    try
+        result = evaluate_internal(opts,data,inds);    
+    catch e
+        fprintf('utl_evaluate_fold: suppressing exception: %s\n',hlp_handleerror(e));
+        result = [];
+    end
+end
+    
+
+function result = evaluate_internal(opts,data,inds)
+% the function that does the actual work
+
+trainset = opts.partitioner(data,inds{1});
 
 % learn a model on the training partition
-trainset = opts.partitioner(data,inds{1});
 if length(inds) >= 3
     model = opts.trainer(trainset,opts.args{:},inds{3}{:});
 else

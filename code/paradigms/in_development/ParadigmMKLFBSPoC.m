@@ -1,8 +1,8 @@
-classdef ParadigmMKLFBCSP < ParadigmBase
-    % Multiple Kernel Learning Filter-Bank Common Spatial Patterns (mklFBCSP)
+classdef ParadigmMKLFBSPoC < ParadigmBase
+    % Multiple Kernel Learning Filter-Bank Source Power Comodulation (mklFBSPoC)
     %
     % This paradigm implements a generalization of mklCSP [1] to multiple frequency bands as in 
-    % FBCSP [2] and to multiple time windows. See also ParadigmFBCSP and ParadigmMKLCSP.
+    % FBCSP [2] and to multiple time windows, and using the SPoC formulation for regression.
     %
     % References:
     % [1] Samek, W., Binder, A., & Muller, K. R. 
@@ -11,12 +11,15 @@ classdef ParadigmMKLFBCSP < ParadigmBase
     % [2] Kai K. Ang, Zhang Y. Chin, Haihong Zhang, Cuntai Guan, 
     %     "Filter Bank Common Spatial Pattern (FBCSP) in Brain-Computer Interface"
     %     In 2008 IEEE International Joint Conference on Neural Networks (IEEE World Congress on Computational Intelligence) (June 2008), pp. 2390-2397.
+    % [3] Daehne, S., Meinecke, F. C., Haufe, S., Hoehne, J., Tangermann, M., Mueller, K. R., & Nikulin, V. V.
+    %     "SPoC: A novel framework for relating the amplitude of neuronal oscillations to behaviorally relevant parameters."
+    %     NeuroImage 86 (2014), 111-122.
     %
     % Name:
-    %   Multiple Kernel Learning Filter-Bank Common Spatial Patterns
+    %   Multiple Kernel Learning Filter-Bank Source Power Comodulation
     %
     %                            Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
-    %                            2014-02-05
+    %                            2015-04-15
     
     methods
         
@@ -26,7 +29,7 @@ classdef ParadigmMKLFBCSP < ParadigmBase
         
         function defaults = machine_learning_defaults(self)
             % set up the default parameters for machine learning
-            defaults = {'logreg', 'Variant','lars'};
+            defaults = 'ridge';
         end
                 
         function model = calibrate(self,varargin)
@@ -34,7 +37,7 @@ classdef ParadigmMKLFBCSP < ParadigmBase
             args = arg_define(varargin, ...
                 arg_norep({'collection','Collection'}), ...
                 arg_norep({'goal_identifier','GoalIdentifier'}), ...
-                arg({'patterns','PatternPairs'},3,uint32([1 1 64 10000]),'Number of CSP patterns (times two).','cat','Feature Extraction','type','expression','shape','row'),...
+                arg({'patterns','PatternPairs'},3,uint32([1 1 64 10000]),'Number of SPoC patterns (times two).','cat','Feature Extraction','type','expression','shape','row'),...
                 arg({'shrinkage','ShrinkageLevel'},0,[0 1],'Shrinkage level. The amount of shrinkage (regularization) to apply during covariance estimation.'), ...
                 arg({'freqwnds','FreqWindows'},[0.5 3; 4 7; 8 12; 13 30; 31 42],[0 0.5 200 1000],'Frequency bands of interest. Matrix containing one row for the start and end of each frequency band from which CSP patterns shall be computed. Values in Hz.','cat','Feature Extraction'), ...
                 arg({'timewnds','TimeWindows'},[],[],'Time windows of interest. Matrix containing one row for the start and end of each time window from which CSP patterns shall be computed. Values in seconds. If both this and the freqwnds parameter are non-empty, they should have the same number of rows.','cat','Feature Extraction'), ...
@@ -96,8 +99,8 @@ classdef ParadigmMKLFBCSP < ParadigmBase
             for subj=subjects                
                 % find all recordings that match that subject
                 recordings = corpus(cellfun(@(s)isequal(s,subj),{corpus.subject}));
-                % calculate FBCSP filters
-                [newfilters,newpatterns,chanlocs] = hlp_microcache('filters',@ParadigmMKLFBCSP.filters_for_subject,recordings, args.flt, time_args, freq_args, args.shrinkage, args.patterns);
+                % calculate FBSPoC filters
+                [newfilters,newpatterns,chanlocs] = hlp_microcache('filters',@ParadigmMKLFBSPoC.filters_for_subject,recordings, args.flt, time_args, freq_args, args.shrinkage, args.patterns);
                 % if you get an error here then your data sets had varying number of channels
                 filters = [filters newfilters];
                 patterns = [patterns newpatterns];
@@ -262,25 +265,32 @@ classdef ParadigmMKLFBCSP < ParadigmBase
                 preproc{r} = exp_eval_optimized(flt_pipeline('signal',recordings(r).streams{1}, flt)); end
             preproc = exp_eval(set_joinepos(preproc{:}));
 
+            % standardize target values
+            targets = [preproc.epoch.target];
+            targets = (targets - mean(targets)) / std(targets);
+
             % for each window...
             filters = [];
             patterns = [];            
             for w = 1:length(time_args)
-                for k=1:2
-                    % filter trial subrange in time and frequency
-                    classdata = exp_eval(flt_spectrum('signal',flt_window('signal',set_picktrials(preproc,'rank',k),time_args{w}),freq_args{w}));
-                    covar{k} = reshape(classdata.data,size(classdata.data,1),[])*reshape(classdata.data,size(classdata.data,1),[])'/(size(classdata.data,2)*size(classdata.data,3)); % cov(reshape(classdata.data,size(classdata.data,1),[])');
-                    covar{k}(~isfinite(covar{k})) = 0; %#ok<*AGROW>
-                    covar{k} = (1-shrinkage)*covar{k} + shrinkage*eye(size(covar{k}))*trace(covar{k})/length(covar{k});
+                signal = exp_eval(flt_spectrum('signal',flt_window('signal',preproc,time_args{w}),freq_args{w}));
+                weighted_cov = zeros(signal.nbchan);
+                mean_cov = zeros(signal.nbchan);
+                for k=signal.trials:-1:1
+                    trialcov = reshape(signal.data(:,:,k)',size(signal.data,1),[])*reshape(signal.data(:,:,k)',size(signal.data,1),[])'/size(signal.data,2);
+                    trialcov(~isfinite(trialcov)) = 0; 
+                    trialcov = (1-shrinkage)*trialcov + shrinkage*eye(size(trialcov))*trace(trialcov)/length(trialcov);
+                    weighted_cov = weighted_cov + trialcov * targets(k);
+                    mean_cov = mean_cov + trialcov;
                 end
                 try
-                    [V,D] = eig(covar{1},covar{1}+covar{2}); %#ok<ASGLU,NASGU>
+                    [V,D] = eig(weighted_cov,mean_cov); %#ok<NASGU>
                     P = inv(V);
                     % if you get an error here then your data sets had varying number of channels                
                     filters = [filters V(:,[1:n_patterns end-n_patterns+1:end])];
                     patterns = [patterns P([1:n_patterns end-n_patterns+1:end],:)'];                    
                 catch e
-                    fprintf('Got a degenerate FBCSP solution, replacing by identity matrix:%s\n',e.message);
+                    fprintf('Got a degenerate FBSPoC solution, replacing by identity matrix:%s\n',e.message);
                     n_chans = preproc.nbchan;
                     if ~n_chans
                         % no epochs, need to determine the number of channels in the filter stage prior to epoching

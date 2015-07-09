@@ -190,7 +190,7 @@ arg_define([0 2],varargin, ...
         regularizer_params('Term7')}, 'Definition of the regularization terms. Any combination of terms is permitted.'), ...
     arg({'regweights','TermWeights'},{[]},[],'Weights of the regularizers. This is a cell array of vectors of (relative) regularization parameters. Default is 1/N for N regularization terms. The cell array lists all possible assignments to search over.','type','expression','shape','row'), ...
     arg_sub({'solverOptions','SolverOptions'},{},{ ...
-        arg({'maxit','MaxIterations'},1000,uint32([1 100 5000 10000]),'Maximum number of iterations.'), ...
+        arg({'maxit','MaxIterations'},2000,uint32([1 100 5000 10000]),'Maximum number of iterations.'), ...
         arg({'rel_tol','RelativeTolerance'},2e-4,[0 1],'Relative tolerance criterion. If the relative difference between two successive iterates is lower than this value the algorithm terminates.'),...
         arg({'abs_tol','AbsoluteTolerance'},0.000001,[0 Inf],'Absolute tolerance criterion. If the objective function value falls below this the algorithm terminates.'), ...
         arg({'rho','CouplingParameter'},4,[0 1 30 Inf],'Initial coupling parameter. For proximal algorithms this is the coupling strength between the terms between updates. Increasing this can improve the convergence speed but too strong values can prevent any convergence.'), ...
@@ -254,9 +254,9 @@ elseif length(classes) == 1
 else
         
     % optionally allow nfolds to be a function of #trials
-    if lambdaSearch.nfolds < 1
+    if lambdaSearch.nfolds < 1 && lambdaSearch.nfolds > 0
         lambdaSearch.nfolds = round(lambdaSearch.nfolds*mean(cellfun('length',targets))); end
-    nFolds = lambdaSearch.nfolds;
+    nFolds = ceil(abs(lambdaSearch.nfolds));
     
     % sanitize some more inputs
     solverOptions.verbose = max(0,verbosity-1);    
@@ -304,63 +304,79 @@ else
     % predictions{regweight,task}(trial,lambda) is the classifier prediction for a given task, regweight setting, trial, and lambda choice
     predictions = repmat(cellfun(@(t)zeros(length(t),nLambdas),targets(:)','UniformOutput',false),nRegweights,1);
     % foldid{task}(trial) is the fold in which a given trial is in the test set, for a given task
-    foldids = cellfun(@(t)1+floor((0:length(t)-1)/length(t)*nFolds),targets,'UniformOutput',false);
+    if lambdaSearch.nfolds < 0 && lambdaSearch.nfolds > -1
+        p = abs(lambdaSearch.nfolds);
+        % negative fractional value encodes p-holdout (positive fractional value is already defined
+        % as the a fraction of the number of trials)
+        foldids = cellfun(@(t)(0:length(t)-1)/length(t)>(1-p),targets,'UniformOutput',false);
+    else
+        foldids = cellfun(@(t)1+floor((0:length(t)-1)/length(t)*nFolds),targets,'UniformOutput',false);
+    end
     
-    % for each fold...
-    model_seq = cell(nFolds,nRegweights); % model_seq(fold,regweight}{lambda}{task} is the model for a given fold, regweight and lambda setting, and task
-    history_seq = cell(nFolds,nRegweights); % history_seq(fold,regweight}{lambda}( is a struct of optimization histories for a given fold, regweight and lambda setting, for all concurrent tasks
-    for f = 1:nFolds
-        if verbosity
-            disp(['Fitting fold # ' num2str(f) ' of ' num2str(nFolds)]); end
+    if (nLambdas*nRegweights) > 1
+        % for each fold...
+        model_seq = cell(nFolds,nRegweights); % model_seq(fold,regweight}{lambda}{task} is the model for a given fold, regweight and lambda setting, and task
+        history_seq = cell(nFolds,nRegweights); % history_seq(fold,regweight}{lambda}( is a struct of optimization histories for a given fold, regweight and lambda setting, for all concurrent tasks
+        for f = 1:nFolds
+            if verbosity
+                disp(['Fitting fold # ' num2str(f) ' of ' num2str(nFolds)]); end
 
-        % determine training and test set masks
-        testmask = cellfun(@(foldid)foldid==f,foldids,'UniformOutput',false); % testmask{task}(trial) a bitmask of test-set trials for a given task
-        trainmask = cellfun(@(x)~x,testmask,'UniformOutput',false);           % trainmask{task}(trial) is a bitmask of train-set trials
-        % cut train/test margins into trainmask
-        for t=1:nTasks
-            testpos = find(testmask{t});
-            for j=1:lambdaSearch.foldmargin
-                trainmask{t}(max(1,testpos-j)) = false;
-                trainmask{t}(min(length(testmask{t}),testpos+j)) = false;
+            % determine training and test set masks
+            testmask = cellfun(@(foldid)foldid==f,foldids,'UniformOutput',false); % testmask{task}(trial) a bitmask of test-set trials for a given task
+            trainmask = cellfun(@(x)~x,testmask,'UniformOutput',false);           % trainmask{task}(trial) is a bitmask of train-set trials
+            % cut train/test margins into trainmask
+            for t=1:nTasks
+                testpos = find(testmask{t});
+                for j=1:lambdaSearch.foldmargin
+                    trainmask{t}(max(1,testpos-j)) = false;
+                    trainmask{t}(min(length(testmask{t}),testpos+j)) = false;
+                end
             end
-        end
 
-        % set up design matrices
-        [A,y,B,z] = deal(cell(1,nTasks));
-        for t=1:nTasks
-            % training data
-            A{t} = trials{t}(trainmask{t},:);
-            y{t} = targets{t}(trainmask{t});
-            % test data
-            B{t} = [trials{t}(testmask{t},:) ones(nnz(testmask{t}),double(includebias))];
-            z{t} = targets{t}(testmask{t});
-        end
-        
-        % for each relative regularization term weighting...
-        for w = 1:nRegweights
-            [model_seq{f,w},history_seq{f,w}] = hlp_diskcache('predictivemodels',@solve_regularization_path,A,y,lambdaSearch.lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,regweights{w},weightshape,data_weights);
-            
-            % for each task...
-            for t = 1:nTasks
-                % calc test-set predictions for each model
-                for m=1:nLambdas
-                    predictions{w,t}(testmask{t},m) = (B{t}*model_seq{f,w}{m}{t}(:))'; end
-                if strcmp(loss,'logistic')
-                    predictions{w,t}(testmask{t},:) = 2*(1 ./ (1 + exp(-predictions{w,t}(testmask{t},:))))-1; end
+            % set up design matrices
+            [A,y,B,z] = deal(cell(1,nTasks));
+            for t=1:nTasks
+                % training data
+                A{t} = trials{t}(trainmask{t},:);
+                y{t} = targets{t}(trainmask{t});
+                % test data
+                B{t} = [trials{t}(testmask{t},:) ones(nnz(testmask{t}),double(includebias))];
+                z{t} = targets{t}(testmask{t});
+            end
 
-                % evaluate test-set losses
-                if isempty(lambdaSearch.cvmetric)
-                    if strcmp(loss,'logistic')
-                        loss_means{w,t}(f,:) = mean(~bsxfun(@eq,z{t},sign(predictions{w,t}(testmask{t},:))));
-                    else
-                        loss_means{w,t}(f,:) = mean((bsxfun(@minus,z{t},predictions{w,t}(testmask{t},:))).^2);
-                    end
-                else
+            % for each relative regularization term weighting...
+            for w = 1:nRegweights
+                [model_seq{f,w},history_seq{f,w}] = hlp_diskcache('predictivemodels',@solve_regularization_path,A,y,lambdaSearch.lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,regweights{w},weightshape,data_weights);
+
+                % for each task...
+                for t = 1:nTasks
+                    % calc test-set predictions for each model
                     for m=1:nLambdas
-                        loss_means{w,t}(f,m) = ml_calcloss(lambdaSearch.cvmetric,z{t},predictions{w,t}(testmask{t},m)); end
+                        predictions{w,t}(testmask{t},m) = (B{t}*model_seq{f,w}{m}{t}(:))'; end
+                    if strcmp(loss,'logistic')
+                        predictions{w,t}(testmask{t},:) = 2*(1 ./ (1 + exp(-predictions{w,t}(testmask{t},:))))-1; end
+
+                    % evaluate test-set losses
+                    if isempty(lambdaSearch.cvmetric)
+                        if strcmp(loss,'logistic')
+                            loss_means{w,t}(f,:) = mean(~bsxfun(@eq,z{t},sign(predictions{w,t}(testmask{t},:))));
+                        else
+                            loss_means{w,t}(f,:) = mean((bsxfun(@minus,z{t},predictions{w,t}(testmask{t},:))).^2);
+                        end
+                    else
+                        for m=1:nLambdas
+                            loss_means{w,t}(f,m) = ml_calcloss(lambdaSearch.cvmetric,z{t},predictions{w,t}(testmask{t},m)); end
+                    end
                 end
             end
         end
+    else
+        % we skip the nested cross-validation if there is only one lambda and one regweight
+        disp('Skipping nested cross-validation (only 1 lambda/regweight)...'); 
+        model_seq = cell(nFolds,nRegweights); 
+        history_seq = cell(nFolds,nRegweights);
+        loss_means = repmat({zeros(nFolds,nLambdas)},[nRegweights,nTasks]);
+        lambdaSearch.return_regpath = false;
     end
 
     % find best lambdas & regweight combination

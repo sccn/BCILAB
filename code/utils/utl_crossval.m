@@ -143,6 +143,8 @@ function [measure,stats] = utl_crossval(varargin)
 %
 %               'only_cached_results' : load only results that are in the cache. (default: false)
 %
+%               'tolerate_exceptions' : tolerate exceptions during training step. (default: false)
+%
 %               'no_prechecks' : skip pre-checks that access the data. (default: false)
 %
 %               'collect_models' : collect models per fold. (default: false)
@@ -221,6 +223,7 @@ opts = arg_define(0:1,varargin, ...
     arg({'cache_fold_results','CacheFoldResults'},false,[],'Whether to cache the per-fold results. This is meant to be used when running very long-running computations on machines that crash frequently enough that partial results need to be saved. In this case, any previously computed results will be loaded from disk.'), ...
     arg({'only_cached_results','OnlyCachedResults'},false,[],'Load only results that are in the cache. This will not run any computations (aside from pre-checks, that can be disabled by setting NoPrechecks to true).'), ...
     arg({'no_prechecks','NoPrechecks'},false,[],'Skip pre-checks that access the data. This can save some time when it would take very long to load the data, especially when performing parallel computation.'), ...
+    arg({'tolerate_exceptions','TolerateExceptions'},false,[],'Tolerate exceptions during training. If this happens, folds where the training function yielded errors will be skipped.'), ...
     arg({'collect_models','CollectModels'},false,[],'Collect models per fold. Note that this increases the amount of data returned.'));
 
 data = opts.data; opts = rmfield(opts,'data');
@@ -308,11 +311,11 @@ if ~isempty(inds)
     results = par_schedule(tasks, 'engine',opts.engine_cv, 'pool',opts.pool, 'policy',opts.policy);
     
     % remove empty results (if we're loading in partial results)
-    if opts.only_cached_results
+    if opts.only_cached_results || opts.tolerate_exceptions
         results = results(~cellfun('isempty',results)); end
     
     % collect results
-    for p=length(inds):-1:1
+    for p=length(results):-1:1
         targets{p} = results{p}{1};
         predictions{p} = results{p}{2};
         if opts.collect_models
@@ -324,11 +327,15 @@ if ~isempty(inds)
 
     % compute per-fold metric / stats
     for p=length(targets):-1:1
-        if ~(isempty(targets{p}) && isempty(predictions{p}))
+        if ~(isempty(targets{p}) || isempty(predictions{p}))
             [measure(p),stats.per_fold(p)] = opts.metric(targets{p},predictions{p}); 
-        else
+        elseif isempty(targets{p}) && isempty(predictions{p})
             % this can happen when we are asked to load incomplete results from disk
             fprintf('Note: fold %i had empty predictions and targets.\n',p);
+            measure(p) = NaN;            
+        else
+            % this can happen when we are asked to load incomplete results from disk
+            fprintf('WARNING: for fold %i the length of predictions and targets do not match.\n',p);
             measure(p) = NaN;
         end
     end

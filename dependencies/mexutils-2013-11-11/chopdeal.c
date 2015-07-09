@@ -10,6 +10,7 @@ void mexFunction(int nlhs, mxArray *plhs[],
     int datalen,numsizes,k,s,p;
     double *indata_d, *outdata_d;
     float *indata_f, *outdata_f;
+    char *indata_c, *outdata_c;
     double *sizes;
     int cursize;
     mxArray *tmp;
@@ -51,11 +52,29 @@ void mexFunction(int nlhs, mxArray *plhs[],
                         mexErrMsgIdAndTxt("chopdeal:sizes_must_be_nonnegative","Sizes must be nonnegative."); 
                     plhs[s] = mxCreateNumericMatrix(1,cursize,mxSINGLE_CLASS,mxREAL);
                     if (cursize) {
-                        outdata_f = (double*)mxGetData(plhs[s]);
+                        outdata_f = (float*)mxGetData(plhs[s]);
                         for (k=0;k<cursize;k++,p++) {
                             if (p>=datalen)
                                 mexErrMsgIdAndTxt("chopdeal:index_exceeds_matrix_dimensions","Index exceeds matrix dimensions."); 
                             *outdata_f++ = *indata_f++;
+                        }
+                    }
+                }
+                break;            
+            case mxUINT8_CLASS:
+                indata_c = (char*)mxGetData(prhs[DATA_ARR]);
+                p = 0;
+                for (s=0;s<numsizes;s++) {
+                    cursize = sizes[s];
+                    if (cursize<0)
+                        mexErrMsgIdAndTxt("chopdeal:sizes_must_be_nonnegative","Sizes must be nonnegative."); 
+                    plhs[s] = mxCreateNumericMatrix(1,cursize,mxUINT8_CLASS,mxREAL);
+                    if (cursize) {
+                        outdata_c = (char*)mxGetData(plhs[s]);
+                        for (k=0;k<cursize;k++,p++) {
+                            if (p>=datalen)
+                                mexErrMsgIdAndTxt("chopdeal:index_exceeds_matrix_dimensions","Index exceeds matrix dimensions."); 
+                            *outdata_c++ = *indata_c++;
                         }
                     }
                 }

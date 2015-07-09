@@ -1,6 +1,8 @@
 function wpn(num)
 %   Set the workers per node that shall be requested from the cluster.
 %
+%   Example: wpn 4
+%
 %                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                               2010-04-22
 

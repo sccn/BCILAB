@@ -44,6 +44,7 @@ classdef ParadigmMKLCSP < ParadigmBase
                 arg({'patterns','PatternPairs'},3,uint32([1 1 64 10000]),'Number of CSP patterns (times two).','cat','Feature Extraction','type','expression','shape','row'),...
                 arg({'shrinkage','ShrinkageLevel'},0,[0 1],'Shrinkage level. The amount of shrinkage (regularization) to apply during covariance estimation.'), ...
                 arg({'verbose','Verbose'},true,[],'Verbose output.'), ...
+                arg({'hotpatching','HotPatching'},false,[],'Hot-patch the data. This can be enabled to ensure that a long-running computation survives bad data.'), ...
                 arg_sub({'flt','SignalProcessing'}, self.preprocessing_defaults(), @flt_pipeline, 'Signal processing stages. These parameters control filter stages that run on the signal level; they can be enabled, disabled and configured for the given paradigm. The prediction operates on the outputs of this stage.'), ...
                 arg_sub({'ml','MachineLearning'},{'Learner',self.machine_learning_defaults()},@ml_train,'Machine learning stage of the paradigm. Operates on the feature vectors that are produced by the feature-extraction stage.'),...
                 arg({'arg_dialogsel','ConfigLayout'},self.dialog_layout_defaults(),[],'Parameters displayed in the config dialog. Cell array of parameter names to display (dot-notation allowed); blanks are translated into empty rows in the dialog. Referring to a structure argument lists all parameters of that struture, except if it is a switchable structure - in this case, a pulldown menu with switch options is displayed.','type','cellstr','shape','row'));
@@ -91,7 +92,7 @@ classdef ParadigmMKLCSP < ParadigmBase
                 filters = [filters newfilters];
                 patterns = [patterns newpatterns];
             end
-            model.featuremodel = struct('filters',filters,'patterns',patterns);
+            model.featuremodel = struct('filters',filters,'patterns',patterns,'hotpatching',args.hotpatching);
 
             if args.verbose
                 fprintf('Preprocessing and extracting features for reference data...\n'); end            
@@ -105,13 +106,13 @@ classdef ParadigmMKLCSP < ParadigmBase
             features = self.feature_extract(refdata,model.featuremodel);
             targets = set_gettarget(refdata);
             
-            if size(features,1) == 1
+            if args.hotpatching && size(features,1) == 1
                 fprintf('You have only 1 feature in the data; hot-patching.\n');
                 features = [features; features];
                 targets = [1 2];
             end
                             
-            if length(targets) ~= size(features,1)
+            if args.hotpatching &&length(targets) ~= size(features,1)
                 fprintf('Your # of target markers does not match the # of extracted features; hot-patching.\n');
                 if isempty(targets)
                     targets = 1+mod(0:size(features,1)-1,2);
@@ -120,7 +121,7 @@ classdef ParadigmMKLCSP < ParadigmBase
                 end
             end
             
-            if length(unique(targets))==1
+            if args.hotpatching &&length(unique(targets))==1
                 fprintf('Your reference data has only one class; hot-patching the data.\n');
                 for ii=1:min(length(targets),max(2,round(length(targets)/10)))
                     targets(ii) = 3-targets(ii); end
@@ -134,7 +135,7 @@ classdef ParadigmMKLCSP < ParadigmBase
             try
                 model.predictivemodel = ml_train('data',{features,targets}, args.ml);
             catch e
-                if ~isempty(strfind(e.message,'Null probability for class'))
+                if args.hotpatching && ~isempty(strfind(e.message,'Null probability for class'))
                     fprintf('One of the classes has a probability of 0; hot-patching the data.\n');
                     targets = 1+mod(0:length(targets)-1,2);
                     model.predictivemodel = ml_train('data',{features,targets}, args.ml);
@@ -162,14 +163,18 @@ classdef ParadigmMKLCSP < ParadigmBase
                 for t=1:size(signal.data,3)
                     features(t,:) = sum((signal.data(:,:,t)'*featuremodel.filters).^2,1); end
                 features = log(features/size(signal.data,2));
-            catch e                
-                fprintf('Error during feature extraction: %s\n',hlp_handleerror(e));
-                fprintf('size(featuremodel.filters): %s\n',hlp_tostring(size(featuremodel.filters)));
-                fprintf('size(signal.data): %s\n',hlp_tostring(size(signal.data)));                
-                fprintf('trying to hot-fix the issue...');
-                featuremodel.filters = featuremodel.filters(1+mod(0:size(signal.data,1)-1,size(featuremodel.filters,1)),:);
-                features = self.feature_extract(signal,featuremodel);
-                fprintf('succeeded.\n');
+            catch e
+                if featuremodel.hotpatching
+                    fprintf('Error during feature extraction: %s\n',hlp_handleerror(e));
+                    fprintf('size(featuremodel.filters): %s\n',hlp_tostring(size(featuremodel.filters)));
+                    fprintf('size(signal.data): %s\n',hlp_tostring(size(signal.data)));                
+                    fprintf('trying to hot-fix the issue...');
+                    featuremodel.filters = featuremodel.filters(1+mod(0:size(signal.data,1)-1,size(featuremodel.filters,1)),:);
+                    features = self.feature_extract(signal,featuremodel);
+                    fprintf('succeeded.\n');
+                else
+                    rethrow(e);
+                end
             end
         end
         

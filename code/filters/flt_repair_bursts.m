@@ -120,6 +120,8 @@ arg_define(varargin, ...
     arg({'spectral_params','SpectralParameters'},{[0 2 3 13 16 40 80],[3 0.75 0.33 0.33 1 1 3],8},[],'Spectral weighting parameters. Parameters for the spectrum-shaping filter that reweights frequencies according to their relevance for artifact detection. This is a cell array of {Frequencies,Amplitudes,Order} for a Yule-Walker IIR filter design. Note: These settings are very sensitive, do not change unless you know exactly what you''re doing; specifically, the default it not recommended for >512 Hz srate.','guru',true), ...
     arg({'calib_precision','CalibPrecision'}, 10, uint32([1 1 1000 10000]), 'Block granularity for calibration. The data covariance will be estimated in blocks of this size and then robustly averaged (larger values admit smaller memory requirements).','guru',true), ...
     arg({'use_gpu','UseGPU'}, false, [], 'Whether to run on the GPU. Makes sense for offline processing if you have a card with double-precision performance of a GTX Titan or better.'), ...
+    arg({'processing_mode','ProcessingMode'}, 'remove', {'remove','keep','separate'}, 'Processing mode. Determines what to do after artifacts have been identified.'), ...
+    arg({'separate_noise','SeparateNoise'}, 0.001, [0, 0.00001, 0.01, 1], 'Noise level for separated artifacts. This is the relative amplitude of random noise mixed into the (low-rank) artifact signal, if ProcessingMode is separate, to keep downstream algorithms from yielding nonfinite numbers.'), ...
     arg_sub({'ref_extraction','ReferenceExtraction'},{'zthresholds',[-3.5 5.5]}, @flt_clean_windows, 'Reference data extraction. Group of sub-parameters to control how clean reference data shall be extracted for calibration of the statistics.'), ...
     arg_deprecated({'ref_wndlen','ReferenceWindowLength'},[],[],'Selection granularity for reference data. When clean data is extracted from the recording for calibrating the cutoff thresholds the data is chopped up into windows of this length. This parameters has been deprecated in favor of ReferenceExtraction.WindowLength.'),...
     arg_deprecated({'ref_maxbadchannels','ReferenceMaxBadChannels'}, [], [], 'Maximum bad-channel fraction on reference data. The maximum fraction of bad channels per time window of the data that is used as clean reference EEG on which statistics are based. Instead of a number one may also directly pass in a data set that contains clean reference data (for example a minute of resting EEG). A lower values makes this criterion more aggressive. Reasonable range: 0.05 (very aggressive) to 0.3 (quite lax). This parameters has been deprecated in favor of ReferenceExtraction.MaxBadChannels.'), ...
@@ -177,8 +179,41 @@ if isempty(state)
     state.asr = hlp_diskcache('filterdesign',@asr_calibrate,ref_section.data,ref_section.srate,stddev_cutoff,calib_precision,state.shaping{:}); clear ref_section;
 end
 
+
+if ~strcmp(processing_mode,'remove')
+    old_data = signal.data;
+    old_carry = state.asr.carry;
+    if isempty(old_carry)
+        P = round(processing_delay*signal.srate);
+        S = size(old_data,2);
+        old_carry = repmat(2*old_data(:,1),1,P) - old_data(:,1+mod(((P+1):-1:2)-1,S)); 
+    end
+end
+
 % do the actual processing
 [signal.data,state.asr] = asr_process(signal.data,signal.srate,state.asr,window_len,processing_delay,block_size,max_dimensions,[],use_gpu);
+
+if strcmp(processing_mode,'remove')
+    % nothing to do
+else
+    old_data = [old_carry old_data(:,1:end-size(state.asr.carry,2))];
+    if strcmp(processing_mode,'keep')
+        % keep the artifacts (difference between original and cleaned signal), remove the EEG
+        signal.data = signal.data - old_data;
+    elseif strcmp(processing_mode,'separate')
+        % separate artifacts from EEG, keep both
+        data_std = median(std(signal.data,0,2));
+        signal.data = [signal.data; (signal.data - old_data) + data_std*separate_noise*randn(size(signal.data))];
+        signal.chanlocs = [signal.chanlocs signal.chanlocs];
+        for c=signal.nbchan:length(signal.chanlocs)
+            signal.chanlocs(c).labels = [signal.chanlocs(c).labels '_art']; 
+            signal.chanlocs(c).type = [signal.chanlocs(c).type '_art']; 
+        end        
+        signal.nbchan = length(signal.chanlocs);
+    else
+        error('Unsupported processing mode: %s',hlp_tostring(processing_mode));
+    end
+end
 
 if ~isfield(signal.etc,'filter_delay')
     signal.etc.filter_delay = 0; end
