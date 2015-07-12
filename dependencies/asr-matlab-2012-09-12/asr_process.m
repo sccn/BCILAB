@@ -100,7 +100,12 @@ if nargin < 9 || isempty(usegpu)
     usegpu = false; end
 if nargin < 8 || isempty(maxmem)
     if usegpu
-        dev = gpuDevice(); maxmem = dev.FreeMemory/2^20; 
+        dev = gpuDevice(); 
+        try
+            maxmem = dev.FreeMemory/2^20; 
+        catch
+            maxmem = dev.TotalMemory/2^20; 
+        end
     else
         maxmem = hlp_memfree/(2^21);
     end
