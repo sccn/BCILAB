@@ -201,7 +201,7 @@ catch e
         % unknown error
         rethrow(hlp_handleerror(e));
     catch e
-        disp('onl_append error: %s',e.message);
+        disp(sprintf('onl_append error: %s',e.message));
     end
 end
 
