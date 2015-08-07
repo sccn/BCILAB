@@ -134,7 +134,7 @@ opts = arg_define(0:1,varargin, ...
 if is_needing_search(opts.argform,opts.args)
     % use the utl_searchmodel() meta-function as the trainer in the subsequent regular CV
     % with opts.opt_scheme as the (nested) search scheme
-    opts.trainer = @(data,varargin) utl_searchmodel(data,rmfield(opts,{'eval_scheme','opt_scheme','engine_cv'}),'scheme',opts.opt_scheme); 
+    opts.trainer = @(data,varargin) utl_searchmodel(data,rmfield(opts,{'eval_scheme','opt_scheme','engine_cv','data'}),'scheme',opts.opt_scheme); 
 end
 
 % run a cross-validation, with opts.eval_scheme as the search scheme
