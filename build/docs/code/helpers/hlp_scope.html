@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>hlp_scope
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -57,15 +58,27 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="hlp_handleerror.html" class="code" title="function s = hlp_handleerror(e,level,hyperlinks)">hlp_handleerror</a>	Displays a formatted error message for some error object, including a full stack trace.</li>
+<li><a href="hlp_resolve.html" class="code" title="function outargs = hlp_resolve(x,default,context)">hlp_resolve</a>	Look up a symbol from the current hlp_scope scope.</li>
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
+
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function func = make_func(id)</a></li><li><a href="#_sub2" class="code">function id = make_stackframe(assignments)</a></li><li><a href="#_sub3" class="code">function return_stackframe(id)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function func = make_func(id)</a></li>
+<li><a href="#_sub2" class="code">function id = make_stackframe(assignments)</a></li>
+<li><a href="#_sub3" class="code">function return_stackframe(id)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function varargout = hlp_scope(assignments, f, varargin)</a>
@@ -108,64 +121,84 @@ This function is called by:
 0038 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
 0039 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
 0040 <span class="comment">% USA</span>
-0041 
-0042 <span class="comment">% add a new stack frame with the evaluated assignments &amp; get its unique id</span>
-0043 id = <a href="#_sub2" class="code" title="subfunction id = make_stackframe(assignments)">make_stackframe</a>(assignments);
-0044 <span class="comment">% also take care that it gets reclaimed after we're done</span>
-0045 reclaimer = onCleanup(@()<a href="#_sub3" class="code" title="subfunction return_stackframe(id)">return_stackframe</a>(id));
-0046 
-0047 <span class="comment">% make a function that is tagged by id</span>
-0048 func = <a href="#_sub1" class="code" title="subfunction func = make_func(id)">make_func</a>(id);
-0049 
-0050 <span class="comment">% evaluate the function with the id introduced into MATLAB's own stack</span>
-0051 [varargout{1:nargout}] = func(f,varargin);
-0052 
-0053 
-0054 
-0055 <a name="_sub1" href="#_subfunctions" class="code">function func = make_func(id)</a>
-0056 <span class="keyword">persistent</span> funccache; <span class="comment">% (cached, since the eval() below is a bit slow)</span>
-0057 <span class="keyword">try</span>
-0058     func = funccache.(id);
-0059 <span class="keyword">catch</span>
-0060     func = eval([<span class="string">'@(f,a,frame__'</span> id <span class="string">')feval(f,a{:})'</span>]);
-0061     funccache.(id) = func;
-0062 <span class="keyword">end</span>
-0063 
-0064 
-0065 <a name="_sub2" href="#_subfunctions" class="code">function id = make_stackframe(assignments)</a>
-0066 <span class="comment">% put the assignments into a struct</span>
-0067 <span class="keyword">if</span> iscell(assignments)
-0068     assignments = cell2struct(assignments(2:2:end),assignments(1:2:end),2); <span class="keyword">end</span>
-0069 <span class="comment">% get a fresh frame id</span>
-0070 <span class="keyword">global</span> tracking;
-0071 <span class="keyword">try</span>
-0072     id = tracking.stack.frameids.removeLast();
-0073 <span class="keyword">catch</span>
-0074     <span class="keyword">if</span> ~isfield(tracking,<span class="string">'stack'</span>) || ~isfield(tracking.stack,<span class="string">'frameids'</span>)        
-0075         <span class="comment">% need to create the id repository first</span>
-0076         tracking.stack.frameids = java.util.concurrent.LinkedBlockingDeque();
-0077         <span class="keyword">for</span> k=50000:-1:1
-0078             tracking.stack.frameids.addLast(sprintf(<span class="string">'f%d'</span>,k)); <span class="keyword">end</span>
-0079     <span class="keyword">else</span>
-0080         <span class="keyword">if</span> tracking.stack.frameids.size() == 0
-0081             <span class="comment">% if this happens then either you have 10.000s of parallel executions of hlp_scope(),</span>
-0082             <span class="comment">% or you have a very deep recursion level (the MATLAB default is 500), or your function</span>
-0083             <span class="comment">% has crashed 10.000s of times in a way that keeps onCleanup from doing its job, or you have</span>
-0084             <span class="comment">% substituted onCleanup by a dummy class or function that doesn't actually work (e.g. on</span>
-0085             <span class="comment">% pre-2008a systems).</span>
-0086             error(<span class="string">'We ran out of stack frame ids. This should not happen under normal conditions. Please make sure that your onCleanup implementation is not consistently failing to execute.'</span>); 
-0087         <span class="keyword">end</span>
-0088     <span class="keyword">end</span>
-0089     id = tracking.stack.frameids.removeLast();
-0090 <span class="keyword">end</span>
-0091 <span class="comment">% and store the assignments under it</span>
-0092 tracking.stack.frames.(id) = assignments;
-0093 
-0094 
-0095 <a name="_sub3" href="#_subfunctions" class="code">function return_stackframe(id)</a>
-0096 <span class="comment">% finally return the frame id again...</span>
-0097 <span class="keyword">global</span> tracking;
-0098 tracking.stack.frameids.addLast(id);</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0041 dp;
+0042 
+0043 <span class="comment">% add a new stack frame with the evaluated assignments &amp; get its unique id</span>
+0044 id = <a href="#_sub2" class="code" title="subfunction id = make_stackframe(assignments)">make_stackframe</a>(assignments);
+0045 <span class="comment">% also take care that it gets reclaimed after we're done</span>
+0046 <span class="comment">% reclaimer = onCleanup(@()return_stackframe(id));</span>
+0047 
+0048 <span class="comment">% make a function that is tagged by id</span>
+0049 func = <a href="#_sub1" class="code" title="subfunction func = make_func(id)">make_func</a>(id);
+0050 
+0051 <span class="keyword">try</span>
+0052     <span class="comment">% evaluate the function with the id introduced into MATLAB's own stack</span>
+0053     [varargout{1:nargout}] = func(f,varargin);
+0054     <a href="#_sub3" class="code" title="subfunction return_stackframe(id)">return_stackframe</a>(id);
+0055 <span class="keyword">catch</span> e
+0056     <a href="#_sub3" class="code" title="subfunction return_stackframe(id)">return_stackframe</a>(id);
+0057     <span class="keyword">if</span> strcmp(e.identifier,<span class="string">'BCILAB:arg:report_args'</span>)
+0058         <span class="comment">% fast path for expected exceptions that don't need a dbstatus check</span>
+0059         rethrow(e);
+0060     <span class="keyword">else</span>
+0061         settings = dbstatus;
+0062         <span class="keyword">if</span> any(strcmp({settings.cond},<span class="string">'error'</span>)) &amp;&amp; ~<a href="hlp_resolve.html" class="code" title="function outargs = hlp_resolve(x,default,context)">hlp_resolve</a>(<span class="string">'disable_dbstop_if_error_msg'</span>,false)
+0063             <span class="comment">% if in dbstop if error mode, we're re-running the line to get the debugger to stop at the right place</span>
+0064             disp_once(<span class="string">'hlp_scope: caught error while in &quot;dbstop if error&quot; mode; re-running offending code to get break point...\n  error traceback was: %s\n'</span>,<a href="hlp_handleerror.html" class="code" title="function s = hlp_handleerror(e,level,hyperlinks)">hlp_handleerror</a>(e));
+0065             [varargout{1:nargout}] = func(f,varargin);
+0066         <span class="keyword">else</span>
+0067             rethrow(e);
+0068         <span class="keyword">end</span>
+0069     <span class="keyword">end</span>
+0070 <span class="keyword">end</span>
+0071 
+0072 
+0073 
+0074 <a name="_sub1" href="#_subfunctions" class="code">function func = make_func(id)</a>
+0075 <span class="keyword">persistent</span> funccache; <span class="comment">% (cached, since the eval() below is a bit slow)</span>
+0076 <span class="keyword">try</span>
+0077     func = funccache.(id);
+0078 <span class="keyword">catch</span>
+0079     func = eval([<span class="string">'@(f,a,frame__'</span> id <span class="string">')feval(f,a{:})'</span>]);
+0080     funccache.(id) = func;
+0081 <span class="keyword">end</span>
+0082 
+0083 
+0084 <a name="_sub2" href="#_subfunctions" class="code">function id = make_stackframe(assignments)</a>
+0085 <span class="comment">% put the assignments into a struct</span>
+0086 <span class="keyword">if</span> iscell(assignments)
+0087     assignments = cell2struct(assignments(2:2:end),assignments(1:2:end),2); <span class="keyword">end</span>
+0088 <span class="comment">% get a fresh frame id</span>
+0089 <span class="keyword">global</span> tracking;
+0090 <span class="keyword">try</span>
+0091     id = tracking.stack.frameids.removeLast();
+0092 <span class="keyword">catch</span>
+0093     <span class="keyword">if</span> ~isfield(tracking,<span class="string">'stack'</span>) || ~isfield(tracking.stack,<span class="string">'frameids'</span>)        
+0094         <span class="comment">% need to create the id repository first</span>
+0095         tracking.stack.frameids = java.util.concurrent.LinkedBlockingDeque();
+0096         <span class="keyword">for</span> k=10000:-1:1
+0097             tracking.stack.frameids.addLast(sprintf(<span class="string">'f%d'</span>,k)); <span class="keyword">end</span>
+0098     <span class="keyword">else</span>
+0099         <span class="keyword">if</span> tracking.stack.frameids.size() == 0
+0100             <span class="comment">% if this happens then either you have 10.000s of parallel executions of hlp_scope(),</span>
+0101             <span class="comment">% or you have a very deep recursion level (the MATLAB default is 500), or your function</span>
+0102             <span class="comment">% has crashed 10.000s of times in a way that keeps onCleanup from doing its job, or you have</span>
+0103             <span class="comment">% substituted onCleanup by a dummy class or function that doesn't actually work (e.g. on</span>
+0104             <span class="comment">% pre-2008a systems).</span>
+0105             error(<span class="string">'We ran out of stack frame ids. This should not happen under normal conditions. Please make sure that your onCleanup implementation is not consistently failing to execute.'</span>); 
+0106         <span class="keyword">end</span>
+0107     <span class="keyword">end</span>
+0108     id = tracking.stack.frameids.removeLast();
+0109 <span class="keyword">end</span>
+0110 <span class="comment">% and store the assignments under it</span>
+0111 tracking.stack.frames.(id) = assignments;
+0112 
+0113 
+0114 <a name="_sub3" href="#_subfunctions" class="code">function return_stackframe(id)</a>
+0115 <span class="comment">% finally return the frame id again...</span>
+0116 <span class="keyword">global</span> tracking;
+0117 tracking.stack.frameids.addLast(id);</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

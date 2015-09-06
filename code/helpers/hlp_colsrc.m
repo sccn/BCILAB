@@ -12,40 +12,41 @@ nrois = length(roiVertices);
 szact = size(srcmat);
 
 % initialization
-srcmat_out = zeros(nrois,szact(2:end));
+srcmat_out = zeros([nrois,szact(2:end)]);
 
 switch rule
     case 'mean'
         % average CSD for each ROI
         for k=1:nrois
             x = roiVertices{k};
-            srcmat_out(k,:) = mean(srcmat(x,:),1);
+            srcmat_out(k,:,:) = mean(srcmat(x,:,:),1);
         end
     case 'sum'
         % sum CSD for each ROI
         for k=1:nrois
             x = roiVertices{k};
-            srcmat_out(k,:) = sum(srcmat(x,:),1);
+            srcmat_out(k,:,:) = sum(srcmat(x,:,:),1);
         end
     case 'max'
         % get max CSD for each ROI
         for k=1:nrois
             x = roiVertices{k};
-            srcmat_out(k,:) = max(srcmat(x,:),[],1);
+            srcmat_out(k,:,:) = max(srcmat(x,:,:),[],1);
         end
     case 'maxmag'
         % get CSD with maximum magnitude for each ROI
         for k=1:nrois
             x = roiVertices{k};
-            Q = srcmat(x,:);
+            Q = srcmat(x,:,:);
             [dummy idx] = max(abs(Q),[],1);
-            srcmat_out(k,:) = Q((0:numel(idx)-1).*size(Q,1) + idx);
+            srcmat_out(k,:,:) = Q((0:numel(idx)-1).*size(Q,1) + idx);
         end
     case 'median'
         % get median CSD for each ROI
         for k=1:nrois
             x = roiVertices{k};
-            srcmat_out(k,:) = median(srcmat(x,:),1);
+            if ~isempty(x)
+                srcmat_out(k,:,:) = median(srcmat(x,:,:),1); end
         end
     otherwise
         error('Unsupported collapse rule: %s',rule);

@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/parallel&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>par_testworker
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -50,11 +51,16 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -108,126 +114,141 @@ This function is called by:
 0047 timeout_recv_ms = 5000;
 0048 timeout_accept_ms = 5000;
 0049 use_hlpscope = true;
-0050 
-0051 <span class="comment">% transfer the current scope (optional)</span>
-0052 <span class="keyword">if</span> use_hlpscope
-0053     scope = hlp_resolveall;
-0054     varargin = [{scope,func} varargin];
-0055     func = @hlp_scope;
-0056 <span class="keyword">end</span>
-0057 
-0058 <span class="comment">% construct message</span>
-0059 fprintf(<span class="string">'serializing task data...'</span>);
-0060 messagebody = base64encode(hlp_serialize([{1},{func},varargin]));
-0061 disp(<span class="string">'done.'</span>);
-0062 
-0063 
-0064 <span class="comment">% --- set up TCP server to receive the reply ---</span>
-0065 
-0066 fprintf(<span class="string">'opening TCP server to receive replies...'</span>);
-0067 <span class="keyword">while</span> true
-0068     <span class="keyword">try</span>
-0069         serv = ServerSocket(2000+round(rand*60000),receive_backlog);
-0070         <span class="keyword">break</span>;
-0071     <span class="keyword">catch</span>,<span class="keyword">end</span>
-0072 <span class="keyword">end</span>
-0073 serv.setReceiveBufferSize(receive_buffer_size);
-0074 serv.setSoTimeout(timeout_accept_ms);
-0075 close_server = onCleanup(@()serv.close());
-0076 
-0077 <span class="comment">% determine server's address for replies</span>
-0078 return_port = num2str(serv.getLocalPort());
-0079 return_host = hlp_hostip;
-0080 return_address = [return_host <span class="string">':'</span> num2str(return_port)];
-0081 disp([<span class="string">'done; will receive on '</span> return_address]);
-0082 
-0083 
-0084 <span class="comment">% --- send task ---</span>
-0085 
-0086 <span class="comment">% determine target address</span>
-0087 idx = find(address==<span class="string">':'</span>,1);
-0088 host = address(1:idx-1);
-0089 port = str2num(address(idx+1:end));
-0090 destination = InetSocketAddress(host,port);
-0091 
-0092 <span class="comment">% connect</span>
-0093 fprintf(<span class="string">'connecting to %s:%i...'</span>,host,port);
-0094 outconn = Socket();
-0095 outconn.connect(destination,timeout_connect_ms); <span class="comment">% 3-second timeout</span>
-0096 outconn.setTcpNoDelay(1);
-0097 outconn.setSoTimeout(timeout_send_ms);
-0098 outconn.setSoLinger(true,3);
-0099 close_outconn = onCleanup(@()outconn.close());
-0100 disp(<span class="string">'done.'</span>);
-0101 
-0102 <span class="comment">% send message</span>
-0103 fprintf(<span class="string">'now sending (%.0fkb)...'</span>,length(messagebody)/1024);
-0104 out = DataOutputStream(outconn.getOutputStream());
-0105 out.writeInt(taskid);
-0106 out.writeInt(length(return_address));
-0107 out.writeBytes(return_address);
-0108 out.writeInt(length(messagebody));
-0109 out.writeBytes(messagebody);
-0110 out.flush();
-0111 
-0112 <span class="comment">% close socket</span>
-0113 fprintf(<span class="string">'done; now closing...'</span>);
-0114 outconn.close();
-0115 disp(<span class="string">'done.'</span>);
-0116 
-0117 
-0118 <span class="comment">% --- receive reply ---</span>
-0119 
-0120 <span class="comment">% wait for and get an incoming connection</span>
-0121 fprintf(<span class="string">'now waiting for reply...'</span>);
-0122 <span class="keyword">while</span> true
-0123     <span class="keyword">try</span>
-0124         conn = serv.accept();
-0125     <span class="keyword">catch</span>
-0126         <span class="keyword">continue</span>;
-0127     <span class="keyword">end</span>
-0128     conn.setSoTimeout(timeout_recv_ms);
-0129     conn.setTcpNoDelay(1);
-0130     
-0131     <span class="comment">% receive reply</span>
-0132     fprintf(<span class="string">'done; receiving data.\n'</span>);
-0133     in = DataInputStream(conn.getInputStream());
-0134     cr = ChunkReader(in);
-0135     received_taskid = in.readInt();
-0136     <span class="keyword">if</span> received_taskid ~= taskid
-0137         fprintf(<span class="string">'got unexpected task id (%i instead of %i); back to waiting...\n'</span>,received_taskid,taskid);
-0138         conn.close();
-0139     <span class="keyword">else</span>
-0140         disp([<span class="string">'got correct task id: '</span> num2str(received_taskid)]);
+0050 use_hlpgetresult = false;
+0051 
+0052 <span class="keyword">if</span> ischar(func)
+0053     func = str2func(func); <span class="keyword">end</span>;
+0054 
+0055 <span class="comment">% transfer the current scope (optional)</span>
+0056 <span class="keyword">if</span> use_hlpscope
+0057     scope = hlp_resolveall;
+0058     varargin = [{scope,func} varargin];
+0059     func = @hlp_scope;
+0060 <span class="keyword">end</span>
+0061 
+0062 <span class="comment">% construct message</span>
+0063 fprintf(<span class="string">'serializing task data...'</span>);
+0064 messagebody = hlp_serialize([{1},{func},varargin]);
+0065 disp(<span class="string">'done.'</span>);
+0066 
+0067 
+0068 <span class="comment">% --- set up TCP server to receive the reply ---</span>
+0069 
+0070 fprintf(<span class="string">'opening TCP server to receive replies...'</span>);
+0071 <span class="keyword">while</span> true
+0072     <span class="keyword">try</span>
+0073         serv = ServerSocket(2000+round(rand*60000),receive_backlog);
+0074         <span class="keyword">break</span>;
+0075     <span class="keyword">catch</span>,<span class="keyword">end</span>
+0076 <span class="keyword">end</span>
+0077 serv.setReceiveBufferSize(receive_buffer_size);
+0078 serv.setSoTimeout(timeout_accept_ms);
+0079 close_server = onCleanup(@()serv.close());
+0080 
+0081 <span class="comment">% determine server's address for replies</span>
+0082 return_port = num2str(serv.getLocalPort());
+0083 return_host = hlp_hostip;
+0084 return_address = [return_host <span class="string">':'</span> num2str(return_port)];
+0085 disp([<span class="string">'done; will receive on '</span> return_address]);
+0086 
+0087 
+0088 <span class="comment">% --- send task ---</span>
+0089 
+0090 <span class="comment">% determine target address</span>
+0091 idx = find(address==<span class="string">':'</span>,1);
+0092 host = address(1:idx-1);
+0093 port = str2num(address(idx+1:end));
+0094 destination = InetSocketAddress(host,port);
+0095 
+0096 <span class="comment">% connect</span>
+0097 fprintf(<span class="string">'connecting to %s:%i...'</span>,host,port);
+0098 outconn = Socket();
+0099 outconn.connect(destination,timeout_connect_ms); <span class="comment">% 3-second timeout</span>
+0100 outconn.setTcpNoDelay(1);
+0101 outconn.setSoTimeout(timeout_send_ms);
+0102 outconn.setSoLinger(true,3);
+0103 close_outconn = onCleanup(@()outconn.close());
+0104 disp(<span class="string">'done.'</span>);
+0105 
+0106 <span class="comment">% send message</span>
+0107 fprintf(<span class="string">'now sending (%.0fkb)...'</span>,length(messagebody)/1024);
+0108 out = DataOutputStream(outconn.getOutputStream());
+0109 out.writeInt(taskid);
+0110 out.writeInt(length(return_address));
+0111 out.writeBytes(return_address);
+0112 out.writeInt(length(messagebody));
+0113 out.write(messagebody);
+0114 out.flush();
+0115 
+0116 <span class="comment">% wait for handshake</span>
+0117 fprintf(<span class="string">'done; now waiting for checkum...'</span>);
+0118 in = DataInputStream(outconn.getInputStream());
+0119 checksum = in.readInt();
+0120 fprintf(<span class="string">'done; checking...'</span>);
+0121 <span class="keyword">if</span> checksum == taskid+length(return_address)+length(messagebody)
+0122     fprintf(<span class="string">'all clear'</span>);
+0123 <span class="keyword">else</span>
+0124     fprintf(<span class="string">'ERROR: unexpected checksum'</span>);
+0125 <span class="keyword">end</span>
+0126 <span class="comment">% close socket</span>
+0127 fprintf(<span class="string">'; now closing...'</span>);
+0128 outconn.close();
+0129 disp(<span class="string">'done.'</span>);
+0130 
+0131 
+0132 <span class="comment">% --- receive reply ---</span>
+0133 
+0134 <span class="comment">% wait for and get an incoming connection</span>
+0135 fprintf(<span class="string">'now waiting for reply...'</span>);
+0136 <span class="keyword">while</span> true
+0137     <span class="keyword">try</span>
+0138         conn = serv.accept();
+0139     <span class="keyword">catch</span>
+0140         <span class="keyword">continue</span>;
 0141     <span class="keyword">end</span>
-0142     fprintf(<span class="string">'receiving reply...'</span>);
-0143     replybody = char(cr.readFully(in.readInt())');
-0144     fprintf(<span class="string">'got reply (%.0fkb).\n'</span>,length(replybody)/1024);
-0145     
-0146     fprintf(<span class="string">'now closing...'</span>);
-0147     conn.close();
-0148     disp(<span class="string">'done.'</span>);
-0149     
-0150     <span class="comment">% construct result</span>
-0151     fprintf(<span class="string">'parsing result...'</span>);
-0152     reply = hlp_deserialize(base64decode(replybody));
-0153     disp(<span class="string">'done.'</span>);
-0154     
-0155     <span class="comment">% post-process result</span>
-0156     <span class="keyword">if</span> isfield(reply{2},{<span class="string">'message'</span>,<span class="string">'identifier'</span>,<span class="string">'stack'</span>})
-0157         disp(<span class="string">'Got an exception; traceback: '</span>);
-0158         rethrow(reply{2});
-0159     <span class="keyword">else</span>
-0160         result = reply{2};
-0161     <span class="keyword">end</span>    
-0162     <span class="keyword">break</span>;
-0163 <span class="keyword">end</span>
-0164 
-0165 <span class="keyword">if</span> use_hlpgetresult
-0166     varargout = result;
-0167 <span class="keyword">else</span>
-0168     varargout = {result};
-0169 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0142     conn.setSoTimeout(timeout_recv_ms);
+0143     conn.setTcpNoDelay(1);
+0144     
+0145     <span class="comment">% receive reply</span>
+0146     fprintf(<span class="string">'done; receiving data.\n'</span>);
+0147     in = DataInputStream(conn.getInputStream());
+0148     cr = ChunkReader(in);
+0149     received_taskid = in.readInt();
+0150     <span class="keyword">if</span> received_taskid ~= taskid
+0151         fprintf(<span class="string">'got unexpected task id (%i instead of %i); back to waiting...\n'</span>,received_taskid,taskid);
+0152         conn.close();
+0153     <span class="keyword">else</span>
+0154         disp([<span class="string">'got correct task id: '</span> num2str(received_taskid)]);
+0155     <span class="keyword">end</span>
+0156     fprintf(<span class="string">'receiving reply...'</span>);
+0157     replybody = typecast(cr.readFully(in.readInt()),<span class="string">'uint8'</span>);
+0158     fprintf(<span class="string">'got reply (%.0fkb).\n'</span>,length(replybody)/1024);
+0159     
+0160     fprintf(<span class="string">'now closing...'</span>);
+0161     conn.close();
+0162     disp(<span class="string">'done.'</span>);
+0163     
+0164     <span class="comment">% construct result</span>
+0165     fprintf(<span class="string">'parsing result...'</span>);
+0166     reply = hlp_deserialize(replybody);
+0167     disp(<span class="string">'done.'</span>);
+0168     
+0169     <span class="comment">% post-process result</span>
+0170     <span class="keyword">if</span> isfield(reply{2},{<span class="string">'message'</span>,<span class="string">'identifier'</span>,<span class="string">'stack'</span>})
+0171         disp(<span class="string">'Got an exception; traceback: '</span>);
+0172         rethrow(reply{2});
+0173     <span class="keyword">else</span>
+0174         result = reply{2};
+0175     <span class="keyword">end</span>    
+0176     <span class="keyword">break</span>;
+0177 <span class="keyword">end</span>
+0178 
+0179 <span class="keyword">if</span> use_hlpgetresult
+0180     varargout = result;
+0181 <span class="keyword">else</span>
+0182     varargout = {result};
+0183 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

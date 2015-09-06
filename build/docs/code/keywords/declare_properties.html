@@ -1,0 +1,290 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of declare_properties</title>
+  <meta name="keywords" content="declare_properties">
+  <meta name="description" content="Declare properties of a function.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">keywords</a> &gt; declare_properties.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/keywords&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>declare_properties
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Declare properties of a function.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function declare_properties(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Declare properties of a function.
+ declare_properties('Property',value,'Property',value, ...)
+
+ declare_properties must be a top-level statement in the function (like persistent) that must come
+ before arg_define. The function must use varargin in its argument list.
+
+ This construct can be used to declare any key-value properties for a function which can later be
+ retrieved using arg_report('properties',@myfunction). BCILAB looks for certain properties in
+ plugin functions (e.g., filters, dataset_editing, machine_learning), to support improved
+ integration of these functions into the GUI and the evaluation system.
+
+ In:
+   Options...: list of name-value pairs.
+
+               Ordering hints applicable for filters (respected by flt_pipeline) are the following:
+                'depends': expresses that some other filter(s) *must* have been called before running 
+                           the filter whose properties are being declared (this is usually due to some 
+                           required meta-data that is supplied by that other filter)
+                'cannot_follow': expresses that the filter being declared cannot follow after some 
+                                 other filter(s) (this is usually due to destructive
+                                 editing performed by those other filters)
+                'cannot_precede': expresses that the filter being declared cannot precede some 
+                                  other filter(s)
+                'follows': expresses that the filter being declared *prefers* to follow some 
+                           other filter(s) (this is usually for numeric or efficiency reasons)
+                'precedes': expresses that the filter being declared *prefers* to precede some 
+                           other filter(s) (this is usually for numeric or efficiency reasons)
+
+               Optional properties respected by the evaluation system (for improved usability):
+                'independent_channels': specify that this filter does not transfer information
+                                        across channels (e.g. channel selection, FIR filter)
+                                        (allows the online system to auto-infer which data channels 
+                                        are actually required by a given BCI model)
+                'independent_trials': specify that this filter does transfer information
+                                      across second-length or larger time scales (on the order of 
+                                      the duration of a trial or larger); this determines whether
+                                      the filter will be called repeatedly for each partition of the 
+                                      data in a cross-validation and other offline analyses
+
+               Further optional properties include:
+                'name': specify the GUI/human-readable name of this function (auto-determined if
+                        left unspecified)
+                'experimental': whether the function implementation is experimental or otherwise 
+                                in &quot;prototype&quot; stage
+                'deprecated': whether the function is deprecated
+
+ Examples:
+   function myfunction(...,varargin)
+
+   % declare a property called 'name', and assign the string 'MyFunction' to it, and another
+   % property called 'price', with some value attached
+   declare_properties('name','MyFunction','price',1999)
+
+   % in a signal processing function, declare the name of the function as it should appear in the 
+   % GUI panel (default is the name of the file without the flt_ / set_ prefix)
+   declare_properties('name','MyFilter')
+
+   % in a signal processing function, declare that the filter depends on two other (previously applied)
+   % filters (here: flt_ica and set_fit_dipoles)
+   declare_properties('depends',{'flt_ica','set_flt_dipoles'});
+   
+   % in a signal processing function, declare a hint that the filter typically follows some other 
+   % filter in the pipeline (if that other filter was enabled; here: flt_resample)
+   declare_properties('follows','flt_resample');
+
+   % in a signal processing function, declare a hint that the filter typically precedes some other 
+   % filters in the pipeline (if that other filter was enabled; here: flt_iir and flt_fir)
+   declare_properties('precedes',{'flt_iir','flt_fir'});
+
+   % in a signal processing function, declare the constraint that the filter cannot follow some other 
+   % filter
+   declare_properties('cannot_follow','set_makepos');
+
+   % in a signal processing function, declare the constraint that the filter cannot follow some other 
+   % filter
+   declare_properties('cannot_precede','set_makepos');
+
+   % in a signal processing function, declare that the contents of each output channel produced 
+   % by the filter depend only on the contents of the corresponding input channel (i.e. there is not
+   % cross-mixing of channels (default is false)
+   declare_properties('independent_channels',true);
+
+   % in a signal processing function, declare that the contents of each output trial depend not
+   % only on data of the respective input trial, but perhaps on other trials, as well (i.e., there is 
+   % cross-mixing over time at trial granularity); the effect of this is that the respective filter
+   % will be executed once per cross-validation fold
+   declare_properties('independent_trials',false);
+   
+ See also:
+   arg_report
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-11-02</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function declare_properties(varargin)</a>
+0002 <span class="comment">% Declare properties of a function.</span>
+0003 <span class="comment">% declare_properties('Property',value,'Property',value, ...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% declare_properties must be a top-level statement in the function (like persistent) that must come</span>
+0006 <span class="comment">% before arg_define. The function must use varargin in its argument list.</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% This construct can be used to declare any key-value properties for a function which can later be</span>
+0009 <span class="comment">% retrieved using arg_report('properties',@myfunction). BCILAB looks for certain properties in</span>
+0010 <span class="comment">% plugin functions (e.g., filters, dataset_editing, machine_learning), to support improved</span>
+0011 <span class="comment">% integration of these functions into the GUI and the evaluation system.</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">% In:</span>
+0014 <span class="comment">%   Options...: list of name-value pairs.</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%               Ordering hints applicable for filters (respected by flt_pipeline) are the following:</span>
+0017 <span class="comment">%                'depends': expresses that some other filter(s) *must* have been called before running</span>
+0018 <span class="comment">%                           the filter whose properties are being declared (this is usually due to some</span>
+0019 <span class="comment">%                           required meta-data that is supplied by that other filter)</span>
+0020 <span class="comment">%                'cannot_follow': expresses that the filter being declared cannot follow after some</span>
+0021 <span class="comment">%                                 other filter(s) (this is usually due to destructive</span>
+0022 <span class="comment">%                                 editing performed by those other filters)</span>
+0023 <span class="comment">%                'cannot_precede': expresses that the filter being declared cannot precede some</span>
+0024 <span class="comment">%                                  other filter(s)</span>
+0025 <span class="comment">%                'follows': expresses that the filter being declared *prefers* to follow some</span>
+0026 <span class="comment">%                           other filter(s) (this is usually for numeric or efficiency reasons)</span>
+0027 <span class="comment">%                'precedes': expresses that the filter being declared *prefers* to precede some</span>
+0028 <span class="comment">%                           other filter(s) (this is usually for numeric or efficiency reasons)</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%               Optional properties respected by the evaluation system (for improved usability):</span>
+0031 <span class="comment">%                'independent_channels': specify that this filter does not transfer information</span>
+0032 <span class="comment">%                                        across channels (e.g. channel selection, FIR filter)</span>
+0033 <span class="comment">%                                        (allows the online system to auto-infer which data channels</span>
+0034 <span class="comment">%                                        are actually required by a given BCI model)</span>
+0035 <span class="comment">%                'independent_trials': specify that this filter does transfer information</span>
+0036 <span class="comment">%                                      across second-length or larger time scales (on the order of</span>
+0037 <span class="comment">%                                      the duration of a trial or larger); this determines whether</span>
+0038 <span class="comment">%                                      the filter will be called repeatedly for each partition of the</span>
+0039 <span class="comment">%                                      data in a cross-validation and other offline analyses</span>
+0040 <span class="comment">%</span>
+0041 <span class="comment">%               Further optional properties include:</span>
+0042 <span class="comment">%                'name': specify the GUI/human-readable name of this function (auto-determined if</span>
+0043 <span class="comment">%                        left unspecified)</span>
+0044 <span class="comment">%                'experimental': whether the function implementation is experimental or otherwise</span>
+0045 <span class="comment">%                                in &quot;prototype&quot; stage</span>
+0046 <span class="comment">%                'deprecated': whether the function is deprecated</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">% Examples:</span>
+0049 <span class="comment">%   function myfunction(...,varargin)</span>
+0050 <span class="comment">%</span>
+0051 <span class="comment">%   % declare a property called 'name', and assign the string 'MyFunction' to it, and another</span>
+0052 <span class="comment">%   % property called 'price', with some value attached</span>
+0053 <span class="comment">%   declare_properties('name','MyFunction','price',1999)</span>
+0054 <span class="comment">%</span>
+0055 <span class="comment">%   % in a signal processing function, declare the name of the function as it should appear in the</span>
+0056 <span class="comment">%   % GUI panel (default is the name of the file without the flt_ / set_ prefix)</span>
+0057 <span class="comment">%   declare_properties('name','MyFilter')</span>
+0058 <span class="comment">%</span>
+0059 <span class="comment">%   % in a signal processing function, declare that the filter depends on two other (previously applied)</span>
+0060 <span class="comment">%   % filters (here: flt_ica and set_fit_dipoles)</span>
+0061 <span class="comment">%   declare_properties('depends',{'flt_ica','set_flt_dipoles'});</span>
+0062 <span class="comment">%</span>
+0063 <span class="comment">%   % in a signal processing function, declare a hint that the filter typically follows some other</span>
+0064 <span class="comment">%   % filter in the pipeline (if that other filter was enabled; here: flt_resample)</span>
+0065 <span class="comment">%   declare_properties('follows','flt_resample');</span>
+0066 <span class="comment">%</span>
+0067 <span class="comment">%   % in a signal processing function, declare a hint that the filter typically precedes some other</span>
+0068 <span class="comment">%   % filters in the pipeline (if that other filter was enabled; here: flt_iir and flt_fir)</span>
+0069 <span class="comment">%   declare_properties('precedes',{'flt_iir','flt_fir'});</span>
+0070 <span class="comment">%</span>
+0071 <span class="comment">%   % in a signal processing function, declare the constraint that the filter cannot follow some other</span>
+0072 <span class="comment">%   % filter</span>
+0073 <span class="comment">%   declare_properties('cannot_follow','set_makepos');</span>
+0074 <span class="comment">%</span>
+0075 <span class="comment">%   % in a signal processing function, declare the constraint that the filter cannot follow some other</span>
+0076 <span class="comment">%   % filter</span>
+0077 <span class="comment">%   declare_properties('cannot_precede','set_makepos');</span>
+0078 <span class="comment">%</span>
+0079 <span class="comment">%   % in a signal processing function, declare that the contents of each output channel produced</span>
+0080 <span class="comment">%   % by the filter depend only on the contents of the corresponding input channel (i.e. there is not</span>
+0081 <span class="comment">%   % cross-mixing of channels (default is false)</span>
+0082 <span class="comment">%   declare_properties('independent_channels',true);</span>
+0083 <span class="comment">%</span>
+0084 <span class="comment">%   % in a signal processing function, declare that the contents of each output trial depend not</span>
+0085 <span class="comment">%   % only on data of the respective input trial, but perhaps on other trials, as well (i.e., there is</span>
+0086 <span class="comment">%   % cross-mixing over time at trial granularity); the effect of this is that the respective filter</span>
+0087 <span class="comment">%   % will be executed once per cross-validation fold</span>
+0088 <span class="comment">%   declare_properties('independent_trials',false);</span>
+0089 <span class="comment">%</span>
+0090 <span class="comment">% See also:</span>
+0091 <span class="comment">%   arg_report</span>
+0092 <span class="comment">%</span>
+0093 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0094 <span class="comment">%                                2010-11-02</span>
+0095 
+0096 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0097 <span class="comment">%</span>
+0098 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0099 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0100 <span class="comment">% License, or (at your option) any later version.</span>
+0101 <span class="comment">%</span>
+0102 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0103 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0104 <span class="comment">% General Public License for more details.</span>
+0105 <span class="comment">%</span>
+0106 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0107 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0108 <span class="comment">% USA</span>
+0109 
+0110 caller_args = evalin(<span class="string">'caller'</span>,<span class="string">'varargin'</span>);
+0111 <span class="keyword">if</span> length(caller_args)&gt;1 &amp;&amp; isequal(caller_args(end-1:end),{<span class="string">'__arg_report__'</span>,<span class="string">'properties'</span>})
+0112     <span class="comment">% properties are being requested via arg_report; return them as a struct</span>
+0113     caller = hlp_getcaller();
+0114     
+0115     <span class="comment">% collect properties as name-value pairs</span>
+0116     <span class="keyword">if</span> ~iscellstr(varargin(1:2:end))
+0117         error(<span class="string">'The given arguments must be name-value pairs.'</span>); <span class="keyword">end</span>
+0118     nvps = reshape([{<span class="string">'depends'</span>,{},<span class="string">'cannot_follow'</span>,{},<span class="string">'cannot_precede'</span>,{},<span class="string">'follows'</span>,{},<span class="string">'precedes'</span>,{},<span class="string">'independent_channels'</span>,[], <span class="keyword">...</span>
+0119         <span class="string">'independent_trials'</span>,[],<span class="string">'name'</span>,caller,<span class="string">'deprecated'</span>,false,<span class="string">'experimental'</span>,false} varargin],2,[]);
+0120     <span class="comment">% find the indices of the last assignment for each name and convert them to a struct</span>
+0121     [s,inds] = sort(nvps(1,:)); inds(strcmp(s(1:end-1),s(2:end))) = [];
+0122     properties = cell2struct(nvps(2,inds),nvps(1,inds),2);
+0123     
+0124     <span class="keyword">if</span> isempty(properties.independent_trials) &amp;&amp; (strncmp(caller,<span class="string">'flt_'</span>,4) || strncmp(caller,<span class="string">'set_'</span>,4))
+0125         properties.independent_trials = false;
+0126         <span class="comment">% warn about this omission: in practice, this means that this filter and all that come after it</span>
+0127         <span class="comment">% in a pipeline will be recomputed for every partition of the data during (nested) cross-validation</span>
+0128         <span class="comment">% (perhaps 10x or 100x as often as necessary)</span>
+0129         disp_once(<span class="string">'Note: The function &quot;%s&quot; does not declare the property independent_trials; assuming that it is false. This may be a conservative assumption that can have massive performance cost during offline processing. Consider declaring the property explicitly in the declare_properties() clause.'</span>,caller);
+0130     <span class="keyword">end</span>
+0131     
+0132     <span class="keyword">if</span> isempty(properties.independent_channels) &amp;&amp; (strncmp(caller,<span class="string">'flt_'</span>,4) || strncmp(caller,<span class="string">'set_'</span>,4))
+0133         properties.independent_channels = false;
+0134         <span class="comment">% warn about this omission: in practice, this often means that BCILAB has to assume that a given</span>
+0135         <span class="comment">% model requires all channels that were present in the source data set -- even if it selects</span>
+0136         <span class="comment">% only a subset somewhere in its filter pipeline (e.g., excluding peripheral measures). If such</span>
+0137         <span class="comment">% channels are not available in an online stream, the model will fail to work, perhaps</span>
+0138         <span class="comment">% unneccessarily.</span>
+0139         disp_once(<span class="string">'Note: The function &quot;%s&quot; does not declare the property independent_channels; assuming that it is false. This may be a conservative assumption that can make it unnecessariy difficult to set up online processing. Consider declaring the property explicitly in the declare_properties() clause.'</span>,caller);
+0140     <span class="keyword">end</span>
+0141     
+0142     <span class="comment">% report them</span>
+0143     arg_issuereport(properties);
+0144 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -29,8 +29,16 @@ within_eeglab = length(folders) >= 5 && strcmp(folders{end-3},'plugins') && ~ise
 
 % highlight the menu if already there
 f = findobj('Tag','bcilab_menu');
-if ~isempty(f) && ~forcenew    
-    close(get(f,'Parent')); end
+if ~isempty(f) && ~forcenew
+    for k=1:length(f)            
+        try        
+            close(get(f(k),'Parent')); 
+        catch e
+            disp('Error: previous figure handle invalid. You are in debug mode. Press dbquit to move on.');
+            keyboard;
+        end
+    end
+end
 
 if isempty(parent) %#ok<NODEF>
     if within_eeglab && ~forcenew
@@ -214,7 +222,7 @@ if ~(within_eeglab && ~forcenew)
         'CData',load_icon('bcilab:/resources/icons/online_clear.png'),...
         'HandleVisibility','callback','ClickedCallback','onl_clear');
     uitoggletool(ht,'TooltipString','Request cluster availability',...
-        'CData',load_icon('bcilab:/resources/icons/acquire_cluster.png'),'HandleVisibility','callback','Separator','on','State',cluster_requested,'OnCallback','env_acquire_cluster','OffCallback','env_release_cluster');
+        'CData',load_icon('bcilab:/resources/icons/acquire_cluster.png'),'HandleVisibility','callback','Separator','on','State',cluster_requested,'OnCallback','env_acquire_cluster;','OffCallback','env_release_cluster;');
     uipushtool(ht,'TooltipString','About BCILAB',...
         'CData',load_icon('bcilab:/resources/icons/help.png'),'HandleVisibility','callback','Separator','on','ClickedCallback',@about);
 end

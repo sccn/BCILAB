@@ -1,0 +1,516 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of par_getworkers_qsub</title>
+  <meta name="keywords" content="par_getworkers_qsub">
+  <meta name="description" content="Acquire workers on some remote machines and return hostnames and ports of those that are available.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">parallel</a> &gt; par_getworkers_qsub.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/parallel&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>par_getworkers_qsub
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Acquire workers on some remote machines and return hostnames and ports of those that are available.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [harvested_addresses,logpaths] = par_getworkers_qsub(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Acquire workers on some remote machines and return hostnames and ports of those that are available.
+ Pool = par_getworkers_qsub(...)
+
+ This function attempts to start the desired number of workers on a Linux cluster using the qsub
+ command (also supports some other job managers). See aksi 
+
+ In:
+   --- resources to acquire ---
+   NumWorkers : Number of worker processes to launch. (default: 8)
+
+   MatlabThreads : Number of MATLAB threads. This is the number of threads that each worker uses internally. (default: 4)
+
+   --- qsub-specific options ---
+   SubmitNode : Machine which can submit jobs. If nonempty, this function will attempt to ssh into 
+                the given node in order to submit a job. (default: '')
+
+   JobManager : Job manager system. This is the type of job manager to submit to. (default: 'SGE')
+
+   Queues : Queues to submit to. This is a cell array of strings that lists the queues to which jobs
+            shall be submitted to (in a round-robin manner or in a merged manner). If empty, no
+            queue is specified. (default: {})
+
+   HarvestTimeout : Harvesting timeout. Any workers that have not fully launched within this
+                    timeout will be abandoned (and will terminate themselves). Note that when
+                    multiple MATLABs try to launch simultaneously, it can take longer than normal.
+                    (default: 300)
+
+   --- startup commands for MATLAB ---
+   MATLABCommand : Command to start MATLAB. This is the command to run on the command line to start 
+                   the desired version of MATLAB (does not include the script launch). If this is
+                   set to ''autogenerate'' the same path that runs the par_getworkers_qsub command
+                   will be used (useful on clusters with identical file systems). A good fallback
+                   on most installations is to set it to ''matlab''. (default: 'autogenerate')
+
+   StartupPrefix : Startup prefix. Any MATLAB startup lines to run before running the main BCILAB
+                   command. (default: '')
+
+   StartupCommand : BCILAB startup command. If the binary_worker parameter (Use compiled workers) 
+                    is true, this is a sequence of shell commands, otherwise it is a sequence of
+                    MATLAB statements which contain the placeholder %d where the TCP port # would
+                    be inserted; If set to ''autogenerate'', a startup command specific to the
+                    current BCILAB environment will be generated. (default: 'autogenerate')
+
+   NoDisplay : Start MATLAB without display. (default: true)
+
+   CleanMATLABPath : Run worker from a clean MATLAB path. (default: true)
+
+   --- binary commands for compiled workers ----
+    BinaryWorker : Use compiled workers. Whether to start a given binary worker implementation
+                  rather than the MATLAB worker. (default: false)
+
+   MatlabCompilerRoot : MATLAB Compiler directory. Installation path of the MATLAB compiler runtime; 
+                        if set to autogenerate, a few locations will be searched for an MCR that
+                        corresponds to the MATLAB version that is running this function (this
+                        assumes that the compiler is installed in the same directory remotely as it
+                        is locally). If nothing is found, it is assumed that the MCR has been
+                        installed into the system path and is found automatically. (default:
+                        autogenerate)
+
+   BinaryName : Name of the binary. The name of the BCILAB binary (if using compiled workers).
+                (default: 'build')
+
+   --- arguments for the workers ---
+     StartPort : Start of the worker port range. If the port is already in use, the next free one
+               will be chosen, until the permitted portrange is exceeded. if specified as 0, a free
+               port is chosen directly. (default: 23547)
+
+   NumPorts : Number of available ports. Number of successive ports to try, including the start
+              port; if 1, only the desired port will be used. If 0, the port range will be set to
+              the number of cores in the machine divided by the worker''s matlab threads parameter.
+              (default: 0)
+
+   ShutdownTimeout : Shutdown timeout. If non-zero, the worker will be shut down if it has not
+                     received a heartbeat signal from a client in the given time frame, in seconds.
+                     For this to work, the function env_acquire_cluster should be used as it sets
+                     up the heartbeat timer. (default: 300)
+
+   ---- worker tracking and logging ---
+   JobIdFormat : Job ID format. This is a pattern according to which job ids are generated. 
+                 (default: 'jobmanager_%user_%host_b%batch_i%num')
+
+   LoggingPath : Logging path pattern. For each worker job a new file will be created according to
+                 this pattern. (default: 'home:/.bcilab/logs/workers/qsub-%jobid.log')
+
+
+ Out:
+   Pool : cell array of 'hostname:port' strings specifying the list of available machines
+          Note: in the case that no return value is requested, the global variable 
+                tracking.parallel.pool will receive this result. This is the recommended way to
+                use par_getworkers_qsub, as par_schedule uses this pool by default.
+
+  Logpaths : cell array of file paths of the logfiles corresponding to the workers in pool
+
+ See also:
+   <a href="par_worker.html" class="code" title="function par_worker(port,portrange,timeout_heartbeat,varargin)">par_worker</a>
+
+ Examples:
+   % launch three workers on any of the queues q1 to q8, using computing as the submit host
+   par_getworkers_qsub('NumWorkers',3,'Queues',{'q1','q2','q3','q4','q5','q6','q7','q8'},'SubmitNode','computing')
+
+ Notes:
+   Some details of this function were inspired by the qsub module of FieldTrip.
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2014-06-27</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="par_globalsetting.html" class="code" title="function res = par_globalsetting(name,val)">par_globalsetting</a>	Set or get a global setting for parallel task scheduling.</li>
+<li><a href="par_parse_logfiles.html" class="code" title="function harvested_addresses = par_parse_logfiles(logpaths, harvest_timeout, harvest_ips)">par_parse_logfiles</a>	Parse logfiles produced by par_worker, extract pid@host:port</li>
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="par_getworkers.html" class="code" title="function [pool,logpaths] = par_getworkers(varargin)">par_getworkers</a>	Acquire workers on some remote machines and return hostnames and ports of those that are available.</li>
+</ul>
+<!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function str = strrep_multi(str,varargin)</a></li>
+<li><a href="#_sub2" class="code">function s = sanitize_name(s)</a></li>
+</ul>
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [harvested_addresses,logpaths] = par_getworkers_qsub(varargin)</a>
+0002 <span class="comment">% Acquire workers on some remote machines and return hostnames and ports of those that are available.</span>
+0003 <span class="comment">% Pool = par_getworkers_qsub(...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This function attempts to start the desired number of workers on a Linux cluster using the qsub</span>
+0006 <span class="comment">% command (also supports some other job managers). See aksi</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% In:</span>
+0009 <span class="comment">%   --- resources to acquire ---</span>
+0010 <span class="comment">%   NumWorkers : Number of worker processes to launch. (default: 8)</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%   MatlabThreads : Number of MATLAB threads. This is the number of threads that each worker uses internally. (default: 4)</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%   --- qsub-specific options ---</span>
+0015 <span class="comment">%   SubmitNode : Machine which can submit jobs. If nonempty, this function will attempt to ssh into</span>
+0016 <span class="comment">%                the given node in order to submit a job. (default: '')</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   JobManager : Job manager system. This is the type of job manager to submit to. (default: 'SGE')</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%   Queues : Queues to submit to. This is a cell array of strings that lists the queues to which jobs</span>
+0021 <span class="comment">%            shall be submitted to (in a round-robin manner or in a merged manner). If empty, no</span>
+0022 <span class="comment">%            queue is specified. (default: {})</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   HarvestTimeout : Harvesting timeout. Any workers that have not fully launched within this</span>
+0025 <span class="comment">%                    timeout will be abandoned (and will terminate themselves). Note that when</span>
+0026 <span class="comment">%                    multiple MATLABs try to launch simultaneously, it can take longer than normal.</span>
+0027 <span class="comment">%                    (default: 300)</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">%   --- startup commands for MATLAB ---</span>
+0030 <span class="comment">%   MATLABCommand : Command to start MATLAB. This is the command to run on the command line to start</span>
+0031 <span class="comment">%                   the desired version of MATLAB (does not include the script launch). If this is</span>
+0032 <span class="comment">%                   set to ''autogenerate'' the same path that runs the par_getworkers_qsub command</span>
+0033 <span class="comment">%                   will be used (useful on clusters with identical file systems). A good fallback</span>
+0034 <span class="comment">%                   on most installations is to set it to ''matlab''. (default: 'autogenerate')</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">%   StartupPrefix : Startup prefix. Any MATLAB startup lines to run before running the main BCILAB</span>
+0037 <span class="comment">%                   command. (default: '')</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%   StartupCommand : BCILAB startup command. If the binary_worker parameter (Use compiled workers)</span>
+0040 <span class="comment">%                    is true, this is a sequence of shell commands, otherwise it is a sequence of</span>
+0041 <span class="comment">%                    MATLAB statements which contain the placeholder %d where the TCP port # would</span>
+0042 <span class="comment">%                    be inserted; If set to ''autogenerate'', a startup command specific to the</span>
+0043 <span class="comment">%                    current BCILAB environment will be generated. (default: 'autogenerate')</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">%   NoDisplay : Start MATLAB without display. (default: true)</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">%   CleanMATLABPath : Run worker from a clean MATLAB path. (default: true)</span>
+0048 <span class="comment">%</span>
+0049 <span class="comment">%   --- binary commands for compiled workers ----</span>
+0050 <span class="comment">%    BinaryWorker : Use compiled workers. Whether to start a given binary worker implementation</span>
+0051 <span class="comment">%                  rather than the MATLAB worker. (default: false)</span>
+0052 <span class="comment">%</span>
+0053 <span class="comment">%   MatlabCompilerRoot : MATLAB Compiler directory. Installation path of the MATLAB compiler runtime;</span>
+0054 <span class="comment">%                        if set to autogenerate, a few locations will be searched for an MCR that</span>
+0055 <span class="comment">%                        corresponds to the MATLAB version that is running this function (this</span>
+0056 <span class="comment">%                        assumes that the compiler is installed in the same directory remotely as it</span>
+0057 <span class="comment">%                        is locally). If nothing is found, it is assumed that the MCR has been</span>
+0058 <span class="comment">%                        installed into the system path and is found automatically. (default:</span>
+0059 <span class="comment">%                        autogenerate)</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">%   BinaryName : Name of the binary. The name of the BCILAB binary (if using compiled workers).</span>
+0062 <span class="comment">%                (default: 'build')</span>
+0063 <span class="comment">%</span>
+0064 <span class="comment">%   --- arguments for the workers ---</span>
+0065 <span class="comment">%     StartPort : Start of the worker port range. If the port is already in use, the next free one</span>
+0066 <span class="comment">%               will be chosen, until the permitted portrange is exceeded. if specified as 0, a free</span>
+0067 <span class="comment">%               port is chosen directly. (default: 23547)</span>
+0068 <span class="comment">%</span>
+0069 <span class="comment">%   NumPorts : Number of available ports. Number of successive ports to try, including the start</span>
+0070 <span class="comment">%              port; if 1, only the desired port will be used. If 0, the port range will be set to</span>
+0071 <span class="comment">%              the number of cores in the machine divided by the worker''s matlab threads parameter.</span>
+0072 <span class="comment">%              (default: 0)</span>
+0073 <span class="comment">%</span>
+0074 <span class="comment">%   ShutdownTimeout : Shutdown timeout. If non-zero, the worker will be shut down if it has not</span>
+0075 <span class="comment">%                     received a heartbeat signal from a client in the given time frame, in seconds.</span>
+0076 <span class="comment">%                     For this to work, the function env_acquire_cluster should be used as it sets</span>
+0077 <span class="comment">%                     up the heartbeat timer. (default: 300)</span>
+0078 <span class="comment">%</span>
+0079 <span class="comment">%   ---- worker tracking and logging ---</span>
+0080 <span class="comment">%   JobIdFormat : Job ID format. This is a pattern according to which job ids are generated.</span>
+0081 <span class="comment">%                 (default: 'jobmanager_%user_%host_b%batch_i%num')</span>
+0082 <span class="comment">%</span>
+0083 <span class="comment">%   LoggingPath : Logging path pattern. For each worker job a new file will be created according to</span>
+0084 <span class="comment">%                 this pattern. (default: 'home:/.bcilab/logs/workers/qsub-%jobid.log')</span>
+0085 <span class="comment">%</span>
+0086 <span class="comment">%</span>
+0087 <span class="comment">% Out:</span>
+0088 <span class="comment">%   Pool : cell array of 'hostname:port' strings specifying the list of available machines</span>
+0089 <span class="comment">%          Note: in the case that no return value is requested, the global variable</span>
+0090 <span class="comment">%                tracking.parallel.pool will receive this result. This is the recommended way to</span>
+0091 <span class="comment">%                use par_getworkers_qsub, as par_schedule uses this pool by default.</span>
+0092 <span class="comment">%</span>
+0093 <span class="comment">%  Logpaths : cell array of file paths of the logfiles corresponding to the workers in pool</span>
+0094 <span class="comment">%</span>
+0095 <span class="comment">% See also:</span>
+0096 <span class="comment">%   par_worker</span>
+0097 <span class="comment">%</span>
+0098 <span class="comment">% Examples:</span>
+0099 <span class="comment">%   % launch three workers on any of the queues q1 to q8, using computing as the submit host</span>
+0100 <span class="comment">%   par_getworkers_qsub('NumWorkers',3,'Queues',{'q1','q2','q3','q4','q5','q6','q7','q8'},'SubmitNode','computing')</span>
+0101 <span class="comment">%</span>
+0102 <span class="comment">% Notes:</span>
+0103 <span class="comment">%   Some details of this function were inspired by the qsub module of FieldTrip.</span>
+0104 <span class="comment">%</span>
+0105 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0106 <span class="comment">%                                2014-06-27</span>
+0107 
+0108 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2014, christian@sccn.ucsd.edu</span>
+0109 <span class="comment">%</span>
+0110 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0111 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0112 <span class="comment">% License, or (at your option) any later version.</span>
+0113 <span class="comment">%</span>
+0114 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0115 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0116 <span class="comment">% General Public License for more details.</span>
+0117 <span class="comment">%</span>
+0118 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0119 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0120 <span class="comment">% USA</span>
+0121 
+0122 <span class="keyword">global</span> tracking;
+0123 opts = arg_define(varargin,<span class="keyword">...</span>
+0124     <span class="keyword">...</span><span class="comment"> % resources to acquire</span>
+0125     arg({<span class="string">'num_workers'</span>,<span class="string">'NumWorkers'</span>},8,[1 1 32 1024],<span class="string">'Number of worker processes to launch.'</span>), <span class="keyword">...</span>
+0126     arg({<span class="string">'matlab_threads'</span>,<span class="string">'MatlabThreads'</span>},4,uint32([1 1 8 32]),<span class="string">'Number of MATLAB threads. This is the number of threads that each worker uses internally.'</span>), <span class="keyword">...</span>
+0127     <span class="keyword">...</span><span class="comment"> % qsub-specific options</span>
+0128     arg({<span class="string">'submit_node'</span>,<span class="string">'SubmitNode'</span>},<span class="string">''</span>,[],<span class="string">'Machine which can submit jobs. If nonempty, this function will attempt to ssh into the given node in order to submit a job.'</span>), <span class="keyword">...</span>
+0129     arg({<span class="string">'job_manager'</span>,<span class="string">'JobManager'</span>},<span class="string">'SGE'</span>,{<span class="string">'SGE'</span>,<span class="string">'OGE'</span>,<span class="string">'Torque'</span>,<span class="string">'PBS'</span>,<span class="string">'SLURM'</span>,<span class="string">'LSF'</span>,<span class="string">'OwnMachine'</span>},<span class="string">'Job manager system. This is the type of job manager to submit to.'</span>), <span class="keyword">...</span>
+0130     arg({<span class="string">'queues'</span>,<span class="string">'Queues'</span>},{},[],<span class="string">'Queues to submit to. This is a cell array of strings that lists the queues to which jobs shall be submitted to (in a round-robin manner or in a merged manner). If empty, no queue is specified.'</span>,<span class="string">'type'</span>,<span class="string">'cellstr'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0131     arg({<span class="string">'harvest_timeout'</span>,<span class="string">'HarvestTimeout'</span>},300,[],<span class="string">'Harvesting timeout. Any workers that have not fully launched within this timeout will be abandoned (and will terminate themselves). Note that when multiple MATLABs try to launch simultaneously, it can take longer than normal.'</span>), <span class="keyword">...</span>
+0132     arg({<span class="string">'harvest_ips'</span>,<span class="string">'HarvestIPs'</span>},true,[],<span class="string">'Harvest IP addresses instead of hostnames. Whether to harvest and return the IP addresses of the workers rather than their hostnames.'</span>), <span class="keyword">...</span>
+0133     <span class="keyword">...</span><span class="comment"> % startup commands for MATLAB</span>
+0134     arg({<span class="string">'matlab_command'</span>,<span class="string">'MATLABCommand'</span>},<span class="string">'autogenerate'</span>, [], <span class="string">'Command to start MATLAB. This is the command to run on the command line to start the desired version of MATLAB (does not include the script launch). If this is set to ''autogenerate'' the same path that runs the par_getworkers_qsub command will be used (useful on clusters with identical file systems). A good fallback on most installations is to set it to ''matlab''.'</span>), <span class="keyword">...</span>
+0135     arg({<span class="string">'startup_prefix'</span>,<span class="string">'StartupPrefix'</span>},<span class="string">''</span>,[], <span class="string">'Startup prefix. Any MATLAB startup lines to run before running the main BCILAB command.'</span>),<span class="keyword">...</span>
+0136     arg({<span class="string">'startup_command'</span>,<span class="string">'StartupCommand'</span>},<span class="string">'autogenerate'</span>,[], <span class="string">'BCILAB startup command. If the binary_worker parameter (Use compiled workers) is true, this is a sequence of shell commands, otherwise it is a sequence of MATLAB statements which contain the placeholder %d where the TCP port # would be inserted; If set to ''autogenerate'', a startup command specific to the current BCILAB environment will be generated.'</span>),<span class="keyword">...</span>
+0137     arg({<span class="string">'no_display'</span>,<span class="string">'NoDisplay'</span>},true,[], <span class="string">'Start MATLAB without display.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span>
+0138     arg({<span class="string">'clean_path'</span>,<span class="string">'CleanMATLABPath'</span>},true, [], <span class="string">'Run worker from a clean MATLAB path.'</span>), <span class="keyword">...</span>
+0139     <span class="keyword">...</span><span class="comment"> % binary commands for compiled workers</span>
+0140     arg({<span class="string">'binary_worker'</span>,<span class="string">'BinaryWorker'</span>},false,[], <span class="string">'Use compiled workers. Whether to start a given binary worker implementation rather than the MATLAB worker.'</span>), <span class="keyword">...</span>
+0141     arg({<span class="string">'mcr_root'</span>,<span class="string">'MatlabCompilerRoot'</span>},<span class="string">'autogenerate'</span>, [], <span class="string">'MATLAB Compiler directory. Installation path of the MATLAB compiler runtime; if set to autogenerate, a few locations will be searched for an MCR that corresponds to the MATLAB version that is running this function (this assumes that the compiler is installed in the same directory remotely as it is locally). If nothing is found, it is assumed that the MCR has been installed into the system path and is found automatically.'</span>), <span class="keyword">...</span>
+0142     arg({<span class="string">'binary_name'</span>,<span class="string">'BinaryName'</span>},<span class="string">'build'</span>, [], <span class="string">'Name of the binary. The name of the BCILAB binary (if using compiled workers).'</span>), <span class="keyword">...</span>
+0143     <span class="keyword">...</span><span class="comment"> % arguments for the workers</span>
+0144     arg({<span class="string">'start_port'</span>,<span class="string">'StartPort'</span>}, 23547, [0 1025 65535 65535], <span class="string">'Start of the worker port range. If the port is already in use, the next free one will be chosen, until the permitted portrange is exceeded. if specified as 0, a free port is chosen directly.'</span>), <span class="keyword">...</span>
+0145     arg({<span class="string">'num_ports'</span>,<span class="string">'NumPorts'</span>}, 0, [0 0 64 65536], <span class="string">'Number of available ports. Number of successive ports to try, including the start port; if 1, only the desired port will be used. If 0, the port range will be set to the number of cores in the machine divided by the worker''s matlab threads parameter.'</span>), <span class="keyword">...</span>
+0146     arg({<span class="string">'shutdown_timeout'</span>,<span class="string">'ShutdownTimeout'</span>},300,[0 60 3600 Inf],<span class="string">'Shutdown timeout. If non-zero, the worker will be shut down if it has not received a heartbeat signal from a client in the given time frame, in seconds. For this to work, the function env_acquire_cluster should be used as it sets up the heartbeat timer.'</span>), <span class="keyword">...</span>
+0147     <span class="keyword">...</span><span class="comment"> % worker tracking and logging</span>
+0148     arg({<span class="string">'jobid_format'</span>,<span class="string">'JobIdFormat'</span>},<span class="string">'jobmanager_%user_%host_b%batch_i%num'</span>, [], <span class="string">'Job ID format. This is a pattern according to which job ids are generated.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0149     arg({<span class="string">'logging_path'</span>,<span class="string">'LoggingPath'</span>},<span class="string">'home:/.bcilab/logs/workers/qsub_b%batch/%jobid.log'</span>, [], <span class="string">'Logging path pattern. For each worker job a new file will be created according to this pattern.'</span>));
+0150 
+0151 <span class="comment">% no arguments were passed? bring up GUI dialog</span>
+0152 <span class="keyword">if</span> isempty(varargin)
+0153     opts = arg_guidialog;    
+0154     <span class="keyword">if</span> isempty(opts)
+0155         <span class="keyword">return</span>; <span class="keyword">end</span> <span class="comment">% -&gt; user clicked cancel</span>
+0156 <span class="keyword">end</span>
+0157 
+0158 <span class="comment">% copy options to workspace</span>
+0159 [num_workers,matlab_threads,submit_node,job_manager,queues,harvest_timeout,harvest_ips,matlab_command,startup_prefix,startup_command,no_display,clean_path,binary_worker,mcr_root,binary_name,start_port,num_ports,shutdown_timeout,jobid_format,logging_path] = arg_toworkspace(opts);
+0160 
+0161 <span class="comment">% pre-generate job ids according to the jobid_format</span>
+0162 <span class="keyword">if</span> hlp_matlab_version &gt;= 712
+0163     rng shuffle
+0164 <span class="keyword">else</span>
+0165     rand(<span class="string">'seed'</span>,sum(100*clock)); <span class="comment">%#ok&lt;RAND&gt;</span>
+0166 <span class="keyword">end</span>
+0167 batchid = num2str(10000 + round(rand*89999));
+0168 username = char(java.lang.System.getProperty(<span class="string">'user.name'</span>));
+0169 hostname = hlp_hostname;
+0170 job_ids = cell(1,num_workers);
+0171 <span class="keyword">for</span> k=1:num_workers
+0172     job_ids{k} = <a href="#_sub2" class="code" title="subfunction s = sanitize_name(s)">sanitize_name</a>(<a href="#_sub1" class="code" title="subfunction str = strrep_multi(str,varargin)">strrep_multi</a>(jobid_format,<span class="string">'%user'</span>,username,<span class="string">'%host'</span>,hostname,<span class="string">'%batch'</span>,batchid,<span class="string">'%num'</span>,num2str(k,<span class="string">'%03i'</span>))); <span class="keyword">end</span>
+0173 
+0174 
+0175 <span class="comment">% process the matlab command</span>
+0176 <span class="keyword">if</span> isempty(matlab_command) &amp;&amp; ~binary_worker
+0177     error(<span class="string">'The given MATLAB command (%s) must not be empty. Note that you can set it to ''autogenerate'' if unsure.'</span>); <span class="keyword">end</span>
+0178 <span class="keyword">if</span> strcmp(matlab_command,<span class="string">'autogenerate'</span>) 
+0179     <span class="comment">% use the currently running MATLAB executable</span>
+0180     matlab_command = [matlabroot filesep <span class="string">'bin'</span> filesep <span class="string">'matlab'</span>]; 
+0181     <span class="keyword">if</span> ~exist(matlab_command,<span class="string">'file'</span>)
+0182         fprintf(<span class="string">'WARNING: the MATLAB binary (%s) does not seem to exist on the local file system. Note that you can override it in the options.\n'</span>,matlab_comand); <span class="keyword">end</span>
+0183 <span class="keyword">else</span>
+0184     <span class="comment">% sanity-check the user-provided MATLAB command (trick by R. Oostenveld)</span>
+0185     <span class="keyword">if</span> ~ispc &amp;&amp; system(sprintf(<span class="string">'which %s &gt; /dev/null'</span>, matlabcmd))==1
+0186         fprintf(<span class="string">'WARNING: the given MATLAB command (%s) does not seem to exist on the local system; make sure that it exists on the remote cluster.\n'</span>,matlab_command); <span class="keyword">end</span>
+0187 <span class="keyword">end</span>
+0188 
+0189 
+0190 <span class="comment">% process the startup prefix</span>
+0191 <span class="keyword">if</span> clean_path &amp;&amp; ~binary_worker
+0192     startup_prefix = [<span class="string">'restoredefaultpath; '</span> startup_prefix]; <span class="keyword">end</span>
+0193 
+0194 
+0195 <span class="comment">% process the bcilab-specific startup command</span>
+0196 <span class="keyword">if</span> strcmp(startup_command,<span class="string">'autogenerate'</span>)
+0197     <span class="keyword">if</span> binary_worker
+0198         startup_command = sprintf(<span class="string">'cd %s'</span>,env_translatepath(<span class="string">'bcilab:/build/distrib'</span>));
+0199     <span class="keyword">else</span>
+0200         startup_command = sprintf(<span class="string">'%s; cd %s; bcilab %s worker {%d,%d,%d} parallel {}'</span>,startup_prefix, env_translatepath(<span class="string">'bcilab:/'</span>), tracking.configscript, start_port, num_ports, shutdown_timeout);
+0201     <span class="keyword">end</span>
+0202 <span class="keyword">end</span>
+0203 
+0204 
+0205 <span class="comment">% process the MCR root path</span>
+0206 <span class="keyword">if</span> binary_worker
+0207     <span class="keyword">if</span> strcmp(mcr_root,<span class="string">'autogenerate'</span>)
+0208         [major,minor] = mcrversion;
+0209         mcr_tail = sprintf([filesep <span class="string">'MATLAB_Compiler_Runtime'</span> filesep <span class="string">'v%d%d'</span>],major,minor);
+0210         possible_locations = {<span class="string">'/opt/MATLAB'</span>,<span class="string">'/usr/local/MATLAB'</span>,<span class="string">'/usr/common/MATLAB'</span>,hlp_homedir,[hlp_homedir filesep <span class="string">'MATLAB'</span>],<span class="string">'C:\\Program Files\\MATLAB'</span>,<span class="string">'C:\\Program Files (x86)\\MATLAB'</span>,<span class="string">'/Applications/MATLAB/'</span>};
+0211         <span class="keyword">for</span> p=1:length(possible_locations)
+0212             <span class="keyword">if</span> exist([possible_locations{p} mcr_tail],<span class="string">'dir'</span>)
+0213                 mcr_root = [possible_locations{p} mcr_tail]; <span class="keyword">end</span>
+0214         <span class="keyword">end</span>
+0215         <span class="keyword">if</span> isempty(mcr_root)
+0216             fprintf(<span class="string">'MATLAB compiler runtime v%d%d not found; if you get an error subsequently, please make sure that it is installed in a recognized location (or pass the mcr_root as an acquire options).\n'</span>,major,minor); <span class="keyword">end</span>
+0217     <span class="keyword">elseif</span> ~isempty(mcr_root) &amp;&amp; ~exist(mcr_root,<span class="string">'dir'</span>)
+0218         fprintf(<span class="string">'NOTE: The matlab compiler root (%s) does not exist on the local file system; make sure that it is accessible to remote workers.\n'</span>,mcr_root);
+0219     <span class="keyword">end</span>
+0220 <span class="keyword">end</span>
+0221 
+0222 
+0223 <span class="comment">% process the binary name</span>
+0224 <span class="keyword">if</span> binary_worker &amp;&amp; isempty(mcr_root)
+0225     binary_name = [<span class="string">'run_'</span> binary_name <span class="string">'.sh'</span>]; <span class="keyword">end</span>
+0226 
+0227 
+0228 <span class="comment">% process the logging paths</span>
+0229 <span class="keyword">if</span> isempty(logging_path)
+0230     error(<span class="string">'The logging path must not be empty (since log files will be used to identify what workers launched successfully).'</span>); <span class="keyword">end</span>
+0231 logpaths = cell(1,length(job_ids));
+0232 <span class="keyword">for</span> k=1:length(job_ids)
+0233     logpaths{k} = env_translatepath(<a href="#_sub1" class="code" title="subfunction str = strrep_multi(str,varargin)">strrep_multi</a>(logging_path,<span class="string">'%jobid'</span>,job_ids{k},<span class="string">'%batch'</span>,batchid,<span class="string">'%user'</span>,username,<span class="string">'%host'</span>,hostname,<span class="string">'%num'</span>,num2str(k,<span class="string">'%03i'</span>)));
+0234     <span class="keyword">try</span>
+0235         <span class="comment">% ensure that the logging path exists</span>
+0236         io_mkdirs(logpaths{k},{<span class="string">'+w'</span>,<span class="string">'a'</span>});
+0237     <span class="keyword">catch</span>
+0238         fprintf(<span class="string">'NOTE: the logging path &quot;%s&quot; could not be created.\nPlease make sure that it exists on all worker machines, as otherwise the computation will not start.\n'</span>,tmppath);
+0239     <span class="keyword">end</span>    
+0240 <span class="keyword">end</span>
+0241 
+0242 
+0243 <span class="comment">% build MATLAB command-line options</span>
+0244 matlab_options = <span class="string">' -logfile %logpath '</span>;
+0245 <span class="keyword">if</span> no_display
+0246     matlab_options = [matlab_options <span class="string">' -nodisplay '</span>]; <span class="keyword">end</span>
+0247 <span class="keyword">if</span> matlab_threads == 1 &amp;&amp; hlp_matlab_version &gt; 708
+0248     matlab_options = [matlab_options <span class="string">' -singleCompThread '</span>]; <span class="keyword">end</span>
+0249 
+0250 
+0251 <span class="comment">% build the job command line (different for binary vs. interpreted)</span>
+0252 <span class="keyword">if</span> binary_worker
+0253     job_cmdline = [startup_command <span class="string">'; ./'</span> binary_name mcr_root <span class="string">' worker ''{'</span> num2str(start_port) <span class="string">','</span> num2str(num_ports) <span class="string">','</span> num2str(shutdown_timeout) <span class="string">'}'' parallel {} &gt; '</span> logging_path];
+0254 <span class="keyword">else</span>
+0255     job_cmdline = [matlab_command <span class="string">' '</span> matlab_options <span class="string">' -r '''</span> startup_command <span class="string">''''</span>];
+0256 <span class="keyword">end</span>
+0257 
+0258 <span class="comment">% build qsub options</span>
+0259 qsub_options = <span class="string">''</span>;
+0260 
+0261 <span class="comment">% build the launch command (note: only SGE has been tested so far)</span>
+0262 <span class="keyword">switch</span> job_manager
+0263     <span class="keyword">case</span> {<span class="string">'SGE'</span>,<span class="string">'OGE'</span>}
+0264         <span class="keyword">if</span> ~isempty(queues)
+0265             qsub_options = [qsub_options <span class="string">' -q %queue '</span>]; <span class="keyword">end</span>
+0266         launch_command = [<span class="string">'echo &quot;'</span> job_cmdline <span class="string">'&quot; | qsub -N %jobid '</span> qsub_options <span class="string">' -cwd -o %outputdir -e %outputdir'</span>];
+0267     <span class="keyword">case</span> {<span class="string">'Torque'</span>,<span class="string">'PBS'</span>}
+0268         <span class="keyword">if</span> ~isempty(queues)
+0269             qsub_options = [qsub_options <span class="string">' -q %queue '</span>]; <span class="keyword">end</span>
+0270         launch_command = [<span class="string">'echo &quot;'</span> job_cmdline <span class="string">'&quot; | qsub -N %jobid '</span> qsub_options <span class="string">' -d &quot;%outputdir&quot; -o &quot;%outputdir&quot; -e &quot;%outputdir&quot;'</span>];
+0271     <span class="keyword">case</span> <span class="string">'LSF'</span>
+0272         <span class="keyword">if</span> ~isempty(queues)
+0273             qsub_options = [qsub_options <span class="string">' -q %queue '</span>]; <span class="keyword">end</span>
+0274         launch_command = [<span class="string">'echo &quot;'</span> job_cmdline <span class="string">'&quot; | bsub -J %jobid '</span> qsub_options <span class="string">' -o %outputdir%jobid.out -e %outputdir%jobid.err'</span>];
+0275     <span class="keyword">case</span> <span class="string">'SLURM'</span>
+0276         <span class="keyword">if</span> ~isempty(queues)
+0277             qsub_options = [qsub_options <span class="string">' --partition=%queue '</span>]; <span class="keyword">end</span>
+0278         launch_command = [<span class="string">'srun --job-name=%jobid '</span> qsub_options <span class="string">' --output=%outputdir%jobid.out --error=%outputdir%jobid.err '</span> job_cmdline];
+0279     <span class="keyword">case</span> <span class="string">'OwnMachine'</span>
+0280         launch_command = job_cmdline;
+0281     <span class="keyword">otherwise</span>
+0282         error(<span class="string">'Unrecognized job manager type: %s'</span>,job_manager);
+0283 <span class="keyword">end</span>
+0284 
+0285 
+0286 <span class="comment">% merge multiple queues if applicable</span>
+0287 <span class="keyword">if</span> length(queues) &gt; 1 &amp;&amp; any(strcmp(job_manager,{<span class="string">'SGE'</span>,<span class="string">'OGE'</span>}))
+0288     queues = sprintf(<span class="string">'%s,'</span>,queues{:});
+0289     queues = {queues(1:end-1)};
+0290 <span class="keyword">end</span>
+0291 
+0292 io_mkdirs(env_translatepath(<span class="string">'temp:/job_management/'</span>),{<span class="string">'+w'</span>,<span class="string">'a'</span>});
+0293 output_dir = env_translatepath(<span class="string">'temp:/job_management'</span>);
+0294 <span class="keyword">if</span> any(output_dir== <span class="string">' '</span>) 
+0295     fprintf(<span class="string">'Note: your BCILAB temp directory contains a space character; job output will be dumped into your home directory instead.\n'</span>);
+0296     output_dir = hlp_homedir;
+0297 <span class="keyword">end</span>
+0298 output_dir = [output_dir filesep];
+0299 queue = <span class="string">''</span>;
+0300 
+0301 <span class="comment">% submit the jobs</span>
+0302 <span class="keyword">for</span> k=1:num_workers
+0303     <span class="comment">% determine per-job parameters</span>
+0304     job_id = job_ids{k};
+0305     <span class="keyword">if</span> ~isempty(queues)
+0306         queue = queues{1+mod(k,length(queues))}; <span class="keyword">end</span>
+0307     
+0308     <span class="comment">% perform substitutions in the launch command</span>
+0309     issue_commandline = <a href="#_sub1" class="code" title="subfunction str = strrep_multi(str,varargin)">strrep_multi</a>(launch_command, <span class="keyword">...</span>
+0310         <span class="string">'%jobid'</span>,job_id, <span class="string">'%outputdir'</span>,output_dir, <span class="string">'%queue'</span>,queue, <span class="string">'%logpath'</span>,logpaths{k});
+0311     
+0312     <span class="comment">% invoke command and check for errors</span>
+0313     fprintf(<span class="string">'Scheduling worker #%i (%s): %s...\n'</span>,k,job_id,issue_commandline);
+0314     <span class="keyword">if</span> isempty(submit_node)
+0315         <span class="comment">% regular case: invoke it locally</span>
+0316         [status, output] = system(issue_commandline);
+0317         <span class="keyword">if</span> status
+0318             error(output); <span class="keyword">end</span>
+0319     <span class="keyword">else</span>
+0320         <span class="comment">% we need to invoke the command on a remote machine to submit the job</span>
+0321         submit_file = env_translatepath([<span class="string">'temp:/job_management/'</span> job_id <span class="string">'.sh'</span>]);
+0322         fid = fopen(submit_file,<span class="string">'w'</span>);
+0323         <span class="keyword">if</span> fid==-1
+0324             error(<span class="string">'Could not open submit file %s for writing; please check your permissions.'</span>,submit_file); <span class="keyword">end</span>
+0325         fprintf(fid,issue_commandline);
+0326         fclose(fid);
+0327         system([<span class="string">'chmod +x '</span> submit_file]);
+0328         [status, output] = system([<span class="string">'ssh -x '</span> submit_node <span class="string">' '</span> submit_file]);
+0329         <span class="keyword">if</span> status
+0330             error(output); <span class="keyword">end</span>
+0331     <span class="keyword">end</span>        
+0332 <span class="keyword">end</span>
+0333 
+0334 fprintf(<span class="string">'\nWaiting for workers to start up to establish connections...\n'</span>);
+0335 harvested_addresses = <a href="par_parse_logfiles.html" class="code" title="function harvested_addresses = par_parse_logfiles(logpaths, harvest_timeout, harvest_ips)">par_parse_logfiles</a>(logpaths, harvest_timeout, harvest_ips);
+0336 fprintf(<span class="string">'Launched %i workers: %s\n'</span>,length(harvested_addresses),hlp_tostring(harvested_addresses));
+0337     
+0338 <span class="keyword">if</span> nargout == 0
+0339     <span class="comment">% assign to global variable, if necessary...</span>
+0340     <a href="par_globalsetting.html" class="code" title="function res = par_globalsetting(name,val)">par_globalsetting</a>(<span class="string">'pool'</span>,harvested_addresses(:)');
+0341     <a href="par_globalsetting.html" class="code" title="function res = par_globalsetting(name,val)">par_globalsetting</a>(<span class="string">'logfiles'</span>,logpaths(:)');
+0342 <span class="keyword">end</span>
+0343 
+0344 <a name="_sub1" href="#_subfunctions" class="code">function str = strrep_multi(str,varargin)</a>
+0345 <span class="keyword">for</span> k=1:2:length(varargin)
+0346     str = strrep(str,varargin{k},varargin{k+1}); <span class="keyword">end</span>
+0347 
+0348 <a name="_sub2" href="#_subfunctions" class="code">function s = sanitize_name(s)</a>
+0349 s(~((s&gt;=<span class="string">'a'</span>&amp;s&lt;=<span class="string">'z'</span>) | (s&gt;=<span class="string">'A'</span>&amp;s&lt;=<span class="string">'Z'</span>) | (s&gt;=<span class="string">'0'</span>&amp;s&lt;=<span class="string">'9'</span>) | s==<span class="string">'-'</span>)) = <span class="string">'_'</span>;</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

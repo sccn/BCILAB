@@ -1,0 +1,172 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_buffer</title>
+  <meta name="keywords" content="utl_buffer">
+  <meta name="description" content="Append a chunk to a buffer and trim the buffer to the desired length.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_buffer.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_buffer
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Append a chunk to a buffer and trim the buffer to the desired length.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function chunk = utl_buffer(chunk,buffer,desired_length) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Append a chunk to a buffer and trim the buffer to the desired length.
+ Buffer = utl_buffer(Chunk,Buffer,DesiredLength)
+
+ In:
+   Chunk : a chunk of data (continuous EEGLAB dataset struct)
+
+   Buffer : a buffer of previous data (continuous EEGLAB dataset struct)
+            each non-empty time-series field present in the buffer must have the same number of
+            channels as the corresponding field in the chunk
+
+   DesiredLength : the number of samples of desired output
+
+ Out:
+   Buffer : the updated and trimmed buffer
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2013-11-12</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="utl_check_fields.html" class="code" title="function utl_check_fields(x,required_fields,argname,typename)">utl_check_fields</a>	Check whether a given value is a scalar struct that has the required fields.</li>
+<li><a href="utl_timeseries_fields.html" class="code" title="function fields = utl_timeseries_fields(signal)">utl_timeseries_fields</a>	Get the time-series fields of te given signal.</li>
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function chunk = utl_buffer(chunk,buffer,desired_length)</a>
+0002 <span class="comment">% Append a chunk to a buffer and trim the buffer to the desired length.</span>
+0003 <span class="comment">% Buffer = utl_buffer(Chunk,Buffer,DesiredLength)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Chunk : a chunk of data (continuous EEGLAB dataset struct)</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">%   Buffer : a buffer of previous data (continuous EEGLAB dataset struct)</span>
+0009 <span class="comment">%            each non-empty time-series field present in the buffer must have the same number of</span>
+0010 <span class="comment">%            channels as the corresponding field in the chunk</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%   DesiredLength : the number of samples of desired output</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">% Out:</span>
+0015 <span class="comment">%   Buffer : the updated and trimmed buffer</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0018 <span class="comment">%                                2013-11-12</span>
+0019 
+0020 <span class="comment">% input validation</span>
+0021 <a href="utl_check_fields.html" class="code" title="function utl_check_fields(x,required_fields,argname,typename)">utl_check_fields</a>(chunk,{<span class="string">'data'</span>,<span class="string">'event'</span>,<span class="string">'xmax'</span>,<span class="string">'srate'</span>},<span class="string">'chunk'</span>,<span class="string">'signal'</span>);
+0022 <a href="utl_check_fields.html" class="code" title="function utl_check_fields(x,required_fields,argname,typename)">utl_check_fields</a>(buffer,{<span class="string">'data'</span>,<span class="string">'event'</span>},<span class="string">'buffer'</span>,<span class="string">'signal'</span>);
+0023 <span class="keyword">if</span> ~isempty(chunk.event)
+0024     <span class="keyword">if</span> ~isfield(chunk.event,<span class="string">'latency'</span>)
+0025         error(<span class="string">'The chunk is missing the required .event.latency field.'</span>); <span class="keyword">end</span>
+0026     latency_numels = cellfun(<span class="string">'prodofsize'</span>,{chunk.event.latency});
+0027     <span class="keyword">if</span> any(latency_numels == 0)
+0028         error(<span class="string">'The given chunk has one or more events with empty .latency field. This is not permitted.'</span>);
+0029     <span class="keyword">elseif</span> any(latency_numels ~= 1)
+0030         error(<span class="string">'The given chunk has one or more events with a .latency value that is not a scalar. This is not permitted.'</span>);
+0031     <span class="keyword">end</span>
+0032 <span class="keyword">end</span>
+0033 
+0034 <span class="comment">% concatenate markers if necessary</span>
+0035 <span class="keyword">if</span> (desired_length ~= size(chunk.data,2)) &amp;&amp; (~isempty(buffer.event) || ~isempty(chunk.event))
+0036     <span class="keyword">if</span> size(chunk.data,2) &gt; desired_length
+0037         <span class="keyword">if</span> ~isempty(chunk.event)
+0038             <span class="comment">% shift the latency of the markers based on how many samples we have to cut</span>
+0039             latency = [chunk.event.latency] - (size(chunk.data,2)-desired_length);
+0040             [chunk.event.latency] = arraydeal(latency);
+0041             <span class="comment">% remove excess markers</span>
+0042             chunk.event(latency&lt;0.5) = [];
+0043         <span class="keyword">end</span>
+0044     <span class="keyword">else</span>
+0045         <span class="keyword">if</span> ~isempty(chunk.event)
+0046             <span class="comment">% shift the latency of the chunk's markers based on how many samples we have to prepend</span>
+0047             [chunk.event.latency] = arraydeal([chunk.event.latency]+min(size(buffer.data,2),(desired_length-size(chunk.data,2))));
+0048         <span class="keyword">end</span>
+0049         <span class="keyword">if</span> ~isempty(buffer.event)
+0050             <span class="comment">% shift the latency of the buffer's markers based on how many samples we cut from that</span>
+0051             latency = [buffer.event.latency] - max(0,(size(buffer.data,2)+size(chunk.data,2)-desired_length));
+0052             [buffer.event.latency] = arraydeal(latency);
+0053             <span class="comment">% concatenate markers</span>
+0054             <span class="keyword">if</span> isempty(chunk.event)
+0055                 chunk.event = buffer.event(latency&gt;=0.5);
+0056             <span class="keyword">else</span>
+0057                 <span class="keyword">try</span>
+0058                     chunk.event = [buffer.event(latency&gt;=0.5) chunk.event];
+0059                 <span class="keyword">catch</span> e
+0060                     fprintf(<span class="string">'WARNING: Trying to concatenate incompatible event structs in the buffer (%s) and the incoming chunk (%s); dropping buffer contents; error message: %s\n'</span>,hlp_tostring(fieldnames(buffer.event)),hlp_tostring(fieldnames(chunk.event)),e.message);
+0061                 <span class="keyword">end</span>
+0062             <span class="keyword">end</span>
+0063         <span class="keyword">end</span>
+0064     <span class="keyword">end</span>
+0065 <span class="keyword">end</span>
+0066 
+0067 <span class="comment">% for each time-series field in the chunk...</span>
+0068 <span class="keyword">for</span> fld = <a href="utl_timeseries_fields.html" class="code" title="function fields = utl_timeseries_fields(signal)">utl_timeseries_fields</a>(chunk)
+0069     field = fld{1};    
+0070     
+0071     <span class="comment">% make sure that we have the requested field in the previous buffer to avoid special cases below</span>
+0072     <span class="keyword">if</span> ~isfield(buffer,field)
+0073         buffer.(field) = []; <span class="keyword">end</span>
+0074     
+0075     <span class="comment">% if some other amount of data than what's in the chunk was requested</span>
+0076     <span class="keyword">if</span> desired_length ~= size(chunk.(field),2)
+0077         <span class="keyword">if</span> size(chunk.(field),2) &lt; desired_length
+0078             <span class="keyword">try</span>
+0079                 <span class="keyword">if</span> size(buffer.(field),2) == desired_length
+0080                     <span class="comment">% we can do an in-place update without reallocations</span>
+0081                     chunk.(field) = cat(2,buffer.(field)(:,size(chunk.(field),2)+1:<span class="keyword">end</span>,:,:,:,:,:,:),chunk.(field));
+0082                 <span class="keyword">else</span>
+0083                     <span class="comment">% append new samples &amp; cut excess data</span>
+0084                     chunk.(field) = cat(2,buffer.(field),chunk.(field));
+0085                     <span class="keyword">if</span> size(chunk.(field),2) &gt; desired_length
+0086                         chunk.(field) = chunk.(field)(:,end-desired_length+1:<span class="keyword">end</span>,:,:,:,:,:,:); <span class="keyword">end</span>
+0087                 <span class="keyword">end</span>
+0088             <span class="keyword">catch</span> e
+0089                 error(<span class="string">'Error trying to concatenate time-series field .%s of buffer (size=%s) and incoming chunk (size=%s); error message: %s.'</span>,field,hlp_tostring(size(buffer.(field))),hlp_tostring(size(chunk.field)),e.message);
+0090             <span class="keyword">end</span>
+0091         <span class="keyword">else</span>
+0092             <span class="comment">% if the chunk is longer than what's requested cut the excess data</span>
+0093             chunk.(field) = chunk.(field)(:,end-desired_length+1:<span class="keyword">end</span>,:,:,:,:,:,:);
+0094         <span class="keyword">end</span>
+0095     <span class="keyword">end</span>
+0096 <span class="keyword">end</span>
+0097 
+0098 <span class="comment">% update time-related meta-data</span>
+0099 chunk.pnts = size(chunk.data,2);
+0100 chunk.xmin = chunk.xmax - (chunk.pnts-1)/chunk.srate;</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

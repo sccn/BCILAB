@@ -75,10 +75,11 @@ public class Scheduler implements Runnable {
     public Scheduler(String[] workers, String custom_policy, String result_acceptor, int receiver_backlog, int receiver_timeout, int reschedule_interval, int verbosity_level, int size_hint) throws IOException {
         loglock = new Object();
         log("allocating data structures...");
-        waiting = new TreeMap<Integer,String>();
-        inflight = new HashMap<Integer,String>(workers.length*3);
-        finished = new HashMap<Integer,String>(size_hint);
+        waiting = new TreeMap<Integer,byte[]>();
+        inflight = new HashMap<Integer,byte[]>(workers.length*3);
+        finished = new HashMap<Integer,byte[]>(size_hint);        
         events = new HashMap<Long,String>(size_hint*3);
+        pass_out = new ConcurrentLinkedQueue<Integer>();
         rand = new Random();
         
         exec = Executors.newCachedThreadPool();
@@ -121,23 +122,23 @@ public class Scheduler implements Runnable {
         DateFormat df = new SimpleDateFormat("MM/dd HH:mm:ss");
         Date now = Calendar.getInstance().getTime();
         synchronized(loglock) {
-	    System.out.print(df.format(now)+": " + msg);
+        System.out.print(df.format(now)+": " + msg);
         }
     }
     
     // submit the given tasks (string-formatted) for scheduling
-    public synchronized void submit(String[] tasks) {
+    public synchronized void submit(Object[] tasks) {
         log("submit() -- adding " + Integer.toString(tasks.length) + " tasks to waiting list...\n");
-        for (String t : tasks) {
+        for (Object t : tasks) {
             Integer id = global_taskid.incrementAndGet();
-            waiting.put(id,t);
+            waiting.put(id,(byte[])t);
             log("  added id " + id.toString() + ".\n");
         }
         log("submit() completed.\n");
     }
     
-    // get results (string-formatted) that have been obtained since construction or last clear operation
-    public synchronized String[] results() { return finished.values().toArray(new String[finished.values().size()]); }
+    // get results that have been obtained since construction or last clear operation
+    public synchronized byte[][] results() { return finished.values().toArray(new byte[finished.values().size()][]); }
     
     // test whether the scheduler is done with the tasks submitted since construction or last clear operation
     public synchronized boolean done() { return waiting.isEmpty() && inflight.isEmpty(); }
@@ -189,7 +190,7 @@ public class Scheduler implements Runnable {
         DataOutputStream out = new DataOutputStream(conn.getOutputStream());
         log("      done creating input/output streams for socket " + conn.getInetAddress().getHostAddress() + ".\n");
         Integer id = null;
-        String task = null;
+        byte[] task = null;
         // check whether the worker is ready to accept a task
         try {
             log("      checking whether worker at socket " + conn.getInetAddress().getHostAddress() + " is ready...\n");
@@ -220,14 +221,14 @@ public class Scheduler implements Runnable {
             out.writeInt(id);
             out.writeInt(return_address.length());
             out.writeBytes(return_address);
-            out.writeInt(task.length());
-            out.writeBytes(task);
+            out.writeInt(task.length);
+            out.write(task);
             out.flush();
             log("      done sending task id " + id.toString() + " over socket " + conn.getInetAddress().getHostAddress() + ".\n");
             log("      confirming checksum for task id " + id.toString() + " over socket " + conn.getInetAddress().getHostAddress() + "...\n");
             // check response
             int checksum = in.readInt();
-            if (checksum != id + return_address.length() + task.length())
+            if (checksum != id + return_address.length() + task.length)
                 throw new IOException("Transmission Error.");
             log("      successfully confirmed checksum for task id " + id.toString() + " over socket " + conn.getInetAddress().getHostAddress() + ".\n");
         }
@@ -251,8 +252,7 @@ public class Scheduler implements Runnable {
     
     // atomically sign an incoming result off the inflight & waiting lists;
     // notifies if both these lists become empty
-    private void signoff_result(int id, String result) {
-        String tag=null, payload=null;  // information that should be transferred to MATLAB if non-null
+    private void signoff_result(int id, byte[] result) {
         synchronized(this) {
             log("    now signing off result " + Integer.toString(id) + "...\n");
             // check that the id is actually valid (i.e. inflight or waiting (the latter if rescheduled in the meantime))
@@ -261,16 +261,15 @@ public class Scheduler implements Runnable {
             if (flights || waits) {
                 // id is valid...
                 log("      result id " + Integer.toString(id) + " found in queue; adding to finished results...\n");
-                // optionally pass the result out to the matlab_acceptor and store only the tag in results
-                if (!matlab_acceptor.isEmpty()) {
-                    // the tag acts as a reference to the actual result payload that we'll hand out to MATLAB
-                    tag = "tag__" + Integer.toString(rand.nextInt(2000000000));
-                    payload = result;
-                    result = tag;
-                }
                 // put into the results
                 finished.put(id,result);
                 log("      result with id " + Integer.toString(id) + " has been added to finished results.\n");
+                if (!matlab_acceptor.isEmpty()) {
+                    log("      result with id " + Integer.toString(id) + " being added to pass-out queue...\n");
+                    pass_out.offer(id);
+                    log("      result with id " + Integer.toString(id) + " successfully added to pass-out queue.\n");
+                }     
+                
                 log("      result id " + Integer.toString(id) + " now being removed from waiting and inflight lists...\n");
                 // and remove from the lists
                 if (waits)
@@ -285,17 +284,6 @@ public class Scheduler implements Runnable {
                 log("    done signing off result " + Integer.toString(id) + ".\n");
             } else {
                 log("      result id " + Integer.toString(id) + " is not currently waiting or inflight; ignoring.\n");
-            }
-        }
-        if (tag != null && payload != null) {
-            // transfer tag+payload out to MATLAB; done after the synchronized(this) to not block out other threads
-            log("      passing result id " + Integer.toString(id) + " to MATLAB acceptor as tag " + tag + "...\n");
-            try {
-                synchronized(proxy) { proxy.feval(matlab_acceptor,tag,payload); }
-                log("      successfully passed result id " + Integer.toString(id) + " to MATLAB acceptor.\n");
-                result = tag;
-            } catch (Exception e) {
-                errlog("failed to pass result id " + Integer.toString(id) + " out: " + e.getMessage() + "\n");
             }
         }
     }
@@ -375,7 +363,7 @@ public class Scheduler implements Runnable {
                 log("  result for " + this.address + " (id=" + Integer.toString(id) + ") has been received.\n");
                 log("  result handler for " + this.address + " now signing off result id " + Integer.toString(id) + " ...\n");
                 // sign off the received data
-                signoff_result(id,new String(result));
+                signoff_result(id,result);
                 // and register the event
                 synchronized(events) { events.put(System.currentTimeMillis(),"received:" + Integer.toString(id) + ":" + conn.getInetAddress().getHostAddress()); }
                 log("  result id " + Integer.toString(id) + " is signed off.\n");
@@ -476,10 +464,10 @@ public class Scheduler implements Runnable {
         }
     }
     
-    // scheduling policy thread
+    // housekeeping thread
     public void run() {
         try {
-            log("entering scheduling policy loop...\n");
+            log("entering housekeeping loop...\n");
             while (!shutdown) {
                 try {
                     // wait
@@ -501,35 +489,63 @@ public class Scheduler implements Runnable {
                         for (Object id : reschedule)
                             reschedule_task((Integer)id);
                     }
+                    // optionally process the pass-out queue by passing tasks out to the matlab_acceptor while storing only the tag in results
+                    if (!matlab_acceptor.isEmpty()) {
+                        while (true) {
+                            Integer id = pass_out.poll();
+                            if (id == null)
+                                break;
+                            // the tag acts as a reference to the actual result payload that we'll hand out to MATLAB
+                            String tag = "tag__" + Integer.toString(rand.nextInt(2000000000));
+                            // transfer tag+payload out to MATLAB
+                            try {
+                                log("      getting result content for task id " + Integer.toString(id) + ".\n");
+                                byte[] result = null;
+                                synchronized(this) { result = finished.get(id); }
+                                log("      got result content for task id " + Integer.toString(id) + "; passing to MATLAB acceptor as tag " + tag + "...\n");
+                                synchronized(proxy) { proxy.feval(matlab_acceptor,tag,result); }
+                                log("      successfully passed result id " + Integer.toString(id) + " to MATLAB acceptor.\n");
+                                // if (and only if) successful, we only store the tag in finished
+                                log("      replacing result id " + Integer.toString(id) + " in finished by tag " + tag + "...\n");
+                                synchronized(this) { finished.put(id, tag.getBytes()); }
+                                log("      successfully replaced result id " + Integer.toString(id) + " in finished by tag " + tag + "...\n");
+                            } catch (Exception e) {
+                                errlog("failed to pass result id " + Integer.toString(id) + " out: " + e.getMessage() + "\n");
+                            }
+                        }
+                    }
                 } catch (InterruptedException e) {
                     // interrupted (part of teardown procedure)
                     break;
                 } catch (Exception e) {
-                    errlog("unexpected scheduling policy exception: " + e.getMessage() + ".\n");
+                    errlog("unexpected housekeeping thread exception: " + e.getMessage() + ".\n");
                 }
             }
-            log("exited scheduling policy loop...\n");
+            log("exited housekeeping loop...\n");
             log("disconnecting from MATLAB proxy...\n");
             proxy.disconnect();
             log("MATLAB proxy is down.\n");
         } catch (Exception e) {
-            errlog("Unexpected scheduling policy thread exception: " + e.getMessage() + ".\n");
+            errlog("Unexpected housekeeping thread exception: " + e.getMessage() + ".\n");
         }
     }
     
 
     private Random rand;                // random number generator for timings
-    private MatlabProxy proxy;          // allows us to call MATLAB functions
+    private MatlabProxy proxy;          // allows us to call MATLAB functions; do not call from within a block synchronized with Scheduler (can deadlock against MATLAB calling into e.g., done())
     private Object loglock;             // a lock to synchronize logging...
 
     private ExecutorService exec;  	// this one executes our threads
     private ServerSocket serv;  	// we wait for incoming results here
     private String return_address; 	// the target ("return") address of this scheduler, for the workers ("host:port")
     
-    private SortedMap<Integer,String> waiting;  // tasks (Id->StringRep) that are waiting to be scheduled; SYNCHRONIZED
-    private Map<Integer,String> inflight; // tasks (Id->StringRep) that are (presumably) being worked on; SYNCHRONIZED
-    private Map<Integer,String> finished; // the results (Id->StringRep) that have arrived so far
+    // these three lists are supposed to be only accessed from a synchronized(this) {} block or synchronized Scheduler function
+    private SortedMap<Integer,byte[]> waiting;  // tasks (Id->TaskBytes) that are waiting to be scheduled
+    private Map<Integer,byte[]> inflight; // tasks (Id->TaskBytes) that are (presumably) being worked on
+    private Map<Integer,byte[]> finished; // the results (Id->TaskBytes) that have arrived so far
+
     private Map<Long,String> events;      // a list of events (TimeMs->Event), for processing by the scheduling policy
+    private ConcurrentLinkedQueue<Integer> pass_out; // a list of task Id's in finished that shall be passed out to the matlab_acceptor at the next opportunity
     
     private boolean shutdown;	// shutdown notice for threads
     

@@ -1,0 +1,126 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of evidence_approx_tikhonov_reg_svd</title>
+  <meta name="keywords" content="evidence_approx_tikhonov_reg_svd">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../../index.html">filters</a> &gt; <a href="../index.html">in_development</a> &gt; <a href="index.html">private</a> &gt; evidence_approx_tikhonov_reg_svd.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../../index.html"><img alt="<" border="0" src="../../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters/in_development/private&nbsp;<img alt=">" border="0" src="../../../../right.png"></a></td></tr></table>-->
+
+<h1>evidence_approx_tikhonov_reg_svd
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+<div class="box"><strong>function [x,alpha,beta,T] = evidence_approx_tikhonov_reg_svd(y,Ut,s2,iLV,alpha,beta,options) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+<ul style="list-style-image:url(../../../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function [x,T] = tikhonoc_reg(y,Ut,s,V,alpha,beta)</a></li>
+</ul>
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [x,alpha,beta,T] = evidence_approx_tikhonov_reg_svd(y,Ut,s2,iLV,alpha,beta,options)</a>
+0002 [n,m] = size(iLV);
+0003 <span class="keyword">if</span> nargin &lt; 5, alpha = rand;<span class="keyword">end</span>
+0004 <span class="keyword">if</span> nargin &lt; 6, beta = rand;<span class="keyword">end</span>
+0005 <span class="keyword">if</span> nargin &lt; 7, 
+0006     options = struct(<span class="string">'tol'</span>,1e-6,<span class="string">'max_iter'</span>,100,<span class="string">'verbose'</span>,false);
+0007 <span class="keyword">end</span>
+0008 <span class="keyword">if</span> ~isfield(options,<span class="string">'tol'</span>), options.tol = 1e-6;<span class="keyword">end</span>
+0009 <span class="keyword">if</span> ~isfield(options,<span class="string">'max_iter'</span>), options.max_iter = 100;<span class="keyword">end</span>
+0010 <span class="keyword">if</span> ~isfield(options,<span class="string">'verbose'</span>), options.verbose = false;<span class="keyword">end</span>
+0011 <span class="keyword">if</span> isempty(alpha), alpha = rand;<span class="keyword">end</span>
+0012 <span class="keyword">if</span> isempty(beta), beta = rand;<span class="keyword">end</span>
+0013 
+0014 s = sqrt(s2);
+0015 UtY = Ut*y;
+0016 
+0017 useGPU = isa(y,<span class="string">'gpuArray'</span>);
+0018 <span class="keyword">if</span> useGPU
+0019     alpha_k = gpuArray.zeros(options.max_iter,1);
+0020     beta_k = gpuArray.zeros(options.max_iter,1);
+0021     gamma_k = gpuArray.zeros(options.max_iter,1);
+0022 <span class="keyword">else</span>
+0023     alpha_k = zeros(options.max_iter,1);
+0024     beta_k = zeros(options.max_iter,1);
+0025     gamma_k = zeros(options.max_iter,1);
+0026 <span class="keyword">end</span>
+0027 alpha_k(1) = alpha;
+0028 beta_k(1) = beta;
+0029 gamma_k(1) = m;
+0030 <span class="keyword">if</span> options.verbose
+0031     fprintf(<span class="string">'Iter\tGamma\tAlpha\t\tBeta\n'</span>);
+0032 <span class="keyword">end</span>
+0033 <span class="keyword">for</span> k=2:options.max_iter
+0034     norm_x = sqrt(sum(sum((bsxfun(@times,beta*s./(beta*s2+alpha),UtY)).^2)));
+0035     norm_e = sum(sum(bsxfun(@times,alpha./(beta*s2+alpha),UtY).^2));
+0036     
+0037     
+0038     gamma = sum(s2.*beta./(alpha+s2.*beta));
+0039     
+0040     alpha = gamma/norm_x;
+0041     <span class="comment">%alpha = gamma/norm(x,'fro');</span>
+0042     
+0043     beta = (n-gamma)/norm_e;
+0044     <span class="comment">%beta = (m-gamma)/norm(y-Phi/L*x,'fro');</span>
+0045     
+0046     alpha_k(k) = alpha;
+0047     beta_k(k) = beta;
+0048     gamma_k(k) = gamma;
+0049     
+0050     <span class="keyword">if</span> options.verbose
+0051         fprintf(<span class="string">'%i\t%5g\t%e\t%e\n'</span>,k,gamma,alpha,beta);
+0052     <span class="keyword">end</span>
+0053     <span class="keyword">if</span> any([alpha beta abs([diff(alpha_k(k-1:k)) diff(beta_k(k-1:k))])] &lt; options.tol)
+0054         <span class="keyword">break</span>;
+0055     <span class="keyword">end</span>
+0056 <span class="keyword">end</span>
+0057 [x,T] = <a href="#_sub1" class="code" title="subfunction [x,T] = tikhonoc_reg(y,Ut,s,V,alpha,beta)">tikhonoc_reg</a>(y,Ut,s,iLV,alpha,beta);
+0058 <span class="keyword">end</span>
+0059 
+0060 
+0061 <a name="_sub1" href="#_subfunctions" class="code">function [x,T] = tikhonoc_reg(y,Ut,s,V,alpha,beta)</a>
+0062 <span class="keyword">if</span> nargin &lt; 5, alpha = rand;<span class="keyword">end</span>
+0063 <span class="keyword">if</span> nargin &lt; 6, beta = rand;<span class="keyword">end</span>
+0064 s2 = s.^2;
+0065 T = V*bsxfun(@times,beta*s./(beta*s2+alpha),Ut);
+0066 x = T*y;
+0067 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

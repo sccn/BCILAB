@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/machine_learning&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>ml_calcloss
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -60,11 +61,14 @@
                 * 'mae'/'l1': mean absolute error
                 * 'mse'/'l2': mean square error
                 * 'smse': standardized mean square error
+                * 'smae': standardized mean absolute error
                 * 'max'/'linf': maximum absolute error
                 * 'sign': mis-classification rate on the sign of continuous outcomes
                 * 'rms': root mean square error
                 * 'bias': directed mean bias
                 * 'medse': median square error
+                * 'medae': median absolute error
+                * 'smedae': standardized median absolute error (also using a robust std. dev,)
                 * 'auc': negative area under ROC, for 2-class outcomes
                 * 'cond_entropy': conditional entropy of Target given Prediction, for discrete outcomes
                 * 'cross_entropy': cross-entropy of Target under Prediction
@@ -96,15 +100,31 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="ml_calcloss.html" class="code" title="function [measure,stats] = ml_calcloss(type,T,P)">ml_calcloss</a>	Calculate the loss for a set of predictions, given knowledge about the target values.</li></ul>
+
+<li><a href="ml_calcloss.html" class="code" title="function [measure,stats] = ml_calcloss(type,T,P)">ml_calcloss</a>	Calculate the loss for a set of predictions, given knowledge about the target values.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="ml_calcloss.html" class="code" title="function [measure,stats] = ml_calcloss(type,T,P)">ml_calcloss</a>	Calculate the loss for a set of predictions, given knowledge about the target values.</li><li><a href="ml_traindal.html" class="code" title="function model = ml_traindal(varargin)">ml_traindal</a>	Learn a linear probabilistic model via the Dual-Augmented Lagrangian method.</li><li><a href="ml_trainproximal.html" class="code" title="function model = ml_trainproximal(varargin)">ml_trainproximal</a>	Learn a linear probabilistic model proximal splitting methods.</li></ul>
+
+<li><a href="ml_calcloss.html" class="code" title="function [measure,stats] = ml_calcloss(type,T,P)">ml_calcloss</a>	Calculate the loss for a set of predictions, given knowledge about the target values.</li>
+<li><a href="ml_traindal.html" class="code" title="function model = ml_traindal(varargin)">ml_traindal</a>	Learn a linear probabilistic model via the Dual-Augmented Lagrangian method.</li>
+<li><a href="ml_trainproximal.html" class="code" title="function model = ml_trainproximal(varargin)">ml_trainproximal</a>	Learn a linear probabilistic model proximal splitting methods.</li>
+</ul>
 <!-- crossreference -->
+
 
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function V = expected_value(D)</a></li><li><a href="#_sub2" class="code">function V = neg_loglike(X,D,maxval)</a></li><li><a href="#_sub3" class="code">function res = kl_divergence_discrete(P,Q)</a></li><li><a href="#_sub4" class="code">function res = kl_divergence_gaussian(P,Q)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function Y = mad(X,flag)</a></li>
+<li><a href="#_sub2" class="code">function V = expected_value(D)</a></li>
+<li><a href="#_sub3" class="code">function V = neg_loglike(X,D,maxval)</a></li>
+<li><a href="#_sub4" class="code">function res = kl_divergence_discrete(P,Q)</a></li>
+<li><a href="#_sub5" class="code">function res = kl_divergence_gaussian(P,Q)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [measure,stats] = ml_calcloss(type,T,P)</a>
@@ -141,328 +161,344 @@ This function is called by:
 0032 <span class="comment">%                * 'mae'/'l1': mean absolute error</span>
 0033 <span class="comment">%                * 'mse'/'l2': mean square error</span>
 0034 <span class="comment">%                * 'smse': standardized mean square error</span>
-0035 <span class="comment">%                * 'max'/'linf': maximum absolute error</span>
-0036 <span class="comment">%                * 'sign': mis-classification rate on the sign of continuous outcomes</span>
-0037 <span class="comment">%                * 'rms': root mean square error</span>
-0038 <span class="comment">%                * 'bias': directed mean bias</span>
-0039 <span class="comment">%                * 'medse': median square error</span>
-0040 <span class="comment">%                * 'auc': negative area under ROC, for 2-class outcomes</span>
-0041 <span class="comment">%                * 'cond_entropy': conditional entropy of Target given Prediction, for discrete outcomes</span>
-0042 <span class="comment">%                * 'cross_entropy': cross-entropy of Target under Prediction</span>
-0043 <span class="comment">%                * 'f_measure': negative F-score, harmonic mean between precision and recall, for 2-class outcomes</span>
-0044 <span class="comment">%                * cell array of strings: compute loss for each specified type and return an array of results</span>
-0045 <span class="comment">%</span>
-0046 <span class="comment">%   Target     : target variable; can be in any of the formats produced by ml_predict.</span>
-0047 <span class="comment">%</span>
-0048 <span class="comment">%   Prediction : predicted variable; can be in any of the formats produced by ml_predict.</span>
-0049 <span class="comment">%                format is expected to be consistent with (though not necessarily identical to) the Target format,</span>
-0050 <span class="comment">%                and the number of samples needs to match that of the target variable</span>
-0051 <span class="comment">%</span>
-0052 <span class="comment">% Out:</span>
-0053 <span class="comment">%   Loss       : the scalar loss, aggregated over all samples, or a vector of loss measures, if a cell array was specified for the type</span>
-0054 <span class="comment">%   Stats      : struct of additional statistics (depending on type), or a struct array if a cell array was specified for the type</span>
-0055 <span class="comment">%</span>
-0056 <span class="comment">% Note:</span>
-0057 <span class="comment">%   Simple of the implemented losses have not been tested for all applicable combinations of target/prediction formats. For standard applications,</span>
-0058 <span class="comment">%   there should be no errors, however. When new losses are implemented, they should be added to this file.</span>
-0059 <span class="comment">%</span>
-0060 <span class="comment">% References:</span>
-0061 <span class="comment">%   [1] MacKay, D. J. C. &quot;Information theory, inference, and learning algorithms.&quot;</span>
-0062 <span class="comment">%       Cambridge University Press, 2003.</span>
-0063 <span class="comment">%</span>
-0064 <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0065 <span class="comment">%                               2010-04-22</span>
-0066 
-0067 
-0068 
-0069 <span class="comment">% the default metric; if type is empty,</span>
-0070 max_nll_loss = 1000; <span class="comment">% to prevent negative log-likelihoods from blowing up</span>
+0035 <span class="comment">%                * 'smae': standardized mean absolute error</span>
+0036 <span class="comment">%                * 'max'/'linf': maximum absolute error</span>
+0037 <span class="comment">%                * 'sign': mis-classification rate on the sign of continuous outcomes</span>
+0038 <span class="comment">%                * 'rms': root mean square error</span>
+0039 <span class="comment">%                * 'bias': directed mean bias</span>
+0040 <span class="comment">%                * 'medse': median square error</span>
+0041 <span class="comment">%                * 'medae': median absolute error</span>
+0042 <span class="comment">%                * 'smedae': standardized median absolute error (also using a robust std. dev,)</span>
+0043 <span class="comment">%                * 'auc': negative area under ROC, for 2-class outcomes</span>
+0044 <span class="comment">%                * 'cond_entropy': conditional entropy of Target given Prediction, for discrete outcomes</span>
+0045 <span class="comment">%                * 'cross_entropy': cross-entropy of Target under Prediction</span>
+0046 <span class="comment">%                * 'f_measure': negative F-score, harmonic mean between precision and recall, for 2-class outcomes</span>
+0047 <span class="comment">%                * cell array of strings: compute loss for each specified type and return an array of results</span>
+0048 <span class="comment">%</span>
+0049 <span class="comment">%   Target     : target variable; can be in any of the formats produced by ml_predict.</span>
+0050 <span class="comment">%</span>
+0051 <span class="comment">%   Prediction : predicted variable; can be in any of the formats produced by ml_predict.</span>
+0052 <span class="comment">%                format is expected to be consistent with (though not necessarily identical to) the Target format,</span>
+0053 <span class="comment">%                and the number of samples needs to match that of the target variable</span>
+0054 <span class="comment">%</span>
+0055 <span class="comment">% Out:</span>
+0056 <span class="comment">%   Loss       : the scalar loss, aggregated over all samples, or a vector of loss measures, if a cell array was specified for the type</span>
+0057 <span class="comment">%   Stats      : struct of additional statistics (depending on type), or a struct array if a cell array was specified for the type</span>
+0058 <span class="comment">%</span>
+0059 <span class="comment">% Note:</span>
+0060 <span class="comment">%   Simple of the implemented losses have not been tested for all applicable combinations of target/prediction formats. For standard applications,</span>
+0061 <span class="comment">%   there should be no errors, however. When new losses are implemented, they should be added to this file.</span>
+0062 <span class="comment">%</span>
+0063 <span class="comment">% References:</span>
+0064 <span class="comment">%   [1] MacKay, D. J. C. &quot;Information theory, inference, and learning algorithms.&quot;</span>
+0065 <span class="comment">%       Cambridge University Press, 2003.</span>
+0066 <span class="comment">%</span>
+0067 <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0068 <span class="comment">%                               2010-04-22</span>
+0069 
+0070 
 0071 
-0072 <span class="keyword">if</span> iscell(type) &amp;&amp; all(cellfun(@ischar,type))
-0073     <span class="comment">% call recursively for each type and aggregate statistics</span>
-0074     <span class="keyword">for</span> t=1:length(type)
-0075         [measure(t),stats{t}] = <a href="ml_calcloss.html" class="code" title="function [measure,stats] = ml_calcloss(type,T,P)">ml_calcloss</a>(type{t},T,P); <span class="keyword">end</span>
-0076     measure = measure(1);
-0077     stats = hlp_aggregatestructs(stats,<span class="string">'replace'</span>);
-0078 <span class="keyword">else</span>
-0079     <span class="comment">% add some stats</span>
-0080     <span class="keyword">if</span> is_discrete(T)
-0081         stats.classes = T{3};
-0082         stats.class_ratio = mean(T{2});
-0083     <span class="keyword">elseif</span> is_discrete(P) &amp;&amp; is_point(T)
-0084         stats.classes = P{3};
-0085         <span class="keyword">for</span> c=1:length(stats.classes)
-0086             stats.class_ratio(c) = mean(T==stats.classes(c)); <span class="keyword">end</span>
-0087     <span class="keyword">end</span>
-0088     
-0089     <span class="comment">% auto-determine measure type</span>
-0090     <span class="keyword">if</span> isempty(type) || strcmp(type,<span class="string">'auto'</span>)
-0091         <span class="keyword">if</span> is_1d_regression(T) &amp;&amp; is_1d_regression(P)
-0092             <span class="comment">% we have regression outputs in both cases -&gt; mean squared error</span>
-0093             type = <span class="string">'mse'</span>;
-0094         <span class="keyword">elseif</span> is_1d_regression(T) &amp;&amp; is_discrete(P)
-0095             <span class="comment">% the targets are regression values, the estimates are discrete posteriors -&gt; misclassification rate</span>
-0096             type = <span class="string">'mcr'</span>;
-0097         <span class="keyword">elseif</span> (is_1d_regression(T) &amp;&amp; is_1d_distributed(P)) <span class="keyword">...</span>
-0098                 || (is_1d_distributed(T) &amp;&amp; is_1d_regression(P))
-0099             <span class="comment">% one is a distribution, the other is a point estimate -&gt; negative log-likelihood</span>
-0100             type = <span class="string">'nll'</span>;
-0101         <span class="keyword">elseif</span> is_1d_distributed(T) &amp;&amp; is_1d_distributed(P)
-0102             <span class="comment">% both are 1d distributions (hopefully of compatible types -&gt; kullback-leibler divergence)</span>
-0103             type = <span class="string">'kld'</span>;
-0104         <span class="keyword">elseif</span> is_discrete(T) &amp;&amp; is_discrete(P)
-0105             <span class="comment">% both are discrete distributions -&gt; kullback-leibler divergence</span>
+0072 <span class="comment">% the default metric; if type is empty,</span>
+0073 max_nll_loss = 1000; <span class="comment">% to prevent negative log-likelihoods from blowing up</span>
+0074 
+0075 <span class="keyword">if</span> iscell(type) &amp;&amp; all(cellfun(@ischar,type))
+0076     <span class="comment">% call recursively for each type and aggregate statistics</span>
+0077     <span class="keyword">for</span> t=1:length(type)
+0078         [measure(t),stats{t}] = <a href="ml_calcloss.html" class="code" title="function [measure,stats] = ml_calcloss(type,T,P)">ml_calcloss</a>(type{t},T,P); <span class="keyword">end</span>
+0079     measure = measure(1);
+0080     stats = hlp_aggregatestructs(stats,<span class="string">'replace'</span>);
+0081 <span class="keyword">else</span>
+0082     <span class="comment">% add some stats</span>
+0083     <span class="keyword">if</span> is_discrete(T)
+0084         stats.classes = T{3};
+0085         stats.class_ratio = mean(T{2});
+0086     <span class="keyword">elseif</span> is_discrete(P) &amp;&amp; is_point(T)
+0087         stats.classes = P{3};
+0088         <span class="keyword">for</span> c=1:length(stats.classes)
+0089             stats.class_ratio(c) = mean(T==stats.classes(c)); <span class="keyword">end</span>
+0090     <span class="keyword">end</span>
+0091     
+0092     <span class="comment">% auto-determine measure type</span>
+0093     <span class="keyword">if</span> isempty(type) || strcmp(type,<span class="string">'auto'</span>)
+0094         <span class="keyword">if</span> is_1d_regression(T) &amp;&amp; is_1d_regression(P)
+0095             <span class="comment">% we have regression outputs in both cases -&gt; mean squared error</span>
+0096             type = <span class="string">'mse'</span>;
+0097         <span class="keyword">elseif</span> is_1d_regression(T) &amp;&amp; is_discrete(P)
+0098             <span class="comment">% the targets are regression values, the estimates are discrete posteriors -&gt; misclassification rate</span>
+0099             type = <span class="string">'mcr'</span>;
+0100         <span class="keyword">elseif</span> (is_1d_regression(T) &amp;&amp; is_1d_distributed(P)) <span class="keyword">...</span>
+0101                 || (is_1d_distributed(T) &amp;&amp; is_1d_regression(P))
+0102             <span class="comment">% one is a distribution, the other is a point estimate -&gt; negative log-likelihood</span>
+0103             type = <span class="string">'nll'</span>;
+0104         <span class="keyword">elseif</span> is_1d_distributed(T) &amp;&amp; is_1d_distributed(P)
+0105             <span class="comment">% both are 1d distributions (hopefully of compatible types -&gt; kullback-leibler divergence)</span>
 0106             type = <span class="string">'kld'</span>;
-0107         <span class="keyword">elseif</span> is_structured(T) &amp;&amp; is_structured(P)
-0108             <span class="comment">% both are structured distributions -&gt; misclassification rate</span>
-0109             type = <span class="string">'mcr'</span>;
-0110         <span class="keyword">else</span>
-0111             error(<span class="string">'an appropriate measure cannot be auto-determined from the data; please specify.'</span>);
-0112         <span class="keyword">end</span>
-0113     <span class="keyword">end</span>
-0114     
-0115     <span class="keyword">switch</span> lower(type)
-0116         <span class="comment">% compute distribution measures</span>
-0117         <span class="keyword">case</span> <span class="string">'kld'</span>
-0118             <span class="comment">% kullback-leibler divergence D_KL(targ||pred)</span>
-0119             <span class="keyword">if</span> is_discrete(T) &amp;&amp; is_discrete(P)
-0120                 measure = mean(<a href="#_sub3" class="code" title="subfunction res = kl_divergence_discrete(P,Q)">kl_divergence_discrete</a>(T,P));
-0121             <span class="keyword">elseif</span> is_discrete(P) &amp;&amp; is_point(T) &amp;&amp; length(unique(T)) &lt;= length(P{3})
-0122                 <span class="comment">% convert T into a discrete probability distribution</span>
-0123                 tmp = zeros(max(T),length(T)); tmp(T+max(T).*(0:(length(T)-1))') = 1; 
-0124                 T = {<span class="string">'disc'</span> tmp' P{3}};
-0125                 measure = mean(<a href="#_sub3" class="code" title="subfunction res = kl_divergence_discrete(P,Q)">kl_divergence_discrete</a>(T,P));
-0126             <span class="keyword">elseif</span> is_gaussian(T) &amp;&amp; is_gaussian(P)
-0127                 measure = mean(<a href="#_sub4" class="code" title="subfunction res = kl_divergence_gaussian(P,Q)">kl_divergence_gaussian</a>(T,P));
-0128             <span class="keyword">elseif</span> is_1d_distributed(T) &amp;&amp; is_1d_distributed(P)
-0129                 <span class="comment">% use the cdf method</span>
-0130                 error(<span class="string">'not yet implemented'</span>);
-0131             <span class="keyword">else</span>
-0132                 error(<span class="string">'cannot compute the kullback-leibler divergence for the given training &amp; prediction data format.'</span>);
-0133             <span class="keyword">end</span>
-0134         <span class="keyword">case</span> <span class="string">'nll'</span>
-0135             <span class="comment">% negative log-likelihood</span>
-0136             <span class="keyword">if</span> is_point(T) &amp;&amp; is_distributed(P)
-0137                 measure = sum(<a href="#_sub2" class="code" title="subfunction V = neg_loglike(X,D,maxval)">neg_loglike</a>(T,P,max_nll_loss));
-0138             <span class="keyword">elseif</span> is_distributed(T) &amp;&amp; is_point(P)
-0139                 measure = sum(<a href="#_sub2" class="code" title="subfunction V = neg_loglike(X,D,maxval)">neg_loglike</a>(P,T,max_nll_loss));
-0140             <span class="keyword">else</span>
-0141                 error(<span class="string">'cannot compute log-likelihood for the given training &amp; prediction data format.'</span>);
-0142             <span class="keyword">end</span>
-0143         <span class="keyword">case</span> {<span class="string">'mcr'</span>,<span class="string">'err'</span>}
-0144             <span class="comment">% misclassification rate</span>
-0145             <span class="keyword">if</span> is_structured(T) &amp;&amp; is_structured(P)
-0146                 measure = mean(cellfun(@isequal,T,P));
-0147             <span class="keyword">else</span>
-0148                 <span class="comment">% we can enumerate classes &amp; compute a per-class error</span>
-0149                 <span class="keyword">if</span> isnumeric(T) &amp;&amp; isnumeric(P) &amp;&amp; isequal(size(T),size(P)) &amp;&amp; size(T,2) == 1
-0150                     classes = unique([T;P]);
-0151                 <span class="keyword">elseif</span> (is_1d_regression(T) || is_discrete(T)) &amp;&amp; (is_1d_regression(P) || is_discrete(P))
-0152                     <span class="keyword">if</span> is_discrete(T)
-0153                         classes = T{3};
-0154                         T = T{3}(hlp_getresult(2,@max,T{2}')');
-0155                     <span class="keyword">end</span>
-0156                     <span class="keyword">if</span> is_discrete(P)
-0157                         classes = P{3};
-0158                         P = P{3}(hlp_getresult(2,@max,P{2}')');
-0159                     <span class="keyword">end</span>
-0160                 <span class="keyword">else</span>
-0161                     error(<span class="string">'target and/or prediction formats not suited for classification'</span>);
-0162                 <span class="keyword">end</span>
-0163                 <span class="keyword">try</span>
-0164                     corrects = T == P;
-0165                 <span class="keyword">catch</span>
-0166                     disp(<span class="string">'Data unaligned; working around this; this is a severe bug.'</span>);
-0167                     len = max(size(T,1),size(P,1));
-0168                     T = T(round((1:len)*size(T,1)/len));
-0169                     P = P(round((1:len)*size(P,1)/len));
-0170                     corrects = T == P;
-0171                 <span class="keyword">end</span>
-0172                     
-0173                 measure = 1-mean(corrects);
-0174                 <span class="comment">% also add per-class error</span>
-0175                 stats.classes = classes;
-0176                 stats.per_class = nan(size(classes,1),1);
-0177                 <span class="keyword">for</span> c=1:length(classes)
-0178                     <span class="keyword">if</span> any(T==classes(c))
-0179                         stats.per_class(c) = 1-mean(corrects(T==c)); <span class="keyword">end</span>
-0180                 <span class="keyword">end</span>
-0181                 <span class="keyword">if</span> length(classes) == 2
-0182                     stats.TP = sum(T==classes(2) &amp; P==classes(2))/sum(T==classes(2));
-0183                     stats.TN = sum(T==classes(1) &amp; P==classes(1))/sum(T==classes(1));
-0184                     stats.FP = sum(T==classes(1) &amp; P==classes(2))/sum(T==classes(1)); <span class="comment">% fixed FP/FN rates, reported by Matt Peterson.</span>
-0185                     stats.FN = sum(T==classes(2) &amp; P==classes(1))/sum(T==classes(2));
-0186                 <span class="keyword">end</span>
-0187             <span class="keyword">end</span>
-0188             
-0189         <span class="keyword">otherwise</span>
-0190             <span class="comment">% compute sample-based measures</span>
-0191             Tx = <a href="#_sub1" class="code" title="subfunction V = expected_value(D)">expected_value</a>(T);
-0192             Px = <a href="#_sub1" class="code" title="subfunction V = expected_value(D)">expected_value</a>(P);
-0193             <span class="keyword">switch</span> lower(type)
-0194                 <span class="keyword">case</span> {<span class="string">'mae'</span>,<span class="string">'l1'</span>}
-0195                     measure = mean(abs(Px-Tx));
-0196                 <span class="keyword">case</span> {<span class="string">'mse'</span>,<span class="string">'l2'</span>}
-0197                     measure = mean((Px-Tx).^2);
-0198                 <span class="keyword">case</span> <span class="string">'sign'</span>
-0199                     measure = mean(sign(Px) ~= sign(Tx));
-0200                 <span class="keyword">case</span> {<span class="string">'smse'</span>}
-0201                     measure = mean((Px-Tx).^2) ./ var(Tx);
-0202                 <span class="keyword">case</span> {<span class="string">'max'</span>,<span class="string">'linf'</span>}
-0203                     measure = max(abs(Px-Tx));
-0204                 <span class="keyword">case</span> <span class="string">'rms'</span>
-0205                     measure = sqrt(mean((Px-Tx).^2));
-0206                 <span class="keyword">case</span> <span class="string">'bias'</span>
-0207                     measure = mean(Px-Tx);
-0208                 <span class="keyword">case</span> <span class="string">'medse'</span>
-0209                     measure = median((Px-Tx).^2);
-0210                 <span class="keyword">case</span> <span class="string">'auc'</span>
-0211                     <span class="comment">% derive binary T, continuous P, and the class identities</span>
-0212                     <span class="keyword">if</span> is_discrete(P)
-0213                         classes = P{3};
-0214                         P = P{2}(:,2);
-0215                         <span class="keyword">if</span> is_discrete(T)
-0216                             T = T{2}(:,2);
-0217                         <span class="keyword">elseif</span> ~is_1d_regression(T)
-0218                             error(<span class="string">'AUC cannot be computed for non-class targets'</span>);
-0219                         <span class="keyword">end</span>
-0220                     <span class="keyword">elseif</span> is_discrete(T) &amp;&amp; is_1d_regression(P)
-0221                         classes = T{3};
-0222                         T = T{2}(:,2);
-0223                     <span class="keyword">elseif</span> is_1d_regression(T) &amp;&amp; is_1d_regression(P)
-0224                         classes = unique(T);
-0225                     <span class="keyword">end</span>
-0226                     <span class="comment">% compute the AUC</span>
-0227                     <span class="keyword">if</span> length(classes) ~= 2
-0228                         error(<span class="string">'AUC can only be computed for 2-class outcomes'</span>); <span class="keyword">end</span>
-0229                     <span class="keyword">if</span> length(unique(T)) &gt; 2
-0230                         error(<span class="string">'AUC can only be computed for nonprobabilistic targets.'</span>); <span class="keyword">end</span>
-0231                     T = T==classes(2);
-0232                     nT = sum(T);
-0233                     ranks = tied_ranks(P);
-0234                     measure = -(sum(ranks(T)) - (nT^2 + nT)/2) / (nT*(length(T)-nT));
-0235                 <span class="keyword">case</span> <span class="string">'f_measure'</span>
-0236                     classes = [];
-0237                     <span class="keyword">if</span> is_discrete(T)
-0238                         classes = T{3};
-0239                         T = T{2}*T{3};
-0240                     <span class="keyword">elseif</span> is_discrete(P) 
-0241                         classes = P{3};
-0242                         P = P{2}*P{3};
-0243                     <span class="keyword">elseif</span> is_point(T)
-0244                         classes = unique(T);
-0245                     <span class="keyword">end</span>
-0246                     <span class="keyword">if</span> length(classes) ~= 2
-0247                         error(<span class="string">'computation of the f measure requires 2-class outcomes'</span>); <span class="keyword">end</span>
-0248                     T = T==classes(2);
-0249                     P = P==classes(2);
-0250                     stats.TP = sum((P==1)&amp;(T==1));
-0251                     stats.TN = sum((P==0)&amp;(T==0));
-0252                     stats.FP = sum((P==1)&amp;(T==0));
-0253                     stats.FN = sum((P==0)&amp;(T==1));
-0254                     measure = -2*stats.TP/(2*stats.TP+stats.FP+stats.FN);
-0255                 <span class="keyword">case</span> <span class="string">'cross_entropy'</span>
-0256                     <span class="keyword">if</span> is_discrete(P) &amp;&amp; is_1d_regression(T)
-0257                         <span class="comment">% convert T into a discrete distribution</span>
-0258                         T = {<span class="string">'disc'</span> repmat(T,1,length(P{3})) == repmat(P{3}',size(T,1),1) P{3}};
-0259                     <span class="keyword">elseif</span> is_discrete(T) &amp;&amp; is_1d_regression(P)
-0260                         <span class="comment">% convert P into a discrete distribution</span>
-0261                         <span class="keyword">if</span> length(unique(P)) &gt; length(T{3})
-0262                             error(<span class="string">'P must contain class predictions, not gradual predictions'</span>); <span class="keyword">end</span>
-0263                         P = {<span class="string">'disc'</span> repmat(P,1,length(T{3})) == repmat(T{3}',size(P,1),1) T{3}};
-0264                     <span class="keyword">elseif</span> ~(is_discrete(T) || is_discrete(P))
-0265                         error(<span class="string">'cross-entropy can currently only be computed for class outcomes.'</span>);
-0266                     <span class="keyword">end</span>
-0267                     measure = mean(<a href="#_sub3" class="code" title="subfunction res = kl_divergence_discrete(P,Q)">kl_divergence_discrete</a>(T,P));
-0268                 <span class="keyword">case</span> <span class="string">'cond_entropy'</span>
-0269                     error(<span class="string">'not yet implemented.'</span>);
-0270                 <span class="keyword">otherwise</span>
-0271                     error(<span class="string">'unknown measure specified.'</span>);
-0272             <span class="keyword">end</span>
-0273     <span class="keyword">end</span>
-0274 <span class="keyword">end</span>
-0275 stats.measure = type;
-0276 stats.(type) = measure;
-0277 <span class="keyword">end</span>
-0278 
-0279 
-0280 
-0281 <span class="comment">% expectation of distribution D</span>
-0282 <a name="_sub1" href="#_subfunctions" class="code">function V = expected_value(D)</a>
-0283 <span class="keyword">if</span> ~is_distributed(D)
-0284     V = D;
-0285 <span class="keyword">elseif</span> is_discrete(D)
-0286     V = D{2}*D{3};
-0287 <span class="keyword">elseif</span> is_1d_distributed(D)
-0288     params = mat2cell(D{2}, size(D{2},1), ones(1,size(D{2},2)));
-0289     V = feval([D{1},<span class="string">'stat'</span>], params{:});
-0290 <span class="keyword">elseif</span> is_Nd_distributed(D)
-0291     means = cellfun(@(x)x{1}',D{2},<span class="string">'UniformOutput'</span>,false);
-0292     V = vertcat(means{:});
-0293 <span class="keyword">else</span>
-0294     error(<span class="string">'unsupported distribution format; cannot compute expected value'</span>);
-0295 <span class="keyword">end</span>
-0296 <span class="keyword">end</span>
-0297 
-0298 
-0299 
-0300 <span class="comment">% negative log-likelihood of X under D</span>
-0301 <a name="_sub2" href="#_subfunctions" class="code">function V = neg_loglike(X,D,maxval)</a>
-0302 <span class="keyword">if</span> ~exist(<span class="string">'maxval'</span>,<span class="string">'var'</span>)
-0303     maxval = Inf; <span class="keyword">end</span>
-0304 <span class="keyword">if</span> is_discrete(D)
-0305     match = repmat(X,1,size(D{3},1)) == repmat(D{3}',size(X,1),1);
-0306     V = -log(D{2}(match));
-0307 <span class="keyword">elseif</span> is_1d_distributed(D)
-0308     params = mat2cell(D{2}, size(D{2},1), ones(1,size(D{2},2)));
-0309     V = -log(feval([D{1},<span class="string">'pdf'</span>],X,params{:}));
-0310 <span class="keyword">elseif</span> is_Nd_distributed(D)
-0311     V = zeros(size(X,1),1);
-0312     <span class="keyword">for</span> k=1:size(X,1)
-0313         V(k) = mvnpdf(X(k,:),D{2}{k}{1},D{2}{k}{2}); <span class="keyword">end</span>
-0314 <span class="keyword">else</span>
-0315     error(<span class="string">'the second argument must be a probability distribution'</span>);
-0316 <span class="keyword">end</span>
-0317 V(isinf(V)) = maxval;
-0318 <span class="keyword">end</span>
-0319 
-0320 
-0321 
-0322 
-0323 <span class="comment">% compute the KL divergence D_KL(P,Q) for sets of discrete probability distributions P, Q</span>
-0324 <a name="_sub3" href="#_subfunctions" class="code">function res = kl_divergence_discrete(P,Q)</a>
-0325 <span class="keyword">if</span> ~is_discrete(P) || ~is_discrete(Q)
-0326     error(<span class="string">'computation of the discrete KL divergence requires discrete distributions.'</span>); <span class="keyword">end</span>
-0327 <span class="comment">% extract probability mass functions (and renormalize for good measure)</span>
-0328 P = P{2}./repmat(sum(P{2},2),1,size(P{2},2));
-0329 Q = Q{2}./repmat(sum(Q{2},2),1,size(Q{2},2));
-0330 <span class="keyword">if</span> ~isequal(size(P),size(Q))
-0331     error(<span class="string">'P and Q must have the same number of classes/bins and samples'</span>); <span class="keyword">end</span>
-0332 <span class="keyword">if</span> any(~isfinite(P(:))) || any(~isfinite(Q(:)))
-0333     error(<span class="string">'the inputs contain non-finite values!'</span>); <span class="keyword">end</span>
-0334 res = P.*log(P./Q);
-0335 res(isnan(res)) = 0;
-0336 res = sum(res,2);
-0337 <span class="keyword">end</span>
-0338 
-0339 
-0340 
-0341 <span class="comment">% compute the KL divergence D_KL(P,Q) for sets of gaussian probability distributions P,Q</span>
-0342 <a name="_sub4" href="#_subfunctions" class="code">function res = kl_divergence_gaussian(P,Q)</a>
-0343 <span class="keyword">if</span> ~is_gaussian(P) || ~is_gaussian(Q)
-0344     error(<span class="string">'P and Q must contain gaussian distributions'</span>); <span class="keyword">end</span>
-0345 <span class="comment">% re-represent univariate distributions as a multivariate ones</span>
-0346 P = fastif(strcmp(P{1},<span class="string">'norm'</span>), cellfun(@(x){x(1),x(2)},mat2cell(P{2},ones(size(P{2},1),1),2),<span class="string">'UniformOutput'</span>,false), P{2});
-0347 Q = fastif(strcmp(Q{1},<span class="string">'norm'</span>), cellfun(@(x){x(1),x(2)},mat2cell(Q{2},ones(size(Q{2},1),1),2),<span class="string">'UniformOutput'</span>,false), Q{2});
-0348 <span class="keyword">if</span> length(P) ~= length(Q)
-0349     error(<span class="string">'P and Q must have the same number of distributions.'</span>); <span class="keyword">end</span>
-0350 res = zeros(length(P),1);
-0351 <span class="keyword">for</span> i=1:length(P)
-0352     [mu0,sig0] = P{i}{:};
-0353     [mu1,sig1] = Q{i}{:};
-0354     res(i) = (logdet(sig1)-logdet(sig0) + trace(sig1\sig0) + (mu1-mu0)' * (sig1\(mu1-mu0)) - length(mu0)) / 2;
-0355 <span class="keyword">end</span>
-0356 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0107         <span class="keyword">elseif</span> is_discrete(T) &amp;&amp; is_discrete(P)
+0108             <span class="comment">% both are discrete distributions -&gt; kullback-leibler divergence</span>
+0109             type = <span class="string">'kld'</span>;
+0110         <span class="keyword">elseif</span> is_structured(T) &amp;&amp; is_structured(P)
+0111             <span class="comment">% both are structured distributions -&gt; misclassification rate</span>
+0112             type = <span class="string">'mcr'</span>;
+0113         <span class="keyword">else</span>
+0114             error(<span class="string">'an appropriate measure cannot be auto-determined from the data; please specify.'</span>);
+0115         <span class="keyword">end</span>
+0116     <span class="keyword">end</span>
+0117     
+0118     <span class="keyword">switch</span> lower(type)
+0119         <span class="comment">% compute distribution measures</span>
+0120         <span class="keyword">case</span> <span class="string">'kld'</span>
+0121             <span class="comment">% kullback-leibler divergence D_KL(targ||pred)</span>
+0122             <span class="keyword">if</span> is_discrete(T) &amp;&amp; is_discrete(P)
+0123                 measure = mean(<a href="#_sub4" class="code" title="subfunction res = kl_divergence_discrete(P,Q)">kl_divergence_discrete</a>(T,P));
+0124             <span class="keyword">elseif</span> is_discrete(P) &amp;&amp; is_point(T) &amp;&amp; length(unique(T)) &lt;= length(P{3})
+0125                 <span class="comment">% convert T into a discrete probability distribution</span>
+0126                 tmp = zeros(max(T),length(T)); tmp(T+max(T).*(0:(length(T)-1))') = 1; 
+0127                 T = {<span class="string">'disc'</span> tmp' P{3}};
+0128                 measure = mean(<a href="#_sub4" class="code" title="subfunction res = kl_divergence_discrete(P,Q)">kl_divergence_discrete</a>(T,P));
+0129             <span class="keyword">elseif</span> is_gaussian(T) &amp;&amp; is_gaussian(P)
+0130                 measure = mean(<a href="#_sub5" class="code" title="subfunction res = kl_divergence_gaussian(P,Q)">kl_divergence_gaussian</a>(T,P));
+0131             <span class="keyword">elseif</span> is_1d_distributed(T) &amp;&amp; is_1d_distributed(P)
+0132                 <span class="comment">% use the cdf method</span>
+0133                 error(<span class="string">'not yet implemented'</span>);
+0134             <span class="keyword">else</span>
+0135                 error(<span class="string">'cannot compute the kullback-leibler divergence for the given training &amp; prediction data format.'</span>);
+0136             <span class="keyword">end</span>
+0137         <span class="keyword">case</span> <span class="string">'nll'</span>
+0138             <span class="comment">% negative log-likelihood</span>
+0139             <span class="keyword">if</span> is_point(T) &amp;&amp; is_distributed(P)
+0140                 measure = sum(<a href="#_sub3" class="code" title="subfunction V = neg_loglike(X,D,maxval)">neg_loglike</a>(T,P,max_nll_loss));
+0141             <span class="keyword">elseif</span> is_distributed(T) &amp;&amp; is_point(P)
+0142                 measure = sum(<a href="#_sub3" class="code" title="subfunction V = neg_loglike(X,D,maxval)">neg_loglike</a>(P,T,max_nll_loss));
+0143             <span class="keyword">else</span>
+0144                 error(<span class="string">'cannot compute log-likelihood for the given training and prediction data format.'</span>);
+0145             <span class="keyword">end</span>
+0146         <span class="keyword">case</span> {<span class="string">'mcr'</span>,<span class="string">'err'</span>}
+0147             <span class="comment">% misclassification rate</span>
+0148             <span class="keyword">if</span> is_structured(T) &amp;&amp; is_structured(P)
+0149                 measure = mean(cellfun(@isequal,T,P));
+0150             <span class="keyword">else</span>
+0151                 <span class="comment">% we can enumerate classes &amp; compute a per-class error</span>
+0152                 <span class="keyword">if</span> isnumeric(T) &amp;&amp; isnumeric(P) &amp;&amp; isequal(size(T),size(P)) &amp;&amp; size(T,2) == 1
+0153                     classes = unique([T;P]);
+0154                 <span class="keyword">elseif</span> (is_1d_regression(T) || is_discrete(T)) &amp;&amp; (is_1d_regression(P) || is_discrete(P))
+0155                     <span class="keyword">if</span> is_discrete(T)
+0156                         classes = T{3};
+0157                         T = T{3}(hlp_getresult(2,@max,T{2}')');
+0158                     <span class="keyword">end</span>
+0159                     <span class="keyword">if</span> is_discrete(P)
+0160                         classes = P{3};
+0161                         P = P{3}(hlp_getresult(2,@max,P{2}')');
+0162                     <span class="keyword">end</span>
+0163                 <span class="keyword">else</span>
+0164                     error(<span class="string">'target and/or prediction formats not suited for classification'</span>);
+0165                 <span class="keyword">end</span>
+0166                 <span class="keyword">try</span>
+0167                     corrects = T == P;
+0168                 <span class="keyword">catch</span>
+0169                     disp(<span class="string">'Data unaligned; working around this; this is a severe bug.'</span>);
+0170                     len = max(size(T,1),size(P,1));
+0171                     T = T(round((1:len)*size(T,1)/len));
+0172                     P = P(round((1:len)*size(P,1)/len));
+0173                     corrects = T == P;
+0174                 <span class="keyword">end</span>
+0175                     
+0176                 measure = 1-mean(corrects);
+0177                 <span class="comment">% also add per-class error</span>
+0178                 stats.classes = classes;
+0179                 stats.per_class = nan(size(classes,1),1);
+0180                 <span class="keyword">for</span> c=1:length(classes)
+0181                     <span class="keyword">if</span> any(T==classes(c))
+0182                         stats.per_class(c) = 1-mean(corrects(T==c)); <span class="keyword">end</span>
+0183                 <span class="keyword">end</span>
+0184                 <span class="keyword">if</span> length(classes) == 2
+0185                     stats.TP = sum(T==classes(2) &amp; P==classes(2))/sum(T==classes(2));
+0186                     stats.TN = sum(T==classes(1) &amp; P==classes(1))/sum(T==classes(1));
+0187                     stats.FP = sum(T==classes(1) &amp; P==classes(2))/sum(T==classes(1)); <span class="comment">% fixed FP/FN rates, reported by Matt Peterson.</span>
+0188                     stats.FN = sum(T==classes(2) &amp; P==classes(1))/sum(T==classes(2));
+0189                 <span class="keyword">end</span>
+0190             <span class="keyword">end</span>
+0191             
+0192         <span class="keyword">otherwise</span>
+0193             <span class="comment">% compute sample-based measures</span>
+0194             Tx = <a href="#_sub2" class="code" title="subfunction V = expected_value(D)">expected_value</a>(T);
+0195             Px = <a href="#_sub2" class="code" title="subfunction V = expected_value(D)">expected_value</a>(P);
+0196             <span class="keyword">switch</span> lower(type)
+0197                 <span class="keyword">case</span> {<span class="string">'mae'</span>,<span class="string">'l1'</span>}
+0198                     measure = mean(abs(Px-Tx));
+0199                 <span class="keyword">case</span> {<span class="string">'smae'</span>}
+0200                     measure = mean(abs(Px-Tx)) ./ std(Tx);
+0201                 <span class="keyword">case</span> {<span class="string">'mse'</span>,<span class="string">'l2'</span>}
+0202                     measure = mean((Px-Tx).^2);
+0203                 <span class="keyword">case</span> <span class="string">'sign'</span>
+0204                     measure = mean(sign(Px) ~= sign(Tx));
+0205                 <span class="keyword">case</span> {<span class="string">'smse'</span>}
+0206                     measure = mean((Px-Tx).^2) ./ var(Tx);
+0207                 <span class="keyword">case</span> {<span class="string">'max'</span>,<span class="string">'linf'</span>}
+0208                     measure = max(abs(Px-Tx));
+0209                 <span class="keyword">case</span> <span class="string">'rms'</span>
+0210                     measure = sqrt(mean((Px-Tx).^2));
+0211                 <span class="keyword">case</span> <span class="string">'bias'</span>
+0212                     measure = mean(Px-Tx);
+0213                 <span class="keyword">case</span> <span class="string">'medse'</span>
+0214                     measure = median((Px-Tx).^2);
+0215                 <span class="keyword">case</span> <span class="string">'medae'</span>
+0216                     measure = median(abs(Px-Tx));
+0217                 <span class="keyword">case</span> <span class="string">'smedae'</span>
+0218                     measure = median(abs(Px-Tx)) ./ (<a href="#_sub1" class="code" title="subfunction Y = mad(X,flag) ">mad</a>(Tx,1)*1.4826);
+0219                 <span class="keyword">case</span> <span class="string">'auc'</span>
+0220                     <span class="comment">% derive binary T, continuous P, and the class identities</span>
+0221                     <span class="keyword">if</span> is_discrete(P)
+0222                         classes = P{3};
+0223                         P = P{2}(:,2);
+0224                         <span class="keyword">if</span> is_discrete(T)
+0225                             T = T{2}(:,2);
+0226                         <span class="keyword">elseif</span> ~is_1d_regression(T)
+0227                             error(<span class="string">'AUC cannot be computed for non-class targets'</span>);
+0228                         <span class="keyword">end</span>
+0229                     <span class="keyword">elseif</span> is_discrete(T) &amp;&amp; is_1d_regression(P)
+0230                         classes = T{3};
+0231                         T = T{2}(:,2);
+0232                     <span class="keyword">elseif</span> is_1d_regression(T) &amp;&amp; is_1d_regression(P)
+0233                         classes = unique(T);
+0234                     <span class="keyword">end</span>
+0235                     <span class="comment">% compute the AUC</span>
+0236                     <span class="keyword">if</span> length(classes) ~= 2
+0237                         warning(<span class="string">'AUC can only be computed for 2-class outcomes. Returning NaN.'</span>); 
+0238                         measure = NaN;
+0239                     <span class="keyword">else</span>
+0240                         <span class="keyword">if</span> length(unique(T)) &gt; 2
+0241                             error(<span class="string">'AUC can only be computed for nonprobabilistic targets.'</span>); <span class="keyword">end</span>
+0242                         T = T==classes(2);
+0243                         nT = sum(T);
+0244                         ranks = tied_ranks(P);
+0245                         measure = -(sum(ranks(T)) - (nT^2 + nT)/2) / (nT*(length(T)-nT));
+0246                     <span class="keyword">end</span>
+0247                 <span class="keyword">case</span> <span class="string">'f_measure'</span>
+0248                     classes = [];
+0249                     <span class="keyword">if</span> is_discrete(T)
+0250                         classes = T{3};
+0251                         T = T{2}*T{3};
+0252                     <span class="keyword">elseif</span> is_discrete(P) 
+0253                         classes = P{3};
+0254                         P = P{2}*P{3};
+0255                     <span class="keyword">elseif</span> is_point(T)
+0256                         classes = unique(T);
+0257                     <span class="keyword">end</span>
+0258                     <span class="keyword">if</span> length(classes) ~= 2
+0259                         error(<span class="string">'computation of the f measure requires 2-class outcomes'</span>); <span class="keyword">end</span>
+0260                     T = T==classes(2);
+0261                     P = P==classes(2);
+0262                     stats.TP = sum((P==1)&amp;(T==1));
+0263                     stats.TN = sum((P==0)&amp;(T==0));
+0264                     stats.FP = sum((P==1)&amp;(T==0));
+0265                     stats.FN = sum((P==0)&amp;(T==1));
+0266                     measure = -2*stats.TP/(2*stats.TP+stats.FP+stats.FN);
+0267                 <span class="keyword">case</span> <span class="string">'cross_entropy'</span>
+0268                     <span class="keyword">if</span> is_discrete(P) &amp;&amp; is_1d_regression(T)
+0269                         <span class="comment">% convert T into a discrete distribution</span>
+0270                         T = {<span class="string">'disc'</span> repmat(T,1,length(P{3})) == repmat(P{3}',size(T,1),1) P{3}};
+0271                     <span class="keyword">elseif</span> is_discrete(T) &amp;&amp; is_1d_regression(P)
+0272                         <span class="comment">% convert P into a discrete distribution</span>
+0273                         <span class="keyword">if</span> length(unique(P)) &gt; length(T{3})
+0274                             error(<span class="string">'P must contain class predictions, not gradual predictions'</span>); <span class="keyword">end</span>
+0275                         P = {<span class="string">'disc'</span> repmat(P,1,length(T{3})) == repmat(T{3}',size(P,1),1) T{3}};
+0276                     <span class="keyword">elseif</span> ~(is_discrete(T) || is_discrete(P))
+0277                         error(<span class="string">'cross-entropy can currently only be computed for class outcomes.'</span>);
+0278                     <span class="keyword">end</span>
+0279                     measure = mean(<a href="#_sub4" class="code" title="subfunction res = kl_divergence_discrete(P,Q)">kl_divergence_discrete</a>(T,P));
+0280                 <span class="keyword">case</span> <span class="string">'cond_entropy'</span>
+0281                     error(<span class="string">'not yet implemented.'</span>);
+0282                 <span class="keyword">otherwise</span>
+0283                     error(<span class="string">'unknown measure specified.'</span>);
+0284             <span class="keyword">end</span>
+0285     <span class="keyword">end</span>
+0286 <span class="keyword">end</span>
+0287 stats.measure = type;
+0288 stats.(type) = measure;
+0289 <span class="keyword">end</span>
+0290 
+0291 
+0292 <a name="_sub1" href="#_subfunctions" class="code">function Y = mad(X,flag) </a><span class="comment">%#ok&lt;INUSD&gt;</span>
+0293 Y = median(abs(bsxfun(@minus,X,median(X))));
+0294 <span class="keyword">end</span>
+0295 
+0296 <span class="comment">% expectation of distribution D</span>
+0297 <a name="_sub2" href="#_subfunctions" class="code">function V = expected_value(D)</a>
+0298 <span class="keyword">if</span> ~is_distributed(D)
+0299     V = D;
+0300 <span class="keyword">elseif</span> is_discrete(D)
+0301     V = D{2}*D{3}(:);
+0302 <span class="keyword">elseif</span> is_1d_distributed(D)
+0303     params = mat2cell(D{2}, size(D{2},1), ones(1,size(D{2},2)));
+0304     V = feval([D{1},<span class="string">'stat'</span>], params{:});
+0305 <span class="keyword">elseif</span> is_Nd_distributed(D)
+0306     means = cellfun(@(x)x{1}',D{2},<span class="string">'UniformOutput'</span>,false);
+0307     V = vertcat(means{:});
+0308 <span class="keyword">else</span>
+0309     error(<span class="string">'unsupported distribution format; cannot compute expected value'</span>);
+0310 <span class="keyword">end</span>
+0311 <span class="keyword">end</span>
+0312 
+0313 
+0314 
+0315 <span class="comment">% negative log-likelihood of X under D</span>
+0316 <a name="_sub3" href="#_subfunctions" class="code">function V = neg_loglike(X,D,maxval)</a>
+0317 <span class="keyword">if</span> ~exist(<span class="string">'maxval'</span>,<span class="string">'var'</span>)
+0318     maxval = Inf; <span class="keyword">end</span>
+0319 <span class="keyword">if</span> is_discrete(D)
+0320     match = repmat(X,1,size(D{3},1)) == repmat(D{3}',size(X,1),1);
+0321     V = -log(D{2}(match));
+0322 <span class="keyword">elseif</span> is_1d_distributed(D)
+0323     params = mat2cell(D{2}, size(D{2},1), ones(1,size(D{2},2)));
+0324     V = -log(feval([D{1},<span class="string">'pdf'</span>],X,params{:}));
+0325 <span class="keyword">elseif</span> is_Nd_distributed(D)
+0326     V = zeros(size(X,1),1);
+0327     <span class="keyword">for</span> k=1:size(X,1)
+0328         V(k) = mvnpdf(X(k,:),D{2}{k}{1},D{2}{k}{2}); <span class="keyword">end</span>
+0329 <span class="keyword">else</span>
+0330     error(<span class="string">'the second argument must be a probability distribution'</span>);
+0331 <span class="keyword">end</span>
+0332 V(isinf(V)) = maxval;
+0333 <span class="keyword">end</span>
+0334 
+0335 
+0336 
+0337 
+0338 <span class="comment">% compute the KL divergence D_KL(P,Q) for sets of discrete probability distributions P, Q</span>
+0339 <a name="_sub4" href="#_subfunctions" class="code">function res = kl_divergence_discrete(P,Q)</a>
+0340 <span class="keyword">if</span> ~is_discrete(P) || ~is_discrete(Q)
+0341     error(<span class="string">'computation of the discrete KL divergence requires discrete distributions.'</span>); <span class="keyword">end</span>
+0342 <span class="comment">% extract probability mass functions (and renormalize for good measure)</span>
+0343 P = P{2}./repmat(sum(P{2},2),1,size(P{2},2));
+0344 Q = Q{2}./repmat(sum(Q{2},2),1,size(Q{2},2));
+0345 <span class="keyword">if</span> ~isequal(size(P),size(Q))
+0346     error(<span class="string">'P and Q must have the same number of classes/bins and samples'</span>); <span class="keyword">end</span>
+0347 <span class="keyword">if</span> any(~isfinite(P(:))) || any(~isfinite(Q(:)))
+0348     error(<span class="string">'the inputs contain non-finite values!'</span>); <span class="keyword">end</span>
+0349 res = P.*log(P./Q);
+0350 res(isnan(res)) = 0;
+0351 res = sum(res,2);
+0352 <span class="keyword">end</span>
+0353 
+0354 
+0355 
+0356 <span class="comment">% compute the KL divergence D_KL(P,Q) for sets of gaussian probability distributions P,Q</span>
+0357 <a name="_sub5" href="#_subfunctions" class="code">function res = kl_divergence_gaussian(P,Q)</a>
+0358 <span class="keyword">if</span> ~is_gaussian(P) || ~is_gaussian(Q)
+0359     error(<span class="string">'P and Q must contain gaussian distributions'</span>); <span class="keyword">end</span>
+0360 <span class="comment">% re-represent univariate distributions as a multivariate ones</span>
+0361 P = quickif(strcmp(P{1},<span class="string">'norm'</span>), cellfun(@(x){x(1),x(2)},mat2cell(P{2},ones(size(P{2},1),1),2),<span class="string">'UniformOutput'</span>,false), P{2});
+0362 Q = quickif(strcmp(Q{1},<span class="string">'norm'</span>), cellfun(@(x){x(1),x(2)},mat2cell(Q{2},ones(size(Q{2},1),1),2),<span class="string">'UniformOutput'</span>,false), Q{2});
+0363 <span class="keyword">if</span> length(P) ~= length(Q)
+0364     error(<span class="string">'P and Q must have the same number of distributions.'</span>); <span class="keyword">end</span>
+0365 res = zeros(length(P),1);
+0366 <span class="keyword">for</span> i=1:length(P)
+0367     [mu0,sig0] = P{i}{:};
+0368     [mu1,sig1] = Q{i}{:};
+0369     res(i) = (logdet(sig1)-logdet(sig0) + trace(sig1\sig0) + (mu1-mu0)' * (sig1\(mu1-mu0)) - length(mu0)) / 2;
+0370 <span class="keyword">end</span>
+0371 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

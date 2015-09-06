@@ -18,13 +18,14 @@
 <td align="right"><a href="index.html">Index for code/parallel&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>par_getworkers_ssh
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="box"><strong>Acquire workers on some remote machines and return hostnames and ports of those that are available.</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>function pool = par_getworkers_ssh(varargin) </strong></div>
+<div class="box"><strong>function [pool,logpaths] = par_getworkers_ssh(varargin) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre class="comment"> Acquire workers on some remote machines and return hostnames and ports of those that are available.
@@ -105,6 +106,11 @@
 
    --- misc ---
 
+   HarvestTimeout : Harvesting timeout. This function will attempt to harvest process id's from the 
+                    workers until this timeout has expired (in which case the pid of straggers will
+                    not be known). Note that when multiple MATLABs try to launch simultaneously, it
+                    can take longer than normal. (default: 300)
+
    VerboseOutput : whether to show verbose outputs during acquisition (default: true)
 
 
@@ -114,14 +120,13 @@
                 tracking.parallel.pool will receive this result. This is the recommended way to
                 use par_getworkers_ssh, as par_schedule uses this pool by default.
 
+  Logpaths : cell array of file paths of the logfiles corresponding to the workers in pool
+
+
  Notes:
    If workers are shared between users, code which maintains global state (in particular
    user-specific configuration options) may show unexpected behavior, as these variables are not
    duplicated across users.
-
-   If resources are not shared, it must be considered that each call to par_getworkers_ssh will launch
-   another set of worker processes on the target nodes; there is no mechanism in place to
-   automatically terminate the remote workers when the MATLAB session ends.
 
    This function works only across POSIX-compliant (Unix/Linux/Mac) systems. On standard Windows
    workstations, the workers must be started manually (unless POSIX emulation software is
@@ -160,18 +165,29 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="par_globalpool.html" class="code" title="function res = par_globalpool(pool)">par_globalpool</a>	Sets or gets the current global resource pool</li></ul>
+
+<li><a href="par_globalsetting.html" class="code" title="function res = par_globalsetting(name,val)">par_globalsetting</a>	Set or get a global setting for parallel task scheduling.</li>
+<li><a href="par_parse_logfiles.html" class="code" title="function harvested_addresses = par_parse_logfiles(logpaths, harvest_timeout, harvest_ips)">par_parse_logfiles</a>	Parse logfiles produced by par_worker, extract pid@host:port</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="par_getworkers.html" class="code" title="function [pool,logpaths] = par_getworkers(varargin)">par_getworkers</a>	Acquire workers on some remote machines and return hostnames and ports of those that are available.</li>
 </ul>
 <!-- crossreference -->
 
+
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function result = port_free(host,port)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function result = port_free(host,port)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function pool = par_getworkers_ssh(varargin)</a>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [pool,logpaths] = par_getworkers_ssh(varargin)</a>
 0002 <span class="comment">% Acquire workers on some remote machines and return hostnames and ports of those that are available.</span>
 0003 <span class="comment">% Pool = par_getworkers_ssh(Hostnames,ProcessorsPerNode,MatlabThreads,StartupCommand,ShareResources,SharingPort,LoggingPath,IdentityFile,BinaryWorker,BinaryNmae,MatlabCompilerRoot,MinFreeMemory,MaxCPULoad,LoadWindow,AvoidProcess,RecruitMachines,VerboseOutput)</span>
 0004 <span class="comment">%</span>
@@ -250,328 +266,490 @@ This function is called by:
 0077 <span class="comment">%</span>
 0078 <span class="comment">%   --- misc ---</span>
 0079 <span class="comment">%</span>
-0080 <span class="comment">%   VerboseOutput : whether to show verbose outputs during acquisition (default: true)</span>
-0081 <span class="comment">%</span>
-0082 <span class="comment">%</span>
-0083 <span class="comment">% Out:</span>
-0084 <span class="comment">%   Pool : cell array of 'hostname:port' strings specifying the list of available machines</span>
-0085 <span class="comment">%          Note: in the case that no return value is requested, the global variable</span>
-0086 <span class="comment">%                tracking.parallel.pool will receive this result. This is the recommended way to</span>
-0087 <span class="comment">%                use par_getworkers_ssh, as par_schedule uses this pool by default.</span>
-0088 <span class="comment">%</span>
-0089 <span class="comment">% Notes:</span>
-0090 <span class="comment">%   If workers are shared between users, code which maintains global state (in particular</span>
-0091 <span class="comment">%   user-specific configuration options) may show unexpected behavior, as these variables are not</span>
-0092 <span class="comment">%   duplicated across users.</span>
+0080 <span class="comment">%   HarvestTimeout : Harvesting timeout. This function will attempt to harvest process id's from the</span>
+0081 <span class="comment">%                    workers until this timeout has expired (in which case the pid of straggers will</span>
+0082 <span class="comment">%                    not be known). Note that when multiple MATLABs try to launch simultaneously, it</span>
+0083 <span class="comment">%                    can take longer than normal. (default: 300)</span>
+0084 <span class="comment">%</span>
+0085 <span class="comment">%   VerboseOutput : whether to show verbose outputs during acquisition (default: true)</span>
+0086 <span class="comment">%</span>
+0087 <span class="comment">%</span>
+0088 <span class="comment">% Out:</span>
+0089 <span class="comment">%   Pool : cell array of 'hostname:port' strings specifying the list of available machines</span>
+0090 <span class="comment">%          Note: in the case that no return value is requested, the global variable</span>
+0091 <span class="comment">%                tracking.parallel.pool will receive this result. This is the recommended way to</span>
+0092 <span class="comment">%                use par_getworkers_ssh, as par_schedule uses this pool by default.</span>
 0093 <span class="comment">%</span>
-0094 <span class="comment">%   If resources are not shared, it must be considered that each call to par_getworkers_ssh will launch</span>
-0095 <span class="comment">%   another set of worker processes on the target nodes; there is no mechanism in place to</span>
-0096 <span class="comment">%   automatically terminate the remote workers when the MATLAB session ends.</span>
-0097 <span class="comment">%</span>
-0098 <span class="comment">%   This function works only across POSIX-compliant (Unix/Linux/Mac) systems. On standard Windows</span>
-0099 <span class="comment">%   workstations, the workers must be started manually (unless POSIX emulation software is</span>
-0100 <span class="comment">%   installed).</span>
+0094 <span class="comment">%  Logpaths : cell array of file paths of the logfiles corresponding to the workers in pool</span>
+0095 <span class="comment">%</span>
+0096 <span class="comment">%</span>
+0097 <span class="comment">% Notes:</span>
+0098 <span class="comment">%   If workers are shared between users, code which maintains global state (in particular</span>
+0099 <span class="comment">%   user-specific configuration options) may show unexpected behavior, as these variables are not</span>
+0100 <span class="comment">%   duplicated across users.</span>
 0101 <span class="comment">%</span>
-0102 <span class="comment">% Examples:</span>
-0103 <span class="comment">%   % acquire workers on the three hosts (assuming bcilab is in the same file-system location remotely as here)</span>
-0104 <span class="comment">%   par_getworkers_ssh({'machine1','machine2','machine3'})</span>
+0102 <span class="comment">%   This function works only across POSIX-compliant (Unix/Linux/Mac) systems. On standard Windows</span>
+0103 <span class="comment">%   workstations, the workers must be started manually (unless POSIX emulation software is</span>
+0104 <span class="comment">%   installed).</span>
 0105 <span class="comment">%</span>
-0106 <span class="comment">%   % try to start fast pre-compiled workers (assuming bcilab is in the same file-system location remotely as here)</span>
-0107 <span class="comment">%   par_getworkers_ssh('hostnames', {'machine1','machine2','machine3'}, 'binary_worker',true)</span>
-0108 <span class="comment">%</span>
-0109 <span class="comment">%   % MATLAB version again, also setting a custom logging path</span>
-0110 <span class="comment">%   par_getworkers_ssh('hostnames', {'machine1','machine2','machine3'}, 'logging_path','/home/christian/workerlogs/')</span>
-0111 <span class="comment">%</span>
-0112 <span class="comment">%   % like before, but this time only consider machines that have at least 8GB of free RAM and at most 10% CPU load</span>
-0113 <span class="comment">%   par_getworkers_ssh('hostnames', {'machine1','machine2','machine3'}, 'logging_path','/home/christian/workerlogs/', 'min_memory',2^33, 'max_cpuload',0.1)</span>
-0114 <span class="comment">%</span>
-0115 <span class="comment">%   % like before, but measuring the CPU load within the last minute (instead to 15 minutes)</span>
-0116 <span class="comment">%   par_getworkers_ssh('hostnames', {'machine1','machine2','machine3'}, 'logging_path','/home/christian/workerlogs/', 'min_memory',2^33, 'max_cpuload',0.1, 'load_window',1)</span>
-0117 <span class="comment">%</span>
-0118 <span class="comment">%   % acquire workers on the three hosts, this time using a custom startup command (the %d is where the port goes)</span>
-0119 <span class="comment">%   par_getworkers_ssh('hostnames', {'machine1','machine2','machine3'},'startup_command','cd path/to/bcilab/; bcilab(''myconfig'',''worker'',{%d,1}')</span>
-0120 <span class="comment">%</span>
-0121 <span class="comment">%   % try to start fast pre-compiled workers (instead of entire MATLAB sessions); note that the</span>
-0122 <span class="comment">%   % startup command is this time a UNIX shell command which CD's into the directory where the run_build.sh is located</span>
-0123 <span class="comment">%   par_getworkers_ssh('hostnames', {'machine1','machine2','machine3'}, 'binary_worker',true, 'startup_command','cd path/to/bcilab/build/distrib')</span>
+0106 <span class="comment">% Examples:</span>
+0107 <span class="comment">%   % acquire workers on the three hosts (assuming bcilab is in the same file-system location remotely as here)</span>
+0108 <span class="comment">%   par_getworkers_ssh({'machine1','machine2','machine3'})</span>
+0109 <span class="comment">%</span>
+0110 <span class="comment">%   % try to start fast pre-compiled workers (assuming bcilab is in the same file-system location remotely as here)</span>
+0111 <span class="comment">%   par_getworkers_ssh('hostnames', {'machine1','machine2','machine3'}, 'binary_worker',true)</span>
+0112 <span class="comment">%</span>
+0113 <span class="comment">%   % MATLAB version again, also setting a custom logging path</span>
+0114 <span class="comment">%   par_getworkers_ssh('hostnames', {'machine1','machine2','machine3'}, 'logging_path','/home/christian/workerlogs/')</span>
+0115 <span class="comment">%</span>
+0116 <span class="comment">%   % like before, but this time only consider machines that have at least 8GB of free RAM and at most 10% CPU load</span>
+0117 <span class="comment">%   par_getworkers_ssh('hostnames', {'machine1','machine2','machine3'}, 'logging_path','/home/christian/workerlogs/', 'min_memory',2^33, 'max_cpuload',0.1)</span>
+0118 <span class="comment">%</span>
+0119 <span class="comment">%   % like before, but measuring the CPU load within the last minute (instead to 15 minutes)</span>
+0120 <span class="comment">%   par_getworkers_ssh('hostnames', {'machine1','machine2','machine3'}, 'logging_path','/home/christian/workerlogs/', 'min_memory',2^33, 'max_cpuload',0.1, 'load_window',1)</span>
+0121 <span class="comment">%</span>
+0122 <span class="comment">%   % acquire workers on the three hosts, this time using a custom startup command (the %d is where the port goes)</span>
+0123 <span class="comment">%   par_getworkers_ssh('hostnames', {'machine1','machine2','machine3'},'startup_command','cd path/to/bcilab/; bcilab(''myconfig'',''worker'',{%d,1}')</span>
 0124 <span class="comment">%</span>
-0125 <span class="comment">% See also:</span>
-0126 <span class="comment">%   par_worker</span>
-0127 <span class="comment">%</span>
-0128 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0129 <span class="comment">%                                2011-02-15</span>
-0130 
-0131 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2011, christian@sccn.ucsd.edu</span>
-0132 <span class="comment">%</span>
-0133 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
-0134 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
-0135 <span class="comment">% License, or (at your option) any later version.</span>
+0125 <span class="comment">%   % try to start fast pre-compiled workers (instead of entire MATLAB sessions); note that the</span>
+0126 <span class="comment">%   % startup command is this time a UNIX shell command which CD's into the directory where the run_build.sh is located</span>
+0127 <span class="comment">%   par_getworkers_ssh('hostnames', {'machine1','machine2','machine3'}, 'binary_worker',true, 'startup_command','cd path/to/bcilab/build/distrib')</span>
+0128 <span class="comment">%</span>
+0129 <span class="comment">% See also:</span>
+0130 <span class="comment">%   par_worker</span>
+0131 <span class="comment">%</span>
+0132 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0133 <span class="comment">%                                2011-02-15</span>
+0134 
+0135 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2011, christian@sccn.ucsd.edu</span>
 0136 <span class="comment">%</span>
-0137 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
-0138 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
-0139 <span class="comment">% General Public License for more details.</span>
+0137 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0138 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0139 <span class="comment">% License, or (at your option) any later version.</span>
 0140 <span class="comment">%</span>
-0141 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
-0142 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
-0143 <span class="comment">% USA</span>
-0144 
-0145 <span class="keyword">global</span> tracking;
-0146 
-0147 arg_define(varargin,<span class="keyword">...</span>
-0148     arg({<span class="string">'hostnames'</span>,<span class="string">'Hostnames'</span>},{<span class="string">''</span>},[],<span class="string">'Host names to acquire. Host names or IP addresses of machines on which to consider starting workers. If this is left empty, the current global worker pool will be used.'</span>), <span class="keyword">...</span>
-0149     arg({<span class="string">'processors_per_node'</span>,<span class="string">'ProcessorsPerNode'</span>},0,[],<span class="string">'Processors per node. A value of 0 means that as many processors as there are cores on each node shall be used, but divided by the value of the &quot;matlabthreads&quot; (Number of MATLAB threads) parameter.'</span>), <span class="keyword">...</span>
-0150     arg({<span class="string">'matlabthreads'</span>,<span class="string">'MatlabThreads'</span>},4,[],<span class="string">'Number of MATLAB threads. This is the number of threads that each worker uses internally.'</span>), <span class="keyword">...</span>
-0151     arg({<span class="string">'startup_prefix'</span>,<span class="string">'StartupPrefix'</span>},<span class="string">''</span>,[], <span class="string">'Startup prefix. Any startup lines to run before running the main BCILAB command.'</span>),<span class="keyword">...</span>
-0152     arg({<span class="string">'startup_command'</span>,<span class="string">'StartupCommand'</span>},<span class="string">'autogenerate'</span>,[], <span class="string">'Startup command. If the binary_worker parameter (Use compiled workers) is true, this is a sequence of shell commands, otherwise it is a sequence of MATLAB statements which contain the placeholder %d where the TCP port # would be inserted; If set to ''autogenerate'', a startup command specific to the current BCILAB environment will be generated.'</span>),<span class="keyword">...</span>
-0153     arg({<span class="string">'share_resources'</span>,<span class="string">'ShareResources'</span>},true,[],<span class="string">'Share resources. Whether workers that are already running (started by other users) will be returned as part of the worker set, and are thus potentially shared with other users. If false, the requested number of workers will always be started and be private to the requester -- however, potentially over-subscribing the capacity of the node.'</span>),<span class="keyword">...</span>
-0154     arg({<span class="string">'sharing_port'</span>,<span class="string">'SharingPort'</span>},0, [], <span class="string">'Port for sharing. The lowest port used by shared workers -- if 0, this is computed based on the startup_command (recommended).'</span>), <span class="keyword">...</span>
-0155     arg({<span class="string">'logging_path'</span>,<span class="string">'LoggingPath'</span>},env_translatepath(<span class="string">'home:/.bcilab/logs/workers'</span>), [], <span class="string">'Logging path. Make sure that this does not conflict with other users'' log paths.'</span>), <span class="keyword">...</span>
-0156     arg({<span class="string">'identity_file'</span>,<span class="string">'IdentityFile'</span>},<span class="string">''</span>, [], <span class="string">'SSH identity file. Optional, if needed for passwordless login. This corresponds to the -i option in ssh.'</span>), <span class="keyword">...</span>
-0157     arg({<span class="string">'binary_worker'</span>,<span class="string">'BinaryWorker'</span>},false,[], <span class="string">'Use compiled workers. Whether to start a given binary worker implementation rather than the MATLAB worker.'</span>), <span class="keyword">...</span>
-0158     arg({<span class="string">'binary_name'</span>,<span class="string">'BinaryName'</span>},<span class="string">'build'</span>, [], <span class="string">'Name of the binary. The name of the BCILAB binary (if using compiled workers).'</span>), <span class="keyword">...</span>
-0159     arg({<span class="string">'matlab_command'</span>,<span class="string">'MATLABCommand'</span>},<span class="string">'matlab'</span>, [], <span class="string">'Command to start MATLAB. This is the command to run on the command line to start the desired version of MATLAB.'</span>), <span class="keyword">...</span>
-0160     arg({<span class="string">'mcr_root'</span>,<span class="string">'MatlabCompilerRoot'</span>},<span class="string">''</span>, [], <span class="string">'MATLAB Compiler directory. Installation path of the MATLAB compiler runtime; if empty, a few locations will be searched for an MCR that corresponds to the MATLAB version that is running this function (this assumes that the compiler is installed in the same directory remotely as it is locally). If nothing is found, it is assumed that the MCR has been installed into the system path and is found automatically.'</span>), <span class="keyword">...</span>
-0161     arg({<span class="string">'min_memory'</span>,<span class="string">'MinFreeMemory'</span>},2^32,[], <span class="string">'Minimum free memory. Minimum amount of RAM memory (in bytes) that needs to be available for an instance to be started.'</span>),<span class="keyword">...</span>
-0162     arg({<span class="string">'max_cpuload'</span>,<span class="string">'MaxCPULoad'</span>},Inf, [], <span class="string">'Maximum CPU load. The maximum acceptable average CPU load (summed over all cores) for a node to be considered.'</span>), <span class="keyword">...</span>
-0163     arg({<span class="string">'load_window'</span>,<span class="string">'LoadWindow'</span>},15,[],<span class="string">'Load estimation window. The time window in seconds (into the past) over which the CPU load will be estimated to determine whether a worker shall be started on a given node.'</span>), <span class="keyword">...</span>
-0164     arg({<span class="string">'avoid_proc'</span>,<span class="string">'AvoidProcess'</span>},<span class="string">'avoidme'</span>,[],<span class="string">'Process to avoid. Optionally a process name that indicates that no workers shall be spawned if the process is running on some machine (e.g. a time-critical computation).'</span>),<span class="keyword">...</span>
-0165     arg({<span class="string">'shutdown_timeout'</span>,<span class="string">'ShutdownTimeout'</span>},0,[],<span class="string">'Shutdown timeout. If non-zero, the worker will be shut down if it has not received a heartbeat signal from a client in the given time frame.'</span>),<span class="keyword">...</span>
-0166     arg({<span class="string">'recruit_machines'</span>,<span class="string">'RecruitMachines'</span>},true,[],<span class="string">'Recruit workers. Whether to actually recruit other machines, rather than just list them.'</span>), <span class="keyword">...</span>
-0167     arg({<span class="string">'verbose_output'</span>,<span class="string">'VerboseOutput'</span>},true, [], <span class="string">'Verbose output. Whether to display information about the acquisition process.'</span>));
-0168 
-0169 
-0170 <span class="keyword">if</span> isempty(hostnames) || isequal(hostnames,{<span class="string">''</span>})
-0171     hostnames = <a href="par_globalpool.html" class="code" title="function res = par_globalpool(pool)">par_globalpool</a>; <span class="keyword">end</span>
-0172 
-0173 <span class="keyword">if</span> isempty(hostnames)
-0174     disp(<span class="string">'The list of hostnames to connect to is empty; exiting.'</span>);
-0175     <span class="keyword">return</span>;
-0176 <span class="keyword">end</span>
-0177 
-0178 <span class="keyword">if</span> ispc
-0179     disp(<span class="string">'Note: Acquiring workers from BCILAB will only work if your operating system provides an ''ssh'' command. From a Windows machine, you likely have to have some program installed to use this feature. Also note that your cluster needs to run Linux for this to work.'</span>); 
-0180     disp(<span class="string">'You can always fall back to starting your worker processes (either as MATLAB instances or compiled binaries) by hand and listing their host:port''s in the worker pool (see Cluster Settings GUI).'</span>); 
-0181 <span class="keyword">end</span>
-0182 
-0183 <span class="keyword">if</span> isempty(mcr_root)
-0184     mcr_root = <span class="string">''</span>; <span class="keyword">end</span>
-0185 <span class="keyword">if</span> isempty(identity_file)
-0186     identity_file = <span class="string">''</span>; <span class="keyword">end</span>
-0187 
-0188 <span class="comment">% sanity checks</span>
-0189 <span class="keyword">if</span> ~iscellstr(hostnames)
-0190     error(<span class="string">'The hostnames must be given as a cell array of strings.'</span>); <span class="keyword">end</span>
-0191 <span class="keyword">if</span> ~isscalar(processors_per_node) || ~isnumeric(processors_per_node)
-0192     error(<span class="string">'The processors_per_node parameter must be given as a number.'</span>); <span class="keyword">end</span>
-0193 <span class="keyword">if</span> ~islogical(share_resources)
-0194     error(<span class="string">'The share_resources parameter must be either true or false.'</span>); <span class="keyword">end</span>
-0195 <span class="keyword">if</span> ~isscalar(sharing_port) || ~isnumeric(sharing_port)
-0196     error(<span class="string">'The sharing_port parameter must be given as a number.'</span>); <span class="keyword">end</span>
-0197 <span class="keyword">if</span> ~ischar(logging_path)
-0198     error(<span class="string">'The logging_path parameter must be given as a string.'</span>); <span class="keyword">end</span>
-0199 <span class="keyword">if</span> ~isempty(startup_prefix) &amp;&amp; ~ischar(startup_prefix)
-0200     error(<span class="string">'The startup_prefix parameter must be given as a string.'</span>); <span class="keyword">end</span>
-0201 <span class="keyword">if</span> ~ischar(startup_command)
-0202     error(<span class="string">'The startup_command parameter must be given as a string.'</span>); <span class="keyword">end</span>
-0203 <span class="keyword">if</span> ~islogical(binary_worker)
-0204     error(<span class="string">'The binary_worker flag must be either true or false.'</span>); <span class="keyword">end</span>
-0205 <span class="keyword">if</span> ~ischar(mcr_root)
-0206     error(<span class="string">'The mcr_root parameter must be given as a string.'</span>); <span class="keyword">end</span>
-0207 <span class="keyword">if</span> ~ischar(identity_file)
-0208     error(<span class="string">'The identity_file parameter must be given as a string.'</span>); <span class="keyword">end</span>
-0209 <span class="keyword">if</span> ~isscalar(max_cpuload) || ~isnumeric(max_cpuload)
-0210     error(<span class="string">'The max_cpuload parameter must be given as a number.'</span>); <span class="keyword">end</span>
-0211 <span class="keyword">if</span> ~isscalar(min_memory) || ~isnumeric(min_memory)
-0212     error(<span class="string">'The min_memory parameter must be given as a number.'</span>); <span class="keyword">end</span>
-0213 <span class="keyword">if</span> ~isscalar(load_window) || ~isnumeric(load_window)
-0214     error(<span class="string">'The load_window parameter must be given as a number.'</span>); <span class="keyword">end</span>
-0215 <span class="keyword">if</span> ~isscalar(shutdown_timeout) || ~isnumeric(shutdown_timeout)
-0216     error(<span class="string">'The shutdown_timeout parameter must be given as a number.'</span>); <span class="keyword">end</span>
-0217 <span class="keyword">if</span> ~isempty(identity_file)
-0218     identity_file = [<span class="string">'-i '</span> identity_file]; <span class="keyword">end</span>
-0219 window_remap = [1 1 1 2 2 2 2 2 2 2 3 3 3 3 3];
-0220 load_window = window_remap(min(load_window,15));
-0221 
-0222 <span class="comment">% generate in the bcilab-specific startup command</span>
-0223 <span class="keyword">if</span> strcmp(startup_command,<span class="string">'autogenerate'</span>)
-0224     <span class="keyword">if</span> binary_worker
-0225         startup_command = sprintf(<span class="string">'cd %s'</span>,env_translatepath(<span class="string">'bcilab:/build/distrib'</span>)); 
-0226     <span class="keyword">else</span>
-0227         startup_command = sprintf(<span class="string">'%s; cd %s; bcilab %s worker {%s,1,%d} parallel {}'</span>,startup_prefix, env_translatepath(<span class="string">'bcilab:/'</span>), tracking.configscript,<span class="string">'%d'</span>,shutdown_timeout); 
-0228     <span class="keyword">end</span>
-0229 <span class="keyword">end</span>
-0230 
-0231 <span class="comment">% use a port that depends on the startup command for sharing resources</span>
-0232 <span class="keyword">if</span> sharing_port == 0
-0233     sharing_port = 10000 + mod(23457+hlp_fingerprint(startup_command),50000); <span class="keyword">end</span>
-0234 
-0235 <span class="comment">% remove any port assignments</span>
-0236 <span class="keyword">for</span> i=1:length(hostnames)
-0237     colons = hostnames{i}==<span class="string">':'</span>;
-0238     <span class="keyword">if</span> any(colons)
-0239         hostnames{i} = hostnames{i}(1:find(colons)-1); <span class="keyword">end</span>
-0240 <span class="keyword">end</span>
-0241 <span class="comment">% remove duplicates</span>
-0242 hostnames = unique(hostnames);
-0243 
-0244 
-0245 <span class="comment">% filter hostnames by machine availability, and retrieve machine stats</span>
-0246 disp(<span class="string">'Listing compute servers ...'</span>);
-0247 stats = [];
-0248 <span class="keyword">for</span> host = hostnames(:)'    
-0249     <span class="comment">% collect system info</span>
-0250     [status,info] = system(sprintf(<span class="string">'ssh %s -x %s &quot;cat /proc/cpuinfo | grep ^processor | wc -l; cat /proc/loadavg; ps -A | grep ''%s'' | wc -l; cat /proc/meminfo | grep ^MemFree&quot;'</span>,identity_file,host{1},avoid_proc));
-0251     <span class="keyword">if</span> ~status
-0252         <span class="keyword">try</span>
-0253             <span class="comment">% parse info</span>
-0254             lines = hlp_split(info,10);
-0255             loadavg = hlp_split(lines{2},<span class="string">' '</span>);
-0256             meminfo = hlp_split(lines{4},<span class="string">': '</span>);
-0257             <span class="comment">% store stats</span>
-0258             stats(end+1).hostname = host{1};
-0259             <span class="keyword">try</span>                
-0260                 stats(end).processors = str2num(lines{1});
-0261             <span class="keyword">catch</span>
-0262                 stats(end).processors = 4;
-0263             <span class="keyword">end</span>
-0264             <span class="keyword">try</span>
-0265                 stats(end).cpuload = str2num(loadavg{load_window});
-0266             <span class="keyword">catch</span>
-0267                 stats(end).cpuload = 0;
-0268             <span class="keyword">end</span>
-0269             <span class="keyword">try</span>
-0270                 stats(end).freemem = 1024*str2num(meminfo{2});
-0271             <span class="keyword">catch</span>
-0272                 stats(end).freemem = Inf;
-0273             <span class="keyword">end</span>
-0274             <span class="keyword">try</span>
-0275                 stats(end).avoidance = str2num(lines{3});
-0276                 <span class="keyword">if</span> ~isscalar(stats(end).avoidance)
-0277                     stats(end).avoidance = 0; <span class="keyword">end</span>
-0278             <span class="keyword">catch</span>
-0279                 stats(end).avoidance = 0;
-0280             <span class="keyword">end</span>
-0281         <span class="keyword">catch</span>,<span class="keyword">end</span>
-0282     <span class="keyword">end</span>
-0283 <span class="keyword">end</span>
-0284 
-0285 <span class="comment">% start workers if necessary</span>
-0286 pool = {};
-0287 <span class="keyword">if</span> ~isempty(stats)
-0288     fprintf(<span class="string">'%.0f%% of requested hosts are available.\n'</span>,100*length(stats)/length(hostnames));
-0289     
-0290     <span class="comment">% reorder nodes by increasing CPU load</span>
-0291     [dummy,idx] = sort([stats.cpuload]); <span class="comment">%#ok&lt;ASGLU&gt;</span>
-0292     stats = stats(idx);
-0293     hostnames = {stats.hostname};
-0294     
-0295     <span class="comment">% start the workers...</span>
-0296     <span class="keyword">for</span> k = 1:length(hostnames)
-0297         host = hostnames{k};
-0298         <span class="comment">% check CPU load criterion</span>
-0299         <span class="keyword">if</span> stats(k).cpuload &gt; max_cpuload
-0300             <span class="keyword">continue</span>; <span class="keyword">end</span>
-0301         <span class="comment">% check avoid criterion</span>
-0302         <span class="keyword">if</span> stats(k).avoidance
-0303             <span class="keyword">continue</span>; <span class="keyword">end</span>
-0304         <span class="comment">% determine number of ports (=procs) to consider</span>
-0305         <span class="keyword">if</span> processors_per_node == 0
-0306             <span class="comment">% as many as there are cores</span>
-0307             rangelen = ceil(stats(k).processors/matlabthreads);
-0308         <span class="keyword">else</span>
-0309             <span class="comment">% at most 4x as many as (#cores/#matlabthreads)</span>
-0310             <span class="keyword">if</span> ~isempty(stats(k).processors) &amp;&amp; stats(k).processors &gt; 0
-0311                 rangelen = min(ceil(stats(k).processors/matlabthreads)*4,processors_per_node);
-0312             <span class="keyword">else</span>
-0313                 rangelen = processors_per_node;
-0314             <span class="keyword">end</span>
-0315         <span class="keyword">end</span>
-0316         <span class="comment">% determine starting port range to consider</span>
-0317         <span class="keyword">if</span> share_resources
-0318             <span class="comment">% the worker process may be shared between users</span>
-0319             rangestart = sharing_port;
-0320         <span class="keyword">else</span>
-0321             <span class="keyword">while</span> true
-0322                 <span class="comment">% chose a random start port that does not overlap with the share port in a range of</span>
-0323                 <span class="comment">% 512 successive ports</span>
-0324                 rangestart = 10000+50000*rand();
-0325                 <span class="keyword">if</span> isempty(intersect(rangestart:rangestart+512-1,sharing_port:sharing_port+512-1))
-0326                     <span class="keyword">break</span>; <span class="keyword">end</span>
-0327             <span class="keyword">end</span>
-0328         <span class="keyword">end</span>
-0329         
-0330         <span class="comment">% try to start them...</span>
-0331         <span class="keyword">for</span> port=rangestart:rangestart+rangelen-1
-0332             <span class="keyword">if</span> verbose_output
-0333                 fprintf(<span class="string">'  acquiring worker at %s on port %d...\n'</span>, host, port); <span class="keyword">end</span>
-0334             <span class="comment">% construct command</span>
-0335             <span class="keyword">if</span> isempty(logging_path)
-0336                 logportion = <span class="string">''</span>;
-0337             <span class="keyword">else</span>
-0338                 logportion = sprintf(<span class="string">' &gt; %s/%s_%d.out'</span>,logging_path,host,port);
-0339             <span class="keyword">end</span>
-0340             <span class="keyword">if</span> binary_worker
-0341                 <span class="keyword">if</span> isempty(mcr_root)
-0342                     <span class="comment">% search it</span>
-0343                     [major,minor] = mcrversion;
-0344                     mcr_tail = sprintf([filesep <span class="string">'MATLAB_Compiler_Runtime'</span> filesep <span class="string">'v%d%d'</span>],major,minor);
-0345                     possible_locations = {<span class="string">'/opt/MATLAB'</span>,<span class="string">'/usr/local/MATLAB'</span>,<span class="string">'/usr/common/MATLAB'</span>,hlp_homedir,[hlp_homedir filesep <span class="string">'MATLAB'</span>],<span class="string">'C:\\Program Files\\MATLAB'</span>,<span class="string">'C:\\Program Files (x86)\\MATLAB'</span>,<span class="string">'/Applications/MATLAB/'</span>};
-0346                     <span class="keyword">for</span> p=1:length(possible_locations)
-0347                         <span class="keyword">if</span> exist([possible_locations{p} mcr_tail],<span class="string">'dir'</span>)
-0348                             mcr_root = [possible_locations{p} mcr_tail]; <span class="keyword">end</span>
-0349                     <span class="keyword">end</span>
-0350                     <span class="keyword">if</span> isempty(mcr_root)
-0351                         fprintf(<span class="string">'MATLAB compiler runtime v%d%d not found; if you get an error subsequently, please make sure that it is installed in a recognized location (or pass the mcr_root as an acquire options).\n'</span>,major,minor); <span class="keyword">end</span>
-0352                 <span class="keyword">end</span>
-0353                 <span class="keyword">if</span> isempty(mcr_root)
-0354                     <span class="comment">% assume that the binary finds all necessary MCR files</span>
-0355                     command = [<span class="string">'ssh '</span> identity_file <span class="string">' -x '</span> host <span class="string">'  &quot;'</span> startup_command <span class="string">'; ./'</span> binary_name <span class="string">' worker ''{'</span> num2str(port) <span class="string">',1,'</span> num2str(shutdown_timeout) <span class="string">'}'' parallel {} '</span> logportion <span class="string">'&quot; &amp;'</span>];
-0356                 <span class="keyword">else</span>
-0357                     <span class="comment">% use the run script to point to the correct MCR install location</span>
-0358                     command = [<span class="string">'ssh '</span> identity_file <span class="string">' -x '</span> host <span class="string">' &quot;'</span> startup_command <span class="string">'; ./run_'</span> binary_name <span class="string">'.sh '</span> mcr_root <span class="string">' worker ''{'</span> num2str(port) <span class="string">',1,'</span> num2str(shutdown_timeout) <span class="string">'}'' parallel {} '</span> logportion <span class="string">'&quot; &amp;'</span>];
-0359                 <span class="keyword">end</span>
-0360             <span class="keyword">else</span>
-0361                 <span class="comment">% run the MATLAB startup command (and substitute the port into it)</span>
-0362                 command = sprintf(<span class="string">'ssh %s -x %s &quot;%s -nodisplay -r ''%s''%s&quot; &amp;'</span>, <span class="keyword">...</span>
-0363                     identity_file, host, matlab_command, sprintf(startup_command,port),logportion);
-0364             <span class="keyword">end</span>
-0365             <span class="comment">% issue startup command, if necessary</span>
-0366             <span class="keyword">if</span> recruit_machines &amp;&amp; <a href="#_sub1" class="code" title="subfunction result = port_free(host,port)">port_free</a>(host,port)
-0367                 <span class="comment">% port free: check for memory criterion</span>
-0368                 <span class="keyword">if</span> stats(k).freemem &gt; min_memory
-0369                     <span class="comment">% start, and add to pool</span>
-0370                     system(command);
-0371                     stats(k).freemem = stats(k).freemem - min_memory;
-0372                     pool{end+1} = sprintf(<span class="string">'%s:%d'</span>,host,port);
-0373                 <span class="keyword">end</span>
-0374             <span class="keyword">else</span>
-0375                 <span class="comment">% worker is already running: add to pool</span>
-0376                 pool{end+1} = sprintf(<span class="string">'%s:%d'</span>,host,port);
-0377             <span class="keyword">end</span>
-0378         <span class="keyword">end</span>
-0379     <span class="keyword">end</span>    
-0380     fprintf(<span class="string">'%i processor slots acquired.\n'</span>,length(pool));
-0381 <span class="keyword">else</span>
-0382     disp(<span class="string">'None of the listed machines is available; please make sure that:'</span>);
-0383     disp(<span class="string">' * you can ssh into these machines without a password prompt&quot;'</span>); 
-0384     disp(<span class="string">' * the files /proc/cpuinfo, /proc/meminfo, and /proc/loadavg are available on them&quot;'</span>); 
-0385     disp(<span class="string">' * the commands ps, cat, grep, and wc are working on them&quot;'</span>); 
-0386 <span class="keyword">end</span>
-0387 
-0388 <span class="keyword">if</span> nargout == 0
-0389     <span class="comment">% assign to global variable, if necessary...</span>
-0390     tracking.parallel.pool = pool(:)';
-0391 <span class="keyword">end</span>
-0392 
-0393 
-0394 <span class="comment">% check whether the given port on the specified host is free</span>
-0395 <a name="_sub1" href="#_subfunctions" class="code">function result = port_free(host,port)</a>
-0396 <span class="keyword">try</span>
-0397     java.net.Socket(host,port);
-0398     result = false;
-0399 <span class="keyword">catch</span>
-0400     result = true;
-0401 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0141 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0142 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0143 <span class="comment">% General Public License for more details.</span>
+0144 <span class="comment">%</span>
+0145 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0146 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0147 <span class="comment">% USA</span>
+0148 
+0149 <span class="keyword">global</span> tracking;
+0150 
+0151 opts = arg_define(varargin,<span class="keyword">...</span>
+0152     <span class="keyword">...</span><span class="comment"> % resources to acquire</span>
+0153     arg({<span class="string">'hostnames'</span>,<span class="string">'Hostnames'</span>},{<span class="string">''</span>},[],<span class="string">'Host names to acquire. Host names or IP addresses of machines on which to consider starting workers. If this is left empty, the current global worker pool will be used.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0154     arg({<span class="string">'processors_per_node'</span>,<span class="string">'WorkersPerNode'</span>,<span class="string">'ProcessorsPerNode'</span>},4,uint32([1 1024]),<span class="string">'Workers per node. A value of 0 means that as many instances as there are cores on each node shall be used, but divided by the value of the &quot;matlabthreads&quot; (Number of MATLAB threads) parameter.'</span>), <span class="keyword">...</span>
+0155     arg({<span class="string">'matlabthreads'</span>,<span class="string">'MatlabThreads'</span>,<span class="string">'matlab_threads'</span>},4,uint32([1 32]),<span class="string">'Number of MATLAB threads. This is the number of threads that each worker uses internally.'</span>), <span class="keyword">...</span>
+0156     <span class="keyword">...</span><span class="comment"> % SSH command</span>
+0157     arg({<span class="string">'identity_file'</span>,<span class="string">'IdentityFile'</span>},<span class="string">''</span>, [], <span class="string">'SSH identity file. Optional, if needed for passwordless login. This corresponds to the -i option in ssh.'</span>), <span class="keyword">...</span>
+0158     <span class="keyword">...</span><span class="comment"> % startup commands within MATLAB</span>
+0159     arg({<span class="string">'matlab_command'</span>,<span class="string">'MATLABCommand'</span>},<span class="string">'autogenerate'</span>, [], <span class="string">'Command to start MATLAB. This is the command to run on the command line to start the desired version of MATLAB. If this is set to ''autogenerate'' the same path that runs the par_getworkers_ssh command will be used (useful on clusters with identical file systems).'</span>), <span class="keyword">...</span>
+0160     arg({<span class="string">'startup_prefix'</span>,<span class="string">'StartupPrefix'</span>},<span class="string">''</span>,[], <span class="string">'Startup prefix. Any startup lines to run before running the main BCILAB command.'</span>),<span class="keyword">...</span>
+0161     arg({<span class="string">'startup_command'</span>,<span class="string">'StartupCommand'</span>},<span class="string">'autogenerate'</span>,[], <span class="string">'Startup command. If the binary_worker parameter (Use compiled workers) is true, this is a sequence of shell commands, otherwise it is a sequence of MATLAB statements which contain the placeholder %d where the TCP port # would be inserted; If set to ''autogenerate'', a startup command specific to the current BCILAB environment will be generated.'</span>),<span class="keyword">...</span>
+0162     <span class="keyword">...</span><span class="comment"> % binary commands for compiled workers</span>
+0163     arg({<span class="string">'binary_worker'</span>,<span class="string">'BinaryWorker'</span>},false,[], <span class="string">'Use compiled workers. Whether to start a given binary worker implementation rather than the MATLAB worker.'</span>), <span class="keyword">...</span>
+0164     arg({<span class="string">'mcr_root'</span>,<span class="string">'MatlabCompilerRoot'</span>},<span class="string">''</span>, [], <span class="string">'MATLAB Compiler directory. Installation path of the MATLAB compiler runtime; if empty, a few locations will be searched for an MCR that corresponds to the MATLAB version that is running this function (this assumes that the compiler is installed in the same directory remotely as it is locally). If nothing is found, it is assumed that the MCR has been installed into the system path and is found automatically.'</span>), <span class="keyword">...</span>
+0165     arg({<span class="string">'binary_name'</span>,<span class="string">'BinaryName'</span>},<span class="string">'build'</span>, [], <span class="string">'Name of the binary. The name of the BCILAB binary (if using compiled workers).'</span>), <span class="keyword">...</span>
+0166     <span class="keyword">...</span><span class="comment"> % port allocation</span>
+0167     arg({<span class="string">'share_resources'</span>,<span class="string">'ShareResources'</span>},true,[],<span class="string">'Share resources. Whether workers that are already running (started by other users) will be returned as part of the worker set, and are thus potentially shared with other users. If false, the requested number of workers will always be started and be private to the requester -- however, potentially over-subscribing the capacity of the node.'</span>),<span class="keyword">...</span>
+0168     arg({<span class="string">'sharing_port'</span>,<span class="string">'SharingPort'</span>},0, uint32([0 65535]), <span class="string">'Port for sharing. The lowest port used by shared workers -- if 0, this is computed based on the startup_command (recommended).'</span>), <span class="keyword">...</span>
+0169     <span class="keyword">...</span><span class="comment"> % worker status and logging</span>
+0170     arg({<span class="string">'logging_path'</span>,<span class="string">'LoggingPath'</span>},env_translatepath(<span class="string">'home:/.bcilab/logs/workers'</span>), [], <span class="string">'Logging path. Make sure that this does not conflict with other users'' log paths.'</span>), <span class="keyword">...</span>
+0171     arg({<span class="string">'verbose_output'</span>,<span class="string">'VerboseOutput'</span>},true, [], <span class="string">'Verbose output. Whether to display information about the acquisition process.'</span>), <span class="keyword">...</span>
+0172     arg({<span class="string">'processors_command'</span>,<span class="string">'NumProcessorsCommand'</span>},<span class="string">'cat /proc/cpuinfo | grep ^processor | wc -l;'</span>, [], <span class="string">'Processor-check command. This command should return the number of processors on a given worker machine.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0173     arg({<span class="string">'cpuload_command'</span>,<span class="string">'CPULoadCommand'</span>},<span class="string">'cat /proc/loadavg;'</span>, [], <span class="string">'CPU-load command. This command should generate CPU load statistics.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0174     arg({<span class="string">'memfree_command'</span>,<span class="string">'MemCheckCommand'</span>},<span class="string">'cat /proc/meminfo | grep ^MemFree;'</span>, [], <span class="string">'Avoidance-check command. This command should return the amount of free RAM on the given worker machine.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0175     arg({<span class="string">'avoidcheck_command'</span>,<span class="string">'AvoidanceCheckCommand'</span>},<span class="string">'ps -A | grep ''%s'' | wc -l;'</span>, [], <span class="string">'Avoidance-check command. This command should return the number of processes on a given client to avoid (based on a regex pattern).'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span><span class="comment">    </span>
+0176     <span class="keyword">...</span><span class="comment"> % sanity checks</span>
+0177     arg({<span class="string">'sanity_checks'</span>,<span class="string">'SanityChecks'</span>},true, [], <span class="string">'Perform sanity checks. This checks whether the necessary paths are present on the worker machines, etc.'</span>), <span class="keyword">...</span>
+0178     arg({<span class="string">'path_exists_command'</span>,<span class="string">'PathExistsCommand'</span>},<span class="string">'ls %s;'</span>, [], <span class="string">'Path-check command. This command should return success if the path exists, and otherwise yield an error return value.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span><span class="comment">   </span>
+0179     arg({<span class="string">'binary_exists_command'</span>,<span class="string">'BinaryExistsCommand'</span>},<span class="string">'which %s;'</span>, [], <span class="string">'Binary-check command. This command should return success if the binary exists, and otherwise yield an error return value.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span><span class="comment">   </span>
+0180     <span class="keyword">...</span><span class="comment"> % exclusion criteria</span>
+0181     arg({<span class="string">'min_memory'</span>,<span class="string">'MinFreeMemory'</span>},2^32,[0 Inf], <span class="string">'Minimum free memory. Minimum amount of RAM memory (in bytes) that needs to be available for an instance to be started.'</span>),<span class="keyword">...</span>
+0182     arg({<span class="string">'max_cpuload'</span>,<span class="string">'MaxCPULoad'</span>},Inf, [0 Inf], <span class="string">'Maximum CPU load. The maximum acceptable average CPU load (summed over all cores) for a node to be considered.'</span>), <span class="keyword">...</span>
+0183     arg({<span class="string">'load_window'</span>,<span class="string">'LoadWindow'</span>},15,[0 Inf],<span class="string">'Load estimation window. The time window in seconds (into the past) over which the CPU load will be estimated to determine whether a worker shall be started on a given node.'</span>), <span class="keyword">...</span>
+0184     arg({<span class="string">'avoid_proc'</span>,<span class="string">'AvoidProcess'</span>},<span class="string">'avoidme'</span>,[],<span class="string">'Process to avoid. Optionally a process name that indicates that no workers shall be spawned if the process is running on some machine (e.g. a time-critical computation).'</span>),<span class="keyword">...</span>
+0185     arg({<span class="string">'avoid_hosts'</span>,<span class="string">'AvoidHosts'</span>},{},[],<span class="string">'Hosts to avoid. Optionally a list of hostnames to avoid.'</span>), <span class="keyword">...</span>
+0186     <span class="keyword">...</span><span class="comment"> % shutdown management</span>
+0187     arg({<span class="string">'shutdown_timeout'</span>,<span class="string">'ShutdownTimeout'</span>},0,[0 Inf],<span class="string">'Shutdown timeout. If non-zero, the worker will be shut down if it has not received a heartbeat signal from a client in the given time frame, in seconds. For this to work, the function env_acquire_cluster should be used as it sets up the heartbeat timer.'</span>),<span class="keyword">...</span>
+0188     <span class="keyword">...</span><span class="comment"> % misc</span>
+0189     arg({<span class="string">'harvest_timeout'</span>,<span class="string">'HarvestTimeout'</span>},300,[],<span class="string">'Harvesting timeout. This function will attempt to harvest process id''s from the workers until this timeout has expired (in which case the pid of straggers will not be known). Note that when multiple MATLABs try to launch simultaneously, it can take longer than normal.'</span>), <span class="keyword">...</span>
+0190     arg({<span class="string">'recruit_machines'</span>,<span class="string">'RecruitMachines'</span>},true,[],<span class="string">'Recruit workers. Whether to actually recruit other machines, rather than just list them.'</span>));
+0191 
+0192 <span class="comment">% no arguments were passed? bring up GUI dialog</span>
+0193 <span class="keyword">if</span> isempty(varargin)
+0194     opts = arg_guidialog;    
+0195     <span class="keyword">if</span> isempty(opts)
+0196         <span class="keyword">return</span>; <span class="keyword">end</span> <span class="comment">% -&gt; user clicked cancel</span>
+0197 <span class="keyword">end</span>
+0198 
+0199 arg_toworkspace(opts);
+0200 
+0201 <span class="keyword">if</span> ispc
+0202     disp(<span class="string">'Note: Acquiring workers from BCILAB will only work if your operating system provides an ''ssh'' command. From a Windows machine, you likely have to have some program installed to use this feature. Also note that your cluster needs to run Linux for this to work.'</span>);
+0203     disp(<span class="string">'You can always fall back to starting your worker processes (either as MATLAB instances or compiled binaries) by hand and listing their host:port''s in the worker pool (see Cluster Settings GUI).'</span>);
+0204 <span class="keyword">end</span>
+0205 
+0206 <span class="keyword">if</span> isempty(mcr_root)
+0207     mcr_root = <span class="string">''</span>; <span class="keyword">end</span>
+0208 <span class="keyword">if</span> isempty(identity_file)
+0209     identity_file = <span class="string">''</span>; <span class="keyword">end</span>
+0210 <span class="keyword">if</span> isempty(hostnames) || isequal(hostnames,{<span class="string">''</span>})
+0211     hostnames = <a href="par_globalsetting.html" class="code" title="function res = par_globalsetting(name,val)">par_globalsetting</a>(<span class="string">'pool'</span>); <span class="keyword">end</span>
+0212 
+0213 <span class="comment">% sanity checks</span>
+0214 <span class="keyword">if</span> isempty(hostnames)
+0215     disp(<span class="string">'The list of hostnames to connect to is empty; exiting.'</span>);
+0216     <span class="keyword">return</span>;
+0217 <span class="keyword">end</span>
+0218 <span class="keyword">if</span> ~iscellstr(hostnames)
+0219     error(<span class="string">'The hostnames must be given as a cell array of strings.'</span>); <span class="keyword">end</span>
+0220 <span class="keyword">if</span> ~isscalar(processors_per_node) || ~isnumeric(processors_per_node)
+0221     error(<span class="string">'The processors_per_node parameter must be given as a number.'</span>); <span class="keyword">end</span>
+0222 <span class="keyword">if</span> ~islogical(share_resources)
+0223     error(<span class="string">'The share_resources parameter must be either true or false.'</span>); <span class="keyword">end</span>
+0224 <span class="keyword">if</span> ~isscalar(sharing_port) || ~isnumeric(sharing_port)
+0225     error(<span class="string">'The sharing_port parameter must be given as a number.'</span>); <span class="keyword">end</span>
+0226 <span class="keyword">if</span> ~ischar(logging_path)
+0227     error(<span class="string">'The logging_path parameter must be given as a string.'</span>); <span class="keyword">end</span>
+0228 <span class="keyword">if</span> ~isempty(startup_prefix) &amp;&amp; ~ischar(startup_prefix)
+0229     error(<span class="string">'The startup_prefix parameter must be given as a string.'</span>); <span class="keyword">end</span>
+0230 <span class="keyword">if</span> ~ischar(startup_command)
+0231     error(<span class="string">'The startup_command parameter must be given as a string.'</span>); <span class="keyword">end</span>
+0232 <span class="keyword">if</span> ~islogical(binary_worker)
+0233     error(<span class="string">'The binary_worker flag must be either true or false.'</span>); <span class="keyword">end</span>
+0234 <span class="keyword">if</span> strcmp(matlab_command,<span class="string">'autogenerate'</span>)
+0235     matlab_command = [matlabroot filesep <span class="string">'bin'</span> filesep <span class="string">'matlab'</span>]; <span class="keyword">end</span>
+0236 <span class="keyword">if</span> ~ischar(mcr_root)
+0237     error(<span class="string">'The mcr_root parameter must be given as a string.'</span>); <span class="keyword">end</span>
+0238 <span class="keyword">if</span> ~ischar(identity_file)
+0239     error(<span class="string">'The identity_file parameter must be given as a string.'</span>); <span class="keyword">end</span>
+0240 <span class="keyword">if</span> ~isscalar(max_cpuload) || ~isnumeric(max_cpuload)
+0241     error(<span class="string">'The max_cpuload parameter must be given as a number.'</span>); <span class="keyword">end</span>
+0242 <span class="keyword">if</span> ~isscalar(min_memory) || ~isnumeric(min_memory)
+0243     error(<span class="string">'The min_memory parameter must be given as a number.'</span>); <span class="keyword">end</span>
+0244 <span class="keyword">if</span> ~isscalar(load_window) || ~isnumeric(load_window)
+0245     error(<span class="string">'The load_window parameter must be given as a number.'</span>); <span class="keyword">end</span>
+0246 <span class="keyword">if</span> ~isscalar(shutdown_timeout) || ~isnumeric(shutdown_timeout)
+0247     error(<span class="string">'The shutdown_timeout parameter must be given as a number.'</span>); <span class="keyword">end</span>
+0248 window_remap = [1 1 1 2 2 2 2 2 2 2 3 3 3 3 3];
+0249 load_window = window_remap(min(load_window,15));
+0250 <span class="keyword">if</span> ~isempty(identity_file)
+0251     identity_file = env_translatepath(identity_file);
+0252     <span class="keyword">if</span> ~exist(identity_file,<span class="string">'file'</span>)
+0253         disp_once(<span class="string">'The given SSH identitity file does not appear to exist: %s'</span>,identity_file); <span class="keyword">end</span>
+0254     identity_file = [<span class="string">'-i '</span> identity_file]; 
+0255 <span class="keyword">end</span>
+0256 <span class="keyword">if</span> ~isempty(avoidcheck_command)
+0257     avoidcheck_command = sprintf(avoidcheck_command,avoid_proc); <span class="keyword">end</span>
+0258 
+0259 <span class="comment">% give some recommendations regarding good input ranges</span>
+0260 <span class="keyword">if</span> processors_per_node &gt; 64
+0261     disp_once(<span class="string">'The WorkersPerNode setting is unusually large -- make sure that you do not use more workers than you have cores.'</span>); <span class="keyword">end</span>
+0262 <span class="keyword">if</span> matlabthreads &gt; 8
+0263     disp_once(<span class="string">'The MatlabThreads setting is relatively large; typically MATLAB wastes increasingly many CPU cycles with more than 8-16 threads (except for some very streamlined operations).'</span>); <span class="keyword">end</span>
+0264 <span class="keyword">if</span> ~exist(logging_path,<span class="string">'dir'</span>)
+0265     disp_once(<span class="string">'The logging path does not exist on the local file system; make sure that it is accessible to remote workers.'</span>); <span class="keyword">end</span>
+0266 <span class="keyword">if</span> ~isempty(mcr_root) &amp;&amp; binary_worker &amp;&amp; ~exist(mcr_root,<span class="string">'dir'</span>)
+0267     disp_once(<span class="string">'The matlab compiler root does not exist on the local file system; make sure that it is accessible to remote workers.'</span>); <span class="keyword">end</span>
+0268 <span class="keyword">if</span> min_memory &lt; (2^10 * 500)
+0269     disp_once(<span class="string">'The MinFreeMemory setting is very small; MATLAB alone often needs more than 500MB free memory to run.'</span>); <span class="keyword">end</span>
+0270 <span class="keyword">if</span> load_window &gt; 15
+0271     disp_once(<span class="string">'The LoadWindow setting is larger than what is typically tracked on Linux systems (15 minutes).'</span>); <span class="keyword">end</span>
+0272 <span class="keyword">if</span> shutdown_timeout == 0
+0273     disp_once(<span class="string">'It is recommended that a nonzero ShutdownTimeout value is used (otherwise workers can linger on forever).'</span>); <span class="keyword">end</span>
+0274 <span class="keyword">if</span> shutdown_timeout ~= 0 &amp;&amp; harvest_timeout+30 &gt; shutdown_timeout
+0275     <span class="comment">% (otherwise workers can shut themselves down before the heartbeat is being initialized</span>
+0276     disp_once(<span class="string">'The HarvestTimeout is larger than the ShutdownTimeout; increasing ShutdownTimeout.'</span>); 
+0277     shutdown_timeout = harvest_timeout+30;
+0278 <span class="keyword">end</span>
+0279 
+0280 <span class="comment">% generate in the bcilab-specific startup command</span>
+0281 <span class="keyword">if</span> strcmp(startup_command,<span class="string">'autogenerate'</span>)
+0282     <span class="keyword">if</span> binary_worker
+0283         startup_command = sprintf(<span class="string">'cd %s'</span>,env_translatepath(<span class="string">'bcilab:/build/distrib'</span>));
+0284     <span class="keyword">else</span>
+0285         startup_command = sprintf(<span class="string">'%s; cd %s; bcilab %s worker {%s,1,%d} parallel {}'</span>,startup_prefix, env_translatepath(<span class="string">'bcilab:/'</span>), tracking.configscript,<span class="string">'%d'</span>,shutdown_timeout);
+0286     <span class="keyword">end</span>
+0287 <span class="keyword">end</span>
+0288 
+0289 <span class="comment">% use a port that depends on the startup command for sharing resources</span>
+0290 <span class="keyword">if</span> sharing_port == 0
+0291     sharing_port = 10000 + mod(23457+hlp_fingerprint([matlab_command startup_command]),50000); <span class="keyword">end</span>
+0292 
+0293 <span class="comment">% remove any port assignments</span>
+0294 <span class="keyword">for</span> i=1:length(hostnames)
+0295     colons = hostnames{i}==<span class="string">':'</span>;
+0296     <span class="keyword">if</span> any(colons)
+0297         hostnames{i} = hostnames{i}(1:find(colons)-1); <span class="keyword">end</span>
+0298 <span class="keyword">end</span>
+0299 <span class="comment">% replace localhost by hlp_hostname</span>
+0300 <span class="keyword">for</span> i=1:length(hostnames)
+0301     <span class="keyword">if</span> strcmp(hostnames{i},<span class="string">'localhost'</span>)
+0302         hostnames{i} = hlp_hostname; <span class="keyword">end</span>
+0303 <span class="keyword">end</span>
+0304 <span class="comment">% remove duplicates</span>
+0305 hostnames = unique(hostnames);
+0306 
+0307 <span class="comment">% remove any host to avoid</span>
+0308 <span class="keyword">if</span> ~isempty(avoid_hosts)
+0309     <span class="keyword">for</span> h=1:length(avoid_hosts)
+0310         hostnames = hostnames(~strncmp(hostnames,avoid_hosts{h},length(avoid_hosts{h}))); <span class="keyword">end</span>
+0311 <span class="keyword">end</span>
+0312 
+0313 <span class="comment">% filter hostnames by machine availability, and retrieve machine stats</span>
+0314 disp(<span class="string">'Listing compute servers ...'</span>);
+0315 stats = [];
+0316 <span class="keyword">for</span> host = hostnames(:)'
+0317     <span class="comment">% collect system info</span>
+0318     stats_commands = [processors_command cpuload_command avoidcheck_command memfree_command];
+0319     ssh_command = sprintf(<span class="string">'ssh %s -x %s &quot;%s&quot;'</span>,identity_file,host{1},stats_commands);
+0320     [errcode,info] = system(ssh_command);
+0321     <span class="keyword">if</span> ~errcode
+0322         <span class="keyword">try</span>
+0323             <span class="comment">% parse info</span>
+0324             lines = hlp_split(info,10);
+0325             loadavg = hlp_split(lines{2},<span class="string">' '</span>);
+0326             meminfo = hlp_split(lines{4},<span class="string">': '</span>);
+0327             <span class="comment">% store stats</span>
+0328             stats(end+1).hostname = host{1};
+0329             <span class="keyword">try</span>
+0330                 stats(end).processors = str2num(lines{1});
+0331             <span class="keyword">catch</span>
+0332                 fprintf(<span class="string">'The processor-check command (%s) returns an unexpected format on host %s.\n'</span>,processors_command,host{1});
+0333                 stats(end).processors = 4;
+0334             <span class="keyword">end</span>
+0335             <span class="keyword">try</span>
+0336                 stats(end).cpuload = str2num(loadavg{load_window});
+0337             <span class="keyword">catch</span>
+0338                 fprintf(<span class="string">'The cpuload command (%s) returns an unexpected format on host %s.\n'</span>,cpuload_command,host{1});
+0339                 stats(end).cpuload = 0;
+0340             <span class="keyword">end</span>
+0341             <span class="keyword">try</span>
+0342                 stats(end).avoidance = str2num(lines{3});
+0343                 <span class="keyword">if</span> ~isscalar(stats(end).avoidance)
+0344                     stats(end).avoidance = 0; <span class="keyword">end</span>
+0345             <span class="keyword">catch</span>
+0346                 fprintf(<span class="string">'The avoid-processes command (%s) returns an unexpected format on host %s.\n'</span>,avoidcheck_command,host{1});
+0347                 stats(end).avoidance = 0;
+0348             <span class="keyword">end</span>            
+0349             <span class="keyword">try</span>
+0350                 stats(end).freemem = 1024*str2num(meminfo{2});
+0351             <span class="keyword">catch</span>
+0352                 fprintf(<span class="string">'The memory-check command (%s) returns an unexpected format on host %s.\n'</span>,memfree_command,host{1});
+0353                 stats(end).freemem = Inf;
+0354             <span class="keyword">end</span>
+0355         <span class="keyword">catch</span>
+0356             fprintf(<span class="string">'The stats command (%s) gave an error on host %s.\n'</span>,ssh_command,host{1});
+0357         <span class="keyword">end</span>
+0358     <span class="keyword">end</span>
+0359 <span class="keyword">end</span>
+0360 
+0361 
+0362 <span class="comment">% start workers if necessary</span>
+0363 pool = {};
+0364 logpaths = {};
+0365 batchid = [<span class="string">'ssh-'</span> hlp_hostname <span class="string">'-'</span> strrep(strrep(datestr(now),<span class="string">':'</span>,<span class="string">'.'</span>),<span class="string">' '</span>,<span class="string">'_'</span>)];
+0366 <span class="keyword">if</span> ~isempty(stats)
+0367     fprintf(<span class="string">'%.0f%% of requested hosts are available.\n'</span>,100*length(stats)/length(hostnames));
+0368     
+0369     <span class="comment">% reorder nodes by increasing CPU load</span>
+0370     [dummy,idx] = sort([stats.cpuload]); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0371     stats = stats(idx);
+0372     hostnames = {stats.hostname};
+0373     
+0374     <span class="comment">% start the workers...</span>
+0375     <span class="keyword">for</span> k = 1:length(hostnames)
+0376         host = hostnames{k};
+0377         <span class="comment">% check CPU load criterion</span>
+0378         <span class="keyword">if</span> stats(k).cpuload &gt; max_cpuload
+0379             <span class="keyword">continue</span>; <span class="keyword">end</span>
+0380         <span class="comment">% check avoid criterion</span>
+0381         <span class="keyword">if</span> stats(k).avoidance
+0382             <span class="keyword">continue</span>; <span class="keyword">end</span>
+0383         <span class="comment">% determine number of ports (=procs) to consider</span>
+0384         <span class="keyword">if</span> processors_per_node == 0
+0385             <span class="comment">% as many as there are cores</span>
+0386             rangelen = ceil(stats(k).processors/matlabthreads);
+0387         <span class="keyword">else</span>
+0388             <span class="comment">% at most 4x as many as (#cores/#matlabthreads)</span>
+0389             <span class="keyword">if</span> ~isempty(stats(k).processors) &amp;&amp; stats(k).processors &gt; 0
+0390                 rangelen = min(ceil(stats(k).processors/matlabthreads)*4,processors_per_node);
+0391             <span class="keyword">else</span>
+0392                 rangelen = processors_per_node;
+0393             <span class="keyword">end</span>
+0394         <span class="keyword">end</span>
+0395         <span class="comment">% determine starting port range to consider</span>
+0396         <span class="keyword">if</span> share_resources
+0397             <span class="comment">% the worker process may be shared between users</span>
+0398             rangestart = sharing_port;
+0399         <span class="keyword">else</span>
+0400             <span class="keyword">while</span> true
+0401                 <span class="comment">% chose a random start port that does not overlap with the share port in a range of</span>
+0402                 <span class="comment">% 512 successive ports</span>
+0403                 rangestart = 10000+50000*rand();
+0404                 <span class="keyword">if</span> isempty(intersect(rangestart:rangestart+512-1,sharing_port:sharing_port+512-1))
+0405                     <span class="keyword">break</span>; <span class="keyword">end</span>
+0406             <span class="keyword">end</span>
+0407         <span class="keyword">end</span>
+0408         
+0409         <span class="comment">% try to start them...</span>
+0410         <span class="keyword">for</span> port=rangestart:rangestart+rangelen-1
+0411             <span class="keyword">if</span> verbose_output
+0412                 fprintf(<span class="string">'  acquiring worker at %s on port %d...\n'</span>, host, port); <span class="keyword">end</span>
+0413             <span class="comment">% construct command</span>
+0414             <span class="keyword">if</span> isempty(logging_path)
+0415                 logportion = <span class="string">''</span>;
+0416             <span class="keyword">else</span>
+0417                 <span class="keyword">try</span>
+0418                     <span class="comment">% ensure that the logging path exists</span>
+0419                     io_mkdirs([logging_path filesep batchid filesep],{<span class="string">'+w'</span>,<span class="string">'a'</span>});
+0420                 <span class="keyword">catch</span>
+0421                     disp_once([<span class="string">'Warning: the logging path &quot;'</span> logging_path <span class="string">'&quot; does not exist locally and could not be created.\nPlease make sure that it exists on all worker machines, as otherwise the computation will not start.'</span>]);
+0422                 <span class="keyword">end</span>                
+0423                 logpath = sprintf(<span class="string">'%s/%s/%s_%d.out'</span>,logging_path,batchid,host,port);
+0424                 <span class="keyword">if</span> sanity_checks
+0425                     <span class="comment">% check whether the logging path is writable on the worker</span>
+0426                     check_command = sprintf(<span class="string">'ssh %s -x %s &quot;touch %s&quot;'</span>,identity_file,host,logpath);
+0427                     [errcode,info] = system(check_command);
+0428                     <span class="keyword">if</span> errcode
+0429                         fprintf(<span class="string">'The logging path (%s) does not appear to be writable on host %s.\n'</span>,logpath,host); <span class="keyword">end</span>
+0430                 <span class="keyword">end</span>                
+0431                 logportion = [<span class="string">' &gt; '</span> logpath];
+0432             <span class="keyword">end</span>
+0433             <span class="keyword">if</span> binary_worker
+0434                 <span class="comment">% search for MCR root path</span>
+0435                 <span class="keyword">if</span> isempty(mcr_root)
+0436                     [major,minor] = mcrversion;
+0437                     mcr_tail = sprintf([filesep <span class="string">'MATLAB_Compiler_Runtime'</span> filesep <span class="string">'v%d%d'</span>],major,minor);
+0438                     possible_locations = {<span class="string">'/opt/MATLAB'</span>,<span class="string">'/usr/local/MATLAB'</span>,<span class="string">'/usr/common/MATLAB'</span>,hlp_homedir,[hlp_homedir filesep <span class="string">'MATLAB'</span>],<span class="string">'C:\\Program Files\\MATLAB'</span>,<span class="string">'C:\\Program Files (x86)\\MATLAB'</span>,<span class="string">'/Applications/MATLAB/'</span>};
+0439                     <span class="keyword">for</span> p=1:length(possible_locations)
+0440                         <span class="keyword">if</span> exist([possible_locations{p} mcr_tail],<span class="string">'dir'</span>)
+0441                             mcr_root = [possible_locations{p} mcr_tail]; <span class="keyword">end</span>
+0442                     <span class="keyword">end</span>
+0443                     <span class="keyword">if</span> isempty(mcr_root)
+0444                         fprintf(<span class="string">'MATLAB compiler runtime v%d%d not found; if you get an error subsequently, please make sure that it is installed in a recognized location (or pass the mcr_root as an acquire options).\n'</span>,major,minor); <span class="keyword">end</span>
+0445                 <span class="keyword">end</span>
+0446                 <span class="comment">% determine the file to run</span>
+0447                 <span class="keyword">if</span> isempty(mcr_root)
+0448                     run_file = binary_name;
+0449                 <span class="keyword">else</span>
+0450                     run_file = [<span class="string">'run_'</span> binary_name <span class="string">'.sh'</span>];
+0451                 <span class="keyword">end</span>
+0452                 <span class="comment">% perform sanity checks</span>
+0453                 <span class="keyword">if</span> sanity_checks                    
+0454                     <span class="comment">% check whether the startup command works</span>
+0455                     check_command = sprintf([<span class="string">'ssh %s -x %s &quot;'</span> startup_command <span class="string">'; '</span> path_exists_command <span class="string">'&quot;'</span>],identity_file,host,run_file);
+0456                     [errcode,info] = system(check_command);
+0457                     <span class="keyword">if</span> errcode
+0458                         fprintf(<span class="string">'The worker binary path (%s) or file (%s) appear to be missing on host %s.\n'</span>,startup_command,run_file,host); <span class="keyword">end</span>
+0459                 <span class="keyword">end</span>
+0460                 <span class="keyword">if</span> isempty(mcr_root)
+0461                     <span class="comment">% assume that the binary finds all necessary MCR files</span>
+0462                     command = [<span class="string">'ssh '</span> identity_file <span class="string">' -x '</span> host <span class="string">'  &quot;'</span> startup_command <span class="string">'; ./'</span> run_file <span class="string">' worker ''{'</span> num2str(port) <span class="string">',1,'</span> num2str(shutdown_timeout) <span class="string">'}'' parallel {} '</span> logportion <span class="string">'&quot; &amp;'</span>];
+0463                 <span class="keyword">else</span>
+0464                     <span class="comment">% use the run script to point to the correct MCR install location</span>
+0465                     command = [<span class="string">'ssh '</span> identity_file <span class="string">' -x '</span> host <span class="string">' &quot;'</span> startup_command <span class="string">'; ./'</span> run_file mcr_root <span class="string">' worker ''{'</span> num2str(port) <span class="string">',1,'</span> num2str(shutdown_timeout) <span class="string">'}'' parallel {} '</span> logportion <span class="string">'&quot; &amp;'</span>];
+0466                 <span class="keyword">end</span>
+0467             <span class="keyword">else</span>
+0468                 <span class="comment">% perform sanity checks</span>
+0469                 <span class="keyword">if</span> sanity_checks
+0470                     <span class="comment">% check presence of MATLAB binary</span>
+0471                     <span class="keyword">if</span> any(matlab_command==filesep)
+0472                         test_command = path_exists_command;
+0473                     <span class="keyword">else</span>
+0474                         test_command = binary_exists_command;
+0475                     <span class="keyword">end</span>
+0476                     check_command = sprintf([<span class="string">'ssh %s -x %s &quot;'</span> test_command <span class="string">'&quot;'</span>],identity_file,host,matlab_command);
+0477                     [errcode,info] = system(check_command);
+0478                     <span class="keyword">if</span> errcode
+0479                         fprintf(<span class="string">'The MATLAB binary (%s) appears to be missing on host %s.\n'</span>,matlab_command,host); <span class="keyword">end</span>        
+0480                 <span class="keyword">end</span>
+0481                 <span class="comment">% run the MATLAB startup command (and substitute the port into it)</span>
+0482                 command = sprintf(<span class="string">'ssh %s -x %s &quot;%s -nodisplay -r ''%s''%s&quot; &amp;'</span>, <span class="keyword">...</span>
+0483                     identity_file, host, matlab_command, sprintf(startup_command,port),logportion);
+0484             <span class="keyword">end</span>
+0485             <span class="comment">% issue startup command, if necessary</span>
+0486             <span class="keyword">if</span> recruit_machines &amp;&amp; <a href="#_sub1" class="code" title="subfunction result = port_free(host,port)">port_free</a>(host,port)
+0487                 <span class="comment">% port free: check for memory criterion</span>
+0488                 <span class="keyword">if</span> stats(k).freemem &gt; min_memory
+0489                     <span class="comment">% start, and add to pool</span>
+0490                     system(command);
+0491                     logpaths{end+1} = logpath;
+0492                     stats(k).freemem = stats(k).freemem - min_memory;
+0493                     pool{end+1} = sprintf(<span class="string">'%s:%d'</span>,host,port);
+0494                 <span class="keyword">else</span>
+0495                     fprintf(<span class="string">'Host %s does not have the required amount of free memory.\n'</span>,host);
+0496                 <span class="keyword">end</span>
+0497             <span class="keyword">else</span>
+0498                 <span class="comment">% worker is already running: add to pool</span>
+0499                 pool{end+1} = sprintf(<span class="string">'%s:%d'</span>,host,port);
+0500             <span class="keyword">end</span>
+0501         <span class="keyword">end</span>
+0502     <span class="keyword">end</span>
+0503     fprintf(<span class="string">'%i processor slots acquired.\n'</span>,length(pool));
+0504     
+0505     fprintf(<span class="string">'\nWaiting for workers to start up to get process IDs...\n'</span>);
+0506     harvested_addresses = <a href="par_parse_logfiles.html" class="code" title="function harvested_addresses = par_parse_logfiles(logpaths, harvest_timeout, harvest_ips)">par_parse_logfiles</a>(logpaths, harvest_timeout);
+0507     <span class="comment">% now merge the pool into the harvested addresses (PIDs are collected opportunistically)</span>
+0508     num_matches = 0;
+0509     <span class="keyword">for</span> p=1:length(harvested_addresses)
+0510         addr = harvested_addresses{p};
+0511         pos = addr==<span class="string">'@'</span>;
+0512         <span class="keyword">if</span> any(pos)
+0513             hostport = addr(find(pos,1)+1:end);
+0514             match = strcmp(pool,hostport);
+0515             <span class="keyword">if</span> any(match)
+0516                 pool{find(match,1)} = addr; 
+0517                 num_matches = num_matches+1;
+0518             <span class="keyword">end</span> <span class="comment">%#ok&lt;AGROW&gt;</span>
+0519         <span class="keyword">end</span>
+0520     <span class="keyword">end</span>
+0521     <span class="keyword">if</span> num_matches == 0 &amp;&amp; length(harvested_addresses) == length(pool)
+0522         <span class="comment">% we couldn't match the reported hostnames with those used to schedule the workers, but we</span>
+0523         <span class="comment">% got the same number of results as we scheduled, so we just replace the pool by</span>
+0524         <span class="comment">% harvested_addresses</span>
+0525         pool = harvested_addresses;
+0526         fprintf(<span class="string">'Note: the format of the hostnames used to schedule workers does not match the format of hostnames reported by the workers themselves. Please consider changing it.\n'</span>);
+0527     <span class="keyword">end</span>
+0528     <span class="keyword">if</span> num_matches &lt; length(pool)
+0529         <span class="comment">% if you have workers without PID this means that they will not be immediately released</span>
+0530         <span class="comment">% when you call env_release_cluster or par_clearworkers; instead, they will terminate</span>
+0531         <span class="comment">% themselves once they are finished with their current computation and and their shutdown</span>
+0532         <span class="comment">% timeout has expired (note that if your shutdown timeout is 0, they will linger until you</span>
+0533         <span class="comment">% kill them)</span>
+0534         fprintf(<span class="string">'Launched %i workers (%i without PID): %s\n'</span>,length(pool),length(pool)-num_matches,hlp_tostring(pool));    
+0535         <span class="keyword">if</span> shutdown_timeout == 0
+0536             fprintf(<span class="string">'WARNING: the workers without PID have no shutdown timeout set, so you need to kill them manually.'</span>); <span class="keyword">end</span>
+0537     <span class="keyword">else</span>
+0538         fprintf(<span class="string">'Launched %i workers: %s\n'</span>,length(pool),hlp_tostring(pool));    
+0539     <span class="keyword">end</span>
+0540     
+0541 <span class="keyword">else</span>
+0542     disp(<span class="string">'None of the listed machines is available; please make sure that:'</span>);
+0543     disp(<span class="string">' * you can ssh into these machines without a password prompt&quot;'</span>);
+0544     disp(<span class="string">' * the files /proc/cpuinfo, /proc/meminfo, and /proc/loadavg are available on them&quot;'</span>);
+0545     disp(<span class="string">' * the commands ps, cat, grep, and wc are working on them&quot;'</span>);
+0546 <span class="keyword">end</span>
+0547 
+0548 <span class="keyword">if</span> nargout == 0
+0549     <span class="comment">% assign to global variable, if necessary...</span>
+0550     <a href="par_globalsetting.html" class="code" title="function res = par_globalsetting(name,val)">par_globalsetting</a>(<span class="string">'pool'</span>,pool(:)');
+0551     <a href="par_globalsetting.html" class="code" title="function res = par_globalsetting(name,val)">par_globalsetting</a>(<span class="string">'logfiles'</span>,logpaths(:)');
+0552 <span class="keyword">end</span>
+0553 
+0554 
+0555 <span class="comment">% check whether the given port on the specified host is free</span>
+0556 <a name="_sub1" href="#_subfunctions" class="code">function result = port_free(host,port)</a>
+0557 <span class="keyword">try</span>
+0558     java.net.Socket(host,port);
+0559     result = false;
+0560 <span class="keyword">catch</span>
+0561     result = true;
+0562 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

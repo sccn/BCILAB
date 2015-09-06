@@ -18,17 +18,18 @@
 <td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>flt_clean_windows
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="box"><strong>Remove periods with abnormally high/low-amplitude content from continuous data.</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>function [signal,sample_mask] = flt_clean_windows(varargin) </strong></div>
+<div class="box"><strong>function signal = flt_clean_windows(varargin) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre class="comment"> Remove periods with abnormally high/low-amplitude content from continuous data.
- [Signal,Mask] = flt_clean_windows(Signal,PowerTolerances,MaxBadChannels,WindowLength,ParameterFitting,KeepMetadata,FlaggedQuantile,MinAffectedChannels,MaxIgnoredChannels)
+ Signal = flt_clean_windows(Signal,PowerTolerances,MaxBadChannels,WindowLength,ParameterFitting,KeepMetadata,FlaggedQuantile,MinAffectedChannels,MaxIgnoredChannels)
 
  This function cuts segments from the data which contain high/low-amplitude artifacts.
  Specifically, any windows with more than a certain fraction of &quot;bad&quot; channels are removed, where a
@@ -49,6 +50,7 @@
    MaxBadChannels : The maximum number or fraction of bad channels that a retained window may still
                     contain (more than this and it is removed). Reasonable range is 0.05 (very clean
                     output) to 0.3 (very lax cleaning of only coarse artifacts). Default: 0.15.
+
 
 
    The following are detail parameters that usually do not have to be tuned. If you can't get
@@ -76,12 +78,13 @@
        StepSizes : Step size of the grid search, in quantiles; separately for [lower,upper] edge of the
                    truncated Gaussian (default: [0.001 0.01])
 
-       NumBins : Number of bins for Kullback-Leibler divergence calculation (default: 50)
-
+       ShapeRange : Shape parameter range. Search range for the shape parameter of the generalized
+                    Gaussian distribution used to fit clean EEG. (default: 1.5:0.1:3.5)
 
 `  KeepMetadata    : boolean; whether meta data of EEG struct (such as events, ICA decomposition
                      etc.) should be returned. If true, meta data is returned. Returning meta data
                      is quite slow. (default: true)
+
 
 
     The following are legacy parameters to enable previous behaviors.
@@ -100,8 +103,6 @@
 
  Out:
    Signal : data set with bad time periods removed.
-
-   Mask   : mask of retained samples (logical array)
 
  Examples:
    % use the defaults
@@ -126,18 +127,26 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="flt_clean_settings.html" class="code" title="function signal = flt_clean_settings(varargin)">flt_clean_settings</a>	Clean EEG data according to a particular cleaning setting.</li><li><a href="flt_repair_bursts.html" class="code" title="function [signal,state] = flt_repair_bursts(varargin)">flt_repair_bursts</a>	Repairs local peak artifacts using the ASR method.</li><li><a href="flt_repair_channels.html" class="code" title="function [signal,state] = flt_repair_channels(varargin)">flt_repair_channels</a>	Repair (interpolate) broken channels online.</li></ul>
+
+<li><a href="flt_clean_settings.html" class="code" title="function signal = flt_clean_settings(varargin)">flt_clean_settings</a>	Clean EEG data according to a particular cleaning setting.</li>
+<li><a href="flt_repair_bursts.html" class="code" title="function [signal,state] = flt_repair_bursts(varargin)">flt_repair_bursts</a>	Repairs local peak artifacts using the ASR method.</li>
+<li><a href="flt_repair_channels.html" class="code" title="function [signal,state] = flt_repair_channels(varargin)">flt_repair_channels</a>	Repair (interpolate) broken channels online.</li>
+</ul>
 <!-- crossreference -->
 
 
 
+
+
+
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal,sample_mask] = flt_clean_windows(varargin)</a>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = flt_clean_windows(varargin)</a>
 0002 <span class="comment">% Remove periods with abnormally high/low-amplitude content from continuous data.</span>
-0003 <span class="comment">% [Signal,Mask] = flt_clean_windows(Signal,PowerTolerances,MaxBadChannels,WindowLength,ParameterFitting,KeepMetadata,FlaggedQuantile,MinAffectedChannels,MaxIgnoredChannels)</span>
+0003 <span class="comment">% Signal = flt_clean_windows(Signal,PowerTolerances,MaxBadChannels,WindowLength,ParameterFitting,KeepMetadata,FlaggedQuantile,MinAffectedChannels,MaxIgnoredChannels)</span>
 0004 <span class="comment">%</span>
 0005 <span class="comment">% This function cuts segments from the data which contain high/low-amplitude artifacts.</span>
 0006 <span class="comment">% Specifically, any windows with more than a certain fraction of &quot;bad&quot; channels are removed, where a</span>
@@ -160,57 +169,57 @@ This function is called by:
 0023 <span class="comment">%                    output) to 0.3 (very lax cleaning of only coarse artifacts). Default: 0.15.</span>
 0024 <span class="comment">%</span>
 0025 <span class="comment">%</span>
-0026 <span class="comment">%   The following are detail parameters that usually do not have to be tuned. If you can't get</span>
-0027 <span class="comment">%   the function to do what you want, you might consider adapting these to your data.</span>
-0028 <span class="comment">%</span>
-0029 <span class="comment">%   WindowLength : Window length that is used to check the data for artifact content. This is</span>
-0030 <span class="comment">%                  ideally as long as the expected time scale of the artifacts but short enough to</span>
-0031 <span class="comment">%                   allow for several 1000 windows to compute statistics over. Default: 0.5.</span>
-0032 <span class="comment">%</span>
-0033 <span class="comment">%   WindowOverlap : Window overlap fraction. The fraction of two successive windows that overlaps.</span>
-0034 <span class="comment">%                   Higher overlap ensures that fewer artifact portions are going to be missed (but</span>
-0035 <span class="comment">%                   is slower). (default: 0.66)</span>
-0036 <span class="comment">%</span>
-0037 <span class="comment">%   ParameterFitting : Group of sub-arguments that govern how EEG distribution parameters should be fit</span>
-0038 <span class="comment">%</span>
-0039 <span class="comment">%       MaxDropoutFraction : Maximum fraction of values in X that can be subject to</span>
-0040 <span class="comment">%                            signal dropouts (e.g., sensor unplugged) (default: 0.1)</span>
-0041 <span class="comment">%</span>
-0042 <span class="comment">%       MinCleanFraction : Minimum fraction of values in X that needs to be clean</span>
-0043 <span class="comment">%                          (default: 0.25)</span>
-0044 <span class="comment">%</span>
-0045 <span class="comment">%       FitQuantiles : Quantile range [upper,lower] of the truncated Gaussian distribution</span>
-0046 <span class="comment">%                      that shall be fit to the EEG contents (default: [0.022 0.6])</span>
-0047 <span class="comment">%</span>
-0048 <span class="comment">%       StepSizes : Step size of the grid search, in quantiles; separately for [lower,upper] edge of the</span>
-0049 <span class="comment">%                   truncated Gaussian (default: [0.001 0.01])</span>
-0050 <span class="comment">%</span>
-0051 <span class="comment">%       NumBins : Number of bins for Kullback-Leibler divergence calculation (default: 50)</span>
-0052 <span class="comment">%</span>
-0053 <span class="comment">%</span>
-0054 <span class="comment">%`  KeepMetadata    : boolean; whether meta data of EEG struct (such as events, ICA decomposition</span>
-0055 <span class="comment">%                     etc.) should be returned. If true, meta data is returned. Returning meta data</span>
-0056 <span class="comment">%                     is quite slow. (default: true)</span>
-0057 <span class="comment">%</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">%   The following are detail parameters that usually do not have to be tuned. If you can't get</span>
+0028 <span class="comment">%   the function to do what you want, you might consider adapting these to your data.</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%   WindowLength : Window length that is used to check the data for artifact content. This is</span>
+0031 <span class="comment">%                  ideally as long as the expected time scale of the artifacts but short enough to</span>
+0032 <span class="comment">%                   allow for several 1000 windows to compute statistics over. Default: 0.5.</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">%   WindowOverlap : Window overlap fraction. The fraction of two successive windows that overlaps.</span>
+0035 <span class="comment">%                   Higher overlap ensures that fewer artifact portions are going to be missed (but</span>
+0036 <span class="comment">%                   is slower). (default: 0.66)</span>
+0037 <span class="comment">%</span>
+0038 <span class="comment">%   ParameterFitting : Group of sub-arguments that govern how EEG distribution parameters should be fit</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">%       MaxDropoutFraction : Maximum fraction of values in X that can be subject to</span>
+0041 <span class="comment">%                            signal dropouts (e.g., sensor unplugged) (default: 0.1)</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%       MinCleanFraction : Minimum fraction of values in X that needs to be clean</span>
+0044 <span class="comment">%                          (default: 0.25)</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">%       FitQuantiles : Quantile range [upper,lower] of the truncated Gaussian distribution</span>
+0047 <span class="comment">%                      that shall be fit to the EEG contents (default: [0.022 0.6])</span>
+0048 <span class="comment">%</span>
+0049 <span class="comment">%       StepSizes : Step size of the grid search, in quantiles; separately for [lower,upper] edge of the</span>
+0050 <span class="comment">%                   truncated Gaussian (default: [0.001 0.01])</span>
+0051 <span class="comment">%</span>
+0052 <span class="comment">%       ShapeRange : Shape parameter range. Search range for the shape parameter of the generalized</span>
+0053 <span class="comment">%                    Gaussian distribution used to fit clean EEG. (default: 1.5:0.1:3.5)</span>
+0054 <span class="comment">%</span>
+0055 <span class="comment">%`  KeepMetadata    : boolean; whether meta data of EEG struct (such as events, ICA decomposition</span>
+0056 <span class="comment">%                     etc.) should be returned. If true, meta data is returned. Returning meta data</span>
+0057 <span class="comment">%                     is quite slow. (default: true)</span>
 0058 <span class="comment">%</span>
-0059 <span class="comment">%    The following are legacy parameters to enable previous behaviors.</span>
+0059 <span class="comment">%</span>
 0060 <span class="comment">%</span>
-0061 <span class="comment">%   FlaggedQuantile : upper quantile of the per-channel windows that should be flagged for potential</span>
-0062 <span class="comment">%                     removal (removed if flagged in all except for some possibly bad channels);</span>
-0063 <span class="comment">%                     controls the aggressiveness of the rejection; if two numbers are specified,</span>
-0064 <span class="comment">%                     the first is the lower quantile and the second is the upper quantile to be</span>
-0065 <span class="comment">%                     removed (default: [], was: 0.15)</span>
-0066 <span class="comment">%</span>
-0067 <span class="comment">%   MinAffectedChannels : if for a time window more than this number (or ratio) of channels are</span>
-0068 <span class="comment">%                         affected (i.e. flagged), the window will be considered &quot;bad&quot;. (default: [], was: 0.5)</span>
-0069 <span class="comment">%</span>
-0070 <span class="comment">%   MaxIgnoredChannels : maximum number (or ratio) of channels which can deliver arbitrary data</span>
-0071 <span class="comment">%                        without affecting the outcome. (default: [], was: 0.3)</span>
-0072 <span class="comment">%</span>
-0073 <span class="comment">% Out:</span>
-0074 <span class="comment">%   Signal : data set with bad time periods removed.</span>
-0075 <span class="comment">%</span>
-0076 <span class="comment">%   Mask   : mask of retained samples (logical array)</span>
+0061 <span class="comment">%    The following are legacy parameters to enable previous behaviors.</span>
+0062 <span class="comment">%</span>
+0063 <span class="comment">%   FlaggedQuantile : upper quantile of the per-channel windows that should be flagged for potential</span>
+0064 <span class="comment">%                     removal (removed if flagged in all except for some possibly bad channels);</span>
+0065 <span class="comment">%                     controls the aggressiveness of the rejection; if two numbers are specified,</span>
+0066 <span class="comment">%                     the first is the lower quantile and the second is the upper quantile to be</span>
+0067 <span class="comment">%                     removed (default: [], was: 0.15)</span>
+0068 <span class="comment">%</span>
+0069 <span class="comment">%   MinAffectedChannels : if for a time window more than this number (or ratio) of channels are</span>
+0070 <span class="comment">%                         affected (i.e. flagged), the window will be considered &quot;bad&quot;. (default: [], was: 0.5)</span>
+0071 <span class="comment">%</span>
+0072 <span class="comment">%   MaxIgnoredChannels : maximum number (or ratio) of channels which can deliver arbitrary data</span>
+0073 <span class="comment">%                        without affecting the outcome. (default: [], was: 0.3)</span>
+0074 <span class="comment">%</span>
+0075 <span class="comment">% Out:</span>
+0076 <span class="comment">%   Signal : data set with bad time periods removed.</span>
 0077 <span class="comment">%</span>
 0078 <span class="comment">% Examples:</span>
 0079 <span class="comment">%   % use the defaults</span>
@@ -231,7 +240,7 @@ This function is called by:
 0094 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
 0095 <span class="comment">%                                2010-07-06</span>
 0096 
-0097 <span class="comment">% flt_clean_windows_version&lt;1.0&gt; -- for the cache</span>
+0097 <span class="comment">% flt_clean_windows_version&lt;1.02&gt; -- for the cache</span>
 0098 
 0099 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'editing'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>;
 0100 
@@ -239,152 +248,172 @@ This function is called by:
 0102 
 0103 arg_define(varargin, <span class="keyword">...</span>
 0104     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
-0105     arg({<span class="string">'zthresholds'</span>,<span class="string">'PowerTolerances'</span>}, [-3.5 5], [], <span class="string">'Z score thresholds. The minimum and maximum standard deviations within which the power of a channel must lie (relative to a robust estimate of the clean EEG power distribution in the channel) for it to be considered &quot;not bad&quot;.'</span>), <span class="keyword">...</span>
-0106     arg({<span class="string">'max_bad_channels'</span>,<span class="string">'MaxBadChannels'</span>}, 0.15, [], <span class="string">'Maximum fraction of bad channels. The maximum number or fraction of bad channels that a retained window may still contain (more than this and it is removed). Reasonable range is 0.05 (very clean output) to 0.3 (very lax cleaning of only coarse artifacts).'</span>), <span class="keyword">...</span>
-0107     arg({<span class="string">'window_len'</span>,<span class="string">'WindowLength'</span>}, 0.5, [], <span class="string">'Window length. Window length that is used to check the data for artifact content. This is ideally as long as the expected time scale of the artifacts but short enough to allow for several 1000 windows to compute statistics over.'</span>), <span class="keyword">...</span>
-0108     arg({<span class="string">'window_overlap'</span>,<span class="string">'WindowOverlap'</span>}, 0.66, [], <span class="string">'Window overlap fraction. The fraction of two successive windows that overlaps. Higher overlap ensures that fewer artifact portions are going to be missed (but is slower).'</span>), <span class="keyword">...</span>
+0105     arg({<span class="string">'zthresholds'</span>,<span class="string">'PowerTolerances'</span>}, [-3.5 5], [-Inf -10 15 Inf], <span class="string">'Z score thresholds. The minimum and maximum standard deviations within which the power of a channel must lie (relative to a robust estimate of the clean EEG power distribution in the channel) for it to be considered &quot;not bad&quot;.'</span>), <span class="keyword">...</span>
+0106     arg({<span class="string">'max_bad_channels'</span>,<span class="string">'MaxBadChannels'</span>}, 0.15, [0 Inf], <span class="string">'Maximum fraction of bad channels. The maximum number or fraction of bad channels that a retained window may still contain (more than this and it is removed). Reasonable range is 0.05 (very clean output) to 0.3 (very lax cleaning of only coarse artifacts).'</span>), <span class="keyword">...</span>
+0107     arg({<span class="string">'window_len'</span>,<span class="string">'WindowLength'</span>,<span class="string">'window_length'</span>}, 0.5, [0 0.25 5 Inf], <span class="string">'Window length. Window length that is used to check the data for artifact content. This is ideally as long as the expected time scale of the artifacts but short enough to allow for several 1000 windows to compute statistics over.'</span>), <span class="keyword">...</span>
+0108     arg({<span class="string">'window_overlap'</span>,<span class="string">'WindowOverlap'</span>}, 0.66, [0 0 0.9 1], <span class="string">'Window overlap fraction. The fraction of two successive windows that overlaps. Higher overlap ensures that fewer artifact portions are going to be missed (but is slower).'</span>), <span class="keyword">...</span>
 0109     arg_sub({<span class="string">'fit_params'</span>,<span class="string">'ParameterFitting'</span>,<span class="string">'parameter_fitting'</span>}, {}, { <span class="keyword">...</span>
-0110         arg({<span class="string">'max_dropout_fraction'</span>,<span class="string">'MaxDropoutFraction'</span>}, 0.1, [], <span class="string">'Maximum fraction that can have dropouts. This is the maximum fraction of time windows that may have arbitrarily low amplitude (e.g., due to the sensors being unplugged).'</span>), <span class="keyword">...</span>
-0111         arg({<span class="string">'min_clean_fraction'</span>,<span class="string">'MinCleanFraction'</span>}, 0.25, [], <span class="string">'Minimum fraction that needs to be clean. This is the minimum fraction of time windows that need to contain essentially uncontaminated EEG.'</span>), <span class="keyword">...</span>
-0112         arg({<span class="string">'fit_quantiles'</span>,<span class="string">'FitQuantiles'</span>}, [0.022 0.6], [], <span class="string">'Truncated Gaussian quantile. Quantile range [upper,lower] of the truncated Gaussian distribution that shall be fit to the EEG contents.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
-0113         arg({<span class="string">'step_sizes'</span>,<span class="string">'StepSizes'</span>}, [0.001 0.01], [], <span class="string">'Grid search stepping. Step size of the grid search, in quantiles; separately for [lower,upper] edge of the truncated Gaussian. The lower edge has finer stepping because the clean data density is assumed to be lower there, so small changes in quantile amount to large changes in data space.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
-0114         arg({<span class="string">'num_bins'</span>,<span class="string">'NumBins'</span>}, 50, [], <span class="string">'Kullback-Leibler binning. Number of bins for Kullback-Leibler divergence calculation; for less than 3000 data windows, it may help to reduce the number of bins.'</span>,<span class="string">'guru'</span>,true) <span class="keyword">...</span><span class="comment">    </span>
-0115     }, <span class="string">'Parameter fitting details. Group of sub-arguments that govern how EEG distribution parameters should be fit.'</span>), <span class="keyword">...</span>
-0116     arg({<span class="string">'keep_metadata'</span>,<span class="string">'KeepMetadata'</span>}, true, [], <span class="string">'Retain metadata of EEG set. Retaining meta data (events, ICA decomposition, etc.) is quite slow.'</span>), <span class="keyword">...</span>
-0117     arg_deprecated({<span class="string">'flag_quantile'</span>,<span class="string">'FlaggedQuantile'</span>}, [], [], <span class="string">'Legacy parameter for pre-2012 methods. Quantile of data windows flagged for removal. Windows are emoved if flagged in all except for some possibly bad channels, controls the aggressiveness of the rejection.'</span>), <span class="keyword">...</span>
-0118     arg_deprecated({<span class="string">'min_badchans'</span>,<span class="string">'MinAffectedChannels'</span>}, [], [], <span class="string">'Legacy parameter for 2011 method. This is the minimum number of channels that need to be affected for the window to be considered &quot;bad&quot;.'</span>), <span class="keyword">...</span>
-0119     arg_deprecated({<span class="string">'ignored_chans'</span>,<span class="string">'MaxIgnoredChannels'</span>}, [], [], <span class="string">'Legacy parameter for 2010 method. Maximum number or ratio of channels to ignore. These can contain arbitrary data without affecting the outcome (e.g., can be unplugged channels).'</span>));
-0120 
-0121 <span class="keyword">if</span> ~isempty(max_bad_channels) &amp;&amp; max_bad_channels &gt; 0 &amp;&amp; max_bad_channels &lt; 1 <span class="comment">%#ok&lt;*NODEF&gt;</span>
-0122     max_bad_channels = round(size(signal.data,1)*max_bad_channels); <span class="keyword">end</span>
-0123 <span class="keyword">if</span> ~isempty(flag_quantile) &amp;&amp; isscalar(flag_quantile)
-0124     flag_quantile = [0 flag_quantile]; <span class="keyword">end</span>
-0125 <span class="keyword">if</span> ~isempty(min_badchans) &amp;&amp; min_badchans &gt; 0 &amp;&amp; min_badchans &lt; 1 <span class="comment">%#ok&lt;*NODEF&gt;</span>
-0126     min_badchans = round(size(signal.data,1)*min_badchans); <span class="keyword">end</span>
-0127 <span class="keyword">if</span> ~isempty(ignored_chans) &amp;&amp; ignored_chans &gt; 0 &amp;&amp; ignored_chans &lt; 1
-0128     ignored_chans = round(size(signal.data,1)*ignored_chans); <span class="keyword">end</span>
-0129 
-0130 [C,S] = size(signal.data);
-0131 N = window_len*signal.srate;
-0132 wnd = 0:N-1;
-0133 offsets = round(1:N*(1-window_overlap):S-N);
-0134 W = length(offsets);
-0135 
-0136 <span class="keyword">if</span> max_bad_channels &lt; 1
-0137     max_bad_channels = round(max_bad_channels*C); <span class="keyword">end</span>
-0138 <span class="keyword">if</span> max_bad_channels &gt;= C
-0139     sample_mask = true(1,S); <span class="keyword">return</span>; <span class="keyword">end</span>
+0110         arg({<span class="string">'max_dropout_fraction'</span>,<span class="string">'MaxDropoutFraction'</span>}, 0.1, [0 0 0.2 1], <span class="string">'Maximum fraction that can have dropouts. This is the maximum fraction of time windows that may have arbitrarily low amplitude (e.g., due to the sensors being unplugged).'</span>), <span class="keyword">...</span>
+0111         arg({<span class="string">'min_clean_fraction'</span>,<span class="string">'MinCleanFraction'</span>}, 0.25, [0 0.1 0.5 1], <span class="string">'Minimum fraction that needs to be clean. This is the minimum fraction of time windows that need to contain essentially uncontaminated EEG.'</span>), <span class="keyword">...</span>
+0112         arg({<span class="string">'truncate_quant'</span>,<span class="string">'TruncateQuantile'</span>}, [0.022 0.6], [0 0 0.8 1], <span class="string">'Truncated Gaussian quantile. Quantile range [upper,lower] of the truncated Gaussian distribution that shall be fit to the EEG contents.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0113         arg({<span class="string">'step_sizes'</span>,<span class="string">'StepSizes'</span>}, [0.01 0.01], [0.00001 0.001 0.05 0.2], <span class="string">'Grid search stepping. Step size of the grid search, in quantiles; separately for [lower,upper] edge of the truncated Gaussian. The lower edge has finer stepping because the clean data density is assumed to be lower there, so small changes in quantile amount to large changes in data space.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0114         arg({<span class="string">'shape_range'</span>,<span class="string">'ShapeRange'</span>}, 1.7:0.15:3.5, [0 1 8 Inf], <span class="string">'Shape parameter range. Search range for the shape parameter of the generalized Gaussian distribution used to fit clean EEG.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0115         arg_deprecated({<span class="string">'num_bins'</span>,<span class="string">'NumBins'</span>},50,[],<span class="string">'This parameter is now auto-determined.'</span>) <span class="keyword">...</span>
+0116         arg_deprecated({<span class="string">'fit_quantiles'</span>,<span class="string">'FitQuantiles'</span>}, [0.022 0.6], [], <span class="string">'Old Truncated Gaussian quantile. This was allowed to be a matrix holding an ensemble of alternative quantiles -- that is no longer needed/supported (instead the replacement parameter TruncateQuantile should be used).'</span>,<span class="string">'shape'</span>,<span class="string">'matrix'</span>), <span class="keyword">...</span>
+0117     }, <span class="string">'Parameter fitting details. Group of sub-arguments that govern how EEG distribution parameters should be fit.'</span>), <span class="keyword">...</span>
+0118     arg({<span class="string">'keep_metadata'</span>,<span class="string">'KeepMetadata'</span>}, true, [], <span class="string">'Retain metadata of EEG set. Retaining meta data (events, ICA decomposition, etc.) is quite slow.'</span>), <span class="keyword">...</span>
+0119     arg({<span class="string">'debugdisplay'</span>,<span class="string">'DebugDisplay'</span>}, false, [], <span class="string">'Enable debug display. Plots the histogram and fit for each channel.'</span>), <span class="keyword">...</span>
+0120     arg_deprecated({<span class="string">'flag_quantile'</span>,<span class="string">'FlaggedQuantile'</span>}, [], [], <span class="string">'Legacy parameter for pre-2012 methods. Quantile of data windows flagged for removal. Windows are emoved if flagged in all except for some possibly bad channels, controls the aggressiveness of the rejection.'</span>), <span class="keyword">...</span>
+0121     arg_deprecated({<span class="string">'min_badchans'</span>,<span class="string">'MinAffectedChannels'</span>}, [], [], <span class="string">'Legacy parameter for 2011 method. This is the minimum number of channels that need to be affected for the window to be considered &quot;bad&quot;.'</span>), <span class="keyword">...</span>
+0122     arg_deprecated({<span class="string">'ignored_chans'</span>,<span class="string">'MaxIgnoredChannels'</span>}, [], [], <span class="string">'Legacy parameter for 2010 method. Maximum number or ratio of channels to ignore. These can contain arbitrary data without affecting the outcome (e.g., can be unplugged channels).'</span>));
+0123 
+0124 <span class="comment">% input validation</span>
+0125 <span class="keyword">if</span> ~isequal(size(zthresholds),[1 2]) || ~issorted(zthresholds)
+0126     error(<span class="string">'The given PowerTolerances argument must be a two-element row vector [lower,upper] and sorted.'</span>); <span class="keyword">end</span>
+0127 <span class="keyword">if</span> ~isequal(size(fit_params.truncate_quant),[1 2]) || ~issorted(fit_params.truncate_quant)
+0128     error(<span class="string">'The given TruncateQuantile argument must be a two-element row vector [lower,upper] and sorted.'</span>); <span class="keyword">end</span>
+0129 <span class="keyword">if</span> ~isequal(size(fit_params.step_sizes),[1 2])
+0130     error(<span class="string">'The given StepSizes argument must be a two-element row vector [lower,upper].'</span>); <span class="keyword">end</span>
+0131 
+0132 <span class="keyword">if</span> ~isempty(max_bad_channels) &amp;&amp; max_bad_channels &gt; 0 &amp;&amp; max_bad_channels &lt; 1 <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0133     max_bad_channels = round(size(signal.data,1)*max_bad_channels); <span class="keyword">end</span>
+0134 <span class="keyword">if</span> ~isempty(flag_quantile) &amp;&amp; isscalar(flag_quantile)
+0135     flag_quantile = [0 flag_quantile]; <span class="keyword">end</span>
+0136 <span class="keyword">if</span> ~isempty(min_badchans) &amp;&amp; min_badchans &gt; 0 &amp;&amp; min_badchans &lt; 1 <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0137     min_badchans = round(size(signal.data,1)*min_badchans); <span class="keyword">end</span>
+0138 <span class="keyword">if</span> ~isempty(ignored_chans) &amp;&amp; ignored_chans &gt; 0 &amp;&amp; ignored_chans &lt; 1
+0139     ignored_chans = round(size(signal.data,1)*ignored_chans); <span class="keyword">end</span>
 0140 
-0141 fprintf(<span class="string">'Fitting per-channel distributions...'</span>);
-0142 <span class="comment">% for each channel...</span>
-0143 <span class="keyword">for</span> c = C:-1:1
-0144     <span class="comment">% compute RMS amplitude for each window...</span>
-0145     X = signal.data(c,:).^2;
-0146     X = sqrt(sum(X(bsxfun(@plus,offsets,wnd')))/N);
-0147     <span class="comment">% robustly fit a distribution to the clean EEG part</span>
-0148     <span class="keyword">if</span> isempty(flag_quantile)
-0149         [mu,sig] = hlp_diskcache(<span class="string">'statistics'</span>,@fit_eeg_distribution,X, <span class="keyword">...</span>
-0150             fit_params.min_clean_fraction, fit_params.max_dropout_fraction, <span class="keyword">...</span>
-0151             fit_params.fit_quantiles, fit_params.step_sizes, fit_params.num_bins);
-0152     <span class="keyword">else</span>
-0153         [mu,sig] = deal(0,1);
-0154     <span class="keyword">end</span>
-0155     <span class="comment">% calculate z scores relative to that</span>
-0156     wz(c,:) = (X - mu)/sig;
-0157 <span class="keyword">end</span>
-0158 disp(<span class="string">'done.'</span>);
-0159 
-0160 <span class="comment">% determine which windows to retain</span>
-0161 <span class="keyword">if</span> isempty(flag_quantile)
-0162     <span class="comment">% best known method (2013): based on z thresholds</span>
-0163 
-0164     <span class="comment">% sort z scores into quantiles</span>
-0165     swz = sort(wz);
-0166     <span class="comment">% determine which windows to remove</span>
-0167     remove_mask = false(1,size(swz,2));
-0168     <span class="keyword">if</span> max(zthresholds)&gt;0
-0169         remove_mask(swz(end-max_bad_channels,:) &gt; max(zthresholds)) = true; <span class="keyword">end</span>
-0170     <span class="keyword">if</span> min(zthresholds)&lt;0
-0171         remove_mask(swz(1+max_bad_channels,:) &lt; min(zthresholds)) = true; <span class="keyword">end</span>
-0172     removed_windows = find(remove_mask);
-0173 
-0174 <span class="keyword">else</span>
-0175     <span class="comment">% legacy methods for backwards compatibility</span>
-0176     [dummy,i] = sort(wz'); <span class="comment">%#ok&lt;TRSRT,ASGLU&gt;</span>
-0177     <span class="comment">% find retained window indices per channel</span>
-0178     retained_quantiles = i(1+floor(W*flag_quantile(1)):round(W*(1-flag_quantile(2))),:)';
-0179     <span class="comment">% flag them in a Channels x Windows matrix (this can be neatly visualized)</span>
-0180     retain_mask = zeros(C,W);
-0181     <span class="keyword">for</span> c = 1:C
-0182         retain_mask(c,retained_quantiles(c,:)) = 1; <span class="keyword">end</span>
-0183     <span class="comment">% find retained windows</span>
-0184     <span class="keyword">if</span> ~isempty(min_badchans) 
-0185         <span class="comment">% previous method (2011): based on quantiles</span>
-0186         removed_windows = find(sum(1-retain_mask) &gt; min_badchans);
-0187     <span class="keyword">elseif</span> ~isempty(ignored_chans)
-0188         <span class="comment">% oldest method (2010)</span>
-0189         removed_windows = find(sum(retain_mask) &lt;= ignored_chans);
-0190     <span class="keyword">else</span>
-0191         error(<span class="string">'BCILAB:flt_clean_windows:legacy_options'</span>,<span class="string">'By setting the flag_quantile parameter you switch to legacy methods; these require that you also set the min_badchans (former default: 0.5) or ignored_chans (former default: 0.3) parameter.'</span>);
-0192     <span class="keyword">end</span>
-0193 <span class="keyword">end</span>
+0141 signal.data = double(signal.data);
+0142 [C,S] = size(signal.data);
+0143 N = window_len*signal.srate;
+0144 wnd = 0:N-1;
+0145 offsets = round(1:N*(1-window_overlap):S-N);
+0146 W = length(offsets);
+0147 
+0148 <span class="keyword">if</span> max_bad_channels &lt; 1
+0149     max_bad_channels = round(max_bad_channels*C); <span class="keyword">end</span>
+0150 <span class="keyword">if</span> max_bad_channels &gt;= C
+0151     sample_mask = true(1,S); <span class="keyword">return</span>; <span class="keyword">end</span>
+0152 
+0153 fprintf(<span class="string">'Determining time window rejection thresholds...'</span>);
+0154 <span class="keyword">if</span> debugdisplay
+0155     figure; <span class="keyword">end</span>
+0156 <span class="comment">% for each channel...</span>
+0157 <span class="keyword">for</span> c = C:-1:1
+0158     <span class="comment">% compute RMS amplitude for each window...</span>
+0159     X = signal.data(c,:).^2;
+0160     X = sqrt(sum(X(bsxfun(@plus,offsets,wnd')))/N);
+0161     <span class="comment">% robustly fit a distribution to the clean EEG part</span>
+0162     <span class="keyword">if</span> isempty(flag_quantile)
+0163         [mu,sig,alpha,beta] = hlp_diskcache(<span class="string">'filterdesign'</span>,@fit_eeg_distribution,X, <span class="keyword">...</span>
+0164             fit_params.min_clean_fraction, fit_params.max_dropout_fraction, <span class="keyword">...</span>
+0165             fit_params.truncate_quant, fit_params.step_sizes,fit_params.shape_range); <span class="comment">%#ok&lt;NASGU,ASGLU&gt;</span>
+0166         <span class="keyword">if</span> debugdisplay
+0167             clf; 
+0168             show_fit_quality(X,mu,sig,alpha,beta); 
+0169             title(sprintf(<span class="string">'%i@(%.2f,%.2f,%.2f,%.2f)'</span>,c,mu,sig,alpha,beta)); 
+0170             drawnow; 
+0171             waitforbuttonpress;
+0172         <span class="keyword">end</span>
+0173     <span class="keyword">else</span>
+0174         [mu,sig] = deal(0,1);
+0175     <span class="keyword">end</span>
+0176     <span class="comment">% calculate z scores relative to that</span>
+0177     wz(c,:) = (X - mu)/sig;
+0178 <span class="keyword">end</span>
+0179 disp(<span class="string">'done.'</span>);
+0180 
+0181 <span class="comment">% determine which windows to retain</span>
+0182 <span class="keyword">if</span> isempty(flag_quantile)
+0183     <span class="comment">% best known method (2013): based on z thresholds</span>
+0184 
+0185     <span class="comment">% sort z scores into quantiles</span>
+0186     swz = sort(wz);
+0187     <span class="comment">% determine which windows to remove</span>
+0188     remove_mask = false(1,size(swz,2));
+0189     <span class="keyword">if</span> max(zthresholds)&gt;0
+0190         remove_mask(swz(end-max_bad_channels,:) &gt; max(zthresholds)) = true; <span class="keyword">end</span>
+0191     <span class="keyword">if</span> min(zthresholds)&lt;0
+0192         remove_mask(swz(1+max_bad_channels,:) &lt; min(zthresholds)) = true; <span class="keyword">end</span>
+0193     removed_windows = find(remove_mask);
 0194 
-0195 
-0196 <span class="comment">% find indices of samples to remove</span>
-0197 removed_samples = repmat(offsets(removed_windows)',1,length(wnd))+repmat(wnd,length(removed_windows),1);
-0198 <span class="comment">% mask them out</span>
-0199 sample_mask = true(1,S); 
-0200 sample_mask(removed_samples(:)) = false;
-0201 fprintf(<span class="string">'Keeping %.1f%% (%.0f seconds) of the data.\n'</span>,100*(mean(sample_mask)),nnz(sample_mask)/signal.srate);
-0202 
-0203 <span class="keyword">if</span> keep_metadata
-0204     <span class="comment">% retain the masked data, update meta-data appropriately</span>
-0205     retain_data_intervals = reshape(find(diff([false sample_mask false])),2,[])';
-0206     retain_data_intervals(:,2) = retain_data_intervals(:,2)-1;
-0207     signal = pop_select(signal, <span class="string">'point'</span>, retain_data_intervals);
-0208     
-0209     <span class="keyword">if</span> isfield(signal.etc,<span class="string">'epoch_bounds'</span>) &amp;&amp; isfield(signal.event,<span class="string">'target'</span>)
-0210         targets = find(~cellfun(<span class="string">'isempty'</span>,{signal.event.target}));
-0211         retain = targets;
-0212         <span class="comment">% further restrict the set of retained events: generate epoch index range, in samples</span>
-0213         eporange = round(signal.etc.epoch_bounds(1)*signal.srate) : round(signal.etc.epoch_bounds(2)*signal.srate);
-0214         
-0215         <span class="keyword">if</span> ~isempty(eporange)
-0216             <span class="comment">% prune events that exceed the data set boundaries</span>
-0217             lats = round([signal.event(retain).latency]);
-0218             retain(lats+eporange(1)&lt;1 | lats+eporange(end)&gt;signal.pnts) = [];
-0219             
-0220             <span class="comment">% generate a sparse mask of boundary events</span>
-0221             boundlats = min(signal.pnts,max(1,round([signal.event(strcmp({signal.event.type},<span class="string">'boundary'</span>)).latency])));
-0222             <span class="keyword">if</span> ~isempty(boundlats)
-0223                 boundmask = sparse(ones(1,length(boundlats)),boundlats,1,1,signal.pnts);
-0224                 
-0225                 <span class="comment">% prune events that intersect the boundary mask</span>
-0226                 lats = round([signal.event(retain).latency]);
-0227                 <span class="keyword">if</span> ~isempty(lats)
-0228                     retain(any(boundmask(bsxfun(@plus,eporange',lats)))) = []; <span class="keyword">end</span>
-0229                 
-0230                 <span class="comment">% now remove them</span>
-0231                 remove = setdiff(targets,retain);
-0232                 signal.event(remove) = [];
-0233             <span class="keyword">end</span>
-0234         <span class="keyword">end</span>
-0235     <span class="keyword">end</span>
-0236     
-0237 <span class="keyword">else</span>
-0238     <span class="comment">% retain the masked data, clear all events or other aggregated data</span>
-0239     signal = exp_eval(set_new(signal,<span class="string">'data'</span>,signal.data(:,sample_mask),<span class="string">'icaact'</span>,[],<span class="string">'event'</span>,signal.event([]),<span class="string">'urevent'</span>,signal.urevent([]), <span class="keyword">...</span>
-0240         <span class="string">'epoch'</span>,[],<span class="string">'reject'</span>,[],<span class="string">'stats'</span>,[],<span class="string">'specdata'</span>,[],<span class="string">'specicaact'</span>,[]));
-0241 <span class="keyword">end</span>
-0242 
-0243 <span class="comment">% annotate the data with the mask of what was removed (e.g., for visualization)</span>
-0244 <span class="keyword">if</span> isfield(signal.etc,<span class="string">'clean_sample_mask'</span>) &amp;&amp; nnz(signal.etc.clean_sample_mask) == S
-0245     signal.etc.clean_sample_mask(signal.etc.clean_sample_mask) = sample_mask;
-0246 <span class="keyword">else</span>
-0247     signal.etc.clean_sample_mask = sample_mask;
-0248 <span class="keyword">end</span>
-0249 
-0250 exp_endfun;</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0195 <span class="keyword">else</span>
+0196     <span class="comment">% legacy methods for backwards compatibility</span>
+0197     [dummy,i] = sort(wz'); <span class="comment">%#ok&lt;TRSRT,ASGLU&gt;</span>
+0198     <span class="comment">% find retained window indices per channel</span>
+0199     retained_quantiles = i(1+floor(W*flag_quantile(1)):round(W*(1-flag_quantile(2))),:)';
+0200     <span class="comment">% flag them in a Channels x Windows matrix (this can be neatly visualized)</span>
+0201     retain_mask = zeros(C,W);
+0202     <span class="keyword">for</span> c = 1:C
+0203         retain_mask(c,retained_quantiles(c,:)) = 1; <span class="keyword">end</span>
+0204     <span class="comment">% find retained windows</span>
+0205     <span class="keyword">if</span> ~isempty(min_badchans) 
+0206         <span class="comment">% previous method (2011): based on quantiles</span>
+0207         removed_windows = find(sum(1-retain_mask) &gt; min_badchans);
+0208     <span class="keyword">elseif</span> ~isempty(ignored_chans)
+0209         <span class="comment">% oldest method (2010): attempt at being robust against broken channels</span>
+0210         removed_windows = find(sum(retain_mask) &lt;= ignored_chans);
+0211     <span class="keyword">else</span>
+0212         error(<span class="string">'BCILAB:flt_clean_windows:legacy_options'</span>,<span class="string">'By setting the flag_quantile parameter you switch to legacy methods; these require that you also set the min_badchans (former default: 0.5) or ignored_chans (former default: 0.3) parameter.'</span>);
+0213     <span class="keyword">end</span>
+0214 <span class="keyword">end</span>
+0215 
+0216 
+0217 <span class="comment">% find indices of samples to remove</span>
+0218 removed_samples = repmat(offsets(removed_windows)',1,length(wnd))+repmat(wnd,length(removed_windows),1);
+0219 <span class="comment">% mask them out</span>
+0220 sample_mask = true(1,S); 
+0221 sample_mask(removed_samples(:)) = false;
+0222 fprintf(<span class="string">'Keeping %.1f%% (%.0f seconds) of the data.\n'</span>,100*(mean(sample_mask)),nnz(sample_mask)/signal.srate);
+0223 
+0224 <span class="keyword">if</span> keep_metadata
+0225     <span class="comment">% retain the masked data, update meta-data appropriately</span>
+0226     signal = exp_eval(set_selinterval(signal,sample_mask,<span class="string">'range'</span>));
+0227     
+0228     <span class="keyword">if</span> isfield(signal.etc,<span class="string">'epoch_bounds'</span>) &amp;&amp; isfield(signal.event,<span class="string">'target'</span>)
+0229         targets = find(~cellfun(<span class="string">'isempty'</span>,{signal.event.target}));
+0230         retain = targets;
+0231         <span class="comment">% further restrict the set of retained events: generate epoch index range, in samples</span>
+0232         eporange = round(signal.etc.epoch_bounds(1)*signal.srate) : round(signal.etc.epoch_bounds(2)*signal.srate);
+0233         
+0234         <span class="keyword">if</span> ~isempty(eporange)
+0235             <span class="comment">% prune events that exceed the data set boundaries</span>
+0236             lats = round([signal.event(retain).latency]);
+0237             retain(lats+eporange(1)&lt;1 | lats+eporange(end)&gt;signal.pnts) = [];
+0238             
+0239             <span class="comment">% generate a sparse mask of boundary events</span>
+0240             boundlats = min(signal.pnts,max(1,round([signal.event(strcmp({signal.event.type},<span class="string">'boundary'</span>)).latency])));
+0241             <span class="keyword">if</span> ~isempty(boundlats)
+0242                 boundmask = sparse(ones(1,length(boundlats)),boundlats,1,1,signal.pnts);
+0243                 
+0244                 <span class="comment">% prune events that intersect the boundary mask</span>
+0245                 lats = round([signal.event(retain).latency]);
+0246                 <span class="keyword">if</span> ~isempty(lats)
+0247                     retain(any(boundmask(bsxfun(@plus,eporange',lats)))) = []; <span class="keyword">end</span>
+0248                 
+0249                 <span class="comment">% now remove them</span>
+0250                 remove = setdiff(targets,retain);
+0251                 signal.event(remove) = [];
+0252             <span class="keyword">end</span>
+0253         <span class="keyword">end</span>
+0254     <span class="keyword">end</span>
+0255     
+0256 <span class="keyword">else</span>
+0257     <span class="comment">% retain the masked data, clear all events or other aggregated data</span>
+0258     signal = exp_eval(set_new(signal,<span class="string">'data'</span>,signal.data(:,sample_mask),<span class="string">'icaact'</span>,[],<span class="string">'event'</span>,signal.event([]),<span class="string">'urevent'</span>,signal.urevent([]), <span class="keyword">...</span>
+0259         <span class="string">'epoch'</span>,[],<span class="string">'reject'</span>,[],<span class="string">'stats'</span>,[],<span class="string">'specdata'</span>,[],<span class="string">'specicaact'</span>,[]));
+0260 <span class="keyword">end</span>
+0261 
+0262 <span class="comment">% annotate the data with the mask of what was removed (e.g., for visualization)</span>
+0263 <span class="keyword">if</span> isfield(signal.etc,<span class="string">'clean_sample_mask'</span>) &amp;&amp; nnz(signal.etc.clean_sample_mask) == S
+0264     signal.etc.clean_sample_mask(signal.etc.clean_sample_mask) = sample_mask;
+0265 <span class="keyword">else</span>
+0266     signal.etc.clean_sample_mask = sample_mask;
+0267 <span class="keyword">end</span>
+0268 
+0269 exp_endfun;</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

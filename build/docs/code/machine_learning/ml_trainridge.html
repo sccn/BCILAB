@@ -1,0 +1,167 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ml_trainridge</title>
+  <meta name="keywords" content="ml_trainridge">
+  <meta name="description" content="Perform ridge regression.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">machine_learning</a> &gt; ml_trainridge.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/machine_learning&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ml_trainridge
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Perform ridge regression.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function model = ml_trainridge(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Perform ridge regression.
+ Model = ml_trainridge(Trials, Targets, Lambda, Options...)
+
+ Ridge regression [1] is a generalization of basic multivariate regression which in addition
+ includes a regularization parameter (lambda), which, when chosen as &gt; 0 governs the amount of
+ shrinkage applied to the solution. This is an effective way to carefully contrain the model
+ complexity in order to not overfit spurious noise in the training data. It can also be interpreted
+ as a Gaussian prior on the model weights when ridge regression is viewed as a Bayesian Maximum a
+ Posteriori (MAP) estimator. This type of regularization is also called Tikhonov regularization.
+
+ In:
+   Trials       : training data, as in ml_train
+
+   Targets      : target variable, as in ml_train
+                  may also contain weights, in the form {Targets,Weights}; supported by l1 &amp; l2 variants
+
+   Lambda       : regularization parameter (default: 1)
+                  a comprehensive search interval would be 2.^(-5:2:15)
+
+   Options  : optional name-value parameters to control the training details:
+              'scaling': pre-scaling of the data (see hlp_findscaling for options) (default: 'std')
+
+ Out:
+   Model   : a linear model;
+             w is the linear weights, including the bias as last element;
+
+ See also:
+   <a href="ml_predictridge.html" class="code" title="function pred = ml_predictridge(trials, model)">ml_predictridge</a>
+
+ Examples:
+   % learn a ridge regression model using defaults
+   model = ml_trainlogreg(trials,targets)
+
+   % as before, but using a non-default regularization parameter (here: 0.1)
+   model = ml_trainlogreg(trials,targets,0.1)
+
+   % as before, but also use a non-default scaling option (center the data)
+   model = ml_trainlogreg(trials,targets,0.1,'scaling','center')
+
+   % use <a href="ml_trainridge.html" class="code" title="function model = ml_trainridge(varargin)">ml_trainridge</a> with the parameter search function, and search over a range of possible lambda values
+   model = utl_searchmodel({trials,targets},'args',{{'ridge',search(2.^(-5:1:10)),'scaling','center'}})
+
+ References:
+   [1] Hastie, T., Tibshirani, R., &amp; Friedman, J.
+       &quot;The Elements of Statistical Learning: Data Mining, Inference, and Prediction&quot;
+       Springer Series in Statistics (2009)
+
+                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                           2013-11-17</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function model = ml_trainridge(varargin)</a>
+0002 <span class="comment">% Perform ridge regression.</span>
+0003 <span class="comment">% Model = ml_trainridge(Trials, Targets, Lambda, Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Ridge regression [1] is a generalization of basic multivariate regression which in addition</span>
+0006 <span class="comment">% includes a regularization parameter (lambda), which, when chosen as &gt; 0 governs the amount of</span>
+0007 <span class="comment">% shrinkage applied to the solution. This is an effective way to carefully contrain the model</span>
+0008 <span class="comment">% complexity in order to not overfit spurious noise in the training data. It can also be interpreted</span>
+0009 <span class="comment">% as a Gaussian prior on the model weights when ridge regression is viewed as a Bayesian Maximum a</span>
+0010 <span class="comment">% Posteriori (MAP) estimator. This type of regularization is also called Tikhonov regularization.</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">% In:</span>
+0013 <span class="comment">%   Trials       : training data, as in ml_train</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">%   Targets      : target variable, as in ml_train</span>
+0016 <span class="comment">%                  may also contain weights, in the form {Targets,Weights}; supported by l1 &amp; l2 variants</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   Lambda       : regularization parameter (default: 1)</span>
+0019 <span class="comment">%                  a comprehensive search interval would be 2.^(-5:2:15)</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   Options  : optional name-value parameters to control the training details:</span>
+0022 <span class="comment">%              'scaling': pre-scaling of the data (see hlp_findscaling for options) (default: 'std')</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">% Out:</span>
+0025 <span class="comment">%   Model   : a linear model;</span>
+0026 <span class="comment">%             w is the linear weights, including the bias as last element;</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">% See also:</span>
+0029 <span class="comment">%   ml_predictridge</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">% Examples:</span>
+0032 <span class="comment">%   % learn a ridge regression model using defaults</span>
+0033 <span class="comment">%   model = ml_trainlogreg(trials,targets)</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%   % as before, but using a non-default regularization parameter (here: 0.1)</span>
+0036 <span class="comment">%   model = ml_trainlogreg(trials,targets,0.1)</span>
+0037 <span class="comment">%</span>
+0038 <span class="comment">%   % as before, but also use a non-default scaling option (center the data)</span>
+0039 <span class="comment">%   model = ml_trainlogreg(trials,targets,0.1,'scaling','center')</span>
+0040 <span class="comment">%</span>
+0041 <span class="comment">%   % use ml_trainridge with the parameter search function, and search over a range of possible lambda values</span>
+0042 <span class="comment">%   model = utl_searchmodel({trials,targets},'args',{{'ridge',search(2.^(-5:1:10)),'scaling','center'}})</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">% References:</span>
+0045 <span class="comment">%   [1] Hastie, T., Tibshirani, R., &amp; Friedman, J.</span>
+0046 <span class="comment">%       &quot;The Elements of Statistical Learning: Data Mining, Inference, and Prediction&quot;</span>
+0047 <span class="comment">%       Springer Series in Statistics (2009)</span>
+0048 <span class="comment">%</span>
+0049 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0050 <span class="comment">%                           2013-11-17</span>
+0051 
+0052 arg_define([0 3],varargin, <span class="keyword">...</span>
+0053     arg_norep(<span class="string">'trials'</span>), <span class="keyword">...</span>
+0054     arg_norep(<span class="string">'targets'</span>), <span class="keyword">...</span>
+0055     arg({<span class="string">'lambda'</span>,<span class="string">'Lambda'</span>}, 1, [0 2^-7 2^15 Inf], <span class="string">'Regularization parameter. Reasonable range: 2.^(-5:2:15), greater is stronger.'</span>), <span class="keyword">...</span>
+0056     arg({<span class="string">'scaling'</span>,<span class="string">'Scaling'</span>}, <span class="string">'std'</span>, {<span class="string">'none'</span>,<span class="string">'center'</span>,<span class="string">'std'</span>,<span class="string">'minmax'</span>,<span class="string">'whiten'</span>}, <span class="string">'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>));
+0057 
+0058 <span class="comment">% scale the data</span>
+0059 sc_info = hlp_findscaling(trials,scaling); <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0060 trials = hlp_applyscaling(trials,sc_info);
+0061 
+0062 trials = [trials ones(size(trials,1),1)];
+0063 model.w = (trials'*trials + lambda*eye(size(trials,2)))\(trials'*targets); 
+0064 
+0065 model.sc_info = sc_info;</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

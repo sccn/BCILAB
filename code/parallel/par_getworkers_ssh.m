@@ -182,10 +182,11 @@ opts = arg_define(varargin,...
     arg({'max_cpuload','MaxCPULoad'},Inf, [0 Inf], 'Maximum CPU load. The maximum acceptable average CPU load (summed over all cores) for a node to be considered.'), ...
     arg({'load_window','LoadWindow'},15,[0 Inf],'Load estimation window. The time window in seconds (into the past) over which the CPU load will be estimated to determine whether a worker shall be started on a given node.'), ...
     arg({'avoid_proc','AvoidProcess'},'avoidme',[],'Process to avoid. Optionally a process name that indicates that no workers shall be spawned if the process is running on some machine (e.g. a time-critical computation).'),...
+    arg({'avoid_hosts','AvoidHosts'},{},[],'Hosts to avoid. Optionally a list of hostnames to avoid.'), ...
     ... % shutdown management
     arg({'shutdown_timeout','ShutdownTimeout'},0,[0 Inf],'Shutdown timeout. If non-zero, the worker will be shut down if it has not received a heartbeat signal from a client in the given time frame, in seconds. For this to work, the function env_acquire_cluster should be used as it sets up the heartbeat timer.'),...
     ... % misc
-    arg({'harvest_timeout','HarvestTimeout'},450,[],'Harvesting timeout. This function will attempt to harvest process id''s from the workers until this timeout has expired (in which case the pid of straggers will not be known). Note that when multiple MATLABs try to launch simultaneously, it can take longer than normal.'), ...
+    arg({'harvest_timeout','HarvestTimeout'},300,[],'Harvesting timeout. This function will attempt to harvest process id''s from the workers until this timeout has expired (in which case the pid of straggers will not be known). Note that when multiple MATLABs try to launch simultaneously, it can take longer than normal.'), ...
     arg({'recruit_machines','RecruitMachines'},true,[],'Recruit workers. Whether to actually recruit other machines, rather than just list them.'));
 
 % no arguments were passed? bring up GUI dialog
@@ -256,20 +257,25 @@ if ~isempty(avoidcheck_command)
     avoidcheck_command = sprintf(avoidcheck_command,avoid_proc); end
 
 % give some recommendations regarding good input ranges
-if opts.processors_per_node > 64
+if processors_per_node > 64
     disp_once('The WorkersPerNode setting is unusually large -- make sure that you do not use more workers than you have cores.'); end
-if opts.matlabthreads > 8
+if matlabthreads > 8
     disp_once('The MatlabThreads setting is relatively large; typically MATLAB wastes increasingly many CPU cycles with more than 8-16 threads (except for some very streamlined operations).'); end
-if ~exist(opts.logging_path,'dir')
+if ~exist(logging_path,'dir')
     disp_once('The logging path does not exist on the local file system; make sure that it is accessible to remote workers.'); end
-if ~isempty(opts.mcr_root) && opts.binary_worker && ~exist(opts.mcr_root,'dir')
+if ~isempty(mcr_root) && binary_worker && ~exist(mcr_root,'dir')
     disp_once('The matlab compiler root does not exist on the local file system; make sure that it is accessible to remote workers.'); end
-if opts.min_memory < (2^10 * 500)
+if min_memory < (2^10 * 500)
     disp_once('The MinFreeMemory setting is very small; MATLAB alone often needs more than 500MB free memory to run.'); end
-if opts.load_window > 15
+if load_window > 15
     disp_once('The LoadWindow setting is larger than what is typically tracked on Linux systems (15 minutes).'); end
-if opts.shutdown_timeout == 0
+if shutdown_timeout == 0
     disp_once('It is recommended that a nonzero ShutdownTimeout value is used (otherwise workers can linger on forever).'); end
+if shutdown_timeout ~= 0 && harvest_timeout+30 > shutdown_timeout
+    % (otherwise workers can shut themselves down before the heartbeat is being initialized
+    disp_once('The HarvestTimeout is larger than the ShutdownTimeout; increasing ShutdownTimeout.'); 
+    shutdown_timeout = harvest_timeout+30;
+end
 
 % generate in the bcilab-specific startup command
 if strcmp(startup_command,'autogenerate')
@@ -298,7 +304,11 @@ end
 % remove duplicates
 hostnames = unique(hostnames);
 
-
+% remove any host to avoid
+if ~isempty(avoid_hosts)
+    for h=1:length(avoid_hosts)
+        hostnames = hostnames(~strncmp(hostnames,avoid_hosts{h},length(avoid_hosts{h}))); end
+end
 
 % filter hostnames by machine availability, and retrieve machine stats
 disp('Listing compute servers ...');
@@ -481,6 +491,8 @@ if ~isempty(stats)
                     logpaths{end+1} = logpath;
                     stats(k).freemem = stats(k).freemem - min_memory;
                     pool{end+1} = sprintf('%s:%d',host,port);
+                else
+                    fprintf('Host %s does not have the required amount of free memory.\n',host);
                 end
             else
                 % worker is already running: add to pool
@@ -513,7 +525,19 @@ if ~isempty(stats)
         pool = harvested_addresses;
         fprintf('Note: the format of the hostnames used to schedule workers does not match the format of hostnames reported by the workers themselves. Please consider changing it.\n');
     end
-    fprintf('Launched %i workers: %s\n',length(pool),hlp_tostring(pool));    
+    if num_matches < length(pool)
+        % if you have workers without PID this means that they will not be immediately released
+        % when you call env_release_cluster or par_clearworkers; instead, they will terminate
+        % themselves once they are finished with their current computation and and their shutdown
+        % timeout has expired (note that if your shutdown timeout is 0, they will linger until you
+        % kill them)
+        fprintf('Launched %i workers (%i without PID): %s\n',length(pool),length(pool)-num_matches,hlp_tostring(pool));    
+        if shutdown_timeout == 0
+            fprintf('WARNING: the workers without PID have no shutdown timeout set, so you need to kill them manually.'); end
+    else
+        fprintf('Launched %i workers: %s\n',length(pool),hlp_tostring(pool));    
+    end
+    
 else
     disp('None of the listed machines is available; please make sure that:');
     disp(' * you can ssh into these machines without a password prompt"');

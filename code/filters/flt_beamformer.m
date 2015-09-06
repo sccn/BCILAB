@@ -28,21 +28,29 @@ function signal = flt_beamformer(varargin)
 
 if ~exp_beginfun('filter') return; end
 
-declare_properties('name','Beamformer', 'follows',{'flt_selchans','flt_repair_bursts'}, 'cannot_follow','flt_ica', 'independent_channels',false, 'independent_trials',true);
+declare_properties('name','Beamformer', 'follows',{'flt_selchans','flt_repair_bursts','flt_clean_settings'}, 'cannot_follow','flt_ica', 'independent_channels',false, 'independent_trials',true);
 
 arg_define(varargin, ...
     arg_norep({'signal','Signal'}), ...
-    arg({'roi_labels','ROIs'},{}, {'Precentral_L', 'Precentral_R', 'Frontal_Sup_L', 'Frontal_Sup_R', 'Frontal_Sup_Orb_L', 'Frontal_Sup_Orb_R', 'Frontal_Mid_L', 'Frontal_Mid_R', 'Frontal_Mid_Orb_L', 'Frontal_Mid_Orb_R', 'Frontal_Inf_Oper_L', 'Frontal_Inf_Oper_R', 'Frontal_Inf_Tri_L', 'Frontal_Inf_Tri_R', 'Frontal_Inf_Orb_L', 'Frontal_Inf_Orb_R', 'Rolandic_Oper_L', 'Rolandic_Oper_R', 'Supp_Motor_Area_L', 'Supp_Motor_Area_R', 'Frontal_Sup_Medial_L', 'Frontal_Sup_Medial_R', 'Frontal_Med_Orb_L', 'Frontal_Med_Orb_R', 'Insula_L', 'Insula_R', 'Cingulum_Ant_L', 'Cingulum_Ant_R', 'Cingulum_Mid_L', 'Cingulum_Mid_R', 'Cingulum_Post_L', 'Cingulum_Post_R', 'Hippocampus_L', 'Hippocampus_R', 'ParaHippocampal_L', 'ParaHippocampal_R', 'Calcarine_L', 'Calcarine_R', 'Cuneus_L', 'Cuneus_R', 'Lingual_L', 'Lingual_R', 'Occipital_Sup_L', 'Occipital_Sup_R', 'Occipital_Mid_L', 'Occipital_Mid_R', 'Occipital_Inf_L', 'Occipital_Inf_R', 'Fusiform_L', 'Fusiform_R', 'Postcentral_L', 'Postcentral_R', 'Parietal_Sup_L', 'Parietal_Sup_R', 'Parietal_Inf_L', 'Parietal_Inf_R', 'SupraMarginal_L', 'SupraMarginal_R', 'Angular_L', 'Angular_R', 'Precuneus_L', 'Precuneus_R', 'Paracentral_Lobule_L', 'Paracentral_Lobule_R', 'Temporal_Sup_L', 'Temporal_Sup_R', 'Temporal_Pole_Sup_L', 'Temporal_Pole_Sup_R', 'Temporal_Mid_L', 'Temporal_Mid_R', 'Temporal_Pole_Mid_L', 'Temporal_Pole_Mid_R', 'Temporal_Inf_L', 'Temporal_Inf_R', 'Olfactory_L', 'Olfactory_R', 'Rectus_L', 'Rectus_R', 'Amygdala_L', 'Amygdala_R', 'Caudate_L', 'Caudate_R', 'Thalamus_L', 'Thalamus_R', 'Heschl_L', 'Heschl_R'}, ...
+    arg({'roi_labels','ROIs','ROILabels'},{}, {'Precentral_L', 'Precentral_R', 'Frontal_Sup_L', 'Frontal_Sup_R', 'Frontal_Sup_Orb_L', 'Frontal_Sup_Orb_R', 'Frontal_Mid_L', 'Frontal_Mid_R', 'Frontal_Mid_Orb_L', 'Frontal_Mid_Orb_R', 'Frontal_Inf_Oper_L', 'Frontal_Inf_Oper_R', 'Frontal_Inf_Tri_L', 'Frontal_Inf_Tri_R', 'Frontal_Inf_Orb_L', 'Frontal_Inf_Orb_R', 'Rolandic_Oper_L', 'Rolandic_Oper_R', 'Supp_Motor_Area_L', 'Supp_Motor_Area_R', 'Frontal_Sup_Medial_L', 'Frontal_Sup_Medial_R', 'Frontal_Med_Orb_L', 'Frontal_Med_Orb_R', 'Insula_L', 'Insula_R', 'Cingulum_Ant_L', 'Cingulum_Ant_R', 'Cingulum_Mid_L', 'Cingulum_Mid_R', 'Cingulum_Post_L', 'Cingulum_Post_R', 'Hippocampus_L', 'Hippocampus_R', 'ParaHippocampal_L', 'ParaHippocampal_R', 'Calcarine_L', 'Calcarine_R', 'Cuneus_L', 'Cuneus_R', 'Lingual_L', 'Lingual_R', 'Occipital_Sup_L', 'Occipital_Sup_R', 'Occipital_Mid_L', 'Occipital_Mid_R', 'Occipital_Inf_L', 'Occipital_Inf_R', 'Fusiform_L', 'Fusiform_R', 'Postcentral_L', 'Postcentral_R', 'Parietal_Sup_L', 'Parietal_Sup_R', 'Parietal_Inf_L', 'Parietal_Inf_R', 'SupraMarginal_L', 'SupraMarginal_R', 'Angular_L', 'Angular_R', 'Precuneus_L', 'Precuneus_R', 'Paracentral_Lobule_L', 'Paracentral_Lobule_R', 'Temporal_Sup_L', 'Temporal_Sup_R', 'Temporal_Pole_Sup_L', 'Temporal_Pole_Sup_R', 'Temporal_Mid_L', 'Temporal_Mid_R', 'Temporal_Pole_Mid_L', 'Temporal_Pole_Mid_R', 'Temporal_Inf_L', 'Temporal_Inf_R', 'Olfactory_L', 'Olfactory_R', 'Rectus_L', 'Rectus_R', 'Amygdala_L', 'Amygdala_R', 'Caudate_L', 'Caudate_R', 'Thalamus_L', 'Thalamus_R', 'Heschl_L', 'Heschl_R'}, ...
         'Cortical anchor locations. List of locations to which components shall be constrained. The first k components are encouraged to lie close to the given locations, in the order of appearance. This is experimental and currently requires a) 10-20 locations and b) Guido Nolte''s source analysis toolbox (not included).','experimental',true), ...
     arg({'field_type','FieldType'},'normal',{'normal','axial'},'Regions of interest. These are the regions from which to recover signals.'), ...
-    arg({'reference_type','ReferenceType'},'nasion',{'nasion','common_average'},'Referencing scheme. This is the type of re-referencing that was applied before flt_beamformer.'), ...
+    arg({'reference_type','ReferenceType'},'common_average',{'nasion','common_average'},'Referencing scheme. This is the type of re-referencing that was applied before flt_beamformer.'), ...
     arg({'override_original','OverrideOriginal'},true,[],'Override original data. If checked, the original signals will be replaced by the recovery.'), ...
+    arg({'override_chanlabels','OverrideChanlabels'},{},[],'Override channel labels.'), ...
+    arg({'cov_shrinkage','CovShrinkage'},0,[],'Covariance shrinkage parameter. For better conditioning.'), ...
+    arg({'cov_robust','CovRobust'},false,[],'Use robust covariance estimate.'), ...
     arg_norep('M'), ...
     arg_norep('channel_mask'));
 
 % calculate spatial filter matrix, if necessary
 if ~exist('M','var')
-    [dummy,dummy,channel_mask,dummy,dummy,dummy,normField,leadField] = hlp_diskcache('filterdesign',@calc_beamformer_constraints,{signal.chanlocs.labels},roi_labels,eye(signal.nbchan),reference_type); %#ok<ASGLU>
+    if isempty(override_chanlabels)
+        chan_labels = {signal.chanlocs.labels};
+    else
+        chan_labels = override_chanlabels;
+    end    
+    [dummy,dummy,channel_mask,dummy,dummy,dummy,normField,leadField] = hlp_diskcache('filterdesign',@calc_beamformer_constraints,chan_labels,roi_labels,eye(signal.nbchan),reference_type); %#ok<ASGLU>
     if strcmp(field_type,'normal')
         LF = normField;        
     elseif strcmp(field_type,'axial')
@@ -50,7 +58,13 @@ if ~exist('M','var')
     else
         error('Unsupported field type requested: %s',hlp_tostring(field_type,1000));
     end
-    M = LF'/cov(signal.data(channel_mask,:)'); 
+    if cov_robust
+        C = cov_blockgeom(signal.data(channel_mask,:)');
+    else
+        C = cov(signal.data(channel_mask,:)');
+    end
+    C = (1-cov_shrinkage)*C + cov_shrinkage*mean(trace(C))*eye(length(C));
+    M = LF'/C;
 end
 
 % apply M

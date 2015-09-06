@@ -1,0 +1,152 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ml_traincov</title>
+  <meta name="keywords" content="ml_traincov">
+  <meta name="description" content="Learn a linear predictive model using covariance-based classification.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">machine_learning</a> &gt; ml_traincov.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/machine_learning&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ml_traincov
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Learn a linear predictive model using covariance-based classification.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function model = ml_traincov(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Learn a linear predictive model using covariance-based classification.
+ Model = ml_traincov(Trials, Targets, Options...)
+
+ This method assumes that the given trials values represent covariance matrices and offers various
+ methods, including information geometric approaches, to classify them. This implementation uses
+ the covariance toolbox by Alexandre Barachant.
+
+ In:
+   Trials       : training data, as in ml_train
+
+   Targets      : target variable, as in ml_train
+
+ Out:
+   Model   : the predictive model; can be used with ml_predictcov
+
+ Examples:
+   % learn a model using the defaults
+   model = ml_traincov(trials,targets);
+
+ See also:
+   <a href="ml_predictcov.html" class="code" title="function pred = ml_predictcov(trials, model)">ml_predictcov</a>
+
+                           Christian Kothe, Syntrogi
+                           2015-04-21</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function model = ml_traincov(varargin)</a>
+0002 <span class="comment">% Learn a linear predictive model using covariance-based classification.</span>
+0003 <span class="comment">% Model = ml_traincov(Trials, Targets, Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This method assumes that the given trials values represent covariance matrices and offers various</span>
+0006 <span class="comment">% methods, including information geometric approaches, to classify them. This implementation uses</span>
+0007 <span class="comment">% the covariance toolbox by Alexandre Barachant.</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% In:</span>
+0010 <span class="comment">%   Trials       : training data, as in ml_train</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%   Targets      : target variable, as in ml_train</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">% Out:</span>
+0015 <span class="comment">%   Model   : the predictive model; can be used with ml_predictcov</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">% Examples:</span>
+0018 <span class="comment">%   % learn a model using the defaults</span>
+0019 <span class="comment">%   model = ml_traincov(trials,targets);</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">% See also:</span>
+0022 <span class="comment">%   ml_predictcov</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%                           Christian Kothe, Syntrogi</span>
+0025 <span class="comment">%                           2015-04-21</span>
+0026         
+0027 arg_define([0 3],varargin, <span class="keyword">...</span>
+0028     arg_norep(<span class="string">'trials'</span>), <span class="keyword">...</span>
+0029     arg_norep(<span class="string">'targets'</span>), <span class="keyword">...</span>
+0030     arg({<span class="string">'classifier'</span>,<span class="string">'ClassificationMethod'</span>},<span class="string">'mdm'</span>,{<span class="string">'mdm'</span>,<span class="string">'fgmdm'</span>,<span class="string">'tslda'</span>}, <span class="string">'Classification method to use. The mdm method (minimum distance to mean) is based on minimum distance to class mean using a given distance metric and mean estimation metric. The fgmdm (filtered geodesic mdm) method additionally performs geodesic filtering. The tslda method (tangent-space linear discriminant analysis) is an LDA implementation that respects the Riemannian geometry of the data.'</span>), <span class="keyword">...</span>
+0031     arg({<span class="string">'mean_est'</span>,<span class="string">'MeanEstimator'</span>},<span class="string">'riemann'</span>,{<span class="string">'arithmetic'</span>,<span class="string">'riemann'</span>,<span class="string">'riemanndiag'</span>,<span class="string">'riemanntrim'</span>,<span class="string">'median'</span>,<span class="string">'riemannmed'</span>,<span class="string">'logeuclid'</span>,<span class="string">'opttransp'</span>,<span class="string">'ld'</span>,<span class="string">'geodesic'</span>,<span class="string">'harmonic'</span>,<span class="string">'geometric'</span>},<span class="string">'Method to average covariance matrices. Various methods are supported, including Riemannian mean/median/trimmed mean, log-euclidean mean, optimal transportation mean, log determinant mean, and geodesic iterative mean.'</span>), <span class="keyword">...</span>
+0032     arg({<span class="string">'distance_metric'</span>,<span class="string">'DistanceMetric'</span>},<span class="string">'riemann'</span>,{<span class="string">'euclid'</span>,<span class="string">'riemann'</span>,<span class="string">'kullback'</span>,<span class="string">'logeuclid'</span>,<span class="string">'opttransp'</span>,<span class="string">'ld'</span>},<span class="string">'Distance metric to use. This is only used for the mdm and fgmdm methods. Different distance metrics are supported, including the Euclidean metric, the Riemannian distance, Kullback-Leibler divergence, log-euclidean distance, optimal transportation distance, and log determinant distance'</span>));
+0033 
+0034 <span class="comment">% find the class labels</span>
+0035 classes = unique(targets);
+0036 <span class="keyword">if</span> length(classes) == 1
+0037     error(<span class="string">'BCILAB:only_one_class'</span>,<span class="string">'Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.'</span>);
+0038 <span class="keyword">else</span>
+0039     <span class="comment">% reformat feature shape to DxDxN</span>
+0040     <span class="keyword">if</span> ndims(trials) == 2 <span class="comment">%#ok&lt;ISMAT,NODEF&gt;</span>
+0041         [N,F] = size(trials);
+0042         D = sqrt(F);
+0043         <span class="keyword">if</span> abs(D-round(D)) &gt; 0
+0044             error(<span class="string">'The number of features in your trials must be a square of an integer.'</span>); <span class="keyword">end</span>
+0045         trials = reshape(trials',[D,D,N]);
+0046     <span class="keyword">else</span>
+0047         [U,V,N] = size(trials); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0048         <span class="keyword">if</span> U ~= V
+0049             error(<span class="string">'Your feature matrices are not square, i.e., cannot be covariance matrices.'</span>); <span class="keyword">end</span>
+0050     <span class="keyword">end</span>
+0051     
+0052     model.classes = classes;
+0053     <span class="keyword">switch</span> classifier
+0054         <span class="keyword">case</span> <span class="string">'mdm'</span>
+0055             <span class="comment">% minimum distance to mean: estimate class means</span>
+0056             <span class="keyword">for</span> c=length(classes):-1:1
+0057                 model.C{c} = mean_covariances(trials(:,:,targets==classes(c)),mean_est); <span class="keyword">end</span>
+0058         <span class="keyword">case</span> <span class="string">'fgmdm'</span>
+0059             <span class="comment">% filtered geodesic minimum distance to mean</span>
+0060             <span class="comment">% geodesic filtering</span>
+0061             [model.W,model.Cg] = fgda(trials,targets,mean_est,{},<span class="string">'shcov'</span>,{});
+0062             trials = geodesic_filter(trials,model.Cg,model.W(:,1:length(model.classes)-1));
+0063             <span class="comment">% estimate class means</span>
+0064             <span class="keyword">for</span> c=length(classes):-1:1
+0065                 model.C{c} = mean_covariances(trials(:,:,targets==classes(c)),mean_est); <span class="keyword">end</span>
+0066         <span class="keyword">case</span> <span class="string">'tslda'</span>
+0067             error(<span class="string">'This variant is not yet implemented!'</span>);
+0068         <span class="keyword">otherwise</span>
+0069             error(<span class="string">'Unsupported classification method: %s'</span>,hlp_tostring(classifier));
+0070     <span class="keyword">end</span>
+0071 <span class="keyword">end</span>
+0072 
+0073 model.classifier = classifier;
+0074 model.mean_est = mean_est;
+0075 model.distance_metric = distance_metric;</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of validate_varnames</title>
+  <meta name="keywords" content="validate_varnames">
+  <meta name="description" content="Check for a given set of variable names for possible name clashes.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../index.html">arguments</a> &gt; <a href="index.html">private</a> &gt; validate_varnames.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/arguments/private&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>validate_varnames
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Check for a given set of variable names for possible name clashes.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function validate_varnames(caller,varnames) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Check for a given set of variable names for possible name clashes.
+ validate_varnames(Caller,Varnames)
+ 
+ In:
+   Caller : name of the function (used in warning messages)
+   Varnames : cell array of variable names to check
+ 
+ This function checks for each variable name whether there is a function on the path with the same
+ name; this is necessary because of a deficiency in how MATLAB handles variables that are assigned
+ to a function's workspace using assignin (such variables are not first-class citizens in MATLAB).</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function validate_varnames(caller,varnames)</a>
+0002 <span class="comment">% Check for a given set of variable names for possible name clashes.</span>
+0003 <span class="comment">% validate_varnames(Caller,Varnames)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Caller : name of the function (used in warning messages)</span>
+0007 <span class="comment">%   Varnames : cell array of variable names to check</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% This function checks for each variable name whether there is a function on the path with the same</span>
+0010 <span class="comment">% name; this is necessary because of a deficiency in how MATLAB handles variables that are assigned</span>
+0011 <span class="comment">% to a function's workspace using assignin (such variables are not first-class citizens in MATLAB).</span>
+0012 
+0013     <span class="keyword">persistent</span> already_checked;    
+0014     <span class="keyword">if</span> isempty(already_checked)
+0015         already_checked = {}; <span class="keyword">end</span>
+0016     <span class="keyword">for</span> n = fast_setdiff(varnames,already_checked)
+0017         curname = n{1};
+0018         <span class="keyword">try</span>
+0019             already_checked{end+1} = curname; <span class="comment">%#ok&lt;AGROW&gt;</span>
+0020             existing_func = which(curname);
+0021             <span class="keyword">if</span> ~isempty(existing_func)
+0022                 <span class="keyword">if</span> isempty(strfind(existing_func,<span class="string">'Java method'</span>))
+0023                     [path_part,file_part,ext_part] = fileparts(existing_func);
+0024                     <span class="keyword">if</span> ~any(strncmp(<span class="string">'@'</span>,hlp_split(path_part,filesep),1))
+0025                         <span class="comment">% If this happens, it means that there is a function in one of the directories in</span>
+0026                         <span class="comment">% MATLAB's path which has the same name as an argument of the specification. If this</span>
+0027                         <span class="comment">% argument variable is copied into the function's workspace by arg_define, most MATLAB</span>
+0028                         <span class="comment">% versions will (incorrectly) try to call that function instead of accessing the</span>
+0029                         <span class="comment">% variable. I hope that they handle this issue at some point. One workaround is to use</span>
+0030                         <span class="comment">% a longer argument name (that is less likely to clash) and, if it should still be</span>
+0031                         <span class="comment">% usable for parameter passing, to retain the old name as a secondary or ternary</span>
+0032                         <span class="comment">% argument name (using a cell array of names in arg()). The only really good</span>
+0033                         <span class="comment">% solution at this point is to generally assign the output of arg_define to a</span>
+0034                         <span class="comment">% struct.</span>
+0035                         disp([caller <span class="string">': The argument name &quot;'</span> curname <span class="string">'&quot; clashes with the function &quot;'</span> [file_part ext_part] <span class="string">'&quot; in directory &quot;'</span> path_part <span class="string">'&quot;; it is strongly recommended that you either rename the function or remove it from the path.'</span>]);
+0036                     <span class="keyword">end</span>
+0037                 <span class="keyword">else</span>
+0038                     <span class="comment">% these Java methods are probably spurious &quot;false positives&quot; of the which() function</span>
+0039                     disp([caller <span class="string">': There is a Java method named &quot;'</span> curname <span class="string">'&quot; on your path; if you experience any name clash with it, please report this issue.'</span>]);
+0040                 <span class="keyword">end</span>
+0041             <span class="keyword">end</span>
+0042         <span class="keyword">catch</span> e
+0043             disp_once(<span class="string">'Validation of the name %s failed; reason: %s'</span>,curname,e.message);
+0044         <span class="keyword">end</span>
+0045     <span class="keyword">end</span>
+0046 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

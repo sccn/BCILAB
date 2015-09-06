@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>ParadigmDALOSC
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -33,15 +34,31 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="ParadigmDALOSC.html" class="code" title="">ParadigmDALOSC</a>	</li><li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li></ul>
+
+<li><a href="ParadigmDALOSC.html" class="code" title="">ParadigmDALOSC</a>	</li>
+<li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="ParadigmDALOSC.html" class="code" title="">ParadigmDALOSC</a>	</li></ul>
+
+<li><a href="ParadigmDALOSC.html" class="code" title="">ParadigmDALOSC</a>	</li>
+</ul>
 <!-- crossreference -->
+
 
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li><li><a href="#_sub2" class="code">function defaults = machine_learning_defaults(self)</a></li><li><a href="#_sub3" class="code">function model = feature_adapt(self,varargin)</a></li><li><a href="#_sub4" class="code">function features = feature_extract(self,signal,featuremodel)</a></li><li><a href="#_sub5" class="code">function visualize_model(self,parent,fmodel,pmodel,varargin)</a></li><li><a href="#_sub6" class="code">function layout = dialog_layout_defaults(self)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li>
+<li><a href="#_sub2" class="code">function defaults = machine_learning_defaults(self)</a></li>
+<li><a href="#_sub3" class="code">function model = feature_adapt(self,varargin)</a></li>
+<li><a href="#_sub4" class="code">function features = feature_extract(self,signal,featuremodel)</a></li>
+<li><a href="#_sub5" class="code">function visualize_model(self,varargin)</a></li>
+<li><a href="#_sub6" class="code">function layout = dialog_layout_defaults(self)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 classdef <a href="ParadigmDALOSC.html" class="code" title="">ParadigmDALOSC</a> &lt; <a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>
@@ -100,53 +117,86 @@ This function is called by:
 0054         <span class="keyword">end</span>
 0055 
 0056         <a name="_sub1" href="#_subfunctions" class="code">function defaults = machine_learning_defaults(self)</a>
-0057             defaults = <span class="string">'dal'</span>;
+0057             defaults = {<span class="string">'dal'</span>, <span class="string">'Lambdas'</span>,2.^(4:-0.25:-3), <span class="string">'NumFolds'</span>,5,<span class="string">'FoldMargin'</span>,1};
 0058         <span class="keyword">end</span>
 0059         
 0060         <a name="_sub2" href="#_subfunctions" class="code">function model = feature_adapt(self,varargin)</a>
 0061             args = arg_define(varargin, <span class="keyword">...</span>
 0062                 arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
-0063                 arg({<span class="string">'normalizers'</span>,<span class="string">'NormalizationExponents'</span>},[-0.25,-0.25],[],<span class="string">'Normalization exponents [lhs, rhs]. Two-element array of powers for the left-hand-side and right-hand-side normalization matrices that are applied to the data from the region.'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>));
-0064             
-0065             X = num2cell(args.signal.data,[1 2]);
-0066             <span class="keyword">for</span> t=1:length(X)
-0067                 X{t} = cov(X{t}'); <span class="keyword">end</span>
-0068             model.P = {hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_shrink,cat(2,X{:})')^args.normalizers(1),hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_shrink,cat(1,X{:}))^args.normalizers(2)};
-0069             model.chanlocs = args.signal.chanlocs;
-0070         <span class="keyword">end</span>
-0071         
-0072         <a name="_sub3" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
-0073             features = zeros(size(signal.data,1),size(signal.data,1),size(signal.data,3));
-0074             <span class="keyword">for</span> t=1:size(signal.data,3)
-0075                 features(:,:,t) = featuremodel.P{1}*cov(signal.data(:,:,t)')*featuremodel.P{2}; <span class="keyword">end</span>
-0076         <span class="keyword">end</span>
-0077 
-0078         <a name="_sub4" href="#_subfunctions" class="code">function visualize_model(self,parent,fmodel,pmodel,varargin) </a><span class="comment">%#ok&lt;*INUSD&gt;</span>
-0079             <span class="comment">% no parent: create new figure</span>
-0080             args = hlp_varargin2struct(varargin,<span class="string">'maxcomps'</span>,Inf,<span class="string">'regcurve'</span>,true,<span class="string">'paper'</span>,false);
-0081             <span class="keyword">if</span> isempty(parent)
-0082                 parent = figure(<span class="string">'Name'</span>,<span class="string">'Per-window weights'</span>); <span class="keyword">end</span>
-0083             <span class="comment">% get the spatial preprocessing matrix.</span>
-0084             P = fmodel.P{1};
-0085             <span class="comment">% obtain &amp; reshape the model</span>
-0086             M = reshape(pmodel.model.w,size(P,2),[]);
-0087             <span class="comment">% do an SVD to get spatial and temporal filters</span>
-0088             [U,S,V] = svd(M);
-0089             <span class="comment">% display the model contents</span>
-0090             N = min(rank(M),args.maxcomps);
-0091             topoplot_grid(P*U(1:N,:)',fmodel.chanlocs);
-0092         <span class="keyword">end</span>
-0093         
-0094         <a name="_sub5" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
-0095             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>, <span class="string">'SignalProcessing.FIRFilter.Frequencies'</span>, <span class="keyword">...</span>
-0096                 <span class="string">'SignalProcessing.FIRFilter.Type'</span>, <span class="string">'SignalProcessing.EpochExtraction'</span>, <span class="string">''</span>, <span class="keyword">...</span>
-0097                 <span class="string">'Prediction.MachineLearning.Learner.Lambdas'</span>,<span class="string">'Prediction.MachineLearning.Learner.LossFunction'</span>,<span class="keyword">...</span>
-0098                 <span class="string">'Prediction.MachineLearning.Learner.Regularizer'</span>};
-0099         <span class="keyword">end</span>
-0100         
-0101     <span class="keyword">end</span>
-0102 <span class="keyword">end</span>
-0103</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0063                 arg({<span class="string">'normalizers'</span>,<span class="string">'NormalizationExponents'</span>},[-0.5,-0.5],[],<span class="string">'Normalization exponents [lhs, rhs]. Two-element array of powers for the left-hand-side and right-hand-side normalization matrices that are applied to the data from the region.'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0064                 arg({<span class="string">'shrinkage_rescalers'</span>,<span class="string">'ShrinkageRescalers'</span>},true,[],<span class="string">'Use shrinkage to estimate rescalers. If enabled, the rescaling matrices will be estimated using shrinkage.'</span>), <span class="keyword">...</span>
+0065                 arg({<span class="string">'normalize'</span>,<span class="string">'Normalize'</span>},true,[],<span class="string">'Perform data normalization.'</span>));
+0066             
+0067             <span class="keyword">if</span> args.normalize
+0068                 X = num2cell(args.signal.data,[1 2]);
+0069                 <span class="keyword">for</span> t=1:length(X)
+0070                     X{t} = cov(X{t}'); <span class="keyword">end</span>
+0071                 <span class="comment">% calc rescaling matrices</span>
+0072                 <span class="keyword">if</span> args.shrinkage_rescalers
+0073                     model.P = {hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_shrink,cat(2,X{:})')^args.normalizers(1),hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_shrink,cat(1,X{:}))^args.normalizers(2)};
+0074                 <span class="keyword">else</span>
+0075                     model.P = {cov(cat(2,X{:})')^args.normalizers(1),cov(cat(1,X{:}))^args.normalizers(2)};
+0076                 <span class="keyword">end</span>
+0077                 <span class="comment">% make sure that the data is properly normalized so that our lambda range does not have</span>
+0078                 <span class="comment">% to be tuned to fit the data scale</span>
+0079                 Y = zeros(size(args.signal.data,1),size(args.signal.data,1),size(args.signal.data,3));
+0080                 <span class="keyword">for</span> t=1:size(args.signal.data,3)
+0081                     Y(:,:,t) = model.P{1}*cov(args.signal.data(:,:,t)')*model.P{2}; <span class="keyword">end</span>                    
+0082                 model.scale = 1/sum(sum(sqrt(var(Y,[],3)))/(size(Y,1)*size(Y,2)));
+0083             <span class="keyword">end</span>
+0084             model.chanlocs = args.signal.chanlocs;
+0085             model.cov = cov(args.signal.data(:,:)');
+0086             model.normalize = args.normalize;
+0087         <span class="keyword">end</span>
+0088         
+0089         <a name="_sub3" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
+0090             features = zeros(size(signal.data,1),size(signal.data,1),size(signal.data,3));
+0091             <span class="keyword">if</span> featuremodel.normalize
+0092                 <span class="keyword">for</span> t=1:size(signal.data,3)
+0093                     features(:,:,t) = featuremodel.scale*(featuremodel.P{1}*cov(signal.data(:,:,t)')*featuremodel.P{2}); <span class="keyword">end</span>
+0094             <span class="keyword">else</span>
+0095                 <span class="keyword">for</span> t=1:size(signal.data,3)
+0096                     features(:,:,t) = cov(signal.data(:,:,t)'); <span class="keyword">end</span>
+0097             <span class="keyword">end</span>
+0098         <span class="keyword">end</span>
+0099 
+0100         <a name="_sub4" href="#_subfunctions" class="code">function visualize_model(self,varargin) </a><span class="comment">%#ok&lt;*INUSD&gt;</span>
+0101             args = arg_define([0 3],varargin, <span class="keyword">...</span>
+0102                 arg_norep({<span class="string">'myparent'</span>,<span class="string">'Parent'</span>},[],[],<span class="string">'Parent figure.'</span>), <span class="keyword">...</span>
+0103                 arg_norep({<span class="string">'fmodel'</span>,<span class="string">'FeatureModel'</span>},[],[],<span class="string">'Feature model. This is the part of the model that describes the feature extraction.'</span>), <span class="keyword">...</span>
+0104                 arg_norep({<span class="string">'pmodel'</span>,<span class="string">'PredictiveModel'</span>},[],[],<span class="string">'Predictive model. This is the part of the model that describes the predictive mapping.'</span>), <span class="keyword">...</span>
+0105                 arg({<span class="string">'maxcomps'</span>,<span class="string">'MaxComponents'</span>},Inf,[],<span class="string">'Maximum components to plot. Maximum number of components to plot (if too many).'</span>), <span class="keyword">...</span>
+0106                 arg({<span class="string">'patterns'</span>,<span class="string">'PlotPatterns'</span>},true,[],<span class="string">'Plot patterns instead of filters. Whether to plot spatial patterns (forward projections) rather than spatial filters.'</span>), <span class="keyword">...</span>
+0107                 arg({<span class="string">'paper'</span>,<span class="string">'PaperFigure'</span>},false,[],<span class="string">'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'</span>));
+0108             arg_toworkspace(args);
+0109             
+0110             <span class="keyword">if</span> isempty(myparent)
+0111                 myparent = figure(<span class="string">'Name'</span>,<span class="string">'Per-window weights'</span>); <span class="keyword">end</span>
+0112             <span class="comment">% get the spatial preprocessing matrix.</span>
+0113             P = fmodel.P{1};
+0114             <span class="comment">% obtain &amp; reshape the model</span>
+0115             M = reshape(pmodel.model.w,size(P,2),[]);
+0116             <span class="comment">% do an SVD to get spatial and temporal filters</span>
+0117             [U,S,V] = svd(M);
+0118             <span class="comment">% display the model contents</span>
+0119             N = min(rank(M),args.maxcomps);
+0120             weights = P*U(1:N,:)';
+0121             <span class="keyword">if</span> args.patterns
+0122                 weights = fmodel.cov*weights; <span class="keyword">end</span>
+0123             topoplot_grid(weights,fmodel.chanlocs);
+0124         <span class="keyword">end</span>
+0125         
+0126         <a name="_sub5" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0127             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>, <span class="string">'SignalProcessing.FIRFilter.Frequencies'</span>, <span class="keyword">...</span>
+0128                 <span class="string">'SignalProcessing.FIRFilter.Type'</span>, <span class="string">'SignalProcessing.EpochExtraction'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0129                 <span class="string">'Prediction.MachineLearning.Learner.Lambdas'</span>,<span class="string">'Prediction.MachineLearning.Learner.LossFunction'</span>,<span class="keyword">...</span>
+0130                 <span class="string">'Prediction.MachineLearning.Learner.Regularizer'</span>};
+0131         <span class="keyword">end</span>
+0132         
+0133     <span class="keyword">end</span>
+0134 <span class="keyword">end</span>
+0135</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

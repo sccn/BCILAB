@@ -1,0 +1,165 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_srcproj</title>
+  <meta name="keywords" content="flt_srcproj">
+  <meta name="description" content="Project data through inverse weights.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../index.html">filters</a> &gt; <a href="index.html">in_development</a> &gt; flt_srcproj.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters/in_development&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>flt_srcproj
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Project data through inverse weights.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function signal = flt_srcproj(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Project data through inverse weights.
+ Inverse weights are returned by flt_sourceLocalize. 
+
+ Tim Mullen, SCCN/INC/UCSD, Feb, 2014</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function roiVertices = GetRoiVertices(roiAtlasLabels,rmIndices,hmObj)</a></li>
+</ul>
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = flt_srcproj(varargin)</a>
+0002 <span class="comment">% Project data through inverse weights.</span>
+0003 <span class="comment">% Inverse weights are returned by flt_sourceLocalize.</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% Tim Mullen, SCCN/INC/UCSD, Feb, 2014</span>
+0006 
+0007 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>), <span class="keyword">return</span>; <span class="keyword">end</span>
+0008 
+0009 declare_properties(<span class="string">'name'</span>,<span class="string">'SourceProject'</span>, <span class="string">'experimental'</span>,true,<span class="string">'follows'</span>,{<span class="string">'flt_fourier_bandpower'</span>},<span class="string">'cannot_precede'</span>,{<span class="string">'flt_sourceLocalize'</span>},<span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,false);
+0010 
+0011 <span class="comment">% extract some defaults</span>
+0012 headmodel_default = <span class="string">'resources:/headmodels/standard-Colin27-385ch.mat'</span>;
+0013 <span class="keyword">if</span> ~onl_isonline
+0014     hmObj = arg_extract(varargin,{<span class="string">'hmObj'</span>,<span class="string">'HeadModelObject'</span>},[],headmodel_default);
+0015     hmObj = hlp_validateHeadModelObject(hmObj);
+0016     <span class="keyword">if</span> isempty(hmObj)
+0017         ROINames = {};
+0018     <span class="keyword">else</span>
+0019         <span class="comment">% get the unique ROI names</span>
+0020         [tmp, idx] = unique(hmObj.atlas.label);
+0021         ROINames = hmObj.atlas.label(sort(idx))';
+0022     <span class="keyword">end</span>
+0023 <span class="keyword">else</span>
+0024     ROINames = {};
+0025 <span class="keyword">end</span>
+0026 
+0027 arg_define(varargin, <span class="keyword">...</span>
+0028     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>},[],[],<span class="string">'Signal structure. Must contain .data field with channel data'</span>), <span class="keyword">...</span>
+0029     arg({<span class="string">'hmObj'</span>,<span class="string">'HeadModelObject'</span>},headmodel_default,[],<span class="string">'Head model object generated by MOBILAB. See MOBILAB''s headModel class.'</span>), <span class="keyword">...</span>
+0030     arg_subtoggle({<span class="string">'colroi'</span>,<span class="string">'CollapseRoi'</span>},<span class="string">'on'</span>,<span class="keyword">...</span>
+0031     {<span class="keyword">...</span>
+0032         arg({<span class="string">'roiAtlasLabels'</span>,<span class="string">'ROIAtlasLabels'</span>,<span class="string">'AtlasROI'</span>,<span class="string">'ROI'</span>},ROINames,ROINames,<span class="string">'Regions of interest atlas labels. This is a cell array of strings corresponding to a subset of the labels stored in hmObj.atlas.label. If empty the all ROIs in the head model are selected.'</span>,<span class="string">'type'</span>,<span class="string">'logical'</span>), <span class="keyword">...</span>
+0033         arg({<span class="string">'rule'</span>,<span class="string">'CollapseRule'</span>},<span class="string">'sum'</span>,{<span class="string">'none'</span>,<span class="string">'mean'</span>,<span class="string">'sum'</span>,<span class="string">'max'</span>,<span class="string">'maxmag'</span>,<span class="string">'median'</span>},<span class="string">'Method for collapsing projected current over ROIs. Return the (mean, integral, max, etc) projected value within each ROI defined in signal.roiVerticesReduced. Result is stored in signal.srcproj. The signal.srcproj matrix will be reduced to [num_rois x num_samples].'</span>), <span class="keyword">...</span>
+0034     },<span class="string">'Collapse projected activity within rois'</span>), <span class="keyword">...</span>
+0035     arg({<span class="string">'preshaper'</span>,<span class="string">'Preshaper'</span>},@(x)x,[],<span class="string">'Reshaping function to apply to signal.data before projection.'</span>), <span class="keyword">...</span>
+0036     arg({<span class="string">'postshaper'</span>,<span class="string">'Postshaper'</span>},@(x)x,[],<span class="string">'Reshaping function to apply to signal.data after projection'</span>), <span class="keyword">...</span>
+0037     arg({<span class="string">'datafield'</span>,<span class="string">'DataField'</span>},<span class="string">'fourier_bandpower'</span>,[],<span class="string">'signal field to project'</span>) <span class="keyword">...</span>
+0038     );
+0039 
+0040 <span class="keyword">if</span> ~isfield(signal,<span class="string">'srcweights_all'</span>)
+0041     error(<span class="string">'signal.srcweights_all not found. Please call flt_sourceLocalize() first'</span>);
+0042 <span class="keyword">end</span>
+0043 
+0044 <span class="keyword">if</span> size(signal.data,3)&gt;1
+0045     error(<span class="string">'flt_srcproj:BadShape'</span>,<span class="string">'SourceProject cannot operate on trials.'</span>);
+0046 <span class="keyword">end</span>
+0047 <span class="keyword">if</span> isempty(signal.srcweights_all)
+0048     <span class="comment">% no source weights</span>
+0049     signal.srcproj = [];
+0050     exp_endfun; <span class="keyword">return</span>;
+0051 <span class="keyword">end</span>
+0052 <span class="keyword">if</span> isempty(datafield)
+0053     datafield = <span class="string">'data'</span>; <span class="keyword">end</span>
+0054 
+0055 hmObj     = hlp_validateHeadModelObject(hmObj);
+0056 <span class="keyword">if</span> isempty(hmObj)
+0057     error(<span class="string">'HeadModelObject was improperly defined. Exiting'</span>);
+0058 <span class="keyword">end</span>
+0059 <span class="keyword">if</span> isempty(colroi.roiAtlasLabels) <span class="comment">%#ok</span>
+0060     <span class="keyword">if</span> isempty(ROINames)
+0061         <span class="comment">% get the unique ROI names</span>
+0062         [tmp, idx] = unique(hmObj.atlas.label);
+0063         ROINames = hmObj.atlas.label(sort(idx))';
+0064     <span class="keyword">end</span>
+0065     colroi.roiAtlasLabels = ROINames;
+0066 <span class="keyword">end</span>
+0067 
+0068 <span class="comment">% get the vertices for chosen ROIs</span>
+0069 roiVertices = hlp_microcache(<span class="string">'flt_srcproj'</span>,@<a href="#_sub1" class="code" title="subfunction roiVertices = GetRoiVertices(roiAtlasLabels,rmIndices,hmObj)">GetRoiVertices</a>,colroi.roiAtlasLabels,signal.rmIndices,hmObj);
+0070 
+0071 <span class="comment">% project data matrix through lead field matrix</span>
+0072 <span class="keyword">if</span> isempty(preshaper)
+0073     preshaper  = @(x)x; <span class="keyword">end</span>
+0074 <span class="keyword">if</span> isempty(postshaper)
+0075     postshaper = @(x)x; <span class="keyword">end</span>
+0076 
+0077 <span class="comment">% project the data and collapse across ROIs</span>
+0078 signal.srcproj = signal.srcweights_all*preshaper(signal.(datafield));
+0079 <span class="keyword">if</span> colroi.arg_selection
+0080     <span class="comment">% TODO: get the ROI vertices</span>
+0081     signal.srcproj = hlp_colsrc(signal.srcproj,roiVertices,colroi.rule);
+0082 <span class="keyword">end</span>
+0083 <span class="comment">% apply postshaper</span>
+0084 signal.srcproj = postshaper(signal.srcproj);
+0085 
+0086 exp_endfun;
+0087 
+0088 
+0089 <a name="_sub1" href="#_subfunctions" class="code">function roiVertices = GetRoiVertices(roiAtlasLabels,rmIndices,hmObj)</a>
+0090 <span class="comment">% We also store the indices of the vertices of each ROI (in the full</span>
+0091 <span class="comment">% source space) in a cell array. This allows us to obtain dipole</span>
+0092 <span class="comment">% centroids for each ROI</span>
+0093 
+0094 <span class="comment">% get ROI indices into reduced source space. These are used for</span>
+0095 <span class="comment">% integration over current source density (CSD) within each ROI</span>
+0096 nvert   = length(hmObj.atlas.color);
+0097 LFMcols = 1:nvert;
+0098 LFMcols(rmIndices) = [];
+0099 <span class="keyword">for</span> k=1:length(roiAtlasLabels)
+0100     roiVertices{k} = find(ismember(LFMcols,indices4Structure(hmObj,roiAtlasLabels{k})'));
+0101 <span class="keyword">end</span>
+0102 
+0103</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

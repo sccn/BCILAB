@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/machine_learning&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>ml_trainrvm
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -63,8 +64,9 @@
                          * 'poly':        Polynomial
                          * 'cauchy':    Cauchy
 
-              'gamma': scaling parameter of the kernel (for regularization), default: 0.3
-                        reasonable range: 2.^(-16:2:4)
+              'gamma': scaling parameter of the kernel (for regularization); if multiple values
+                       are given, the optimal gamma will be searched via evidence maximization
+                       default: 2.^(-16:0.2:10)
 
               'degree': degree of the polynomial kernel, if used (default: 3)
 
@@ -120,11 +122,20 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="ml_predictrvm.html" class="code" title="function pred = ml_predictrvm(trials,model)">ml_predictrvm</a>	Prediction function for the Relevance Vector Machine.</li><li><a href="ml_trainrvm.html" class="code" title="function model = ml_trainrvm(varargin)">ml_trainrvm</a>	Learn a probabilistic (non-)linear model, via the Relevance Vector Machine.</li><li><a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>	Internal meta-algorithm for voting. Used by other machine learning functions.</li></ul>
+
+<li><a href="ml_predictrvm.html" class="code" title="function pred = ml_predictrvm(trials,model)">ml_predictrvm</a>	Prediction function for the Relevance Vector Machine.</li>
+<li><a href="ml_trainrvm.html" class="code" title="function model = ml_trainrvm(varargin)">ml_trainrvm</a>	Learn a probabilistic (non-)linear model, via the Relevance Vector Machine.</li>
+<li><a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>	Internal meta-algorithm for voting. Used by other machine learning functions.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="ml_trainrvm.html" class="code" title="function model = ml_trainrvm(varargin)">ml_trainrvm</a>	Learn a probabilistic (non-)linear model, via the Relevance Vector Machine.</li></ul>
+
+<li><a href="ml_trainrvm.html" class="code" title="function model = ml_trainrvm(varargin)">ml_trainrvm</a>	Learn a probabilistic (non-)linear model, via the Relevance Vector Machine.</li>
+</ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -166,141 +177,170 @@ This function is called by:
 0035 <span class="comment">%                         * 'poly':        Polynomial</span>
 0036 <span class="comment">%                         * 'cauchy':    Cauchy</span>
 0037 <span class="comment">%</span>
-0038 <span class="comment">%              'gamma': scaling parameter of the kernel (for regularization), default: 0.3</span>
-0039 <span class="comment">%                        reasonable range: 2.^(-16:2:4)</span>
-0040 <span class="comment">%</span>
-0041 <span class="comment">%              'degree': degree of the polynomial kernel, if used (default: 3)</span>
-0042 <span class="comment">%</span>
-0043 <span class="comment">%              'bias': whether to add a bias to the data (default: 1)</span>
-0044 <span class="comment">%</span>
-0045 <span class="comment">%              misc options:</span>
-0046 <span class="comment">%              'iterations': Number of interations to run for</span>
-0047 <span class="comment">%              'time':       time limit to run for, e.g. '1.5 hours', '30 minutes', '1 second'</span>
-0048 <span class="comment">%              'fixednoise': whether the gaussian noise is to be fixed 0/1</span>
-0049 <span class="comment">%              'beta':       (Gaussian) noise precision (inverse variance)</span>
-0050 <span class="comment">%              'noisestd':   (Gaussian) noise standard deviation</span>
-0051 <span class="comment">%              'scaling':    pre-scaling of the data (see hlp_findscaling for options) (default: 'std')</span>
-0052 <span class="comment">%              'diagnosticlevel':   verbosity level, 0-4</span>
-0053 <span class="comment">%</span>
-0054 <span class="comment">% Out:</span>
-0055 <span class="comment">%   Model   : the computed model...</span>
-0056 <span class="comment">%             classes indicates the class labels which the model predicts</span>
-0057 <span class="comment">%             additional parameters determine a posterior distribution over the weights</span>
-0058 <span class="comment">%</span>
-0059 <span class="comment">% Examples:</span>
-0060 <span class="comment">%   % learn a standard Relevance Vector Machine classifier</span>
-0061 <span class="comment">%   model = ml_trainrvm(trials,targets)</span>
-0062 <span class="comment">%</span>
-0063 <span class="comment">%   % as before, but this time use a regression approach</span>
-0064 <span class="comment">%   model = ml_trainrvm(trials,targets,'ptype','regression')</span>
-0065 <span class="comment">%</span>
-0066 <span class="comment">%   % use a Laplacian kernel</span>
-0067 <span class="comment">%   model = ml_trainrvm(trials,targets,'kernel','laplace')</span>
-0068 <span class="comment">%</span>
-0069 <span class="comment">%   % find the optimal kernel scale using parameter search</span>
-0070 <span class="comment">%   model = utl_searchmodel({trials,targets},'args',{{'rvm','gamma',seach(2.^(-16:2:4)))</span>
-0071 <span class="comment">%</span>
+0038 <span class="comment">%              'gamma': scaling parameter of the kernel (for regularization); if multiple values</span>
+0039 <span class="comment">%                       are given, the optimal gamma will be searched via evidence maximization</span>
+0040 <span class="comment">%                       default: 2.^(-16:0.2:10)</span>
+0041 <span class="comment">%</span>
+0042 <span class="comment">%              'degree': degree of the polynomial kernel, if used (default: 3)</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">%              'bias': whether to add a bias to the data (default: 1)</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">%              misc options:</span>
+0047 <span class="comment">%              'iterations': Number of interations to run for</span>
+0048 <span class="comment">%              'time':       time limit to run for, e.g. '1.5 hours', '30 minutes', '1 second'</span>
+0049 <span class="comment">%              'fixednoise': whether the gaussian noise is to be fixed 0/1</span>
+0050 <span class="comment">%              'beta':       (Gaussian) noise precision (inverse variance)</span>
+0051 <span class="comment">%              'noisestd':   (Gaussian) noise standard deviation</span>
+0052 <span class="comment">%              'scaling':    pre-scaling of the data (see hlp_findscaling for options) (default: 'std')</span>
+0053 <span class="comment">%              'diagnosticlevel':   verbosity level, 0-4</span>
+0054 <span class="comment">%</span>
+0055 <span class="comment">% Out:</span>
+0056 <span class="comment">%   Model   : the computed model...</span>
+0057 <span class="comment">%             classes indicates the class labels which the model predicts</span>
+0058 <span class="comment">%             additional parameters determine a posterior distribution over the weights</span>
+0059 <span class="comment">%</span>
+0060 <span class="comment">% Examples:</span>
+0061 <span class="comment">%   % learn a standard Relevance Vector Machine classifier</span>
+0062 <span class="comment">%   model = ml_trainrvm(trials,targets)</span>
+0063 <span class="comment">%</span>
+0064 <span class="comment">%   % as before, but this time use a regression approach</span>
+0065 <span class="comment">%   model = ml_trainrvm(trials,targets,'ptype','regression')</span>
+0066 <span class="comment">%</span>
+0067 <span class="comment">%   % use a Laplacian kernel</span>
+0068 <span class="comment">%   model = ml_trainrvm(trials,targets,'kernel','laplace')</span>
+0069 <span class="comment">%</span>
+0070 <span class="comment">%   % find the optimal kernel scale using parameter search</span>
+0071 <span class="comment">%   model = utl_searchmodel({trials,targets},'args',{{'rvm','gamma',seach(2.^(-16:2:4)))</span>
 0072 <span class="comment">%</span>
-0073 <span class="comment">% See also:</span>
-0074 <span class="comment">%   ml_predictrvm, SparseBayes</span>
-0075 <span class="comment">%</span>
-0076 <span class="comment">% References:</span>
-0077 <span class="comment">%  [1] Vladimir Vapnik. &quot;The Nature of Statistical Learning Theory.&quot;</span>
-0078 <span class="comment">%      Springer-Verlag, 1995</span>
-0079 <span class="comment">%  [2] Michael E. Tipping and Alex Smola, &quot;Sparse Bayesian Learning and the Relevance Vector Machine&quot;.</span>
-0080 <span class="comment">%      Journal of Machine Learning Research 1: 211?244. (2001)</span>
-0081 <span class="comment">%  [3] Michael E. Tipping and A. C. Faul. &quot;Fast marginal likelihood maximisation for sparse Bayesian models.&quot;</span>
-0082 <span class="comment">%      In C. M. Bishop and B. J. Frey (Eds.), Proceedings of the Ninth International Workshop on Artificial Intelligence and Statistics, Key West, FL, Jan 3-6 (2003)</span>
-0083 <span class="comment">%  [4] David P. Wipf and Srikantan Nagarajan, &quot;A New View of Automatic Relevance Determination,&quot;</span>
-0084 <span class="comment">%      In J.C. Platt, D. Koller, Y. Singer, and S. Roweis, editors, Advances in Neural Information Processing Systems 20, MIT Press, 2008.</span>
-0085 <span class="comment">%  [5] David P. Wipf and Srikantan Nagarajan, &quot;Sparse Estimation Using General Likelihoods and Non-Factorial Priors,&quot;</span>
-0086 <span class="comment">%      In Advances in Neural Information Processing Systems 22, 2009.</span>
-0087 <span class="comment">%</span>
-0088 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0089 <span class="comment">%                           2010-04-06</span>
-0090 
-0091 opts = arg_define([0 2],varargin, <span class="keyword">...</span>
-0092     arg_norep(<span class="string">'trials'</span>), <span class="keyword">...</span>
-0093     arg_norep(<span class="string">'targets'</span>), <span class="keyword">...</span>
-0094     arg({<span class="string">'ptype'</span>,<span class="string">'Type'</span>}, <span class="string">'classification'</span>, {<span class="string">'classification'</span>,<span class="string">'regression'</span>}, <span class="string">'Type of problem to solve.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
-0095     arg({<span class="string">'kernel'</span>,<span class="string">'Kernel'</span>}, <span class="string">'rbf'</span>, {<span class="string">'linear'</span>,<span class="string">'rbf'</span>,<span class="string">'laplace'</span>,<span class="string">'poly'</span>,<span class="string">'cauchy'</span>}, <span class="string">'Kernel type. Linear, or Non-linear kernel types: Radial Basis Functions (general-purpose), Laplace (sparse), Polynomial (rarely preferred), and Cauchy (slightly experimental).'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
-0096     arg({<span class="string">'gammap'</span>,<span class="string">'KernelScale'</span>,<span class="string">'gamma'</span>}, search(2.^(-16:2:4)), [], <span class="string">'Scaling of the kernel functions. Should match the size of structures in the data. A reasonable range is 2.^(-16:2:4).'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
-0097     arg({<span class="string">'polydegree'</span>,<span class="string">'PolyDegree'</span>,<span class="string">'degree'</span>}, uint32(3), [], <span class="string">'Degree of the polynomial kernel, if chosen.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
-0098     arg({<span class="string">'bias'</span>,<span class="string">'Bias'</span>}, true, [], <span class="string">'Include a bias term in the model.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
-0099     arg({<span class="string">'scaling'</span>,<span class="string">'Scaling'</span>}, <span class="string">'std'</span>, {<span class="string">'none'</span>,<span class="string">'center'</span>,<span class="string">'std'</span>,<span class="string">'minmax'</span>,<span class="string">'whiten'</span>}, <span class="string">'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
-0100     <span class="keyword">...</span>
-0101     arg({<span class="string">'iterations'</span>,<span class="string">'MaxIterations'</span>}, uint32(10000), [], <span class="string">'Number of iterations to run.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
-0102     arg({<span class="string">'time'</span>,<span class="string">'MaxTime'</span>}, <span class="string">'10000 seconds'</span>, [], <span class="string">'Maximum time to run. Can use ''seconds'', ''minutes'', ''hours'' in the string.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
-0103     arg({<span class="string">'fixednoise'</span>,<span class="string">'NoiseFixed'</span>}, false, [], <span class="string">'Keep the Gaussian noise estimate fixed.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
-0104     arg({<span class="string">'noiseinvvar'</span>,<span class="string">'NoiseInvVariance'</span>,<span class="string">'beta'</span>}, [], [], <span class="string">'Inverse variance of the Gaussian noise term.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>), <span class="keyword">...</span>
-0105     arg({<span class="string">'noisestd'</span>,<span class="string">'NoiseVariance'</span>}, [], [], <span class="string">'Variance of the Gaussian noise term.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>), <span class="keyword">...</span>
-0106     arg({<span class="string">'diagnosticlevel'</span>,<span class="string">'Verbosity'</span>}, <span class="string">'none'</span>, {<span class="string">'none'</span>,<span class="string">'low'</span>,<span class="string">'medium'</span>,<span class="string">'high'</span>,<span class="string">'ultra'</span>}, <span class="string">'Verbosity level.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>),<span class="keyword">...</span>
-0107     arg({<span class="string">'monitor'</span>,<span class="string">'DisplayInterval'</span>}, uint32(0), [], <span class="string">'Iterations between diagnostic outputs.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>));
-0108 
-0109 arg_toworkspace(opts);
+0073 <span class="comment">%</span>
+0074 <span class="comment">% See also:</span>
+0075 <span class="comment">%   ml_predictrvm, SparseBayes</span>
+0076 <span class="comment">%</span>
+0077 <span class="comment">% References:</span>
+0078 <span class="comment">%  [1] Vladimir Vapnik. &quot;The Nature of Statistical Learning Theory.&quot;</span>
+0079 <span class="comment">%      Springer-Verlag, 1995</span>
+0080 <span class="comment">%  [2] Michael E. Tipping and Alex Smola, &quot;Sparse Bayesian Learning and the Relevance Vector Machine&quot;.</span>
+0081 <span class="comment">%      Journal of Machine Learning Research 1: 211?244. (2001)</span>
+0082 <span class="comment">%  [3] Michael E. Tipping and A. C. Faul. &quot;Fast marginal likelihood maximisation for sparse Bayesian models.&quot;</span>
+0083 <span class="comment">%      In C. M. Bishop and B. J. Frey (Eds.), Proceedings of the Ninth International Workshop on Artificial Intelligence and Statistics, Key West, FL, Jan 3-6 (2003)</span>
+0084 <span class="comment">%  [4] David P. Wipf and Srikantan Nagarajan, &quot;A New View of Automatic Relevance Determination,&quot;</span>
+0085 <span class="comment">%      In J.C. Platt, D. Koller, Y. Singer, and S. Roweis, editors, Advances in Neural Information Processing Systems 20, MIT Press, 2008.</span>
+0086 <span class="comment">%  [5] David P. Wipf and Srikantan Nagarajan, &quot;Sparse Estimation Using General Likelihoods and Non-Factorial Priors,&quot;</span>
+0087 <span class="comment">%      In Advances in Neural Information Processing Systems 22, 2009.</span>
+0088 <span class="comment">%</span>
+0089 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0090 <span class="comment">%                           2010-04-06</span>
+0091 
+0092 opts = arg_define([0 2],varargin, <span class="keyword">...</span>
+0093     arg_norep(<span class="string">'trials'</span>), <span class="keyword">...</span>
+0094     arg_norep(<span class="string">'targets'</span>), <span class="keyword">...</span>
+0095     arg({<span class="string">'ptype'</span>,<span class="string">'Type'</span>}, <span class="string">'classification'</span>, {<span class="string">'classification'</span>,<span class="string">'regression'</span>}, <span class="string">'Type of problem to solve.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0096     arg({<span class="string">'kernel'</span>,<span class="string">'Kernel'</span>}, <span class="string">'rbf'</span>, {<span class="string">'linear'</span>,<span class="string">'rbf'</span>,<span class="string">'laplace'</span>,<span class="string">'poly'</span>,<span class="string">'cauchy'</span>}, <span class="string">'Kernel type. Linear, or Non-linear kernel types: Radial Basis Functions (general-purpose), Laplace (sparse), Polynomial (rarely preferred), and Cauchy (slightly experimental).'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0097     arg({<span class="string">'gammap'</span>,<span class="string">'KernelScale'</span>,<span class="string">'gamma'</span>}, 2.^(-16:0.5:10), [0 2^-20 2^10 Inf], <span class="string">'Scaling of the kernel functions. Should match the size of structures in the data. A reasonable range is 2.^(-16:2:4).'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0098     arg({<span class="string">'polydegree'</span>,<span class="string">'PolyDegree'</span>,<span class="string">'degree'</span>}, 3, uint32([1 100]), <span class="string">'Degree of the polynomial kernel, if chosen.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0099     arg({<span class="string">'bias'</span>,<span class="string">'Bias'</span>}, true, [], <span class="string">'Include a bias term in the model.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0100     arg({<span class="string">'scaling'</span>,<span class="string">'Scaling'</span>}, <span class="string">'std'</span>, {<span class="string">'none'</span>,<span class="string">'center'</span>,<span class="string">'std'</span>,<span class="string">'minmax'</span>,<span class="string">'whiten'</span>}, <span class="string">'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.'</span>,<span class="string">'cat'</span>,<span class="string">'Core Parameters'</span>), <span class="keyword">...</span>
+0101     <span class="keyword">...</span>
+0102     arg({<span class="string">'iterations'</span>,<span class="string">'MaxIterations'</span>}, 100, uint32([1 100000]), <span class="string">'Number of iterations to run.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0103     arg({<span class="string">'time'</span>,<span class="string">'MaxTime'</span>}, <span class="string">'1000 seconds'</span>, [], <span class="string">'Maximum time to run. Can use ''seconds'', ''minutes'', ''hours'' in the string.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0104     arg({<span class="string">'fixednoise'</span>,<span class="string">'NoiseFixed'</span>}, false, [], <span class="string">'Keep the Gaussian noise estimate fixed.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>), <span class="keyword">...</span>
+0105     arg({<span class="string">'noiseinvvar'</span>,<span class="string">'NoiseInvVariance'</span>,<span class="string">'beta'</span>}, [], [], <span class="string">'Inverse variance of the Gaussian noise term.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>), <span class="keyword">...</span>
+0106     arg({<span class="string">'noisestd'</span>,<span class="string">'NoiseVariance'</span>}, [], [], <span class="string">'Variance of the Gaussian noise term.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>), <span class="keyword">...</span>
+0107     arg({<span class="string">'diagnosticlevel'</span>,<span class="string">'Verbosity'</span>}, <span class="string">'none'</span>, {<span class="string">'none'</span>,<span class="string">'minimal'</span>,<span class="string">'low'</span>,<span class="string">'medium'</span>,<span class="string">'high'</span>,<span class="string">'ultra'</span>}, <span class="string">'Verbosity level.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>),<span class="keyword">...</span>
+0108     arg({<span class="string">'votingScheme'</span>,<span class="string">'VotingScheme'</span>},<span class="string">'1vR'</span>,{<span class="string">'1v1'</span>,<span class="string">'1vR'</span>},<span class="string">'Voting scheme. If multi-class classification is used, this determine how binary classifiers are arranged to solve the multi-class problem. 1v1 gets slow for large numbers of classes (as all pairs are tested), but can be more accurate than 1vR.'</span>), <span class="keyword">...</span><span class="comment">    </span>
+0109     arg({<span class="string">'monitor'</span>,<span class="string">'DisplayInterval'</span>}, uint32(0), [], <span class="string">'Iterations between diagnostic outputs.'</span>,<span class="string">'cat'</span>,<span class="string">'Miscellaneous'</span>));
 0110 
-0111 <span class="keyword">if</span> is_search(gammap)
-0112     gammap = 0.3; <span class="keyword">end</span>
-0113 
-0114 
-0115 ptype = hlp_rewrite(ptype,<span class="string">'classification'</span>,<span class="string">'c'</span>,<span class="string">'regression'</span>,<span class="string">'r'</span>); <span class="comment">%#ok&lt;*NODEF&gt;</span>
-0116 likelihood = hlp_rewrite(ptype,<span class="string">'c'</span>,<span class="string">'bernoulli'</span>,<span class="string">'r'</span>,<span class="string">'gaussian'</span>); 
-0117 
-0118 <span class="comment">% remap targets for classification</span>
-0119 <span class="keyword">if</span> strcmp(ptype,<span class="string">'c'</span>)
-0120     classes = unique(targets);
-0121     <span class="keyword">if</span> length(classes) &gt; 2
-0122         <span class="comment">% multiclass case: use the voter</span>
-0123         model = <a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>(trials,targets,<span class="string">'1v1'</span>,@<a href="ml_trainrvm.html" class="code" title="function model = ml_trainrvm(varargin)">ml_trainrvm</a>,@<a href="ml_predictrvm.html" class="code" title="function pred = ml_predictrvm(trials,model)">ml_predictrvm</a>,varargin{:});
-0124         <span class="keyword">return</span>;
-0125     <span class="keyword">elseif</span> length(classes) == 1
-0126         error(<span class="string">'BCILAB:only_one_class'</span>,<span class="string">'Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.'</span>);
-0127     <span class="keyword">end</span>
-0128     <span class="comment">% remap target labels to 0/1</span>
-0129     targets(targets==classes(1)) = 0;
-0130     targets(targets==classes(2)) = 1;
-0131 <span class="keyword">else</span>
-0132     classes = [];
-0133 <span class="keyword">end</span>
-0134 
-0135 <span class="comment">% prescale the data</span>
-0136 sc_info = hlp_findscaling(trials,scaling);
-0137 trials = hlp_applyscaling(trials,sc_info);
+0111 arg_toworkspace(opts);
+0112 
+0113 <span class="keyword">if</span> is_search(gammap)
+0114     gammap = 0.3; <span class="keyword">end</span>
+0115 
+0116 <span class="comment">% pre-process arguments</span>
+0117 ptype = hlp_rewrite(ptype,<span class="string">'classification'</span>,<span class="string">'c'</span>,<span class="string">'regression'</span>,<span class="string">'r'</span>); <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0118 likelihood = hlp_rewrite(ptype,<span class="string">'c'</span>,<span class="string">'bernoulli'</span>,<span class="string">'r'</span>,<span class="string">'gaussian'</span>); 
+0119 args1 = [hlp_struct2varargin(opts,<span class="string">'restrict'</span>,{<span class="string">'iterations'</span>,<span class="string">'time'</span>,<span class="string">'monitor'</span>,<span class="string">'fixednoise'</span>,<span class="string">'freebasis'</span>,<span class="string">'callback'</span>,<span class="string">'callbackdata'</span>}),{<span class="string">'diagnosticlevel'</span>,hlp_rewrite(opts.diagnosticlevel,<span class="string">'minimal'</span>,<span class="string">'none'</span>)}];
+0120 args2 = hlp_struct2varargin(opts,<span class="string">'restrict'</span>,{<span class="string">'beta'</span>,<span class="string">'noisestd'</span>,<span class="string">'relevant'</span>,<span class="string">'weights'</span>,<span class="string">'alpha'</span>},<span class="string">'rewrite'</span>,{<span class="string">'beta'</span>,<span class="string">'noiseinvvar'</span>});
+0121 
+0122 <span class="comment">% remap targets for classification</span>
+0123 <span class="keyword">if</span> strcmp(ptype,<span class="string">'c'</span>)
+0124     classes = unique(targets);
+0125     <span class="keyword">if</span> length(classes) &gt; 2
+0126         <span class="comment">% multiclass case: use the voter</span>
+0127         model = <a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>(trials,targets,votingScheme,@<a href="ml_trainrvm.html" class="code" title="function model = ml_trainrvm(varargin)">ml_trainrvm</a>,@<a href="ml_predictrvm.html" class="code" title="function pred = ml_predictrvm(trials,model)">ml_predictrvm</a>,varargin{:});
+0128         <span class="keyword">return</span>;
+0129     <span class="keyword">elseif</span> length(classes) == 1
+0130         error(<span class="string">'BCILAB:only_one_class'</span>,<span class="string">'Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.'</span>);
+0131     <span class="keyword">end</span>
+0132     <span class="comment">% remap target labels to 0/1</span>
+0133     targets(targets==classes(1)) = 0;
+0134     targets(targets==classes(2)) = 1;
+0135 <span class="keyword">else</span>
+0136     classes = [];
+0137 <span class="keyword">end</span>
 0138 
-0139 <span class="comment">% kernelize the data</span>
-0140 basis = trials;
-0141 trials = utl_kernelize(trials,basis,kernel,gammap,polydegree);
-0142 <span class="comment">% add a bias</span>
-0143 <span class="keyword">if</span> bias
-0144     trials = [ones(size(trials,1),1) trials]; <span class="keyword">end</span>
-0145 
-0146 <span class="comment">% run the RVM</span>
-0147 args1 = hlp_struct2varargin(opts,<span class="string">'restrict'</span>,{<span class="string">'iterations'</span>,<span class="string">'time'</span>,<span class="string">'diagnosticlevel'</span>,<span class="string">'monitor'</span>,<span class="string">'fixednoise'</span>,<span class="string">'freebasis'</span>,<span class="string">'callback'</span>,<span class="string">'callbackdata'</span>});
-0148 args2 = hlp_struct2varargin(opts,<span class="string">'restrict'</span>,{<span class="string">'beta'</span>,<span class="string">'noisestd'</span>,<span class="string">'relevant'</span>,<span class="string">'weights'</span>,<span class="string">'alpha'</span>},<span class="string">'rewrite'</span>,{<span class="string">'beta'</span>,<span class="string">'noiseinvvar'</span>});
-0149 [param, hyperparam, diag] = hlp_diskcache(<span class="string">'predictivemodels'</span>,@SparseBayes,likelihood,trials,targets,SB2_UserOptions(args1{:}),SB2_ParameterSettings(args2{:}));
-0150 
-0151 <span class="comment">% preselect relevant basis vectors</span>
-0152 <span class="keyword">if</span> ~strcmp(kernel,<span class="string">'linear'</span>)
-0153     <span class="keyword">if</span> bias
-0154         feature_sel = param.Relevant-1;
-0155         <span class="keyword">if</span> feature_sel(1) == 0
-0156             <span class="comment">% bias was relevant, remove it from the basis vector selection (it will be added after kernelization)</span>
-0157             feature_sel = feature_sel(2:end);
-0158         <span class="keyword">else</span>
-0159             <span class="comment">% bias was not relevant, forget about it</span>
-0160             bias = 0;
-0161         <span class="keyword">end</span>
-0162     <span class="keyword">else</span>
-0163         feature_sel = param.Relevant;
-0164     <span class="keyword">end</span>
-0165     basis = basis(feature_sel,:);
-0166 <span class="keyword">else</span>
-0167     feature_sel = param.Relevant;
-0168 <span class="keyword">end</span>
-0169 
-0170 model = struct(<span class="string">'sc_info'</span>,{sc_info},<span class="string">'classes'</span>,{classes},<span class="string">'basis'</span>,{basis},<span class="string">'param'</span>,{param},<span class="string">'hyperparam'</span>,{hyperparam},<span class="keyword">...</span>
-0171                <span class="string">'diag'</span>,{diag},<span class="string">'ptype'</span>,{ptype},<span class="string">'feature_sel'</span>,{feature_sel},<span class="string">'bias'</span>,{bias}, <span class="keyword">...</span>
-0172                <span class="string">'kernel'</span>,{kernel},<span class="string">'gamma'</span>,{gammap},<span class="string">'degree'</span>,{polydegree});</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0139 <span class="comment">% prescale the data</span>
+0140 sc_info = hlp_findscaling(trials,scaling);
+0141 trials = hlp_applyscaling(trials,sc_info);
+0142 basis = trials;
+0143 
+0144 <span class="keyword">if</span> length(gammap)&gt;1
+0145     <span class="keyword">if</span> ~strcmp(opts.diagnosticlevel,<span class="string">'none'</span>)
+0146         disp(<span class="string">'Now optimizing gamma parameter using evidence maximization...'</span>); <span class="keyword">end</span>
+0147     <span class="comment">% optimize gamma parameter using marginal log-likelihood</span>
+0148     bestgam = NaN;      <span class="comment">% best gamma parameter so far</span>
+0149     likelihoods = nan(length(gammap),1);
+0150     bestlike = -Inf;    <span class="comment">% best likelihood so far</span>
+0151     <span class="keyword">for</span> k=1:length(gammap)
+0152         gam = gammap(k);
+0153         <span class="keyword">if</span> ~strcmp(opts.diagnosticlevel,<span class="string">'none'</span>)
+0154             fprintf(<span class="string">'gamma=%.3f\n'</span>,gam); <span class="keyword">end</span>
+0155         <span class="comment">% kernelize the data and add bias</span>
+0156         ktrials = utl_kernelize(trials,basis,kernel,gam,polydegree);
+0157         ktrials = quickif(bias,[ones(size(ktrials,1),1) ktrials],ktrials);
+0158         <span class="comment">% run the RVM</span>
+0159         [param, hyperparam, diag] = hlp_diskcache(<span class="string">'predictivemodels'</span>,@SparseBayes,likelihood,ktrials,targets,SB2_UserOptions(args1{:}),SB2_ParameterSettings(args2{:})); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0160         <span class="keyword">if</span> ~isempty(diag.Likelihood)
+0161             likelihoods(k) = diag.Likelihood(end);
+0162             <span class="keyword">if</span> diag.Likelihood(end) &gt; bestlike
+0163                 bestlike = diag.Likelihood(end);
+0164                 bestgam = gam;
+0165             <span class="keyword">end</span>
+0166         <span class="keyword">end</span>
+0167     <span class="keyword">end</span>
+0168     gammap = bestgam;
+0169 <span class="keyword">else</span>
+0170     likelihoods = [];
+0171 <span class="keyword">end</span>
+0172 
+0173 <span class="comment">% kernelize the data and add bias</span>
+0174 ktrials = utl_kernelize(trials,basis,kernel,gammap,polydegree);
+0175 ktrials = quickif(bias,[ones(size(ktrials,1),1) ktrials],ktrials);
+0176 <span class="comment">% run the RVM</span>
+0177 [param, hyperparam, diag] = hlp_diskcache(<span class="string">'predictivemodels'</span>,@SparseBayes,likelihood,ktrials,targets,SB2_UserOptions(args1{:}),SB2_ParameterSettings(args2{:}));
+0178 
+0179 <span class="comment">% preselect relevant basis vectors</span>
+0180 <span class="keyword">if</span> ~strcmp(kernel,<span class="string">'linear'</span>)
+0181     <span class="keyword">if</span> bias
+0182         feature_sel = param.Relevant-1;
+0183         <span class="keyword">if</span> feature_sel(1) == 0
+0184             <span class="comment">% bias was relevant, remove it from the basis vector selection (it will be added after kernelization)</span>
+0185             feature_sel = feature_sel(2:end);
+0186         <span class="keyword">else</span>
+0187             <span class="comment">% bias was not relevant, forget about it</span>
+0188             bias = 0;
+0189         <span class="keyword">end</span>
+0190     <span class="keyword">else</span>
+0191         feature_sel = param.Relevant;
+0192     <span class="keyword">end</span>
+0193     basis = basis(feature_sel,:);
+0194 <span class="keyword">else</span>
+0195     feature_sel = param.Relevant;
+0196 <span class="keyword">end</span>
+0197 
+0198 model = struct(<span class="string">'sc_info'</span>,{sc_info},<span class="string">'classes'</span>,{classes},<span class="string">'basis'</span>,{basis},<span class="string">'param'</span>,{param},<span class="string">'hyperparam'</span>,{hyperparam},<span class="keyword">...</span>
+0199                <span class="string">'diag'</span>,{diag},<span class="string">'ptype'</span>,{ptype},<span class="string">'feature_sel'</span>,{feature_sel},<span class="string">'bias'</span>,{bias}, <span class="keyword">...</span>
+0200                <span class="string">'kernel'</span>,{kernel},<span class="string">'gamma'</span>,{gammap},<span class="string">'gamma_likelihoods'</span>,likelihoods,<span class="string">'degree'</span>,{polydegree});</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

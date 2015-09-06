@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>ParadigmCSP
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -33,15 +34,31 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="ParadigmCSP.html" class="code" title="">ParadigmCSP</a>	</li><li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li></ul>
+
+<li><a href="ParadigmCSP.html" class="code" title="">ParadigmCSP</a>	</li>
+<li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="ParadigmCSP.html" class="code" title="">ParadigmCSP</a>	</li></ul>
+
+<li><a href="ParadigmCSP.html" class="code" title="">ParadigmCSP</a>	</li>
+</ul>
 <!-- crossreference -->
+
 
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li><li><a href="#_sub2" class="code">function model = feature_adapt(self,varargin)</a></li><li><a href="#_sub3" class="code">function features = feature_extract(self,signal,featuremodel)</a></li><li><a href="#_sub4" class="code">function visualize_model(self,parent,featuremodel,predictivemodel)</a></li><li><a href="#_sub5" class="code">function layout = dialog_layout_defaults(self)</a></li><li><a href="#_sub6" class="code">function tf = needs_voting(self)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li>
+<li><a href="#_sub2" class="code">function model = feature_adapt(self,varargin)</a></li>
+<li><a href="#_sub3" class="code">function features = feature_extract(self,signal,featuremodel)</a></li>
+<li><a href="#_sub4" class="code">function visualize_model(self,varargin)</a></li>
+<li><a href="#_sub5" class="code">function layout = dialog_layout_defaults(self)</a></li>
+<li><a href="#_sub6" class="code">function tf = needs_voting(self)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 classdef <a href="ParadigmCSP.html" class="code" title="">ParadigmCSP</a> &lt; <a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>
@@ -170,60 +187,94 @@ This function is called by:
 0124             <span class="comment">% adapt a feature representation using the CSP algorithm</span>
 0125             arg_define(varargin, <span class="keyword">...</span>
 0126                 arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
-0127                 arg({<span class="string">'patterns'</span>,<span class="string">'PatternPairs'</span>},3,[],<span class="string">'Number of CSP patterns (times two).'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>),<span class="keyword">...</span>
-0128                 arg({<span class="string">'shrinkage_cov'</span>,<span class="string">'ShrinkageCovariance'</span>},false,[],<span class="string">'Shrinkage covariance estimator. Whether to use shrinkage to estimate the covariance matrices.'</span>));
-0129             
-0130             <span class="keyword">if</span> signal.nbchan &lt; patterns
-0131                 error(<span class="string">'CSP requires at least as many channels as you request output patterns. Please reduce the number of pattern pairs.'</span>); <span class="keyword">end</span>
-0132             <span class="keyword">for</span> k=1:2
-0133                 trials{k} = exp_eval(set_picktrials(signal,<span class="string">'rank'</span>,k));
-0134                 <span class="keyword">if</span> shrinkage_cov
-0135                     covar{k} = hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_shrink,reshape(trials{k}.data,size(trials{k}.data,1),[])');
-0136                 <span class="keyword">else</span>
-0137                     covar{k} = cov(reshape(trials{k}.data,size(trials{k}.data,1),[])');
-0138                 <span class="keyword">end</span>
-0139                 covar{k}(~isfinite(covar{k})) = 0;
-0140             <span class="keyword">end</span>
-0141             [V,D] = eig(covar{1},covar{1}+covar{2}); <span class="comment">%#ok&lt;NASGU&gt;</span>
-0142             model.filters = V(:,[1:patterns end-patterns+1:end]);
-0143             P = inv(V);
-0144             model.patterns = P([1:patterns end-patterns+1:end],:);
-0145             model.chanlocs = signal.chanlocs;
-0146         <span class="keyword">end</span>
-0147         
-0148         <a name="_sub2" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
-0149             <span class="comment">% extract log-variance features according to CSP</span>
-0150             features = zeros(size(signal.data,3),size(featuremodel.filters,2));
-0151             <span class="keyword">for</span> t=1:size(signal.data,3)
-0152                 features(t,:) = log(var(signal.data(:,:,t)'*featuremodel.filters)); <span class="keyword">end</span>
-0153         <span class="keyword">end</span>
-0154         
-0155         <a name="_sub3" href="#_subfunctions" class="code">function visualize_model(self,parent,featuremodel,predictivemodel) </a><span class="comment">%#ok&lt;*INUSD&gt;</span>
-0156             <span class="comment">% number of pairs, and index of pattern per subplot</span>
-0157             np = size(featuremodel.patterns,1)/2; idx = [1:np 2*np:-1:np+1];
-0158             <span class="comment">% for each CSP pattern...</span>
-0159             <span class="keyword">for</span> p=1:np*2
-0160                 subplot(2,np,p,<span class="string">'Parent'</span>,parent);
-0161                 topoplot(featuremodel.patterns(idx(p),:),featuremodel.chanlocs);
-0162                 title([<span class="string">'CSP Pattern '</span> num2str(idx(p))]);
-0163             <span class="keyword">end</span>
-0164         <span class="keyword">end</span>
-0165         
-0166         <a name="_sub4" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
-0167             <span class="comment">% define the default configuration dialog layout</span>
-0168             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>, <span class="string">'SignalProcessing.FIRFilter.Frequencies'</span>, <span class="keyword">...</span>
-0169                 <span class="string">'SignalProcessing.FIRFilter.Type'</span>, <span class="string">'SignalProcessing.EpochExtraction'</span>, <span class="string">''</span>, <span class="keyword">...</span>
-0170                 <span class="string">'Prediction.FeatureExtraction.PatternPairs'</span>, <span class="string">''</span>, <span class="string">'Prediction.MachineLearning.Learner'</span>};
-0171         <span class="keyword">end</span>
-0172         
-0173         <a name="_sub5" href="#_subfunctions" class="code">function tf = needs_voting(self)</a>
-0174             <span class="comment">% standard CSP requires voting to handle more than 2 classes</span>
-0175             tf = true; 
-0176         <span class="keyword">end</span>
-0177         
-0178     <span class="keyword">end</span>
-0179 <span class="keyword">end</span>
-0180</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0127                 arg({<span class="string">'patterns'</span>,<span class="string">'PatternPairs'</span>},3,uint32([1 1 64 10000]),<span class="string">'Number of CSP patterns (times two).'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>),<span class="keyword">...</span>
+0128                 arg({<span class="string">'dologtransform'</span>,<span class="string">'LogTransform'</span>,<span class="string">'logtransform'</span>},true,[],<span class="string">'Perform log-transform. This is almost always the right thing to do.'</span>),<span class="keyword">...</span>
+0129                 arg({<span class="string">'shrinkage_cov'</span>,<span class="string">'ShrinkageCovariance'</span>,<span class="string">'ShrinkageCov'</span>},false,[],<span class="string">'Shrinkage covariance estimator. Whether to use shrinkage to estimate the covariance matrices.'</span>));
+0130             
+0131             <span class="keyword">if</span> signal.nbchan &lt; patterns
+0132                 error(<span class="string">'CSP requires at least as many channels as you request output patterns. Please reduce the number of pattern pairs.'</span>); <span class="keyword">end</span>
+0133             <span class="keyword">for</span> k=1:2
+0134                 trials{k} = exp_eval(set_picktrials(signal,<span class="string">'rank'</span>,k));
+0135                 <span class="keyword">if</span> shrinkage_cov
+0136                     covar{k} = hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_shrink,reshape(trials{k}.data,size(trials{k}.data,1),[])');
+0137                 <span class="keyword">else</span>
+0138                     covar{k} = cov(reshape(trials{k}.data,size(trials{k}.data,1),[])');
+0139                 <span class="keyword">end</span>
+0140                 covar{k}(~isfinite(covar{k})) = 0;
+0141             <span class="keyword">end</span>
+0142             [V,D] = eig(covar{1},covar{1}+covar{2}); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0143             model.filters = V(:,[1:patterns end-patterns+1:end]);
+0144             P = inv(V);
+0145             model.patterns = P([1:patterns end-patterns+1:end],:);
+0146             model.cov = cov(signal.data(:,:)');
+0147             model.chanlocs = signal.chanlocs;
+0148             model.logtransform = dologtransform;
+0149         <span class="keyword">end</span>
+0150         
+0151         <a name="_sub2" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
+0152             <span class="comment">% extract log-variance features according to CSP</span>
+0153             features = zeros(size(signal.data,3),size(featuremodel.filters,2));
+0154             <span class="keyword">for</span> t=1:size(signal.data,3)
+0155                 features(t,:) = var(signal.data(:,:,t)'*featuremodel.filters); <span class="keyword">end</span>
+0156             <span class="keyword">if</span> featuremodel.logtransform
+0157                 features = log(features); <span class="keyword">end</span>
+0158         <span class="keyword">end</span>
+0159         
+0160         <a name="_sub3" href="#_subfunctions" class="code">function visualize_model(self,varargin) </a><span class="comment">%#ok&lt;*INUSD&gt;</span>
+0161             args = arg_define([0 3],varargin, <span class="keyword">...</span>
+0162                 arg_norep({<span class="string">'myparent'</span>,<span class="string">'Parent'</span>},[],[],<span class="string">'Parent figure.'</span>), <span class="keyword">...</span>
+0163                 arg_norep({<span class="string">'featuremodel'</span>,<span class="string">'FeatureModel'</span>},[],[],<span class="string">'Feature model. This is the part of the model that describes the feature extraction.'</span>), <span class="keyword">...</span>
+0164                 arg_norep({<span class="string">'predictivemodel'</span>,<span class="string">'PredictiveModel'</span>},[],[],<span class="string">'Predictive model. This is the part of the model that describes the predictive mapping.'</span>), <span class="keyword">...</span>
+0165                 arg({<span class="string">'patterns'</span>,<span class="string">'PlotPatterns'</span>},true,[],<span class="string">'Plot patterns instead of filters. Whether to plot spatial patterns (forward projections) rather than spatial filters.'</span>), <span class="keyword">...</span>
+0166                 arg({<span class="string">'paper'</span>,<span class="string">'PaperFigure'</span>},false,[],<span class="string">'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'</span>), <span class="keyword">...</span>
+0167                 arg_nogui({<span class="string">'nosedir_override'</span>,<span class="string">'NoseDirectionOverride'</span>},<span class="string">''</span>,{<span class="string">''</span>,<span class="string">'+X'</span>,<span class="string">'+Y'</span>,<span class="string">'-X'</span>,<span class="string">'-Y'</span>},<span class="string">'Override nose direction.'</span>));
+0168             arg_toworkspace(args);
+0169             
+0170             <span class="comment">% determine nose direction for EEGLAB graphics</span>
+0171             <span class="keyword">try</span>
+0172                 nosedir = args.fmodel.signal.info.chaninfo.nosedir;
+0173             <span class="keyword">catch</span>
+0174                 disp_once(<span class="string">'Nose direction for plotting not store in model; assuming +X'</span>);
+0175                 nosedir = <span class="string">'+X'</span>;
+0176             <span class="keyword">end</span>
+0177             <span class="keyword">if</span> ~isempty(nosedir_override)
+0178                 nosedir = nosedir_override; <span class="keyword">end</span>            
+0179             <span class="comment">% number of pairs, and index of pattern per subplot</span>
+0180             np = size(featuremodel.patterns,1)/2; 
+0181             idx = [1:np 2*np:-1:np+1];            
+0182             <span class="comment">% for each CSP pattern...</span>
+0183             <span class="keyword">for</span> p=1:np*2
+0184                 subplot(2,np,p,<span class="string">'Parent'</span>,myparent);
+0185                 <span class="keyword">if</span> args.patterns
+0186                     plotdata = featuremodel.patterns(idx(p),:);
+0187                 <span class="keyword">else</span>
+0188                     plotdata = featuremodel.filters(:,idx(p));
+0189                 <span class="keyword">end</span>
+0190                 topoplot(plotdata,featuremodel.chanlocs,<span class="string">'nosedir'</span>,nosedir);
+0191                 t = title([<span class="string">'CSP Pattern '</span> num2str(idx(p))]);
+0192                 <span class="keyword">if</span> args.paper
+0193                     set(t,<span class="string">'FontUnits'</span>,<span class="string">'normalized'</span>);
+0194                     set(t,<span class="string">'FontSize'</span>,0.1);                    
+0195                 <span class="keyword">end</span>
+0196             <span class="keyword">end</span>
+0197         <span class="keyword">end</span>
+0198         
+0199         <a name="_sub4" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0200             <span class="comment">% define the default configuration dialog layout</span>
+0201             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>, <span class="string">'SignalProcessing.FIRFilter.Frequencies'</span>, <span class="keyword">...</span>
+0202                 <span class="string">'SignalProcessing.FIRFilter.Type'</span>, <span class="string">'SignalProcessing.EpochExtraction'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0203                 <span class="string">'Prediction.FeatureExtraction.PatternPairs'</span>, <span class="string">''</span>, <span class="string">'Prediction.MachineLearning.Learner'</span>};
+0204         <span class="keyword">end</span>
+0205         
+0206         <a name="_sub5" href="#_subfunctions" class="code">function tf = needs_voting(self)</a>
+0207             <span class="comment">% standard CSP requires voting to handle more than 2 classes</span>
+0208             tf = true; 
+0209         <span class="keyword">end</span>
+0210         
+0211     <span class="keyword">end</span>
+0212 <span class="keyword">end</span>
+0213</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

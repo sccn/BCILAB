@@ -1,0 +1,173 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_beamformer</title>
+  <meta name="keywords" content="flt_beamformer">
+  <meta name="description" content="Recovers activity from the given ROIs via a beamformer.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_beamformer.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_beamformer
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Recovers activity from the given ROIs via a beamformer.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function signal = flt_beamformer(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Recovers activity from the given ROIs via a beamformer.
+ function Signal = flt_laplace(Signal,ROIs,)
+
+ In:
+   Signal : EEGLAB data set, either continuous or epoched
+
+   ROIs   : Regions of interest from which to recover signals.
+
+   FieldType : type of field to recover ('axial' or 'normal')
+
+   ReferenceType : type of referencing used before this filter ('nasion' or 'common_average')
+
+   OverrideOriginal : whether to override the original signal
+
+ Out:
+   Signal : activity from the given ROIs
+
+ Notes:
+   This function currently does not perform activity renormalization.
+
+ Examples:
+   % recover activity from four regions
+   eeg = flt_beamformer(eeg,{'Precentral_L', 'Precentral_R', 'Frontal_Sup_L', 'Frontal_Sup_R'},'normal')
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2014-02-11</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function chanlocs = make_labels(roi_labels)</a></li>
+</ul>
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = flt_beamformer(varargin)</a>
+0002 <span class="comment">% Recovers activity from the given ROIs via a beamformer.</span>
+0003 <span class="comment">% function Signal = flt_laplace(Signal,ROIs,)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Signal : EEGLAB data set, either continuous or epoched</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">%   ROIs   : Regions of interest from which to recover signals.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">%   FieldType : type of field to recover ('axial' or 'normal')</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%   ReferenceType : type of referencing used before this filter ('nasion' or 'common_average')</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%   OverrideOriginal : whether to override the original signal</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">% Out:</span>
+0017 <span class="comment">%   Signal : activity from the given ROIs</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">% Notes:</span>
+0020 <span class="comment">%   This function currently does not perform activity renormalization.</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">% Examples:</span>
+0023 <span class="comment">%   % recover activity from four regions</span>
+0024 <span class="comment">%   eeg = flt_beamformer(eeg,{'Precentral_L', 'Precentral_R', 'Frontal_Sup_L', 'Frontal_Sup_R'},'normal')</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0027 <span class="comment">%                                2014-02-11</span>
+0028 
+0029 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0030 
+0031 declare_properties(<span class="string">'name'</span>,<span class="string">'Beamformer'</span>, <span class="string">'follows'</span>,{<span class="string">'flt_selchans'</span>,<span class="string">'flt_repair_bursts'</span>,<span class="string">'flt_clean_settings'</span>}, <span class="string">'cannot_follow'</span>,<span class="string">'flt_ica'</span>, <span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,true);
+0032 
+0033 arg_define(varargin, <span class="keyword">...</span>
+0034     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0035     arg({<span class="string">'roi_labels'</span>,<span class="string">'ROIs'</span>,<span class="string">'ROILabels'</span>},{}, {<span class="string">'Precentral_L'</span>, <span class="string">'Precentral_R'</span>, <span class="string">'Frontal_Sup_L'</span>, <span class="string">'Frontal_Sup_R'</span>, <span class="string">'Frontal_Sup_Orb_L'</span>, <span class="string">'Frontal_Sup_Orb_R'</span>, <span class="string">'Frontal_Mid_L'</span>, <span class="string">'Frontal_Mid_R'</span>, <span class="string">'Frontal_Mid_Orb_L'</span>, <span class="string">'Frontal_Mid_Orb_R'</span>, <span class="string">'Frontal_Inf_Oper_L'</span>, <span class="string">'Frontal_Inf_Oper_R'</span>, <span class="string">'Frontal_Inf_Tri_L'</span>, <span class="string">'Frontal_Inf_Tri_R'</span>, <span class="string">'Frontal_Inf_Orb_L'</span>, <span class="string">'Frontal_Inf_Orb_R'</span>, <span class="string">'Rolandic_Oper_L'</span>, <span class="string">'Rolandic_Oper_R'</span>, <span class="string">'Supp_Motor_Area_L'</span>, <span class="string">'Supp_Motor_Area_R'</span>, <span class="string">'Frontal_Sup_Medial_L'</span>, <span class="string">'Frontal_Sup_Medial_R'</span>, <span class="string">'Frontal_Med_Orb_L'</span>, <span class="string">'Frontal_Med_Orb_R'</span>, <span class="string">'Insula_L'</span>, <span class="string">'Insula_R'</span>, <span class="string">'Cingulum_Ant_L'</span>, <span class="string">'Cingulum_Ant_R'</span>, <span class="string">'Cingulum_Mid_L'</span>, <span class="string">'Cingulum_Mid_R'</span>, <span class="string">'Cingulum_Post_L'</span>, <span class="string">'Cingulum_Post_R'</span>, <span class="string">'Hippocampus_L'</span>, <span class="string">'Hippocampus_R'</span>, <span class="string">'ParaHippocampal_L'</span>, <span class="string">'ParaHippocampal_R'</span>, <span class="string">'Calcarine_L'</span>, <span class="string">'Calcarine_R'</span>, <span class="string">'Cuneus_L'</span>, <span class="string">'Cuneus_R'</span>, <span class="string">'Lingual_L'</span>, <span class="string">'Lingual_R'</span>, <span class="string">'Occipital_Sup_L'</span>, <span class="string">'Occipital_Sup_R'</span>, <span class="string">'Occipital_Mid_L'</span>, <span class="string">'Occipital_Mid_R'</span>, <span class="string">'Occipital_Inf_L'</span>, <span class="string">'Occipital_Inf_R'</span>, <span class="string">'Fusiform_L'</span>, <span class="string">'Fusiform_R'</span>, <span class="string">'Postcentral_L'</span>, <span class="string">'Postcentral_R'</span>, <span class="string">'Parietal_Sup_L'</span>, <span class="string">'Parietal_Sup_R'</span>, <span class="string">'Parietal_Inf_L'</span>, <span class="string">'Parietal_Inf_R'</span>, <span class="string">'SupraMarginal_L'</span>, <span class="string">'SupraMarginal_R'</span>, <span class="string">'Angular_L'</span>, <span class="string">'Angular_R'</span>, <span class="string">'Precuneus_L'</span>, <span class="string">'Precuneus_R'</span>, <span class="string">'Paracentral_Lobule_L'</span>, <span class="string">'Paracentral_Lobule_R'</span>, <span class="string">'Temporal_Sup_L'</span>, <span class="string">'Temporal_Sup_R'</span>, <span class="string">'Temporal_Pole_Sup_L'</span>, <span class="string">'Temporal_Pole_Sup_R'</span>, <span class="string">'Temporal_Mid_L'</span>, <span class="string">'Temporal_Mid_R'</span>, <span class="string">'Temporal_Pole_Mid_L'</span>, <span class="string">'Temporal_Pole_Mid_R'</span>, <span class="string">'Temporal_Inf_L'</span>, <span class="string">'Temporal_Inf_R'</span>, <span class="string">'Olfactory_L'</span>, <span class="string">'Olfactory_R'</span>, <span class="string">'Rectus_L'</span>, <span class="string">'Rectus_R'</span>, <span class="string">'Amygdala_L'</span>, <span class="string">'Amygdala_R'</span>, <span class="string">'Caudate_L'</span>, <span class="string">'Caudate_R'</span>, <span class="string">'Thalamus_L'</span>, <span class="string">'Thalamus_R'</span>, <span class="string">'Heschl_L'</span>, <span class="string">'Heschl_R'</span>}, <span class="keyword">...</span>
+0036         <span class="string">'Cortical anchor locations. List of locations to which components shall be constrained. The first k components are encouraged to lie close to the given locations, in the order of appearance. This is experimental and currently requires a) 10-20 locations and b) Guido Nolte''s source analysis toolbox (not included).'</span>,<span class="string">'experimental'</span>,true), <span class="keyword">...</span>
+0037     arg({<span class="string">'field_type'</span>,<span class="string">'FieldType'</span>},<span class="string">'normal'</span>,{<span class="string">'normal'</span>,<span class="string">'axial'</span>},<span class="string">'Regions of interest. These are the regions from which to recover signals.'</span>), <span class="keyword">...</span>
+0038     arg({<span class="string">'reference_type'</span>,<span class="string">'ReferenceType'</span>},<span class="string">'common_average'</span>,{<span class="string">'nasion'</span>,<span class="string">'common_average'</span>},<span class="string">'Referencing scheme. This is the type of re-referencing that was applied before flt_beamformer.'</span>), <span class="keyword">...</span>
+0039     arg({<span class="string">'override_original'</span>,<span class="string">'OverrideOriginal'</span>},true,[],<span class="string">'Override original data. If checked, the original signals will be replaced by the recovery.'</span>), <span class="keyword">...</span>
+0040     arg({<span class="string">'override_chanlabels'</span>,<span class="string">'OverrideChanlabels'</span>},{},[],<span class="string">'Override channel labels.'</span>), <span class="keyword">...</span>
+0041     arg({<span class="string">'cov_shrinkage'</span>,<span class="string">'CovShrinkage'</span>},0,[],<span class="string">'Covariance shrinkage parameter. For better conditioning.'</span>), <span class="keyword">...</span>
+0042     arg({<span class="string">'cov_robust'</span>,<span class="string">'CovRobust'</span>},false,[],<span class="string">'Use robust covariance estimate.'</span>), <span class="keyword">...</span>
+0043     arg_norep(<span class="string">'M'</span>), <span class="keyword">...</span>
+0044     arg_norep(<span class="string">'channel_mask'</span>));
+0045 
+0046 <span class="comment">% calculate spatial filter matrix, if necessary</span>
+0047 <span class="keyword">if</span> ~exist(<span class="string">'M'</span>,<span class="string">'var'</span>)
+0048     <span class="keyword">if</span> isempty(override_chanlabels)
+0049         chan_labels = {signal.chanlocs.labels};
+0050     <span class="keyword">else</span>
+0051         chan_labels = override_chanlabels;
+0052     <span class="keyword">end</span>    
+0053     [dummy,dummy,channel_mask,dummy,dummy,dummy,normField,leadField] = hlp_diskcache(<span class="string">'filterdesign'</span>,@calc_beamformer_constraints,chan_labels,roi_labels,eye(signal.nbchan),reference_type); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0054     <span class="keyword">if</span> strcmp(field_type,<span class="string">'normal'</span>)
+0055         LF = normField;        
+0056     <span class="keyword">elseif</span> strcmp(field_type,<span class="string">'axial'</span>)
+0057         LF = leadField(:,:);
+0058     <span class="keyword">else</span>
+0059         error(<span class="string">'Unsupported field type requested: %s'</span>,hlp_tostring(field_type,1000));
+0060     <span class="keyword">end</span>
+0061     <span class="keyword">if</span> cov_robust
+0062         C = cov_blockgeom(signal.data(channel_mask,:)');
+0063     <span class="keyword">else</span>
+0064         C = cov(signal.data(channel_mask,:)');
+0065     <span class="keyword">end</span>
+0066     C = (1-cov_shrinkage)*C + cov_shrinkage*mean(trace(C))*eye(length(C));
+0067     M = LF'/C;
+0068 <span class="keyword">end</span>
+0069 
+0070 <span class="comment">% apply M</span>
+0071 signal = utl_register_field(signal,<span class="string">'timeseries'</span>,<span class="string">'srcpot'</span>,reshape(M*signal.data(channel_mask,:,:),[],size(signal.data,2),size(signal.data,3)));
+0072 signal.etc.roi_labels = roi_labels; 
+0073 
+0074 <span class="keyword">if</span> override_original
+0075     <span class="comment">% override signal.data &amp; relabel channels</span>
+0076     signal.data = signal.srcpot;
+0077     <span class="keyword">if</span> size(signal.data,1) == signal.nbchan
+0078         signal.chanlocs = struct(<span class="string">'labels'</span>,roi_labels);
+0079     <span class="keyword">else</span>
+0080         signal.nbchan = size(signal.data,1);
+0081         signal.chanlocs = hlp_nanocache(<span class="string">'cached_labels'</span>,10,@<a href="#_sub1" class="code" title="subfunction chanlocs = make_labels(roi_labels)">make_labels</a>,roi_labels); 
+0082     <span class="keyword">end</span>
+0083 <span class="keyword">end</span>
+0084 
+0085 <span class="comment">% append the M and ok arguments to the online expression</span>
+0086 exp_endfun(<span class="string">'append_online'</span>,{<span class="string">'M'</span>,M,<span class="string">'channel_mask'</span>,channel_mask});
+0087 
+0088 <a name="_sub1" href="#_subfunctions" class="code">function chanlocs = make_labels(roi_labels)</a>
+0089 chanlocs = struct(<span class="string">'labels'</span>,[cellfun(@(f){sprintf(<span class="string">'%s_X'</span>,f)},roi_labels) cellfun(@(f){sprintf(<span class="string">'%s_Y'</span>,f)},roi_labels) cellfun(@(f){sprintf(<span class="string">'%s_Z'</span>,f)},roi_labels)]);</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -6,7 +6,7 @@ function signal = flt_srcproj(varargin)
 
 if ~exp_beginfun('filter'), return; end
 
-declare_properties('name','SourceProject', 'experimental',true,'follows',{'flt_fourier_bandpower'},'cannot_precede',{'flt_sourceLocalize'},'cannot_follow',{'set_makepos'},'independent_channels',false, 'independent_trials',false);
+declare_properties('name','SourceProject', 'experimental',true,'follows',{'flt_fourier_bandpower'},'cannot_precede',{'flt_sourceLocalize'},'independent_channels',false, 'independent_trials',false);
 
 % extract some defaults
 headmodel_default = 'resources:/headmodels/standard-Colin27-385ch.mat';
@@ -41,10 +41,13 @@ if ~isfield(signal,'srcweights_all')
     error('signal.srcweights_all not found. Please call flt_sourceLocalize() first');
 end
 
+if size(signal.data,3)>1
+    error('flt_srcproj:BadShape','SourceProject cannot operate on trials.');
+end
 if isempty(signal.srcweights_all)
     % no source weights
     signal.srcproj = [];
-    return;
+    exp_endfun; return;
 end
 if isempty(datafield)
     datafield = 'data'; end

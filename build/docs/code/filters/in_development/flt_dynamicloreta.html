@@ -1,0 +1,214 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_dynamicloreta</title>
+  <meta name="keywords" content="flt_dynamicloreta">
+  <meta name="description" content="Return the current source density for a given head model and data using">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../index.html">filters</a> &gt; <a href="index.html">in_development</a> &gt; flt_dynamicloreta.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters/in_development&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>flt_dynamicloreta
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Return the current source density for a given head model and data using</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function [signal, state] = flt_dynamicloreta(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Return the current source density for a given head model and data using
+ the cortically-constrained LORETA (low resolution electrical
+ tomographic analysis) with a Bayesian update scheme for hyperparameters.
+ The reconstructed CSD time-series (or source potential maps) will be 
+ stored in signal.srcpot. This matrix has dimension [num_voxels x num_samples].
+ 
+ Author: Tim Mullen, Jan 2013, SCCN/INC/UCSD
+         Alejandro Ojeda, Jan 2013, SCCN/INC/UCSD
+         Christian Kothe, Jan 2013, SCCN/INC/UCSD</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+<li><a href="flt_sourceLocalize.html" class="code" title="function [signal, state] = flt_sourceLocalize(varargin)">flt_sourceLocalize</a>	Localize sources for a given head model.</li>
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal, state] = flt_dynamicloreta(varargin)</a>
+0002 <span class="comment">% Return the current source density for a given head model and data using</span>
+0003 <span class="comment">% the cortically-constrained LORETA (low resolution electrical</span>
+0004 <span class="comment">% tomographic analysis) with a Bayesian update scheme for hyperparameters.</span>
+0005 <span class="comment">% The reconstructed CSD time-series (or source potential maps) will be</span>
+0006 <span class="comment">% stored in signal.srcpot. This matrix has dimension [num_voxels x num_samples].</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% Author: Tim Mullen, Jan 2013, SCCN/INC/UCSD</span>
+0009 <span class="comment">%         Alejandro Ojeda, Jan 2013, SCCN/INC/UCSD</span>
+0010 <span class="comment">%         Christian Kothe, Jan 2013, SCCN/INC/UCSD</span>
+0011 
+0012 
+0013 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>), <span class="keyword">return</span>; <span class="keyword">end</span>
+0014 
+0015 declare_properties(<span class="string">'name'</span>,<span class="string">'Dynamic LORETA'</span>, <span class="string">'experimental'</span>,true, <span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,false);
+0016 
+0017 arg_define(varargin, <span class="keyword">...</span>
+0018     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0019     arg_nogui({<span class="string">'K'</span>,<span class="string">'ForwardModel'</span>},[],[],<span class="string">'Forward model (matrix)'</span>,<span class="string">'shape'</span>,<span class="string">'matrix'</span>), <span class="keyword">...</span>
+0020     arg_nogui({<span class="string">'L'</span>,<span class="string">'LaplacianOperator'</span>},[],[],<span class="string">'Laplacian operator. Sparse matrix of N sources x N sources, this is matrix is used as the square root of the precision matrix of the sources.'</span>), <span class="keyword">...</span>
+0021     arg_sub({<span class="string">'options'</span>,<span class="string">'LoretaOptions'</span>},{},<span class="keyword">...</span>
+0022         { <span class="keyword">...</span>
+0023         arg({<span class="string">'maxTol'</span>,<span class="string">'MaxTolerance'</span>},1e-12,[0 Inf],<span class="string">'Tolerance for hyperparameter update loop'</span>,<span class="string">'cat'</span>,<span class="string">'Loreta Options'</span>), <span class="keyword">...</span>
+0024         arg({<span class="string">'maxIter'</span>,<span class="string">'MaxIterations'</span>},100,[1 Inf],<span class="string">'Maximum iterations for hyperparameter update loop'</span>,<span class="string">'cat'</span>,<span class="string">'Loreta Options'</span>), <span class="keyword">...</span>
+0025         arg({<span class="string">'gridSize'</span>,<span class="string">'GridSize'</span>},100,[1 Inf],<span class="string">'Lambda grid size.'</span>), <span class="keyword">...</span>
+0026         arg({<span class="string">'history'</span>,<span class="string">'TrackHistory'</span>},false,[],<span class="string">'Track history for hyperparameters'</span>), <span class="keyword">...</span>
+0027         arg({<span class="string">'verbose'</span>,<span class="string">'VerboseOutput'</span>},false,[],<span class="string">'Verbosity'</span>,<span class="string">'cat'</span>,<span class="string">'Loreta Options'</span>), <span class="keyword">...</span>
+0028         arg({<span class="string">'initNoiseFactor'</span>,<span class="string">'InitialNoiseFactor'</span>},0.001,[0 Inf],<span class="string">'Fraction of noise level. Used for initializing alpha parameter'</span>,<span class="string">'cat'</span>,<span class="string">'Loreta Options'</span>) <span class="keyword">...</span>
+0029         arg({<span class="string">'block_size'</span>,<span class="string">'BlockSize'</span>},5, [], <span class="string">'Block granularity for processing. The inverse operator will be updated using blocks of this many samples. This assumes that the inverse solution is spatially stationary over this many samples.'</span>), <span class="keyword">...</span>
+0030         arg({<span class="string">'skipFactor'</span>,<span class="string">'SkipFactor'</span>},0,[0 Inf],<span class="string">'Number of blocks to skip'</span>), <span class="keyword">...</span>
+0031         arg({<span class="string">'maxblocks'</span>,<span class="string">'MaxBlocks'</span>},Inf,[0 Inf],<span class="string">'Maximum number of blocks'</span>), <span class="keyword">...</span>
+0032         arg({<span class="string">'standardize'</span>,<span class="string">'Standardize'</span>},<span class="string">'all'</span>,{<span class="string">'none'</span>,<span class="string">'channels'</span>,<span class="string">'all'</span>},<span class="string">'Rescale data to unit variance. If ''channels'', standardization is carried out across channels for each time point. If ''all'' each data sample is normalized by the standard deviation taken over all data.'</span>), <span class="keyword">...</span>
+0033         arg({<span class="string">'useGPU'</span>,<span class="string">'UseGPU'</span>},false,[],<span class="string">'Use GPU to accelerate computation.'</span>), <span class="keyword">...</span>
+0034         },<span class="string">'Additional options for Loreta function'</span>), <span class="keyword">...</span>
+0035     arg({<span class="string">'verb'</span>,<span class="string">'Verbosity'</span>},false,[],<span class="string">'Verbose output'</span>), <span class="keyword">...</span>
+0036     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>},[],[],<span class="string">'State object. When provided, hyperparameters will be estimated adaptively from prior state'</span>));
+0037 <span class="keyword">if</span> verb
+0038     fprintf(<span class="string">'Estimating current source density using cLORETA (%s)\n'</span>,mfilename); 
+0039 <span class="keyword">end</span>
+0040 
+0041 [nchs, npnts, ntrs] = size(signal.data);
+0042 <span class="keyword">if</span> isempty(block_size) || block_size &gt; npnts
+0043     block_size = npnts;
+0044 <span class="keyword">end</span>
+0045 numsplits    = floor(npnts/block_size);
+0046 
+0047 <span class="comment">% if necessary, cast to double-precision</span>
+0048 <span class="keyword">if</span> ~strcmpi(class(signal.data),<span class="string">'double'</span>)
+0049     signal.data = double(signal.data);
+0050 <span class="keyword">end</span>
+0051     
+0052 <span class="comment">% normData the data</span>
+0053 <span class="keyword">if</span> ~strcmpi(normData,<span class="string">'none'</span>)
+0054     <span class="keyword">switch</span> normData
+0055         <span class="keyword">case</span> <span class="string">'channels'</span>
+0056             scale = std(signal.data,[],1);
+0057         <span class="keyword">case</span> <span class="string">'time'</span>
+0058             scale = std(signal.data,[],2);
+0059         <span class="keyword">case</span> <span class="string">'all'</span>
+0060             scale = std(signal.data(:));
+0061     <span class="keyword">end</span>
+0062     signal.data = bsxfun(@rdivide,signal.data,scale);
+0063 <span class="comment">%     scale = std(signal.data(:));</span>
+0064 <span class="comment">%     signal.data = signal.data./scale;</span>
+0065 <span class="keyword">end</span>
+0066 
+0067 <span class="keyword">if</span> isempty(state) || ~isfield(state,<span class="string">'iLV'</span>) || isempty(state.iLV)
+0068     <span class="keyword">if</span> verb
+0069         fprintf(<span class="string">'...computing SVD of LFM.\n'</span>);
+0070     <span class="keyword">end</span>
+0071     <span class="comment">% mode is offline or we are initializing online filter</span>
+0072     <span class="comment">% perform one-time SVD for faster computation.</span>
+0073     [U,S,V]      = svd(K/L,<span class="string">'econ'</span>);
+0074     state.iLV    = L\V;
+0075     state.s2     = diag(S).^2; <span class="comment">%s^2</span>
+0076     state.Ut     = U';
+0077     state.sigma2 = repmat({options.sigma2},1,ntrs);
+0078     state.tau2   = repmat({options.tau2},1,ntrs);
+0079 <span class="keyword">end</span>
+0080  
+0081 <span class="keyword">if</span> npnts == 0
+0082     <span class="comment">% no data</span>
+0083     signal.srcpot    = [];
+0084     state.srcweights = [];
+0085     exp_endfun; <span class="keyword">return</span>;
+0086 <span class="keyword">end</span>
+0087 
+0088 signal.srcpot    = zeros([size(K,2), npnts, ntrs]);
+0089 state.srcweights = zeros(size(L,1),nchs);
+0090 sum_srcweights   = zeros(size(L,1),nchs);
+0091 signal.loretaHistory = struct([]);
+0092 
+0093 <span class="keyword">if</span> verb
+0094     fprintf(<span class="string">'...assuming %d stationary blocks of length %d\n'</span>,numsplits,block_size);
+0095 <span class="keyword">end</span>
+0096 
+0097 
+0098 <span class="comment">% loop over all trials</span>
+0099 <span class="keyword">for</span> tr=1:ntrs
+0100     <span class="keyword">if</span> verb
+0101         fprintf(<span class="string">'\nTrial (%d\%d).'</span>,tr,ntrs);
+0102     <span class="keyword">end</span>
+0103     k = 0;
+0104     <span class="comment">% loop over sub-blocks and estimate CSD for each block</span>
+0105     <span class="keyword">for</span> i=0:skipFactor+1:numsplits-1
+0106         <span class="keyword">if</span> verb
+0107             <span class="keyword">if</span> i+1 &gt;= floor(numsplits*(k+1)/10)
+0108                 k = k + 1;
+0109                 fprintf(<span class="string">'%0.3g%%...'</span>,round((i/numsplits)*100));
+0110             <span class="keyword">end</span>
+0111         <span class="keyword">end</span>
+0112         range = 1+floor(i*npnts/numsplits) : min(npnts,floor((i+1)*npnts/numsplits));
+0113         <span class="comment">% call (dynamic bayesian) loreta estimator</span>
+0114         [signal.srcpot(:,range,tr), state.sigma2{tr}, state.tau2{tr}, state.srcweights, tmpHist] <span class="keyword">...</span>
+0115             = dynamicLoreta( signal.data(:,range,tr), state.Ut, state.s2, state.iLV,<span class="keyword">...</span>
+0116                              state.sigma2{tr}, state.tau2{tr}, options);
+0117         <span class="keyword">if</span> ~isempty(tmpHist)
+0118             signal.loretaHistory{tr} = [signal.loretaHistory{tr},tmpHist]; 
+0119         <span class="keyword">end</span>
+0120 
+0121         <span class="keyword">if</span> skipFactor &gt; 0
+0122             <span class="comment">% estimate CSD for samples between blocks using current inverse operator</span>
+0123             range = 1+floor((i+1)*npnts/numsplits) : min(npnts,floor((i+skipFactor+1)*npnts/numsplits));
+0124             signal.srcpot(:,range,tr) = state.srcweights*signal.data(:,range,tr);
+0125         <span class="keyword">end</span>
+0126         
+0127         <span class="comment">% running sum</span>
+0128         sum_srcweights = sum_srcweights + state.srcweights;
+0129     <span class="keyword">end</span>
+0130 <span class="keyword">end</span>
+0131 
+0132 
+0133 <span class="keyword">if</span> numsplits &gt; 1
+0134     <span class="comment">% store the mean inverse operator over all splits</span>
+0135     state.srcweights = sum_srcweights/(numsplits*ntrs);
+0136 <span class="keyword">end</span>
+0137 
+0138 <span class="keyword">if</span> ~strcmpi(normData,<span class="string">'none'</span>)
+0139     <span class="comment">% recale data to original units</span>
+0140 <span class="comment">%     signal.srcpot     = signal.srcpot*scale;</span>
+0141 <span class="comment">%     state.srcweights  = state.srcweights/scale;</span>
+0142     signal.srcpot = bsxfun(@times,signal.srcpot,scale);
+0143 <span class="comment">%     signal.srcpot = bsxfun(@rdivide,signal.srcpot,std(signal.srcpot,[],1));</span>
+0144 <span class="comment">%     state.srcweights  = bsxfun(@times,state.srcweights,scale'); %state.srcweights/mean(scale);</span>
+0145 <span class="keyword">end</span>
+0146 
+0147 <span class="keyword">if</span> verb
+0148     fprintf(<span class="string">'done.\n'</span>);
+0149 <span class="keyword">end</span>
+0150     
+0151 exp_endfun;</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

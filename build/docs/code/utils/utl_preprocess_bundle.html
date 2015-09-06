@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>utl_preprocess_bundle
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -27,30 +28,90 @@
 <div class="box"><strong>function outbundle = utl_preprocess_bundle(inbundle,model) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre class="comment"> Internal. Pre-process a stream bundle with a model's filter graph.</pre></div>
+<div class="fragment"><pre class="comment"> Internal. Pre-process a stream bundle with a model's filter graph.
+
+ BCI models have a &quot;filter graph&quot; (possibly trivial), which represents a directed acyclical graph
+ of filter stages with their parameters. This function takes a multi-stream signal (a stream
+ bundle) and applies the filter graph to it, yielding a new multi-stream bundle that's the output
+ of the graph.
+
+ In:
+   Bundle : a stream bundle to pre-process (struct with a field .streams that's a cell array of 
+            EEGLAB dataset structs)
+
+   Model : predictive model to use
+
+ Out:
+   Bundle : processed stream bundle
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2011-11-23</pre></div>
 
 <!-- crossreference -->
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="utl_resolve_streams.html" class="code" title="function pip = utl_resolve_streams(pip,streams,chanlocs)">utl_resolve_streams</a>	resolve the stream that each rawdata node in the given filter chain requires, given a list</li></ul>
+
+<li><a href="utl_resolve_streams.html" class="code" title="function pip = utl_resolve_streams(pip,streams,chanlocs)">utl_resolve_streams</a>	Substitute "rawdata" placeholder nodes in a given filter pipeline by given candidate streams.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="utl_collection_tester.html" class="code" title="function predictions = utl_collection_tester(testcollection,model,predict_func)">utl_collection_tester</a>	Internal. Apply a predictive model to a dataset collection, as part of a cross-validation.</li></ul>
+
+<li><a href="utl_collection_tester.html" class="code" title="function predictions = utl_collection_tester(testcollection,model,predict_func)">utl_collection_tester</a>	Internal. Apply a predictive model to a dataset collection, as part of a cross-validation.</li>
+</ul>
 <!-- crossreference -->
+
+
+
 
 
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function outbundle = utl_preprocess_bundle(inbundle,model)</a>
 0002 <span class="comment">% Internal. Pre-process a stream bundle with a model's filter graph.</span>
-0003 
-0004 <span class="comment">% first resolve all @rawdata nodes in the model's filter graph according to the input bundle</span>
-0005 resolved_graph = <a href="utl_resolve_streams.html" class="code" title="function pip = utl_resolve_streams(pip,streams,chanlocs)">utl_resolve_streams</a>(model.tracking.filter_graph,inbundle,model.tracking.prediction_channels);
-0006 <span class="comment">% then evaluate each chain in the graph and store the results as an output stream bundle</span>
-0007 outbundle.streams = cell(1,length(resolved_graph));
-0008 <span class="keyword">for</span> g=1:length(resolved_graph)
-0009     outbundle.streams{g} = exp_eval_optimized(resolved_graph{g}); <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% BCI models have a &quot;filter graph&quot; (possibly trivial), which represents a directed acyclical graph</span>
+0005 <span class="comment">% of filter stages with their parameters. This function takes a multi-stream signal (a stream</span>
+0006 <span class="comment">% bundle) and applies the filter graph to it, yielding a new multi-stream bundle that's the output</span>
+0007 <span class="comment">% of the graph.</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% In:</span>
+0010 <span class="comment">%   Bundle : a stream bundle to pre-process (struct with a field .streams that's a cell array of</span>
+0011 <span class="comment">%            EEGLAB dataset structs)</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">%   Model : predictive model to use</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">% Out:</span>
+0016 <span class="comment">%   Bundle : processed stream bundle</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0019 <span class="comment">%                                2011-11-23</span>
+0020 dp;
+0021 
+0022 <span class="comment">% input validation</span>
+0023 <span class="keyword">if</span> ~isstruct(model) || ~isscalar(model)
+0024     error(<span class="string">'The given model argument must be a 1x1 struct.'</span>); <span class="keyword">end</span>
+0025 <span class="keyword">if</span> ~isfield(model,<span class="string">'tracking'</span>)
+0026     error(<span class="string">'The given model data structure is lacking the required .tracking field; its fields are: %s'</span>,hlp_tostring(fieldnames(model))); <span class="keyword">end</span>
+0027 <span class="keyword">if</span> ~isfield(model.tracking,<span class="string">'filter_graph'</span>)
+0028     error(<span class="string">'The given model data structure is lacking the required .tracking.filter_graph field.'</span>); <span class="keyword">end</span>
+0029 <span class="keyword">if</span> ~iscell(model.tracking.filter_graph) || ~all(cellfun(@(f)all(isfield(f,{<span class="string">'head'</span>,<span class="string">'parts'</span>})),model.tracking.filter_graph))
+0030     error(<span class="string">'The given model''s .tracking.filter_graph has an unsupported structure (should be a cell array of expressions, but was: %s'</span>,hlp_tostring(model.tracking.filter_graph,10000)); <span class="keyword">end</span>
+0031 <span class="keyword">if</span> ~isfield(model.tracking,<span class="string">'prediction_channels'</span>)
+0032     error(<span class="string">'The given model data structure is lacking the required .tracking.prediction_channels field.'</span>); <span class="keyword">end</span>
+0033 <span class="keyword">if</span> ~iscell(model.tracking.prediction_channels) || ~all(cellfun(@(c)isfield(c,<span class="string">'labels'</span>),model.tracking.prediction_channels))
+0034     error(<span class="string">'The given model''s .tracking.prediction_channels has an unsupported structure (should be a cell array of chanlocs structs, but was: %s'</span>,hlp_tostring(model.tracking.filter_graph,10000)); <span class="keyword">end</span>
+0035 <span class="keyword">if</span> length(model.tracking.filter_graph) ~= length(model.tracking.prediction_channels)
+0036     error(<span class="string">'The given model''s .tracking.filter_graph and .tracking.prediction_channels have different lengths. This is not permitted.'</span>); <span class="keyword">end</span>
+0037 
+0038 <span class="comment">% first resolve all rawdata nodes in the model's filter graph according to the input bundle</span>
+0039 resolved_graph = <a href="utl_resolve_streams.html" class="code" title="function pip = utl_resolve_streams(pip,streams,chanlocs)">utl_resolve_streams</a>(model.tracking.filter_graph,inbundle,model.tracking.prediction_channels);
+0040 
+0041 <span class="comment">% then evaluate each chain in the graph and store the results as an output stream bundle</span>
+0042 outbundle.streams = cell(1,length(resolved_graph));
+0043 <span class="keyword">for</span> g=1:length(resolved_graph)
+0044     outbundle.streams{g} = exp_eval_optimized(resolved_graph{g}); <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

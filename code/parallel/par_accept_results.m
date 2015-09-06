@@ -13,7 +13,7 @@ function par_accept_results(tag, payload)
 % In:
 %   Tag: tag string that uniquely identifies the result; should begin with 'tag__'.
 %
-%   Payload: payload string of the same format as returned by the Scheduler
+%   Payload: payload uint8 array of the same format as returned by the Scheduler
 
 global tracking;
 % atomically store payload in global results table
@@ -22,7 +22,7 @@ tracking.parallel.results.(tag) = payload;
 if length(payload) < 16384
     try
         % for short results we check if we got an error, and if so, we print it out
-        decoded = hlp_deserialize(fast_decode(payload));
+        decoded = hlp_deserialize(typecast(payload,'uint8'));
         if all(isfield(decoded{2},{'message','identifier','stack'}))
             fprintf('Got an error during parallel execution: %s\n',hlp_handleerror(decoded{2})); end
     catch e %#ok<NASGU>

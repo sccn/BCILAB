@@ -18,13 +18,14 @@
 <td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>utl_nested_crossval
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="box"><strong>Run a generic nested cross-validation over indexable data.</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>function [measure,stats] = utl_nested_crossval(data, varargin) </strong></div>
+<div class="box"><strong>function [measure,stats] = utl_nested_crossval(varargin) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre class="comment"> Run a generic nested cross-validation over indexable data.
@@ -80,6 +81,22 @@
                    'argform': format of the argument ranges, either 'direct' or 'clauses' (default: 'clauses')
                                'direct': search ranges are directly specified as arrays
                                'clauses': search ranges are specified using the search() clause
+                   
+                   further arguments (same as in utl_crossval)
+                   'repeatable': whether the randomization procedure shall give repeatable results 
+                                 (default: 1); different numbers (aside from 0) give different
+                                 repeatable runs, i.e. the value determines the randseed
+
+                   'forcestats': enforce a nested cross-validation in order to obtain stats, even
+                                 when no parameter search is necessary (default: 0)
+
+                   'collect_models': whether to return models trained for each fold (default: false)
+
+                   'cache_fold_results' : whether to cache the per-fold results. (default: false)
+
+                   'only_cached_results' : load only results that are in the cache. (default: false)
+
+                   'tolerate_exceptions' : tolerate exceptions during training step. (default: false)
 
                    further arguments (same as in par_beginschedule, listed below for convenience)
                    'engine_ps': the parallelization engine to be used for the parameter search (default: 'local')
@@ -105,7 +122,7 @@
    [loss,stats] = utl_nested_crossval({trials,targets}, 'args',{{'logreg' search(2.^(-6:1:10)) 'variant' 'l1'}})  
 
  See also:
-   <a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(data, varargin)">utl_crossval</a>, <a href="utl_searchmodel.html" class="code" title="function [model,stats] = utl_searchmodel(data, varargin)">utl_searchmodel</a>
+   <a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(varargin)">utl_crossval</a>, <a href="utl_searchmodel.html" class="code" title="function [model,stats] = utl_searchmodel(varargin)">utl_searchmodel</a>
 
                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                                2010-04-22</pre></div>
@@ -114,16 +131,23 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(data, varargin)">utl_crossval</a>	Run a generic cross-validation over indexable data.</li><li><a href="utl_searchmodel.html" class="code" title="function [model,stats] = utl_searchmodel(data, varargin)">utl_searchmodel</a>	Find the best predictive model out of a parameterized set, via cross-validation.</li></ul>
+
+<li><a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(varargin)">utl_crossval</a>	Run a generic cross-validation over indexable data.</li>
+<li><a href="utl_searchmodel.html" class="code" title="function [model,stats] = utl_searchmodel(varargin)">utl_searchmodel</a>	Find the best predictive model out of a parameterized set, via cross-validation.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
 
 
+
+
+
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [measure,stats] = utl_nested_crossval(data, varargin)</a>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [measure,stats] = utl_nested_crossval(varargin)</a>
 0002 <span class="comment">% Run a generic nested cross-validation over indexable data.</span>
 0003 <span class="comment">% [Measure, Stats] = utl_nested_crossval(Data, Arguments...)</span>
 0004 <span class="comment">%</span>
@@ -178,53 +202,93 @@ This function is called by:
 0053 <span class="comment">%                               'direct': search ranges are directly specified as arrays</span>
 0054 <span class="comment">%                               'clauses': search ranges are specified using the search() clause</span>
 0055 <span class="comment">%</span>
-0056 <span class="comment">%                   further arguments (same as in par_beginschedule, listed below for convenience)</span>
-0057 <span class="comment">%                   'engine_ps': the parallelization engine to be used for the parameter search (default: 'local')</span>
-0058 <span class="comment">%</span>
-0059 <span class="comment">%                   'engine_cv': the parallelization engine to be used for the cross-validation (default: 'global')</span>
+0056 <span class="comment">%                   further arguments (same as in utl_crossval)</span>
+0057 <span class="comment">%                   'repeatable': whether the randomization procedure shall give repeatable results</span>
+0058 <span class="comment">%                                 (default: 1); different numbers (aside from 0) give different</span>
+0059 <span class="comment">%                                 repeatable runs, i.e. the value determines the randseed</span>
 0060 <span class="comment">%</span>
-0061 <span class="comment">%                   'pool'     : node pool to be used for parallelization, when using the BLS scheduler (default: 'global')</span>
-0062 <span class="comment">%</span>
-0063 <span class="comment">%                   'policy'   : scheduling policy to be used, when using the BLS scheduler (default: 'global')</span>
-0064 <span class="comment">%</span>
-0065 <span class="comment">% Out:</span>
-0066 <span class="comment">%   Measure : a measure of the overall performance of the trainer/tester combination, w.r.t. to the target variable returned by gettarget,</span>
-0067 <span class="comment">%             computed by the metric</span>
-0068 <span class="comment">%</span>
-0069 <span class="comment">%   Stats   : additional statistics, as produced by the metric</span>
-0070 <span class="comment">%</span>
-0071 <span class="comment">% Example:</span>
-0072 <span class="comment">%   % assuming a feature matrix called trials and a label vector called targets, sized as:</span>
-0073 <span class="comment">%   %  trials: [NxF] array of training instances</span>
-0074 <span class="comment">%   %  targets: [Nx1] array of labels</span>
-0075 <span class="comment">%</span>
-0076 <span class="comment">%   % cross-validate using sparse logistic regression</span>
-0077 <span class="comment">%   [loss,stats] = utl_nested_crossval({trials,targets}, 'args',{{'logreg' search(2.^(-6:1:10)) 'variant' 'l1'}})</span>
+0061 <span class="comment">%                   'forcestats': enforce a nested cross-validation in order to obtain stats, even</span>
+0062 <span class="comment">%                                 when no parameter search is necessary (default: 0)</span>
+0063 <span class="comment">%</span>
+0064 <span class="comment">%                   'collect_models': whether to return models trained for each fold (default: false)</span>
+0065 <span class="comment">%</span>
+0066 <span class="comment">%                   'cache_fold_results' : whether to cache the per-fold results. (default: false)</span>
+0067 <span class="comment">%</span>
+0068 <span class="comment">%                   'only_cached_results' : load only results that are in the cache. (default: false)</span>
+0069 <span class="comment">%</span>
+0070 <span class="comment">%                   'tolerate_exceptions' : tolerate exceptions during training step. (default: false)</span>
+0071 <span class="comment">%</span>
+0072 <span class="comment">%                   further arguments (same as in par_beginschedule, listed below for convenience)</span>
+0073 <span class="comment">%                   'engine_ps': the parallelization engine to be used for the parameter search (default: 'local')</span>
+0074 <span class="comment">%</span>
+0075 <span class="comment">%                   'engine_cv': the parallelization engine to be used for the cross-validation (default: 'global')</span>
+0076 <span class="comment">%</span>
+0077 <span class="comment">%                   'pool'     : node pool to be used for parallelization, when using the BLS scheduler (default: 'global')</span>
 0078 <span class="comment">%</span>
-0079 <span class="comment">% See also:</span>
-0080 <span class="comment">%   utl_crossval, utl_searchmodel</span>
-0081 <span class="comment">%</span>
-0082 <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0083 <span class="comment">%                               2010-04-22</span>
-0084 
-0085 <span class="comment">% get options struct &amp; assign some defaults as documented</span>
-0086 opts = hlp_varargin2struct(varargin, <span class="keyword">...</span>
-0087     <span class="keyword">...</span><span class="comment"> % arguments that specifically control the outer cross-validation</span>
-0088     <span class="string">'eval_scheme'</span>,10, <span class="keyword">...</span>
-0089     <span class="keyword">...</span><span class="comment"> % arguments that control the grid search</span>
-0090     <span class="string">'opt_scheme'</span>,5, <span class="keyword">...</span>
-0091     <span class="string">'argform'</span>,<span class="string">'clauses'</span>, <span class="keyword">...</span>
-0092     <span class="string">'args'</span>,{});
-0093 
-0094 <span class="comment">% if parameters are to be searched</span>
-0095 <span class="keyword">if</span> is_needing_search(opts.argform,opts.args)
-0096     <span class="comment">% use the utl_searchmodel() meta-function as the trainer in the subsequent regular CV</span>
-0097     <span class="comment">% with opts.opt_scheme as the (nested) search scheme</span>
-0098     opts.trainer = @(P,varargin) <a href="utl_searchmodel.html" class="code" title="function [model,stats] = utl_searchmodel(data, varargin)">utl_searchmodel</a>(P,opts,<span class="string">'scheme'</span>,opts.opt_scheme); 
-0099 <span class="keyword">end</span>
-0100 
-0101 <span class="comment">% run a cross-validation, with opts.eval_scheme as the search scheme</span>
-0102 [measure,stats] = <a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(data, varargin)">utl_crossval</a>(data, opts, <span class="string">'scheme'</span>,opts.eval_scheme);</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0079 <span class="comment">%                   'policy'   : scheduling policy to be used, when using the BLS scheduler (default: 'global')</span>
+0080 <span class="comment">%</span>
+0081 <span class="comment">% Out:</span>
+0082 <span class="comment">%   Measure : a measure of the overall performance of the trainer/tester combination, w.r.t. to the target variable returned by gettarget,</span>
+0083 <span class="comment">%             computed by the metric</span>
+0084 <span class="comment">%</span>
+0085 <span class="comment">%   Stats   : additional statistics, as produced by the metric</span>
+0086 <span class="comment">%</span>
+0087 <span class="comment">% Example:</span>
+0088 <span class="comment">%   % assuming a feature matrix called trials and a label vector called targets, sized as:</span>
+0089 <span class="comment">%   %  trials: [NxF] array of training instances</span>
+0090 <span class="comment">%   %  targets: [Nx1] array of labels</span>
+0091 <span class="comment">%</span>
+0092 <span class="comment">%   % cross-validate using sparse logistic regression</span>
+0093 <span class="comment">%   [loss,stats] = utl_nested_crossval({trials,targets}, 'args',{{'logreg' search(2.^(-6:1:10)) 'variant' 'l1'}})</span>
+0094 <span class="comment">%</span>
+0095 <span class="comment">% See also:</span>
+0096 <span class="comment">%   utl_crossval, utl_searchmodel</span>
+0097 <span class="comment">%</span>
+0098 <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0099 <span class="comment">%                               2010-04-22</span>
+0100 dp;
+0101 
+0102 <span class="comment">% parse options</span>
+0103 opts = arg_define(0:1,varargin, <span class="keyword">...</span>
+0104     <span class="keyword">...</span><span class="comment"> % training data</span>
+0105     arg_norep({<span class="string">'data'</span>,<span class="string">'Data'</span>},[],[],<span class="string">'Data that can be partitioned using index sets. Such as, for example, {X,y} with X being the [NxF] training data and y being the [Nx1] labels (N=#trials, F=#features).'</span>), <span class="keyword">...</span>
+0106     <span class="keyword">...</span><span class="comment"> % method to use and its arguments</span>
+0107     arg({<span class="string">'args'</span>,<span class="string">'TrainingArguments'</span>},{},[],<span class="string">'Arguments to the training function. Packed in a cell array. Search ranges are defined according to ArgumentFormat; see also utl_gridsearch for additional clarification on this. Note: if using the default trainer/tester functions, args must at least specify the learning function to be used, optionally followed by arguments to that learning function, e.g. {''lda''} for linear discriminant analysis or {''logreg'',''lambda'',0.1} for logistic regression with ''lambda'',0.1 passed in as user parameters (see ml_train* functions for options).'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0108     arg({<span class="string">'trainer'</span>,<span class="string">'TrainingFunction'</span>},<span class="string">'@ml_train'</span>,[],<span class="string">'Training function. Receives a partition of the data (as produced by the specified partitioner), possibly some further arguments as specified in args, and returns a model (of any kind).'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0109     arg({<span class="string">'tester'</span>,<span class="string">'PredictionFunction'</span>},<span class="string">'@utl_default_predict'</span>,[],<span class="string">'Prediction function. Receives a partition of the data (as produced by the partitioner) and a model (as produced by the trainer), and returns a prediction for every index of the input data, in one of the output formats permitted by ml_predict.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0110     <span class="keyword">...</span><span class="comment"> % nested cross-validation parameters</span>
+0111     arg({<span class="string">'eval_scheme'</span>,<span class="string">'EvaluationScheme'</span>},10,[],<span class="string">'Outer cross-validation scheme. Defines what parts of the data shall be used for training or testing in each fold. Supports many different formats, see documentation.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0112     arg({<span class="string">'opt_scheme'</span>,<span class="string">'OptimizationScheme'</span>},5,[],<span class="string">'Parameter optimization CV scheme. Defines what parts of the data shall be used for training or testing in each fold. Supports many different formats, see documentation.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0113     arg({<span class="string">'metric'</span>,<span class="string">'EvaluationMetric'</span>},<span class="string">'auto'</span>,{<span class="string">'auto'</span>,<span class="string">'mcr'</span>,<span class="string">'auc'</span>,<span class="string">'mse'</span>,<span class="string">'medse'</span>,<span class="string">'smse'</span>,<span class="string">'mae'</span>,<span class="string">'medae'</span>,<span class="string">'smae'</span>,<span class="string">'smedae'</span>,<span class="string">'max'</span>,<span class="string">'sign'</span>,<span class="string">'rms'</span>,<span class="string">'bias'</span>,<span class="string">'kld'</span>,<span class="string">'nll'</span>,<span class="string">'cond_entropy'</span>,<span class="string">'cross_entropy'</span>,<span class="string">'f_measure'</span>},<span class="string">'Evaluation metric. Loss measure employed to measure the quality of predictions on a test partition given its known target values; applied both to results in each fold and results aggregated over all folds. Can be either a predefined metric supported by ml_calcloss, or a custom function handle which receives an array of target values in the first argument and an array of predictions in the second argument; each can be in any format that can be produced by ml_predict (but can be expected to be mutually consistent). Shall return a real number indicating the summary metric over all data, and optionally additional statistics in a second output struct.'</span>,<span class="string">'typecheck'</span>,false), <span class="keyword">...</span>
+0114     arg({<span class="string">'repeatable'</span>,<span class="string">'RepeatableResults'</span>},1,[],<span class="string">'Produce repeatable (vs. randomized) results. If nonzero, the value is taken as the random seed to use for the performed calculation. This way, different numbers (aside from 0) give different repeatable runs.'</span>), <span class="keyword">...</span>
+0115     <span class="keyword">...</span><span class="comment"> % support for custom data representations</span>
+0116     arg({<span class="string">'target'</span>,<span class="string">'TargetFunction'</span>},<span class="string">'@utl_default_target'</span>,[],<span class="string">'Target extraction function. A function to derive the target variable from a partition of the data (as produced by the partitioner), for evaluation; the allowed format is anything that may be output by ml_predict.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0117     arg({<span class="string">'partitioner'</span>,<span class="string">'PartitioningFunction'</span>},<span class="string">'@utl_default_partitioner'</span>,[],<span class="string">'Partitioning function. See documentation for the function contract.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0118     <span class="keyword">...</span><span class="comment"> % parallel computing settings</span>
+0119     arg({<span class="string">'engine_gs'</span>,<span class="string">'ParallelEngineGS'</span>},<span class="string">'global'</span>,{<span class="string">'global'</span>,<span class="string">'local'</span>,<span class="string">'BLS'</span>,<span class="string">'Reference'</span>,<span class="string">'ParallelComputingToolbox'</span>}, <span class="string">'Parallel engine for grid search. This can either be one of the supported parallel engines (BLS for BCILAB Scheduler, Reference for a local reference implementation, and ParallelComputingToolbox for a PCT-based implementation), or local to skip parallelization altogether, or global to select the currently globally selected setting (in the global tracking variable).'</span>), <span class="keyword">...</span>
+0120     arg({<span class="string">'engine_cv'</span>,<span class="string">'ParallelEngineCV'</span>},<span class="string">'global'</span>,{<span class="string">'global'</span>,<span class="string">'local'</span>,<span class="string">'BLS'</span>,<span class="string">'Reference'</span>,<span class="string">'ParallelComputingToolbox'</span>}, <span class="string">'Parallel engine for outer cross-validation. This can either be one of the supported parallel engines (BLS for BCILAB Scheduler, Reference for a local reference implementation, and ParallelComputingToolbox for a PCT-based implementation), or local to skip parallelization altogether, or global to select the currently globally selected setting (in the global tracking variable).'</span>), <span class="keyword">...</span>
+0121     arg({<span class="string">'engine_ncv'</span>,<span class="string">'ParallelEngineNCV'</span>},<span class="string">'global'</span>,{<span class="string">'global'</span>,<span class="string">'local'</span>,<span class="string">'BLS'</span>,<span class="string">'Reference'</span>,<span class="string">'ParallelComputingToolbox'</span>}, <span class="string">'Parallel engine for inner (nested) cross-validation. This can either be one of the supported parallel engines (BLS for BCILAB Scheduler, Reference for a local reference implementation, and ParallelComputingToolbox for a PCT-based implementation), or local to skip parallelization altogether, or global to select the currently globally selected setting (in the global tracking variable).'</span>), <span class="keyword">...</span>
+0122     arg({<span class="string">'pool'</span>,<span class="string">'WorkerPool'</span>},<span class="string">'global'</span>,[], <span class="string">'Worker pool to use. This is typically a cell array, but can also be the string ''gobal'', which stands for the currently globally set up worker pool (see global tracking variable).'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0123     arg({<span class="string">'policy'</span>,<span class="string">'ReschedulingPolicy'</span>},<span class="string">'global'</span>,[], <span class="string">'Rescheduling policy. This is the name of the rescheduling policy function that controls if and when tasks are being rescheduled. If set to global, the current global setting will be used.'</span>), <span class="keyword">...</span><span class="comment">    </span>
+0124     <span class="keyword">...</span><span class="comment"> % misc arguments    </span>
+0125     arg({<span class="string">'argform'</span>,<span class="string">'ArgumentFormat'</span>},<span class="string">'clauses'</span>,{<span class="string">'clauses'</span>,<span class="string">'direct'</span>},<span class="string">'Argument search range format. If set to clauses, search ranges for individual arguments can be given using the search() expression; if set to direct, a cell array is expected each of whose elements is a cell array that represents a particular parameter set to try for the training function.'</span>), <span class="keyword">...</span>
+0126     arg({<span class="string">'forcestats'</span>,<span class="string">'ForceStatistics'</span>},0,[],<span class="string">'Enforce a cross-validation to obtain stats. Even when no search is required.'</span>), <span class="keyword">...</span>
+0127     arg({<span class="string">'cache_fold_results'</span>,<span class="string">'CacheFoldResults'</span>},false,[],<span class="string">'Whether to cache the per-fold results. This is meant to be used when running very long-running computations on machines that crash frequently enough that partial results need to be saved. In this case, any previously computed results will be loaded from disk.'</span>), <span class="keyword">...</span>
+0128     arg({<span class="string">'only_cached_results'</span>,<span class="string">'OnlyCachedResults'</span>},false,[],<span class="string">'Load only results that are in the cache. This will not run any computations (aside from pre-checks, that can be disabled by setting NoPrechecks to true).'</span>), <span class="keyword">...</span>
+0129     arg({<span class="string">'no_prechecks'</span>,<span class="string">'NoPrechecks'</span>},false,[],<span class="string">'Skip pre-checks that access the data. This can save some time when it would take very long to load the data, especially when performing parallel computation.'</span>), <span class="keyword">...</span>
+0130     arg({<span class="string">'tolerate_exceptions'</span>,<span class="string">'TolerateExceptions'</span>},false,[],<span class="string">'Tolerate exceptions during training. If this happens, folds where the training function yielded errors will be skipped.'</span>), <span class="keyword">...</span>
+0131     arg({<span class="string">'collect_models'</span>,<span class="string">'CollectModels'</span>},false,[],<span class="string">'Collect models per fold. Note that this increases the amount of data returned.'</span>));
+0132 
+0133 <span class="comment">% if parameters are to be searched...</span>
+0134 <span class="keyword">if</span> is_needing_search(opts.argform,opts.args)
+0135     <span class="comment">% use the utl_searchmodel() meta-function as the trainer in the subsequent regular CV</span>
+0136     <span class="comment">% with opts.opt_scheme as the (nested) search scheme</span>
+0137     opts.trainer = @(data,varargin) <a href="utl_searchmodel.html" class="code" title="function [model,stats] = utl_searchmodel(varargin)">utl_searchmodel</a>(data,rmfield(opts,{<span class="string">'eval_scheme'</span>,<span class="string">'opt_scheme'</span>,<span class="string">'engine_cv'</span>,<span class="string">'data'</span>}),<span class="string">'scheme'</span>,opts.opt_scheme); 
+0138 <span class="keyword">end</span>
+0139 
+0140 <span class="comment">% run a cross-validation, with opts.eval_scheme as the search scheme</span>
+0141 [measure,stats] = <a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(varargin)">utl_crossval</a>(rmfield(opts,{<span class="string">'eval_scheme'</span>,<span class="string">'opt_scheme'</span>,<span class="string">'engine_gs'</span>,<span class="string">'engine_ncv'</span>,<span class="string">'argform'</span>,<span class="string">'forcestats'</span>}), <span class="string">'scheme'</span>,opts.eval_scheme);</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

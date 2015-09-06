@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/machine_learning&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>ml_predictlogreg
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -58,11 +59,18 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="ml_predictvote.html" class="code" title="function pred = ml_predictvote(trials, model)">ml_predictvote</a>	Meta-Prediction function for Voting.</li></ul>
+
+<li><a href="ml_predictvote.html" class="code" title="function pred = ml_predictvote(trials, model)">ml_predictvote</a>	Meta-Prediction function for Voting.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="ml_predictgauss.html" class="code" title="function pred = ml_predictgauss(trials, model)">ml_predictgauss</a>	Prediction function for the Gaussian Bayes classifier.</li><li><a href="ml_trainlogreg.html" class="code" title="function model = ml_trainlogreg(varargin)">ml_trainlogreg</a>	Learn a linear probabilistic predictive model by logistic regression.</li></ul>
+
+<li><a href="ml_trainlogreg.html" class="code" title="function model = ml_trainlogreg(varargin)">ml_trainlogreg</a>	Learn a linear probabilistic predictive model by logistic regression.</li>
+</ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -126,24 +134,35 @@ This function is called by:
 0057                 probs = 1 ./ (1 + exp(-trials*model.W + model.b));
 0058                 pred = {<span class="string">'disc'</span>, [1-probs probs], model.classes};
 0059             <span class="keyword">else</span>
-0060                 <span class="keyword">if</span> model.bias
-0061                     probs = 1 ./ (1 + exp(-trials*model.w(1:end-1)' - model.w(end)));
-0062                 <span class="keyword">else</span>
-0063                     probs = 1 ./ (1 + exp(-trials*model.w'));
-0064                 <span class="keyword">end</span>
-0065                 <span class="comment">% doesn't give probabilistic outputs: [x,y,probs] = llpredict(zeros(size(trials,1),1),sparse(double(trials)),model,'-b 1'); %#ok&lt;ASGLU&gt;</span>
-0066                 pred = {<span class="string">'disc'</span>, [probs 1-probs], model.classes(model.Label+1)};
-0067             <span class="keyword">end</span>
-0068         <span class="keyword">case</span> <span class="string">'l2'</span>
-0069             <span class="keyword">if</span> isfield(model,{<span class="string">'W'</span>,<span class="string">'b'</span>})
-0070                 probs = 1 ./ (1 + exp(-trials*model.W + model.b));
-0071                 pred = {<span class="string">'disc'</span>, [1-probs probs], model.classes};
-0072             <span class="keyword">else</span>
-0073                 [x,y,probs] = llwpredict(zeros(size(trials,1),1),sparse(double(trials)),model,<span class="string">'-b 1'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
-0074                 pred = {<span class="string">'disc'</span>, probs, model.classes(model.Label+1)};
-0075             <span class="keyword">end</span>
-0076     <span class="keyword">end</span>
-0077 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0060                 <span class="keyword">if</span> isvector(model.w)
+0061                     <span class="comment">% basic two-class case: calculate probabilities by hand</span>
+0062                     <span class="keyword">if</span> model.bias
+0063                         probs = 1 ./ (1 + exp(-trials*model.w(1:end-1)' - model.w(end)));
+0064                     <span class="keyword">else</span>
+0065                         probs = 1 ./ (1 + exp(-trials*model.w'));
+0066                     <span class="keyword">end</span>
+0067                     probs = [probs 1-probs];                    
+0068                 <span class="keyword">else</span>
+0069                     <span class="comment">% softmax case: use llwpredict to compute probabilities</span>
+0070                     [dummy1,dummy2,probs] = llwpredict(zeros(size(trials,1),1),sparse(double(trials)),model,quickif(model.bias,<span class="string">'-b 1'</span>,<span class="string">''</span>)); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0071                 <span class="keyword">end</span>
+0072                 pred = {<span class="string">'disc'</span>, probs, model.classes(model.Label+1)};
+0073             <span class="keyword">end</span>
+0074         <span class="keyword">case</span> <span class="string">'l2'</span>
+0075             <span class="keyword">if</span> isfield(model,{<span class="string">'W'</span>,<span class="string">'b'</span>})
+0076                 probs = 1 ./ (1 + exp(-trials*model.W + model.b));
+0077                 pred = {<span class="string">'disc'</span>, [1-probs probs], model.classes};
+0078             <span class="keyword">else</span>
+0079                 <span class="keyword">try</span>
+0080                     [x,y,probs] = llpredict(zeros(size(trials,1),1),sparse(double(trials)),model,<span class="string">'-b 1'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0081                 <span class="keyword">catch</span>
+0082                     [x,y,probs] = llwpredict(zeros(size(trials,1),1),sparse(double(trials)),model,<span class="string">'-b 1'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0083                 <span class="keyword">end</span>
+0084                 pred = {<span class="string">'disc'</span>, probs, model.classes(model.Label+1)};
+0085             <span class="keyword">end</span>
+0086     <span class="keyword">end</span>
+0087 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

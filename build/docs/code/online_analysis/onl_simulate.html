@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/online_analysis&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>onl_simulate
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -74,19 +75,23 @@
 
  In:
    Data         : raw EEGLAB data set that shall be streamed through the online pipeline,
-                  or stream bundle, or cell array of EEGLAB data sets
+                  or stream bundle
 
    Model        : the predictive model (as produced by bci_train) that should be used to make
                   predictions at certain latencies in the data (specified in the Options)
 
-   Markers      : predict when an event appears whose type matches any of the markers
-
-   SamplingRate : predict at the given sampling rate (in Hz)
+   UpdateRate   : predict at the given sampling rate (in Hz)
 
    Latencies    : predict at the given data sample latencies (if multiple streams are passed this is 
                   measured by the rate of the first stream)
 
+   Markers      : predict when an event appears whose type matches any of the markers
+
    Shift        : add this offset (in seconds) to the times at which the predictive model is invoked 
+
+   TargetMarkers: Target markers for prediction. If non-empty, predictions will only be generated per 
+                  each target marker; if empty, a prediction will be generated for each sample where 
+                  onl_predict is called. (default: {})
 
    Format       : format of the prediction; see utl_formatprediction (default: 'distribution')
 
@@ -101,6 +106,13 @@
                   note: if this is true, the resulting processing times are not representative of
                         actual online processing speed
 
+   Verbose      : Verbose output. If false, the console output of the online pipeline will be suppressed.
+                  (default: false)
+
+   ForceArrayOutputs : Force outputs into array. If true, the predictions, which would normally be a cell array, 
+                       are returned as a numeric array. If no target markers are specified then all predictions that 
+                       yielded no results are replaced by appropriately-sized NaN vectors. (default: true)
+
  Out:
    Predictions : the prediction results for every point at which the detector should be invoked
 
@@ -112,18 +124,18 @@
 
  Examples:
   % 1. load calibration data and compute a model (see bci_train)
-  calib = io_loadset('data sets/mary/stresslevels_calib.signal');
+  calib = io_loadset('data sets/mary/stresslevels_calib.set');
   [loss,model] = bci_train({'data',calib,'paradigm',@para_speccsp},'events',{'low','medium','high'});
 
   % 2. apply pseudo-online, here at a rate of 5 Hz
-  testdata = io_loadset('data sets/mary/stresslevels_realworld.signal');
+  testdata = io_loadset('data sets/mary/stresslevels_realworld.set');
   [predictions,latencies] = onl_simulate(testdata, model, 'SamplingRate',5);
 
   % 3. plot time course of the model's output
   plot(latencies, predictions{2}*predictions{3}); title('expected stress level');
 
  See also:
-   bci_anntate, <a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_output)">onl_predict</a>
+   bci_anntate, <a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_console_output,empty_result_value)">onl_predict</a>
 
                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                                 2010-11-07</pre></div>
@@ -132,11 +144,20 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="onl_append.html" class="code" title="function onl_append(name, chunk, stamp)">onl_append</a>	Append a block of raw data to a stream.</li><li><a href="onl_newpredictor.html" class="code" title="function id = onl_newpredictor(name, model, streams)">onl_newpredictor</a>	Create a new predictor from a predictive model, and tie it to some stream(s).</li><li><a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>	Create a new data stream, and set up meta-data.</li><li><a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_output)">onl_predict</a>	Query a predictor given the current contents of the stream(s) referenced by it.</li></ul>
+
+<li><a href="onl_append.html" class="code" title="function onl_append(name, chunk, markers, stamp)">onl_append</a>	Append a block of raw data to a stream.</li>
+<li><a href="onl_newpredictor.html" class="code" title="function id = onl_newpredictor(name, model, streams, predict_at)">onl_newpredictor</a>	Create a new predictor from a predictive model, and tie it to some stream(s).</li>
+<li><a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>	Create a new data stream, and set up meta-data.</li>
+<li><a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_console_output,empty_result_value)">onl_predict</a>	Query a predictor given the current contents of the stream(s) referenced by it.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -189,159 +210,202 @@ This function is called by:
 0046 <span class="comment">%</span>
 0047 <span class="comment">% In:</span>
 0048 <span class="comment">%   Data         : raw EEGLAB data set that shall be streamed through the online pipeline,</span>
-0049 <span class="comment">%                  or stream bundle, or cell array of EEGLAB data sets</span>
+0049 <span class="comment">%                  or stream bundle</span>
 0050 <span class="comment">%</span>
 0051 <span class="comment">%   Model        : the predictive model (as produced by bci_train) that should be used to make</span>
 0052 <span class="comment">%                  predictions at certain latencies in the data (specified in the Options)</span>
 0053 <span class="comment">%</span>
-0054 <span class="comment">%   Markers      : predict when an event appears whose type matches any of the markers</span>
+0054 <span class="comment">%   UpdateRate   : predict at the given sampling rate (in Hz)</span>
 0055 <span class="comment">%</span>
-0056 <span class="comment">%   SamplingRate : predict at the given sampling rate (in Hz)</span>
-0057 <span class="comment">%</span>
-0058 <span class="comment">%   Latencies    : predict at the given data sample latencies (if multiple streams are passed this is</span>
-0059 <span class="comment">%                  measured by the rate of the first stream)</span>
+0056 <span class="comment">%   Latencies    : predict at the given data sample latencies (if multiple streams are passed this is</span>
+0057 <span class="comment">%                  measured by the rate of the first stream)</span>
+0058 <span class="comment">%</span>
+0059 <span class="comment">%   Markers      : predict when an event appears whose type matches any of the markers</span>
 0060 <span class="comment">%</span>
 0061 <span class="comment">%   Shift        : add this offset (in seconds) to the times at which the predictive model is invoked</span>
 0062 <span class="comment">%</span>
-0063 <span class="comment">%   Format       : format of the prediction; see utl_formatprediction (default: 'distribution')</span>
-0064 <span class="comment">%</span>
-0065 <span class="comment">%   Interval     : process only this interval of the data, in seconds (if both ends &lt;= 1, assume</span>
-0066 <span class="comment">%                  that the interval is a fraction) (default: [0 1])</span>
-0067 <span class="comment">%</span>
-0068 <span class="comment">%   Waitbar      : whether to display a progress update (default: 0)</span>
-0069 <span class="comment">%</span>
-0070 <span class="comment">%   Feedback     : whether to display a bar diagram for every prediction (default: 0)</span>
+0063 <span class="comment">%   TargetMarkers: Target markers for prediction. If non-empty, predictions will only be generated per</span>
+0064 <span class="comment">%                  each target marker; if empty, a prediction will be generated for each sample where</span>
+0065 <span class="comment">%                  onl_predict is called. (default: {})</span>
+0066 <span class="comment">%</span>
+0067 <span class="comment">%   Format       : format of the prediction; see utl_formatprediction (default: 'distribution')</span>
+0068 <span class="comment">%</span>
+0069 <span class="comment">%   Interval     : process only this interval of the data, in seconds (if both ends &lt;= 1, assume</span>
+0070 <span class="comment">%                  that the interval is a fraction) (default: [0 1])</span>
 0071 <span class="comment">%</span>
-0072 <span class="comment">%   TightenBuffer: whether to tighten the stream buffer for increased speed (default: false)</span>
-0073 <span class="comment">%                  note: if this is true, the resulting processing times are not representative of</span>
-0074 <span class="comment">%                        actual online processing speed</span>
+0072 <span class="comment">%   Waitbar      : whether to display a progress update (default: 0)</span>
+0073 <span class="comment">%</span>
+0074 <span class="comment">%   Feedback     : whether to display a bar diagram for every prediction (default: 0)</span>
 0075 <span class="comment">%</span>
-0076 <span class="comment">% Out:</span>
-0077 <span class="comment">%   Predictions : the prediction results for every point at which the detector should be invoked</span>
-0078 <span class="comment">%</span>
-0079 <span class="comment">%   Latencies   : data set points for the corresponding predictions (in seconds)</span>
-0080 <span class="comment">%</span>
-0081 <span class="comment">% Notes:</span>
-0082 <span class="comment">%   NaN outputs are generated at time points where no prediction could be made (e.g. too close to data</span>
-0083 <span class="comment">%   set boundaries).</span>
-0084 <span class="comment">%</span>
-0085 <span class="comment">% Examples:</span>
-0086 <span class="comment">%  % 1. load calibration data and compute a model (see bci_train)</span>
-0087 <span class="comment">%  calib = io_loadset('data sets/mary/stresslevels_calib.signal');</span>
-0088 <span class="comment">%  [loss,model] = bci_train({'data',calib,'paradigm',@para_speccsp},'events',{'low','medium','high'});</span>
+0076 <span class="comment">%   TightenBuffer: whether to tighten the stream buffer for increased speed (default: false)</span>
+0077 <span class="comment">%                  note: if this is true, the resulting processing times are not representative of</span>
+0078 <span class="comment">%                        actual online processing speed</span>
+0079 <span class="comment">%</span>
+0080 <span class="comment">%   Verbose      : Verbose output. If false, the console output of the online pipeline will be suppressed.</span>
+0081 <span class="comment">%                  (default: false)</span>
+0082 <span class="comment">%</span>
+0083 <span class="comment">%   ForceArrayOutputs : Force outputs into array. If true, the predictions, which would normally be a cell array,</span>
+0084 <span class="comment">%                       are returned as a numeric array. If no target markers are specified then all predictions that</span>
+0085 <span class="comment">%                       yielded no results are replaced by appropriately-sized NaN vectors. (default: true)</span>
+0086 <span class="comment">%</span>
+0087 <span class="comment">% Out:</span>
+0088 <span class="comment">%   Predictions : the prediction results for every point at which the detector should be invoked</span>
 0089 <span class="comment">%</span>
-0090 <span class="comment">%  % 2. apply pseudo-online, here at a rate of 5 Hz</span>
-0091 <span class="comment">%  testdata = io_loadset('data sets/mary/stresslevels_realworld.signal');</span>
-0092 <span class="comment">%  [predictions,latencies] = onl_simulate(testdata, model, 'SamplingRate',5);</span>
-0093 <span class="comment">%</span>
-0094 <span class="comment">%  % 3. plot time course of the model's output</span>
-0095 <span class="comment">%  plot(latencies, predictions{2}*predictions{3}); title('expected stress level');</span>
-0096 <span class="comment">%</span>
-0097 <span class="comment">% See also:</span>
-0098 <span class="comment">%   bci_anntate, onl_predict</span>
-0099 <span class="comment">%</span>
-0100 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0101 <span class="comment">%                                2010-11-07</span>
-0102 
-0103 arg_define([0 2],varargin, <span class="keyword">...</span>
-0104     arg_norep({<span class="string">'data'</span>,<span class="string">'Data'</span>,<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
-0105     arg_norep({<span class="string">'mdl'</span>,<span class="string">'Model'</span>}), <span class="keyword">...</span>
-0106     arg({<span class="string">'lockmrks'</span>,<span class="string">'Markers'</span>,<span class="string">'markers'</span>}, {}, [], <span class="string">'Predict at these events. Produce outputs at the latencies of these events.'</span>), <span class="keyword">...</span>
-0107     arg({<span class="string">'locksamples'</span>,<span class="string">'Latencies'</span>}, [], [], <span class="string">'Predict at these latencies.. Produce outputs at the given data sample latencies.'</span>), <span class="keyword">...</span>
-0108     arg({<span class="string">'srate'</span>,<span class="string">'SamplingRate'</span>,<span class="string">'sampling_rate'</span>},[],[],<span class="string">'Predict at this rate. If set, produce outputs at the given sampling rate.'</span>), <span class="keyword">...</span>
-0109     arg({<span class="string">'relshift'</span>,<span class="string">'Shift'</span>,<span class="string">'offset'</span>},0,[],<span class="string">'Add time offset. Shift the time points at which to predict by this amount (in seconds).'</span>), <span class="keyword">...</span>
-0110     arg({<span class="string">'outformat'</span>,<span class="string">'Format'</span>,<span class="string">'format'</span>},<span class="string">'distribution'</span>,{<span class="string">'expectation'</span>,<span class="string">'distribution'</span>,<span class="string">'mode'</span>},<span class="string">'Prediction format. See utl_formatprediction.'</span>), <span class="keyword">...</span>
-0111     arg({<span class="string">'dowaitbar'</span>,<span class="string">'Waitbar'</span>},false,[],<span class="string">'Display progress update. A waitbar will be displayed if enabled.'</span>), <span class="keyword">...</span>
-0112     arg({<span class="string">'dofeedback'</span>,<span class="string">'Feedback'</span>},false,[],<span class="string">'Display BCI outputs. BCI outputs will be displayed on the fly if enabled.'</span>), <span class="keyword">...</span>
-0113     arg({<span class="string">'restrict_to'</span>,<span class="string">'Interval'</span>,<span class="string">'interval'</span>},[0 1],[],<span class="string">'Restrict to time interval. Process only this interval of the data, in seconds (if both ends &lt;= 1, assume that the interval is a fraction)'</span>), <span class="keyword">...</span>
-0114     arg({<span class="string">'tighten_buffer'</span>,<span class="string">'TightenBuffer'</span>},false,[],<span class="string">'Tighten data buffer. Optional speed optimization that is specific to offline simulation.'</span>), <span class="keyword">...</span>
-0115     arg({<span class="string">'force_array'</span>,<span class="string">'ForceArrayOutputs'</span>},true,[],<span class="string">'Force outputs into array. If true, the predictions, which would normally be a cell array, are returned as a numeric array; if a subset of predictions has non-matching size, they are replaced by appropriately-sized NaN vectors.'</span>));
-0116 
-0117 <span class="comment">% uniformize the data</span>
-0118 <span class="keyword">if</span> iscell(data)
-0119     data = struct(<span class="string">'streams'</span>,{data}); <span class="keyword">end</span>
-0120 <span class="keyword">if</span> all(isfield(data,{<span class="string">'data'</span>,<span class="string">'srate'</span>}))
-0121     data = struct(<span class="string">'streams'</span>,{{data}}); <span class="keyword">end</span>
-0122 
-0123 <span class="comment">% and make sure that it is well-formed and evaluated</span>
-0124 data = utl_check_bundle(data);
-0125 <span class="keyword">for</span> s=1:length(data.streams)
-0126     data.streams{s} = exp_eval_optimized(data.streams{s}); <span class="keyword">end</span>
-0127 
-0128 stream_srate = data.streams{1}.srate;
-0129 stream_xmax = data.streams{1}.xmax;
-0130 
-0131 <span class="keyword">if</span> all(restrict_to &lt;= 1)
-0132     <span class="comment">% as a fraction</span>
-0133     restrict_to = max(0,min(1,restrict_to)) * stream_xmax;
-0134 <span class="keyword">else</span>
-0135     <span class="comment">% as a time interval</span>
-0136     restrict_to = max(0,min(stream_xmax,restrict_to));
-0137 <span class="keyword">end</span>
-0138 
-0139 <span class="comment">% aggregate the time points at which the model should be invoked</span>
-0140 predict_at = [];
-0141 <span class="keyword">for</span> m=1:length(lockmrks)
-0142     predict_at = [predict_at ([data.streams{1}.event(strcmp(lockmrks{m},{data.streams{1}.event.type})).latency]-1)/stream_srate]; <span class="keyword">end</span>
-0143 <span class="keyword">if</span> ~isempty(srate)
-0144     predict_at = [predict_at 0:(1/srate):stream_xmax]; <span class="keyword">end</span>
-0145 <span class="keyword">if</span> ~isempty(locksamples)
-0146     predict_at = [predict_at locksamples/stream_srate]; <span class="keyword">end</span>
-0147 predict_at = predict_at + relshift;
-0148 predict_at = predict_at(predict_at &gt;= restrict_to(1) &amp; predict_at &lt;= restrict_to(2));
-0149 predict_at = sort(predict_at);
-0150 predictions = cell(1,length(predict_at));
-0151 
-0152 <span class="comment">% initialize the online stream(s)</span>
-0153 stream_names = {};
-0154 <span class="keyword">for</span> s=1:length(data.streams)
-0155     stream_names{s} = sprintf(<span class="string">'stream_simulated_%.0f'</span>,s);
-0156     <span class="keyword">if</span> tighten_buffer
-0157         <a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>(stream_names{s}, data.streams{s}, <span class="string">'buffer_len'</span>,max(diff(predict_at)) + 10/data.streams{s}.srate);
-0158     <span class="keyword">else</span>
-0159         <a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>(stream_names{s}, data.streams{s});
-0160     <span class="keyword">end</span>
-0161 <span class="keyword">end</span>
-0162 <a href="onl_newpredictor.html" class="code" title="function id = onl_newpredictor(name, model, streams)">onl_newpredictor</a>(<span class="string">'predictor_simulated'</span>,mdl,stream_names);
-0163 
-0164 <span class="comment">% init BCI display</span>
-0165 <span class="keyword">if</span> dofeedback
-0166     figure; drawnow; <span class="keyword">end</span>
-0167 
-0168 
-0169 <span class="comment">% for each latency of interest...</span>
-0170 cursors = zeros(1,length(data.streams)); <span class="comment">% data up to an including this sample latency has been streamed in</span>
-0171 timings = zeros(1,length(predict_at));
-0172 <span class="keyword">for</span> k=1:length(predict_at)
-0173     
-0174     tic;
-0175     <span class="comment">% skip ahead to the position of the next prediction</span>
-0176     <span class="comment">% (i.e. feed all samples from the current cursor up to that position)</span>
-0177     <span class="keyword">for</span> s=1:length(data.streams)
-0178         next_sample = 1 + round(predict_at(k)*data.streams{s}.srate);
-0179         <a href="onl_append.html" class="code" title="function onl_append(name, chunk, stamp)">onl_append</a>(stream_names{s},data.streams{s}.data(:,(cursors(s)+1) : next_sample));
-0180         cursors(s) = next_sample;
-0181     <span class="keyword">end</span>
-0182     
-0183     <span class="comment">% query the predictor</span>
-0184     predictions{k} = <a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_output)">onl_predict</a>(<span class="string">'predictor_simulated'</span>,outformat);
-0185     timings(k) = toc;
-0186     
-0187     <span class="comment">% display outputs</span>
-0188     <span class="keyword">if</span> dowaitbar &amp;&amp; mod(k,floor(length(predict_at)/100))==0
-0189         waitbar(k/length(predict_at),<span class="string">'Processing...'</span>); <span class="keyword">end</span>        
-0190     <span class="keyword">if</span> dofeedback &amp;&amp; ~any(isnan(predictions{k}))
-0191         bar(predictions{k});
-0192         drawnow; 
-0193     <span class="keyword">end</span>
-0194 <span class="keyword">end</span>
+0090 <span class="comment">%   Latencies   : data set points for the corresponding predictions (in seconds)</span>
+0091 <span class="comment">%</span>
+0092 <span class="comment">% Notes:</span>
+0093 <span class="comment">%   NaN outputs are generated at time points where no prediction could be made (e.g. too close to data</span>
+0094 <span class="comment">%   set boundaries).</span>
+0095 <span class="comment">%</span>
+0096 <span class="comment">% Examples:</span>
+0097 <span class="comment">%  % 1. load calibration data and compute a model (see bci_train)</span>
+0098 <span class="comment">%  calib = io_loadset('data sets/mary/stresslevels_calib.set');</span>
+0099 <span class="comment">%  [loss,model] = bci_train({'data',calib,'paradigm',@para_speccsp},'events',{'low','medium','high'});</span>
+0100 <span class="comment">%</span>
+0101 <span class="comment">%  % 2. apply pseudo-online, here at a rate of 5 Hz</span>
+0102 <span class="comment">%  testdata = io_loadset('data sets/mary/stresslevels_realworld.set');</span>
+0103 <span class="comment">%  [predictions,latencies] = onl_simulate(testdata, model, 'SamplingRate',5);</span>
+0104 <span class="comment">%</span>
+0105 <span class="comment">%  % 3. plot time course of the model's output</span>
+0106 <span class="comment">%  plot(latencies, predictions{2}*predictions{3}); title('expected stress level');</span>
+0107 <span class="comment">%</span>
+0108 <span class="comment">% See also:</span>
+0109 <span class="comment">%   bci_anntate, onl_predict</span>
+0110 <span class="comment">%</span>
+0111 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0112 <span class="comment">%                                2010-11-07</span>
+0113 
+0114 arg_define([0 2],varargin, <span class="keyword">...</span>
+0115     arg_norep({<span class="string">'signal'</span>,<span class="string">'Data'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0116     arg_norep({<span class="string">'mdl'</span>,<span class="string">'Model'</span>}), <span class="keyword">...</span>
+0117     arg({<span class="string">'sampling_rate'</span>,<span class="string">'UpdateRate'</span>,<span class="string">'update_rate'</span>,<span class="string">'SamplingRate'</span>},[],[0 Inf],<span class="string">'Update at this rate. If set, update outputs at the given sampling rate.'</span>), <span class="keyword">...</span>
+0118     arg({<span class="string">'locksamples'</span>,<span class="string">'Latencies'</span>}, [], uint32([1 1000000000]), <span class="string">'Update at these latencies. Update outputs at the given data sample latencies (in samples).'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0119     arg({<span class="string">'lockmrks'</span>,<span class="string">'Markers'</span>,<span class="string">'markers'</span>}, {}, [], <span class="string">'Update at these events. Update outputs at the latencies of these events.'</span>), <span class="keyword">...</span>
+0120     arg({<span class="string">'relshift'</span>,<span class="string">'Shift'</span>,<span class="string">'offset'</span>},0,[],<span class="string">'Time offset for update positions. Shift the time points at which to update by this amount (in seconds).'</span>), <span class="keyword">...</span>
+0121     arg({<span class="string">'target_markers'</span>,<span class="string">'TargetMarkers'</span>},{},[],<span class="string">'Target markers for prediction. If non-empty most types of models will generate predictions only per each target marker (even though the model will still be updated at all specified positions); if empty, a prediction will be generated for each update is called.'</span>), <span class="keyword">...</span>
+0122     arg({<span class="string">'outformat'</span>,<span class="string">'Format'</span>,<span class="string">'format'</span>},<span class="string">'distribution'</span>,{<span class="string">'expectation'</span>,<span class="string">'distribution'</span>,<span class="string">'mode'</span>},<span class="string">'Prediction format. See utl_formatprediction.'</span>), <span class="keyword">...</span>
+0123     arg({<span class="string">'dowaitbar'</span>,<span class="string">'Waitbar'</span>},false,[],<span class="string">'Display progress update. A waitbar will be displayed if enabled.'</span>), <span class="keyword">...</span>
+0124     arg({<span class="string">'dofeedback'</span>,<span class="string">'Feedback'</span>},false,[],<span class="string">'Display BCI outputs. BCI outputs will be displayed on the fly if enabled.'</span>), <span class="keyword">...</span>
+0125     arg({<span class="string">'restrict_to'</span>,<span class="string">'Interval'</span>,<span class="string">'interval'</span>},[0 1],[0 Inf],<span class="string">'Restrict to time interval. Process only this interval of the data, in seconds (if both ends &lt;= 1, assume that the interval is a fraction). Note: this is relative to the beginning of the data, and ignores .xmin.'</span>), <span class="keyword">...</span>
+0126     arg({<span class="string">'tighten_buffer'</span>,<span class="string">'TightenBuffer'</span>},false,[],<span class="string">'Tighten data buffer. Optional speed optimization that is specific to offline simulation.'</span>), <span class="keyword">...</span>
+0127     arg({<span class="string">'verbose_output'</span>,<span class="string">'Verbose'</span>,<span class="string">'verbose'</span>}, false,[],<span class="string">'Verbose output. If false, the console output of the online pipeline will be suppressed.'</span>), <span class="keyword">...</span>
+0128     arg({<span class="string">'force_array'</span>,<span class="string">'ForceArrayOutputs'</span>},true,[],<span class="string">'Force outputs into array. If true, the predictions, which would normally be a cell array, are returned as a numeric array. If no target markers are specified then all predictions that yielded xno results are replaced by appropriately-sized NaN vectors.'</span>));
+0129 
+0130 <span class="comment">% input validation</span>
+0131 <span class="keyword">if</span> ~isstruct(mdl) || ~isscalar(mdl)
+0132     error(<span class="string">'The given Model argument must be a 1x1 struct.'</span>); <span class="keyword">end</span>
+0133 <span class="keyword">if</span> ~isfield(mdl,<span class="string">'tracking'</span>) || ~all(isfield(mdl.tracking,{<span class="string">'prediction_function'</span>,<span class="string">'filter_graph'</span>,<span class="string">'prediction_channels'</span>}))
+0134     error(<span class="string">'The given Model argument is lacking some required fields (required are: .tracking.prediction_function, .tracking.filter_graph, .tracking.prediction_channels), but got: %s'</span>,hlp_tostring(model,10000)); <span class="keyword">end</span>
+0135 <span class="keyword">if</span> all(isfield(signal,{<span class="string">'data'</span>,<span class="string">'srate'</span>})) <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0136     signal = struct(<span class="string">'streams'</span>,{{signal}}); <span class="keyword">end</span>
+0137 <span class="keyword">if</span> iscell(signal)
+0138     error(<span class="string">'This function does not support dataset collections; you need to apply onl_simulate to each set in the collection separately (note: a previously permitted syntax in which a cell array of datasets was taken to be a stream bundle has been dropped after version 1.1)'</span>); <span class="keyword">end</span>
+0139 <span class="keyword">if</span> ~iscellstr(lockmrks)
+0140     error(<span class="string">'The given markers argument must be a cell array of strings, but was: %s.'</span>,hlp_tostring(lockmrks)); <span class="keyword">end</span>
+0141 signal = utl_check_bundle(signal);
+0142 
+0143 <span class="comment">% we use the sampling rate and bounds of the first stream to determine the prediction points</span>
+0144 stream = signal.streams{1};
+0145 <span class="keyword">if</span> all(restrict_to &lt;= 1)
+0146     restrict_to = 1 + restrict_to * (stream.pnts-1);
+0147 <span class="keyword">else</span>
+0148     restrict_to = max(1,min(stream/pnts,restrict_to*stream.srate));
+0149 <span class="keyword">end</span>
+0150 
+0151 <span class="comment">% aggregate the sample points at which the model should be invoked</span>
+0152 predict_at = [];
+0153 <span class="keyword">for</span> m=1:length(lockmrks)
+0154     predict_at = [predict_at signal.streams{1}.event(strcmp(lockmrks{m},{signal.streams{1}.event.type})).latency]; <span class="keyword">end</span> <span class="comment">%#ok&lt;AGROW&gt;</span>
+0155 <span class="keyword">if</span> ~isempty(sampling_rate)
+0156     predict_at = [predict_at round(1:(stream.srate/sampling_rate):stream.pnts)]; <span class="keyword">end</span>
+0157 <span class="keyword">if</span> ~isempty(locksamples)
+0158     predict_at = [predict_at locksamples]; <span class="keyword">end</span>
+0159 predict_at = predict_at + relshift*stream.srate;
+0160 predict_at = sort(predict_at);
+0161 
+0162 <span class="comment">% sanity checks</span>
+0163 fractionals = round(predict_at) ~= predict_at;
+0164 <span class="keyword">if</span> any(fractionals)
+0165     fprintf(<span class="string">'NOTE: some portion (%.1f%%) of specified sample points at which to predict are not integers; the actual prediction points might differ by up to one sample due to rounding.\n'</span>,100 * mean(fractionals)); <span class="keyword">end</span>
+0166 out_of_bounds = predict_at&lt;1 | predict_at&gt;stream.pnts;
+0167 <span class="keyword">if</span> any(out_of_bounds)
+0168     fprintf(<span class="string">'NOTE: some portion (%.1f%%) of specified sample points at which to predict are outside the data bounds; these will be removed.\n'</span>,100 * mean(out_of_bounds)); <span class="keyword">end</span>
+0169 
+0170 <span class="comment">% round and restrict to desired range</span>
+0171 predict_at = round(predict_at);
+0172 predict_at = predict_at(predict_at &gt;= restrict_to(1) &amp; predict_at &lt;= restrict_to(2));
+0173 
+0174 
+0175 <span class="comment">% optionally clear any existing target markers in the given streams</span>
+0176 <span class="keyword">if</span> ~isempty(target_markers)
+0177     <span class="keyword">for</span> s=1:length(signal.streams)
+0178         <span class="keyword">if</span> ~isempty(signal.streams{s}.event)
+0179             [signal.streams{s}.event.target] = deal([]); <span class="keyword">end</span>
+0180     <span class="keyword">end</span>
+0181 <span class="keyword">end</span>
+0182 
+0183 <span class="comment">% initialize the online stream(s)</span>
+0184 stream_names = {};
+0185 <span class="keyword">for</span> s=1:length(signal.streams)
+0186     stream_names{s} = sprintf(<span class="string">'stream_simulated_%i'</span>,s);
+0187     <span class="keyword">if</span> tighten_buffer
+0188         <a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>(stream_names{s}, signal.streams{s}, <span class="string">'buffer_len'</span>,max(diff(predict_at))*stream.srate + 10/stream.srate);
+0189     <span class="keyword">else</span>
+0190         <a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>(stream_names{s}, signal.streams{s});
+0191     <span class="keyword">end</span>
+0192 <span class="keyword">end</span>
+0193 
+0194 <a href="onl_newpredictor.html" class="code" title="function id = onl_newpredictor(name, model, streams, predict_at)">onl_newpredictor</a>(<span class="string">'predictor_simulated'</span>,mdl,stream_names,target_markers);
 0195 
-0196 <span class="keyword">if</span> force_array
-0197     <span class="comment">% turn predictions into an array</span>
-0198     dims = cellfun(<span class="string">'size'</span>,predictions,2);
-0199     [predictions{dims~=median(dims)}] = deal(nan(1,median(dims)));
-0200     predictions = vertcat(predictions{:});
-0201 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0196 <span class="comment">% init BCI display</span>
+0197 <span class="keyword">if</span> dofeedback
+0198     figure; drawnow; <span class="keyword">end</span>
+0199 
+0200 <span class="comment">% get the latencies of events in each stream</span>
+0201 <span class="keyword">for</span> s=length(signal.streams):-1:1
+0202     event_latencies{s} = round([signal.streams{s}.event.latency]);  <span class="keyword">end</span>
+0203 
+0204 <span class="comment">% for each latency of interest...</span>
+0205 cursors = zeros(1,length(signal.streams)); <span class="comment">% signal up to an including this sample latency has been streamed in</span>
+0206 timings = zeros(1,length(predict_at));
+0207 predictions = cell(1,length(predict_at));
+0208 <span class="keyword">for</span> k=1:length(predict_at)    
+0209     t0 = tic;
+0210     
+0211     <span class="comment">% skip ahead to the position of the next prediction</span>
+0212     <span class="comment">% (i.e. feed all samples and markers from the current cursor up to that position)</span>
+0213     <span class="keyword">for</span> s=1:length(signal.streams)
+0214         next_sample = predict_at(k);
+0215         range = (cursors(s)+1) : next_sample;
+0216         events = signal.streams{s}.event(event_latencies{s}&gt;=range(1)&amp;event_latencies{s}&lt;=range(end));
+0217         <span class="keyword">if</span> ~isempty(events)
+0218             [events.latency] = arraydeal([events.latency]-range(1)+1);<span class="keyword">end</span>
+0219         <a href="onl_append.html" class="code" title="function onl_append(name, chunk, markers, stamp)">onl_append</a>(stream_names{s},signal.streams{s}.data(:,range),events);
+0220         cursors(s) = next_sample;
+0221     <span class="keyword">end</span>
+0222     
+0223     <span class="comment">% query the predictor</span>
+0224     predictions{k} = <a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_console_output,empty_result_value)">onl_predict</a>(<span class="string">'predictor_simulated'</span>,outformat,verbose_output,[]);
+0225     
+0226     timings(k) = toc(t0);
+0227     <span class="comment">% display outputs</span>
+0228     <span class="keyword">if</span> dowaitbar &amp;&amp; mod(k,floor(length(predict_at)/100))==0
+0229         waitbar(k/length(predict_at),<span class="string">'Processing...'</span>); <span class="keyword">end</span>        
+0230     <span class="keyword">if</span> dofeedback &amp;&amp; ~any(isnan(predictions{k}))
+0231         bar(predictions{k}); ylim([0 1]);
+0232         drawnow; 
+0233     <span class="keyword">end</span>
+0234 <span class="keyword">end</span>
+0235 
+0236 <span class="keyword">if</span> force_array
+0237     <span class="keyword">if</span> isempty(target_markers)
+0238         <span class="comment">% insert NaN's for empty predictions</span>
+0239         dims = cellfun(<span class="string">'size'</span>,predictions,2);
+0240         [predictions{~dims}] = deal(nan(1,median(dims(logical(dims)))));
+0241     <span class="keyword">end</span>
+0242     predictions = vertcat(predictions{:});        
+0243 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

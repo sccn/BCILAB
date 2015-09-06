@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>utl_evaluate_fold
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -43,7 +44,7 @@
    Result  : a cell array of {real target values, predicted target values}
 
  See also:
-   <a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(data, varargin)">utl_crossval</a>
+   <a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(varargin)">utl_crossval</a>
 
                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                                 2010-04-07</pre></div>
@@ -52,11 +53,23 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(data, varargin)">utl_crossval</a>	Run a generic cross-validation over indexable data.</li></ul>
+
+<li><a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(varargin)">utl_crossval</a>	Run a generic cross-validation over indexable data.</li>
+</ul>
 <!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function result = cached_evaluate(opts,data,inds)</a></li>
+<li><a href="#_sub2" class="code">function result = evaluate_internal(opts,data,inds)</a></li>
+</ul>
+
 
 
 
@@ -83,18 +96,53 @@ This function is called by:
 0020 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
 0021 <span class="comment">%                                2010-04-07</span>
 0022 
-0023 
-0024 <span class="comment">% learn a model</span>
-0025 trainset = opts.partitioner(data,inds{1});
-0026 <span class="keyword">if</span> length(inds) &gt;= 3
-0027     model = opts.trainer(trainset,opts.args{:},inds{3}{:});
-0028 <span class="keyword">else</span>
-0029     model = opts.trainer(trainset,opts.args{:});
-0030 <span class="keyword">end</span>
-0031 
-0032 <span class="comment">% and record both the real test targets (result{1}) and the prediction on the test data (result{2})</span>
-0033 testset = opts.partitioner(data,inds{2});
-0034 result = {opts.target(testset), opts.tester(testset,model)};</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0023 <span class="comment">% utl_evaluate_fold_version&lt;1.0&gt; -- for the cache</span>
+0024 dp;
+0025 
+0026 disp(<span class="string">'fold.'</span>);
+0027 <span class="keyword">if</span> opts.cache_fold_results
+0028     result = hlp_diskcache({<span class="string">'cvfolds'</span> <span class="string">'load_only'</span>, opts.only_cached_results}, <span class="keyword">...</span>
+0029         @<a href="#_sub1" class="code" title="subfunction result = cached_evaluate(opts,data,inds)">cached_evaluate</a>,rmfield(opts,<span class="string">'only_cached_results'</span>),data,inds);
+0030     <span class="comment">% return empty result record if we're in cache loadonly mode</span>
+0031     <span class="keyword">if</span> strcmp(result,<span class="string">'hlp_diskcache:notfound'</span>)   
+0032         result = []; <span class="keyword">end</span>
+0033 <span class="keyword">else</span>
+0034     result = <a href="#_sub1" class="code" title="subfunction result = cached_evaluate(opts,data,inds)">cached_evaluate</a>(opts,data,inds);
+0035 <span class="keyword">end</span>
+0036 
+0037 
+0038 <a name="_sub1" href="#_subfunctions" class="code">function result = cached_evaluate(opts,data,inds)</a>
+0039 <span class="comment">% this function is just an exception-catching wrapper to evaluate_internal</span>
+0040 <span class="comment">% cached_evaluate_version&lt;1.0&gt; -- for the cache</span>
+0041 <span class="keyword">if</span> ~opts.tolerate_exceptions
+0042     result = <a href="#_sub2" class="code" title="subfunction result = evaluate_internal(opts,data,inds)">evaluate_internal</a>(opts,data,inds);
+0043 <span class="keyword">else</span>
+0044     <span class="keyword">try</span>
+0045         result = <a href="#_sub2" class="code" title="subfunction result = evaluate_internal(opts,data,inds)">evaluate_internal</a>(opts,data,inds);    
+0046     <span class="keyword">catch</span> e
+0047         fprintf(<span class="string">'utl_evaluate_fold: suppressing exception: %s\n'</span>,hlp_handleerror(e));
+0048         result = [];
+0049     <span class="keyword">end</span>
+0050 <span class="keyword">end</span>
+0051     
+0052 
+0053 <a name="_sub2" href="#_subfunctions" class="code">function result = evaluate_internal(opts,data,inds)</a>
+0054 <span class="comment">% the function that does the actual work</span>
+0055 
+0056 trainset = opts.partitioner(data,inds{1});
+0057 
+0058 <span class="comment">% learn a model on the training partition</span>
+0059 <span class="keyword">if</span> length(inds) &gt;= 3
+0060     model = opts.trainer(trainset,opts.args{:},inds{3}{:});
+0061 <span class="keyword">else</span>
+0062     model = opts.trainer(trainset,opts.args{:});
+0063 <span class="keyword">end</span>
+0064 
+0065 <span class="comment">% and record both the known targets (result{1}) and predictions (result{2}) on the test partition,</span>
+0066 <span class="comment">% and optionally the trained model (result{3})</span>
+0067 testset = opts.partitioner(data,inds{2});
+0068 result = {opts.target(testset), opts.tester(testset,model), quickif(opts.collect_models,model,struct())};</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

@@ -1,4 +1,4 @@
-function result = par_evaluate(task__,noresult)
+function [result, result_raw] = par_evaluate(task__,noresult)
 % Internal: Task processing function of the worker.
 % Result = par_evaluate(Task)
 %
@@ -48,6 +48,7 @@ function result = par_evaluate(task__,noresult)
 if nargin < 2
     noresult = false; end
 
+result_raw = [];
 try
     % deserialize the task (names mangled as the task may involve an "eval" call).
     task__ = hlp_deserialize(task__);
@@ -55,9 +56,9 @@ try
     if noresult
         task__{2}(task__{3:end});
     else
-        result = {task__{1},task__{2}(task__{3:end})};
+        result_raw = {task__{1},task__{2}(task__{3:end})};
         % serialize the result record
-        result = hlp_serialize(result);
+        result = hlp_serialize(result_raw);
     end
 catch e
     try

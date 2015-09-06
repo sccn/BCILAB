@@ -1,0 +1,294 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of gui_listapproaches</title>
+  <meta name="keywords" content="gui_listapproaches">
+  <meta name="description" content="Compile a list of all approaches that are currently accessible">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">gui</a> &gt; gui_listapproaches.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/gui&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>gui_listapproaches
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Compile a list of all approaches that are currently accessible</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [list,flat,indexable] = gui_listapproaches() </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Compile a list of all approaches that are currently accessible
+ [List,Flat,Indexable] = gui_listapproaches()
+
+ The list is compiled from the workspace variables, the original paradigms (in the paradigms folder), and the files in the 'resources/approaches' directory...
+
+ Out:
+   List : cell array of {'Groupname', {approach1,approach2,approach3, ...}, 'Groupname', {approach1,approach2,approach3}, ...}
+
+   Flat : pretty-printed cell-string array of List contents
+
+   Indexable : a flat cell array of approaches that can be indexed in accordance with Flat
+
+ Notes:
+   if no output is taken, the function displays the Flat list.
+
+                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                           2010-10-25</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="gui_print_grouplist.html" class="code" title="function [list,indexable] = gui_print_grouplist(grouplist,namemap)">gui_print_grouplist</a>	create a pretty-printed list (cellstr) of grouped data</li>
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="gui_chooseapproach.html" class="code" title="function varargout = gui_chooseapproach(varargin)">gui_chooseapproach</a>	GUI_CHOOSEAPPROACH MATLAB code for gui_chooseapproach.fig</li>
+<li><a href="gui_newapproach.html" class="code" title="function varargout = gui_newapproach(varargin)">gui_newapproach</a>	Open a dialog to select a new BCI approach</li>
+</ul>
+<!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function approaches = list_paradigms_in_paths(para_paths)</a></li>
+</ul>
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [list,flat,indexable] = gui_listapproaches()</a>
+0002 <span class="comment">% Compile a list of all approaches that are currently accessible</span>
+0003 <span class="comment">% [List,Flat,Indexable] = gui_listapproaches()</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% The list is compiled from the workspace variables, the original paradigms (in the paradigms folder), and the files in the 'resources/approaches' directory...</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">% Out:</span>
+0008 <span class="comment">%   List : cell array of {'Groupname', {approach1,approach2,approach3, ...}, 'Groupname', {approach1,approach2,approach3}, ...}</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">%   Flat : pretty-printed cell-string array of List contents</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%   Indexable : a flat cell array of approaches that can be indexed in accordance with Flat</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">% Notes:</span>
+0015 <span class="comment">%   if no output is taken, the function displays the Flat list.</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0018 <span class="comment">%                           2010-10-25</span>
+0019 
+0020 <span class="keyword">global</span> tracking;
+0021 
+0022 list = {};
+0023 
+0024 <span class="comment">% --- aggregate all paradigms ---</span>
+0025 
+0026 paradigm_locations = { <span class="keyword">...</span>
+0027     {<span class="string">'Built-in Paradigms'</span>, {<span class="string">'functions:/paradigms'</span>}}, <span class="keyword">...</span>
+0028     {<span class="string">'User Paradigms'</span>, {<span class="string">'home:/.bcilab/code/paradigms'</span>}}, <span class="keyword">...</span>
+0029     {<span class="string">'Experimental Paradigms'</span>,quickif(tracking.gui.show_experimental,{<span class="string">'functions:/paradigms/in_development'</span>},{})}};
+0030 <span class="keyword">if</span> ~isempty(tracking.paths.private_path)
+0031     paradigm_locations = [paradigm_locations { <span class="keyword">...</span>
+0032         {<span class="string">'Private Paradigms'</span>, {<span class="string">'private:/code/paradigms'</span>}}, <span class="keyword">...</span>
+0033         {<span class="string">'Private Experimental Paradigms'</span>,quickif(tracking.gui.show_experimental,{<span class="string">'private:/code/paradigms/in_development'</span>},{})}}];
+0034 <span class="keyword">end</span>
+0035 
+0036 <span class="keyword">for</span> loc=1:length(paradigm_locations)
+0037     <span class="keyword">if</span> ~isempty(paradigm_locations{loc}{2})
+0038         para_paths = {};
+0039         <span class="keyword">for</span> p = paradigm_locations{loc}{2}
+0040             rootpath = env_translatepath(p{1});
+0041             files = dir([rootpath filesep <span class="string">'Paradigm*.m'</span>]);
+0042             para_paths = [para_paths cellfun(@(n)[rootpath filesep n],{files.name},<span class="string">'UniformOutput'</span>,false)];
+0043         <span class="keyword">end</span>
+0044         <span class="keyword">if</span> ~isempty(para_paths)
+0045             list = [list {paradigm_locations{loc}{1}, <a href="#_sub1" class="code" title="subfunction approaches = list_paradigms_in_paths(para_paths)">list_paradigms_in_paths</a>(para_paths)}]; <span class="keyword">end</span>
+0046     <span class="keyword">end</span>    
+0047 <span class="keyword">end</span>
+0048 
+0049 <span class="comment">% -- get list of paradigm names ---</span>
+0050 paradigm_names = {};
+0051 <span class="keyword">for</span> l=2:2:length(list)
+0052     <span class="keyword">for</span> p = list{l}
+0053         paradigm_names{end+1} = p{1}.paradigm(9:end); <span class="keyword">end</span>
+0054 <span class="keyword">end</span>
+0055 
+0056 <span class="comment">% --- aggregate all approaches in the workspace ---</span>
+0057 approaches = {};
+0058 
+0059 vars = evalin(<span class="string">'base'</span>,<span class="string">'whos'</span>);
+0060 <span class="keyword">for</span> v=find(strcmp({vars.class},<span class="string">'struct'</span>))
+0061     var = evalin(<span class="string">'base'</span>,vars(v).name);
+0062     <span class="keyword">if</span> isfield(var,{<span class="string">'paradigm'</span>,<span class="string">'parameters'</span>})
+0063         <span class="comment">% found one: list it</span>
+0064         <span class="keyword">if</span> isfield(var,<span class="string">'name'</span>)
+0065             var.name = [var.name <span class="string">' ('</span> vars(v).name <span class="string">')'</span>]; 
+0066         <span class="keyword">else</span>
+0067             var.name = vars(v).name; 
+0068         <span class="keyword">end</span>
+0069         approaches{end+1} = var;
+0070     <span class="keyword">end</span>
+0071 <span class="keyword">end</span>
+0072 
+0073 <span class="keyword">for</span> v=find(strcmp({vars.class},<span class="string">'cell'</span>))
+0074     var = evalin(<span class="string">'base'</span>,vars(v).name);
+0075     <span class="keyword">if</span> length(var)&gt;1 &amp;&amp; ischar(var{1}) &amp;&amp; ((strncmp(var{1},<span class="string">'Paradigm'</span>,8) &amp;&amp; length(var{1})&gt;8 &amp;&amp; any(strcmp(var{1}(9:end),paradigm_names))) || any(strcmp(var{1},paradigm_names)))
+0076         approaches{end+1} = struct(<span class="string">'paradigm'</span>,quickif(strncmp(var{1},<span class="string">'Paradigm'</span>,8),var{1},[<span class="string">'Paradigm'</span>,var{1}]),<span class="string">'name'</span>,vars(v).name,<span class="string">'parameters'</span>,{var(2:end)},<span class="string">'description'</span>,<span class="string">''</span>); <span class="keyword">end</span>
+0077 <span class="keyword">end</span>
+0078 
+0079 list = [list {<span class="string">'From Workspace'</span>, approaches}];
+0080 
+0081 
+0082 <span class="comment">% --- aggregate all approaches in the approaches directory (and the user's home directory, too) ---</span>
+0083 approaches = {};
+0084 approach_dirs = {env_translatepath(<span class="string">'home:/.bcilab/approaches'</span>),env_translatepath(<span class="string">'resources:/approaches'</span>)};
+0085 <span class="keyword">if</span> ~isempty(tracking.paths.private_path)
+0086     approach_dirs = [approach_dirs {env_translatepath(<span class="string">'private:/approaches'</span>)}]; <span class="keyword">end</span>
+0087 <span class="keyword">for</span> d = approach_dirs
+0088     approach_dir = d{1};
+0089     files = dir([approach_dir filesep <span class="string">'*.apr'</span>]);
+0090     filenames = {files.name};
+0091 
+0092     <span class="keyword">for</span> f=1:length(filenames)
+0093         <span class="comment">% load the file</span>
+0094         <span class="keyword">try</span>
+0095             contents = io_load([approach_dir filesep filenames{f}],<span class="string">'-mat'</span>);
+0096             <span class="keyword">for</span> fn=fieldnames(contents)'
+0097                 var = contents.(fn{1});
+0098                 <span class="keyword">if</span> isfield(var,{<span class="string">'paradigm'</span>,<span class="string">'parameters'</span>})
+0099                     <span class="comment">% found one: list it</span>
+0100                     <span class="keyword">if</span> isfield(var,<span class="string">'name'</span>)
+0101                         var.name = [var.name <span class="string">' ('</span> fn{1} <span class="string">')'</span>];
+0102                     <span class="keyword">else</span>
+0103                         var.name = fn{1};
+0104                     <span class="keyword">end</span>
+0105                     approaches{end+1} = var;
+0106                 <span class="keyword">end</span>
+0107             <span class="keyword">end</span>
+0108         <span class="keyword">catch</span> e
+0109             disp([<span class="string">'Could not load approach '</span> filenames{f} <span class="string">' from disk.'</span>]);
+0110         <span class="keyword">end</span>
+0111     <span class="keyword">end</span>
+0112 <span class="keyword">end</span>
+0113 
+0114 list = [list {<span class="string">'From Disk'</span>, approaches}];
+0115 
+0116 [flat,indexable] = <a href="gui_print_grouplist.html" class="code" title="function [list,indexable] = gui_print_grouplist(grouplist,namemap)">gui_print_grouplist</a>(list,@(x)x.name);
+0117 
+0118 <span class="comment">% print it</span>
+0119 <span class="keyword">if</span> nargout == 0
+0120     fprintf(<span class="string">'%s\n'</span>,flat{:}); <span class="keyword">end</span>
+0121 
+0122 
+0123 
+0124 <a name="_sub1" href="#_subfunctions" class="code">function approaches = list_paradigms_in_paths(para_paths)</a>
+0125 <span class="keyword">persistent</span> cached_paradigms;
+0126 approaches = {};
+0127 <span class="keyword">for</span> p=1:length(para_paths)
+0128     [paradir,filename,ext] = fileparts(para_paths{p});
+0129     filename = [filename ext];
+0130     tag = filename(1:end-2);
+0131     <span class="keyword">try</span>
+0132         <span class="comment">% try lookup from a tiny cache of approach descriptions</span>
+0133         appr = cached_paradigms.(tag);
+0134     <span class="keyword">catch</span>
+0135         <span class="comment">% otherwise generate it</span>
+0136         <span class="keyword">try</span>
+0137             <span class="comment">% read get the help text</span>
+0138             <span class="comment">% (we don't even try to use help() as it doesn't work in deployed mode)</span>
+0139             f = fopen([paradir filesep filename],<span class="string">'r'</span>);
+0140             help_lines = {};
+0141             <span class="keyword">while</span> 1
+0142                 line = fgetl(f);
+0143                 <span class="comment">% end of file?</span>
+0144                 <span class="keyword">if</span> ~ischar(line)
+0145                     <span class="keyword">break</span>; <span class="keyword">end</span>
+0146                 line = strtrim(line);
+0147                 <span class="comment">% function declaration line?</span>
+0148                 <span class="keyword">if</span> strncmp(line,<span class="string">'classdef'</span>,8)
+0149                     <span class="keyword">continue</span>; <span class="keyword">end</span>
+0150                 <span class="comment">% non-comment line?</span>
+0151                 <span class="keyword">if</span> isempty(line) || line(1) ~= <span class="string">'%'</span>
+0152                     <span class="keyword">break</span>; <span class="keyword">end</span>
+0153                 <span class="comment">% methods line?</span>
+0154                 <span class="keyword">if</span> strncmp(line,<span class="string">'methods'</span>,8)
+0155                     <span class="keyword">break</span>; <span class="keyword">end</span>
+0156                 <span class="comment">% strip leading comment chars</span>
+0157                 <span class="keyword">while</span> ~isempty(line) &amp;&amp; line(1) == <span class="string">'%'</span>
+0158                     line(1) = []; <span class="keyword">end</span>
+0159                 <span class="comment">% append</span>
+0160                 help_lines{end+1} = [<span class="string">' '</span> line];
+0161             <span class="keyword">end</span>
+0162             fclose(f);
+0163         <span class="keyword">catch</span>
+0164             <span class="keyword">try</span> fclose(f); <span class="keyword">catch</span>,<span class="keyword">end</span>
+0165             error(<span class="string">'Cannot read help text for file %s.'</span>,filename);
+0166         <span class="keyword">end</span>
+0167         <span class="keyword">if</span> isempty(help_lines)
+0168             help_lines = {<span class="string">'help for file: '</span>,[paradir filesep filename]}; <span class="keyword">end</span>
+0169         
+0170         <span class="comment">% extract the description</span>
+0171         name_line = find(~cellfun(<span class="string">'isempty'</span>,strfind(help_lines, <span class="string">'Name:'</span>)));
+0172         desc_lines = help_lines(1:name_line-2);
+0173         <span class="comment">% deblank the lines</span>
+0174         <span class="keyword">for</span> l=1:length(desc_lines)
+0175             desc_lines{l} = deblank(desc_lines{l}); <span class="keyword">end</span>
+0176         <span class="comment">% find out if we can dedent the entire help...</span>
+0177         min_indent = Inf;
+0178         <span class="keyword">for</span> l=1:length(desc_lines)
+0179             dl = desc_lines{l};
+0180             <span class="keyword">if</span> ~isempty(dl)
+0181                 min_indent = min(min_indent,length(dl) - length(strtrim(dl))); <span class="keyword">end</span>
+0182         <span class="keyword">end</span>
+0183         <span class="keyword">if</span> min_indent &gt; 0
+0184             <span class="keyword">for</span> l=1:length(desc_lines)
+0185                 <span class="keyword">if</span> ~isempty(desc_lines{l})
+0186                     desc_lines{l} = desc_lines{l}(min_indent+1:end); <span class="keyword">end</span>
+0187             <span class="keyword">end</span>
+0188         <span class="keyword">end</span>
+0189         <span class="comment">% reformat line breaks and spaces</span>
+0190         <span class="keyword">for</span> l=1:length(desc_lines)
+0191             dl = desc_lines{l};
+0192             <span class="keyword">if</span> isempty(dl)
+0193                 dl = [dl sprintf(<span class="string">'\n\n'</span>)];
+0194             <span class="keyword">elseif</span> length(strtrim(dl)) &lt; length(dl) || strcmp(dl,<span class="string">'References:'</span>)
+0195                 dl = [dl sprintf(<span class="string">'\n'</span>)];
+0196             <span class="keyword">else</span>
+0197                 dl = [dl <span class="string">' '</span>];
+0198             <span class="keyword">end</span>
+0199             desc_lines{l} = dl;
+0200         <span class="keyword">end</span>
+0201         desc = [desc_lines{:}];
+0202         <span class="keyword">if</span> ~isempty(desc)
+0203             desc = strrep(desc,<span class="string">'  '</span>,<span class="string">' '</span>); <span class="keyword">end</span>
+0204         <span class="comment">% extract the name</span>
+0205         <span class="keyword">if</span> isempty(name_line)
+0206             name = filename(1:end-2);
+0207         <span class="keyword">else</span>
+0208             name = [strtrim(help_lines{name_line+1}) <span class="string">' ('</span> filename(1:end-2) <span class="string">')'</span>];
+0209         <span class="keyword">end</span>
+0210         appr = struct(<span class="string">'paradigm'</span>,filename(1:end-2), <span class="string">'parameters'</span>,{{}}, <span class="string">'description'</span>,desc, <span class="string">'name'</span>,name);
+0211         <span class="comment">% and store it for the next time</span>
+0212         cached_paradigms.(tag) = appr;
+0213     <span class="keyword">end</span>
+0214     <span class="keyword">if</span> isempty(strfind(appr.name,<span class="string">'(abstract'</span>))
+0215         approaches{end+1} = appr; <span class="keyword">end</span>
+0216 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

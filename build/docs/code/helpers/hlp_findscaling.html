@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>hlp_findscaling
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -34,7 +35,16 @@
 
  In:
    Data        : data matrix of [Observations x Variables]
-   Scale-Mode  : scaling mode, one of {std,minmax,whiten}
+   Scale-Mode  : scaling mode, with the following options:
+                 'center' : shift the data to make them zero-mean
+                 'std' : center and standardize the data
+                 'std-nocenter': just standardize but do not center the data
+                 'minmax' : scale the data to the range 0-1
+                 'whiten' : whiten/sphere the data in a multivariate manner (rotates into PCA space)
+                 'rescale' : rescale the data by 1 / median standard deviation
+                 'decorrelate' : sphere/whiten/decorrelate the data without rotating
+                 'decorrelate_shrinkage' : sphere/whiten/decorrelate the data without rotating, using shrinkage regularization
+                 'decorrelate_robust' : sphere/whiten/decorrelate the data without rotating, using outlier-robust estimation
 
  Out:
    Scale-Info  : scaling structure that can be used with hlp_applyscaling, to scale data
@@ -53,11 +63,16 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -70,56 +85,83 @@ This function is called by:
 0006 <span class="comment">%</span>
 0007 <span class="comment">% In:</span>
 0008 <span class="comment">%   Data        : data matrix of [Observations x Variables]</span>
-0009 <span class="comment">%   Scale-Mode  : scaling mode, one of {std,minmax,whiten}</span>
-0010 <span class="comment">%</span>
-0011 <span class="comment">% Out:</span>
-0012 <span class="comment">%   Scale-Info  : scaling structure that can be used with hlp_applyscaling, to scale data</span>
-0013 <span class="comment">%</span>
-0014 <span class="comment">% Examples:</span>
-0015 <span class="comment">%   scaleinfo = hlp_findscaling(data,'whiten')</span>
-0016 <span class="comment">%   hlp_applyscaling(data,scaleinfo)</span>
-0017 <span class="comment">%</span>
-0018 <span class="comment">% See also:</span>
-0019 <span class="comment">%   hlp_applyscaling</span>
-0020 <span class="comment">%</span>
-0021 <span class="comment">%               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0022 <span class="comment">%               2010-03-28</span>
-0023 
-0024 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
-0025 <span class="comment">%</span>
-0026 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
-0027 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
-0028 <span class="comment">% License, or (at your option) any later version.</span>
+0009 <span class="comment">%   Scale-Mode  : scaling mode, with the following options:</span>
+0010 <span class="comment">%                 'center' : shift the data to make them zero-mean</span>
+0011 <span class="comment">%                 'std' : center and standardize the data</span>
+0012 <span class="comment">%                 'std-nocenter': just standardize but do not center the data</span>
+0013 <span class="comment">%                 'minmax' : scale the data to the range 0-1</span>
+0014 <span class="comment">%                 'whiten' : whiten/sphere the data in a multivariate manner (rotates into PCA space)</span>
+0015 <span class="comment">%                 'rescale' : rescale the data by 1 / median standard deviation</span>
+0016 <span class="comment">%                 'decorrelate' : sphere/whiten/decorrelate the data without rotating</span>
+0017 <span class="comment">%                 'decorrelate_shrinkage' : sphere/whiten/decorrelate the data without rotating, using shrinkage regularization</span>
+0018 <span class="comment">%                 'decorrelate_robust' : sphere/whiten/decorrelate the data without rotating, using outlier-robust estimation</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% Out:</span>
+0021 <span class="comment">%   Scale-Info  : scaling structure that can be used with hlp_applyscaling, to scale data</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">% Examples:</span>
+0024 <span class="comment">%   scaleinfo = hlp_findscaling(data,'whiten')</span>
+0025 <span class="comment">%   hlp_applyscaling(data,scaleinfo)</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">% See also:</span>
+0028 <span class="comment">%   hlp_applyscaling</span>
 0029 <span class="comment">%</span>
-0030 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
-0031 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
-0032 <span class="comment">% General Public License for more details.</span>
-0033 <span class="comment">%</span>
-0034 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
-0035 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
-0036 <span class="comment">% USA</span>
-0037 
-0038 <span class="keyword">if</span> ~exist(<span class="string">'scaling'</span>,<span class="string">'var'</span>) 
-0039     scaling = <span class="string">'minmax'</span>; <span class="keyword">end</span>
-0040 
-0041 <span class="keyword">switch</span> scaling
-0042     <span class="keyword">case</span> <span class="string">'center'</span>
-0043         res = struct(<span class="string">'add'</span>,{-mean(X)});
-0044     <span class="keyword">case</span> <span class="string">'std'</span>
-0045         res = struct(<span class="string">'add'</span>,{-mean(X)}, <span class="string">'mul'</span>,{1./ std(X)});
-0046         res.mul(~isfinite(res.mul(:))) = 1;
-0047     <span class="keyword">case</span> <span class="string">'minmax'</span>
-0048         res = struct(<span class="string">'add'</span>,{-min(X)}, <span class="string">'mul'</span>,{1./ (max(X) - min(X))});
-0049         res.mul(~isfinite(res.mul(:))) = 1;
-0050     <span class="keyword">case</span> <span class="string">'whiten'</span>
-0051         [Uc,Lc] = eig(cov(X));
-0052         res = struct(<span class="string">'add'</span>,{-mean(X)},<span class="string">'project'</span>,{Uc * sqrt(inv(Lc))'});
-0053         res.project(~isfinite(res.project(:))) = 1;
-0054     <span class="keyword">otherwise</span>
-0055         <span class="keyword">if</span> ~isempty(scaling) &amp;&amp; ~strcmp(scaling,<span class="string">'none'</span>)
-0056             error(<span class="string">'hlp_findscaling: unknown scaling mode specified'</span>); <span class="keyword">end</span>
-0057         res = struct();
-0058 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0030 <span class="comment">%               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0031 <span class="comment">%               2010-03-28</span>
+0032 
+0033 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0036 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0037 <span class="comment">% License, or (at your option) any later version.</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0040 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0041 <span class="comment">% General Public License for more details.</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0044 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0045 <span class="comment">% USA</span>
+0046 
+0047 <span class="keyword">if</span> nargin &lt; 2
+0048     scaling = <span class="string">'minmax'</span>; <span class="keyword">end</span>
+0049 <span class="keyword">if</span> ~ischar(scaling)
+0050     error(<span class="string">'The given scaling mode must be a string.'</span>); <span class="keyword">end</span>
+0051 
+0052 <span class="keyword">switch</span> scaling
+0053     <span class="keyword">case</span> <span class="string">'center'</span>
+0054         res = struct(<span class="string">'add'</span>,{-mean(X)});
+0055     <span class="keyword">case</span> <span class="string">'std'</span>
+0056         res = struct(<span class="string">'add'</span>,{-mean(X)}, <span class="string">'mul'</span>,{1./ std(X)});
+0057         res.mul(~isfinite(res.mul(:))) = 1;
+0058     <span class="keyword">case</span> <span class="string">'std-nocenter'</span>
+0059         res = struct(<span class="string">'add'</span>,{zeros(1,size(X,2))}, <span class="string">'mul'</span>,{1./ std(X)});
+0060         res.mul(~isfinite(res.mul(:))) = 1;
+0061     <span class="keyword">case</span> <span class="string">'minmax'</span>
+0062         res = struct(<span class="string">'add'</span>,{-min(X)}, <span class="string">'mul'</span>,{1./ (max(X) - min(X))});
+0063         res.mul(~isfinite(res.mul(:))) = 1;
+0064     <span class="keyword">case</span> <span class="string">'whiten'</span>
+0065         [Uc,Lc] = eig(cov(X));
+0066         res = struct(<span class="string">'add'</span>,{-mean(X)},<span class="string">'project'</span>,{Uc * sqrt(inv(Lc))'});
+0067         res.project(~isfinite(res.project(:))) = 1;
+0068     <span class="keyword">case</span> <span class="string">'decorrelate'</span>
+0069         res = struct(<span class="string">'add'</span>,{-mean(X)},<span class="string">'project'</span>,{cov(X)^(-1/2)});
+0070         res.project(~isfinite(res.project(:))) = 1;
+0071     <span class="keyword">case</span> <span class="string">'decorrelate_shrinkage'</span>
+0072         res = struct(<span class="string">'add'</span>,{-mean(X)},<span class="string">'project'</span>,{cov_shrink(X)^(-1/2)});
+0073         res.project(~isfinite(res.project(:))) = 1;
+0074     <span class="keyword">case</span> <span class="string">'decorrelate_robust'</span>
+0075         res = struct(<span class="string">'add'</span>,{-median(X)},<span class="string">'project'</span>,{cov_blockgeom(X)^(-1/2)});
+0076         res.project(~isfinite(res.project(:))) = 1;
+0077     <span class="keyword">case</span> <span class="string">'rescale'</span>
+0078         res = struct(<span class="string">'add'</span>,{zeros(1,size(X,2))}, <span class="string">'mul'</span>,{ones(1,size(X,2)) ./ median(std(X))});
+0079         res.mul(~isfinite(res.mul(:))) = 1;
+0080     <span class="keyword">otherwise</span>
+0081         <span class="keyword">if</span> ~isempty(scaling) &amp;&amp; ~strcmp(scaling,<span class="string">'none'</span>)
+0082             error(<span class="string">'hlp_findscaling: unknown scaling mode specified: %s'</span>,scaling); <span class="keyword">end</span>
+0083         res = struct();
+0084 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

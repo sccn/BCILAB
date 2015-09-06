@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/online_plugins/BioSemi&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
 
 <h1>run_readbiosemi
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
@@ -39,14 +40,19 @@
  parameters.
 
  In:
-   MatlabStream : name of the stream to create in the MATLAB environment (default: 'laststream')
+   StreamName : Name of the stream; a variable with this name will be created in the MATLAB workspace 
+                to hold the stream's data. If such a variable already exists it will be overridden.
 
-   ChannelRange : numeric vector of channel indices that should be recorded (referring to the 
+   ChannelRange : Numeric vector of channel indices that should be recorded (referring to the 
                   default BioSemi channel order); default: 3:131
 
-   SamplingRate : sampling rate for the amplifier, in Hz (default: 256)
+   SamplingRate : Sampling rate for the amplifier, in Hz (default: 256)
 
-   UpdateFrequency : update frequency, in Hz (default: 25)
+   BufferLength : Internal buffering length. This is the maximum amount of backlog that you can
+                  get, in seconds. (default: 30)
+
+   UpdateFrequency : The rate at which new chunks of data is polled from the device, in Hz. 
+                     (default: 10)
 
  Examples:
    % open a biosemi input stream that is sampled at 512 Hz and updated at 30 Hz 
@@ -60,15 +66,23 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
+
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
 <ul style="list-style-image:url(../../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function block = read_block(conn,opts)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function block = read_block(conn,opts)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function run_readbiosemi(varargin)</a>
@@ -84,50 +98,60 @@ This function is called by:
 0011 <span class="comment">% parameters.</span>
 0012 <span class="comment">%</span>
 0013 <span class="comment">% In:</span>
-0014 <span class="comment">%   MatlabStream : name of the stream to create in the MATLAB environment (default: 'laststream')</span>
-0015 <span class="comment">%</span>
-0016 <span class="comment">%   ChannelRange : numeric vector of channel indices that should be recorded (referring to the</span>
-0017 <span class="comment">%                  default BioSemi channel order); default: 3:131</span>
-0018 <span class="comment">%</span>
-0019 <span class="comment">%   SamplingRate : sampling rate for the amplifier, in Hz (default: 256)</span>
-0020 <span class="comment">%</span>
-0021 <span class="comment">%   UpdateFrequency : update frequency, in Hz (default: 25)</span>
-0022 <span class="comment">%</span>
-0023 <span class="comment">% Examples:</span>
-0024 <span class="comment">%   % open a biosemi input stream that is sampled at 512 Hz and updated at 30 Hz</span>
-0025 <span class="comment">%   % (using the default name for the stream)</span>
-0026 <span class="comment">%   run_readbiosemi('UpdateFrequency',30, 'SamplingRate',512);</span>
+0014 <span class="comment">%   StreamName : Name of the stream; a variable with this name will be created in the MATLAB workspace</span>
+0015 <span class="comment">%                to hold the stream's data. If such a variable already exists it will be overridden.</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">%   ChannelRange : Numeric vector of channel indices that should be recorded (referring to the</span>
+0018 <span class="comment">%                  default BioSemi channel order); default: 3:131</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%   SamplingRate : Sampling rate for the amplifier, in Hz (default: 256)</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">%   BufferLength : Internal buffering length. This is the maximum amount of backlog that you can</span>
+0023 <span class="comment">%                  get, in seconds. (default: 30)</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%   UpdateFrequency : The rate at which new chunks of data is polled from the device, in Hz.</span>
+0026 <span class="comment">%                     (default: 10)</span>
 0027 <span class="comment">%</span>
-0028 <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0029 <span class="comment">%                               2010-11-19</span>
-0030 
-0031 <span class="comment">% declare the name of this component (shown in the menu)</span>
-0032 declare_properties(<span class="string">'name'</span>,<span class="string">'BioSemi amplifier'</span>);
-0033 
-0034 <span class="comment">% read options</span>
-0035 opts = arg_define(varargin, <span class="keyword">...</span>
-0036     arg({<span class="string">'new_stream'</span>,<span class="string">'MatlabStream'</span>}, <span class="string">'laststream'</span>,[],<span class="string">'New Stream to create. This is the name of the stream within the MATLAB environment.'</span>), <span class="keyword">...</span>
-0037     arg({<span class="string">'channel_range'</span>,<span class="string">'ChannelRange'</span>}, 3:128+3,[],<span class="string">'Reduced channel range. Allows to specify a sub-range of the default BioSemi channels.'</span>), <span class="keyword">...</span>
-0038     arg({<span class="string">'sample_rate'</span>,<span class="string">'SamplingRate'</span>}, 256,[],<span class="string">'Sampling rate. In Hz.'</span>), <span class="keyword">...</span>
-0039     arg({<span class="string">'update_freq'</span>,<span class="string">'UpdateFrequency'</span>},10,[],<span class="string">'Update frequency. New data is polled at this rate, in Hz.'</span>));
-0040 
-0041 <span class="comment">% open a BioSemi connection (using an explicit path because it should also work if the toolbox is compiled)</span>
-0042 conn = bs_open(env_translatepath(<span class="string">'dependencies:/BioSemi-2010-11-19'</span>));
-0043 
-0044 <span class="comment">% create online stream (using appropriate meta-data from the connection)</span>
-0045 onl_newstream(opts.new_stream,<span class="string">'srate'</span>,opts.sample_rate,<span class="string">'chanlocs'</span>,conn.channels(opts.channel_range),<span class="string">'xmin'</span>,toc(uint64(0)));
+0028 <span class="comment">% Examples:</span>
+0029 <span class="comment">%   % open a biosemi input stream that is sampled at 512 Hz and updated at 30 Hz</span>
+0030 <span class="comment">%   % (using the default name for the stream)</span>
+0031 <span class="comment">%   run_readbiosemi('UpdateFrequency',30, 'SamplingRate',512);</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0034 <span class="comment">%                               2010-11-19</span>
+0035 
+0036 <span class="comment">% declare the name of this component (shown in the menu)</span>
+0037 declare_properties(<span class="string">'name'</span>,<span class="string">'BioSemi amplifier'</span>);
+0038 
+0039 <span class="comment">% read options</span>
+0040 opts = arg_define(varargin, <span class="keyword">...</span>
+0041     arg({<span class="string">'new_stream'</span>,<span class="string">'StreamName'</span>,<span class="string">'MatlabStream'</span>}, <span class="string">'laststream'</span>,[],<span class="string">'MATLAB Stream Name. A variable with this name will be created in the MATLAB workspace to hold the stream''s data. If such a variable already exists it will be overridden.'</span>), <span class="keyword">...</span>
+0042     arg({<span class="string">'channel_range'</span>,<span class="string">'ChannelRange'</span>}, 3:128+3,uint32([1 1000]),<span class="string">'Reduced channel range. Allows to specify a sub-range of the default BioSemi channels.'</span>), <span class="keyword">...</span>
+0043     arg({<span class="string">'sample_rate'</span>,<span class="string">'SamplingRate'</span>}, 256,[1 100000],<span class="string">'Sampling rate. In Hz.'</span>), <span class="keyword">...</span>
+0044     arg({<span class="string">'update_freq'</span>,<span class="string">'UpdateFrequency'</span>},10,[0 Inf],<span class="string">'Update frequency. The rate at which new chunks of data is polled from the device, in Hz.'</span>), <span class="keyword">...</span>
+0045     arg({<span class="string">'buffer_len'</span>,<span class="string">'BufferLength'</span>},10,[],<span class="string">'Internal buffering length. This is the maximum amount of backlog that you can get.'</span>));
 0046 
-0047 <span class="comment">% start background acquisition</span>
-0048 onl_read_background(opts.new_stream,@()<a href="#_sub1" class="code" title="subfunction block = read_block(conn,opts)">read_block</a>(conn,opts),opts.update_freq);
+0047 <span class="comment">% open a BioSemi connection (using an explicit path because it should also work if the toolbox is compiled)</span>
+0048 conn = bs_open(env_translatepath(<span class="string">'dependencies:/BioSemi-2010-11-19'</span>));
 0049 
-0050 
-0051 <span class="comment">% background block reader function</span>
-0052 <a name="_sub1" href="#_subfunctions" class="code">function block = read_block(conn,opts)</a>
-0053 <span class="comment">% get a new block from biosemi</span>
-0054 block = bs_read(conn);
-0055 <span class="comment">% decimate it (note: this is a poor implementation!)</span>
-0056 <span class="keyword">if</span> ~isempty(block)
-0057     block = block(opts.channel_range,1:double(conn.srate)/opts.sample_rate:end); <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0050 <span class="comment">% create online stream (using appropriate meta-data from the connection)</span>
+0051 onl_newstream(opts.new_stream,<span class="string">'srate'</span>,opts.sample_rate,<span class="string">'chanlocs'</span>,conn.channels(opts.channel_range),<span class="string">'xmin'</span>,toc(uint64(0)),<span class="string">'buffer_len'</span>,opts.buffer_len);
+0052 
+0053 <span class="comment">% start background acquisition</span>
+0054 onl_read_background(opts.new_stream,@()<a href="#_sub1" class="code" title="subfunction block = read_block(conn,opts)">read_block</a>(conn,opts),opts.update_freq);
+0055 
+0056 disp(<span class="string">'Now reading...'</span>);
+0057 
+0058 
+0059 
+0060 <span class="comment">% background block reader function</span>
+0061 <a name="_sub1" href="#_subfunctions" class="code">function block = read_block(conn,opts)</a>
+0062 <span class="comment">% get a new block from biosemi</span>
+0063 block = bs_read(conn);
+0064 <span class="comment">% decimate it (note: this is a poor implementation!)</span>
+0065 <span class="keyword">if</span> ~isempty(block)
+0066     block = block(opts.channel_range,1:double(conn.srate)/opts.sample_rate:end); <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

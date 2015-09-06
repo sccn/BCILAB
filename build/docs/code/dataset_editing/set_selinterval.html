@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/dataset_editing&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>set_selinterval
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -31,15 +32,22 @@
  Signal = set_selinterval(Signal,Intervals,Unit)
 
  In:
-   Signal    :   continuous EEGLAB data set from which an interval should be selected
+   Signal    :   Continuous EEGLAB data set from which an interval should be selected
 
-   Intervals :   selection interval(s), [start end; start end; start end; ...]
+   Intervals :   Selection interval(s) formatted as [start end; start end; start end; ...] or
+                 a MATLAB index range for the samples (if IntervalUnit is set to 'range')
 
-   Unit      :   Unit of measurement for the interval. Either 'seconds', 'samples', or 'fraction' 
-                 (default: seconds)
+   IntervalUnit : Unit of measurement for the interval. Either 'seconds', 'samples', 'fraction',
+                  or 'range' (default: seconds)
+
+   InsertBoundaryMarkers : Whether to insert boundary markers (default: false)
 
  Out:
-   Signal    :   data set restricted to the selected range
+   Signal    :   data set restricted to the selected range. The following fields are updated:
+                 * .data and all other time series fields are reduced to the selected intervals
+                 * .event is reduced to selected events
+                 * .xmax/.pnts are updated
+                 * optionally boundary events are inserted
 
  Examples:
    % for a continuous data set, retain only the data within 50s and 200s, as well as 1200s and 1500s
@@ -64,11 +72,17 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="set_partition.html" class="code" title="function res = set_partition(varargin)">set_partition</a>	Obtain a subset of a data set, using an index set.</li>
 </ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -78,53 +92,171 @@ This function is called by:
 0003 <span class="comment">% Signal = set_selinterval(Signal,Intervals,Unit)</span>
 0004 <span class="comment">%</span>
 0005 <span class="comment">% In:</span>
-0006 <span class="comment">%   Signal    :   continuous EEGLAB data set from which an interval should be selected</span>
+0006 <span class="comment">%   Signal    :   Continuous EEGLAB data set from which an interval should be selected</span>
 0007 <span class="comment">%</span>
-0008 <span class="comment">%   Intervals :   selection interval(s), [start end; start end; start end; ...]</span>
-0009 <span class="comment">%</span>
-0010 <span class="comment">%   Unit      :   Unit of measurement for the interval. Either 'seconds', 'samples', or 'fraction'</span>
-0011 <span class="comment">%                 (default: seconds)</span>
-0012 <span class="comment">%</span>
-0013 <span class="comment">% Out:</span>
-0014 <span class="comment">%   Signal    :   data set restricted to the selected range</span>
+0008 <span class="comment">%   Intervals :   Selection interval(s) formatted as [start end; start end; start end; ...] or</span>
+0009 <span class="comment">%                 a MATLAB index range for the samples (if IntervalUnit is set to 'range')</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">%   IntervalUnit : Unit of measurement for the interval. Either 'seconds', 'samples', 'fraction',</span>
+0012 <span class="comment">%                  or 'range' (default: seconds)</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%   InsertBoundaryMarkers : Whether to insert boundary markers (default: false)</span>
 0015 <span class="comment">%</span>
-0016 <span class="comment">% Examples:</span>
-0017 <span class="comment">%   % for a continuous data set, retain only the data within 50s and 200s, as well as 1200s and 1500s</span>
-0018 <span class="comment">%   eeg = set_selinterval(eeg,[50 200; 1200 1500])</span>
-0019 <span class="comment">%</span>
-0020 <span class="comment">%   % for a continuous data set, retain only the data within the 1000's and the 10000's sample</span>
-0021 <span class="comment">%   eeg = set_selinterval(eeg,[1000 10000],'samples')</span>
+0016 <span class="comment">% Out:</span>
+0017 <span class="comment">%   Signal    :   data set restricted to the selected range. The following fields are updated:</span>
+0018 <span class="comment">%                 * .data and all other time series fields are reduced to the selected intervals</span>
+0019 <span class="comment">%                 * .event is reduced to selected events</span>
+0020 <span class="comment">%                 * .xmax/.pnts are updated</span>
+0021 <span class="comment">%                 * optionally boundary events are inserted</span>
 0022 <span class="comment">%</span>
-0023 <span class="comment">%   % for a continuous data set, retain only the last half of the data</span>
-0024 <span class="comment">%   eeg = set_selinterval(eeg,[0.5 1],'fraction')</span>
-0025 <span class="comment">%</span>
-0026 <span class="comment">%   % as before, but pass the arguments by name</span>
-0027 <span class="comment">%   eeg = set_selinterval('Signal',eeg, 'Intervals',[0.5 1], 'Unit','fraction')</span>
-0028 <span class="comment">%</span>
-0029 <span class="comment">% See also:</span>
-0030 <span class="comment">%   set_selepos, set_partition</span>
-0031 <span class="comment">%</span>
-0032 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0033 <span class="comment">%                                2010-04-01</span>
-0034 
-0035 <span class="comment">% set_selinterval_version&lt;1.0&gt; -- for the cache</span>
-0036 
-0037 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'editing'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
-0038 
-0039 declare_properties(<span class="string">'independent_channels'</span>,true,<span class="string">'independent_trials'</span>,false);
-0040 
-0041 arg_define(varargin, <span class="keyword">...</span>
-0042     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
-0043     arg({<span class="string">'intervals'</span>,<span class="string">'Intervals'</span>},[],[], <span class="string">'Selection intervals. Array of the form [start end; start end; start end; ...].'</span>), <span class="keyword">...</span>
-0044     arg({<span class="string">'selunit'</span>,<span class="string">'Unit'</span>,<span class="string">'unit'</span>},<span class="string">'seconds'</span>,{<span class="string">'seconds'</span>,<span class="string">'samples'</span>,<span class="string">'fraction'</span>}, <span class="string">'Unit of measurement.'</span>));
-0045 
-0046 <span class="keyword">if</span> strcmp(selunit,<span class="string">'fraction'</span>)
-0047     signal = pop_select(signal,<span class="string">'point'</span>,intervals*signal.pnts);
-0048 <span class="keyword">else</span>
-0049     signal = pop_select(signal,hlp_rewrite(selunit,<span class="string">'seconds'</span>,<span class="string">'time'</span>,<span class="string">'samples'</span>,<span class="string">'point'</span>),intervals);
-0050 <span class="keyword">end</span>
-0051 
-0052 exp_endfun;</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0023 <span class="comment">% Examples:</span>
+0024 <span class="comment">%   % for a continuous data set, retain only the data within 50s and 200s, as well as 1200s and 1500s</span>
+0025 <span class="comment">%   eeg = set_selinterval(eeg,[50 200; 1200 1500])</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">%   % for a continuous data set, retain only the data within the 1000's and the 10000's sample</span>
+0028 <span class="comment">%   eeg = set_selinterval(eeg,[1000 10000],'samples')</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%   % for a continuous data set, retain only the last half of the data</span>
+0031 <span class="comment">%   eeg = set_selinterval(eeg,[0.5 1],'fraction')</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%   % as before, but pass the arguments by name</span>
+0034 <span class="comment">%   eeg = set_selinterval('Signal',eeg, 'Intervals',[0.5 1], 'Unit','fraction')</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">% See also:</span>
+0037 <span class="comment">%   set_selepos, set_partition</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0040 <span class="comment">%                                2010-04-01</span>
+0041 dp;
+0042 
+0043 <span class="comment">% set_selinterval_version&lt;2.0&gt; -- for the cache</span>
+0044 
+0045 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'editing'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0046 
+0047 declare_properties(<span class="string">'independent_channels'</span>,true,<span class="string">'independent_trials'</span>,false);
+0048 
+0049 arg_define(varargin, <span class="keyword">...</span>
+0050     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0051     arg({<span class="string">'intervals'</span>,<span class="string">'Intervals'</span>},[],[], <span class="string">'Selection intervals. Array of the form [start end; start end; start end; ...].'</span>), <span class="keyword">...</span>
+0052     arg({<span class="string">'selunit'</span>,<span class="string">'IntervalUnit'</span>,<span class="string">'Unit'</span>,<span class="string">'unit'</span>},<span class="string">'seconds'</span>,{<span class="string">'seconds'</span>,<span class="string">'samples'</span>,<span class="string">'fraction'</span>,<span class="string">'range'</span>}, <span class="string">'Interval unit. The unit of measurement for selection intervals (does not apply to SampleRange).'</span>), <span class="keyword">...</span>
+0053     arg({<span class="string">'insert_boundary_markers'</span>,<span class="string">'InsertBoundaryMarkers'</span>},false,[], <span class="string">'Insert boundary markers. Whether to insert boundary markers (for EEGLAB compatibility).'</span>));
+0054 
+0055 utl_check_fields(signal,{<span class="string">'epoch'</span>,<span class="string">'event'</span>,<span class="string">'data'</span>,<span class="string">'pnts'</span>,<span class="string">'srate'</span>,<span class="string">'xmin'</span>},<span class="string">'signal'</span>,<span class="string">'signal'</span>);
+0056 <span class="keyword">if</span> signal.srate == 0 
+0057     error(<span class="string">'Your signal needs to have a nonzero .srate value.'</span>); <span class="keyword">end</span>
+0058 <span class="keyword">if</span> ~isempty(signal.epoch) || size(signal.data,3) &gt; 1
+0059     error(<span class="string">'This function cannot be applied to epoched data. Use flt_window to perform interval selection on epoched data.'</span>); <span class="keyword">end</span>
+0060 
+0061 <span class="keyword">switch</span> selunit
+0062     <span class="keyword">case</span> <span class="string">'fraction'</span>        
+0063         <span class="keyword">if</span> any(intervals&lt;0 | intervals&gt;1) <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0064             error(<span class="string">'Fractional intervals must be in the [0,1] range.'</span>); <span class="keyword">end</span>
+0065         intervals = 1+round(intervals*(size(signal.data,2)-1));
+0066         samplerange = [];
+0067     <span class="keyword">case</span> <span class="string">'seconds'</span>
+0068         intervals(intervals==Inf) = (size(signal.data,2)-1)/signal.srate;
+0069         <span class="keyword">if</span> any(intervals&lt;0 | (1+round(intervals*signal.srate)) &gt; size(signal.data,2))
+0070             error(<span class="string">'Your intervals exceed the data limit.'</span>); <span class="keyword">end</span>
+0071         intervals = min(1+round(intervals*signal.srate),size(signal.data,2));
+0072         samplerange = [];
+0073     <span class="keyword">case</span> <span class="string">'range'</span>
+0074         samplerange = intervals(:)';
+0075         intervals = [];
+0076     <span class="keyword">case</span> <span class="string">'samples'</span>
+0077         samplerange = [];
+0078     <span class="keyword">otherwise</span>
+0079         error([<span class="string">'Unsupported selection unit: '</span> selunit]);
+0080 <span class="keyword">end</span>
+0081 
+0082 <span class="comment">% generate samplerange from intervals if not yet present</span>
+0083 <span class="keyword">if</span> isempty(samplerange)
+0084     samplerange = cell(1,size(intervals,1));
+0085     <span class="keyword">for</span> k=1:length(samplerange)
+0086         samplerange{k} = intervals(k,1):intervals(k,2); <span class="keyword">end</span>
+0087     samplerange = [samplerange{:}];
+0088 <span class="keyword">elseif</span> isa(samplerange,<span class="string">'logical'</span>)
+0089     samplerange = find(samplerange);
+0090 <span class="keyword">end</span>
+0091 <span class="keyword">if</span> any(round(samplerange) ~= samplerange)
+0092     error(<span class="string">'Your sample range contains non-integer indices: %s'</span>,hlp_tostring(samplerange)); <span class="keyword">end</span>
+0093 <span class="keyword">if</span> any(samplerange&lt;1 | samplerange&gt;size(signal.data,2))
+0094     error(<span class="string">'Your sample range exceeds the data bounds (%i); range is: %s.'</span>,size(signal.data,2),hlp_tostring(samplerange)); <span class="keyword">end</span>
+0095 
+0096 <span class="keyword">if</span> isempty(samplerange)
+0097     <span class="comment">% clear data</span>
+0098     <span class="keyword">for</span> field = utl_timeseries_fields(signal)
+0099         signal.(field{1}) = []; <span class="keyword">end</span>
+0100     signal.event = [];
+0101     signal.pnts = 0;
+0102 <span class="keyword">elseif</span> ~isequal(samplerange,1:size(signal.data,2))
+0103     <span class="comment">% select range within the time series fields</span>
+0104     <span class="keyword">for</span> field = utl_timeseries_fields(signal)
+0105         <span class="keyword">if</span> ~isempty(signal.(field{1}))
+0106             <span class="keyword">try</span>
+0107                 signal.(field{1}) = signal.(field{1})(:,samplerange,:,:,:,:,:,:); 
+0108             <span class="keyword">catch</span> e
+0109                 error(<span class="string">'The given sample range could not be extracted from the time-series field .%s with error: %s. Field size was: %i, epoch indices were: %s'</span>,field{1},e.message,size(signal.(field{1}),2),hlp_tostring(samplerange));
+0110             <span class="keyword">end</span>
+0111         <span class="keyword">end</span>
+0112     <span class="keyword">end</span>
+0113     <span class="comment">% select range within the events</span>
+0114     <span class="keyword">if</span> ~isempty(signal.event)
+0115         <span class="keyword">if</span> ~isfield(signal.event,<span class="string">'latency'</span>)
+0116             error(<span class="string">'Your signal is lacking the required .event.latency field.'</span>); <span class="keyword">end</span>
+0117         latency_numels = cellfun(<span class="string">'prodofsize'</span>,{signal.event.latency});
+0118         <span class="keyword">if</span> any(latency_numels == 0)
+0119             error(<span class="string">'The given signal has one or more events with empty .latency field. This is not permitted.'</span>);
+0120         <span class="keyword">elseif</span> any(latency_numels ~= 1)
+0121             error(<span class="string">'The given signal has one or more events with a .latency value that is not a scalar. This is not permitted.'</span>);
+0122         <span class="keyword">end</span>
+0123         <span class="comment">% trim out-of-bounds events</span>
+0124         event_latency = [signal.event.latency];
+0125         out_of_bounds = event_latency&lt;1 | event_latency&gt;signal.pnts;
+0126         <span class="keyword">if</span> any(out_of_bounds)
+0127             disp_once(<span class="string">'WARNING: your signal had %i events at out-of-bounds latencies that were removed.'</span>,nnz(out_of_bounds)); <span class="keyword">end</span>
+0128         signal.event(out_of_bounds) = [];
+0129         <span class="comment">% bin latencies into sparse array and apply selection</span>
+0130         [event_positions,residuals] = sparse_binning([signal.event.latency],[],signal.pnts);
+0131         [ranks,sample_indices,event_indices] = find(event_positions(:,samplerange));
+0132         residuals = residuals(:); sample_indices = sample_indices(:); event_indices = event_indices(:);
+0133         <span class="comment">% write event subset and update latencies</span>
+0134         <span class="keyword">if</span> ~isempty(ranks)
+0135             signal.event = signal.event(event_indices);
+0136             [signal.event.latency] = arraydeal(sample_indices+residuals(event_indices)); 
+0137         <span class="keyword">else</span>
+0138             signal.event = [];
+0139         <span class="keyword">end</span>
+0140     <span class="keyword">end</span>
+0141     <span class="comment">% optionally insert boundary markers</span>
+0142     <span class="keyword">if</span> insert_boundary_markers
+0143         <span class="comment">% calculate gaps between intervals</span>
+0144         <span class="keyword">if</span> isempty(intervals)
+0145             tmp = diff(samplerange)-1;
+0146             gap_offsets = find(tmp);
+0147             gap_lengths = tmp(gap_offsets);
+0148         <span class="keyword">else</span>
+0149             gap_offsets = intervals(1:end-1,2);
+0150             gap_lengths = intervals(2:<span class="keyword">end</span>,1) - intervals(1:end-1,2) - 1;
+0151         <span class="keyword">end</span>
+0152         <span class="comment">% append new events for each boundary between intervals</span>
+0153         insert_range = length(signal.event)+(1:length(gap_offsets));
+0154         <span class="keyword">if</span> insert_range
+0155             [signal.event(insert_range).type] = deal(<span class="string">'boundary'</span>);
+0156             [signal.event(insert_range).latency] = arraydeal(gap_offsets+0.5);
+0157             [signal.event(insert_range).duration] = arraydeal(gap_lengths);
+0158             <span class="comment">% resort events</span>
+0159             [dummy,order] = sort([signal.event.latency]); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0160             signal.event = signal.event(order);
+0161         <span class="keyword">end</span>
+0162     <span class="keyword">end</span>
+0163     <span class="comment">% update misc fields</span>
+0164     signal.pnts = size(signal.data,2);
+0165     signal.xmax = signal.xmin + (max(samplerange)-1)/signal.srate;
+0166     signal.xmin = signal.xmin + (min(samplerange)-1)/signal.srate;
+0167 <span class="keyword">end</span>
+0168 
+0169 exp_endfun;</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

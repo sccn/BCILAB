@@ -76,7 +76,11 @@ else
                 probs = 1 ./ (1 + exp(-trials*model.W + model.b));
                 pred = {'disc', [1-probs probs], model.classes};
             else
-                [x,y,probs] = llwpredict(zeros(size(trials,1),1),sparse(double(trials)),model,'-b 1'); %#ok<ASGLU>
+                try
+                    [x,y,probs] = llpredict(zeros(size(trials,1),1),sparse(double(trials)),model,'-b 1'); %#ok<ASGLU>
+                catch
+                    [x,y,probs] = llwpredict(zeros(size(trials,1),1),sparse(double(trials)),model,'-b 1'); %#ok<ASGLU>
+                end
                 pred = {'disc', probs, model.classes(model.Label+1)};
             end
     end

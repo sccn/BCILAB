@@ -47,6 +47,10 @@ timeout_send_ms = 5000;
 timeout_recv_ms = 5000;
 timeout_accept_ms = 5000;
 use_hlpscope = true;
+use_hlpgetresult = false;
+
+if ischar(func)
+    func = str2func(func); end;
 
 % transfer the current scope (optional)
 if use_hlpscope
@@ -57,7 +61,7 @@ end
 
 % construct message
 fprintf('serializing task data...');
-messagebody = base64encode(hlp_serialize([{1},{func},varargin]));
+messagebody = hlp_serialize([{1},{func},varargin]);
 disp('done.');
 
 
@@ -106,11 +110,21 @@ out.writeInt(taskid);
 out.writeInt(length(return_address));
 out.writeBytes(return_address);
 out.writeInt(length(messagebody));
-out.writeBytes(messagebody);
+out.write(messagebody);
 out.flush();
 
+% wait for handshake
+fprintf('done; now waiting for checkum...');
+in = DataInputStream(outconn.getInputStream());
+checksum = in.readInt();
+fprintf('done; checking...');
+if checksum == taskid+length(return_address)+length(messagebody)
+    fprintf('all clear');
+else
+    fprintf('ERROR: unexpected checksum');
+end
 % close socket
-fprintf('done; now closing...');
+fprintf('; now closing...');
 outconn.close();
 disp('done.');
 
@@ -140,7 +154,7 @@ while true
         disp(['got correct task id: ' num2str(received_taskid)]);
     end
     fprintf('receiving reply...');
-    replybody = char(cr.readFully(in.readInt())');
+    replybody = typecast(cr.readFully(in.readInt()),'uint8');
     fprintf('got reply (%.0fkb).\n',length(replybody)/1024);
     
     fprintf('now closing...');
@@ -149,7 +163,7 @@ while true
     
     % construct result
     fprintf('parsing result...');
-    reply = hlp_deserialize(base64decode(replybody));
+    reply = hlp_deserialize(replybody);
     disp('done.');
     
     % post-process result

@@ -12,10 +12,10 @@ function [signal,state] = flt_siftpipeline(varargin)
 
 if ~exp_beginfun('filter'), return; end
 declare_properties('name','SIFT', 'experimental',true, 'follows',{'flt_ica','flt_fir','flt_iir','flt_project','flt_sourceLocalize'}, 'cannot_precede',{'flt_clean_settings'},'independent_channels',false, 'independent_trials',false);
-
-
 signal = arg_extract(varargin,{'signal','Signal','EEG'},[],[]);
-signal.srcpot = [];
+
+
+% signal.srcpot = [];
 signal.icaweights = [];
 g = arg_define(varargin, ...
         arg_norep({'signal','Signal','EEG'}), ...
@@ -53,7 +53,9 @@ g      = rmfield(g,'signal');
 
 % select channels
 % -------------------------------------------------------------------------
-if ~isempty(g.channels) && ~isequal(g.channels,1:preproc.nbchan) && ~isequal(g.channels,{char(zeros(1,0))}) % TODO: remove last isequal hack
+if ~isempty(g.channels) ...
+        && ~isequal(g.channels,1:preproc.nbchan) ...
+        && ~isequal(g.channels,{char(zeros(1,0))}) % TODO: remove last isequal hack
     preproc.chanlocs = preproc.chanlocs(g.channels);
     preproc.data = preproc.data(g.channels,:,:);
     preproc.nbchan = size(preproc.data,1);
@@ -84,10 +86,10 @@ if isempty(preproc.epoch)
     g.modeling.winStartIdx(g.modeling.winStartIdx<1) = [];
     if ~isempty(g.modeling.winStartIdx)
         % buffer all data that will be needed on the next call
-        next_index = max(g.modeling.winStartIdx)+winstep;
+        next_index = g.modeling.winStartIdx(end)+winstep;
         for tf = utl_timeseries_fields(preproc)
             state.(tf{1}).buffer = preproc.(tf{1})(:,next_index:end); end
-        % decrement next_index based on how much we at the beginning
+        % decrement next_index based on how much we removed at the beginning
         state.(f{1}).next_index = next_index - (size(preproc.(f{1}),2) - size(state.(f{1}).buffer,2));
     else
         % if we cannot make a prediction keep everything buffered
@@ -97,6 +99,8 @@ if isempty(preproc.epoch)
     % consistently update signal meta-data
     preproc.pnts = size(preproc.data,2);
     preproc.xmax = preproc.xmin + (preproc.pnts-1)/preproc.srate;
+else
+    % TODO: handle epoched data
 end
 
 if isempty(preproc.epoch) && isempty(g.modeling.winStartIdx)
@@ -105,6 +109,8 @@ if isempty(preproc.epoch) && isempty(g.modeling.winStartIdx)
     signal.CAT = hlp_sift_emptyset;
     signal.CAT.Conn = hlp_sift_emptyconn;
     signal.CAT.MODEL = hlp_sift_emptymodel;
+    for f=g.connectivity.connmethods(:)'
+        signal.CAT.Conn.(f{1}) = []; end
 else
 
     % pre-process data
@@ -141,7 +147,7 @@ else
     % perform model validation
     % -------------------------------------------------------------------------
     if g.validation.arg_selection
-        [whitestats PCstats stability residualstats] = est_validateMVAR('EEG',preproc,g.validation,'arg_direct',true);
+        [whitestats, PCstats, stability, residualstats] = est_validateMVAR('EEG',preproc,g.validation,'arg_direct',true);
         if isempty(whitestats)
             whitenessCriteria = {};
         else
@@ -169,6 +175,17 @@ else
     end
 
     signal.CAT = preproc.CAT;
+end
+
+
+% append time-series fields
+for f=vec(hlp_getConnMethodNames(signal.CAT.Conn))'
+    fname = f{1};
+    signal = utl_register_field(signal,'timeseries',fname,signal.CAT.Conn.(fname));  % [space,space,freq,time]
+    if ~isempty(signal.(fname))
+        signal.(fname) = permute(signal.(fname),[1 4 5 2 3]);                        % [space,time,epoch,space,freq]
+    end
+    signal.sift_ipermute = [1 4 5 2 3];
 end
 
 exp_endfun;

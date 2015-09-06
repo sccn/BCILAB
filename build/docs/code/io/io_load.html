@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/io&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>io_load
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -56,11 +57,17 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="io_loadset.html" class="code" title="function res = io_loadset(varargin)">io_loadset</a>	Load/import a data set from disk, across all formats supported by EEGLAB.</li>
 </ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -91,18 +98,48 @@ This function is called by:
 0024 <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
 0025 <span class="comment">%                               2010-06-21</span>
 0026 
-0027 <span class="keyword">if</span> ~isempty(varargin{1}) &amp;&amp; varargin{1}(1) == <span class="string">'-'</span> &amp;&amp; ~any(varargin{1}==<span class="string">'.'</span>)
-0028     contents = load(varargin{1},env_translatepath(varargin{2}),varargin{3:end});
-0029 <span class="keyword">else</span>
-0030     contents = load(env_translatepath(varargin{1}),varargin{2:end});
-0031 <span class="keyword">end</span>
-0032 
-0033 <span class="keyword">if</span> nargout &gt; 0
-0034     res = contents;
-0035 <span class="keyword">else</span>
-0036     <span class="keyword">for</span> fn = fieldnames(contents)'
-0037         assignin(<span class="string">'caller'</span>,fn{1},contents.(fn{1})); <span class="keyword">end</span>    
-0038 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0027 fname = varargin{1};
+0028 <span class="keyword">if</span> length(fname)&gt;4 &amp;&amp; strcmpi(fname(end-3:end),<span class="string">'.sto'</span>)
+0029     <span class="comment">% load from .sto file</span>
+0030     <span class="keyword">if</span> strncmp(fname,<span class="string">'cluster:'</span>,8)
+0031         <span class="comment">% load over the network</span>
+0032         bytes = par_fileclient(env_translatepath(fname(9:end)),<span class="string">'Verbosity'</span>,2);
+0033     <span class="keyword">else</span>
+0034         <span class="comment">% load from disk</span>
+0035         f = fopen(env_translatepath(fname),<span class="string">'r'</span>);
+0036         <span class="keyword">try</span>
+0037             bytes = fread(f,inf,<span class="string">'*uint8'</span>);
+0038             fclose(f);
+0039         <span class="keyword">catch</span> e
+0040             <span class="keyword">if</span> ~exist(fname,<span class="string">'file'</span>)
+0041                 error(<span class="string">'The file named &quot;%s&quot; does not exist.'</span>,fname);
+0042             <span class="keyword">else</span>
+0043                 rethrow(e);
+0044             <span class="keyword">end</span>
+0045         <span class="keyword">end</span>
+0046     <span class="keyword">end</span>
+0047     contents = hlp_deserialize(bytes);
+0048 <span class="keyword">else</span>
+0049     <span class="keyword">if</span> ~isempty(varargin{1}) &amp;&amp; varargin{1}(1) == <span class="string">'-'</span> &amp;&amp; ~any(varargin{1}==<span class="string">'.'</span>)
+0050         contents = load(varargin{1},env_translatepath(varargin{2}),varargin{3:end});
+0051     <span class="keyword">else</span>
+0052         contents = load(env_translatepath(varargin{1}),varargin{2:end});
+0053     <span class="keyword">end</span>
+0054 <span class="keyword">end</span>
+0055     
+0056 <span class="keyword">if</span> isfield(contents,<span class="string">'is_serialized__'</span>)
+0057     contents = rmfield(contents,<span class="string">'is_serialized__'</span>);
+0058     <span class="keyword">for</span> fn = fieldnames(contents)'
+0059         contents.(fn{1}) = hlp_deserialize(contents.(fn{1})); <span class="keyword">end</span>
+0060 <span class="keyword">end</span>
+0061 
+0062 <span class="keyword">if</span> nargout &gt; 0
+0063     res = contents;
+0064 <span class="keyword">else</span>
+0065     <span class="keyword">for</span> fn = fieldnames(contents)'
+0066         assignin(<span class="string">'caller'</span>,fn{1},contents.(fn{1})); <span class="keyword">end</span>    
+0067 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

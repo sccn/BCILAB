@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>hlp_cryptohash
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -46,7 +47,7 @@
    hlp_cryptohash(lastmodel);
 
  See also:
-   <a href="hlp_fingerprint.html" class="code" title="function fp = hlp_fingerprint(data)">hlp_fingerprint</a>, <a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>
+   <a href="hlp_fingerprint.html" class="code" title="function fp = hlp_fingerprint(data,hashed)">hlp_fingerprint</a>, <a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>
 
                                    Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                                 2010-10-10</pre></div>
@@ -55,11 +56,21 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>	Convert a MATLAB data structure into a compact byte vector.</li></ul>
+
+<li><a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>	Convert a MATLAB data structure into a compact byte vector.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="hlp_diskcache.html" class="code" title="function varargout = hlp_diskcache(options, f, varargin)">hlp_diskcache</a>	Cache results of function invocations.</li><li><a href="hlp_trycompile.html" class="code" title="function ok = hlp_trycompile(varargin)">hlp_trycompile</a>	Try to auto-compile a set of binary files in a folder, and return the status.</li></ul>
+
+<li><a href="hlp_diskcache.html" class="code" title="function varargout = hlp_diskcache(options, f, varargin)">hlp_diskcache</a>	Cache results of function invocations.</li>
+<li><a href="hlp_fileinfo.html" class="code" title="function [version,inargs,outargs,h1,hash] = hlp_fileinfo(identifier,fname,whatinfo)">hlp_fileinfo</a>	Retuns (cached) information on a file (MD5 hash, input/output argument names).</li>
+<li><a href="hlp_funcversion.html" class="code" title="function v = hlp_funcversion(func,filename,versionformat)">hlp_funcversion</a>	Get the version string of a MATLAB function, or an MD5 hash if unversioned.</li>
+<li><a href="hlp_trycompile.html" class="code" title="function ok = hlp_trycompile(varargin)">hlp_trycompile</a>	Try to auto-compile a set of binary files in a folder, and return the status.</li>
+</ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -106,43 +117,50 @@ This function is called by:
 0040 <span class="comment">% maximum amount of memory used inside the Java VM</span>
 0041 max_java_memory = 2^26; <span class="comment">% 64 MB</span>
 0042 
-0043 <span class="keyword">if</span> exist(<span class="string">'fromfile'</span>,<span class="string">'var'</span>) &amp;&amp; fromfile
-0044     <span class="comment">% take data as a file name</span>
-0045     <span class="keyword">if</span> ~ischar(data)
-0046         error(<span class="string">'To represent a file name, Data should be a string.'</span>); <span class="keyword">end</span>
-0047     <span class="keyword">if</span> ~exist(data,<span class="string">'file'</span>)
-0048         error(<span class="string">'The file %s does not exist.'</span>,data); <span class="keyword">end</span>
-0049     f = fopen(data,<span class="string">'r'</span>);
-0050     <span class="keyword">try</span>
-0051         data = fread(f,Inf);
-0052         fclose(f);
-0053     <span class="keyword">catch</span> e
-0054         <span class="keyword">try</span> 
-0055             fclose(f);
-0056         <span class="keyword">catch</span>,<span class="keyword">end</span>
-0057         rethrow(e);
-0058     <span class="keyword">end</span>
-0059 <span class="keyword">else</span>
-0060     <span class="comment">% take data literally</span>
-0061     <span class="keyword">if</span> ~ischar(data)
-0062         data = <a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>(data); <span class="keyword">end</span>
-0063 <span class="keyword">end</span>
-0064 
-0065 <span class="comment">% use Java to hash the data (idea from Michael Kleder)</span>
-0066 hasher = java.security.MessageDigest.getInstance(<span class="string">'MD5'</span>);
-0067 data = uint8(data);
-0068 <span class="keyword">if</span> length(data) &lt;= max_java_memory
-0069     hasher.update(data);
-0070 <span class="keyword">else</span>
-0071     numsplits = ceil(length(data)/max_java_memory);
-0072     <span class="keyword">for</span> i=0:numsplits-1
-0073         range = 1+floor(i*length(data)/numsplits) : min(length(data),floor((i+1)*length(data)/numsplits));
-0074         hasher.update(data(range));
-0075     <span class="keyword">end</span>
-0076 <span class="keyword">end</span>
-0077 
-0078 hash = dec2hex(typecast(hasher.digest,<span class="string">'uint8'</span>),2)';
-0079 hash = lower(hash(:)');</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0043 <span class="keyword">if</span> nargin &lt; 2
+0044     fromfile = false; <span class="keyword">end</span>    
+0045 <span class="keyword">if</span> ~(isequal(fromfile,true) || isequal(fromfile,false))
+0046     error(<span class="string">'The given FromFile argument must be true or false.'</span>); <span class="keyword">end</span>
+0047 
+0048 <span class="keyword">if</span> fromfile
+0049     <span class="comment">% take data as a file name</span>
+0050     <span class="keyword">if</span> ~ischar(data)
+0051         error(<span class="string">'To represent a file name, Data should be a string.'</span>); <span class="keyword">end</span>
+0052     <span class="keyword">if</span> ~exist(data,<span class="string">'file'</span>)
+0053         error(<span class="string">'The file %s does not exist.'</span>,data); <span class="keyword">end</span>
+0054     f = fopen(data,<span class="string">'r'</span>);
+0055     <span class="keyword">try</span>
+0056         data = fread(f,Inf);
+0057         fclose(f);
+0058     <span class="keyword">catch</span> e
+0059         <span class="keyword">try</span> 
+0060             fclose(f);
+0061         <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0062         <span class="keyword">end</span>
+0063         rethrow(e);
+0064     <span class="keyword">end</span>
+0065 <span class="keyword">else</span>
+0066     <span class="comment">% take data literally</span>
+0067     <span class="keyword">if</span> ~ischar(data)
+0068         data = <a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>(data); <span class="keyword">end</span>
+0069 <span class="keyword">end</span>
+0070 
+0071 <span class="comment">% use Java to hash the data (idea from Michael Kleder)</span>
+0072 hasher = java.security.MessageDigest.getInstance(<span class="string">'MD5'</span>);
+0073 data = uint8(data);
+0074 <span class="keyword">if</span> length(data) &lt;= max_java_memory
+0075     hasher.update(data);
+0076 <span class="keyword">else</span>
+0077     numsplits = ceil(length(data)/max_java_memory);
+0078     <span class="keyword">for</span> i=0:numsplits-1
+0079         range = 1+floor(i*length(data)/numsplits) : min(length(data),floor((i+1)*length(data)/numsplits));
+0080         hasher.update(data(range));
+0081     <span class="keyword">end</span>
+0082 <span class="keyword">end</span>
+0083 
+0084 hash = dec2hex(typecast(hasher.digest,<span class="string">'uint8'</span>),2)';
+0085 hash = lower(hash(:)');</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

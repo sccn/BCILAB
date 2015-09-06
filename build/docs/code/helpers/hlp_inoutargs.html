@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>hlp_inoutargs
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -41,7 +42,7 @@
    H1-Line  : first line of help text
 
  Notes:
-   For heavy use, utl_fileversion is to be preferred (which caches the result of this function properly).
+   For heavy use, hlp_fileinfo is to be preferred (which caches the result of this function properly).
 
                            Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                            2010-04-14</pre></div>
@@ -50,11 +51,18 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="hlp_split.html" class="code" title="function res = hlp_split(str,delims)">hlp_split</a>	Split a string according to some delimiter(s).</li></ul>
+
+<li><a href="hlp_split.html" class="code" title="function res = hlp_split(str,delims)">hlp_split</a>	Split a string according to some delimiter(s).</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="hlp_fileinfo.html" class="code" title="function [version,inargs,outargs,h1,hash] = hlp_fileinfo(identifier,fname,whatinfo)">hlp_fileinfo</a>	Retuns (cached) information on a file (MD5 hash, input/output argument names).</li>
 </ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -74,7 +82,7 @@ This function is called by:
 0013 <span class="comment">%   H1-Line  : first line of help text</span>
 0014 <span class="comment">%</span>
 0015 <span class="comment">% Notes:</span>
-0016 <span class="comment">%   For heavy use, utl_fileversion is to be preferred (which caches the result of this function properly).</span>
+0016 <span class="comment">%   For heavy use, hlp_fileinfo is to be preferred (which caches the result of this function properly).</span>
 0017 <span class="comment">%</span>
 0018 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
 0019 <span class="comment">%                           2010-04-14</span>
@@ -94,86 +102,92 @@ This function is called by:
 0033 <span class="comment">% USA</span>
 0034 
 0035 h1 = [];
-0036 
-0037 <span class="keyword">if</span> ~exist(<span class="string">'funcname'</span>,<span class="string">'var'</span>)
-0038     funcname = []; <span class="keyword">end</span>
-0039 
-0040 <span class="keyword">if</span> ~exist(filename,<span class="string">'file'</span>)
-0041     error([<span class="string">'there is no file named '</span> filename]); <span class="keyword">end</span>
-0042 f = fopen(filename,<span class="string">'r'</span>);
-0043 <span class="keyword">if</span> f == -1
-0044     error([<span class="string">'Cannot open the file named '</span> filename]); <span class="keyword">end</span>
-0045 <span class="keyword">try</span>
-0046     <span class="keyword">while</span> 1
-0047         <span class="comment">% read the file line by line</span>
-0048         l = fgetl(f);
-0049         <span class="keyword">if</span> ~ischar(l)
-0050             error([<span class="string">'definition of the function '</span> funcname <span class="string">' not found in '</span> filename]); <span class="keyword">end</span>
-0051         <span class="comment">% remove commented part</span>
-0052         commpos = strfind(l,<span class="string">'%'</span>);
-0053         <span class="keyword">if</span> ~isempty(commpos)
-0054             l = l(1:commpos(1)-1); <span class="keyword">end</span>
-0055         <span class="comment">% see if it contains a function declaration</span>
-0056         funcpos = strfind(l,<span class="string">'function'</span>);
-0057         <span class="keyword">if</span> ~isempty(funcpos) &amp;&amp; isempty(strtrim(l(1:funcpos-1)))            
-0058             <span class="comment">% we have the declaration line, find out where the input/output args are</span>
-0059             ostart = strfind(l,<span class="string">'['</span>)+1;
-0060             oend = strfind(l,<span class="string">']'</span>)-1;
-0061             <span class="keyword">if</span> isempty(ostart) || isempty(oend)
-0062                 ostart = funcpos+length(<span class="string">'function'</span>);
-0063                 oend = strfind(l, <span class="string">'='</span>)-1;
-0064             <span class="keyword">end</span>
-0065             istart = strfind(l,<span class="string">'('</span>)+1;
-0066             iend = strfind(l,<span class="string">')'</span>)-1;
-0067             <span class="comment">% and read them in (note: both ranges could be empty)</span>
-0068             <span class="keyword">if</span> ~(isempty(istart) || isempty(iend))
-0069                 inargs = <a href="hlp_split.html" class="code" title="function res = hlp_split(str,delims)">hlp_split</a>(l(istart:iend),<span class="string">', '</span>); 
-0070             <span class="keyword">else</span>
-0071                 inargs = {};
-0072             <span class="keyword">end</span>
-0073             <span class="keyword">if</span> ~(isempty(ostart) || isempty(oend))
-0074                 outargs = <a href="hlp_split.html" class="code" title="function res = hlp_split(str,delims)">hlp_split</a>(l(ostart:oend),<span class="string">', '</span>); 
+0036 <span class="keyword">if</span> nargin &lt; 2
+0037     funcname = []; <span class="keyword">end</span>
+0038 
+0039 <span class="keyword">if</span> ~ischar(filename)
+0040     error(<span class="string">'The given Filename argument must be a string.'</span>); <span class="keyword">end</span>
+0041 f = fopen(filename,<span class="string">'r'</span>);
+0042 <span class="keyword">if</span> f == -1
+0043     <span class="keyword">if</span> ~exist(filename,<span class="string">'file'</span>)
+0044         error([<span class="string">'there is no file named '</span> filename]);
+0045     <span class="keyword">else</span>
+0046         error([<span class="string">'Cannot open the file named '</span> filename]); 
+0047     <span class="keyword">end</span>
+0048 <span class="keyword">end</span>
+0049 
+0050 <span class="keyword">try</span>
+0051     <span class="keyword">while</span> 1
+0052         <span class="comment">% read the file line by line</span>
+0053         l = fgetl(f);
+0054         <span class="keyword">if</span> ~ischar(l)
+0055             error([<span class="string">'definition of the function '</span> funcname <span class="string">' not found in '</span> filename]); <span class="keyword">end</span>
+0056         <span class="comment">% remove commented part</span>
+0057         commpos = strfind(l,<span class="string">'%'</span>);
+0058         <span class="keyword">if</span> ~isempty(commpos)
+0059             l = l(1:commpos(1)-1); <span class="keyword">end</span>
+0060         <span class="comment">% see if it contains a function declaration</span>
+0061         funcpos = strfind(l,<span class="string">'function'</span>);
+0062         <span class="keyword">if</span> ~isempty(funcpos) &amp;&amp; isempty(strtrim(l(1:funcpos-1)))            
+0063             <span class="comment">% we have the declaration line, find out where the input/output args are</span>
+0064             ostart = strfind(l,<span class="string">'['</span>)+1;
+0065             oend = strfind(l,<span class="string">']'</span>)-1;
+0066             <span class="keyword">if</span> isempty(ostart) || isempty(oend)
+0067                 ostart = funcpos+length(<span class="string">'function'</span>);
+0068                 oend = strfind(l, <span class="string">'='</span>)-1;
+0069             <span class="keyword">end</span>
+0070             istart = strfind(l,<span class="string">'('</span>)+1;
+0071             iend = strfind(l,<span class="string">')'</span>)-1;
+0072             <span class="comment">% and read them in (note: both ranges could be empty)</span>
+0073             <span class="keyword">if</span> ~(isempty(istart) || isempty(iend))
+0074                 inargs = <a href="hlp_split.html" class="code" title="function res = hlp_split(str,delims)">hlp_split</a>(l(istart:iend),<span class="string">', '</span>); 
 0075             <span class="keyword">else</span>
-0076                 outargs = {};
+0076                 inargs = {};
 0077             <span class="keyword">end</span>
-0078             inargs = inargs(~cellfun(@isempty,inargs));
-0079             outargs = outargs(~cellfun(@isempty,outargs));                
-0080             <span class="keyword">if</span> ~isempty(funcname)
-0081                 <span class="comment">% and also make sure that we have the correct function name</span>
-0082                 <span class="keyword">if</span> ~isempty(oend)
-0083                     nstart = strfind(l,<span class="string">'='</span>)+1;
-0084                 <span class="keyword">else</span>
-0085                     nstart = ostart;
-0086                 <span class="keyword">end</span>
-0087                 <span class="keyword">if</span> ~isempty(istart)
-0088                     nend = istart-2;
+0078             <span class="keyword">if</span> ~(isempty(ostart) || isempty(oend))
+0079                 outargs = <a href="hlp_split.html" class="code" title="function res = hlp_split(str,delims)">hlp_split</a>(l(ostart:oend),<span class="string">', '</span>); 
+0080             <span class="keyword">else</span>
+0081                 outargs = {};
+0082             <span class="keyword">end</span>
+0083             inargs = inargs(~cellfun(<span class="string">'isempty'</span>,inargs));
+0084             outargs = outargs(~cellfun(<span class="string">'isempty'</span>,outargs));                
+0085             <span class="keyword">if</span> ~isempty(funcname)
+0086                 <span class="comment">% and also make sure that we have the correct function name</span>
+0087                 <span class="keyword">if</span> ~isempty(oend)
+0088                     nstart = strfind(l,<span class="string">'='</span>)+1;
 0089                 <span class="keyword">else</span>
-0090                     nend = length(l);
-0091                 <span class="keyword">end</span>                
-0092                 <span class="keyword">if</span> strcmp(strtrim(l(nstart:nend)), funcname)
-0093                     <span class="comment">% match: we're done</span>
-0094                     <span class="keyword">break</span>; 
-0095                 <span class="keyword">end</span>
-0096             <span class="keyword">else</span>
-0097                 <span class="comment">% we're done</span>
-0098                 <span class="keyword">break</span>;
-0099             <span class="keyword">end</span>
-0100         <span class="keyword">end</span>
-0101     <span class="keyword">end</span>
-0102     <span class="keyword">try</span>
-0103         <span class="comment">% check if we find a commented line... this would be the h1 line</span>
-0104         l = fgetl(f);
-0105         comm = find(l==<span class="string">'%'</span>,1);
-0106         <span class="keyword">if</span> ~isempty(comm)
-0107             h1 = strtrim(l(comm+1:end)); <span class="keyword">end</span>
-0108     <span class="keyword">catch</span>
-0109     <span class="keyword">end</span>
-0110     fclose(f);
-0111 <span class="keyword">catch</span> e
-0112     <span class="keyword">if</span> f ~= -1
-0113         fclose(f); <span class="keyword">end</span>
-0114     rethrow(e);
-0115 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0090                     nstart = ostart;
+0091                 <span class="keyword">end</span>
+0092                 <span class="keyword">if</span> ~isempty(istart)
+0093                     nend = istart-2;
+0094                 <span class="keyword">else</span>
+0095                     nend = length(l);
+0096                 <span class="keyword">end</span>                
+0097                 <span class="keyword">if</span> strcmp(strtrim(l(nstart:nend)), funcname)
+0098                     <span class="comment">% match: we're done</span>
+0099                     <span class="keyword">break</span>; 
+0100                 <span class="keyword">end</span>
+0101             <span class="keyword">else</span>
+0102                 <span class="comment">% we're done</span>
+0103                 <span class="keyword">break</span>;
+0104             <span class="keyword">end</span>
+0105         <span class="keyword">end</span>
+0106     <span class="keyword">end</span>
+0107     <span class="keyword">try</span>
+0108         <span class="comment">% check if we find a commented line... this would be the h1 line</span>
+0109         l = fgetl(f);
+0110         comm = find(l==<span class="string">'%'</span>,1);
+0111         <span class="keyword">if</span> ~isempty(comm)
+0112             h1 = strtrim(l(comm+1:end)); <span class="keyword">end</span>
+0113     <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0114     <span class="keyword">end</span>
+0115     fclose(f);
+0116 <span class="keyword">catch</span> e
+0117     <span class="keyword">if</span> f ~= -1
+0118         fclose(f); <span class="keyword">end</span>
+0119     rethrow(e);
+0120 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

@@ -366,41 +366,41 @@ function b = class2tag(cls)
         % other tags are as follows:
         % % offset by +16: scalar variants of these...
         case 'cell'
-          b = uint8(33);
+            b = uint8(33);
         case 'cellscalars'
-          b = uint8(34);
+            b = uint8(34);
         case 'cellscalarsmixed'
-          b = uint8(35);
+            b = uint8(35);
         case 'cellstrings'
-          b = uint8(36);
+            b = uint8(36);
         case 'cellempty'
-          b = uint8(37);
+            b = uint8(37);
         case 'cellemptyprot'
-          b = uint8(38);
+            b = uint8(38);
         case 'cellbools'
-          b = uint8(39);
+            b = uint8(39);
         case 'struct'
-          b = uint8(128);
+            b = uint8(128);
         case 'sparse'
-          b = uint8(130);
+            b = uint8(130);
         case 'complex'
-          b = uint8(131);
+            b = uint8(131);
         case 'char'
-          b = uint8(132);
+            b = uint8(132);
         case 'logical'
-        	b = uint8(133);
+            b = uint8(133);
         case 'object'
-          b = uint8(134);
+            b = uint8(134);
         case 'function_handle'
-        	b = uint8(150);
+            b = uint8(150);
         case 'function_simple'
-        	b = uint8(151);
+            b = uint8(151);
         case 'function_anon'
-        	b = uint8(152);
+            b = uint8(152);
         case 'function_scoped'
-        	b = uint8(153);
+            b = uint8(153);
         case 'emptystring'
-          b = uint8(200);
+            b = uint8(200);
 
 		otherwise
 			error(['Unknown class: ' cls]);

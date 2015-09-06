@@ -13,6 +13,7 @@ function sig = utl_check_dataset(sig,opts,ctx,exp)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-15
 
+global tracking;
 if nargin < 2
     opts.fingerprint_check = true;
     ctx = [];
@@ -93,7 +94,7 @@ if isfield(sig,{'data','srate'})
         fprint = hlp_fingerprint(rmfield(sig,'tracking')); end
     
     % flush data to disk, if not already there...
-    filepath = ['temp:/flushedsets/' num2str(fprint) '.sto'];
+    filepath = ['temp:/flushedsets/' num2str(fprint) '.' tracking.temp_fileformat];
     if ~exist(env_translatepath(filepath),'file')
         disp('Flushing data set to disk...');
         EEG = sig; %#ok<NASGU>

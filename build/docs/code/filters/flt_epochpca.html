@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>flt_epochpca
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -54,11 +55,16 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -96,37 +102,45 @@ This function is called by:
 0031 
 0032 arg_define(varargin,<span class="keyword">...</span>
 0033     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
-0034     arg({<span class="string">'reducedim'</span>,<span class="string">'RetainDimensions'</span>}, [], [], <span class="string">'Per-channel dimensionality reduction. Reduce to this number of dimensions.'</span>), <span class="keyword">...</span>
+0034     arg({<span class="string">'reducedim'</span>,<span class="string">'RetainDimensions'</span>}, [], [0 Inf], <span class="string">'Per-channel dimensionality reduction. Reduce to this number of dimensions.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>), <span class="keyword">...</span>
 0035     arg_norep(<span class="string">'mapping'</span>,unassigned));
 0036 
 0037 <span class="keyword">if</span> ~exist(<span class="string">'mapping'</span>,<span class="string">'var'</span>)
 0038     <span class="keyword">if</span> isempty(reducedim)
 0039         reducedim = signal.pnts; <span class="keyword">end</span>
-0040     <span class="comment">% compute principal eigenspace for each channel</span>
-0041     mapping = cell(1,signal.nbchan);
-0042     <span class="keyword">for</span> c = 1:signal.nbchan
-0043         <span class="keyword">try</span>
-0044             [mapping{c},D] = eig(hlp_diskcache(<span class="string">'filterdesign'</span>,@cov_shrink,squeeze(signal.data(c,:,:))'));
-0045         <span class="keyword">catch</span>
-0046             mapping{c} = eye(size(signal.data,2));
-0047         <span class="keyword">end</span>
-0048         mapping{c} = mapping{c}(:,1:reducedim);
-0049     <span class="keyword">end</span>
-0050 <span class="keyword">end</span>
-0051 
-0052 <span class="comment">% transform each channel into the eigenspace and write back</span>
-0053 tmp = zeros(signal.nbchan,size(mapping{1},2),signal.trials);
-0054 <span class="keyword">for</span> c = 1:signal.nbchan
-0055     tmp(c,:,:) = (mapping{c}' * reshape(signal.data(c,:,:),size(mapping{c},1),[])); <span class="keyword">end</span>
-0056 signal.data = tmp;
-0057 signal.pnts = size(signal.data,2);
-0058 
-0059 
-0060 <span class="comment">% keep track of the mapping decomposition</span>
-0061 <span class="keyword">global</span> tracking;
-0062 tracking.inspection.epochpca = mapping;
-0063 
-0064 exp_endfun(<span class="string">'append_online'</span>,{<span class="string">'mapping'</span>,mapping});</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0040     <span class="keyword">for</span> f = utl_timeseries_fields(signal)
+0041         X = signal.(f{1});
+0042         <span class="keyword">if</span> ~isempty(X)
+0043             mapping.(f{1}) = cell(1,size(X,1));
+0044             <span class="comment">% compute principal components for each channel</span>
+0045             <span class="keyword">for</span> c = size(X,1):-1:1
+0046                 <span class="keyword">try</span>
+0047                     [mapping.(f{1}){c},D] = eig(hlp_diskcache(<span class="string">'filterdesign'</span>,@cov_shrink,squeeze(X(c,:,:))')); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0048                 <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0049                     mapping.(f{1}){c} = eye(size(X,2));
+0050                 <span class="keyword">end</span>
+0051                 mapping.(f{1}){c} = mapping.(f{1}){c}(:,1:reducedim);
+0052             <span class="keyword">end</span>
+0053         <span class="keyword">end</span>
+0054     <span class="keyword">end</span>
+0055 <span class="keyword">end</span>
+0056 
+0057 <span class="comment">% transform each channel into the eigenspace and write back</span>
+0058 <span class="keyword">for</span> f = utl_timeseries_fields(signal)
+0059     X = signal.(f{1});
+0060     <span class="keyword">if</span> ~isempty(X)
+0061         M = mapping.(f{1});
+0062         tmp = zeros(size(X,1),size(M{1},2),size(X,3));
+0063         <span class="keyword">for</span> c = 1:size(X,1)
+0064             tmp(c,:,:) = (M{c}' * reshape(X(c,:,:),size(M{c},1),[])); <span class="keyword">end</span>
+0065         signal.(f{1}) = tmp;
+0066     <span class="keyword">end</span>
+0067 <span class="keyword">end</span>
+0068 signal.pnts = size(signal.data,2);
+0069 signal.etc.epochpca = mapping;
+0070 
+0071 exp_endfun(<span class="string">'append_online'</span>,{<span class="string">'mapping'</span>,mapping});</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

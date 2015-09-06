@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/online_plugins/Generic&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
 
 <h1>run_writedataset
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
@@ -34,13 +35,15 @@
  to some other operation processing it).
 
  In:
-   SourceStream : real-time stream name to read from (in MATLAB workspace) (default: 'laststream')
+   SourceStreamName : Optional name of the stream data structure in the MATLAB base workspace to
+                      take as the data source (previously created with onl_newstream).
+                      (default: 'laststream')
 
    FileName : File name to write to (default: 'lastdata.set')
 
-   UpdateFrequency : update frequency, in Hz (default: 1)
+   UpdateFrequency : The are at which new chunks of data are appended to the file, in Hz (default: 1)
 
-   StartDelay : Start-up delay before real-time processing begins; grace period until file is being
+   StartDelay : Start-up delay before real-time operation begins; grace period until file is being
                 written to, in s. (default: 3)
 
  Examples:
@@ -54,15 +57,24 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
+
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
 <ul style="list-style-image:url(../../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function append_data(stream,fid,streamid,timerhandle,eeg)</a></li><li><a href="#_sub2" class="code">function finalize_dataset(fid,EEG)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function append_data(stream,fid,marker_fid,streamid,timerhandle,eeg)</a></li>
+<li><a href="#_sub2" class="code">function finalize_dataset(fid,marker_fid,EEG)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function run_writedataset(varargin)</a>
@@ -73,90 +85,143 @@ This function is called by:
 0006 <span class="comment">% to some other operation processing it).</span>
 0007 <span class="comment">%</span>
 0008 <span class="comment">% In:</span>
-0009 <span class="comment">%   SourceStream : real-time stream name to read from (in MATLAB workspace) (default: 'laststream')</span>
-0010 <span class="comment">%</span>
-0011 <span class="comment">%   FileName : File name to write to (default: 'lastdata.set')</span>
+0009 <span class="comment">%   SourceStreamName : Optional name of the stream data structure in the MATLAB base workspace to</span>
+0010 <span class="comment">%                      take as the data source (previously created with onl_newstream).</span>
+0011 <span class="comment">%                      (default: 'laststream')</span>
 0012 <span class="comment">%</span>
-0013 <span class="comment">%   UpdateFrequency : update frequency, in Hz (default: 1)</span>
+0013 <span class="comment">%   FileName : File name to write to (default: 'lastdata.set')</span>
 0014 <span class="comment">%</span>
-0015 <span class="comment">%   StartDelay : Start-up delay before real-time processing begins; grace period until file is being</span>
-0016 <span class="comment">%                written to, in s. (default: 3)</span>
-0017 <span class="comment">%</span>
-0018 <span class="comment">% Examples:</span>
-0019 <span class="comment">%   % write an input stream (named 'mystream') to a file named 'recording.set' (EEGLAB dataset)</span>
-0020 <span class="comment">%   run_writedataset('mystream','recording.set')</span>
-0021 <span class="comment">%</span>
-0022 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0023 <span class="comment">%                                2010-11-19</span>
-0024 
-0025 declare_properties(<span class="string">'name'</span>,<span class="string">'File'</span>);
+0015 <span class="comment">%   UpdateFrequency : The are at which new chunks of data are appended to the file, in Hz (default: 1)</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">%   StartDelay : Start-up delay before real-time operation begins; grace period until file is being</span>
+0018 <span class="comment">%                written to, in s. (default: 3)</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% Examples:</span>
+0021 <span class="comment">%   % write an input stream (named 'mystream') to a file named 'recording.set' (EEGLAB dataset)</span>
+0022 <span class="comment">%   run_writedataset('mystream','recording.set')</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0025 <span class="comment">%                                2010-11-19</span>
 0026 
-0027 <span class="comment">% define arguments</span>
-0028 arg_define(varargin, <span class="keyword">...</span>
-0029     arg({<span class="string">'in_stream'</span>,<span class="string">'SourceStream'</span>}, <span class="string">'laststream'</span>,[],<span class="string">'Input online stream. This is the stream that shall be written to disk.'</span>), <span class="keyword">...</span>
-0030     arg({<span class="string">'out_filename'</span>,<span class="string">'FileName'</span>},<span class="string">'lastdata.set'</span>,[],<span class="string">'The file name to write to.'</span>), <span class="keyword">...</span>
-0031     arg({<span class="string">'update_freq'</span>,<span class="string">'UpdateFrequency'</span>},1,[],<span class="string">'Update frequency. This is the rate at which data is written.'</span>), <span class="keyword">...</span>
-0032     arg({<span class="string">'start_delay'</span>,<span class="string">'StartDelay'</span>}, 3, [],<span class="string">'Start-up delay. Delay before real-time processing begins; grace period until file is written.'</span>));
-0033 
-0034 out_filename = env_translatepath(out_filename);
+0027 declare_properties(<span class="string">'name'</span>,<span class="string">'File'</span>);
+0028 
+0029 <span class="comment">% define arguments</span>
+0030 arg_define(varargin, <span class="keyword">...</span>
+0031     arg({<span class="string">'in_stream'</span>,<span class="string">'SourceStreamNames'</span>,<span class="string">'SourceStream'</span>}, <span class="string">'laststream'</span>,[],<span class="string">'Input Matlab stream name(s). Optional names of stream data structures in the MATLAB base workspace to consider as possible data sources (previously created with onl_newstream); if a stream contains all channels that are needed by the predictor, or alternatively has the right number and type of channels it will be considered as a potential source stream unless ambiguous.'</span>), <span class="keyword">...</span>
+0032     arg({<span class="string">'out_filename'</span>,<span class="string">'FileName'</span>},<span class="string">'lastdata.set'</span>,[],<span class="string">'The file name to write to.'</span>), <span class="keyword">...</span>
+0033     arg({<span class="string">'update_freq'</span>,<span class="string">'UpdateFrequency'</span>},1,[0 Inf],<span class="string">'Update frequency. This is the rate at which new chunks of data are appended to the file.'</span>), <span class="keyword">...</span>
+0034     arg({<span class="string">'start_delay'</span>,<span class="string">'StartDelay'</span>}, 3, [0 Inf],<span class="string">'Start-up delay. Delay before real-time operation begins; grace period until file is written.'</span>));
 0035 
-0036 <span class="comment">% open the stream and write the initial set file header...</span>
-0037 stream = evalin(<span class="string">'base'</span>,in_stream);
-0038 <span class="comment">% create missing fields</span>
-0039 stream.data = randn(stream.nbchan,1024);
-0040 stream.pnts = size(stream.data,2);
-0041 stream.xmax = stream.xmin + (stream.pnts-1)/stream.srate;
-0042 [fp fn fe] = fileparts(out_filename);
-0043 <span class="comment">% remove superfluous fields</span>
-0044 eeg = rmfield(stream,{<span class="string">'buffer'</span>,<span class="string">'smax'</span>,<span class="string">'buffer_len'</span>,<span class="string">'timestamps'</span>,<span class="string">'timestamps_len'</span>,<span class="string">'timestamps_ptr'</span>,<span class="string">'streamid'</span>});
-0045 stream.timestamp_at_beginning = toc(uint64(0));
-0046 eeg = pop_saveset(eeg,<span class="string">'filename'</span>,[fn fe],<span class="string">'filepath'</span>,env_translatepath(<span class="string">'bcilab:/userdata'</span>),<span class="string">'savemode'</span>,<span class="string">'twofiles'</span>);
-0047 <span class="comment">% re-create the fdt file...</span>
-0048 delete(fullfile(eeg.filepath, eeg.datfile));
-0049 fid = fopen(fullfile(eeg.filepath, eeg.datfile),<span class="string">'wb'</span>,<span class="string">'ieee-le'</span>);
-0050 <span class="keyword">if</span> fid == -1
-0051     error(<span class="string">'Cannot write output file, check permission and space.'</span>); <span class="keyword">end</span>;
-0052 <span class="comment">% create timer (which periodically writes to the stream)</span>
-0053 t = timer(<span class="string">'ExecutionMode'</span>,<span class="string">'fixedRate'</span>, <span class="string">'Name'</span>,[in_stream <span class="string">'_write_timer'</span>], <span class="string">'Period'</span>,1/update_freq, <span class="keyword">...</span>
-0054     <span class="string">'StartDelay'</span>,start_delay, <span class="string">'TimerFcn'</span>,@(obj,varargin) <a href="#_sub1" class="code" title="subfunction append_data(stream,fid,streamid,timerhandle,eeg)">append_data</a>(in_stream,fid,stream.streamid,obj,eeg));
-0055 
-0056 <span class="comment">% start timer</span>
-0057 start(t);
+0036 <span class="keyword">if</span> ~any(out_filename==<span class="string">'/'</span> | out_filename==<span class="string">'\'</span>) <span class="comment">%#ok&lt;NODEF&gt;</span>
+0037     out_filename = [<span class="string">'bcilab:/userdata/'</span> out_filename]; <span class="keyword">end</span>
+0038 out_filename = env_translatepath(out_filename);
+0039 
+0040 <span class="comment">% open the stream and write the initial set file header...</span>
+0041 stream = evalin(<span class="string">'base'</span>,in_stream);
+0042 <span class="comment">% create missing fields</span>
+0043 stream.data = randn(stream.nbchan,1024);
+0044 stream.pnts = size(stream.data,2);
+0045 stream.xmax = stream.xmin + (stream.pnts-1)/stream.srate;
+0046 stream.timestamp_at_beginning = toc(uint64(0));
+0047 
+0048 <span class="comment">% prepare .set file for saving</span>
+0049 [fp,fn,fe] = fileparts(out_filename); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0050 EEG = rmfield(stream,{<span class="string">'buffer'</span>,<span class="string">'smax'</span>,<span class="string">'buffer_len'</span>,<span class="string">'timestamps'</span>,<span class="string">'timestamps_len'</span>,<span class="string">'tmax'</span>,<span class="string">'streamid'</span>,<span class="string">'timestamp_at_beginning'</span>});
+0051 [EEG.data,EEG.datfile] = deal([fn,fe]);
+0052 io_save(out_filename,<span class="string">'-mat'</span>,<span class="string">'-makedirs'</span>,<span class="string">'-attributes'</span>,<span class="string">'''+w'',''a'''</span>,<span class="string">'EEG'</span>);
+0053 
+0054 <span class="comment">% create the .fdt file...</span>
+0055 fid = fopen(fullfile(eeg.filepath, eeg.datfile),<span class="string">'wb'</span>,<span class="string">'ieee-le'</span>);
+0056 <span class="keyword">if</span> fid == -1
+0057     error(<span class="string">'Cannot write output file, check permission and space.'</span>); <span class="keyword">end</span>;
 0058 
-0059 
-0060 <span class="comment">% timer callback: visualization</span>
-0061 <a name="_sub1" href="#_subfunctions" class="code">function append_data(stream,fid,streamid,timerhandle,eeg)</a>
-0062 <span class="keyword">try</span>
-0063     <span class="comment">% check if the stream and the predictor are still there</span>
-0064     s = evalin(<span class="string">'base'</span>,stream);
-0065     <span class="keyword">if</span> s.streamid ~= streamid
-0066         error(<span class="string">'Stream changed.'</span>); <span class="keyword">end</span>
+0059 <span class="comment">% create a temporary text file to store stream event markers</span>
+0060 event_filename = env_translatepath([<span class="string">'bcilab:/userdata/'</span>, fn, <span class="string">'_events.txt'</span>]);
+0061 marker_fid = fopen(event_filename, <span class="string">'w+'</span>);
+0062 <span class="keyword">if</span> marker_fid == -1
+0063     error(<span class="string">'Cannot write marker output file, check permission and space.'</span>);
+0064 <span class="keyword">end</span>
+0065 <span class="comment">% write a basic header to the event marker file</span>
+0066 fprintf(marker_fid, <span class="string">'%s\t%s\n'</span>, <span class="string">'type'</span>, <span class="string">'latency'</span>);
 0067 
-0068     <span class="comment">% get an updated chunk of data</span>
-0069     samples_to_get = min(s.buffer_len, s.smax-ftell(fid)/(4*s.nbchan));
-0070     chunk = s.buffer(:, 1+mod(s.smax-samples_to_get:s.smax-1,s.buffer_len));    
-0071     
-0072     <span class="comment">% and write it into the file</span>
-0073     fwrite(fid,chunk,<span class="string">'float'</span>);    
-0074 <span class="keyword">catch</span> e
-0075      <span class="keyword">if</span> ~strcmp(e.identifier,<span class="string">'MATLAB:UndefinedFunction'</span>)
-0076         env_handleerror(e); <span class="keyword">end</span>
-0077     <a href="#_sub2" class="code" title="subfunction finalize_dataset(fid,EEG)">finalize_dataset</a>(fid,eeg);
-0078     <span class="comment">% interrupted: make sure that the file gets closed</span>
-0079     stop(timerhandle);
-0080     delete(timerhandle);
-0081 <span class="keyword">end</span>
-0082 
+0068 <span class="comment">% create timer (which periodically writes to the stream)</span>
+0069 t = timer(<span class="string">'ExecutionMode'</span>,<span class="string">'fixedRate'</span>, <span class="string">'Name'</span>,[in_stream <span class="string">'_write_timer'</span>], <span class="string">'Period'</span>,1/update_freq, <span class="keyword">...</span>
+0070     <span class="string">'StartDelay'</span>,start_delay, <span class="string">'TimerFcn'</span>,@(obj,varargin) <a href="#_sub1" class="code" title="subfunction append_data(stream,fid,marker_fid,streamid,timerhandle,eeg)">append_data</a>(in_stream,fid,marker_fid,stream.streamid,obj,eeg));
+0071 
+0072 <span class="comment">% start timer</span>
+0073 start(t);
+0074 
+0075 
+0076 <span class="comment">% timer callback: visualization</span>
+0077 <a name="_sub1" href="#_subfunctions" class="code">function append_data(stream,fid,marker_fid,streamid,timerhandle,eeg)</a>
+0078 <span class="keyword">try</span>
+0079     <span class="comment">% check if the stream and the predictor are still there</span>
+0080     s = evalin(<span class="string">'base'</span>,stream);
+0081     <span class="keyword">if</span> s.streamid ~= streamid
+0082         error(<span class="string">'Stream changed.'</span>); <span class="keyword">end</span>
 0083 
-0084 <a name="_sub2" href="#_subfunctions" class="code">function finalize_dataset(fid,EEG)</a>
-0085 samples = ftell(fid)/(4*EEG.nbchan);
-0086 fclose(fid);
-0087 EEG.pnts = samples;
-0088 EEG.data = EEG.datfile;
-0089 EEG.xmax = EEG.xmin + (EEG.pnts-1)/EEG.srate;
-0090 EEG.timestamp_at_end = toc(uint64(0));
-0091 
-0092 save(fullfile(EEG.filepath, EEG.filename), <span class="string">'-v6'</span>, <span class="string">'-mat'</span>, <span class="string">'EEG'</span>);</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0084     <span class="comment">% get an updated chunk of data</span>
+0085     samples_to_get = min(s.buffer_len, s.smax-ftell(fid)/(4*s.nbchan));
+0086     chunk = s.buffer(:, 1+mod(s.smax-samples_to_get:s.smax-1,s.buffer_len));    
+0087         
+0088     <span class="comment">% and write it into the file</span>
+0089     fwrite(fid,chunk,<span class="string">'float'</span>);
+0090     
+0091     <span class="comment">% check if this data chunk contains any event markers</span>
+0092     marker_chunk = s.marker_pos(:, 1+mod(s.smax-samples_to_get:s.smax-1,s.buffer_len));
+0093         
+0094     <span class="comment">% if so, write them into the marker file</span>
+0095     <span class="keyword">if</span> nnz(marker_chunk) &gt; 0
+0096         <span class="comment">% find the sample(s) in this chunk with events</span>
+0097         [marker_pos_in_sample, marker_pos_in_chunk] = find(marker_chunk);
+0098 
+0099         <span class="comment">% EEG samples which correspond to positions in the chunk</span>
+0100         chunk_samples = s.smax - (samples_to_get - 1) : s.smax;
+0101         
+0102         <span class="keyword">for</span> m = 1:length(marker_pos_in_chunk)
+0103             marker_idx = marker_chunk(marker_pos_in_sample(m), marker_pos_in_chunk(m));
+0104             marker_type = s.marker_buffer(marker_idx).type;
+0105             marker_sample_whole = chunk_samples(marker_pos_in_chunk(m));
+0106             marker_sample_fractional = s.marker_buffer(marker_idx).latency;
+0107             marker_sample = marker_sample_whole + marker_sample_fractional;
+0108             fprintf(marker_fid, <span class="string">'%s\t%i\n'</span>, marker_type, marker_sample);
+0109         <span class="keyword">end</span> 
+0110     <span class="keyword">end</span>
+0111     
+0112 <span class="keyword">catch</span> e
+0113      <span class="keyword">if</span> ~strcmp(e.identifier,<span class="string">'MATLAB:UndefinedFunction'</span>)
+0114         env_handleerror(e); <span class="keyword">end</span>
+0115     <a href="#_sub2" class="code" title="subfunction finalize_dataset(fid,marker_fid,EEG)">finalize_dataset</a>(fid,marker_fid,eeg);
+0116     <span class="comment">% interrupted: make sure that the file gets closed</span>
+0117     stop(timerhandle);
+0118     delete(timerhandle);
+0119 <span class="keyword">end</span>
+0120 
+0121 
+0122 <a name="_sub2" href="#_subfunctions" class="code">function finalize_dataset(fid,marker_fid,EEG)</a>
+0123 samples = ftell(fid)/(4*EEG.nbchan);
+0124 fclose(fid);
+0125 EEG.pnts = samples;
+0126 EEG.data = EEG.datfile;
+0127 EEG.xmax = EEG.xmin + (EEG.pnts-1)/EEG.srate;
+0128 EEG.timestamp_at_end = toc(uint64(0));
+0129 
+0130 <span class="comment">% load the event marker file from disk and include the markers in the EEG .set</span>
+0131 marker_file = [EEG.filepath, filesep, regexprep(EEG.filename, <span class="string">'.set'</span>, <span class="string">'_events.txt'</span>)];
+0132 frewind(marker_fid);
+0133 marker_data = textscan(marker_fid, <span class="string">'%s%d'</span>, <span class="string">'Delimiter'</span>, <span class="string">'\t'</span>, <span class="string">'HeaderLines'</span>, 1);
+0134 <span class="keyword">if</span> ~isempty(marker_data{1})
+0135    EEG.event = struct(<span class="string">'type'</span>, marker_data{1}', <span class="string">'latency'</span>, num2cell(marker_data{2}'), <span class="keyword">...</span>
+0136         <span class="string">'urevent'</span>, num2cell((1:length(marker_data{1}))));
+0137 <span class="keyword">end</span>
+0138 fclose(marker_fid);
+0139 delete(marker_file);
+0140 
+0141 save(fullfile(EEG.filepath, EEG.filename), <span class="string">'-v6'</span>, <span class="string">'-mat'</span>, <span class="string">'EEG'</span>);
+0142 
+0143 
+0144</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

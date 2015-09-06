@@ -1,0 +1,142 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of par_getworkers</title>
+  <meta name="keywords" content="par_getworkers">
+  <meta name="description" content="Acquire workers on some remote machines and return hostnames and ports of those that are available.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">parallel</a> &gt; par_getworkers.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/parallel&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>par_getworkers
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Acquire workers on some remote machines and return hostnames and ports of those that are available.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [pool,logpaths] = par_getworkers(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Acquire workers on some remote machines and return hostnames and ports of those that are available.
+ Pool = par_getworkers(...)
+
+ This function attempts to start the desired number of workers; offers multiple mechanisms to do
+ so.
+
+ In:
+   System : cell array of {Mechanism, Arguments...} where Mechanism is one of the following:
+            * 'ssh' : use ssh to launch workers on a list of given Linux machines
+            * 'qsub' : use qsub to submit jobs to a job manager such as Sun Grid Engine
+                       (also supports some non-qsub job managers)
+            the Arguments are name-value pairs accepted by the function par_getworkers_&lt;Mechanism&gt;
+
+ Out:
+   Pool : cell array of 'hostname:port' strings specifying the list of available machines
+          Note: in the case that no return value is requested, the global variable 
+                tracking.parallel.pool will receive this result. This is the recommended way to
+                use par_getworkers_qsub, as par_schedule uses this pool by default.
+
+  Logpaths : cell array of file paths of the logfiles corresponding to the workers in pool
+
+ See also:
+   <a href="par_worker.html" class="code" title="function par_worker(port,portrange,timeout_heartbeat,varargin)">par_worker</a>
+
+ Examples:
+   % use qsub to launch three workers on any of the queues q1 to q8, using computing as the submit host
+   par_getworkers({'qsub', 'NumWorkers',3, 'Queues',{'q1','q2','q3','q4','q5','q6','q7','q8'}, 'SubmitNode','computing')
+
+   % use ssh to launch 12 workers total on the three hosts computing-0-1, 0-2 and 0-3
+   par_getworkers({'ssh', 'Hostnames',{'computing-0-1','computing-0-2',computing-0-3'}, 'ProcessorsPerNode',4)
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2014-06-27</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="par_getworkers_qsub.html" class="code" title="function [harvested_addresses,logpaths] = par_getworkers_qsub(varargin)">par_getworkers_qsub</a>	Acquire workers on some remote machines and return hostnames and ports of those that are available.</li>
+<li><a href="par_getworkers_ssh.html" class="code" title="function [pool,logpaths] = par_getworkers_ssh(varargin)">par_getworkers_ssh</a>	Acquire workers on some remote machines and return hostnames and ports of those that are available.</li>
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [pool,logpaths] = par_getworkers(varargin)</a>
+0002 <span class="comment">% Acquire workers on some remote machines and return hostnames and ports of those that are available.</span>
+0003 <span class="comment">% Pool = par_getworkers(...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This function attempts to start the desired number of workers; offers multiple mechanisms to do</span>
+0006 <span class="comment">% so.</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% In:</span>
+0009 <span class="comment">%   System : cell array of {Mechanism, Arguments...} where Mechanism is one of the following:</span>
+0010 <span class="comment">%            * 'ssh' : use ssh to launch workers on a list of given Linux machines</span>
+0011 <span class="comment">%            * 'qsub' : use qsub to submit jobs to a job manager such as Sun Grid Engine</span>
+0012 <span class="comment">%                       (also supports some non-qsub job managers)</span>
+0013 <span class="comment">%            the Arguments are name-value pairs accepted by the function par_getworkers_&lt;Mechanism&gt;</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">% Out:</span>
+0016 <span class="comment">%   Pool : cell array of 'hostname:port' strings specifying the list of available machines</span>
+0017 <span class="comment">%          Note: in the case that no return value is requested, the global variable</span>
+0018 <span class="comment">%                tracking.parallel.pool will receive this result. This is the recommended way to</span>
+0019 <span class="comment">%                use par_getworkers_qsub, as par_schedule uses this pool by default.</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%  Logpaths : cell array of file paths of the logfiles corresponding to the workers in pool</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">% See also:</span>
+0024 <span class="comment">%   par_worker</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">% Examples:</span>
+0027 <span class="comment">%   % use qsub to launch three workers on any of the queues q1 to q8, using computing as the submit host</span>
+0028 <span class="comment">%   par_getworkers({'qsub', 'NumWorkers',3, 'Queues',{'q1','q2','q3','q4','q5','q6','q7','q8'}, 'SubmitNode','computing')</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%   % use ssh to launch 12 workers total on the three hosts computing-0-1, 0-2 and 0-3</span>
+0031 <span class="comment">%   par_getworkers({'ssh', 'Hostnames',{'computing-0-1','computing-0-2',computing-0-3'}, 'ProcessorsPerNode',4)</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0034 <span class="comment">%                                2014-06-27</span>
+0035 
+0036 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2014, christian@sccn.ucsd.edu</span>
+0037 <span class="comment">%</span>
+0038 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0039 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0040 <span class="comment">% License, or (at your option) any later version.</span>
+0041 <span class="comment">%</span>
+0042 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0043 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0044 <span class="comment">% General Public License for more details.</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0047 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0048 <span class="comment">% USA</span>
+0049 
+0050 opts = arg_define(varargin,<span class="keyword">...</span>
+0051     arg_subswitch({<span class="string">'system'</span>,<span class="string">'System'</span>},{<span class="string">'qsub'</span>},{<span class="string">'ssh'</span>,@<a href="par_getworkers_ssh.html" class="code" title="function [pool,logpaths] = par_getworkers_ssh(varargin)">par_getworkers_ssh</a>,<span class="string">'qsub'</span>,@<a href="par_getworkers_qsub.html" class="code" title="function [harvested_addresses,logpaths] = par_getworkers_qsub(varargin)">par_getworkers_qsub</a>},<span class="string">'Job acquisition system to use. Different systems are available, including ssh (logging into each node and launching a number of workers) and qsub (submitting worker jobs to a job manager).'</span>));
+0052 
+0053 <span class="comment">% dispatch to respective sub-function</span>
+0054 [pool,logpaths] = feval([<span class="string">'par_getworkers_'</span> opts.system.arg_selection],opts);</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

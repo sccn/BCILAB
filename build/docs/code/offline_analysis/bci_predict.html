@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/offline_analysis&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>bci_predict
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -176,15 +177,24 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
+
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function result = has_stats(metric)</a></li><li><a href="#_sub2" class="code">function [result,stats] = add_stats(result)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function result = has_stats(metric)</a></li>
+<li><a href="#_sub2" class="code">function [result,stats] = add_stats(result)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [prediction, measure, stats, target] = bci_predict(varargin)</a>
@@ -332,104 +342,120 @@ This function is called by:
 0143 <span class="comment">%</span>
 0144 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
 0145 <span class="comment">%                                2010-05-24</span>
-0146 
-0147 <span class="comment">% read arguments</span>
-0148 opts = arg_define([0 2],varargin, <span class="keyword">...</span>
-0149     arg_norep({<span class="string">'model'</span>,<span class="string">'Model'</span>},mandatory,[],<span class="string">'Predictive model. This is a model as previously computed via bci_train.'</span>), <span class="keyword">...</span>
-0150     arg_norep({<span class="string">'data'</span>,<span class="string">'Data'</span>},mandatory,[],<span class="string">'Data set. EEGLAB data set, or stream bundle, or cell array of data sets / stream bundles to use for calibration/evaluation.'</span>), <span class="keyword">...</span>
-0151     arg({<span class="string">'markers'</span>,<span class="string">'TargetMarkers'</span>},<span class="string">'frommodel'</span>,[],<span class="string">'Assumed target markers. List of types of those markers around which data shall be used for BCI calibration; each marker type encodes a different target class (i.e. desired output value) to be learned by the resulting BCI model. This can be specified either as a cell array of marker-value pairs, in which case each marker type of BCI interest is associated with a particular BCI output value (e.g., -1/+1), or as a cell array of marker types (in which case each marker will be associated with its respective index as corresponding BCI output value, while nested cell arrays are also allowed to group markers that correspond to the same output value). See help of set_targetmarkers for further explanation.'</span>), <span class="keyword">...</span>
-0152     arg({<span class="string">'metric'</span>,<span class="string">'EvaluationMetric'</span>,<span class="string">'Metric'</span>},<span class="string">'auto'</span>,{<span class="string">'auto'</span>,<span class="string">'mcr'</span>,<span class="string">'mse'</span>,<span class="string">'smse'</span>,<span class="string">'nll'</span>,<span class="string">'kld'</span>,<span class="string">'mae'</span>,<span class="string">'max'</span>,<span class="string">'rms'</span>,<span class="string">'bias'</span>,<span class="string">'medse'</span>,<span class="string">'auc'</span>,<span class="string">'cond_entropy'</span>,<span class="string">'cross_entropy'</span>,<span class="string">'f_measure'</span>},<span class="string">'Evaluation metric. The metric to use in the assessment of model performance (via cross-validation); see also ml_calcloss.'</span>), <span class="keyword">...</span>
-0153     arg({<span class="string">'outformat'</span>,<span class="string">'Format'</span>,<span class="string">'format'</span>},<span class="string">'raw'</span>,{<span class="string">'raw'</span>,<span class="string">'expectation'</span>,<span class="string">'distribution'</span>,<span class="string">'mode'</span>},<span class="string">'Prediction format. See utl_formatprediction.'</span>),<span class="keyword">...</span>
-0154     arg({<span class="string">'field'</span>,<span class="string">'EventField'</span>}, <span class="string">'frommodel'</span>, [], <span class="string">'Assumed target field. Event field to search for target markers, provided as a string.'</span>,<span class="string">'type'</span>,<span class="string">'char'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>));
-0155 
+0146 dp;
+0147 
+0148 <span class="comment">% read arguments</span>
+0149 opts = arg_define([0 2],varargin, <span class="keyword">...</span>
+0150     arg_norep({<span class="string">'model'</span>,<span class="string">'Model'</span>},mandatory,[],<span class="string">'Predictive model. This is a model as previously computed via bci_train.'</span>), <span class="keyword">...</span>
+0151     arg_norep({<span class="string">'dataset'</span>,<span class="string">'Data'</span>,<span class="string">'data'</span>},mandatory,[],<span class="string">'Data set. EEGLAB data set or stream bundle to use for prediction.'</span>), <span class="keyword">...</span>
+0152     arg({<span class="string">'markers'</span>,<span class="string">'TargetMarkers'</span>},<span class="string">'frommodel'</span>,[],<span class="string">'Assumed target markers. List of types of those markers around which data shall be used for BCI calibration; each marker type encodes a different target class (i.e. desired output value) to be learned by the resulting BCI model. This can be specified either as a cell array of marker-value pairs, in which case each marker type of BCI interest is associated with a particular BCI output value (e.g., -1/+1), or as a cell array of marker types (in which case each marker will be associated with its respective index as corresponding BCI output value, while nested cell arrays are also allowed to group markers that correspond to the same output value). See help of set_targetmarkers for further explanation.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0153     arg({<span class="string">'metric'</span>,<span class="string">'EvaluationMetric'</span>,<span class="string">'Metric'</span>},<span class="string">'auto'</span>,{<span class="string">'auto'</span>,<span class="string">'mcr'</span>,<span class="string">'mse'</span>,<span class="string">'smse'</span>,<span class="string">'nll'</span>,<span class="string">'kld'</span>,<span class="string">'mae'</span>,<span class="string">'max'</span>,<span class="string">'rms'</span>,<span class="string">'bias'</span>,<span class="string">'medse'</span>,<span class="string">'auc'</span>,<span class="string">'cond_entropy'</span>,<span class="string">'cross_entropy'</span>,<span class="string">'f_measure'</span>},<span class="string">'Evaluation metric. The metric to use in the assessment of model performance (via cross-validation); see also ml_calcloss.'</span>), <span class="keyword">...</span>
+0154     arg({<span class="string">'outformat'</span>,<span class="string">'Format'</span>,<span class="string">'format'</span>},<span class="string">'raw'</span>,{<span class="string">'raw'</span>,<span class="string">'expectation'</span>,<span class="string">'distribution'</span>,<span class="string">'mode'</span>},<span class="string">'Prediction format. See utl_formatprediction.'</span>),<span class="keyword">...</span>
+0155     arg({<span class="string">'field'</span>,<span class="string">'EventField'</span>}, <span class="string">'frommodel'</span>, [], <span class="string">'Assumed target field. Event field to search for target markers, provided as a string.'</span>,<span class="string">'type'</span>,<span class="string">'char'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>));
 0156 
-0157 <span class="keyword">if</span> ischar(opts.model.tracking.prediction_function)
-0158     <span class="comment">% prediction function given as a string</span>
-0159     <span class="keyword">if</span> strncmp(opts.model.tracking.prediction_function,<span class="string">'Paradigm'</span>,8)
-0160         <span class="comment">% class reference: instantiate</span>
-0161         instance = eval(opts.model.tracking.prediction_function); <span class="comment">%#ok&lt;NASGU&gt;</span>
-0162         opts.model.tracking.prediction_function = eval(<span class="string">'@instance.predict'</span>);
-0163     <span class="keyword">else</span>
-0164         <span class="comment">% some other function</span>
-0165         opts.model.tracking.prediction_function = str2func(opts.model.tracking.prediction_function);
-0166     <span class="keyword">end</span>
-0167 <span class="keyword">end</span>
-0168 
-0169 <span class="comment">% use the model's target field if desired</span>
-0170 <span class="keyword">if</span> strcmp(opts.field,<span class="string">'frommodel'</span>)
-0171     opts.field = opts.model.control_options.field; <span class="keyword">end</span>
-0172 
-0173 <span class="comment">% use the model's target markers if desired</span>
-0174 <span class="keyword">if</span> strcmp(opts.markers,<span class="string">'frommodel'</span>)
-0175     opts.markers = opts.model.control_options.markers; <span class="keyword">end</span>
-0176 
-0177 <span class="comment">% string arguments are considered to be variants of the default metric</span>
-0178 <span class="keyword">if</span> isempty(opts.metric) || ischar(opts.metric) || (iscell(opts.metric) &amp;&amp; all(cellfun(@ischar,opts.metric)))
-0179     opts.metric = @(T,P)ml_calcloss(opts.metric,T,P); <span class="keyword">end</span>
-0180 <span class="keyword">if</span> ~<a href="#_sub1" class="code" title="subfunction result = has_stats(metric)">has_stats</a>(opts.metric)
-0181     opts.metric = @(T,P)<a href="#_sub2" class="code" title="subfunction [result,stats] = add_stats(result)">add_stats</a>(opts.metric(T,P)); <span class="keyword">end</span>
-0182 
-0183 <span class="comment">% uniformize data</span>
-0184 data = opts.data;
-0185 <span class="keyword">if</span> ~isfield(data,<span class="string">'streams'</span>)
-0186     data = struct(<span class="string">'streams'</span>,{{data}}); <span class="keyword">end</span>
-0187 
-0188 <span class="comment">% ... and annotate with target markers</span>
-0189 <span class="comment">% (there are 3 possible TargetMarker formats to handle)</span>
-0190 <span class="keyword">if</span> length(opts.markers) == 1 &amp;&amp; ischar(opts.markers{1}) &amp;&amp; strcmp(opts.markers{1}, <span class="string">'actualvalues'</span>)
-0191     data.streams{1} = set_targetmarkers(<span class="string">'Signal'</span>,data.streams{1},<span class="string">'EventMap'</span>,opts.markers,<span class="string">'EpochBounds'</span>,opts.model.epoch_bounds, <span class="string">'EventField'</span>, opts.field );
-0192 <span class="keyword">elseif</span> all(cellfun(<span class="string">'isclass'</span>,opts.markers,<span class="string">'char'</span>) | cellfun(<span class="string">'isclass'</span>,opts.markers,<span class="string">'cell'</span>))
-0193     data.streams{1} = set_targetmarkers(<span class="string">'Signal'</span>,data.streams{1},<span class="string">'EventTypes'</span>,opts.markers,<span class="string">'EpochBounds'</span>,opts.model.epoch_bounds, <span class="string">'EventField'</span>, opts.field);
-0194 <span class="keyword">else</span>
-0195    data.streams{1} = set_targetmarkers(<span class="string">'Signal'</span>,data.streams{1},<span class="string">'EventMap'</span>,opts.markers,<span class="string">'EpochBounds'</span>,opts.model.epoch_bounds, <span class="string">'EventField'</span>, opts.field );
-0196 <span class="keyword">end</span>
-0197 
-0198 <span class="comment">% attach the passed stream bundle to the model's filter graph</span>
-0199 model = opts.model;
-0200 resolved_graph = utl_resolve_streams(model.tracking.filter_graph,data,model.tracking.prediction_channels);
-0201 <span class="comment">% process each chain of the filter graph</span>
-0202 data.streams = cell(1,length(resolved_graph));
-0203 <span class="keyword">for</span> g=1:length(resolved_graph)
-0204     data.streams{g} = exp_eval_optimized(resolved_graph{g}); <span class="keyword">end</span>
-0205 <span class="comment">% apply the prediction function to the data</span>
-0206 prediction = model.tracking.prediction_function(data,model);
-0207 
-0208 <span class="keyword">try</span>
-0209     <span class="comment">% try to derive the target variable</span>
-0210     target = set_gettarget(data);
-0211 <span class="keyword">catch</span> e
-0212     <span class="comment">% a target variable is not necessarily present</span>
-0213     disp(<span class="string">'NOTE: Did not find a target variable in the given data ('</span> + e.message + <span class="string">')'</span>);
-0214     target = [];
-0215 <span class="keyword">end</span>
-0216 <span class="keyword">if</span> ~isempty(target)
-0217     <span class="comment">% and evaluate the performance, given the metric</span>
-0218     [measure,stats] = opts.metric(target,prediction);
-0219 <span class="keyword">else</span>
-0220     measure = NaN;
-0221     stats = struct();
-0222 <span class="keyword">end</span>
-0223 stats.target = target;
-0224 stats.prediction = prediction;
-0225 stats.is_result = true;
-0226 stats.timestamp = now;
-0227 
-0228 <span class="comment">% finally format the predictions</span>
-0229 prediction = utl_formatprediction(prediction,opts.outformat);
-0230 
-0231 
-0232 <span class="comment">% test whether the given metric supplies stats or not</span>
-0233 <a name="_sub1" href="#_subfunctions" class="code">function result = has_stats(metric)</a>
-0234 <span class="keyword">try</span> 
-0235     [x,y] = metric([],[]);  <span class="comment">%#ok&lt;NASGU,ASGLU&gt;</span>
-0236     result = true;
-0237 <span class="keyword">catch</span> e
-0238     result = ~any(strcmp(e.identifier,{<span class="string">'MATLAB:TooManyOutputs'</span>,<span class="string">'MATLAB:maxlhs'</span>,<span class="string">'MATLAB:unassignedOutputs'</span>})); 
-0239 <span class="keyword">end</span>
-0240 
-0241 <span class="comment">% add stats to the result of some metric</span>
-0242 <a name="_sub2" href="#_subfunctions" class="code">function [result,stats] = add_stats(result)</a>
-0243 stats.value = result;</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0157 <span class="comment">% input validation</span>
+0158 <span class="keyword">if</span> ~isstruct(opts.model) || ~isscalar(opts.model)
+0159     error(<span class="string">'The given Model argument must be a 1x1 struct.'</span>); <span class="keyword">end</span>
+0160 <span class="keyword">if</span> ~isfield(opts.model,<span class="string">'tracking'</span>) || ~all(isfield(opts.model.tracking,{<span class="string">'prediction_function'</span>,<span class="string">'filter_graph'</span>,<span class="string">'prediction_channels'</span>}))
+0161     error(<span class="string">'The given Model argument is lacking some required fields (required are: .tracking.prediction_function, .tracking.filter_graph, .tracking.prediction_channels), but got: %s'</span>,hlp_tostring(opts.model,10000)); <span class="keyword">end</span>
+0162 
+0163 <span class="comment">% evaluate and check the prediction funtion</span>
+0164 <span class="keyword">if</span> ischar(opts.model.tracking.prediction_function)
+0165     <span class="comment">% prediction function given as a string</span>
+0166     <span class="keyword">if</span> strncmp(opts.model.tracking.prediction_function,<span class="string">'Paradigm'</span>,8)
+0167         <span class="comment">% class reference: instantiate</span>
+0168         <span class="keyword">try</span>
+0169             instance = eval(opts.model.tracking.prediction_function); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0170         <span class="keyword">catch</span> e
+0171             error(<span class="string">'Failed to instantiate paradigm class (%s) with error: %s'</span>,opts.model.tracking.prediction_function,e.message);
+0172         <span class="keyword">end</span>
+0173         opts.model.tracking.prediction_function = eval(<span class="string">'@instance.predict'</span>);
+0174     <span class="keyword">else</span>
+0175         <span class="comment">% some other function</span>
+0176         <span class="keyword">if</span> ~exist(opts.model.tracking.prediction_function,<span class="string">'file'</span>)
+0177             error(<span class="string">'The given prediction function was not found on the MATLAB path: %s'</span>,opts.model.tracking.prediction_function); <span class="keyword">end</span>
+0178         opts.model.tracking.prediction_function = str2func(opts.model.tracking.prediction_function);
+0179     <span class="keyword">end</span>
+0180 <span class="keyword">end</span>
+0181 
+0182 <span class="comment">% use the model's target field if desired</span>
+0183 <span class="keyword">if</span> strcmp(opts.field,<span class="string">'frommodel'</span>)
+0184     opts.field = opts.model.control_options.field; <span class="keyword">end</span>
+0185 
+0186 <span class="comment">% use the model's target markers if desired</span>
+0187 <span class="keyword">if</span> strcmp(opts.markers,<span class="string">'frommodel'</span>)
+0188     opts.markers = opts.model.control_options.markers; <span class="keyword">end</span>
+0189 
+0190 <span class="comment">% string arguments are considered to be variants of the default metric</span>
+0191 <span class="keyword">if</span> isempty(opts.metric) || ischar(opts.metric) || (iscell(opts.metric) &amp;&amp; all(cellfun(@ischar,opts.metric)))
+0192     opts.metric = @(T,P)ml_calcloss(opts.metric,T,P); <span class="keyword">end</span>
+0193 <span class="keyword">if</span> ~<a href="#_sub1" class="code" title="subfunction result = has_stats(metric)">has_stats</a>(opts.metric)
+0194     opts.metric = @(T,P)<a href="#_sub2" class="code" title="subfunction [result,stats] = add_stats(result)">add_stats</a>(opts.metric(T,P)); <span class="keyword">end</span>
+0195 
+0196 <span class="comment">% uniformize data</span>
+0197 dataset = opts.dataset;
+0198 <span class="keyword">if</span> iscell(dataset)
+0199     error(<span class="string">'The bci_predict function cannot be applied to dataset collections -- you need to apply it to each dataset individually.'</span>); <span class="keyword">end</span>
+0200 <span class="keyword">if</span> ~isfield(dataset,<span class="string">'streams'</span>)
+0201     dataset = struct(<span class="string">'streams'</span>,{{dataset}}); <span class="keyword">end</span>
+0202 <span class="comment">% and annotate with target markers (there are 3 possible TargetMarker formats to handle)</span>
+0203 <span class="keyword">if</span> length(opts.markers) == 1 &amp;&amp; ischar(opts.markers{1}) &amp;&amp; strcmp(opts.markers{1}, <span class="string">'actualvalues'</span>)
+0204     dataset.streams{1} = set_targetmarkers(<span class="string">'Signal'</span>,dataset.streams{1},<span class="string">'EventMap'</span>,opts.markers,<span class="string">'EpochBounds'</span>,opts.model.epoch_bounds, <span class="string">'EventField'</span>, opts.field );
+0205 <span class="keyword">elseif</span> all(cellfun(<span class="string">'isclass'</span>,opts.markers,<span class="string">'char'</span>) | cellfun(<span class="string">'isclass'</span>,opts.markers,<span class="string">'cell'</span>))
+0206     dataset.streams{1} = set_targetmarkers(<span class="string">'Signal'</span>,dataset.streams{1},<span class="string">'EventTypes'</span>,opts.markers,<span class="string">'EpochBounds'</span>,opts.model.epoch_bounds, <span class="string">'EventField'</span>, opts.field);
+0207 <span class="keyword">else</span>
+0208    dataset.streams{1} = set_targetmarkers(<span class="string">'Signal'</span>,dataset.streams{1},<span class="string">'EventMap'</span>,opts.markers,<span class="string">'EpochBounds'</span>,opts.model.epoch_bounds, <span class="string">'EventField'</span>, opts.field );
+0209 <span class="keyword">end</span>
+0210 <span class="comment">% and do final checks and fixups</span>
+0211 dataset = utl_check_bundle(dataset);
+0212 
+0213 <span class="comment">% attach the passed stream bundle to the model's filter graph</span>
+0214 model = opts.model;
+0215 resolved_graph = utl_resolve_streams(model.tracking.filter_graph,dataset,model.tracking.prediction_channels);
+0216 <span class="comment">% process each chain of the filter graph</span>
+0217 dataset.streams = cell(1,length(resolved_graph));
+0218 <span class="keyword">for</span> g=1:length(resolved_graph)
+0219     dataset.streams{g} = exp_eval_optimized(resolved_graph{g}); <span class="keyword">end</span>
+0220 <span class="comment">% apply the prediction function to the data</span>
+0221 prediction = model.tracking.prediction_function(dataset,model);
+0222 
+0223 <span class="keyword">try</span>
+0224     <span class="comment">% try to derive the target variable</span>
+0225     target = set_gettarget(dataset);
+0226 <span class="keyword">catch</span> e
+0227     <span class="comment">% a target variable is not necessarily present</span>
+0228     disp(<span class="string">'NOTE: Did not find a target variable in the given data ('</span> + e.message + <span class="string">')'</span>);
+0229     target = [];
+0230 <span class="keyword">end</span>
+0231 <span class="keyword">if</span> ~isempty(target)
+0232     <span class="comment">% and evaluate the performance, given the metric</span>
+0233     [measure,stats] = opts.metric(target,prediction);
+0234 <span class="keyword">else</span>
+0235     measure = NaN;
+0236     stats = struct();
+0237 <span class="keyword">end</span>
+0238 stats.target = target;
+0239 stats.prediction = prediction;
+0240 stats.is_result = true;
+0241 stats.timestamp = now;
+0242 
+0243 <span class="comment">% finally format the predictions</span>
+0244 prediction = utl_formatprediction(prediction,opts.outformat);
+0245 
+0246 
+0247 <span class="comment">% test whether the given metric supplies stats or not</span>
+0248 <a name="_sub1" href="#_subfunctions" class="code">function result = has_stats(metric)</a>
+0249 <span class="keyword">try</span> 
+0250     [x,y] = metric([],[]);  <span class="comment">%#ok&lt;NASGU,ASGLU&gt;</span>
+0251     result = true;
+0252 <span class="keyword">catch</span> e
+0253     result = ~any(strcmp(e.identifier,{<span class="string">'MATLAB:TooManyOutputs'</span>,<span class="string">'MATLAB:maxlhs'</span>,<span class="string">'MATLAB:unassignedOutputs'</span>})); 
+0254 <span class="keyword">end</span>
+0255 
+0256 <span class="comment">% add stats to the result of some metric</span>
+0257 <a name="_sub2" href="#_subfunctions" class="code">function [result,stats] = add_stats(result)</a>
+0258 stats.value = result;</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

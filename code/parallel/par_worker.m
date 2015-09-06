@@ -125,7 +125,7 @@ if ~isnumeric(portrange) || ~isscalar(portrange) || portrange~=round(portrange) 
 opts = hlp_varargin2struct(varargin, 'backlog',1, 'timeout_accept',3, 'timeout_dialout',10, ...
     'timeout_send',10, 'timeout_recv',5, 'min_keepalive',300, 'receive_buffer',64000, ...
     'retries_send',2,'retry_wait',2, 'linger_send',3, 'update_check',[],'matlabthreads',4, ...
-    'token','dsfjk45djf','verbosity',1);
+    'token','dsfjk45djf','verbosity',1,'max_java_memory',2^26);
 verbosity = opts.verbosity;
 
 % make sure that the necessary Java/MATLAB code is present
@@ -232,7 +232,7 @@ while 1
             cr = ChunkReader(in);
             taskid = in.readInt();
             collector = char(cr.readFully(in.readInt())');
-            task = char(cr.readFully(in.readInt())');
+            task = typecast(cr.readFully(in.readInt()),'uint8');
             % optionally check for code update
             if isempty(opts.update_check)
                 if verbosity >= 1
@@ -266,9 +266,9 @@ while 1
                 fprintf('processing task %i (%i) ...\n',taskid,tasknum); end
             tasknum = tasknum+1;
             if isempty(collector)
-                par_evaluate(fast_decode(task),true);
+                par_evaluate(task,true);
             else
-                result = fast_encode(par_evaluate(fast_decode(task)));
+                result = par_evaluate(task);
             end
             if verbosity >= 1
                 fprintf('done with task; opening back link...\n'); end
@@ -289,14 +289,24 @@ while 1
                     outconn.setSoTimeout(round(1000*opts.timeout_send));
                     outconn.setSoLinger(true,3);
                     if verbosity >= 1
-                        fprintf('connected; now sending (%.0fkb)...',length(result)/1024); end
+                        fprintf('connected; now sending (%.0fkb)...',length(result)/1024); end                    
+                    t0 = tic;
                     out = DataOutputStream(outconn.getOutputStream());
                     out.writeInt(taskid);
                     out.writeInt(length(result));
-                    out.writeBytes(result);
-                    out.flush();
+                    % we need to efficiently split the data into chunks no larger than max_java_memory
+                    % (since the result might be fairly large)
+                    num_blocks = ceil(length(result)/opts.max_java_memory);
+                    rest_size = mod(length(result),opts.max_java_memory);
+                    sizes = [opts.max_java_memory*ones(1,num_blocks-1) rest_size];
+                    blocks = cell(length(sizes),1);
+                    [blocks{:}] = chopdeal(result,sizes);
+                    % send the blocks off
+                    for i=1:length(blocks)
+                        out.write(blocks{i},0,sizes(i)); end
+                    out.flush();                                        
                     if verbosity >= 1
-                        fprintf('done; now closing...'); end
+                        fprintf('done (%.1f seconds; %.2fMB/s bandwidth)\nnow closing...',toc(t0),length(result)/2^20/toc(t0)); end
                     outconn.close();
                     if verbosity >= 1
                         fprintf('done.\n'); end

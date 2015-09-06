@@ -604,13 +604,14 @@ opts = arg_define(0,varargin, ...
     arg({'approach','Approach'},[],[],'Computational approach. Specification of a computational approach (usually a cell array, alternatively a struct).','type','expression'), ...
     arg({'markers','TargetMarkers'},{},[],'Target markers. List of types of those markers around which data shall be used for BCI calibration; each marker type encodes a different target class (i.e. desired output value) to be learned by the resulting BCI model. This can be specified either as a cell array of marker-value pairs, in which case each marker type of BCI interest is associated with a particular BCI output value (e.g., -1/+1), or as a cell array of marker types (in which case each marker will be associated with its respective index as corresponding BCI output value, while nested cell arrays are also allowed to group markers that correspond to the same output value). See help of set_targetmarkers for further explanation.'), ...
     arg({'metric','EvaluationMetric','Metric','cvmetric'},'auto',{'auto','mcr','mse','smse','sign','nll','kld','mae','max','rms','bias','medse','auc','cond_entropy','cross_entropy','f_measure','medae','smedae'},'Evaluation metric. The metric to use in the assessment of model performance (via cross-validation); see also ml_calcloss.'), ...
-    arg({'eval_scheme','EvaluationScheme'},[],[],'Evaluation scheme. Cross-validation scheme to use for evaluation. See utl_crossval for the default settings when operating on a single recording, and utl_collection_partition when operating on a collection of data sets.','type','expression'), ...
-    arg({'opt_scheme','OptimizationScheme'},{'chron',5,5},[],'Optimization scheme. Cross-validation scheme to use for parameter search (this is a nested cross-validation, only performed if there are parameters to search).','type','expression'), ...
-    arg({'field','EventField'},'type',[],'Event field to search for target markers.'), ...
+    arg({'eval_scheme','EvaluationScheme','EvalScheme'},[],[],'Evaluation scheme. Cross-validation scheme to use for evaluation. See utl_crossval for the default settings when operating on a single recording, and utl_collection_partition when operating on a collection of data sets.','type','expression'), ...
+    arg({'opt_scheme','OptimizationScheme','OptScheme'},{'chron',5,5},[],'Optimization scheme. Cross-validation scheme to use for parameter search (this is a nested cross-validation, only performed if there are parameters to search).','type','expression'), ...
     ... % misc parameters ...
+    arg({'field','EventField'},'type',[],'Event field to search for target markers. This is the fieldname in the .event struct of a dataset.'), ...
     arg({'goal_identifier','GoalIdentifier'},{},[],'Goal identifier. This is only used for training on multiple recordings and serves to identify the data set on which the BCI shall eventually be used (e.g., Subject Id, Day, etc.).','type','expression'), ...
     arg({'epoch_bounds','EpochBounds'},[],[],'Epoch bounds override. Tight upper bound of epoch windows used for epoching (by default the parameter to set_makepos / EpochExtraction). This is only used if the cross-validation needs to run on continuous data because a continuous-data statistic needs to be computed over the training set (such as ICA).','shape','row'), ...
     ... % parallel computing parameters
+    arg({'parallel_scope','ParallelScope'},[],[],'Optional parallel scope. If this is a cell array of name-value pairs, cluster resources will be acquired with these options for the duration of bci_train (and released thereafter) Options as in env_acquire_cluster.','type','expression'), ...
     arg({'engine_cv','CrossvalidationResources'},'global',{'global','local','BLS','ParallelComputingToolbox','Reference'},'Cross-validation parallelization. If set to ''global'', the global BCILAB setting will be used to determine when to run this computation. If set to ''local'', the computation will be done on the local machine. Otherwise,the respective scheduler will be used to distribute the computation across a cluster.'), ...
     arg({'engine_gs','GridSearchResources'},'local',{'global','local','BLS','ParallelComputingToolbox','Reference'},'Grid search parallelization. If set to ''global'', the global BCILAB setting will be used to determine when to run this computation. If set to ''local'', the computation will be done on the local machine. Otherwise,the respective scheduler will be used to distribute the computation across a cluster.'), ...
     arg({'engine_ncv','NestedCrossvalResources'},'local',{'global','local','BLS','ParallelComputingToolbox','Reference'},'Nested Cross-validation parallelization. If set to ''global'', the global BCILAB setting will be used to determine when to run this computation. If set to ''local'', the computation will be done on the local machine. Otherwise,the respective scheduler will be used to distribute the computation across a cluster.'), ...
@@ -624,7 +625,7 @@ opts = arg_define(0,varargin, ...
     arg({'prune_nontarget_markers','PruneNontargetMarkers'},false,[],'Prune non-target markers. This usually improves the speed of offline processing at the cost of not being able to access misc markers in BCI analysis.'), ...
     arg({'tolerate_exceptions','TolerateExceptions'},false, [], 'Tolerate and suppress exceptions during training. The affected folds will be excluded from the statistics.'), ...
     arg({'no_prechecks','NoPrechecks'},false,[],'Disable pre-checks. This will skip sanity checks of the data prior to launching the actual computation. When the CV is run on a cluster on a large dataset, this can save significant loading time.'), ...
-    arg_nogui({'enforce_fingerprinting','EnforceFingerprinting'},true,[],'Enforce use of fingerprinting. If true, this function will not accept raw dataset structs if fingerprinting is disabled.'));
+    arg_nogui({'enforce_fingerprinting','EnforceFingerprinting'},true,[],'Enforce use of fingerprinting. If true and if fingerprinting is globally disabled (perhaps for speed), this function will not accept raw dataset structs.'));
 
 % do some checks to ensure that bci_train's use of caching based on datasets' .tracking fields
 % is not derailed by unchecked direct data editing actions (e.g., in scripts)
@@ -720,11 +721,12 @@ else
         paradigm_parameters.parts{k} = arg_report('vals',calibrate_func,paradigm_parameters.parts{k}); end
 end
 
-% if the EpochBounds are undefined, see if we can infer them from the data
+% if the EpochBounds are undefined, see if we can infer them from the data 
 % note: the EpochBounds are *not* what is passed into set_makepos -- instead they have an additional
-% buffer margin around them that is used to determine which epochs are potentially valid and which
-% ones violate exclusion conditions (e.g., too close to dataset bounds or intermittent boundary
-% markers); this is done by set_targetmarkers
+% buffer margin around them (to be robust against e.g., resampling or other off-by-1 jitter in
+% intermediate processing steps) that is used to determine which epochs are potentially valid and
+% which ones violate exclusion conditions (e.g., too close to dataset bounds or intermittent
+% boundary markers); the exclusion checks are done by set_targetmarkers
 margin_seconds = 0.1;
 if isempty(opts.epoch_bounds)
     bounds = collect_instances(paradigm_parameters,'time_bounds'); % note: direct name reference to set_makepos's parameter
@@ -786,7 +788,7 @@ for k=1:length(source_data)
     source_data{k}.streams = cellfun(@utl_purify_expression,source_data{k}.streams,'UniformOutput',false); end
 
 % determine whether we have to send our data over the network (which prompts further optimizations)
-nonlocal = false;
+nonlocal = iscell(opts.parallel_scope);
 for computescope = {'engine_cv','engine_gs','engine_ncv'}
     if strcmp(opts.(computescope{1}),'global')
         nonlocal = nonlocal || ~strcmp(par_globalsetting('engine'),'local');
@@ -814,16 +816,16 @@ else
         opts.eval_scheme = {}; end
 end
 
-% create the function handles that go into the cross-validation
-% (we do this in a sub-function because we want to keep the handle objects from picking up whether 
-% the only_cached_results flag is set in opts, because these arguments go into the computation of 
-% cache tags, which must be independent of whether that flag is set or not; also, we want to keep
-% the actual data out of those handles, too)
+% create the function handles that go into the cross-validation (we do this in a sub-function
+% because we want to keep the anonymous handle objects from picking up whether the
+% only_cached_results flag is set in opts; that's because these arguments go into the computation of
+% cache tags, which must be unchanged regardless of whether that flag is set or not; also, we want
+% to keep the actual data out of those handles, too)
 crossval_handles = make_crossval_handles('multisubject', ~isscalar(opts.data), ...
     'epoch_bounds',opts.epoch_bounds, 'eval_scheme',opts.eval_scheme, ...
     'calibrate_func', calibrate_func, 'predict_func', predict_func);
 
-% define misc arguments for the cross-validation (those that contain no function handles)
+% define the remaining arguments for the cross-validation
 crossval_misc = { ...
     'metric',opts.metric, ...
     'pool',opts.pool, ...
@@ -834,7 +836,7 @@ crossval_misc = { ...
     'no_prechecks',opts.no_prechecks, ...
     'tolerate_exceptions', opts.tolerate_exceptions};
 
-% define the arguments to the training function
+% define the arguments to the training function (according to the given approach)
 if isscalar(opts.data)
     % got a single recording: pass paradigm parameters right through
     crossval_trainargs = {'args', paradigm_parameters};
@@ -848,7 +850,8 @@ crossval_args = [crossval_handles crossval_misc crossval_trainargs];
 
 % note: the following line is a fancy way of calling [measure,model,stats] = run_computation(opts,crossval_args);
 % what is different is that the variables fingerprint_check and fingerprint_create will be set to 0
-% for the scope of that computation (effectively disabling some unnecessary checks for performance)
+% for the scope of that computation (effectively disabling some unnecessary checks that have already
+% been done at the beginning of bci_train, unless generally disabled, for performance)
 [measure,model,stats] = hlp_scope({'fingerprint_check',0,'fingerprint_create',0},@run_computation,opts,crossval_args);
 
 % annotate the result with additional info
@@ -878,6 +881,9 @@ end
 
 
 function [calibrate_func,predict_func] = instantiate_paradigm(paradigm_ref)
+% create a paradigm object and get handles to its calibrate and predict methods
+% (this is a separate function because the function handles have the tendency to pick up hidden
+% references to datasets etc in bci_train's workspace)
 try
     instance = eval(paradigm_ref); %#ok<NASGU>
 catch e
@@ -912,6 +918,11 @@ end
 function [measure,model,stats] = run_computation(opts,crossval_args)
 t0 = tic;
 
+if iscell(opts.parallel_scope)
+    if env_acquire_cluster(opts.parallel_scope{:})
+        releaser = onCleanup(@()env_release_cluster); end
+end
+
 % issue model search job, optionally in parallel
 searchmodel_args = [crossval_args, {'scheme',opts.opt_scheme, 'engine_gs',opts.engine_gs, 'engine_ncv',opts.engine_ncv}];
 parallel_args = {'engine',opts.engine_cv, 'keep',false, 'pool',opts.pool};
@@ -936,6 +947,7 @@ else
     stats.modelsearch = struct();
 end
 model.tracking.computation_time = toc(t0);
+
 end
 
 

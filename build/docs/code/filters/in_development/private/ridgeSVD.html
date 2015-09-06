@@ -1,0 +1,192 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ridgeSVD</title>
+  <meta name="keywords" content="ridgeSVD">
+  <meta name="description" content="[J,lambdaOpt,T] = ridgeSVD(Y,Ut, s2,V,nlambda,plotGCV)">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../../index.html">filters</a> &gt; <a href="../index.html">in_development</a> &gt; <a href="index.html">private</a> &gt; ridgeSVD.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../../index.html"><img alt="<" border="0" src="../../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters/in_development/private&nbsp;<img alt=">" border="0" src="../../../../right.png"></a></td></tr></table>-->
+
+<h1>ridgeSVD
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+<div class="box"><strong>[J,lambdaOpt,T] = ridgeSVD(Y,Ut, s2,V,nlambda,plotGCV)</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+<div class="box"><strong>function [J,lambdaOpt,T] = ridgeSVD(Y,Ut, s2,V,nlambda,plotGCV,verb) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment">[J,lambdaOpt,T] = ridgeSVD(Y,Ut, s2,V,nlambda,plotGCV)
+
+ Estimates a ridge regression model, also know as Tikhonov regularization, 
+ or minimum norm with L2 prior (or Loreta in the EEG inverse solution literature). 
+ For an implementation of sLORETA model see the function inverseSolutionLoreta.
+
+ Y: measurements (Nsensors X 1)
+ Ut, s2,V are defined as the SVD decomposition of the standardized lead field matrix
+ nlambda: maximum size of the grid for the hyperparameter lambda, default: 100
+ plotGCV: plot the GCV curve (true/false), default: false
+ Jest: estimated parapeters
+ T: estimated inverse operatormaximum size of the grid for the hyperparameter lambda, default: 100
+ 
+ Jest = argmin(J) ||Y-K*J||^2 + lambda*||L*J||^2 == argmin(J) ||Y-K/L*Jst||^2 + lambda*||I||^2, s.t. J = L/Jst 
+ and lambda &gt; 0
+
+ This code is based on a previous implementation used in Valdes-Hernandez 
+ et al. (2009), written by Alejandro Ojeda and Pedro Valdez-Hernandez at 
+ the Cuban Neuroscience Center in 2009.
+ 
+ Author: Alejandro Ojeda, SCCN/INC/UCSD, Jul-2012
+
+ References:
+   Pedro A. Valdés-Hernández, Alejandro Ojeda, Eduardo Martínez-Montes, Agustín
+       Lage-Castellanos, Trinidad Virués-Alba, Lourdes Valdés-Urrutia, Pedro A.
+       Valdes-Sosa, 2009. White matter White matter architecture rather than 
+       cortical surface area correlates with the EEG alpha rhythm. NeuroImage 49
+       (2010) 2328–2339</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+<ul style="list-style-image:url(../../../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function indmin = getMinima(x)</a></li>
+<li><a href="#_sub2" class="code">function G = gcvfun2(lambda,s2,beta,delta0,mn,dsvd)</a></li>
+</ul>
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [J,lambdaOpt,T] = ridgeSVD(Y,Ut, s2,V,nlambda,plotGCV,verb)</a>
+0002 <span class="comment">%[J,lambdaOpt,T] = ridgeSVD(Y,Ut, s2,V,nlambda,plotGCV)</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% Estimates a ridge regression model, also know as Tikhonov regularization,</span>
+0005 <span class="comment">% or minimum norm with L2 prior (or Loreta in the EEG inverse solution literature).</span>
+0006 <span class="comment">% For an implementation of sLORETA model see the function inverseSolutionLoreta.</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% Y: measurements (Nsensors X 1)</span>
+0009 <span class="comment">% Ut, s2,V are defined as the SVD decomposition of the standardized lead field matrix</span>
+0010 <span class="comment">% nlambda: maximum size of the grid for the hyperparameter lambda, default: 100</span>
+0011 <span class="comment">% plotGCV: plot the GCV curve (true/false), default: false</span>
+0012 <span class="comment">% Jest: estimated parapeters</span>
+0013 <span class="comment">% T: estimated inverse operatormaximum size of the grid for the hyperparameter lambda, default: 100</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">% Jest = argmin(J) ||Y-K*J||^2 + lambda*||L*J||^2 == argmin(J) ||Y-K/L*Jst||^2 + lambda*||I||^2, s.t. J = L/Jst</span>
+0016 <span class="comment">% and lambda &gt; 0</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">% This code is based on a previous implementation used in Valdes-Hernandez</span>
+0019 <span class="comment">% et al. (2009), written by Alejandro Ojeda and Pedro Valdez-Hernandez at</span>
+0020 <span class="comment">% the Cuban Neuroscience Center in 2009.</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">% Author: Alejandro Ojeda, SCCN/INC/UCSD, Jul-2012</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">% References:</span>
+0025 <span class="comment">%   Pedro A. Valdés-Hernández, Alejandro Ojeda, Eduardo Martínez-Montes, Agustín</span>
+0026 <span class="comment">%       Lage-Castellanos, Trinidad Virués-Alba, Lourdes Valdés-Urrutia, Pedro A.</span>
+0027 <span class="comment">%       Valdes-Sosa, 2009. White matter White matter architecture rather than</span>
+0028 <span class="comment">%       cortical surface area correlates with the EEG alpha rhythm. NeuroImage 49</span>
+0029 <span class="comment">%       (2010) 2328–2339</span>
+0030 
+0031 <span class="keyword">if</span> nargin &lt; 4, error(<span class="string">'Not enough input arguments.'</span>); <span class="keyword">end</span>
+0032 <span class="keyword">if</span> nargin &lt; 5 || isempty(nlambda) nlambda = 100; <span class="keyword">end</span>
+0033 <span class="keyword">if</span> nargin &lt; 6 || isempty(plotGCV) plotGCV = false; <span class="keyword">end</span>
+0034 <span class="keyword">if</span> nargin &lt; 7 || isempty(verb) verb = false; <span class="keyword">end</span>
+0035 
+0036 n = size(Ut,1);
+0037 p = size(V,1);
+0038 s = sqrt(s2);
+0039 UtY = Ut*Y;
+0040 
+0041 tol = max([n p])*eps(max(s));
+0042 lambda = logspace(log10(tol),log10(max(s)),nlambda);
+0043 gcv = zeros(nlambda,1);
+0044 
+0045 beta2 = mean(norms(Y).^2 - norms(UtY).^2);
+0046 [n,m] = size(Ut);
+0047 delta0 = 0;
+0048   <span class="keyword">if</span> (m &gt; n &amp;&amp; beta2 &gt; 0)
+0049       <span class="keyword">if</span> verb
+0050         fprintf(<span class="string">'m&gt;n criterion met\n'</span>);
+0051         fprintf(<span class="string">'m=%d, n=%d\n'</span>,m,n);
+0052       <span class="keyword">end</span>
+0053       delta0 = beta2; 
+0054   <span class="keyword">end</span>
+0055 <span class="keyword">for</span> it=1:nlambda
+0056     gcv(it) = <a href="#_sub2" class="code" title="subfunction G = gcvfun2(lambda,s2,beta,delta0,mn,dsvd)">gcvfun2</a>(lambda(it),s2,UtY,delta0,m-n);
+0057 <span class="keyword">end</span>
+0058 
+0059 loc = <a href="#_sub1" class="code" title="subfunction indmin = getMinima(x)">getMinima</a>(gcv);
+0060 <span class="keyword">if</span> verb
+0061     fprintf(<span class="string">'GCV min found at loc=%d | lambda=%0.5g\n'</span>,loc,lambda(loc)); <span class="keyword">end</span>
+0062 <span class="keyword">if</span> isempty(loc), 
+0063     fprintf(<span class="string">'GCV did not find a minimum.\n'</span>);
+0064     loc = length(lambda);
+0065 <span class="keyword">end</span>
+0066 loc = loc(end);
+0067 lambdaOpt = lambda(loc);
+0068 
+0069 T = V*diag(s./(s2+lambdaOpt.^2))*Ut;
+0070 J = T*Y;                            <span class="comment">% J = (K'*K+lambda*L'*L)\K'*Y</span>
+0071 
+0072 <span class="comment">% J = bsxfun(@minus,J,median(J));</span>
+0073 <span class="comment">% J = bsxfun(@rdivide,J,(std(J)+eps));</span>
+0074 
+0075 <span class="keyword">if</span> plotGCV
+0076     figure;
+0077     semilogx(lambda,gcv)
+0078     xlabel(<span class="string">'log-lambda'</span>);
+0079     ylabel(<span class="string">'GCV'</span>);
+0080     hold on;
+0081     plot(lambdaOpt,gcv(loc),<span class="string">'rx'</span>,<span class="string">'linewidth'</span>,2)
+0082     grid on;
+0083 <span class="keyword">end</span>
+0084 
+0085 <span class="comment">%---</span>
+0086 <a name="_sub1" href="#_subfunctions" class="code">function indmin = getMinima(x)</a>
+0087 fminor = diff(x)&gt;=0;
+0088 fminor = ~fminor(1:end-1) &amp; fminor(2:end);
+0089 fminor = [0; fminor; 0];
+0090 indmin = find(fminor);
+0091 
+0092 
+0093 <a name="_sub2" href="#_subfunctions" class="code">function G = gcvfun2(lambda,s2,beta,delta0,mn,dsvd)</a>
+0094 
+0095 <span class="comment">% Auxiliary routine for gcv.  PCH, IMM, Feb. 24, 2008.</span>
+0096 
+0097 <span class="comment">% Note: f = 1 - filter-factors.</span>
+0098 <span class="keyword">if</span> (nargin==5)
+0099    f = (lambda^2)./(s2 + lambda^2);
+0100 <span class="keyword">else</span>
+0101    f = lambda./(s2 + lambda);
+0102 <span class="keyword">end</span>
+0103 G = mean((norms(bsxfun(@times,f,beta)).^2 + delta0)/(mn + sum(f))^2);
+0104 
+0105</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

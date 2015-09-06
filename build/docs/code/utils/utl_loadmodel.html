@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_loadmodel</title>
+  <meta name="keywords" content="utl_loadmodel">
+  <meta name="description" content="Load a given model.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_loadmodel.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_loadmodel
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Load a given model.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function model = utl_loadmodel(model) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Load a given model.
+ Model = utl_loadmodel(Model)
+
+ In:
+   Model : The model to load; this can be a model struct, or a base workspace variable name, or a
+           file name, or a cell array of {file name, variable name} to refer to a variable inside a
+           file. Models are calibrated via bci_train or the GUI.
+
+ Out:
+   Model : the loaded model structure
+
+                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                               2013-11-23</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function model = utl_loadmodel(model)</a>
+0002 <span class="comment">% Load a given model.</span>
+0003 <span class="comment">% Model = utl_loadmodel(Model)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Model : The model to load; this can be a model struct, or a base workspace variable name, or a</span>
+0007 <span class="comment">%           file name, or a cell array of {file name, variable name} to refer to a variable inside a</span>
+0008 <span class="comment">%           file. Models are calibrated via bci_train or the GUI.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% Out:</span>
+0011 <span class="comment">%   Model : the loaded model structure</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">%                               Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0014 <span class="comment">%                               2013-11-23</span>
+0015 
+0016 <span class="comment">% parse the model argument</span>
+0017 <span class="keyword">if</span> ischar(model)
+0018     <span class="comment">% try to evaluate in the workspace</span>
+0019     <span class="keyword">try</span>
+0020         model = evalin(<span class="string">'base'</span>,model);
+0021     <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0022         <span class="comment">% if that fails, try to load it as a file name</span>
+0023         <span class="keyword">try</span>
+0024             model = io_load(model);
+0025             <span class="keyword">if</span> ~isfield(model,<span class="string">'tracking'</span>) || ~isfield(model.tracking,<span class="string">'prediction_function'</span>)
+0026                 <span class="comment">% the loaded model is lacking the appropriate fields; check if there are variables</span>
+0027                 <span class="comment">% in the loaded data which are valid models</span>
+0028                 candidates = {};
+0029                 <span class="keyword">for</span> f = fieldnames(model)'
+0030                     fname = f{1};
+0031                     <span class="keyword">if</span> isfield(model.(fname),<span class="string">'tracking'</span>) &amp;&amp; isfield(model.(fname).tracking,<span class="string">'prediction_function'</span>)
+0032                         candidates{end+1} = fname; <span class="keyword">end</span> <span class="comment">%#ok&lt;AGROW&gt;</span>
+0033                 <span class="keyword">end</span>
+0034                 <span class="keyword">if</span> length(candidates) &gt; 1
+0035                     error(<span class="string">'BCILAB:utl_loadmodel:ambiguous'</span>,[<span class="string">'The file given as the model contains multiple candiate variables:\n'</span> <span class="keyword">...</span>
+0036                         hlp_tostring(candidates) <span class="string">'; please pass a file or model structure which is non-ambiguous.'</span>]); 
+0037                 <span class="keyword">elseif</span> isempty(candidates)
+0038                     error(<span class="string">'BCILAB:utl_loadmodel:load_error'</span>,<span class="string">'The given file contains no valid model.'</span>);
+0039                 <span class="keyword">else</span>
+0040                     model = model.(candidates{1});
+0041                 <span class="keyword">end</span>
+0042             <span class="keyword">end</span>
+0043         <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0044             error(<span class="string">'BCILAB:utl_loadmodel:load_error'</span>,<span class="string">'The given model string could not be interpreted (neither as a file name nor as a workspace variable).'</span>);
+0045         <span class="keyword">end</span>
+0046     <span class="keyword">end</span>
+0047 <span class="keyword">elseif</span> iscell(model) &amp;&amp; length(model) == 2 &amp;&amp; iscellstr(model)
+0048     <span class="comment">% two-element cell-string arrays are interpreted as {filename varname}.</span>
+0049     <span class="keyword">try</span>
+0050         model = getfield(io_load(model{1},model{2}),model{2});
+0051     <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0052         error(<span class="string">'BCILAB:utl_loadmodel:load_error'</span>,[<span class="string">'The file '</span> model{1} <span class="string">' and/or its variable '</span> model{2} <span class="string">' could not be loaded.'</span>]);
+0053     <span class="keyword">end</span>
+0054 <span class="keyword">elseif</span> ~isstruct(model) || isempty(model)
+0055     error(<span class="string">'BCILAB:utl_loadmodel:invalid_model'</span>,<span class="string">'The given data is not a valid model.'</span>);
+0056 <span class="keyword">elseif</span> ~isfield(model,<span class="string">'tracking'</span>) || ~isfield(model.tracking,<span class="string">'prediction_function'</span>) || ~isfield(model.tracking,<span class="string">'filter_graph'</span>)
+0057     error(<span class="string">'BCILAB:utl_loadmodel:invalid_model'</span>,<span class="string">'The given data structure is not a valid model (lacking required fields).'</span>);
+0058 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

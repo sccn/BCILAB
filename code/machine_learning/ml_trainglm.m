@@ -485,6 +485,9 @@ else
         model.best_pot = args{6};
         model.best_tau = args{end-2};
     end
+
+    % display the regularization curve (lnZ) for evidence maximization
+    % zz=vertcat(allOutputs{:});figure;plot([zz{:,1}])
     
     % infer the model
     [nlZ,m,ga,b,z,zu,Q,T] = dli_wrap(args{:});
@@ -527,7 +530,7 @@ pot = @(s,varargin)potCat(s,varargin{:},potList,potRanges);
 if isempty(potList)
     pot = @(varargin)[]; end
 % invoke actual solver
-[m,ga,b,z,zu,nlZ,Q,T] = dli(X,y,s2,B,t,pot,tau,opts,G);
+[m,ga,b,z,zu,nlZ,Q,T,phi0,ldA] = dli(X,y,s2,B,t,pot,tau,opts,G);
 nlZ = nlZ(end);
 
 

@@ -76,7 +76,7 @@ if npnts == 0
     % no data
     signal.srcpot    = [];
     state.srcweights = [];
-    return;
+    exp_endfun; return;
 end
 
 signal.srcpot    = zeros([size(K,2) npnts]);

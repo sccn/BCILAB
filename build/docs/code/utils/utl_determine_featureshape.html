@@ -1,0 +1,195 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of utl_determine_featureshape</title>
+  <meta name="keywords" content="utl_determine_featureshape">
+  <meta name="description" content="Uniformize the given trials and shape information.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">utils</a> &gt; utl_determine_featureshape.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>utl_determine_featureshape
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Uniformize the given trials and shape information.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [featureshape,trials,vectorize_trials] = utl_determine_featureshape(trials,shape,multitask) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Uniformize the given trials and shape information.
+ [FeatureShape,Trials,VectorizeTrials] = utl_determine_featureshape(Trials,Shape,Multitask)
+
+ This function deals with the fact that trials can be represented either as [NxF] matrix of
+ vectorized features (N=#observations, F=#features), or as [AxBxCx...xN] array of tensor-shaped
+ features (A,B,C, ... = #elements in the respective dimension), which is a bit inconsistent for
+ historical reasons.
+
+ Takes trials in a variety of shapes, and an (optionally non-empty) desired shape vector and
+ uniformizes them into a [#trials x #features] matrix of vectorized trials, the deduced feature
+ shape, and a boolean flag of whether trials had to be vectorized. By default also handles a cell
+ array of multiple trial arrays, which are assumed to stem from multiple compatibly shaped tasks.
+
+ In:
+   Trials : A NxF matrix of observations with pre-vectorized features, or a [AxBxCx...xN] array
+            of tensor-shaped features. Can also be a cell array of multiple such arrays where all
+            dimensions except N must be identical.
+
+   Shape : A vector that is the desired output of size() applied to a single observation, that is,
+           a vector of sizes. If [], shape information will be deduced from Trials, otherwise
+           overrides the shape of Trials.
+
+   Multitask : If true, the output will be a cell array of trial matrices. Otherwise it will be 
+               a matrix (and an error will be thrown if there was more than one task in the
+               input).
+
+ Out:
+   FeatureShape : Final 1xD vector that describes the feature shape (same as size(one_trial)).
+
+   Trials : Vectorized version of input Trials (#trials x #features).
+
+   VectorizeTrials : whether trials had to be vectorized.
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2013-02-04</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [featureshape,trials,vectorize_trials] = utl_determine_featureshape(trials,shape,multitask)</a>
+0002 <span class="comment">% Uniformize the given trials and shape information.</span>
+0003 <span class="comment">% [FeatureShape,Trials,VectorizeTrials] = utl_determine_featureshape(Trials,Shape,Multitask)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This function deals with the fact that trials can be represented either as [NxF] matrix of</span>
+0006 <span class="comment">% vectorized features (N=#observations, F=#features), or as [AxBxCx...xN] array of tensor-shaped</span>
+0007 <span class="comment">% features (A,B,C, ... = #elements in the respective dimension), which is a bit inconsistent for</span>
+0008 <span class="comment">% historical reasons.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% Takes trials in a variety of shapes, and an (optionally non-empty) desired shape vector and</span>
+0011 <span class="comment">% uniformizes them into a [#trials x #features] matrix of vectorized trials, the deduced feature</span>
+0012 <span class="comment">% shape, and a boolean flag of whether trials had to be vectorized. By default also handles a cell</span>
+0013 <span class="comment">% array of multiple trial arrays, which are assumed to stem from multiple compatibly shaped tasks.</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">% In:</span>
+0016 <span class="comment">%   Trials : A NxF matrix of observations with pre-vectorized features, or a [AxBxCx...xN] array</span>
+0017 <span class="comment">%            of tensor-shaped features. Can also be a cell array of multiple such arrays where all</span>
+0018 <span class="comment">%            dimensions except N must be identical.</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%   Shape : A vector that is the desired output of size() applied to a single observation, that is,</span>
+0021 <span class="comment">%           a vector of sizes. If [], shape information will be deduced from Trials, otherwise</span>
+0022 <span class="comment">%           overrides the shape of Trials.</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   Multitask : If true, the output will be a cell array of trial matrices. Otherwise it will be</span>
+0025 <span class="comment">%               a matrix (and an error will be thrown if there was more than one task in the</span>
+0026 <span class="comment">%               input).</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">% Out:</span>
+0029 <span class="comment">%   FeatureShape : Final 1xD vector that describes the feature shape (same as size(one_trial)).</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%   Trials : Vectorized version of input Trials (#trials x #features).</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%   VectorizeTrials : whether trials had to be vectorized.</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0036 <span class="comment">%                                2013-02-04</span>
+0037 
+0038 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2013, christian@sccn.ucsd.edu</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0041 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0042 <span class="comment">% License, or (at your option) any later version.</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0045 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0046 <span class="comment">% General Public License for more details.</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0049 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0050 <span class="comment">% USA</span>
+0051 
+0052 
+0053 <span class="keyword">if</span> ~iscell(trials)
+0054     trials = {trials}; <span class="keyword">end</span>
+0055 featureshape = cell(1,length(trials));
+0056 vectorize_trials = cell(1,length(trials));
+0057 <span class="comment">% for each task (each of which has multiple trials)...</span>
+0058 <span class="keyword">for</span> t=1:length(trials)
+0059     <span class="keyword">if</span> ndims(trials{t}) &gt; 2 <span class="comment">%#ok&lt;ISMAT&gt;</span>
+0060         featureshape{t} = size(trials{t}); featureshape{t} = featureshape{t}(1:end-1);
+0061         <span class="keyword">if</span> ~isempty(shape) &amp;&amp; ~isequal(shape,featureshape{t})
+0062             <span class="keyword">if</span> prod(featureshape{t}) == prod(shape)
+0063                 warning(<span class="string">'You are specifying a shape property but also multidimensional features of a different shape; using the explicit shape parameter.'</span>);
+0064                 featureshape{t} = shape;
+0065             <span class="keyword">else</span>
+0066                 error(<span class="string">'You are specifying a shape property but also features with an incompatible number of elements. Please correct.'</span>);
+0067             <span class="keyword">end</span>
+0068         <span class="keyword">end</span>
+0069         trials{t} = double(reshape(trials{t},[],size(trials{t},ndims(trials{t})))');
+0070         vectorize_trials{t} = true;
+0071     <span class="keyword">else</span>
+0072         <span class="keyword">if</span> ~isempty(shape)
+0073             <span class="keyword">if</span> size(shape,1) &gt; 1
+0074                 <span class="keyword">if</span> all(all(bsxfun(@eq,shape(1,:),shape)))
+0075                     featureshape{t} = [shape(1,1),shape(1,2),size(shape,1)];
+0076                     <span class="keyword">if</span> prod(featureshape{t}) == size(trials{t},2)
+0077                         <span class="comment">% the reason is that it is much more efficient to operate on a dense 3d array than a very sparse 2d array</span>
+0078                         warn_once(<span class="string">'This method will by convention reshape block-diagonalized feature matrices with identical blocks into a 3d tensor. This warning will only come up once.'</span>);
+0079                     <span class="keyword">else</span>
+0080                         error(<span class="string">'Your shape parameter has a different number of features than your data.'</span>);
+0081                     <span class="keyword">end</span>
+0082                 <span class="keyword">else</span>
+0083                     <span class="comment">% we don't implement block-diagonalization in here</span>
+0084                     error(<span class="string">'This method does not handle implicitly block-diagonal features; please either reformulate in tensor form or pass a large sparse data matrix (pre-blockdiagonalized). Note that the tensor form is likely several times faster.'</span>);
+0085                 <span class="keyword">end</span>
+0086             <span class="keyword">elseif</span> prod(shape) ~= size(trials{t},2)
+0087                 error(<span class="string">'Your shape parameter has a different number of features than data.'</span>);
+0088             <span class="keyword">else</span>
+0089                 featureshape{t} = shape;
+0090             <span class="keyword">end</span>
+0091         <span class="keyword">else</span>
+0092             featureshape{t} = [size(trials{t},2),1];
+0093         <span class="keyword">end</span>
+0094         vectorize_trials{t} = false;
+0095     <span class="keyword">end</span>
+0096 <span class="keyword">end</span>
+0097 vectorize_trials = unique([vectorize_trials{:}]);
+0098 <span class="keyword">if</span> length(vectorize_trials)&gt;1 || ~all(cellfun(@(x)isequal(x,featureshape{1}),featureshape))
+0099     error(<span class="string">'The number or shape of features must be the same for each task.'</span>); <span class="keyword">end</span>    
+0100 featureshape = featureshape{1};
+0101 <span class="keyword">if</span> nargin &gt;=3 &amp;&amp; ~multitask
+0102     <span class="keyword">if</span> length(trials) &gt; 1
+0103         error(<span class="string">'Multi-task learning is disabled by multiple tasks were given.'</span>);
+0104     <span class="keyword">else</span>
+0105         trials = trials{1};
+0106     <span class="keyword">end</span>
+0107 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

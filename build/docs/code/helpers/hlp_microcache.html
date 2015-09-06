@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>hlp_microcache
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -133,11 +134,18 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="hlp_microcache.html" class="code" title="function varargout = hlp_microcache(dom, f, varargin)">hlp_microcache</a>	Cache results of functions for repeated calls with the same arguments.</li></ul>
+
+<li><a href="hlp_microcache.html" class="code" title="function varargout = hlp_microcache(dom, f, varargin)">hlp_microcache</a>	Cache results of functions for repeated calls with the same arguments.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="hlp_microcache.html" class="code" title="function varargout = hlp_microcache(dom, f, varargin)">hlp_microcache</a>	Cache results of functions for repeated calls with the same arguments.</li></ul>
+
+<li><a href="hlp_microcache.html" class="code" title="function varargout = hlp_microcache(dom, f, varargin)">hlp_microcache</a>	Cache results of functions for repeated calls with the same arguments.</li>
+</ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -279,163 +287,164 @@ This function is called by:
 0135 <span class="comment">%   lambda_equality: desired equality relation for lambda expressions</span>
 0136 <span class="keyword">persistent</span> mc;
 0137 
-0138 
-0139 <span class="comment">% [varargout{1:nargout}] = f(varargin{:}); return; % UNCOMMENT TO BYPASS</span>
-0140 
-0141 <span class="comment">% is this a regular call?</span>
-0142 <span class="keyword">if</span> nargin &gt; 1
-0143     <span class="keyword">if</span> isa(f,<span class="string">'function_handle'</span>)
-0144         
-0145         <span class="comment">% get the current lookup time</span>
-0146         now = cputime;
-0147         
-0148         <span class="comment">% compute the key structure</span>
-0149         cf = char(f);
-0150         <span class="keyword">if</span> cf(1) == <span class="string">'@'</span>
-0151             <span class="comment">% ignore variables only accessible via eval() / evalin() in lambda terms</span>
-0152             tmp = functions(f);
-0153             key_f = {cf,tmp.workspace{1}};
-0154         <span class="keyword">else</span>
-0155             key_f = f;
-0156         <span class="keyword">end</span>
-0157         
-0158         <span class="keyword">try</span>
-0159             <span class="comment">% optionally do some special processing of lambda terms in the function arguments</span>
-0160             args = varargin;
-0161             leq = mc.(dom).config.lambda_equality;
-0162             <span class="keyword">if</span> ischar(leq)
-0163                 <span class="keyword">for</span> k = find(cellfun(<span class="string">'isclass'</span>,argin,<span class="string">'function_handle'</span>))
-0164                     ck = char(args{k});
-0165                     <span class="keyword">if</span> ck(1) == <span class="string">'@'</span>
-0166                         <span class="keyword">if</span> strcmp(leq,<span class="string">'string'</span>)
-0167                             <span class="comment">% the fastest way to deal with them is to scrap any possible bound variables</span>
-0168                             <span class="comment">% and just consider the raw expression</span>
-0169                             args{k} = ck;
-0170                         <span class="keyword">elseif</span> strcmp(leq,<span class="string">'proper'</span>)
-0171                             <span class="comment">% the 'proper' way for most purposes is to consider both the expression and</span>
-0172                             <span class="comment">% the directly bound variables but ignore variables in the same scope</span>
-0173                             tmp = functions(args{k});
-0174                             args{k} = {ck,tmp.workspace{1}};
-0175                         <span class="keyword">else</span>
-0176                             disp(<span class="string">'hlp_microcache: unrecognized lambda_equality setting encountered; resetting to false.'</span>);
-0177                         <span class="keyword">end</span>
-0178                     <span class="keyword">end</span>
-0179                 <span class="keyword">end</span>
-0180             <span class="keyword">end</span>
-0181         <span class="keyword">catch</span>
-0182             <span class="comment">% the lambda lookup failed, so we assume that it has not yet been assigned; assign it now.</span>
-0183             mc.(dom).config.lambda_equality = false;
-0184         <span class="keyword">end</span>
-0185         key = [args,{key_f,nargout}];
-0186         
-0187         <span class="comment">% get the size id (sid) of the key (MATLAB keeps track of that for every object)</span>
-0188         keyinfo = whos(<span class="string">'key'</span>);
-0189         keysid = sprintf(<span class="string">'s%.0f'</span>,keyinfo.bytes);
-0190         
-0191         <span class="keyword">try</span>
-0192             <span class="comment">% retrieve the pool of size-equivalent objects</span>
-0193             sizepool = mc.(dom).(keysid);
-0194             <span class="comment">% search for the key in the pool (checking the most-frequently used keys first)</span>
-0195             <span class="keyword">for</span> k=1:length(sizepool.inps)
-0196                 <span class="keyword">if</span> isequalwithequalnans(key,sizepool.inps{k}) <span class="comment">% (isequalwithequalnans() is a fast builtin)</span>
-0197                     <span class="comment">% found the key, deliver outputs</span>
-0198                     varargout = sizepool.outs{k};
-0199                     <span class="comment">% update the db record...</span>
-0200                     sizepool.frqs(k) = sizepool.frqs(k)+1;
-0201                     sizepool.luse(k) = now;
-0202                     sizepool.lcnt = sizepool.lcnt+1;
-0203                     <span class="comment">% resort by lookup frequency every resort_freq lookups</span>
-0204                     <span class="keyword">if</span> sizepool.lcnt &gt; mc.(dom).config.resort_freq
-0205                         [sizepool.frqs,inds] = sort(sizepool.frqs,<span class="string">'descend'</span>);
-0206                         sizepool.inps = sizepool.inps(inds);
-0207                         sizepool.outs = sizepool.outs(inds);
-0208                         sizepool.luse = sizepool.luse(inds);
-0209                         sizepool.lcnt = 0;
-0210                     <span class="keyword">end</span>
-0211                     <span class="comment">% write back</span>
-0212                     mc.(dom).(keysid) = sizepool;
-0213                     <span class="keyword">return</span>;
-0214                 <span class="keyword">end</span>
-0215             <span class="keyword">end</span>
-0216         <span class="keyword">catch</span>
-0217             <span class="comment">% domain+keysid not yet in the cache: create appropriate structures (this is rare)</span>
-0218             sizepool = struct(<span class="string">'inps'</span>,{{}}, <span class="string">'outs'</span>,{{}}, <span class="string">'frqs'</span>,{[]}, <span class="string">'luse'</span>,{[]}, <span class="string">'lcnt'</span>,{0});
-0219         <span class="keyword">end</span>
-0220         
-0221         <span class="keyword">if</span> ~exist(<span class="string">'varargout'</span>,<span class="string">'var'</span>)
-0222             <span class="comment">% set up the default configuration for a domain, if it's not yet present</span>
-0223             <span class="keyword">if</span> ~isfield(mc,dom) || ~isfield(mc.(dom),<span class="string">'config'</span>)
-0224                 mc.(dom).config = struct(); <span class="keyword">end</span>
-0225             <span class="keyword">if</span> ~isfield(mc.(dom).config,<span class="string">'resort_freq'</span>)
-0226                 mc.(dom).config.resort_freq = 10; <span class="keyword">end</span>
-0227             <span class="keyword">if</span> ~isfield(mc.(dom).config,<span class="string">'group_size'</span>)
-0228                 mc.(dom).config.group_size = 100; <span class="keyword">end</span>
-0229             <span class="keyword">if</span> ~isfield(mc.(dom).config,<span class="string">'max_result_size'</span>)
-0230                 mc.(dom).config.max_result_size = 100000000; <span class="keyword">end</span>
-0231             <span class="keyword">if</span> ~isfield(mc.(dom).config,<span class="string">'max_key_size'</span>)
-0232                 mc.(dom).config.max_key_size = 100000000; <span class="keyword">end</span>
-0233             <span class="comment">% did not find the entry in the size pool: compute it</span>
-0234             [varargout{1:nargout}] = f(varargin{:});
-0235             iteminfo = whos(<span class="string">'varargout'</span>);
-0236             <span class="keyword">if</span> iteminfo.bytes &lt;= mc.(dom).config.max_result_size &amp;&amp; keyinfo.bytes &lt;= mc.(dom).config.max_key_size
-0237                 <span class="comment">% add to pool</span>
-0238                 sizepool.luse(end+1) = now;
-0239                 sizepool.frqs(end+1) = 1;
-0240                 sizepool.inps{end+1} = key;
-0241                 sizepool.outs{end+1} = varargout;
-0242                 sizepool.lcnt = 0;
-0243                 <span class="comment">% remove least-recently used entries if necessary</span>
-0244                 <span class="keyword">while</span> length(sizepool.inps) &gt; mc.(dom).config.group_size
-0245                     [x,idx] = min(sizepool.luse); <span class="comment">%#ok&lt;ASGLU&gt;</span>
-0246                     sizepool.luse(idx) = [];
-0247                     sizepool.frqs(idx) = [];
-0248                     sizepool.inps(idx) = [];
-0249                     sizepool.outs(idx) = [];
-0250                 <span class="keyword">end</span>
-0251                 <span class="comment">% write back</span>
-0252                 mc.(dom).(keysid) = sizepool;
-0253             <span class="keyword">end</span>
-0254         <span class="keyword">end</span>
-0255         
-0256     <span class="keyword">else</span>
-0257         <span class="comment">% a control invocation</span>
-0258         varargin = [{f} varargin];
-0259         <span class="keyword">if</span> length(varargin) &gt; 1
-0260             <span class="comment">% f and what follows are name-value pairs that define the domain configuration</span>
-0261             <span class="keyword">for</span> k=1:2:length(varargin)
-0262                 mc.(dom).config.(varargin{k}) = varargin{k+1}; <span class="keyword">end</span>
-0263         <span class="keyword">else</span>
-0264             <span class="comment">% single argument: this is a command to be applied to the domain</span>
-0265             <span class="keyword">switch</span> varargin{1}
-0266                 <span class="keyword">case</span> <span class="string">'clear'</span>
-0267                     <span class="comment">% clear the entire domain</span>
-0268                     <span class="keyword">if</span> isfield(mc,dom)
-0269                         <span class="keyword">if</span> isfield(mc.(dom),<span class="string">'config'</span>)
-0270                             <span class="comment">% retain the config if applicable</span>
-0271                             mc.(dom) = struct(<span class="string">'config'</span>,{mc.(dom).config});
-0272                         <span class="keyword">else</span>
-0273                             mc = rmfield(mc,dom);
-0274                         <span class="keyword">end</span>
-0275                     <span class="keyword">end</span>
-0276                 <span class="keyword">case</span> <span class="string">'reset'</span>
-0277                     <span class="comment">% reset the domain, including config</span>
-0278                     mc = rmfield(mc,dom);
-0279                 <span class="keyword">otherwise</span>
-0280                     error(<span class="string">'Unrecognized command.'</span>);
-0281             <span class="keyword">end</span>
-0282         <span class="keyword">end</span>
-0283     <span class="keyword">end</span>
-0284 <span class="keyword">else</span>
-0285     <span class="comment">% global command (no f specified)</span>
-0286     <span class="keyword">if</span> strcmp(dom,<span class="string">'clear'</span>) &amp;&amp; isstruct(mc)
-0287         <span class="comment">% clear all domains...</span>
-0288         <span class="keyword">for</span> d = fieldnames(mc)'
-0289             <a href="hlp_microcache.html" class="code" title="function varargout = hlp_microcache(dom, f, varargin)">hlp_microcache</a>(d{1},<span class="string">'clear'</span>); <span class="keyword">end</span>
-0290     <span class="keyword">elseif</span> strcmp(dom,<span class="string">'reset'</span>)
-0291         <span class="comment">% reset all domains</span>
-0292         mc = [];
-0293     <span class="keyword">end</span>
-0294 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0138 <span class="comment">% [varargout{1:nargout}] = f(varargin{:}); return; % UNCOMMENT TO BYPASS</span>
+0139 
+0140 <span class="comment">% is this a regular call?</span>
+0141 <span class="keyword">if</span> nargin &gt; 1
+0142     <span class="keyword">if</span> isa(f,<span class="string">'function_handle'</span>)
+0143         
+0144         <span class="comment">% get the current lookup time</span>
+0145         now = cputime;
+0146         
+0147         <span class="comment">% compute the key structure</span>
+0148         cf = char(f);
+0149         <span class="keyword">if</span> cf(1) == <span class="string">'@'</span>
+0150             <span class="comment">% ignore variables only accessible via eval() / evalin() in lambda terms</span>
+0151             tmp = functions(f);
+0152             key_f = {cf,tmp.workspace{1}};
+0153         <span class="keyword">else</span>
+0154             key_f = f;
+0155         <span class="keyword">end</span>
+0156         
+0157         <span class="keyword">try</span>
+0158             <span class="comment">% optionally do some special processing of lambda terms in the function arguments</span>
+0159             args = varargin;
+0160             leq = mc.(dom).config.lambda_equality;
+0161             <span class="keyword">if</span> ischar(leq)
+0162                 <span class="keyword">for</span> k = find(cellfun(<span class="string">'isclass'</span>,varargin,<span class="string">'function_handle'</span>))
+0163                     ck = char(args{k});
+0164                     <span class="keyword">if</span> ck(1) == <span class="string">'@'</span>
+0165                         <span class="keyword">if</span> strcmp(leq,<span class="string">'string'</span>)
+0166                             <span class="comment">% the fastest way to deal with them is to scrap any possible bound variables</span>
+0167                             <span class="comment">% and just consider the raw expression</span>
+0168                             args{k} = ck;
+0169                         <span class="keyword">elseif</span> strcmp(leq,<span class="string">'proper'</span>)
+0170                             <span class="comment">% the 'proper' way for most purposes is to consider both the expression and</span>
+0171                             <span class="comment">% the directly bound variables but ignore variables in the same scope</span>
+0172                             tmp = functions(args{k});
+0173                             args{k} = {ck,tmp.workspace{1}};
+0174                         <span class="keyword">else</span>
+0175                             disp(<span class="string">'hlp_microcache: unrecognized lambda_equality setting encountered; resetting to false.'</span>);
+0176                         <span class="keyword">end</span>
+0177                     <span class="keyword">end</span>
+0178                 <span class="keyword">end</span>
+0179             <span class="keyword">end</span>
+0180         <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0181             <span class="comment">% the lambda lookup failed, so we assume that it has not yet been assigned; assign it now.</span>
+0182             mc.(dom).config.lambda_equality = false;
+0183         <span class="keyword">end</span>
+0184         key = [args,{key_f,nargout}];
+0185         
+0186         <span class="comment">% get the size id (sid) of the key (MATLAB keeps track of that for every object)</span>
+0187         keyinfo = whos(<span class="string">'key'</span>);
+0188         keysid = sprintf(<span class="string">'s%u'</span>,keyinfo.bytes);
+0189         
+0190         <span class="keyword">try</span>
+0191             <span class="comment">% retrieve the pool of size-equivalent objects</span>
+0192             sizepool = mc.(dom).(keysid);
+0193             <span class="comment">% search for the key in the pool (checking the most-frequently used keys first)</span>
+0194             <span class="keyword">for</span> k=1:length(sizepool.inps)
+0195                 <span class="keyword">if</span> isequalwithequalnans(key,sizepool.inps{k}) <span class="comment">%#ok&lt;FPARK&gt; % (isequalwithequalnans() is a fast builtin)</span>
+0196                     <span class="comment">% found the key, deliver outputs</span>
+0197                     varargout = sizepool.outs{k};
+0198                     <span class="comment">% update the db record...</span>
+0199                     sizepool.frqs(k) = sizepool.frqs(k)+1;
+0200                     sizepool.luse(k) = now;
+0201                     sizepool.lcnt = sizepool.lcnt+1;
+0202                     <span class="comment">% resort by lookup frequency every resort_freq lookups</span>
+0203                     <span class="keyword">if</span> sizepool.lcnt &gt; mc.(dom).config.resort_freq
+0204                         [sizepool.frqs,inds] = sort(sizepool.frqs,<span class="string">'descend'</span>);
+0205                         sizepool.inps = sizepool.inps(inds);
+0206                         sizepool.outs = sizepool.outs(inds);
+0207                         sizepool.luse = sizepool.luse(inds);
+0208                         sizepool.lcnt = 0;
+0209                     <span class="keyword">end</span>
+0210                     <span class="comment">% write back</span>
+0211                     mc.(dom).(keysid) = sizepool;
+0212                     <span class="keyword">return</span>;
+0213                 <span class="keyword">end</span>
+0214             <span class="keyword">end</span>
+0215         <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0216             <span class="comment">% domain+keysid not yet in the cache: create appropriate structures (this is rare)</span>
+0217             sizepool = struct(<span class="string">'inps'</span>,{{}}, <span class="string">'outs'</span>,{{}}, <span class="string">'frqs'</span>,{[]}, <span class="string">'luse'</span>,{[]}, <span class="string">'lcnt'</span>,{0});
+0218         <span class="keyword">end</span>
+0219         
+0220         <span class="keyword">if</span> ~exist(<span class="string">'varargout'</span>,<span class="string">'var'</span>)
+0221             <span class="comment">% set up the default configuration for a domain, if it's not yet present</span>
+0222             <span class="keyword">if</span> ~isfield(mc,dom) || ~isfield(mc.(dom),<span class="string">'config'</span>)
+0223                 mc.(dom).config = struct(); <span class="keyword">end</span>
+0224             <span class="keyword">if</span> ~isfield(mc.(dom).config,<span class="string">'resort_freq'</span>)
+0225                 mc.(dom).config.resort_freq = 10; <span class="keyword">end</span>
+0226             <span class="keyword">if</span> ~isfield(mc.(dom).config,<span class="string">'group_size'</span>)
+0227                 mc.(dom).config.group_size = 100; <span class="keyword">end</span>
+0228             <span class="keyword">if</span> ~isfield(mc.(dom).config,<span class="string">'max_result_size'</span>)
+0229                 mc.(dom).config.max_result_size = 100000000; <span class="keyword">end</span>
+0230             <span class="keyword">if</span> ~isfield(mc.(dom).config,<span class="string">'max_key_size'</span>)
+0231                 mc.(dom).config.max_key_size = 100000000; <span class="keyword">end</span>
+0232             <span class="comment">% did not find the entry in the size pool: compute it</span>
+0233             [varargout{1:nargout}] = f(varargin{:});
+0234             iteminfo = whos(<span class="string">'varargout'</span>);
+0235             <span class="keyword">if</span> iteminfo.bytes &lt;= mc.(dom).config.max_result_size &amp;&amp; keyinfo.bytes &lt;= mc.(dom).config.max_key_size
+0236                 <span class="comment">% add to pool</span>
+0237                 sizepool.luse(end+1) = now;
+0238                 sizepool.frqs(end+1) = 1;
+0239                 sizepool.inps{end+1} = key;
+0240                 sizepool.outs{end+1} = varargout;
+0241                 sizepool.lcnt = 0;
+0242                 <span class="comment">% remove least-recently used entries if necessary</span>
+0243                 <span class="keyword">while</span> length(sizepool.inps) &gt; mc.(dom).config.group_size
+0244                     [x,idx] = min(sizepool.luse); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0245                     sizepool.luse(idx) = [];
+0246                     sizepool.frqs(idx) = [];
+0247                     sizepool.inps(idx) = [];
+0248                     sizepool.outs(idx) = [];
+0249                 <span class="keyword">end</span>
+0250                 <span class="comment">% write back</span>
+0251                 mc.(dom).(keysid) = sizepool;
+0252             <span class="keyword">end</span>
+0253         <span class="keyword">end</span>
+0254         
+0255     <span class="keyword">else</span>
+0256         <span class="comment">% a control invocation</span>
+0257         varargin = [{f} varargin];
+0258         <span class="keyword">if</span> length(varargin) &gt; 1
+0259             <span class="comment">% f and what follows are name-value pairs that define the domain configuration</span>
+0260             <span class="keyword">for</span> k=1:2:length(varargin)
+0261                 mc.(dom).config.(varargin{k}) = varargin{k+1}; <span class="keyword">end</span>
+0262         <span class="keyword">else</span>
+0263             <span class="comment">% single argument: this is a command to be applied to the domain</span>
+0264             <span class="keyword">switch</span> varargin{1}
+0265                 <span class="keyword">case</span> <span class="string">'clear'</span>
+0266                     <span class="comment">% clear the entire domain</span>
+0267                     <span class="keyword">if</span> isfield(mc,dom)
+0268                         <span class="keyword">if</span> isfield(mc.(dom),<span class="string">'config'</span>)
+0269                             <span class="comment">% retain the config if applicable</span>
+0270                             mc.(dom) = struct(<span class="string">'config'</span>,{mc.(dom).config});
+0271                         <span class="keyword">else</span>
+0272                             mc = rmfield(mc,dom);
+0273                         <span class="keyword">end</span>
+0274                     <span class="keyword">end</span>
+0275                 <span class="keyword">case</span> <span class="string">'reset'</span>
+0276                     <span class="comment">% reset the domain, including config</span>
+0277                     mc = rmfield(mc,dom);
+0278                 <span class="keyword">otherwise</span>
+0279                     error(<span class="string">'Unrecognized command.'</span>);
+0280             <span class="keyword">end</span>
+0281         <span class="keyword">end</span>
+0282     <span class="keyword">end</span>
+0283 <span class="keyword">else</span>
+0284     <span class="comment">% global command (no f specified)</span>
+0285     <span class="keyword">if</span> strcmp(dom,<span class="string">'clear'</span>) &amp;&amp; isstruct(mc)
+0286         <span class="comment">% clear all domains...</span>
+0287         <span class="keyword">for</span> d = fieldnames(mc)'
+0288             <a href="hlp_microcache.html" class="code" title="function varargout = hlp_microcache(dom, f, varargin)">hlp_microcache</a>(d{1},<span class="string">'clear'</span>); <span class="keyword">end</span>
+0289     <span class="keyword">elseif</span> strcmp(dom,<span class="string">'reset'</span>)
+0290         <span class="comment">% reset all domains</span>
+0291         mc = [];
+0292     <span class="keyword">end</span>
+0293 <span class="keyword">end</span>
+0294</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

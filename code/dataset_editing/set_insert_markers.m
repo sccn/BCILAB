@@ -292,7 +292,7 @@ if length(ival) == 2 && ival(1) <= ival(2)
     % check the segment length
     seg_length = coverage/signal.srate;
     if seg_length < opts.minlen || seg_length > opts.maxlen
-        return; end
+        exp_endfun; return; end
     % hande the spacing method
     if strcmp(opts.counting,'persecond')
         opts.count = max(1,round(opts.count*(ival(2)-ival(1))/signal.srate)); end

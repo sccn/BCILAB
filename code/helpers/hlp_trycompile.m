@@ -506,6 +506,8 @@ else
             % get current file reference to this identifier
             binaries{i} = which(o.idents{i});
             % if it doesn't point to a .mex or .class file, ignore it
+            if exist(o.idents{i}) == 7
+                warning('There is a directory named %s on the path, which clashes with the name of a binary to be compiled.'); end
             if ~any(exist(o.idents{i}) == [3 8])
                 binaries{i} = []; end
             if ~isempty(binaries{i})

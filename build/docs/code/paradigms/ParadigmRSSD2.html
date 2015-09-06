@@ -1,0 +1,273 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmRSSD2</title>
+  <meta name="keywords" content="ParadigmRSSD2">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmRSSD2.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmRSSD2
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li>
+<li><a href="ParadigmRSSD2.html" class="code" title="">ParadigmRSSD2</a>	</li>
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="ParadigmRSSD2.html" class="code" title="">ParadigmRSSD2</a>	</li>
+</ul>
+<!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li>
+<li><a href="#_sub2" class="code">function defaults = machine_learning_defaults(self)</a></li>
+<li><a href="#_sub3" class="code">function model = feature_adapt(self,varargin)</a></li>
+<li><a href="#_sub4" class="code">function [features,shape] = feature_extract(self,signal,featuremodel)</a></li>
+<li><a href="#_sub5" class="code">function layout = dialog_layout_defaults(self)</a></li>
+</ul>
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmRSSD2.html" class="code" title="">ParadigmRSSD2</a> &lt; <a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>
+0002     <span class="comment">% Advanced paradigm for time-varying oscillatory processes.</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% This paradigm allows to learn the joint space/time/frequency structure in EEG, under the</span>
+0005     <span class="comment">% assumption that an overcomplete ICA decomposition can produce a reasonably complete coverage</span>
+0006     <span class="comment">% of potentially relevant sources. For each of the resulting (more or less independent) source</span>
+0007     <span class="comment">% signals, a full time/freq decomposition is computed in the time epoch of interest, and a</span>
+0008     <span class="comment">% regression model is learned which maps from the (very high-dimensional) space of these</span>
+0009     <span class="comment">% features onto the desired output variable. The regression is by default logistic, and is</span>
+0010     <span class="comment">% &quot;rank-sparse&quot; (using the trace norm regularization), meaning that the time/freq weights</span>
+0011     <span class="comment">% learned for each signal component will tend to have low rank (reducing the effective</span>
+0012     <span class="comment">% # of parameters) and also a sparse set of component signals will have non-zero weights.</span>
+0013     <span class="comment">%</span>
+0014     <span class="comment">% In addition, a prior can be imposed on the weights, which is parameterized in space (brain area), time, and</span>
+0015     <span class="comment">% frequency. This makes the overall model a fairly general-purpose approach to time-varying / non-stationary</span>
+0016     <span class="comment">% oscillations.</span>
+0017     <span class="comment">%</span>
+0018     <span class="comment">% References:</span>
+0019     <span class="comment">%  [1] Ryota Tomioka and Klaus-Robert Mueller, &quot;A regularized discriminative framework for EEG analysis with application to brain-computer interface&quot;,</span>
+0020     <span class="comment">%      Neuroimage, 49 (1) pp. 415-432, 2010.</span>
+0021     <span class="comment">%  [2] Ryota Tomioka &amp; Masashi Sugiyama, &quot;Dual Augmented Lagrangian Method for Efficient Sparse Reconstruction&quot;,</span>
+0022     <span class="comment">%      IEEE Signal Procesing Letters, 16 (12) pp. 1067-1070, 2009.</span>
+0023     <span class="comment">%  [3] Makeig S, Debener S, Onton J, Delorme A, &quot;Mining event-related brain dynamics&quot;</span>
+0024     <span class="comment">%      Trends in Cognitive Science, 8(5):204-210, 2004.</span>
+0025     <span class="comment">%</span>
+0026     <span class="comment">% Name:</span>
+0027     <span class="comment">%   Regularized Spatio-Spectral Dynamics v2</span>
+0028     <span class="comment">%</span>
+0029     <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0030     <span class="comment">%                                2011-01-28</span>
+0031 
+0032     
+0033     methods
+0034         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0035             defaults = { <span class="keyword">...</span>
+0036                 <span class="string">'Resampling'</span>,128, <span class="keyword">...</span>
+0037                 <span class="string">'FIRFilter'</span>,{[0.5 1],<span class="string">'highpass'</span>}, <span class="keyword">...</span>
+0038                 <span class="string">'EpochExtraction'</span>,[-2 2], <span class="keyword">...</span>
+0039                 <span class="string">'ICA'</span>,<span class="string">'beamica'</span>, <span class="keyword">...</span>
+0040                 <span class="keyword">...</span><span class="comment">%'DipoleFitting',{'ConfusionRange',7}, ...</span>
+0041                 <span class="string">'Projection'</span>,<span class="string">'on'</span>, <span class="keyword">...</span>
+0042                 <span class="string">'ERSPTransform'</span>,{<span class="string">'WindowStep'</span>,1/15,<span class="string">'SpectralMap'</span>,<span class="string">'sqrt'</span>}, <span class="keyword">...</span>
+0043                 };
+0044         <span class="keyword">end</span>
+0045         
+0046         <a name="_sub1" href="#_subfunctions" class="code">function defaults = machine_learning_defaults(self)</a>
+0047             defaults = {<span class="string">'dal'</span>, 2.^(4:-0.25:-3), <span class="string">'scaling'</span>,<span class="string">'none'</span>};
+0048             <span class="comment">%defaults = {'logreg', 'variant',{'lars','ElasticMixing',0.5}};</span>
+0049         <span class="keyword">end</span>
+0050                 
+0051         <a name="_sub2" href="#_subfunctions" class="code">function model = feature_adapt(self,varargin)</a>
+0052             args = arg_define(varargin, <span class="keyword">...</span>
+0053                     arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
+0054                     arg({<span class="string">'spectral_prior'</span>,<span class="string">'SpectralPrior'</span>},@(f)1,[],<span class="string">'Spectral prior. Likelihood function of frequency in Hz.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0055                     arg({<span class="string">'temporal_prior'</span>,<span class="string">'TemporalPrior'</span>},@(t)1,[],<span class="string">'Temporal prior. Likelihood function of time in s.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0056                     arg({<span class="string">'spatial_prior'</span>,<span class="string">'SpatialPrior'</span>},@(p)1,[],<span class="string">'Spatial prior. Likelihood function of MNI coordinate vector.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0057                     arg({<span class="string">'anatomical_prior'</span>,<span class="string">'AnatomicalPrior'</span>},{<span class="string">'Left Cerebrum'</span>,<span class="string">'Right Cerebrum'</span>,<span class="string">'Left Cerebellum'</span>,<span class="string">'Right Cerebellum'</span>,<span class="string">'Left Brainstem'</span>,<span class="string">'Right Brainstem'</span>,<span class="string">'Inter-Hemispheric'</span>},{<span class="string">'-- Hemispheres --'</span>,<span class="string">'Left Cerebrum'</span>,<span class="string">'Right Cerebrum'</span>,<span class="string">'Left Cerebellum'</span>,<span class="string">'Right Cerebellum'</span>,<span class="string">'Left Brainstem'</span>,<span class="string">'Right Brainstem'</span>,<span class="string">'Inter-Hemispheric'</span>,<span class="string">'-- Lobes --'</span>,<span class="string">'Anterior Lobe'</span>,<span class="string">'Frontal Lobe'</span>,<span class="string">'Frontal-Temporal Space'</span>,<span class="string">'Limbic Lobe'</span>,<span class="string">'Medulla'</span>,<span class="string">'Midbrain'</span>,<span class="string">'Occipital Lobe'</span>,<span class="string">'Parietal Lobe'</span>,<span class="string">'Pons'</span>,<span class="string">'Posterior Lobe'</span>,<span class="string">'Sub-lobar'</span>,<span class="string">'Temporal Lobe'</span>,<span class="string">'-- Gyri --'</span>,<span class="string">'Angular Gyrus'</span>,<span class="string">'Anterior Cingulate'</span>,<span class="string">'Caudate'</span>,<span class="string">'Cerebellar Lingual'</span>,<span class="string">'Cerebellar Tonsil'</span>,<span class="string">'Cingulate Gyrus'</span>,<span class="string">'Claustrum'</span>,<span class="string">'Culmen'</span>,<span class="string">'Culmen of Vermis'</span>,<span class="string">'Cuneus'</span>,<span class="string">'Declive'</span>,<span class="string">'Declive of Vermis'</span>,<span class="string">'Extra-Nuclear'</span>,<span class="string">'Fastigium'</span>,<span class="string">'Fourth Ventricle'</span>,<span class="string">'Fusiform Gyrus'</span>,<span class="string">'Inferior Frontal Gyrus'</span>,<span class="string">'Inferior Occipital Gyrus'</span>,<span class="string">'Inferior Parietal Lobule'</span>,<span class="string">'Inferior Semi-Lunar Lobule'</span>,<span class="string">'Inferior Temporal Gyrus'</span>,<span class="string">'Insula'</span>,<span class="string">'Lateral Ventricle'</span>,<span class="string">'Lentiform Nucleus'</span>,<span class="string">'Lingual Gyrus'</span>,<span class="string">'Medial Frontal Gyrus'</span>,<span class="string">'Middle Frontal Gyrus'</span>,<span class="string">'Middle Occipital Gyrus'</span>,<span class="string">'Middle Temporal Gyrus'</span>,<span class="string">'Nodule'</span>,<span class="string">'Orbital Gyrus'</span>,<span class="string">'Paracentral Lobule'</span>,<span class="string">'Parahippocampal Gyrus'</span>,<span class="string">'Postcentral Gyrus'</span>,<span class="string">'Posterior Cingulate'</span>,<span class="string">'Precentral Gyrus'</span>,<span class="string">'Precuneus'</span>,<span class="string">'Pyramis'</span>,<span class="string">'Pyramis of Vermis'</span>,<span class="string">'Rectal Gyrus'</span>,<span class="string">'Subcallosal Gyrus'</span>,<span class="string">'Sub-Gyral'</span>,<span class="string">'Superior Frontal Gyrus'</span>,<span class="string">'Superior Occipital Gyrus'</span>,<span class="string">'Superior Parietal Lobule'</span>,<span class="string">'Superior Temporal Gyrus'</span>,<span class="string">'Supramarginal Gyrus'</span>,<span class="string">'Thalamus'</span>,<span class="string">'Third Ventricle'</span>,<span class="string">'Transverse Temporal Gyrus'</span>,<span class="string">'Tuber'</span>,<span class="string">'Tuber of Vermis'</span>,<span class="string">'Uncus'</span>,<span class="string">'Uvula'</span>,<span class="string">'Uvula of Vermis'</span>}, <span class="string">'Anatomical prior. Select anatomical structures that are likely to contain processes of interest.'</span>),<span class="keyword">...</span>
+0058                     arg({<span class="string">'vectorize_features'</span>,<span class="string">'VectorizeFeatures'</span>},true,[],<span class="string">'Vectorize feature tensors. This is for classifiers that cannot handle matrix or tensor-shaped features.'</span>),<span class="keyword">...</span>
+0059                     arg({<span class="string">'normalize_features'</span>,<span class="string">'NormalizeFeatures'</span>},true,[],<span class="string">'Normalize time/frequency features. If enabled, features will be normalized by a rank-1 normalization matrix (rather than pixelwise).'</span>));
+0060 <span class="comment">%</span>
+0061             model = rmfield(args,<span class="string">'signal'</span>);
+0062             <span class="comment">% determine data rescaling factors</span>
+0063             <span class="keyword">if</span> args.normalize_features
+0064                 tdata = permute(args.signal.data,[1 2 4 3]);
+0065                 sdata = permute(args.signal.data,[1 4 2 3]);
+0066                 <span class="keyword">for</span> c=size(args.signal.data,1):-1:1
+0067                     <span class="comment">% temporal scale vector</span>
+0068                     temp = 1./median(abs(bsxfun(@minus,tdata(c,:,:),median(tdata(c,:,:),3))),3);
+0069                     <span class="comment">% spectral scale vector</span>
+0070                     spec = 1./median(abs(bsxfun(@minus,sdata(c,:,:),median(sdata(c,:,:),3))),3);
+0071                     <span class="comment">% time/freq scaling matrix</span>
+0072                     model.scaling(c,:,:) = sqrt(temp')*sqrt(spec);
+0073                 <span class="keyword">end</span>
+0074             <span class="keyword">end</span>
+0075             <span class="comment">% determine model shape</span>
+0076             model.shape = size(args.signal.data);
+0077             model.shape = model.shape([2 4 1]);
+0078         <span class="keyword">end</span>
+0079         
+0080         <a name="_sub3" href="#_subfunctions" class="code">function [features,shape] = feature_extract(self,signal,featuremodel)</a>
+0081             signal.data = permute(signal.data,[1 2 4 3]);
+0082             <span class="comment">% optionally apply normalization</span>
+0083             <span class="keyword">if</span> featuremodel.normalize_features
+0084                 features = bsxfun(@times,signal.data,featuremodel.scaling);
+0085             <span class="keyword">else</span>
+0086                 features = signal.data;
+0087             <span class="keyword">end</span>
+0088             features = permute(features,[2 3 1 4]);
+0089             <span class="comment">% determine feature shape</span>
+0090             siz = size(features);
+0091             shape = siz(1:3);
+0092             <span class="comment">% do final vectorization if desired</span>
+0093             <span class="keyword">if</span> featuremodel.vectorize_features
+0094                 features = reshape(features,[],signal.trials)'; <span class="keyword">end</span>
+0095         <span class="keyword">end</span>
+0096         
+0097         <a name="_sub4" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0098             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>,<span class="string">'SignalProcessing.FIRFilter.Frequencies'</span>, <span class="string">''</span>, <span class="keyword">...</span><span class="comment">                </span>
+0099                 <span class="string">'SignalProcessing.ICA.DataCleaning.DataSetting'</span>, <span class="string">''</span>, <span class="string">'SignalProcessing.ICA.Variant'</span>, <span class="keyword">...</span>
+0100                 <span class="string">'SignalProcessing.EpochExtraction'</span>,<span class="string">''</span>, <span class="keyword">...</span>
+0101                 <span class="string">'SignalProcessing.ERSPTransform'</span>,<span class="string">''</span>, <span class="keyword">...</span>
+0102                 <span class="string">'Prediction.FeatureExtraction.SpectralPrior'</span>, <span class="string">'Prediction.FeatureExtraction.TemporalPrior'</span>, <span class="keyword">...</span>
+0103                 <span class="string">'Prediction.FeatureExtraction.SpatialPrior'</span>,<span class="string">'Prediction.FeatureExtraction.AnatomicalPrior'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0104                 <span class="string">'Prediction.MachineLearning.Learner.Lambdas'</span>, <span class="string">'Prediction.MachineLearning.Learner.LossFunction'</span>,<span class="string">'Prediction.MachineLearning.Learner.Regularizer'</span>};
+0105         <span class="keyword">end</span>
+0106     <span class="keyword">end</span>
+0107 <span class="keyword">end</span>
+0108 
+0109 
+0110 <span class="comment">% TODO: reimplement priors</span>
+0111 
+0112 <span class="comment">%         function [featuremodel,conditioningmodel,predictivemodel] = calibrate_prediction_function(self,varargin)</span>
+0113 <span class="comment">%             args = arg_define(varargin, ...</span>
+0114 <span class="comment">%                 arg_norep('signal'), ...</span>
+0115 <span class="comment">%                 arg_sub({'fex','FeatureExtraction'},{},...</span>
+0116 <span class="comment">%                     {arg({'spectral_prior','SpectralPrior'},@(f)1,[],'Spectral prior. Likelihood function of frequency in Hz.','guru',true), ...</span>
+0117 <span class="comment">%                      arg({'temporal_prior','TemporalPrior'},@(t)1,[],'Temporal prior. Likelihood function of time in s.','guru',true), ...</span>
+0118 <span class="comment">%                      arg({'spatial_prior','SpatialPrior'},@(p)1,[],'Spatial prior. Likelihood function of MNI coordinate vector.','guru',true), ...</span>
+0119 <span class="comment">%                      arg({'anatomical_prior','AnatomicalPrior'},{'Left Cerebrum','Right Cerebrum','Left Cerebellum','Right Cerebellum','Left Brainstem','Right Brainstem','Inter-Hemispheric'},{'-- Hemispheres --','Left Cerebrum','Right Cerebrum','Left Cerebellum','Right Cerebellum','Left Brainstem','Right Brainstem','Inter-Hemispheric','-- Lobes --','Anterior Lobe','Frontal Lobe','Frontal-Temporal Space','Limbic Lobe','Medulla','Midbrain','Occipital Lobe','Parietal Lobe','Pons','Posterior Lobe','Sub-lobar','Temporal Lobe','-- Gyri --','Angular Gyrus','Anterior Cingulate','Caudate','Cerebellar Lingual','Cerebellar Tonsil','Cingulate Gyrus','Claustrum','Culmen','Culmen of Vermis','Cuneus','Declive','Declive of Vermis','Extra-Nuclear','Fastigium','Fourth Ventricle','Fusiform Gyrus','Inferior Frontal Gyrus','Inferior Occipital Gyrus','Inferior Parietal Lobule','Inferior Semi-Lunar Lobule','Inferior Temporal Gyrus','Insula','Lateral Ventricle','Lentiform Nucleus','Lingual Gyrus','Medial Frontal Gyrus','Middle Frontal Gyrus','Middle Occipital Gyrus','Middle Temporal Gyrus','Nodule','Orbital Gyrus','Paracentral Lobule','Parahippocampal Gyrus','Postcentral Gyrus','Posterior Cingulate','Precentral Gyrus','Precuneus','Pyramis','Pyramis of Vermis','Rectal Gyrus','Subcallosal Gyrus','Sub-Gyral','Superior Frontal Gyrus','Superior Occipital Gyrus','Superior Parietal Lobule','Superior Temporal Gyrus','Supramarginal Gyrus','Thalamus','Third Ventricle','Transverse Temporal Gyrus','Tuber','Tuber of Vermis','Uncus','Uvula','Uvula of Vermis'}, 'Anatomical prior. Select anatomical structures that are likely to contain processes of interest.'),...</span>
+0120 <span class="comment">%                     }, 'Parameters for the feature-adaptation function. These parameters control how features are statistically adapted and extracted from the filtered data before they are passed int othe machine learning stage.'), ...</span>
+0121 <span class="comment">%                 arg_sub({'cond','Conditioning'},{},@self.feature_adapt_conditioning,'Feature conditioning parameters. Allows to further process features for better usability with classifiers.'), ...</span>
+0122 <span class="comment">%                 arg_sub({'ml','MachineLearning'},{'Learner',self.machine_learning_defaults()},@ml_train,'Machine learning stage of the paradigm. Operates on the feature vectors that are produced by the feature-extraction stage.'));</span>
+0123 <span class="comment">%</span>
+0124 <span class="comment">%             try</span>
+0125 <span class="comment">%                 data = self.rssd_load_overcomplete(args.signal);</span>
+0126 <span class="comment">%                 % read out component dipole fits</span>
+0127 <span class="comment">%                 if ~isempty(data.dipfit)</span>
+0128 <span class="comment">%                     if isfield(data.dipfit,'multimodel')</span>
+0129 <span class="comment">%                         dipfits = [data.dipfit.multimodel{:}];</span>
+0130 <span class="comment">%                     else</span>
+0131 <span class="comment">%                         dipfits = data.dipfit.model;</span>
+0132 <span class="comment">%                     end</span>
+0133 <span class="comment">%                 else</span>
+0134 <span class="comment">%                     dipfits = [];</span>
+0135 <span class="comment">%                 end</span>
+0136 <span class="comment">%                 if ~isempty(args.fex.anatomical_prior) &amp;&amp; ~isequal(args.fex.anatomical_prior,false) &amp;&amp; ~isempty(dipfits)</span>
+0137 <span class="comment">%                     % if an anatomical prior was given, we can pre-prune the potenial ERSPs</span>
+0138 <span class="comment">%                     ersprange = [];</span>
+0139 <span class="comment">%                     for k=1:size(data.icaweights,1)</span>
+0140 <span class="comment">%                         matches{k} = intersect(dipfits(k).structures,args.fex.anatomical_prior);</span>
+0141 <span class="comment">%                         if ~isempty(matches{k})</span>
+0142 <span class="comment">%                             ersprange(end+1) = k; end</span>
+0143 <span class="comment">%                     end</span>
+0144 <span class="comment">%                 else</span>
+0145 <span class="comment">%                     % otherwise we need to compute them all</span>
+0146 <span class="comment">%                     ersprange = 1:size(data.icaweights,1);</span>
+0147 <span class="comment">%                 end</span>
+0148 <span class="comment">%</span>
+0149 <span class="comment">%                 % compute ERSPs</span>
+0150 <span class="comment">%                 disp('Now computing time/frequency decompositions...');</span>
+0151 <span class="comment">%                 [T,X,freqs,times] = evalc('self.ersp_compute(data,args,ersprange)'); %#ok&lt;ASGLU&gt;</span>
+0152 <span class="comment">%                 retain_ics = [];</span>
+0153 <span class="comment">%                 structures = {};</span>
+0154 <span class="comment">%                 probabilities = [];</span>
+0155 <span class="comment">%                 summed_probabilities = [];</span>
+0156 <span class="comment">%                 for k = ersprange</span>
+0157 <span class="comment">%                     % get left/right normalization vectors lhs/rhs</span>
+0158 <span class="comment">%                     lhs = args.fex.spectral_prior(freqs) .* sum(reshape(var(X{k},[],2),size(X{k},1),[]),2).^-0.25;</span>
+0159 <span class="comment">%                     rhs = args.fex.temporal_prior(times) .* sum(reshape(var(X{k},[],1),[],size(X{k},3)),2).^-0.25;</span>
+0160 <span class="comment">%                     % make sure that they are well-behaved</span>
+0161 <span class="comment">%                     lhs(~isfinite(lhs)) = 0; medlhs = median(lhs); lhs(lhs&gt;3*medlhs) = medlhs;</span>
+0162 <span class="comment">%                     rhs(~isfinite(rhs)) = 0; medrhs = median(rhs); rhs(rhs&gt;3*medrhs) = medrhs;</span>
+0163 <span class="comment">%                     % turn into a scaling matrix</span>
+0164 <span class="comment">%                     prior{k} =  diag(lhs) * ones(length(freqs),length(times)) * diag(rhs);</span>
+0165 <span class="comment">%                     % incorporate the spatial prior</span>
+0166 <span class="comment">%                     if ~isempty(dipfits)</span>
+0167 <span class="comment">%                         prior{k} = prior{k} * args.fex.spatial_prior(dipfits(k).posxyz); end</span>
+0168 <span class="comment">%                 end</span>
+0169 <span class="comment">%                 for k = ersprange</span>
+0170 <span class="comment">%                     % incorporate the anatomical prior</span>
+0171 <span class="comment">%                     if ~isempty(args.fex.anatomical_prior) &amp;&amp; ~isequal(args.fex.anatomical_prior,false) &amp;&amp; ~isempty(dipfits)</span>
+0172 <span class="comment">%                         [matches,idx] = intersect(dipfits(k).structures,args.fex.anatomical_prior); %#ok&lt;ASGLU&gt;</span>
+0173 <span class="comment">%                         % sum the probabilities for being in each of the accepted structures (can be &gt; 1 as the structures are highly overlapping)</span>
+0174 <span class="comment">%                         prior{k} = sum(dipfits(k).probabilities(idx)) * prior{k};</span>
+0175 <span class="comment">%                         structures{k} = dipfits(k).structures(idx);</span>
+0176 <span class="comment">%                         probabilities{k} = dipfits(k).probabilities(idx);</span>
+0177 <span class="comment">%                         summed_probabilities(k) = sum(dipfits(k).probabilities(idx));</span>
+0178 <span class="comment">%                         % figure; topoplot(data.icawinv(:,k),data.chanlocs(data.icachansind),'electrodes','labels'); title([hlp_tostring(xdipfits(k).structures(idx)) ' - ' hlp_tostring(dipfits(k).probabilities(idx))]);</span>
+0179 <span class="comment">%                     end</span>
+0180 <span class="comment">%                     if ~all(all(prior{k}==0))</span>
+0181 <span class="comment">%                         retain_ics(end+1) = k; end</span>
+0182 <span class="comment">%                 end</span>
+0183 <span class="comment">%                 featuremodel.prior = prior;</span>
+0184 <span class="comment">%                 featuremodel.retain_ics = retain_ics;</span>
+0185 <span class="comment">%                 featuremodel.args = args;</span>
+0186 <span class="comment">%                 blocksizes = cellfun(@size,featuremodel.prior,'UniformOutput',false);</span>
+0187 <span class="comment">%</span>
+0188 <span class="comment">%                 % update machine learning parameters</span>
+0189 <span class="comment">%                 args.ml.learner.shape = vertcat(blocksizes{retain_ics}); %vertcat(blocksizes{cellfun(@prod,blocksizes)});</span>
+0190 <span class="comment">%</span>
+0191 <span class="comment">%         end</span>
+0192 <span class="comment">%</span>
+0193 <span class="comment">%         function features = feature_extract(self,signal,featuremodel)</span>
+0194 <span class="comment">%             try</span>
+0195 <span class="comment">%                 data = self.rssd_load_overcomplete(signal);</span>
+0196 <span class="comment">%                 % compute ERSP features</span>
+0197 <span class="comment">%                 [T,features] = evalc('self.ersp_compute(data,featuremodel.args,featuremodel.retain_ics)'); %#ok&lt;ASGLU&gt;</span>
+0198 <span class="comment">%                 % scale each component-ERSP by the respective prior &amp; sparsify</span>
+0199 <span class="comment">%                 for c=featuremodel.retain_ics</span>
+0200 <span class="comment">%                     features{c} = bsxfun(@times,features{c},featuremodel.prior{c}); end</span>
+0201 <span class="comment">%                 % generate block-compressed version of the data</span>
+0202 <span class="comment">%                 features = reshape([features{featuremodel.retain_ics}],[],data.trials)';</span>
+0203 <span class="comment">%             catch</span>
+0204 <span class="comment">%                 disp('Glitch in para_rssd. halting...');</span>
+0205 <span class="comment">%                 keyboard;</span>
+0206 <span class="comment">%             end</span>
+0207 <span class="comment">%         end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

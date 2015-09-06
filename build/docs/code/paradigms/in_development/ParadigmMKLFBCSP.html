@@ -1,0 +1,368 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmMKLFBCSP</title>
+  <meta name="keywords" content="ParadigmMKLFBCSP">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../index.html">paradigms</a> &gt; <a href="index.html">in_development</a> &gt; ParadigmMKLFBCSP.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms/in_development&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmMKLFBCSP
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+<li><a href="ParadigmMKLFBCSP.html" class="code" title="">ParadigmMKLFBCSP</a>	</li>
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+<li><a href="ParadigmMKLFBCSP.html" class="code" title="">ParadigmMKLFBCSP</a>	</li>
+</ul>
+<!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li>
+<li><a href="#_sub2" class="code">function defaults = machine_learning_defaults(self)</a></li>
+<li><a href="#_sub3" class="code">function model = calibrate(self,varargin)</a></li>
+<li><a href="#_sub4" class="code">function predictions = predict(self,bundle,model)</a></li>
+<li><a href="#_sub5" class="code">function features = feature_extract(self,signal,featuremodel)</a></li>
+<li><a href="#_sub6" class="code">function visualize(self,varargin)</a></li>
+<li><a href="#_sub7" class="code">function layout = dialog_layout_defaults(self)</a></li>
+<li><a href="#_sub8" class="code">function [filters, patterns, chanlocs] = filters_for_subject(recordings, flt, time_args, freq_args, shrinkage, n_patterns)</a></li>
+</ul>
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmMKLFBCSP.html" class="code" title="">ParadigmMKLFBCSP</a> &lt; ParadigmBase
+0002     <span class="comment">% Multiple Kernel Learning Filter-Bank Common Spatial Patterns (mklFBCSP)</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% This paradigm implements a generalization of mklCSP [1] to multiple frequency bands as in</span>
+0005     <span class="comment">% FBCSP [2] and to multiple time windows. See also ParadigmFBCSP and ParadigmMKLCSP.</span>
+0006     <span class="comment">%</span>
+0007     <span class="comment">% References:</span>
+0008     <span class="comment">% [1] Samek, W., Binder, A., &amp; Muller, K. R.</span>
+0009     <span class="comment">%     &quot;Multiple kernel learning for brain-computer interfacing.&quot;</span>
+0010     <span class="comment">%     In Engineering in Medicine and Biology Society (EMBC) pp. 7048-7051 (2013)</span>
+0011     <span class="comment">% [2] Kai K. Ang, Zhang Y. Chin, Haihong Zhang, Cuntai Guan,</span>
+0012     <span class="comment">%     &quot;Filter Bank Common Spatial Pattern (FBCSP) in Brain-Computer Interface&quot;</span>
+0013     <span class="comment">%     In 2008 IEEE International Joint Conference on Neural Networks (IEEE World Congress on Computational Intelligence) (June 2008), pp. 2390-2397.</span>
+0014     <span class="comment">%</span>
+0015     <span class="comment">% Name:</span>
+0016     <span class="comment">%   Multiple Kernel Learning Filter-Bank Common Spatial Patterns</span>
+0017     <span class="comment">%</span>
+0018     <span class="comment">%                            Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0019     <span class="comment">%                            2014-02-05</span>
+0020     
+0021     methods
+0022         
+0023         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0024             defaults = {<span class="string">'EpochExtraction'</span>,[0.5 3.5],<span class="string">'Resampling'</span>,200};
+0025         <span class="keyword">end</span>
+0026         
+0027         <a name="_sub1" href="#_subfunctions" class="code">function defaults = machine_learning_defaults(self)</a>
+0028             <span class="comment">% set up the default parameters for machine learning</span>
+0029             defaults = {<span class="string">'logreg'</span>, <span class="string">'Variant'</span>,<span class="string">'lars'</span>};
+0030         <span class="keyword">end</span>
+0031                 
+0032         <a name="_sub2" href="#_subfunctions" class="code">function model = calibrate(self,varargin)</a>
+0033             <span class="comment">% calibrate an mklCSP model from a corpus of training sets</span>
+0034             args = arg_define(varargin, <span class="keyword">...</span>
+0035                 arg_norep({<span class="string">'collection'</span>,<span class="string">'Collection'</span>}), <span class="keyword">...</span>
+0036                 arg_norep({<span class="string">'goal_identifier'</span>,<span class="string">'GoalIdentifier'</span>}), <span class="keyword">...</span>
+0037                 arg({<span class="string">'patterns'</span>,<span class="string">'PatternPairs'</span>},3,uint32([1 1 64 10000]),<span class="string">'Number of CSP patterns (times two).'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>),<span class="keyword">...</span>
+0038                 arg({<span class="string">'shrinkage'</span>,<span class="string">'ShrinkageLevel'</span>},0,[0 1],<span class="string">'Shrinkage level. The amount of shrinkage (regularization) to apply during covariance estimation.'</span>), <span class="keyword">...</span>
+0039                 arg({<span class="string">'freqwnds'</span>,<span class="string">'FreqWindows'</span>},[0.5 3; 4 7; 8 12; 13 30; 31 42],[0 0.5 200 1000],<span class="string">'Frequency bands of interest. Matrix containing one row for the start and end of each frequency band from which CSP patterns shall be computed. Values in Hz.'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>), <span class="keyword">...</span>
+0040                 arg({<span class="string">'timewnds'</span>,<span class="string">'TimeWindows'</span>},[],[],<span class="string">'Time windows of interest. Matrix containing one row for the start and end of each time window from which CSP patterns shall be computed. Values in seconds. If both this and the freqwnds parameter are non-empty, they should have the same number of rows.'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>), <span class="keyword">...</span>
+0041                 arg({<span class="string">'winfunc'</span>,<span class="string">'WindowFunction'</span>},<span class="string">'rect'</span>,{<span class="string">'barthann'</span>,<span class="string">'bartlett'</span>,<span class="string">'blackman'</span>,<span class="string">'blackmanharris'</span>,<span class="string">'bohman'</span>,<span class="string">'cheb'</span>,<span class="string">'flattop'</span>,<span class="string">'gauss'</span>,<span class="string">'hamming'</span>,<span class="string">'hann'</span>,<span class="string">'kaiser'</span>,<span class="string">'nuttall'</span>,<span class="string">'parzen'</span>,<span class="string">'rect'</span>,<span class="string">'taylor'</span>,<span class="string">'triang'</span>,<span class="string">'tukey'</span>},<span class="string">'Type of window function. Typical choices are rect (rectangular), hann, gauss, blackman and kaiser.'</span>),<span class="keyword">...</span>
+0042                 arg({<span class="string">'winparam'</span>,<span class="string">'WindowParameter'</span>,<span class="string">'param'</span>},[],[],<span class="string">'Parameter of the window function. This is mandatory for cheb, kaiser and tukey and optional for some others.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>), <span class="keyword">...</span>
+0043                 arg({<span class="string">'verbose'</span>,<span class="string">'Verbose'</span>},true,[],<span class="string">'Verbose output.'</span>), <span class="keyword">...</span>
+0044                 arg({<span class="string">'hotpatching'</span>,<span class="string">'HotPatching'</span>},false,[],<span class="string">'Hot-patch the data. This can be enabled to ensure that a long-running computation survives bad data.'</span>), <span class="keyword">...</span>
+0045                 arg_sub({<span class="string">'flt'</span>,<span class="string">'SignalProcessing'</span>}, self.preprocessing_defaults(), @flt_pipeline, <span class="string">'Signal processing stages. These parameters control filter stages that run on the signal level; they can be enabled, disabled and configured for the given paradigm. The prediction operates on the outputs of this stage.'</span>), <span class="keyword">...</span>
+0046                 arg_sub({<span class="string">'ml'</span>,<span class="string">'MachineLearning'</span>},{<span class="string">'Learner'</span>,self.machine_learning_defaults()},@ml_train,<span class="string">'Machine learning stage of the paradigm. Operates on the feature vectors that are produced by the feature-extraction stage.'</span>),<span class="keyword">...</span>
+0047                 arg({<span class="string">'arg_dialogsel'</span>,<span class="string">'ConfigLayout'</span>},self.dialog_layout_defaults(),[],<span class="string">'Parameters displayed in the config dialog. Cell array of parameter names to display (dot-notation allowed); blanks are translated into empty rows in the dialog. Referring to a structure argument lists all parameters of that struture, except if it is a switchable structure - in this case, a pulldown menu with switch options is displayed.'</span>,<span class="string">'type'</span>,<span class="string">'cellstr'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>));
+0048 
+0049             <span class="keyword">if</span> ~isempty(args.freqwnds) &amp;&amp; ~isempty(args.timewnds) &amp;&amp; size(args.freqwnds,1) ~= size(args.timewnds,1)
+0050                 error(<span class="string">'If both time and frequency windows are specified, both arrays must have the same number of rows (together they define the windows in time and frequency).'</span>); <span class="keyword">end</span>
+0051             <span class="keyword">if</span> isempty(args.timewnds)
+0052                 args.timewnds = zeros(size(args.freqwnds,1),0); <span class="keyword">end</span>
+0053             <span class="keyword">if</span> isempty(args.freqwnds)
+0054                 args.freqwnds = zeros(size(args.timewnds,1),0); <span class="keyword">end</span>
+0055             
+0056             <span class="comment">% pre-parse arguments for flt_window and flt_spectrum (for fast subsequent online use)</span>
+0057             <span class="keyword">for</span> w = 1:max(size(args.freqwnds,1),size(args.timewnds,1))                
+0058                 time_args{w} = arg_report(<span class="string">'vals'</span>,@flt_window,{<span class="string">'time'</span>,{args.timewnds(w,:),args.winfunc,args.winparam}});
+0059                 freq_args{w} = arg_report(<span class="string">'vals'</span>,@flt_spectrum,{<span class="string">'freq'</span>,args.freqwnds(w,:)});
+0060             <span class="keyword">end</span>
+0061             
+0062             <span class="keyword">if</span> args.verbose
+0063                 fprintf(<span class="string">'Now training model for: %s...\n'</span>,hlp_tostring(args.goal_identifier)); <span class="keyword">end</span>
+0064 
+0065             <span class="comment">% first solve CSP for each subject in the corpus individually and aggregate CSP filters</span>
+0066             filters = [];
+0067             patterns = [];
+0068             
+0069             <span class="comment">% find the unique subjects in the collection</span>
+0070             <span class="keyword">try</span>
+0071                 corpus = [args.collection{:}];
+0072             <span class="keyword">catch</span> e
+0073                 error(<span class="string">'The dataset collection must have the same field names for each recording.'</span>);
+0074             <span class="keyword">end</span>
+0075             <span class="keyword">if</span> ~isfield(corpus,<span class="string">'subject'</span>)
+0076                 error(<span class="string">'The datasets in the collection must each have a .subject field.'</span>); <span class="keyword">end</span>
+0077             subjects = {corpus.subject};
+0078             <span class="keyword">if</span> all(cellfun(<span class="string">'isclass'</span>,subjects,<span class="string">'char'</span>))
+0079                 subjects = unique(subjects);
+0080             <span class="keyword">elseif</span> all(cellfun(<span class="string">'isclass'</span>,subjects,<span class="string">'double'</span>))
+0081                 subjects = unique([subjects{:}]);
+0082             <span class="keyword">else</span>
+0083                 error(<span class="string">'The subject identifiers must either be all strings or all doubles'</span>);
+0084             <span class="keyword">end</span>
+0085             
+0086             <span class="keyword">if</span> args.verbose
+0087                 fprintf(<span class="string">'Pre-processing each of %i recordings (%i subjects) in the corpus and solving CSP...\n'</span>,length(args.collection),length(subjects)); <span class="keyword">end</span>
+0088 
+0089             <span class="comment">% remove actual data from corpus so we can micro-cache it</span>
+0090             <span class="keyword">for</span> s=1:length(corpus)
+0091                 <span class="keyword">if</span> isfield(corpus(s).streams{1},<span class="string">'tracking'</span>)
+0092                     corpus(s).streams{1} = corpus(s).streams{1}.tracking.expression; <span class="keyword">end</span>
+0093             <span class="keyword">end</span>
+0094             
+0095             <span class="comment">% for each subject...</span>
+0096             <span class="keyword">for</span> subj=subjects                
+0097                 <span class="comment">% find all recordings that match that subject</span>
+0098                 recordings = corpus(cellfun(@(s)isequal(s,subj),{corpus.subject}));
+0099                 <span class="comment">% calculate FBCSP filters</span>
+0100                 [newfilters,newpatterns,chanlocs] = hlp_microcache(<span class="string">'filters'</span>,@ParadigmMKLFBCSP.filters_for_subject,recordings, args.flt, time_args, freq_args, args.shrinkage, args.patterns);
+0101                 <span class="comment">% if you get an error here then your data sets had varying number of channels</span>
+0102                 filters = [filters newfilters];
+0103                 patterns = [patterns newpatterns];
+0104             <span class="keyword">end</span>
+0105             model.featuremodel = struct(<span class="string">'filters'</span>,{filters},<span class="string">'patterns'</span>,{patterns}, <span class="keyword">...</span>
+0106                 <span class="string">'n_subjects'</span>,length(subjects),<span class="string">'time_args'</span>,{time_args},<span class="string">'freq_args'</span>,{freq_args}, <span class="keyword">...</span>
+0107                 <span class="string">'chanlocs'</span>,{chanlocs}, <span class="string">'hotpatching'</span>, {args.hotpatching});
+0108             <span class="keyword">if</span> args.verbose
+0109                 fprintf(<span class="string">'Preprocessing and extracting features for reference data...\n'</span>); <span class="keyword">end</span>            
+0110             <span class="comment">% get the data of the reference subject</span>
+0111             [reference,remaining] = utl_collection_closest(args.collection,args.goal_identifier); <span class="comment">%#ok&lt;ASGLU,NASGU&gt;</span>
+0112             <span class="comment">% preprocess each recording in the reference collection and concatenate them across epochs into a single set</span>
+0113             <span class="keyword">for</span> r=1:length(reference)
+0114                 refsets{r} = exp_eval_optimized(flt_pipeline(<span class="string">'signal'</span>,reference{r}.streams{1}, args.flt)); <span class="keyword">end</span>
+0115             refdata = exp_eval(set_joinepos(refsets{:}));
+0116             <span class="comment">% extract features and get target labels</span>
+0117             features = self.feature_extract(refdata,model.featuremodel);
+0118             targets = set_gettarget(refdata);
+0119      
+0120             <span class="keyword">if</span> args.hotpatching &amp;&amp; size(features,1) &lt; 5
+0121                 fprintf(<span class="string">'You have too few trials in the data; hot-patching.\n'</span>);
+0122                 features = features(1+mod(0:4,size(features,1)),:);
+0123                 features = features+0.1*randn(size(features));
+0124                 targets = 1+mod(0:size(features,1)-1,2);
+0125                 targets = targets(:);
+0126             <span class="keyword">end</span>
+0127                             
+0128             <span class="keyword">if</span> args.hotpatching &amp;&amp; length(targets) ~= size(features,1)
+0129                 fprintf(<span class="string">'Your # of target markers does not match the # of extracted features; hot-patching.\n'</span>);
+0130                 <span class="keyword">if</span> isempty(targets)
+0131                     targets = 1+mod(0:size(features,1)-1,2);
+0132                 <span class="keyword">else</span>
+0133                     targets = targets(1+mod(0:size(features,1)-1,length(targets)));
+0134                 <span class="keyword">end</span>
+0135                 targets = targets(:);
+0136             <span class="keyword">end</span>
+0137             
+0138             <span class="keyword">if</span> args.hotpatching &amp;&amp; length(unique(targets))==1
+0139                 fprintf(<span class="string">'Your reference data has only one class; hot-patching the data.\n'</span>);
+0140                 <span class="keyword">for</span> ii=1:min(length(targets),max(2,round(length(targets)/10)))
+0141                     targets(ii) = 3-targets(ii); <span class="keyword">end</span>
+0142             <span class="keyword">end</span>
+0143                                    
+0144             <span class="keyword">if</span> args.hotpatching &amp;&amp; any(~isfinite(features(:)))
+0145                 fprintf(<span class="string">'Some of your features are non-finite; hot-patching the data.\n'</span>);
+0146                 tofix = find(~isfinite(features(:)));
+0147                 features(tofix) = randn(1,length(tofix));
+0148             <span class="keyword">end</span>
+0149             
+0150             <span class="keyword">if</span> args.verbose
+0151                 fprintf(<span class="string">'Training predictive model (this may take a while)...\n'</span>); <span class="keyword">end</span>
+0152             <span class="comment">% train classifier, overriding with the correct feature shape (based on the group size)</span>
+0153             <span class="keyword">if</span> isfield(args.ml.learner,<span class="string">'shape'</span>)
+0154                 args.ml.learner.shape = [2*args.patterns,length(subjects)]; <span class="keyword">end</span>
+0155             <span class="keyword">try</span>
+0156                 model.predictivemodel = ml_train(<span class="string">'data'</span>,{features,targets}, args.ml);
+0157             <span class="keyword">catch</span> e
+0158                 <span class="keyword">if</span> args.hotpatching &amp;&amp; ~isempty(strfind(e.message,<span class="string">'Null probability for class'</span>))
+0159                     fprintf(<span class="string">'One of the classes has a probability of 0; hot-patching the data.\n'</span>);
+0160                     targets = 1+mod(0:length(targets)-1,2); targets = targets(:);
+0161                     model.predictivemodel = ml_train(<span class="string">'data'</span>,{features,targets}, args.ml);
+0162                 <span class="keyword">else</span>
+0163                     rethrow(e);
+0164                 <span class="keyword">end</span>
+0165             <span class="keyword">end</span>
+0166             <span class="comment">% set the filter graph based on the reference data</span>
+0167             model.tracking.filter_graph = refsets{end};
+0168             <span class="comment">% also store channel locations for model visualization</span>
+0169             model.chanlocs = refdata.chanlocs;
+0170         <span class="keyword">end</span>
+0171         
+0172         <a name="_sub3" href="#_subfunctions" class="code">function predictions = predict(self,bundle,model)</a>
+0173             <span class="comment">% extract features</span>
+0174             features = self.feature_extract(bundle.streams{1},model.featuremodel);
+0175             <span class="comment">% apply classifier</span>
+0176             predictions = ml_predict(features, model.predictivemodel);
+0177         <span class="keyword">end</span>
+0178         
+0179         <a name="_sub4" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
+0180             <span class="keyword">try</span>
+0181                 N = featuremodel.n_subjects;
+0182                 W = length(featuremodel.freq_args);
+0183                 F = size(featuremodel.filters,2)/N;
+0184                 T = size(signal.data,3);
+0185                 features = zeros(T,F*N);
+0186                 <span class="keyword">for</span> w = 1:W
+0187                     <span class="comment">% filter data in time &amp; frequency</span>
+0188                     data = exp_eval(flt_spectrum(<span class="string">'signal'</span>,flt_window(<span class="string">'signal'</span>,signal,featuremodel.time_args{w}),featuremodel.freq_args{w}));
+0189                     mask = false(1,F); mask((w-1)*(F/W)+(1:(F/W))) = true; mask = repmat(mask,1,N);
+0190                     <span class="keyword">for</span> t=1:size(signal.data,3)
+0191                         features(t,mask) = sum((data.data(:,:,t)'*featuremodel.filters(:,mask)).^2,1); <span class="keyword">end</span>
+0192                 <span class="keyword">end</span>
+0193                 features = log(features/size(signal.data,2));
+0194             <span class="keyword">catch</span> e
+0195                 <span class="keyword">if</span> featuremodel.hotpatching
+0196                     fprintf(<span class="string">'Trying to prevent error during feature extraction: %s\n'</span>,hlp_handleerror(e));
+0197                     fprintf(<span class="string">'size(featuremodel.filters): %s\n'</span>,hlp_tostring(size(featuremodel.filters)));
+0198                     fprintf(<span class="string">'size(signal.data): %s\n'</span>,hlp_tostring(size(signal.data)));
+0199                     fprintf(<span class="string">'trying to hot-fix the issue...'</span>);
+0200                     featuremodel.filters = featuremodel.filters(1+mod(0:size(signal.data,1)-1,size(featuremodel.filters,1)),:);
+0201                     features = self.feature_extract(signal,featuremodel);
+0202                     fprintf(<span class="string">'succeeded.\n'</span>);
+0203                 <span class="keyword">else</span>
+0204                     rethrow(e);
+0205                 <span class="keyword">end</span>
+0206             <span class="keyword">end</span>                
+0207         <span class="keyword">end</span>
+0208         
+0209 
+0210         <a name="_sub5" href="#_subfunctions" class="code">function visualize(self,varargin) </a><span class="comment">%#ok&lt;*INUSD&gt;</span>
+0211             <span class="comment">% visualize an mklCSP model</span>
+0212             args = arg_define(varargin, <span class="keyword">...</span>
+0213                 arg_norep({<span class="string">'model'</span>,<span class="string">'Model'</span>},[],[],<span class="string">'BCI Model to visualize.'</span>), <span class="keyword">...</span>
+0214                 arg({<span class="string">'patterns'</span>,<span class="string">'PlotPatterns'</span>},true,[],<span class="string">'Plot patterns instead of filters. Whether to plot spatial patterns (forward projections) rather than spatial filters.'</span>), <span class="keyword">...</span>
+0215                 arg({<span class="string">'paper'</span>,<span class="string">'PaperFigure'</span>},false,[],<span class="string">'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'</span>));
+0216             
+0217             f = figure;            
+0218 
+0219             <span class="comment">% mask out unused filters</span>
+0220             mask = args.model.predictivemodel.model.w(:)' ~= 0;
+0221             args.model.featuremodel.patterns = args.model.featuremodel.patterns(:,mask);
+0222             args.model.featuremodel.filters = args.model.featuremodel.filters(:,mask);
+0223             
+0224             <span class="comment">% number of plots, and index of pattern per subplot</span>
+0225             np = nnz(mask);
+0226             horz = ceil(sqrt(np));
+0227             vert = ceil(np/horz);
+0228                 
+0229             <span class="comment">% get number of pairs, and index of pattern per subplot</span>
+0230             <span class="comment">% for each CSP pattern...</span>
+0231             <span class="keyword">for</span> p=1:np
+0232                 subplot(horz,vert,p,<span class="string">'Parent'</span>,f);
+0233                 <span class="keyword">if</span> args.patterns
+0234                     topoplot(args.model.featuremodel.patterns(:,p),args.model.chanlocs);
+0235                 <span class="keyword">else</span>
+0236                     topoplot(args.model.featuremodel.filters(:,p),args.model.chanlocs);
+0237                 <span class="keyword">end</span>
+0238                 t = title([<span class="string">'CSP Pattern '</span> num2str(p)]);
+0239                 <span class="keyword">if</span> args.paper
+0240                     set(t,<span class="string">'FontUnits'</span>,<span class="string">'normalized'</span>);
+0241                     set(t,<span class="string">'FontSize'</span>,0.1);                    
+0242                 <span class="keyword">end</span>
+0243             <span class="keyword">end</span>
+0244         <span class="keyword">end</span>
+0245         
+0246         <a name="_sub6" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0247             <span class="comment">% define the default configuration dialog layout</span>
+0248             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>, <span class="string">'SignalProcessing.FIRFilter.Frequencies'</span>, <span class="keyword">...</span>
+0249                 <span class="string">'SignalProcessing.FIRFilter.Type'</span>, <span class="string">'SignalProcessing.EpochExtraction'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0250                 <span class="string">'PatternPairs'</span>, <span class="string">''</span>, <span class="string">'MachineLearning.Learner'</span>};
+0251         <span class="keyword">end</span>
+0252                 
+0253     <span class="keyword">end</span>
+0254     
+0255     methods (Static)
+0256         <a name="_sub7" href="#_subfunctions" class="code">function [filters, patterns, chanlocs] = filters_for_subject(recordings, flt, time_args, freq_args, shrinkage, n_patterns)</a>
+0257             <span class="comment">% get the CSP filters for a given subject</span>
+0258             
+0259             <span class="comment">% preprocess and concatenate across trials</span>
+0260             preproc = {};
+0261             <span class="keyword">for</span> r=1:length(recordings)
+0262                 preproc{r} = exp_eval_optimized(flt_pipeline(<span class="string">'signal'</span>,recordings(r).streams{1}, flt)); <span class="keyword">end</span>
+0263             preproc = exp_eval(set_joinepos(preproc{:}));
+0264 
+0265             <span class="comment">% for each window...</span>
+0266             filters = [];
+0267             patterns = [];            
+0268             <span class="keyword">for</span> w = 1:length(time_args)
+0269                 <span class="keyword">for</span> k=1:2
+0270                     <span class="comment">% filter trial subrange in time and frequency</span>
+0271                     classdata = exp_eval(flt_spectrum(<span class="string">'signal'</span>,flt_window(<span class="string">'signal'</span>,set_picktrials(preproc,<span class="string">'rank'</span>,k),time_args{w}),freq_args{w}));
+0272                     covar{k} = reshape(classdata.data,size(classdata.data,1),[])*reshape(classdata.data,size(classdata.data,1),[])'/(size(classdata.data,2)*size(classdata.data,3)); <span class="comment">% cov(reshape(classdata.data,size(classdata.data,1),[])');</span>
+0273                     covar{k}(~isfinite(covar{k})) = 0; <span class="comment">%#ok&lt;*AGROW&gt;</span>
+0274                     covar{k} = (1-shrinkage)*covar{k} + shrinkage*eye(size(covar{k}))*trace(covar{k})/length(covar{k});
+0275                 <span class="keyword">end</span>
+0276                 <span class="keyword">try</span>
+0277                     [V,D] = eig(covar{1},covar{1}+covar{2}); <span class="comment">%#ok&lt;ASGLU,NASGU&gt;</span>
+0278                     P = inv(V);
+0279                     <span class="comment">% if you get an error here then your data sets had varying number of channels</span>
+0280                     filters = [filters V(:,[1:n_patterns end-n_patterns+1:end])];
+0281                     patterns = [patterns P([1:n_patterns end-n_patterns+1:end],:)'];                    
+0282                 <span class="keyword">catch</span> e
+0283                     fprintf(<span class="string">'Got a degenerate FBCSP solution, replacing by identity matrix:%s\n'</span>,e.message);
+0284                     n_chans = preproc.nbchan;
+0285                     <span class="keyword">if</span> ~n_chans
+0286                         <span class="comment">% no epochs, need to determine the number of channels in the filter stage prior to epoching</span>
+0287                         raw = exp_eval_optimized(utl_get_argument(utl_find_filter(preproc,<span class="string">'set_makepos'</span>),<span class="string">'signal'</span>));
+0288                         n_chans = raw.nbchan;
+0289                     <span class="keyword">end</span>
+0290                     filters = [filters eye(n_chans,2*n_patterns)];
+0291                     patterns = [patterns eye(n_chans,2*n_patterns)];
+0292                 <span class="keyword">end</span>                
+0293             <span class="keyword">end</span>
+0294             chanlocs = preproc.chanlocs;
+0295         <span class="keyword">end</span>        
+0296     <span class="keyword">end</span>
+0297 <span class="keyword">end</span>
+0298             
+0299 <span class="comment">% (turn off a few editor warnings because some actual implementations are missing in this file)</span>
+0300 <span class="comment">%#ok&lt;*INUSD,*STOUT,*MANU&gt;</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

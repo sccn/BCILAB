@@ -18,38 +18,57 @@
 <td align="right"><a href="index.html">Index for code/dataset_editing&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>set_makepos
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="box"><strong>Create epochs relative to the target markers in a data set.</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>function signal = set_makepos(varargin) </strong></div>
+<div class="box"><strong>function [signal,state] = set_makepos(varargin) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre class="comment"> Create epochs relative to the target markers in a data set.
- Signal = set_makepos(Signal,TimeWindow)
+ [Signal,State] = set_makepos(Signal,TimeWindow,OnlineEpoching,State)
 
  This function turns a continuous data set with &quot;target&quot; markers (aka target events), i.e. events
  that have a .target field which contains a non-empty &quot;target value&quot; into an epoched data set,
  creating one epoch relative to each target marker, and copying that markers's .target value into the
- respective epoch's .target field. Target markers are created via the function set_targetmarkers.
+ respective epoch's .target field. Target markers are defined via the function set_targetmarkers.
 
  In:
-   Signal      :   continuous data set from which epochs shall be extracted
+   Signal : continuous data set from which epochs shall be extracted
 
-   TimeWindow  :   time window relative to the events (forming the extracted epoch), in seconds
+   TimeWindow : time window relative to the events (forming the extracted epoch), in seconds
+
+   OnlineEpoching : Online epoch extraction scheme; can be one of the following options: 
+                    * 'at_end' : a single epoch is extracted at the end of the signal (default)
+                    * 'at_targets' : one epoch per target marker in the signal is extracted
+
+   State : previous filter state, as obtained by a previous execution of set_makepos on an
+           immediately preceding data set (default: [])
 
  Out:
-   Signal  :  epoched data set, with target variable assigned; changes:
-              - data is reformatted into a 3d array
-              - xmin &amp; xmax indicate the epoch bounds in seconds
-              - events are rewritten to be relative to epochs (urevents unaffected)
-              - times contains the time points inside the epoch
+   Signal : epoched (segmented) data set that is compatible with EEGLAB's epoch structure:
+            * .data and every other time series field is a 3d array (#channels x #timepoints x #segments)
+            * .xmin/xmax denote the epoch bounds in seconds (relative to epoch-generating event)
+            * .epoch contains the fields of the original epoch-generating events (including
+              .target)
+            * .event contains the flat array of events that overlap the epochs, possibly with
+              replication where .event.latency contains the cumulative latency of all earlier
+              epochs for compatbility with EEGLAB
+            * .epoch.event* for each field .event.* contains a cell array of the field values for
+              all events that overlap the epoch, where .epoch.eventlatency and .epoch.eventduration
+              are in miliseconds rather than samples for compatibility with EEGLAB
+            * .event.epoch contains the index of the epoch that the event lies in and .epoch.event
+              contains an array of indices into .event (all epoch-overlapping events) 
+
+   State :  state of the filter, after it got applied
 
  Notes:
    In the regular BCILAB processing pipeline, target markers are defined on the continuous 
    data set either automatically by the bci_ functions, or manually via set_targetmarkers.
+   One can also manually assign a .target field to a subset of markers.
 
  Examples:
    % extract epochs from a continuous data set, beginning 0.5s before the position of each marker
@@ -69,174 +88,334 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
 
 
+
+
+
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = set_makepos(varargin)</a>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal,state] = set_makepos(varargin)</a>
 0002 <span class="comment">% Create epochs relative to the target markers in a data set.</span>
-0003 <span class="comment">% Signal = set_makepos(Signal,TimeWindow)</span>
+0003 <span class="comment">% [Signal,State] = set_makepos(Signal,TimeWindow,OnlineEpoching,State)</span>
 0004 <span class="comment">%</span>
 0005 <span class="comment">% This function turns a continuous data set with &quot;target&quot; markers (aka target events), i.e. events</span>
 0006 <span class="comment">% that have a .target field which contains a non-empty &quot;target value&quot; into an epoched data set,</span>
 0007 <span class="comment">% creating one epoch relative to each target marker, and copying that markers's .target value into the</span>
-0008 <span class="comment">% respective epoch's .target field. Target markers are created via the function set_targetmarkers.</span>
+0008 <span class="comment">% respective epoch's .target field. Target markers are defined via the function set_targetmarkers.</span>
 0009 <span class="comment">%</span>
 0010 <span class="comment">% In:</span>
-0011 <span class="comment">%   Signal      :   continuous data set from which epochs shall be extracted</span>
+0011 <span class="comment">%   Signal : continuous data set from which epochs shall be extracted</span>
 0012 <span class="comment">%</span>
-0013 <span class="comment">%   TimeWindow  :   time window relative to the events (forming the extracted epoch), in seconds</span>
+0013 <span class="comment">%   TimeWindow : time window relative to the events (forming the extracted epoch), in seconds</span>
 0014 <span class="comment">%</span>
-0015 <span class="comment">% Out:</span>
-0016 <span class="comment">%   Signal  :  epoched data set, with target variable assigned; changes:</span>
-0017 <span class="comment">%              - data is reformatted into a 3d array</span>
-0018 <span class="comment">%              - xmin &amp; xmax indicate the epoch bounds in seconds</span>
-0019 <span class="comment">%              - events are rewritten to be relative to epochs (urevents unaffected)</span>
-0020 <span class="comment">%              - times contains the time points inside the epoch</span>
+0015 <span class="comment">%   OnlineEpoching : Online epoch extraction scheme; can be one of the following options:</span>
+0016 <span class="comment">%                    * 'at_end' : a single epoch is extracted at the end of the signal (default)</span>
+0017 <span class="comment">%                    * 'at_targets' : one epoch per target marker in the signal is extracted</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">%   State : previous filter state, as obtained by a previous execution of set_makepos on an</span>
+0020 <span class="comment">%           immediately preceding data set (default: [])</span>
 0021 <span class="comment">%</span>
-0022 <span class="comment">% Notes:</span>
-0023 <span class="comment">%   In the regular BCILAB processing pipeline, target markers are defined on the continuous</span>
-0024 <span class="comment">%   data set either automatically by the bci_ functions, or manually via set_targetmarkers.</span>
-0025 <span class="comment">%</span>
-0026 <span class="comment">% Examples:</span>
-0027 <span class="comment">%   % extract epochs from a continuous data set, beginning 0.5s before the position of each marker</span>
-0028 <span class="comment">%   % and ending 1.5s after the position of the corresponding marker</span>
-0029 <span class="comment">%   eeg = set_makepos(eeg,[-0.5 1.5])</span>
-0030 <span class="comment">%</span>
-0031 <span class="comment">%   % as before, but first add target markers for event types 'X' and 'Y'</span>
-0032 <span class="comment">%   eeg = set_makepos(set_targetmarkers(eeg,{'X','Y'}),[-0.5 1.5])</span>
-0033 <span class="comment">%</span>
-0034 <span class="comment">% See also:</span>
-0035 <span class="comment">%   set_targetmarkers, bci_train</span>
+0022 <span class="comment">% Out:</span>
+0023 <span class="comment">%   Signal : epoched (segmented) data set that is compatible with EEGLAB's epoch structure:</span>
+0024 <span class="comment">%            * .data and every other time series field is a 3d array (#channels x #timepoints x #segments)</span>
+0025 <span class="comment">%            * .xmin/xmax denote the epoch bounds in seconds (relative to epoch-generating event)</span>
+0026 <span class="comment">%            * .epoch contains the fields of the original epoch-generating events (including</span>
+0027 <span class="comment">%              .target)</span>
+0028 <span class="comment">%            * .event contains the flat array of events that overlap the epochs, possibly with</span>
+0029 <span class="comment">%              replication where .event.latency contains the cumulative latency of all earlier</span>
+0030 <span class="comment">%              epochs for compatbility with EEGLAB</span>
+0031 <span class="comment">%            * .epoch.event* for each field .event.* contains a cell array of the field values for</span>
+0032 <span class="comment">%              all events that overlap the epoch, where .epoch.eventlatency and .epoch.eventduration</span>
+0033 <span class="comment">%              are in miliseconds rather than samples for compatibility with EEGLAB</span>
+0034 <span class="comment">%            * .event.epoch contains the index of the epoch that the event lies in and .epoch.event</span>
+0035 <span class="comment">%              contains an array of indices into .event (all epoch-overlapping events)</span>
 0036 <span class="comment">%</span>
-0037 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0038 <span class="comment">%                                2010-04-01</span>
-0039 
-0040 <span class="comment">% set_makepos_version&lt;1.0&gt; -- for the cache</span>
-0041 
-0042 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
-0043 
-0044 declare_properties(<span class="string">'name'</span>,{<span class="string">'EpochExtraction'</span>,<span class="string">'epoch'</span>}, <span class="string">'independent_channels'</span>,true,<span class="string">'independent_trials'</span>,true);
-0045 
-0046 arg_define(varargin, <span class="keyword">...</span>
-0047     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
-0048     arg({<span class="string">'epobounds'</span>,<span class="string">'TimeWindow'</span>}, [], [], <span class="string">'Epoch time window relative to the target markers. In seconds.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>));
-0049 
-0050 <span class="keyword">if</span> ~onl_isonline
-0051     evtbackup = signal.event;
-0052     had_icaact = ~isempty(signal.icaact) &amp;&amp; ~isscalar(signal.icaact) &amp;&amp; ~isempty(signal.icaweights) &amp;&amp; ~isempty(signal.icasphere) &amp;&amp; ~isempty(signal.icachansind);
-0053     <span class="keyword">if</span> isempty(signal.event)
-0054         error(<span class="string">'This data set has no events.'</span>); <span class="keyword">end</span>
-0055     
-0056     <span class="comment">% make sure that the events are sorted (otherwise pop_epoch may behave erratically)</span>
-0057     <span class="keyword">if</span> ~issorted([signal.event.latency])
-0058         disp(<span class="string">'set_makepos: The events in this data set are unsorted; sorting them now.'</span>);
-0059         [sorted,idx] = sort([signal.event.latency]); <span class="comment">%#ok&lt;ASGLU&gt;</span>
-0060         signal.event = signal.event(idx);
-0061     <span class="keyword">end</span>
-0062     
-0063     <span class="comment">% identify the target events</span>
-0064     <span class="keyword">if</span> ~isfield(signal.event,<span class="string">'target'</span>)
-0065         <span class="comment">% If you are getting this error, then the events of your signal are lacking a piece of</span>
-0066         <span class="comment">% meta-data, namely the field signal.event.target. The regular processing pipeline (bci_train</span>
-0067         <span class="comment">% or the model calibration GUI) automatically add this field, so either you are calling this</span>
-0068         <span class="comment">% function directly on &quot;raw&quot; data (in which case you should first run set_targetmarkers on it),</span>
-0069         <span class="comment">% or this field got lost during one of the intermediate processing stages (in which case</span>
-0070         <span class="comment">% there is an error in one of the filter plugins or the basic EEGLAB functions).</span>
-0071         error(<span class="string">'The events of this signal must have a .target field (which is assigned using set_targetmarkers).'</span>); 
-0072     <span class="keyword">end</span>
-0073     targmask = ~cellfun(<span class="string">'isempty'</span>,{signal.event.target});
-0074     
-0075     <span class="keyword">if</span> ~any(targmask)
-0076         <span class="comment">% Note: if you are getting this error it means that no event in the data was tagged as a</span>
-0077         <span class="comment">% &quot;target&quot; event (these are the ones that the BCI is supposed to deal with). The tagging</span>
-0078         <span class="comment">% happens automatically during bci_train / &quot;calibrate model&quot; based on the TargetMarkers that</span>
-0079         <span class="comment">% you specified, so the most likely reason for this error is that no event type in the data</span>
-0080         <span class="comment">% matched any of those that you gave as &quot;target markers&quot;. Please check whether you specified</span>
-0081         <span class="comment">% them in accordance with what's in your data. Another, less likely, reason is that you</span>
-0082         <span class="comment">% accidentally &quot;lost&quot; them during some manual data curation or during a pre-processing step</span>
-0083         <span class="comment">% (unlikely, unless you are using a lot of ad hoc plugins).</span>
-0084         error(<span class="string">'This data set contains none of the target events (i.e. events with non-empty .target field). Did you specify the correct target markers?'</span>); 
-0085     <span class="keyword">end</span>
-0086     
-0087     <span class="comment">% temporarily back up the .type field into .oldtype and replace the type of the target events by '__target__'</span>
-0088     [signal.event.oldtype] = signal.event.type;
-0089     [signal.event(targmask).type] = deal(<span class="string">'__target__'</span>);
-0090 
-0091     <span class="comment">% extract epochs &amp; do sanity checks</span>
-0092     [signal, evtindices] = pop_epoch(signal, {<span class="string">'__target__'</span>}, epobounds);
-0093     <span class="keyword">if</span> length(evtindices) ~= size(signal.data,3) || ((length(evtindices) ~= length(signal.epoch)) &amp;&amp; ~isempty(signal.epoch))
-0094         <span class="comment">% Note: If you are getting this error, the event information returned by pop_epoch is not</span>
-0095         <span class="comment">% what is expected by BCILAB. This should not happen, but pop_epoch is a very complex function;</span>
-0096         <span class="comment">% therefore, if you get this message, you probably spotted a bug deep in the plumbing of</span>
-0097         <span class="comment">% EEGLAB -- please report it.</span>
-0098         error(<span class="string">'BCILAB:set_makepos:inconsistent_epochinfo'</span>,<span class="string">'The data returned by pop_epoch is inconsistent; unable to determine the per-epoch target value.'</span>);
-0099     <span class="keyword">end</span>
-0100     
-0101     <span class="keyword">if</span> length(evtindices) ~= nnz(targmask)
-0102         <span class="comment">% Note: If you are getting this error, there are some events in your data set that have been</span>
-0103         <span class="comment">% labeled as &quot;target&quot; events (by set_targetmarkers) but which are so close to a boundary</span>
-0104         <span class="comment">% event or the edge of the dataset, that no epochs could be extracted for them. This may</span>
-0105         <span class="comment">% either be caused by some intermediate processing stage that introduced new boundary events</span>
-0106         <span class="comment">% into the data (e.g. artifact rejection) without properly pruning the invalidated target</span>
-0107         <span class="comment">% markers, or, somewhat less likely, because set_targetmarkers was not given a large enough</span>
-0108         <span class="comment">% &quot;safety range&quot; around the events (e.g., either you explicitly passed a range that is</span>
-0109         <span class="comment">% smaller than the size of your actual epochs or bci_train failed to figure out the size of</span>
-0110         <span class="comment">% your epochs by itself -- which would be a bug). Or, least likely, it may have been caused</span>
-0111         <span class="comment">% by a bug already in set_targetmarkers (should not happen since the code is fairly</span>
-0112         <span class="comment">% simple, but if you manage to track this down, please report it).</span>
-0113         error(<span class="string">'BCILAB:set_makepos:inconsistent_issue'</span>,<span class="string">'Failed to extract an epoch for each target event.'</span>);
-0114     <span class="keyword">end</span>
-0115         
-0116     <span class="comment">% copy back the .oldtype field to the .type field, if some events are left</span>
-0117     <span class="keyword">if</span> ~isempty(signal.event)
-0118         [signal.event.type] = signal.event.oldtype;
-0119         signal.event = rmfield(signal.event,<span class="string">'oldtype'</span>);
-0120     <span class="keyword">end</span>
-0121     
-0122     <span class="comment">% make sure that the .epoch field has the right length</span>
-0123     <span class="comment">% (it can be empty because sometimes no events are retained)</span>
-0124     <span class="keyword">if</span> length(signal.epoch) ~= nnz(targmask)
-0125         <span class="keyword">if</span> isempty(signal.epoch)
-0126             signal.epoch = struct(<span class="string">'target'</span>,cell(1,nnz(targmask)));
-0127         <span class="keyword">else</span>
-0128             signal.epoch(nnz(targmask)).target = [];
-0129         <span class="keyword">end</span>
-0130     <span class="keyword">end</span>
-0131     
-0132     <span class="comment">% copy back old types to the epoch field</span>
-0133     <span class="keyword">if</span> ~isempty(signal.epoch)
-0134         <span class="keyword">try</span>
-0135             [signal.epoch.eventtype] = signal.epoch.eventoldtype;
-0136             signal.epoch = rmfield(signal.epoch,<span class="string">'eventoldtype'</span>);
-0137         <span class="keyword">catch</span>
-0138             <span class="comment">% (... which might perhaps be malformed or non-exitant)</span>
-0139         <span class="keyword">end</span>
-0140     <span class="keyword">end</span>
-0141     
-0142     <span class="comment">% assign target values and latencies to the epoch</span>
-0143     [signal.epoch.target] = evtbackup(targmask).target;
-0144     [signal.epoch.latency] = evtbackup(targmask).latency;
-0145     
-0146     <span class="comment">% reconstruct the ICA activation if required</span>
-0147     <span class="keyword">if</span> had_icaact        
-0148         signal.icaact = reshape((signal.icaweights*signal.icasphere)*signal.data(signal.icachansind,:), [], signal.pnts, signal.trials); <span class="keyword">end</span>
-0149 <span class="keyword">else</span>
-0150     <span class="comment">% in the online case we don't extract epochs but instead behave as an epoch that slides over the data</span>
-0151     
-0152     <span class="comment">% fix up xmin and xmax for the current epoch</span>
-0153     signal.xmin = epobounds(1);
-0154     signal.xmax = epobounds(1) + (size(signal.data,2)-1)/signal.srate;    
-0155     <span class="comment">% add an epoch field; this contains at least the latency (of the time-locking event, in samples)</span>
-0156     signal.epoch = struct(<span class="string">'latency'</span>, {signal.smax - signal.xmax*signal.srate});        
-0157 <span class="keyword">end</span>
-0158 
-0159 exp_endfun;</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0037 <span class="comment">%   State :  state of the filter, after it got applied</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">% Notes:</span>
+0040 <span class="comment">%   In the regular BCILAB processing pipeline, target markers are defined on the continuous</span>
+0041 <span class="comment">%   data set either automatically by the bci_ functions, or manually via set_targetmarkers.</span>
+0042 <span class="comment">%   One can also manually assign a .target field to a subset of markers.</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">% Examples:</span>
+0045 <span class="comment">%   % extract epochs from a continuous data set, beginning 0.5s before the position of each marker</span>
+0046 <span class="comment">%   % and ending 1.5s after the position of the corresponding marker</span>
+0047 <span class="comment">%   eeg = set_makepos(eeg,[-0.5 1.5])</span>
+0048 <span class="comment">%</span>
+0049 <span class="comment">%   % as before, but first add target markers for event types 'X' and 'Y'</span>
+0050 <span class="comment">%   eeg = set_makepos(set_targetmarkers(eeg,{'X','Y'}),[-0.5 1.5])</span>
+0051 <span class="comment">%</span>
+0052 <span class="comment">% See also:</span>
+0053 <span class="comment">%   set_targetmarkers, bci_train</span>
+0054 <span class="comment">%</span>
+0055 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0056 <span class="comment">%                                2010-04-01</span>
+0057 dp;
+0058 
+0059 <span class="comment">% set_makepos_version&lt;2.01&gt; -- for the cache</span>
+0060 
+0061 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>), <span class="keyword">return</span>; <span class="keyword">end</span>
+0062 
+0063 declare_properties(<span class="string">'name'</span>,{<span class="string">'EpochExtraction'</span>,<span class="string">'epoch'</span>}, <span class="string">'independent_channels'</span>,true,<span class="string">'independent_trials'</span>,true);
+0064 
+0065 arg_define(varargin, <span class="keyword">...</span>
+0066     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0067     arg({<span class="string">'time_bounds'</span>,<span class="string">'TimeWindow'</span>,<span class="string">'epobounds'</span>}, [], [], <span class="string">'Epoch time window relative to the target markers. In seconds.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0068     arg_nogui({<span class="string">'online_epoching'</span>,<span class="string">'OnlineEpoching'</span>}, <span class="string">'at_end'</span>, {<span class="string">'at_end'</span>,<span class="string">'at_targets'</span>}, <span class="string">'Online epoch extraction. If set to at_end, an single epoch is extracted at the end of the signal; if set to at_target_markers, one epoch per target marker in the signal is extracted.'</span>), <span class="keyword">...</span>
+0069     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>}));
+0070 
+0071 <span class="comment">% input validation</span>
+0072 <span class="keyword">if</span> ~isequal(size(time_bounds),[1 2])
+0073     error(<span class="string">'The given time bounds must be a 2-element row vector.'</span>); <span class="keyword">end</span>
+0074 <span class="keyword">if</span> time_bounds(1) &gt; time_bounds(2)
+0075     error(<span class="string">'The time bounds must be given as [lower,upper].'</span>); <span class="keyword">end</span>
+0076 <span class="keyword">if</span> ~isreal(time_bounds)
+0077     error(<span class="string">'The time bounds must be real-valued.'</span>); <span class="keyword">end</span>
+0078 utl_check_fields(signal,{<span class="string">'srate'</span>,<span class="string">'data'</span>,<span class="string">'event'</span>,<span class="string">'pnts'</span>},<span class="string">'signal'</span>,<span class="string">'signal'</span>);
+0079 <span class="keyword">if</span> ~isempty(signal.event)
+0080     <span class="keyword">if</span> ~isfield(signal.event,<span class="string">'latency'</span>)
+0081         error(<span class="string">'The given signal has a non-empty field .event but is missing the required field .event.latency.'</span>); <span class="keyword">end</span>
+0082     latency_numels = cellfun(<span class="string">'prodofsize'</span>,{signal.event.latency});
+0083     <span class="keyword">if</span> any(latency_numels == 0)
+0084         error(<span class="string">'The given signal has one or more events with empty .latency field. This is not permitted.'</span>);
+0085     <span class="keyword">elseif</span> any(latency_numels ~= 1)
+0086         error(<span class="string">'The given signal has one or more events with a .latency value that is not a scalar. This is not permitted.'</span>);
+0087     <span class="keyword">end</span>
+0088 <span class="keyword">end</span>
+0089 <span class="keyword">if</span> signal.srate == 0
+0090     error(<span class="string">'The given signal must have a positive sampling rate.'</span>); <span class="keyword">end</span>
+0091 <span class="keyword">if</span> ~isempty(state)
+0092     utl_check_fields(state,{<span class="string">'timeseries_fields'</span>,<span class="string">'buffer'</span>,<span class="string">'sample_bounds'</span>,<span class="string">'sample_range'</span>, <span class="keyword">...</span>
+0093         <span class="string">'sample_points'</span>,<span class="string">'time_bounds'</span>,<span class="string">'events'</span>,<span class="string">'prepend_samples'</span>},<span class="string">'state'</span>,<span class="string">'state'</span>);
+0094 <span class="keyword">end</span>    
+0095 
+0096 <span class="comment">% handle previous state for incremental processing (if any)</span>
+0097 <span class="keyword">if</span> isempty(state) <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0098     <span class="comment">% no state yet: determine epoching info</span>
+0099     state.sample_bounds = round(time_bounds*signal.srate);
+0100     state.sample_range = state.sample_bounds(1):state.sample_bounds(2);
+0101     state.sample_points = length(state.sample_range);
+0102     <span class="keyword">if</span> ~state.sample_points
+0103         disp_once(<span class="string">'WARNING: your epoch time range is empty.'</span>); <span class="keyword">end</span>
+0104     state.time_bounds = state.sample_bounds/signal.srate;    
+0105     <span class="comment">% initialize data buffer</span>
+0106     state.timeseries_fields = utl_timeseries_fields(signal);
+0107     <span class="keyword">for</span> f = state.timeseries_fields
+0108         state.buffer.(f{1}) = []; <span class="keyword">end</span>
+0109     <span class="comment">% initialize marker buffer</span>
+0110     state.events = [];
+0111     <span class="comment">% determine how many samples should to be carried over between calls</span>
+0112     <span class="comment">% (actual buffer size may be less if not enough data is available)</span>
+0113     state.prepend_samples = max([state.sample_points-1,state.sample_range(end),-state.sample_range(1)]);
+0114 <span class="keyword">else</span>
+0115     <span class="comment">% have state: prepend the buffer to the signal</span>
+0116     <span class="keyword">for</span> f = state.timeseries_fields
+0117         <span class="keyword">if</span> isfield(signal,f{1})
+0118             <span class="keyword">try</span>
+0119                 signal.(f{1}) = cat(2,state.buffer.(f{1}),signal.(f{1})); 
+0120             <span class="keyword">catch</span> e
+0121                 size_info = hlp_tostring({size(state.buffer.(f{1})),size(signal.(f{1}))});
+0122                 error(<span class="string">'Concatenating the time-seriels field .%s of the prior state and the given signal failed; make sure that the number of channels is consistent when applying set_makepos to successive chunks; detailed error message: %s (the data sizes were: %s)'</span>,f{1},e.message,size_info);
+0123             <span class="keyword">end</span>
+0124         <span class="keyword">else</span>
+0125             warn_once(<span class="string">'BCILAB:set_makepos:missing_field'</span>,<span class="string">'The given signal is lacking the time-series field .%s which is present in the prior state. Fields should not be dropped when applying set_makepos to successive chunks.'</span>,f{1}); 
+0126         <span class="keyword">end</span>
+0127     <span class="keyword">end</span>
+0128     [signal.nbchan,signal.pnts,signal.trials,extra_dims] = size(signal.data); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0129    <span class="comment">% increment marker latencies by amount of prepended data</span>
+0130     <span class="keyword">if</span> ~isempty(signal.event)
+0131         [signal.event.latency] = arraydeal([signal.event.latency]+size(state.buffer.data,2)); <span class="keyword">end</span>
+0132     <span class="comment">% prepend buffered markers</span>
+0133     <span class="keyword">try</span>
+0134         signal.event = [state.events signal.event];
+0135     <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0136         disp(<span class="string">'Warning: The event structure has changed across successive chunks passed to set_makepos; discarding buffered events.'</span>);
+0137         state.events = [];
+0138     <span class="keyword">end</span>
+0139 <span class="keyword">end</span>
+0140 
+0141 <span class="comment">% update final state</span>
+0142 <span class="keyword">if</span> nargout &gt; 1
+0143     <span class="comment">% retain the last portion of the time series fields</span>
+0144     <span class="keyword">for</span> f = state.timeseries_fields
+0145         <span class="keyword">if</span> isfield(signal,f{1})
+0146             state.buffer.(f{1}) = signal.(f{1})(:,max(1,end-state.prepend_samples+1):<span class="keyword">end</span>,:,:,:,:,:,:); <span class="keyword">end</span>
+0147     <span class="keyword">end</span>
+0148     <span class="keyword">if</span> ~isempty(signal.event)
+0149         <span class="comment">% retain events that lie in the buffered interval</span>
+0150         state.events = signal.event(round([signal.event.latency]) &gt; (signal.pnts-size(state.buffer.data,2)));
+0151         <span class="comment">% change their latency: the last sample's latency goes from pnts to the state buffer's size</span>
+0152         <span class="keyword">if</span> ~isempty(state.events)
+0153             [state.events.latency] = arraydeal([state.events.latency] + (size(state.buffer.data,2)-signal.pnts)); <span class="keyword">end</span>
+0154     <span class="keyword">else</span>
+0155         <span class="comment">% otherwise there are no events to carry over</span>
+0156         state.events = [];
+0157     <span class="keyword">end</span>
+0158 <span class="keyword">end</span>
+0159 
+0160 <span class="keyword">if</span> strcmp(online_epoching,<span class="string">'at_targets'</span>) || ~onl_isonline
+0161     <span class="comment">% default offline case: generating epochs around target markers</span>
+0162     <span class="keyword">if</span> ~isempty(signal.event)
+0163         <span class="comment">% make sure that the necessary fields are present</span>
+0164         <span class="keyword">if</span> isfield(signal,<span class="string">'epoch'</span>) &amp;&amp; ~isempty(signal.epoch)
+0165             error(<span class="string">'The signal is already epoched; can only extract epochs from continuous data.'</span>); <span class="keyword">end</span>
+0166         <span class="keyword">if</span> size(signal.data,3) &gt; 1
+0167             error(<span class="string">'The given signal''s data is apparently already epoched; set_makepos can only be applied to continuous data.'</span>); <span class="keyword">end</span>
+0168         <span class="keyword">if</span> ~isfield(signal.event,<span class="string">'latency'</span>)
+0169             error(<span class="string">'The markers of this signal must have a field named .latency (which holds the latency of each marker).'</span>); <span class="keyword">end</span>
+0170         <span class="keyword">if</span> ~isfield(signal.event,<span class="string">'target'</span>)
+0171             error(<span class="string">'The markers of this signal must have a field named .target for epoch generation to work (see also set_targetmarkers).'</span>); <span class="keyword">end</span>
+0172 
+0173         <span class="comment">% make sure that events are sorted</span>
+0174         latencies = [signal.event.latency];
+0175         <span class="keyword">if</span> ~issorted(latencies)
+0176             [latencies,order] = sort(latencies);
+0177             signal.event = signal.event(order);
+0178         <span class="keyword">end</span>
+0179         
+0180         <span class="comment">% make sure that all event latencies fall within the signal bounds</span>
+0181         out_of_bounds = round(latencies)&lt;1 | round(latencies)&gt;signal.pnts;
+0182         <span class="keyword">if</span> any(out_of_bounds)
+0183             disp_once(<span class="string">'CAUTION: your signal had %i events at out-of-bounds latencies that were removed. This message will not be repeated.'</span>,nnz(out_of_bounds));
+0184             signal.event(out_of_bounds) = [];
+0185             latencies(out_of_bounds) = [];
+0186         <span class="keyword">end</span>
+0187         
+0188         <span class="comment">% determine the indices/latencies of events that shall be used for epoch generation</span>
+0189         target_events = find(~cellfun(<span class="string">'isempty'</span>,{signal.event.target}));
+0190         target_latencies = round(latencies(target_events));
+0191         
+0192         <span class="comment">% remove target events whose epoch ranges intersect data boundaries</span>
+0193         out_of_bounds = target_latencies+state.sample_range(1)&lt;1 | target_latencies+state.sample_range(end)&gt;signal.pnts;
+0194         <span class="keyword">if</span> any(out_of_bounds)
+0195             disp_once(<span class="string">'CAUTION: your signal had %i target events at out-of-bounds latencies that were removed. This might be a spurious note but if your get an epoch/event-related error later, it is possibly due to your target marker assignment routine not respecting epoch sizes around targets. This message will not be repeated.'</span>,nnz(out_of_bounds));
+0196             target_events(out_of_bounds) = []; 
+0197             target_latencies(out_of_bounds) = []; 
+0198         <span class="keyword">end</span>
+0199         
+0200         <span class="keyword">if</span> ~isempty(target_events)
+0201             <span class="comment">% generate index ranges for epoching</span>
+0202             ranges = bsxfun(@plus,target_latencies,state.sample_range(:));
+0203 
+0204             <span class="comment">% epoch the time series fields</span>
+0205             <span class="keyword">for</span> f = state.timeseries_fields
+0206                 <span class="keyword">if</span> isfield(signal,f{1})
+0207                     siz = size(signal.(f{1}));
+0208                     <span class="keyword">if</span> ~isempty(signal.(f{1}))
+0209                         <span class="keyword">if</span> siz ~= signal.pnts
+0210                             error(<span class="string">'The time-series field .%s has a different number of time-points (%i) than signal.pnts (%i); this is not permitted by set_makepos.'</span>,f{1},siz(2),signal.pnts); <span class="keyword">end</span>
+0211                         <span class="keyword">try</span>
+0212                             signal.(f{1}) = reshape(signal.(f{1})(:,ranges,1,:,:,:,:,:),[siz(1),size(ranges,1),size(ranges,2),siz(4:end)]); 
+0213                         <span class="keyword">catch</span> e
+0214                             error(<span class="string">'Failed to extract epochs from time-series field .%s with error: %s.'</span>,f{1},e.message);
+0215                         <span class="keyword">end</span>
+0216                     <span class="keyword">end</span>
+0217                 <span class="keyword">end</span>
+0218             <span class="keyword">end</span>
+0219 
+0220             <span class="comment">% epoch sparse event latencies and collect retained event indices and latencies</span>
+0221             [event_positions,residuals] = sparse_binning(latencies,[],signal.pnts);
+0222             [dummy,sample_indices,event_indices] = find(event_positions(:,ranges(:))); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0223             residuals = residuals(:); sample_indices = sample_indices(:); event_indices = event_indices(:);
+0224             
+0225             <span class="comment">% get the associated epoch for each event, and the number of events in each epoch</span>
+0226             epoch_assignment = 1+floor((sample_indices-1)/state.sample_points);
+0227             epoch_numevents = full(sum(logical(sparse_binning(epoch_assignment,[],length(target_events))),1));
+0228             
+0229             <span class="comment">% initialize .epoch (from time-locking events) and .event (from retained events)</span>
+0230             signal.epoch = signal.event(target_events);
+0231             signal.event = signal.event(event_indices);
+0232             
+0233             <span class="comment">% cross-link epochs and events</span>
+0234             <span class="keyword">if</span> ~isempty(signal.event)
+0235                 [signal.event.epoch] = arraydeal(epoch_assignment); <span class="keyword">end</span>
+0236             [signal.epoch.event] = chopdeal(1:length(event_indices),epoch_numevents);
+0237             
+0238             <span class="comment">% copy all event.* fields to epoch.event*</span>
+0239             <span class="keyword">for</span> f=fast_setdiff(fieldnames(signal.event)',{<span class="string">'latency'</span>,<span class="string">'duration'</span>,<span class="string">'epoch'</span>})
+0240                 [signal.epoch.([<span class="string">'event'</span> f{1}])] = chopdeal({signal.event.(f{1})},epoch_numevents); <span class="keyword">end</span>
+0241             
+0242             <span class="comment">% special handling for epoch.eventlatency, and epoch.eventduration (in ms and relative to epoch center)</span>
+0243             epoch_rellatencies = (residuals(event_indices)+sample_indices-1-(epoch_assignment-1)*state.sample_points)+state.sample_range(1);
+0244             [signal.epoch.eventlatency] = chopdeal(num2cell(epoch_rellatencies/signal.srate*1000),epoch_numevents);
+0245             <span class="keyword">if</span> isfield(signal.event,<span class="string">'duration'</span>) 
+0246                 durations = {signal.event.duration};
+0247                 [durations{cellfun(<span class="string">'isempty'</span>,durations)}] = deal(0);
+0248                 [signal.epoch.eventduration] = chopdeal(num2cell([durations{:}]*(1000/signal.srate)),epoch_numevents);
+0249             <span class="keyword">end</span>
+0250             
+0251             <span class="comment">% update event latency to pseudo-continuous latencies</span>
+0252             <span class="keyword">if</span> ~isempty(signal.event)
+0253                 [signal.event.latency] = arraydeal(sample_indices + residuals(event_indices)); <span class="keyword">end</span>
+0254         <span class="keyword">else</span>
+0255             <span class="keyword">for</span> f = state.timeseries_fields
+0256                 signal.(f{1}) = []; <span class="keyword">end</span>
+0257         <span class="keyword">end</span>
+0258     <span class="keyword">else</span>
+0259         <span class="keyword">for</span> f = state.timeseries_fields
+0260             signal.(f{1}) = []; <span class="keyword">end</span>        
+0261     <span class="keyword">end</span>
+0262 <span class="keyword">else</span>
+0263     <span class="comment">% default online case: extract a single epoch at the current end of the stream</span>
+0264     <span class="keyword">if</span> signal.pnts &gt; state.sample_points
+0265         <span class="comment">% too long: remove excess data</span>
+0266         <span class="keyword">for</span> f = state.timeseries_fields
+0267             <span class="keyword">if</span> isfield(signal,f{1})
+0268                 <span class="keyword">if</span> ~isempty(signal.(f{1}))
+0269                     signal.(f{1}) = signal.(f{1})(:,end-state.sample_points+1:<span class="keyword">end</span>,1,:,:,:,:,:); <span class="keyword">end</span>
+0270             <span class="keyword">end</span>
+0271         <span class="keyword">end</span>
+0272         <span class="comment">% update event latencies and remove out-of-range events</span>
+0273         <span class="keyword">if</span> ~isempty(signal.event)
+0274             [signal.event.latency] = arraydeal([signal.event.latency]+(state.sample_points-signal.pnts));
+0275             signal.event(round([signal.event.latency])&lt;1) = [];
+0276         <span class="keyword">end</span>
+0277     <span class="keyword">elseif</span> signal.pnts &lt; state.sample_points
+0278         <span class="comment">% too short: generate no epoch</span>
+0279         <span class="keyword">for</span> f = state.timeseries_fields
+0280             signal.(f{1}) = []; <span class="keyword">end</span>
+0281     <span class="keyword">end</span>
+0282     
+0283     <span class="keyword">if</span> ~isempty(signal.data)
+0284         <span class="comment">% add an epoch field</span>
+0285         signal.epoch = struct(<span class="string">'latency'</span>,{signal.smax - state.time_bounds(2)*signal.srate});
+0286         <span class="keyword">if</span> ~isempty(signal.event)
+0287             <span class="comment">% cross-link epochs and events</span>
+0288             signal.epoch.event = 1:length(signal.event);            
+0289             [signal.event.epoch] = deal(1);
+0290             <span class="comment">% copy event fields over</span>
+0291             <span class="keyword">for</span> f=fast_setdiff(fieldnames(signal.event)',{<span class="string">'latency'</span>,<span class="string">'duration'</span>,<span class="string">'epoch'</span>})
+0292                 signal.epoch.([<span class="string">'event'</span> f{1}]) = {signal.event.(f{1})}; <span class="keyword">end</span>
+0293             <span class="comment">% apply special handling to latency and duration (both in ms and relative to epoch center)</span>
+0294             signal.epoch.eventlatency = num2cell(([signal.event.latency]-1+state.sample_range(1))/signal.srate*1000);
+0295             <span class="keyword">if</span> isfield(signal.event,<span class="string">'duration'</span>)
+0296                 durations = {signal.event.duration};
+0297                 [durations{cellfun(<span class="string">'isempty'</span>,durations)}] = deal(0);                
+0298                 signal.epoch.eventduration = num2cell([durations{:}]*(1000/signal.srate)); 
+0299             <span class="keyword">end</span>
+0300         <span class="keyword">end</span>
+0301     <span class="keyword">end</span>
+0302 <span class="keyword">end</span>
+0303 
+0304 <span class="comment">% fix up signal properties</span>
+0305 signal.xmin = state.time_bounds(1);
+0306 signal.xmax = state.time_bounds(2);
+0307 [signal.nbchan,signal.pnts,signal.trials,extra_dims] = size(signal.data); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0308 <span class="keyword">if</span> isempty(signal.data) || isempty(signal.event)
+0309     signal.event = []; <span class="keyword">end</span>
+0310 <span class="keyword">if</span> isempty(signal.epoch)
+0311     signal.epoch = struct([]); <span class="keyword">end</span>
+0312 
+0313 exp_endfun;</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

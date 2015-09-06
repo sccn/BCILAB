@@ -4,7 +4,7 @@
 <head>
   <title>Description of arg</title>
   <meta name="keywords" content="arg">
-  <meta name="description" content="A (rich) specification of a function argument, for use in arg_define() clauses.">
+  <meta name="description" content="A definition of a function argument, for use in arg_define() clauses.">
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
   <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
   <meta name="robots" content="index, follow">
@@ -18,17 +18,23 @@
 <td align="right"><a href="index.html">Index for code/arguments&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>arg
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>A (rich) specification of a function argument, for use in arg_define() clauses.</strong></div>
+<div class="box"><strong>A definition of a function argument, for use in arg_define() clauses.</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="box"><strong>function res = arg(varargin) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre class="comment"> A (rich) specification of a function argument, for use in arg_define() clauses.
+<div class="fragment"><pre class="comment"> A definition of a function argument, for use in arg_define() clauses.
  Spec = arg(Names,Default,Range,Help,Options...)
+
+ The arg() function is used to define a single input argument of a function. A list of arg()'s 
+ is used to define multiple function arguments. This list is interpreted by arg_define to parse
+ the inputs of the function or to produce a specification of function inputs that can be used to
+ render GUIs, store settings, generate help text, and so on.
 
  In:
    Names : The name(s) of the argument. At least one must be specified, and if multiple are
@@ -36,77 +42,91 @@
            * The first name specified is the argument's &quot;code&quot; name, as it should appear in the
              function's code (= the name under which arg_define() returns it to the function).
            * The second name, if specified, is the &quot;Human-readable&quot; name, which is exposed in the
-             GUIs (if omitted, the code name is displayed).
-           * Further specified names are alternative names for the argument (e.g., for backwards
+             GUIs (if omitted, the code name is displayed). For consistency with other MATLAB 
+             functions it should be in CamelCase.
+           * Further specified names are aliases for the argument (e.g., for backwards
              compatibility with older function syntaxes/parameter names).
 
    Default : Optionally the default value of the argument; can be any data structure (default: []).
-              Special values:
-              * unassigned: the argument is not listed in the function's workspace nor GUI unless
-                explicitly assigned
-              * mandatory: if no value is specified to this argument by the time the function is
-                called, an error is raised
+             Special values:
+             * unassigned: this value is not assigned to the function's workspace and also does not
+                           override default values
+             * mandatory: instead of being assigned to the function's workspace an error will be
+                          raised
              
-             Note: If neither Default nor Range are specified, consider specifying the argument's
-             type via the Options... list.
+             Note: If neither Default nor Range are specified, the argument's type will be assumed
+             to be a numeric matrix; this can be overridden in the Options... list.
 
    Range : Optionally a range of admissible values (default: []).
            * If empty, no range is enforced.
-           * If a cell array, each cell is considered one of the allowed values.
+           * If a cell array, each cell is considered one of the allowed values (e.g., multi-option
+             string); the value may either be one of the options, or a cell array of a subset of
+             allowed values (usually values being strings).
            * If a 2-element numeric vector, the two values are considered the numeric range of the
-             data (inclusive).
-           * Note: if neither Default nor Range are specified, consider specifying the argument's
-             type via the Options... list.
+             data (inclusive). If a value is assigned that lies outside this range an error message
+             is generated.
+           * If a 4-element numeric vector, the first and last value are considered the numeric range of 
+             the data (inclusive), and the second and third values are considered the typical
+             range. An informational message is displayed when a value is assigned that lies
+             outside the typical range, and an error message is generate if the value is outside of
+             the numeric range.
 
-   Help : The help text for this argument (displayed inside GUIs), optional. (default: []).
+   Help : The help text for this argument (displayed inside GUIs), optional. (default: '').
           (Developers: Please do *not* omit this, as it is the key bridge between ease of use and
           advanced functionality.)
 
           The first sentence should be the executive summary (max. 60 chars), any further sentences
           are a detailed explanation (examples, units, considerations). The end of the first
           sentence is indicated by a '. ' followed by a capital letter (beginning of the next
-          sentence). If ambiguous, the help can also be specified as a cell array of 2 cells.
+          sentence). If otherwise ambiguous, the help can also be specified as a cell array of 2 cells.
 
    Options... : Optional name-value pairs to denote additional properties:
                  'cat' : The human-readable category of this argument, helpful to present a list of
                          many parameters in a categorized list, and to separate &quot;Core Parameters&quot;
-                         from &quot;Miscellaneous&quot; arguments. Developers: When choosing names, every bit
-                         of consistency with other function in the toolbox helps the uses find
-                         their way (default: []).
+                         from &quot;Miscellaneous&quot; arguments. (default: '')
 
-                 'type' : Specify the primitive type of the parameter (default: [], indicating that
-                          it is auto-discovered from the Default and/or Range). The primitive type
-                          is one of the following strings:
-                             'logical', 'char', 'int8', 'uint8', 'int16', 'uint16', 'int32',
-                             'uint32', 'int64', 'uint64', 'denserealsingle', 'denserealdouble',
-                             'densecomplexsingle', 'densecomplexdouble', 'sparserealsingle',
-                             'sparserealdouble', 'sparsecomplexsingle', 'sparsecomplexdouble',
-                             'cellstr', 'object'.
-                          If auto-discovery was requested, but fails for some reason, the default
-                          type is set to 'denserealdouble'.
+                 'type' : Override the type of the parameter. The type is one of the following strings:
+                          'logical', 'char', 'int8', 'uint8', 'int16', 'uint16', 'int32',
+                          'uint32', 'int64', 'uint64', 'denserealsingle', 'denserealdouble',
+                          'densecomplexsingle', 'densecomplexdouble', 'sparserealsingle',
+                          'sparserealdouble', 'sparsecomplexsingle', 'sparsecomplexdouble',
+                          'cellstr', 'object', 'expression' (default: deduced from Default and Range)
 
-                 'shape' : Specify the array shape of the parameter (default: [], indicating that
-                           it is auto-discovered from the Default and/or Range). The array shape is
-                           one of the following strings: 'scalar','row','column','matrix','empty'.
-                           If auto-discovery was requested, but fails for some reason, the default
-                           shape is set to 'matrix'.
+                 'shape' : Specify the array shape of the parameter. This is one of the following 
+                           strings: 'scalar', 'row', 'column', 'matrix', 'empty', 'tensor'. 
+                           (default: deduced from Default and Range)
+
+                 'to_double' : Whether integer values shall be converted to double before being
+                               returned to the function (default: true if type is integer, otherwise false)
+
+                 'displayable' : Whether the argument may be displayed by GUIs, see also <a href="arg_nogui.html" class="code" title="function res = arg_nogui(varargin)">arg_nogui</a> (default: true)
+
+                 'deprecated' : Whether the argument has been deprecated, see also <a href="arg_deprecated.html" class="code" title="function res = arg_deprecated(varargin)">arg_deprecated</a> (default: false)
+
+                 'experimental' : Whether the argument is marked as experimental or &quot;prototype-stage&quot; (default: false)
+
+                 'guru' : Whether the argument is marked as guru-level (default: false)
+
+                 'empty_overwrites' : Whether assiging [] to this argument overwrites the previous
+                                      (or default) value. Setting this to false yields the same
+                                      behavior as in some well-known MATLAB functions, like for the
+                                      TOL parameter in pcg() (default: true)
+
+                 'typecheck' Whether to perform a type check upon assignment of a value (default: true)
+
+                 'shapecheck' Whether to perform a shape check upon assignment of a value (default: true)
+
+                 'rangecheck' Whether to perform a range check upon assignment of a value (default: true)
 
  Out:
-   Spec : A cell array, that, when called as invoke_arg_internal(reptype,spec{1}{:}), yields a 
-          specification of the argument, for use by arg_define. The (internal) structure of that is 
-          as follows:
-          * Generally, this is a cell array (here: one element) of cells formatted as:
-            {Names,Assigner-Function,Default-Value}.
-          * Names is a cell array of admissible names for this argument.
-          * Assigner-Function is a function that returns the rich specifier with value assigned,
-            when called as Assigner-Function(Value).
-          * reptype is either 'rich' or 'lean', where in lean mode, the aternatives field remains
-            empty.
+   Spec : A specification of the argument that can be used in <a href="arg_define.html" class="code" title="function outstruct = arg_define(vals,varargin)">arg_define</a>. Technically it is a cell
+          array that, when called as feval(Spec{1},reptype,Spec{2}{:}), yields a specification
+          struct of the argument.
 
  Examples:
    arg_define(varargin, ...
 
-       % define a scalar numeric argument with the name myparam, and the alternative GUI name 
+       % define a scalar numeric argument with the name myparam, and the alternative GUI name
        % MyParameter, a default value of 5, and some help text (consisting of an executive summary
        % followed by a longer explanation).
        arg({'myparam','MyParameter'},5,[],'A parameter. This is the extended help text for the parameter, as it would be displayed, e.g., in a tooltip.')
@@ -124,7 +144,7 @@
        arg({'myvec','MyVector'},[],[],'A parameter. But the shape can be overridden by passing an option.', 'shape','row')
 
        % define a string argument that has an empty default
-       arg({'mystrng','MyString'},'',[],'A parameter. Note that the shape is automatically assumed to be row. This is one of several convenience rules supported by the arg function.')
+       arg({'mystrng','MyString'},'',[],'A parameter. Note that the shape is automatically assumed to be row. This is one of several convenience rules supported by the <a href="arg.html" class="code" title="function res = arg(varargin)">arg</a> function.')
 
        % define a boolean argument that is by default true
        arg({'mybool','MyBoolean'},true,[],'Flag XY. Note that generally the executive summary should be quite short - it should be displayable in a GUI dialog.')
@@ -143,7 +163,7 @@
 
        % define an argument that has no default, but *must* be assigned a value (i.e. it is a mandatory argument)
        arg({'myparam','MyParameter'},mandatory,[],'Important Parameter. You need to specify something for this one.')
-       
+
        % define an argument that is in a specific &quot;category&quot;
        arg({'mybool','MyBoolean'},true,[],'Flag XY. And some additional help text.','cat','Core Parameters')
 
@@ -154,7 +174,7 @@
        arg({'myval','MyValue'},[],[],'Some matrix. Note that the type also encodes whether the value is complex or sparse.','type','denserealsingle','shape','matrix')
 
  See also:
-   <a href="arg_nogui.html" class="code" title="function res = arg_nogui(varargin)">arg_nogui</a>, <a href="arg_norep.html" class="code" title="function res = arg_norep(varargin)">arg_norep</a>, <a href="arg_sub.html" class="code" title="function res = arg_sub(varargin)">arg_sub</a>, <a href="arg_subswitch.html" class="code" title="function res = arg_subswitch(varargin)">arg_subswitch</a>, <a href="arg_subtoggle.html" class="code" title="function res = arg_subtoggle(varargin)">arg_subtoggle</a>, <a href="arg_define.html" class="code" title="function res = arg_define(vals,varargin)">arg_define</a>
+   <a href="arg_nogui.html" class="code" title="function res = arg_nogui(varargin)">arg_nogui</a>, <a href="arg_norep.html" class="code" title="function res = arg_norep(varargin)">arg_norep</a>, <a href="arg_deprecated.html" class="code" title="function res = arg_deprecated(varargin)">arg_deprecated</a>, <a href="arg_sub.html" class="code" title="function res = arg_sub(varargin)">arg_sub</a>, <a href="arg_subswitch.html" class="code" title="function res = arg_subswitch(varargin)">arg_subswitch</a>, <a href="arg_subtoggle.html" class="code" title="function res = arg_subtoggle(varargin)">arg_subtoggle</a>, <a href="arg_define.html" class="code" title="function outstruct = arg_define(vals,varargin)">arg_define</a>
 
                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                                 2010-09-24</pre></div>
@@ -163,164 +183,188 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="invoke_arg_internal.html" class="code" title="function spec = invoke_arg_internal(reptype,varargin) %#ok<INUSL>">invoke_arg_internal</a>	same type of invoke function as in arg_sub, arg_subswitch, etc. - but shared between</li></ul>
+
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="invoke_arg_internal.html" class="code" title="function spec = invoke_arg_internal(reptype,varargin) %#ok<INUSL>">invoke_arg_internal</a>	same type of invoke function as in arg_sub, arg_subswitch, etc. - but shared between</li></ul>
+
+</ul>
 <!-- crossreference -->
+
+
+
 
 
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function res = arg(varargin)</a>
-0002 <span class="comment">% A (rich) specification of a function argument, for use in arg_define() clauses.</span>
+0002 <span class="comment">% A definition of a function argument, for use in arg_define() clauses.</span>
 0003 <span class="comment">% Spec = arg(Names,Default,Range,Help,Options...)</span>
 0004 <span class="comment">%</span>
-0005 <span class="comment">% In:</span>
-0006 <span class="comment">%   Names : The name(s) of the argument. At least one must be specified, and if multiple are</span>
-0007 <span class="comment">%           specified, they must be passed in a cell array.</span>
-0008 <span class="comment">%           * The first name specified is the argument's &quot;code&quot; name, as it should appear in the</span>
-0009 <span class="comment">%             function's code (= the name under which arg_define() returns it to the function).</span>
-0010 <span class="comment">%           * The second name, if specified, is the &quot;Human-readable&quot; name, which is exposed in the</span>
-0011 <span class="comment">%             GUIs (if omitted, the code name is displayed).</span>
-0012 <span class="comment">%           * Further specified names are alternative names for the argument (e.g., for backwards</span>
-0013 <span class="comment">%             compatibility with older function syntaxes/parameter names).</span>
-0014 <span class="comment">%</span>
-0015 <span class="comment">%   Default : Optionally the default value of the argument; can be any data structure (default: []).</span>
-0016 <span class="comment">%              Special values:</span>
-0017 <span class="comment">%              * unassigned: the argument is not listed in the function's workspace nor GUI unless</span>
-0018 <span class="comment">%                explicitly assigned</span>
-0019 <span class="comment">%              * mandatory: if no value is specified to this argument by the time the function is</span>
-0020 <span class="comment">%                called, an error is raised</span>
-0021 <span class="comment">%</span>
-0022 <span class="comment">%             Note: If neither Default nor Range are specified, consider specifying the argument's</span>
-0023 <span class="comment">%             type via the Options... list.</span>
-0024 <span class="comment">%</span>
-0025 <span class="comment">%   Range : Optionally a range of admissible values (default: []).</span>
-0026 <span class="comment">%           * If empty, no range is enforced.</span>
-0027 <span class="comment">%           * If a cell array, each cell is considered one of the allowed values.</span>
-0028 <span class="comment">%           * If a 2-element numeric vector, the two values are considered the numeric range of the</span>
-0029 <span class="comment">%             data (inclusive).</span>
-0030 <span class="comment">%           * Note: if neither Default nor Range are specified, consider specifying the argument's</span>
-0031 <span class="comment">%             type via the Options... list.</span>
-0032 <span class="comment">%</span>
-0033 <span class="comment">%   Help : The help text for this argument (displayed inside GUIs), optional. (default: []).</span>
-0034 <span class="comment">%          (Developers: Please do *not* omit this, as it is the key bridge between ease of use and</span>
-0035 <span class="comment">%          advanced functionality.)</span>
-0036 <span class="comment">%</span>
-0037 <span class="comment">%          The first sentence should be the executive summary (max. 60 chars), any further sentences</span>
-0038 <span class="comment">%          are a detailed explanation (examples, units, considerations). The end of the first</span>
-0039 <span class="comment">%          sentence is indicated by a '. ' followed by a capital letter (beginning of the next</span>
-0040 <span class="comment">%          sentence). If ambiguous, the help can also be specified as a cell array of 2 cells.</span>
-0041 <span class="comment">%</span>
-0042 <span class="comment">%   Options... : Optional name-value pairs to denote additional properties:</span>
-0043 <span class="comment">%                 'cat' : The human-readable category of this argument, helpful to present a list of</span>
-0044 <span class="comment">%                         many parameters in a categorized list, and to separate &quot;Core Parameters&quot;</span>
-0045 <span class="comment">%                         from &quot;Miscellaneous&quot; arguments. Developers: When choosing names, every bit</span>
-0046 <span class="comment">%                         of consistency with other function in the toolbox helps the uses find</span>
-0047 <span class="comment">%                         their way (default: []).</span>
+0005 <span class="comment">% The arg() function is used to define a single input argument of a function. A list of arg()'s</span>
+0006 <span class="comment">% is used to define multiple function arguments. This list is interpreted by arg_define to parse</span>
+0007 <span class="comment">% the inputs of the function or to produce a specification of function inputs that can be used to</span>
+0008 <span class="comment">% render GUIs, store settings, generate help text, and so on.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% In:</span>
+0011 <span class="comment">%   Names : The name(s) of the argument. At least one must be specified, and if multiple are</span>
+0012 <span class="comment">%           specified, they must be passed in a cell array.</span>
+0013 <span class="comment">%           * The first name specified is the argument's &quot;code&quot; name, as it should appear in the</span>
+0014 <span class="comment">%             function's code (= the name under which arg_define() returns it to the function).</span>
+0015 <span class="comment">%           * The second name, if specified, is the &quot;Human-readable&quot; name, which is exposed in the</span>
+0016 <span class="comment">%             GUIs (if omitted, the code name is displayed). For consistency with other MATLAB</span>
+0017 <span class="comment">%             functions it should be in CamelCase.</span>
+0018 <span class="comment">%           * Further specified names are aliases for the argument (e.g., for backwards</span>
+0019 <span class="comment">%             compatibility with older function syntaxes/parameter names).</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   Default : Optionally the default value of the argument; can be any data structure (default: []).</span>
+0022 <span class="comment">%             Special values:</span>
+0023 <span class="comment">%             * unassigned: this value is not assigned to the function's workspace and also does not</span>
+0024 <span class="comment">%                           override default values</span>
+0025 <span class="comment">%             * mandatory: instead of being assigned to the function's workspace an error will be</span>
+0026 <span class="comment">%                          raised</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">%             Note: If neither Default nor Range are specified, the argument's type will be assumed</span>
+0029 <span class="comment">%             to be a numeric matrix; this can be overridden in the Options... list.</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%   Range : Optionally a range of admissible values (default: []).</span>
+0032 <span class="comment">%           * If empty, no range is enforced.</span>
+0033 <span class="comment">%           * If a cell array, each cell is considered one of the allowed values (e.g., multi-option</span>
+0034 <span class="comment">%             string); the value may either be one of the options, or a cell array of a subset of</span>
+0035 <span class="comment">%             allowed values (usually values being strings).</span>
+0036 <span class="comment">%           * If a 2-element numeric vector, the two values are considered the numeric range of the</span>
+0037 <span class="comment">%             data (inclusive). If a value is assigned that lies outside this range an error message</span>
+0038 <span class="comment">%             is generated.</span>
+0039 <span class="comment">%           * If a 4-element numeric vector, the first and last value are considered the numeric range of</span>
+0040 <span class="comment">%             the data (inclusive), and the second and third values are considered the typical</span>
+0041 <span class="comment">%             range. An informational message is displayed when a value is assigned that lies</span>
+0042 <span class="comment">%             outside the typical range, and an error message is generate if the value is outside of</span>
+0043 <span class="comment">%             the numeric range.</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">%   Help : The help text for this argument (displayed inside GUIs), optional. (default: '').</span>
+0046 <span class="comment">%          (Developers: Please do *not* omit this, as it is the key bridge between ease of use and</span>
+0047 <span class="comment">%          advanced functionality.)</span>
 0048 <span class="comment">%</span>
-0049 <span class="comment">%                 'type' : Specify the primitive type of the parameter (default: [], indicating that</span>
-0050 <span class="comment">%                          it is auto-discovered from the Default and/or Range). The primitive type</span>
-0051 <span class="comment">%                          is one of the following strings:</span>
-0052 <span class="comment">%                             'logical', 'char', 'int8', 'uint8', 'int16', 'uint16', 'int32',</span>
-0053 <span class="comment">%                             'uint32', 'int64', 'uint64', 'denserealsingle', 'denserealdouble',</span>
-0054 <span class="comment">%                             'densecomplexsingle', 'densecomplexdouble', 'sparserealsingle',</span>
-0055 <span class="comment">%                             'sparserealdouble', 'sparsecomplexsingle', 'sparsecomplexdouble',</span>
-0056 <span class="comment">%                             'cellstr', 'object'.</span>
-0057 <span class="comment">%                          If auto-discovery was requested, but fails for some reason, the default</span>
-0058 <span class="comment">%                          type is set to 'denserealdouble'.</span>
-0059 <span class="comment">%</span>
-0060 <span class="comment">%                 'shape' : Specify the array shape of the parameter (default: [], indicating that</span>
-0061 <span class="comment">%                           it is auto-discovered from the Default and/or Range). The array shape is</span>
-0062 <span class="comment">%                           one of the following strings: 'scalar','row','column','matrix','empty'.</span>
-0063 <span class="comment">%                           If auto-discovery was requested, but fails for some reason, the default</span>
-0064 <span class="comment">%                           shape is set to 'matrix'.</span>
+0049 <span class="comment">%          The first sentence should be the executive summary (max. 60 chars), any further sentences</span>
+0050 <span class="comment">%          are a detailed explanation (examples, units, considerations). The end of the first</span>
+0051 <span class="comment">%          sentence is indicated by a '. ' followed by a capital letter (beginning of the next</span>
+0052 <span class="comment">%          sentence). If otherwise ambiguous, the help can also be specified as a cell array of 2 cells.</span>
+0053 <span class="comment">%</span>
+0054 <span class="comment">%   Options... : Optional name-value pairs to denote additional properties:</span>
+0055 <span class="comment">%                 'cat' : The human-readable category of this argument, helpful to present a list of</span>
+0056 <span class="comment">%                         many parameters in a categorized list, and to separate &quot;Core Parameters&quot;</span>
+0057 <span class="comment">%                         from &quot;Miscellaneous&quot; arguments. (default: '')</span>
+0058 <span class="comment">%</span>
+0059 <span class="comment">%                 'type' : Override the type of the parameter. The type is one of the following strings:</span>
+0060 <span class="comment">%                          'logical', 'char', 'int8', 'uint8', 'int16', 'uint16', 'int32',</span>
+0061 <span class="comment">%                          'uint32', 'int64', 'uint64', 'denserealsingle', 'denserealdouble',</span>
+0062 <span class="comment">%                          'densecomplexsingle', 'densecomplexdouble', 'sparserealsingle',</span>
+0063 <span class="comment">%                          'sparserealdouble', 'sparsecomplexsingle', 'sparsecomplexdouble',</span>
+0064 <span class="comment">%                          'cellstr', 'object', 'expression' (default: deduced from Default and Range)</span>
 0065 <span class="comment">%</span>
-0066 <span class="comment">% Out:</span>
-0067 <span class="comment">%   Spec : A cell array, that, when called as invoke_arg_internal(reptype,spec{1}{:}), yields a</span>
-0068 <span class="comment">%          specification of the argument, for use by arg_define. The (internal) structure of that is</span>
-0069 <span class="comment">%          as follows:</span>
-0070 <span class="comment">%          * Generally, this is a cell array (here: one element) of cells formatted as:</span>
-0071 <span class="comment">%            {Names,Assigner-Function,Default-Value}.</span>
-0072 <span class="comment">%          * Names is a cell array of admissible names for this argument.</span>
-0073 <span class="comment">%          * Assigner-Function is a function that returns the rich specifier with value assigned,</span>
-0074 <span class="comment">%            when called as Assigner-Function(Value).</span>
-0075 <span class="comment">%          * reptype is either 'rich' or 'lean', where in lean mode, the aternatives field remains</span>
-0076 <span class="comment">%            empty.</span>
-0077 <span class="comment">%</span>
-0078 <span class="comment">% Examples:</span>
-0079 <span class="comment">%   arg_define(varargin, ...</span>
+0066 <span class="comment">%                 'shape' : Specify the array shape of the parameter. This is one of the following</span>
+0067 <span class="comment">%                           strings: 'scalar', 'row', 'column', 'matrix', 'empty', 'tensor'.</span>
+0068 <span class="comment">%                           (default: deduced from Default and Range)</span>
+0069 <span class="comment">%</span>
+0070 <span class="comment">%                 'to_double' : Whether integer values shall be converted to double before being</span>
+0071 <span class="comment">%                               returned to the function (default: true if type is integer, otherwise false)</span>
+0072 <span class="comment">%</span>
+0073 <span class="comment">%                 'displayable' : Whether the argument may be displayed by GUIs, see also arg_nogui (default: true)</span>
+0074 <span class="comment">%</span>
+0075 <span class="comment">%                 'deprecated' : Whether the argument has been deprecated, see also arg_deprecated (default: false)</span>
+0076 <span class="comment">%</span>
+0077 <span class="comment">%                 'experimental' : Whether the argument is marked as experimental or &quot;prototype-stage&quot; (default: false)</span>
+0078 <span class="comment">%</span>
+0079 <span class="comment">%                 'guru' : Whether the argument is marked as guru-level (default: false)</span>
 0080 <span class="comment">%</span>
-0081 <span class="comment">%       % define a scalar numeric argument with the name myparam, and the alternative GUI name</span>
-0082 <span class="comment">%       % MyParameter, a default value of 5, and some help text (consisting of an executive summary</span>
-0083 <span class="comment">%       % followed by a longer explanation).</span>
-0084 <span class="comment">%       arg({'myparam','MyParameter'},5,[],'A parameter. This is the extended help text for the parameter, as it would be displayed, e.g., in a tooltip.')</span>
+0081 <span class="comment">%                 'empty_overwrites' : Whether assiging [] to this argument overwrites the previous</span>
+0082 <span class="comment">%                                      (or default) value. Setting this to false yields the same</span>
+0083 <span class="comment">%                                      behavior as in some well-known MATLAB functions, like for the</span>
+0084 <span class="comment">%                                      TOL parameter in pcg() (default: true)</span>
 0085 <span class="comment">%</span>
-0086 <span class="comment">%       % define a string argument with the default value of 'test'</span>
-0087 <span class="comment">%       arg({'myparam','MyParameter'},'test',[],'Some parameter. If not otherwise specified, the type is derived from the type of the default value')</span>
-0088 <span class="comment">%</span>
-0089 <span class="comment">%       % define a scalar numeric argument which has a particular valid range (0 &lt;= x &lt;= 1), and a default of 0.3</span>
-0090 <span class="comment">%       arg({'myparam','MyParameter'},0.3,[0 1],'A parameter. Note that the set of functions that can be used to specify ranges is currently fairly limited.')</span>
+0086 <span class="comment">%                 'typecheck' Whether to perform a type check upon assignment of a value (default: true)</span>
+0087 <span class="comment">%</span>
+0088 <span class="comment">%                 'shapecheck' Whether to perform a shape check upon assignment of a value (default: true)</span>
+0089 <span class="comment">%</span>
+0090 <span class="comment">%                 'rangecheck' Whether to perform a range check upon assignment of a value (default: true)</span>
 0091 <span class="comment">%</span>
-0092 <span class="comment">%       % define a numeric argument that is a vector (and has a default of [0.1 0.2 0.3])</span>
-0093 <span class="comment">%       arg({'myparam','MyParameter'},[0.1 0.2 0.3],[],'A parameter. The allowed shape (scalar/matrix/vector), too, is derived from the default value.')</span>
-0094 <span class="comment">%</span>
-0095 <span class="comment">%       % define a numeric argument that is a vector (and has a default of [])</span>
-0096 <span class="comment">%       arg({'myvec','MyVector'},[],[],'A parameter. But the shape can be overridden by passing an option.', 'shape','row')</span>
-0097 <span class="comment">%</span>
-0098 <span class="comment">%       % define a string argument that has an empty default</span>
-0099 <span class="comment">%       arg({'mystrng','MyString'},'',[],'A parameter. Note that the shape is automatically assumed to be row. This is one of several convenience rules supported by the arg function.')</span>
-0100 <span class="comment">%</span>
-0101 <span class="comment">%       % define a boolean argument that is by default true</span>
-0102 <span class="comment">%       arg({'mybool','MyBoolean'},true,[],'Flag XY. Note that generally the executive summary should be quite short - it should be displayable in a GUI dialog.')</span>
-0103 <span class="comment">%</span>
-0104 <span class="comment">%       % define a string argument that may only have one out of a set of values</span>
-0105 <span class="comment">%       arg({'myoption','MyOption'},'blah',{'test','blah','xyz'},'A parameter.')</span>
-0106 <span class="comment">%</span>
-0107 <span class="comment">%       % define an argument that denotes a subset of values out of some other set (of strings)</span>
-0108 <span class="comment">%       arg({'myset','MySetParameter'},{'brain','torso'},{'brain','torso','limbs','head','face'},'A parameter. The type that is inferred here from the default value and the range is logical.')</span>
-0109 <span class="comment">%</span>
-0110 <span class="comment">%       % as before, but this time the default set is empty</span>
-0111 <span class="comment">%       arg({'myset','MySetParameter'},{},{'brain','torso','limbs','head','face'},'A parameter. The type that is inferred here from the default value and the range is logical.')</span>
-0112 <span class="comment">%</span>
-0113 <span class="comment">%       % define an argument that has no default assigned, and will not show up as a variable if not explicitly assigned a value</span>
-0114 <span class="comment">%       arg({'myparam','MyParameter'},unassigned,[],'Flag XY. This argument is optional.')</span>
-0115 <span class="comment">%</span>
-0116 <span class="comment">%       % define an argument that has no default, but *must* be assigned a value (i.e. it is a mandatory argument)</span>
-0117 <span class="comment">%       arg({'myparam','MyParameter'},mandatory,[],'Important Parameter. You need to specify something for this one.')</span>
-0118 <span class="comment">%</span>
-0119 <span class="comment">%       % define an argument that is in a specific &quot;category&quot;</span>
-0120 <span class="comment">%       arg({'mybool','MyBoolean'},true,[],'Flag XY. And some additional help text.','cat','Core Parameters')</span>
-0121 <span class="comment">%</span>
-0122 <span class="comment">%       % define an argument that must be of non-negative integer type, default 3</span>
-0123 <span class="comment">%       arg({'myint','Mynteger'},uint32(3),[],'Some integer. Be very careful to not go overboard with integers. Their arithmetic rules are *very* counter-intuitive!')</span>
-0124 <span class="comment">%</span>
-0125 <span class="comment">%       % define an argument with empty default, but that is of type single and is matrix-shaped</span>
-0126 <span class="comment">%       arg({'myval','MyValue'},[],[],'Some matrix. Note that the type also encodes whether the value is complex or sparse.','type','denserealsingle','shape','matrix')</span>
-0127 <span class="comment">%</span>
-0128 <span class="comment">% See also:</span>
-0129 <span class="comment">%   arg_nogui, arg_norep, arg_sub, arg_subswitch, arg_subtoggle, arg_define</span>
-0130 <span class="comment">%</span>
-0131 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0132 <span class="comment">%                                2010-09-24</span>
-0133 
-0134 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
-0135 <span class="comment">%</span>
-0136 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
-0137 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
-0138 <span class="comment">% License, or (at your option) any later version.</span>
-0139 <span class="comment">%</span>
-0140 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
-0141 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
-0142 <span class="comment">% General Public License for more details.</span>
+0092 <span class="comment">% Out:</span>
+0093 <span class="comment">%   Spec : A specification of the argument that can be used in arg_define. Technically it is a cell</span>
+0094 <span class="comment">%          array that, when called as feval(Spec{1},reptype,Spec{2}{:}), yields a specification</span>
+0095 <span class="comment">%          struct of the argument.</span>
+0096 <span class="comment">%</span>
+0097 <span class="comment">% Examples:</span>
+0098 <span class="comment">%   arg_define(varargin, ...</span>
+0099 <span class="comment">%</span>
+0100 <span class="comment">%       % define a scalar numeric argument with the name myparam, and the alternative GUI name</span>
+0101 <span class="comment">%       % MyParameter, a default value of 5, and some help text (consisting of an executive summary</span>
+0102 <span class="comment">%       % followed by a longer explanation).</span>
+0103 <span class="comment">%       arg({'myparam','MyParameter'},5,[],'A parameter. This is the extended help text for the parameter, as it would be displayed, e.g., in a tooltip.')</span>
+0104 <span class="comment">%</span>
+0105 <span class="comment">%       % define a string argument with the default value of 'test'</span>
+0106 <span class="comment">%       arg({'myparam','MyParameter'},'test',[],'Some parameter. If not otherwise specified, the type is derived from the type of the default value')</span>
+0107 <span class="comment">%</span>
+0108 <span class="comment">%       % define a scalar numeric argument which has a particular valid range (0 &lt;= x &lt;= 1), and a default of 0.3</span>
+0109 <span class="comment">%       arg({'myparam','MyParameter'},0.3,[0 1],'A parameter. Note that the set of functions that can be used to specify ranges is currently fairly limited.')</span>
+0110 <span class="comment">%</span>
+0111 <span class="comment">%       % define a numeric argument that is a vector (and has a default of [0.1 0.2 0.3])</span>
+0112 <span class="comment">%       arg({'myparam','MyParameter'},[0.1 0.2 0.3],[],'A parameter. The allowed shape (scalar/matrix/vector), too, is derived from the default value.')</span>
+0113 <span class="comment">%</span>
+0114 <span class="comment">%       % define a numeric argument that is a vector (and has a default of [])</span>
+0115 <span class="comment">%       arg({'myvec','MyVector'},[],[],'A parameter. But the shape can be overridden by passing an option.', 'shape','row')</span>
+0116 <span class="comment">%</span>
+0117 <span class="comment">%       % define a string argument that has an empty default</span>
+0118 <span class="comment">%       arg({'mystrng','MyString'},'',[],'A parameter. Note that the shape is automatically assumed to be row. This is one of several convenience rules supported by the arg function.')</span>
+0119 <span class="comment">%</span>
+0120 <span class="comment">%       % define a boolean argument that is by default true</span>
+0121 <span class="comment">%       arg({'mybool','MyBoolean'},true,[],'Flag XY. Note that generally the executive summary should be quite short - it should be displayable in a GUI dialog.')</span>
+0122 <span class="comment">%</span>
+0123 <span class="comment">%       % define a string argument that may only have one out of a set of values</span>
+0124 <span class="comment">%       arg({'myoption','MyOption'},'blah',{'test','blah','xyz'},'A parameter.')</span>
+0125 <span class="comment">%</span>
+0126 <span class="comment">%       % define an argument that denotes a subset of values out of some other set (of strings)</span>
+0127 <span class="comment">%       arg({'myset','MySetParameter'},{'brain','torso'},{'brain','torso','limbs','head','face'},'A parameter. The type that is inferred here from the default value and the range is logical.')</span>
+0128 <span class="comment">%</span>
+0129 <span class="comment">%       % as before, but this time the default set is empty</span>
+0130 <span class="comment">%       arg({'myset','MySetParameter'},{},{'brain','torso','limbs','head','face'},'A parameter. The type that is inferred here from the default value and the range is logical.')</span>
+0131 <span class="comment">%</span>
+0132 <span class="comment">%       % define an argument that has no default assigned, and will not show up as a variable if not explicitly assigned a value</span>
+0133 <span class="comment">%       arg({'myparam','MyParameter'},unassigned,[],'Flag XY. This argument is optional.')</span>
+0134 <span class="comment">%</span>
+0135 <span class="comment">%       % define an argument that has no default, but *must* be assigned a value (i.e. it is a mandatory argument)</span>
+0136 <span class="comment">%       arg({'myparam','MyParameter'},mandatory,[],'Important Parameter. You need to specify something for this one.')</span>
+0137 <span class="comment">%</span>
+0138 <span class="comment">%       % define an argument that is in a specific &quot;category&quot;</span>
+0139 <span class="comment">%       arg({'mybool','MyBoolean'},true,[],'Flag XY. And some additional help text.','cat','Core Parameters')</span>
+0140 <span class="comment">%</span>
+0141 <span class="comment">%       % define an argument that must be of non-negative integer type, default 3</span>
+0142 <span class="comment">%       arg({'myint','Mynteger'},uint32(3),[],'Some integer. Be very careful to not go overboard with integers. Their arithmetic rules are *very* counter-intuitive!')</span>
 0143 <span class="comment">%</span>
-0144 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
-0145 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
-0146 <span class="comment">% USA</span>
-0147 
-0148 
-0149 res = {@<a href="invoke_arg_internal.html" class="code" title="function spec = invoke_arg_internal(reptype,varargin) %#ok<INUSL>">invoke_arg_internal</a>,varargin};</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0144 <span class="comment">%       % define an argument with empty default, but that is of type single and is matrix-shaped</span>
+0145 <span class="comment">%       arg({'myval','MyValue'},[],[],'Some matrix. Note that the type also encodes whether the value is complex or sparse.','type','denserealsingle','shape','matrix')</span>
+0146 <span class="comment">%</span>
+0147 <span class="comment">% See also:</span>
+0148 <span class="comment">%   arg_nogui, arg_norep, arg_deprecated, arg_sub, arg_subswitch, arg_subtoggle, arg_define</span>
+0149 <span class="comment">%</span>
+0150 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0151 <span class="comment">%                                2010-09-24</span>
+0152 
+0153 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0154 <span class="comment">%</span>
+0155 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0156 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0157 <span class="comment">% License, or (at your option) any later version.</span>
+0158 <span class="comment">%</span>
+0159 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0160 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0161 <span class="comment">% General Public License for more details.</span>
+0162 <span class="comment">%</span>
+0163 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0164 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0165 <span class="comment">% USA</span>
+0166 
+0167 res = {<span class="string">'expand_arg'</span>,varargin};</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

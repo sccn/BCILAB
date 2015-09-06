@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>flt_spectrum
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -90,11 +91,16 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -167,7 +173,7 @@ This function is called by:
 0066 
 0067 arg_define(varargin, <span class="keyword">...</span><span class="comment"> </span>
 0068     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
-0069     arg({<span class="string">'freq'</span>,<span class="string">'FrequencySpecification'</span>}, [], [], [<span class="string">'Frequency-domain selection. Can be specified either as [low high] or [low high; low high; low high; ...] for a brickwall filter or sum of brickwall filters, '</span> <span class="keyword">...</span>
+0069     arg({<span class="string">'freq'</span>,<span class="string">'FrequencySpecification'</span>,<span class="string">'Frequencies'</span>}, [], [], [<span class="string">'Frequency-domain selection. Can be specified either as [low high] or [low high; low high; low high; ...] for a brickwall filter or sum of brickwall filters, '</span> <span class="keyword">...</span>
 0070                                                     <span class="string">'or alternatively as [low_begin low_end high_begin high_end; ...] for a linearly sloped filter or sum of sloped filters (frequencies in Hz).'</span>]));
 0071 
 0072 <span class="keyword">if</span> ~isempty(freq) <span class="comment">%#ok&lt;*NODEF&gt;</span>
@@ -179,35 +185,37 @@ This function is called by:
 0078             T = size(signal.(field),2);
 0079             <span class="comment">% almost correct frequency vector (fixed further below)</span>
 0080             frqs = (0:T-1)*signal.srate/T;
-0081             <span class="keyword">if</span> isnumeric(freq) &amp;&amp; size(freq,2) == 2
-0082                 <span class="comment">% brickwall filters</span>
-0083                 flt = zeros(1,T);
-0084                 <span class="keyword">for</span> k=1:size(freq,1)
-0085                     f = freq(k,:);
-0086                     flt = max(flt,(frqs&gt;=f(1) &amp; frqs&lt;=f(2))); <span class="keyword">end</span>
-0087             <span class="keyword">elseif</span> isnumeric(freq) &amp;&amp; size(freq,2) == 4
-0088                 <span class="comment">% sloped filters</span>
-0089                 flt = zeros(1,T);
-0090                 <span class="keyword">for</span> k=1:size(freq,1)
-0091                     f = freq(k,:);
-0092                     flt = max(flt,min(max(0,min(1,(frqs-f(1)) / (f(2)-f(1)))), max(0,min(1, 1-(frqs-f(3)) / (f(4)-f(3))))));
-0093                 <span class="keyword">end</span>
-0094             <span class="keyword">else</span>
-0095                 <span class="comment">% function handle filters</span>
-0096                 flt = freq(frqs);
-0097             <span class="keyword">end</span>
-0098             <span class="comment">% fix the filter beyond the Nyquist freq</span>
-0099             flt = repmat(flt(:)' .* (frqs&lt;(signal.srate/2)),size(signal.(field),1),1);
-0100             <span class="comment">% filter the data</span>
-0101             signal.(field) = fft(signal.(field),[],2);
-0102             <span class="keyword">for</span> t=1:size(signal.(field),3)
-0103                 signal.(field)(:,:,t) = signal.(field)(:,:,t).*flt; <span class="keyword">end</span>
-0104             signal.(field) = 2*real(ifft(signal.(field),[],2));
-0105         <span class="keyword">end</span>
-0106     <span class="keyword">end</span>
-0107 <span class="keyword">end</span>
-0108 
-0109 exp_endfun;</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0081             <span class="keyword">if</span> isnumeric(freq) 
+0082                 <span class="keyword">if</span> size(freq,2) == 2
+0083                     <span class="comment">% brickwall filters</span>
+0084                     flt = zeros(1,T);
+0085                     <span class="keyword">for</span> k=1:size(freq,1)
+0086                         f = freq(k,:);
+0087                         flt = max(flt,(frqs&gt;=f(1) &amp; frqs&lt;=f(2))); <span class="keyword">end</span>
+0088                 <span class="keyword">elseif</span> size(freq,2) == 4
+0089                     <span class="comment">% sloped filters</span>
+0090                     flt = zeros(1,T);
+0091                     <span class="keyword">for</span> k=1:size(freq,1)
+0092                         f = freq(k,:);
+0093                         flt = max(flt,min(max(0,min(1,(frqs-f(1)) / (f(2)-f(1)))), max(0,min(1, 1-(frqs-f(3)) / (f(4)-f(3))))));
+0094                     <span class="keyword">end</span>
+0095                 <span class="keyword">else</span>
+0096                     error(<span class="string">'Unsupported format for the FrequencySpecification: %s'</span>,hlp_tostring(freq,10000));
+0097                 <span class="keyword">end</span>
+0098             <span class="keyword">else</span>
+0099                 <span class="comment">% function handle filters</span>
+0100                 flt = freq(frqs);
+0101             <span class="keyword">end</span>
+0102             <span class="comment">% fix the filter beyond the Nyquist freq</span>
+0103             flt = (flt(:) .* (frqs(:)&lt;(signal.srate/2)))';
+0104             <span class="comment">% filter the data</span>
+0105             signal.(field) = 2*real(ifft(bsxfun(@times,fft(signal.(field),[],2),flt),[],2));
+0106         <span class="keyword">end</span>
+0107     <span class="keyword">end</span>
+0108 <span class="keyword">end</span>
+0109 
+0110 exp_endfun;</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

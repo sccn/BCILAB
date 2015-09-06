@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/expressions&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>exp_eval_optimized
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -63,15 +64,27 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="exp_block.html" class="code" title="function res = exp_block(rules, expr, iters)">exp_block</a>	Define a block with dynamically scoped values for symbols used in the contained expression.</li><li><a href="exp_eval.html" class="code" title="function varargout = exp_eval(x,iters)">exp_eval</a>	Evaluate the given expression data structure (or short: expression).</li><li><a href="exp_rule.html" class="code" title="function res = exp_rule(match,repl)">exp_rule</a>	Create a substitution rule, which to replace a Pattern in an expression.</li></ul>
+
+<li><a href="exp_block.html" class="code" title="function res = exp_block(rules, expr, iters)">exp_block</a>	Define a block with dynamically scoped values for symbols used in the contained expression.</li>
+<li><a href="exp_eval.html" class="code" title="function varargout = exp_eval(x,iters)">exp_eval</a>	Evaluate the given expression data structure (or short: expression).</li>
+<li><a href="exp_rule.html" class="code" title="function res = exp_rule(match,repl)">exp_rule</a>	Create a substitution rule, which to replace a Pattern in an expression.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
+
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function [x,unpartitioned] = add_cache_hints(x,iters)</a></li><li><a href="#_sub2" class="code">function [x,chead] = pull_up(x)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function [x,unpartitioned] = add_cache_hints(x,iters)</a></li>
+<li><a href="#_sub2" class="code">function [x,chead] = pull_up(x)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function varargout = exp_eval_optimized(x,iters)</a>
@@ -106,94 +119,99 @@ This function is called by:
 0030 <span class="comment">%</span>
 0031 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
 0032 <span class="comment">%                                2010-04-15</span>
-0033 
-0034 <span class="keyword">if</span> ~exist(<span class="string">'iters'</span>,<span class="string">'var'</span>)
-0035     iters = 1; <span class="keyword">end</span>
-0036 
-0037 varargout = {x};
-0038 <span class="keyword">if</span> isfield(x,{<span class="string">'head'</span>,<span class="string">'parts'</span>})
-0039     <span class="comment">% first (and key) optimization: &quot;pull up&quot; any set_partition() node in the expression as high as</span>
-0040     <span class="comment">% possible (i.e. partition the data as late as possible); the only nodes that cannot be skipped by</span>
-0041     <span class="comment">% a partition operation are those which have their 'independent_trials' property set to false.</span>
-0042     x = <a href="#_sub2" class="code" title="subfunction [x,chead] = pull_up(x)">pull_up</a>(x);
-0043 
-0044     <span class="comment">% now add caching hints recursively...</span>
-0045     [x,unpartitioned] = <a href="#_sub1" class="code" title="subfunction [x,unpartitioned] = add_cache_hints(x,iters)">add_cache_hints</a>(x,iters);
-0046     
-0047     <span class="comment">% ... and evaluate with the remaining evaluation hints around the top-level expression</span>
-0048     [varargout{1:nargout}] = hlp_scope({<span class="string">'memoize'</span>,{<span class="string">'memory'</span>,1,<span class="string">'disk'</span>,double(unpartitioned)}}, @<a href="exp_eval.html" class="code" title="function varargout = exp_eval(x,iters)">exp_eval</a>,x,iters);
-0049 <span class="keyword">end</span>
-0050 
-0051 
-0052 <span class="comment">% add disk cache hints around whatever is sitting below a set_partition expression...</span>
-0053 <a name="_sub1" href="#_subfunctions" class="code">function [x,unpartitioned] = add_cache_hints(x,iters)</a>
-0054 unpartitioned = true;
-0055 <span class="keyword">if</span> all(isfield(x,{<span class="string">'parts'</span>,<span class="string">'head'</span>}))
-0056     <span class="comment">% first recurse and find out whether the sub-expressions are partitioned or not</span>
-0057     <span class="keyword">for</span> p=1:length(x.parts)
-0058         [x.parts{p},unp] = <a href="#_sub1" class="code" title="subfunction [x,unpartitioned] = add_cache_hints(x,iters)">add_cache_hints</a>(x.parts{p},iters);
-0059         unpartitioned = unpartitioned &amp; unp;
-0060     <span class="keyword">end</span>
-0061 
-0062     <span class="comment">% check if this is a set_partition expression</span>
-0063     chead = char(x.head);
-0064     <span class="keyword">if</span> strcmp(chead,<span class="string">'set_partition'</span>)
-0065         <span class="keyword">if</span> unpartitioned
-0066             <span class="comment">% it is sitting on top of an unpartitioned sub-expression: add a disk cache hint</span>
-0067             <span class="comment">% around that sub-expression</span>
-0068             x.parts{1} = <a href="exp_block.html" class="code" title="function res = exp_block(rules, expr, iters)">exp_block</a>({<a href="exp_rule.html" class="code" title="function res = exp_rule(match,repl)">exp_rule</a>(@memoize,{<span class="string">'memory'</span>,1,<span class="string">'disk'</span>,1})},x.parts{1},iters);
-0069         <span class="keyword">end</span>
-0070         unpartitioned = false;
-0071     <span class="keyword">end</span>
-0072 <span class="keyword">end</span>
-0073 
-0074 
-0075 <a name="_sub2" href="#_subfunctions" class="code">function [x,chead] = pull_up(x)</a>
-0076 <span class="comment">% recursively pull up set_partition(x,_) nodes in an expression structure</span>
-0077 chead = char(x.head);
-0078 num_expressions = 0;                                    <span class="comment">% number of sub-expressions</span>
-0079 partition_at = [];                                      <span class="comment">% indices of the set_partition sub-expressions in parts, if any</span>
-0080 
-0081 <span class="comment">% recurse into parts...</span>
-0082 <span class="keyword">for</span> p=1:length(x.parts)
-0083     <span class="keyword">if</span> isfield(x.parts{p},{<span class="string">'head'</span>,<span class="string">'parts'</span>})
-0084         [x.parts{p},head_p] = <a href="#_sub2" class="code" title="subfunction [x,chead] = pull_up(x)">pull_up</a>(x.parts{p});
-0085         <span class="comment">% count the number of sub-expressions</span>
-0086         num_expressions = num_expressions+1;
-0087         <span class="comment">% remember the places where we have set_partition sub-expressions</span>
-0088         <span class="keyword">if</span> strcmp(head_p,<span class="string">'set_partition'</span>)
-0089             partition_at(end+1) = p; <span class="keyword">end</span>
-0090     <span class="keyword">end</span>
-0091 <span class="keyword">end</span>
-0092 
-0093 <span class="comment">% now perform the reordering, if applicable</span>
-0094 <span class="keyword">if</span> num_expressions == length(partition_at) &amp;&amp; num_expressions &gt; 0
-0095     <span class="comment">% check if the current node has the independent_trials=false property (which prevents reordering)</span>
-0096     props = arg_report(<span class="string">'properties'</span>,x.head);
-0097     <span class="keyword">if</span> ~props.independent_trials
-0098         <span class="keyword">return</span>;  <span class="keyword">end</span>
-0099     
-0100     <span class="comment">% we can proceed</span>
-0101     <span class="keyword">if</span> num_expressions == 1
-0102         <span class="comment">% simple standard case: reorder this node with the set_partition below it</span>
-0103         <span class="comment">% make a backup of our old set_partition(&lt;y&gt;,index_set) sub-expression</span>
-0104         oldchild = x.parts{partition_at};
-0105         <span class="comment">% replace our old set_partition(&lt;y&gt;,index_set) by the &lt;y&gt;</span>
-0106         x.parts{partition_at} = oldchild.parts{1};
-0107         <span class="comment">% and replace the whole thing by a new set_partition(&lt;the whole thing&gt;,index_set) node</span>
-0108         x = struct(<span class="string">'head'</span>,{@set_partition},<span class="string">'parts'</span>,{{x,oldchild.parts{2:end}}});
-0109         chead = <span class="string">'set_partition'</span>;
-0110         
-0111         <span class="comment">% finally recurse again and pull up any subordinate set_partition's</span>
-0112         <span class="keyword">for</span> p=1:length(x.parts)
-0113             <span class="keyword">if</span> isfield(x.parts{p},{<span class="string">'head'</span>,<span class="string">'parts'</span>})
-0114                 x.parts{p} = <a href="#_sub2" class="code" title="subfunction [x,chead] = pull_up(x)">pull_up</a>(x.parts{p}); <span class="keyword">end</span>
-0115         <span class="keyword">end</span>
-0116     <span class="keyword">else</span>
-0117         <span class="comment">% fusion of multiple partitioned data sets (only permitted if indices are identical)</span>
-0118         <span class="keyword">return</span>; <span class="comment">% not yet implemented...</span>
-0119     <span class="keyword">end</span>
-0120 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0033 dp;
+0034 
+0035 <span class="keyword">if</span> nargin &lt; 2
+0036     iters = 1;
+0037 <span class="keyword">elseif</span> ~(isnumeric(iters) &amp;&amp; isreal(iters) &amp;&amp; isscalar(iters) &amp;&amp; round(iters) == iters) || iters &lt; 1
+0038     error(<span class="string">'The given Iterations argument must be a positive integer.'</span>);
+0039 <span class="keyword">end</span>
+0040 
+0041 varargout = {x};
+0042 <span class="keyword">if</span> isfield(x,{<span class="string">'head'</span>,<span class="string">'parts'</span>})
+0043     <span class="comment">% first (and key) optimization: &quot;pull up&quot; any set_partition() node in the expression as high as</span>
+0044     <span class="comment">% possible (i.e. partition the data as late as possible); the only nodes that cannot be skipped by</span>
+0045     <span class="comment">% a partition operation are those which have their 'independent_trials' property set to false.</span>
+0046     x = <a href="#_sub2" class="code" title="subfunction [x,chead] = pull_up(x)">pull_up</a>(x);
+0047 
+0048     <span class="comment">% now add caching hints recursively...</span>
+0049     [x,unpartitioned] = <a href="#_sub1" class="code" title="subfunction [x,unpartitioned] = add_cache_hints(x,iters)">add_cache_hints</a>(x,iters);
+0050     
+0051     <span class="comment">% ... and evaluate with the remaining evaluation hints around the top-level expression</span>
+0052     [varargout{1:nargout}] = hlp_scope({<span class="string">'memoize'</span>,{<span class="string">'memory'</span>,1,<span class="string">'disk'</span>,double(unpartitioned)}}, @<a href="exp_eval.html" class="code" title="function varargout = exp_eval(x,iters)">exp_eval</a>,x,iters);
+0053 <span class="keyword">end</span>
+0054 
+0055 
+0056 <span class="comment">% add disk cache hints around whatever is sitting below a set_partition expression...</span>
+0057 <a name="_sub1" href="#_subfunctions" class="code">function [x,unpartitioned] = add_cache_hints(x,iters)</a>
+0058 unpartitioned = true;
+0059 <span class="keyword">if</span> all(isfield(x,{<span class="string">'parts'</span>,<span class="string">'head'</span>}))
+0060     <span class="comment">% first recurse and find out whether the sub-expressions are partitioned or not</span>
+0061     <span class="keyword">for</span> p=1:length(x.parts)
+0062         [x.parts{p},unp] = <a href="#_sub1" class="code" title="subfunction [x,unpartitioned] = add_cache_hints(x,iters)">add_cache_hints</a>(x.parts{p},iters);
+0063         unpartitioned = unpartitioned &amp; unp;
+0064     <span class="keyword">end</span>
+0065 
+0066     <span class="comment">% check if this is a set_partition expression</span>
+0067     chead = char(x.head);
+0068     <span class="keyword">if</span> strcmp(chead,<span class="string">'set_partition'</span>)
+0069         <span class="keyword">if</span> unpartitioned
+0070             <span class="comment">% it is sitting on top of an unpartitioned sub-expression: add a disk cache hint</span>
+0071             <span class="comment">% around that sub-expression</span>
+0072             x.parts{1} = <a href="exp_block.html" class="code" title="function res = exp_block(rules, expr, iters)">exp_block</a>({<a href="exp_rule.html" class="code" title="function res = exp_rule(match,repl)">exp_rule</a>(@memoize,{<span class="string">'memory'</span>,1,<span class="string">'disk'</span>,1})},x.parts{1},iters);
+0073         <span class="keyword">end</span>
+0074         unpartitioned = false;
+0075     <span class="keyword">end</span>
+0076 <span class="keyword">end</span>
+0077 
+0078 
+0079 <a name="_sub2" href="#_subfunctions" class="code">function [x,chead] = pull_up(x)</a>
+0080 <span class="comment">% recursively pull up set_partition(x,_) nodes in an expression structure</span>
+0081 chead = char(x.head);
+0082 num_expressions = 0;                                    <span class="comment">% number of sub-expressions</span>
+0083 partition_at = [];                                      <span class="comment">% indices of the set_partition sub-expressions in parts, if any</span>
+0084 
+0085 <span class="comment">% recurse into parts...</span>
+0086 <span class="keyword">for</span> p=1:length(x.parts)
+0087     <span class="keyword">if</span> isfield(x.parts{p},{<span class="string">'head'</span>,<span class="string">'parts'</span>})
+0088         [x.parts{p},head_p] = <a href="#_sub2" class="code" title="subfunction [x,chead] = pull_up(x)">pull_up</a>(x.parts{p});
+0089         <span class="comment">% count the number of sub-expressions</span>
+0090         num_expressions = num_expressions+1;
+0091         <span class="comment">% remember the places where we have set_partition sub-expressions</span>
+0092         <span class="keyword">if</span> strcmp(head_p,<span class="string">'set_partition'</span>)
+0093             partition_at(end+1) = p; <span class="keyword">end</span> <span class="comment">%#ok&lt;AGROW&gt;</span>
+0094     <span class="keyword">end</span>
+0095 <span class="keyword">end</span>
+0096 
+0097 <span class="comment">% now perform the reordering, if applicable</span>
+0098 <span class="keyword">if</span> num_expressions == length(partition_at) &amp;&amp; num_expressions &gt; 0
+0099     <span class="comment">% check if the current node has the independent_trials=false property (which prevents reordering)</span>
+0100     props = hlp_microcache(<span class="string">'props'</span>,@arg_report,<span class="string">'properties'</span>,x.head,{hlp_fileinfo(x.head,[],<span class="string">'hash'</span>)});
+0101     <span class="keyword">if</span> ~props.independent_trials
+0102         <span class="keyword">return</span>; <span class="keyword">end</span>
+0103     
+0104     <span class="comment">% we can proceed</span>
+0105     <span class="keyword">if</span> num_expressions == 1
+0106         <span class="comment">% simple standard case: reorder this node with the set_partition below it</span>
+0107         <span class="comment">% make a backup of our old set_partition(&lt;y&gt;,index_set) sub-expression</span>
+0108         oldchild = x.parts{partition_at};
+0109         <span class="comment">% replace our old set_partition(&lt;y&gt;,index_set) by the &lt;y&gt;</span>
+0110         x.parts{partition_at} = oldchild.parts{1};
+0111         <span class="comment">% and replace the whole thing by a new set_partition(&lt;the whole thing&gt;,index_set) node</span>
+0112         x = struct(<span class="string">'head'</span>,{@set_partition},<span class="string">'parts'</span>,{{x,oldchild.parts{2:end}}});
+0113         chead = <span class="string">'set_partition'</span>;
+0114         
+0115         <span class="comment">% finally recurse again and pull up any subordinate set_partition's</span>
+0116         <span class="keyword">for</span> p=1:length(x.parts)
+0117             <span class="keyword">if</span> isfield(x.parts{p},{<span class="string">'head'</span>,<span class="string">'parts'</span>})
+0118                 x.parts{p} = <a href="#_sub2" class="code" title="subfunction [x,chead] = pull_up(x)">pull_up</a>(x.parts{p}); <span class="keyword">end</span>
+0119         <span class="keyword">end</span>
+0120     <span class="keyword">else</span>
+0121         <span class="comment">% fusion of multiple partitioned data sets (only permitted if indices are identical)</span>
+0122         <span class="keyword">return</span>; <span class="comment">% not yet implemented...</span>
+0123     <span class="keyword">end</span>
+0124 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

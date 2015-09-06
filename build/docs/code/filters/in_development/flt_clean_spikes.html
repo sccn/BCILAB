@@ -4,7 +4,7 @@
 <head>
   <title>Description of flt_clean_spikes</title>
   <meta name="keywords" content="flt_clean_spikes">
-  <meta name="description" content="Set outlier samples in the data to zero.">
+  <meta name="description" content="Remove few-sample spikes from the data (by repeating the previous value).">
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
   <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
   <meta name="robots" content="index, follow">
@@ -18,103 +18,252 @@
 <td align="right"><a href="index.html">Index for code/filters/in_development&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
 
 <h1>flt_clean_spikes
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
-<div class="box"><strong>Set outlier samples in the data to zero.</strong></div>
+<div class="box"><strong>Remove few-sample spikes from the data (by repeating the previous value).</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
 <div class="box"><strong>function signal = flt_clean_spikes(varargin) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
-<div class="fragment"><pre class="comment"> Set outlier samples in the data to zero.
- Signal = flt_clean_spikes(Signal,Quantile)
+<div class="fragment"><pre class="comment"> Remove few-sample spikes from the data (by repeating the previous value).
+ [Signal,State] = flt_clean_spikes(Signal, WindowLength, Cutoff, State)
 
- Note: This basically needs to be reimplemented with robust moving-window statistics.
- It appears that this requires a mex file that does partial sorting...
+ This method calculates the running median and running median absolute deviation of the signal in a
+ sliding window, and flags each sample as a spike that is beyond a cutoff given in (robust) 
+ standard deviations from the distribution in the sliding window. Eeach flagged sample is replaced 
+ by the previous signal value.
+
+ Note that, if spike removal is performed on a signal with large slow potential shifts (i.e., if
+ applied prior to any high-pass filtering), sufficiently steep and strong trends in the signal can
+ be flagged as spikes and replaced by previous signal values. Such data may prevent the use of
+ aggressive thresholds.
 
  In:
-   Signal   : a continous data set
+   Signal : Continuous EEGLAB dataset structs
 
-   Quantile : quantile of the data that should be retained (data higher than that is set to zero).
-              (default: 0.9)
+   Cutoff : Spike cutoff in standard deviations. This is in robust standard deviations of the
+            signal with respect to the moving window; any sample that lies outside this range is
+            considered a spike. If this is zero, the filter is equivalent to a median filter.
+            (default: 5)
+
+   WindowLength : Window length for the filter. In seconds. (default: 1)
+
+   State : optionally the filter state from a previous call
  
  Out:
-   Signal   : data set with outliers set to zero
+   Signal : processed data
  
+   State  :  state of the filter, after it got applied
+
  Examples:
    % use the defaults
    eeg = flt_clean_spikes(eeg)
 
-   % use a more aggressive threshold
-   eeg = flt_clean_spikes(eeg,0.8);
- 
- See also:
-   flt_clean_peaks
+   % use a cutoff of 3 standard deviations
+   eeg = flt_clean_spikes(eeg, 3)
 
- TODO:
-   Replace by fast running median/mad based spike detection
+   % use a window length of 0.5 seconds and a cutoff of 7 standard deviations
+   eeg = flt_clean_spikes('Signal',eeg, 'WindowLength',0.5, 'Cutoff',7)
 
-                                  Laura Frolich, Swartz Center for Computational Neuroscience, UCSD
-                                  2010-09-22</pre></div>
+   % run a basic median filter
+   eeg = flt_clean_spikes('Signal',eeg,'Cutoff',0)
+
+
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2014-11-06</pre></div>
 
 <!-- crossreference -->
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function [X,Zf] = running_median(N,X,Zi)</a></li>
+</ul>
+
 
 
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = flt_clean_spikes(varargin)</a>
-0002 <span class="comment">% Set outlier samples in the data to zero.</span>
-0003 <span class="comment">% Signal = flt_clean_spikes(Signal,Quantile)</span>
+0002 <span class="comment">% Remove few-sample spikes from the data (by repeating the previous value).</span>
+0003 <span class="comment">% [Signal,State] = flt_clean_spikes(Signal, WindowLength, Cutoff, State)</span>
 0004 <span class="comment">%</span>
-0005 <span class="comment">% Note: This basically needs to be reimplemented with robust moving-window statistics.</span>
-0006 <span class="comment">% It appears that this requires a mex file that does partial sorting...</span>
-0007 <span class="comment">%</span>
-0008 <span class="comment">% In:</span>
-0009 <span class="comment">%   Signal   : a continous data set</span>
-0010 <span class="comment">%</span>
-0011 <span class="comment">%   Quantile : quantile of the data that should be retained (data higher than that is set to zero).</span>
-0012 <span class="comment">%              (default: 0.9)</span>
-0013 <span class="comment">%</span>
-0014 <span class="comment">% Out:</span>
-0015 <span class="comment">%   Signal   : data set with outliers set to zero</span>
-0016 <span class="comment">%</span>
-0017 <span class="comment">% Examples:</span>
-0018 <span class="comment">%   % use the defaults</span>
-0019 <span class="comment">%   eeg = flt_clean_spikes(eeg)</span>
-0020 <span class="comment">%</span>
-0021 <span class="comment">%   % use a more aggressive threshold</span>
-0022 <span class="comment">%   eeg = flt_clean_spikes(eeg,0.8);</span>
-0023 <span class="comment">%</span>
-0024 <span class="comment">% See also:</span>
-0025 <span class="comment">%   flt_clean_peaks</span>
+0005 <span class="comment">% This method calculates the running median and running median absolute deviation of the signal in a</span>
+0006 <span class="comment">% sliding window, and flags each sample as a spike that is beyond a cutoff given in (robust)</span>
+0007 <span class="comment">% standard deviations from the distribution in the sliding window. Eeach flagged sample is replaced</span>
+0008 <span class="comment">% by the previous signal value.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% Note that, if spike removal is performed on a signal with large slow potential shifts (i.e., if</span>
+0011 <span class="comment">% applied prior to any high-pass filtering), sufficiently steep and strong trends in the signal can</span>
+0012 <span class="comment">% be flagged as spikes and replaced by previous signal values. Such data may prevent the use of</span>
+0013 <span class="comment">% aggressive thresholds.</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">% In:</span>
+0016 <span class="comment">%   Signal : Continuous EEGLAB dataset structs</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   Cutoff : Spike cutoff in standard deviations. This is in robust standard deviations of the</span>
+0019 <span class="comment">%            signal with respect to the moving window; any sample that lies outside this range is</span>
+0020 <span class="comment">%            considered a spike. If this is zero, the filter is equivalent to a median filter.</span>
+0021 <span class="comment">%            (default: 5)</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%   WindowLength : Window length for the filter. In seconds. (default: 1)</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%   State : optionally the filter state from a previous call</span>
 0026 <span class="comment">%</span>
-0027 <span class="comment">% TODO:</span>
-0028 <span class="comment">%   Replace by fast running median/mad based spike detection</span>
+0027 <span class="comment">% Out:</span>
+0028 <span class="comment">%   Signal : processed data</span>
 0029 <span class="comment">%</span>
-0030 <span class="comment">%                                  Laura Frolich, Swartz Center for Computational Neuroscience, UCSD</span>
-0031 <span class="comment">%                                  2010-09-22</span>
-0032 
-0033 <span class="comment">% flt_clean_spikes_version&lt;0.1&gt; -- for the cache</span>
-0034 
-0035 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'offline'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
-0036 
-0037 arg_define(varargin,<span class="keyword">...</span>
-0038     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
-0039     arg({<span class="string">'qq'</span>,<span class="string">'Quantile'</span>}, 0.995, [0 1], <span class="string">'Quantile of the data to retain. Data higher than that is set to zero.'</span>));
-0040 
-0041 <span class="keyword">for</span> i = size(signal.data,1) <span class="comment">%#ok&lt;*NODEF&gt;</span>
-0042     signal.data(i,abs(signal.data(i,:)) &gt; quantile(abs(signal.data(i,:)),qq)) = 0; <span class="keyword">end</span>
-0043 
-0044 exp_endfun;</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0030 <span class="comment">%   State  :  state of the filter, after it got applied</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">% Examples:</span>
+0033 <span class="comment">%   % use the defaults</span>
+0034 <span class="comment">%   eeg = flt_clean_spikes(eeg)</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">%   % use a cutoff of 3 standard deviations</span>
+0037 <span class="comment">%   eeg = flt_clean_spikes(eeg, 3)</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%   % use a window length of 0.5 seconds and a cutoff of 7 standard deviations</span>
+0040 <span class="comment">%   eeg = flt_clean_spikes('Signal',eeg, 'WindowLength',0.5, 'Cutoff',7)</span>
+0041 <span class="comment">%</span>
+0042 <span class="comment">%   % run a basic median filter</span>
+0043 <span class="comment">%   eeg = flt_clean_spikes('Signal',eeg,'Cutoff',0)</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0048 <span class="comment">%                                2014-11-06</span>
+0049 
+0050 <span class="comment">% flt_clean_spikes_version&lt;0.8&gt; -- for the cache</span>
+0051 
+0052 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0053 
+0054 declare_properties(<span class="string">'name'</span>,<span class="string">'SpikeRemoval'</span>, <span class="string">'independent_channels'</span>,true, <span class="string">'independent_trials'</span>,true);
+0055 
+0056 arg_define(varargin,<span class="keyword">...</span>
+0057     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0058     arg({<span class="string">'stddev_cutoff'</span>,<span class="string">'Cutoff'</span>,<span class="string">'StandardDevCutoff'</span>,<span class="string">'cutoff'</span>}, 5, [0 0 15 1000], <span class="string">'Spike cutoff in standard deviations. This is in robust standard deviations of the signal with respect to the moving window; any sample that lies outside this range is considered a spike. If this is zero, the filter is equivalent to a median filter.'</span>), <span class="keyword">...</span>
+0059     arg({<span class="string">'window_len'</span>,<span class="string">'WindowLength'</span>}, 1, [0 10000], <span class="string">'Window length for the filter. In seconds.'</span>), <span class="keyword">...</span>
+0060     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>}));
+0061 
+0062 <span class="comment">% number of data points for our normalization window</span>
+0063 N = round(window_len*signal.srate); <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0064 
+0065 
+0066 <span class="comment">% for each time series field...</span>
+0067 <span class="keyword">for</span> f = utl_timeseries_fields(signal)
+0068     field = f{1};
+0069     <span class="keyword">if</span> ~isempty(signal.(field))
+0070         <span class="comment">% flip dimensions so that we can filter along the 1st dimension</span>
+0071         [X,dims] = spatialize_transpose(double(signal.(field)));
+0072 
+0073         <span class="comment">% get rid of NaN's and Inf's</span>
+0074         X(~isfinite(X(:))) = 0;        
+0075 
+0076         <span class="comment">% initialize filter state if necessary</span>
+0077         <span class="keyword">if</span> ~isfield(state, field)
+0078             <span class="comment">% 1st and 2nd order filter conditions, last sample value</span>
+0079             state.(field) = struct(<span class="string">'ord1'</span>,[],<span class="string">'ord2'</span>,[],<span class="string">'last'</span>,X(1,:));
+0080             <span class="comment">% we prepend the signal with a mirror section of itself, to minimize start-up transients</span>
+0081             <span class="comment">% (and if the signal is too short, we repeat it as much as we need)</span>
+0082             X = [repmat(2*X(1,:),N,1) - X(1+mod(((N+1):-1:2)-1,size(X,1)),:); X]; <span class="comment">%#ok&lt;AGROW&gt;</span>
+0083             prepended = true;
+0084         <span class="keyword">else</span>
+0085             prepended = false;
+0086         <span class="keyword">end</span>
+0087         
+0088         <span class="keyword">if</span> length(X) &gt; 100000
+0089             fprintf(<span class="string">'flt_clean_spikes: applying running median; this may take a while...'</span>); <span class="keyword">end</span>
+0090 
+0091         <span class="comment">% get running median E[X]</span>
+0092         [X_med,state.(field).ord1] = <a href="#_sub1" class="code" title="subfunction [X,Zf] = running_median(N,X,Zi)">running_median</a>(N,X,state.(field).ord1);
+0093         
+0094         <span class="keyword">if</span> stddev_cutoff &gt; 0
+0095             <span class="comment">% get absolute difference between running median and X</span>
+0096             X_diff = abs(X - X_med);
+0097             <span class="comment">% get running median of that (running median absolute deviation)</span>
+0098             [X_mad,state.(field).ord2] = <a href="#_sub1" class="code" title="subfunction [X,Zf] = running_median(N,X,Zi)">running_median</a>(N,X_diff,state.(field).ord2);
+0099             <span class="comment">% flag spikes</span>
+0100             spike_mask = X_diff &gt; X_mad*1.4826*stddev_cutoff;
+0101             <span class="comment">% for each channel...</span>
+0102             <span class="keyword">for</span> c=1:size(X,2)
+0103                 <span class="comment">% interpolate each spike by holding the previous value</span>
+0104                 <span class="keyword">for</span> k=find(spike_mask(:,c))'
+0105                     <span class="keyword">if</span> k==1
+0106                         X(k,c) = state.(field).last(c);
+0107                     <span class="keyword">else</span>
+0108                         X(k,c) = X(k-1,c);
+0109                     <span class="keyword">end</span>
+0110                 <span class="keyword">end</span>
+0111             <span class="keyword">end</span>
+0112         <span class="keyword">else</span>
+0113             <span class="comment">% basic median filter if cutoff is 0</span>
+0114             X = X_med;
+0115         <span class="keyword">end</span>
+0116         
+0117         <span class="keyword">if</span> length(X) &gt; 100000
+0118             fprintf(<span class="string">'done.\n'</span>); <span class="keyword">end</span>
+0119 
+0120         <span class="comment">% cut off the data segment that we previously prepended</span>
+0121         <span class="keyword">if</span> prepended
+0122             X(1:N,:) = []; <span class="keyword">end</span>
+0123 
+0124         <span class="comment">% unflip dimensions and write the result back</span>
+0125         signal.(field) = unspatialize_transpose(X,dims);
+0126     <span class="keyword">end</span>
+0127 <span class="keyword">end</span>
+0128 
+0129 exp_endfun;
+0130 
+0131 
+0132 <a name="_sub1" href="#_subfunctions" class="code">function [X,Zf] = running_median(N,X,Zi)</a>
+0133 <span class="comment">% Apply a running median filter along the first dimension of X.</span>
+0134 <span class="comment">% [X,Zf] = running_median(N,X,Zi)</span>
+0135 <span class="comment">%</span>
+0136 <span class="comment">% In:</span>
+0137 <span class="comment">%   N : filter length in samples</span>
+0138 <span class="comment">%   X : data matrix [#Samples x #Channels]</span>
+0139 <span class="comment">%   Zi : initial filter conditions (default: [])</span>
+0140 <span class="comment">%</span>
+0141 <span class="comment">% Out:</span>
+0142 <span class="comment">%   X : the filtered data</span>
+0143 <span class="comment">%   Zf : final filter conditions</span>
+0144 <span class="comment">%</span>
+0145 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0146 <span class="comment">%                           2014-11-06</span>
+0147 
+0148 <span class="comment">% ensure that the window length is odd</span>
+0149 <span class="keyword">if</span> ~mod(N,2)
+0150     N = N+1; <span class="keyword">end</span>
+0151 N_half = floor(N/2);
+0152 
+0153 <span class="comment">% handle initial and final state</span>
+0154 <span class="keyword">if</span> nargin &lt;= 2 || isempty(Zi)
+0155     Zi = zeros(N-1,size(X,2)); <span class="keyword">end</span>
+0156 X = [Zi; X];
+0157 <span class="keyword">if</span> nargout &gt; 1
+0158     Zf = X(end-N+2:<span class="keyword">end</span>,:); <span class="keyword">end</span>
+0159 
+0160 <span class="comment">% apply running median for each channel</span>
+0161 <span class="keyword">for</span> c=1:size(X,2)
+0162     X(N:<span class="keyword">end</span>,c) = fastmedfilt1d(X(N_half+1:end-N_half,c),N,X(1:N_half,c),X(end-N_half+1:end)); <span class="keyword">end</span>
+0163 
+0164 X = X(1:end-N+1,:);</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

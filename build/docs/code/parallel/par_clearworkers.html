@@ -18,29 +18,40 @@
 <td align="right"><a href="index.html">Index for code/parallel&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>par_clearworkers
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="box"><strong>Clear workers from the listed hostnames (or if those are unspecified, from the current pool).</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>function par_clearworkers(hostnames) </strong></div>
+<div class="box"><strong>function par_clearworkers(endpoints,nokillall) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre class="comment"> Clear workers from the listed hostnames (or if those are unspecified, from the current pool).
- par_clearworkers(Hostnames)
+ par_clearworkers(Hostnames,NoKillall)
 
  Note: this function erases all of the user's MATLAB processes on the given nodes; if there are
  unrelated MATLABs running, these will also be killed. This may also shoot down the master process
  itself if it is located on one of the unfortunate machines...
 
  In:
-   Hostnames : cell array of hostnames on which to acquire workers (duplicates and port assignments
-               will be ignored).
+   Hostnames : cell array of hostnames or 'pid@host' or 'pid@host:port' strings on which to kill
+               workers
+
+   NoKillall : if given, this function will not perform &quot;killall&quot; for hosts where no process id
+               is given (default: false)
 
  Example:
    % clear all workers on the given machines (of this user)
    par_clearworkers({'computer1','computer2','computer3'})
+
+   % clear only specific workers with given pid's, and all MATLAB instances on computer3
+   par_clearworkers({'31443@computer1','41443@computer2','computer3'})
+
+   % same as before, but ignore computer3 (no killall)
+   par_clearworkers({'31443@computer1','41443@computer2','computer3'},true)
+
    
                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                                 2011-02-15</pre></div>
@@ -49,69 +60,126 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="par_globalsetting.html" class="code" title="function res = par_globalsetting(name,val)">par_globalsetting</a>	Set or get a global setting for parallel task scheduling.</li>
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
 
 
+
+
+
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function par_clearworkers(hostnames)</a>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function par_clearworkers(endpoints,nokillall)</a>
 0002 <span class="comment">% Clear workers from the listed hostnames (or if those are unspecified, from the current pool).</span>
-0003 <span class="comment">% par_clearworkers(Hostnames)</span>
+0003 <span class="comment">% par_clearworkers(Hostnames,NoKillall)</span>
 0004 <span class="comment">%</span>
 0005 <span class="comment">% Note: this function erases all of the user's MATLAB processes on the given nodes; if there are</span>
 0006 <span class="comment">% unrelated MATLABs running, these will also be killed. This may also shoot down the master process</span>
 0007 <span class="comment">% itself if it is located on one of the unfortunate machines...</span>
 0008 <span class="comment">%</span>
 0009 <span class="comment">% In:</span>
-0010 <span class="comment">%   Hostnames : cell array of hostnames on which to acquire workers (duplicates and port assignments</span>
-0011 <span class="comment">%               will be ignored).</span>
+0010 <span class="comment">%   Hostnames : cell array of hostnames or 'pid@host' or 'pid@host:port' strings on which to kill</span>
+0011 <span class="comment">%               workers</span>
 0012 <span class="comment">%</span>
-0013 <span class="comment">% Example:</span>
-0014 <span class="comment">%   % clear all workers on the given machines (of this user)</span>
-0015 <span class="comment">%   par_clearworkers({'computer1','computer2','computer3'})</span>
-0016 <span class="comment">%</span>
-0017 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0018 <span class="comment">%                                2011-02-15</span>
-0019 
-0020 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2011, christian@sccn.ucsd.edu</span>
-0021 <span class="comment">%</span>
-0022 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
-0023 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
-0024 <span class="comment">% License, or (at your option) any later version.</span>
+0013 <span class="comment">%   NoKillall : if given, this function will not perform &quot;killall&quot; for hosts where no process id</span>
+0014 <span class="comment">%               is given (default: false)</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">% Example:</span>
+0017 <span class="comment">%   % clear all workers on the given machines (of this user)</span>
+0018 <span class="comment">%   par_clearworkers({'computer1','computer2','computer3'})</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%   % clear only specific workers with given pid's, and all MATLAB instances on computer3</span>
+0021 <span class="comment">%   par_clearworkers({'31443@computer1','41443@computer2','computer3'})</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%   % same as before, but ignore computer3 (no killall)</span>
+0024 <span class="comment">%   par_clearworkers({'31443@computer1','41443@computer2','computer3'},true)</span>
 0025 <span class="comment">%</span>
-0026 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
-0027 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
-0028 <span class="comment">% General Public License for more details.</span>
-0029 <span class="comment">%</span>
-0030 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
-0031 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
-0032 <span class="comment">% USA</span>
-0033 
-0034 <span class="comment">% optionally look up hostnames from the global pool</span>
-0035 <span class="keyword">if</span> ~exist(<span class="string">'hostnames'</span>,<span class="string">'var'</span>)
-0036     <span class="keyword">global</span> tracking; <span class="comment">%#ok&lt;TLEV&gt;</span>
-0037     hostnames = tracking.parallel.pool;
-0038 <span class="keyword">end</span>
-0039 
-0040 <span class="comment">% remove any port assignments</span>
-0041 <span class="keyword">for</span> i=1:length(hostnames)
-0042     colons = hostnames{i}==<span class="string">':'</span>;
-0043     <span class="keyword">if</span> any(colons)
-0044         hostnames{i} = hostnames{i}(1:find(colons)-1); <span class="keyword">end</span>
-0045 <span class="keyword">end</span>
-0046 
-0047 <span class="comment">% remove duplicates</span>
-0048 hostnames = unique(hostnames);
-0049 
-0050 <span class="comment">% now clear them</span>
-0051 fprintf(<span class="string">'Clearing workers on %i machines...'</span>,length(hostnames));
-0052 <span class="keyword">for</span> host = hostnames(:)'    
-0053     [status,info] = system(sprintf(<span class="string">'ssh -x %s killall MATLAB'</span>,host{1})); <span class="keyword">end</span> <span class="comment">%#ok&lt;NASGU,ASGLU&gt;</span>
-0054 fprintf(<span class="string">'done.\n'</span>);</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0026 <span class="comment">%</span>
+0027 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0028 <span class="comment">%                                2011-02-15</span>
+0029 
+0030 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2011, christian@sccn.ucsd.edu</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0033 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0034 <span class="comment">% License, or (at your option) any later version.</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0037 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0038 <span class="comment">% General Public License for more details.</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0041 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0042 <span class="comment">% USA</span>
+0043 
+0044 <span class="comment">% optionally look up endpoints from the global pool</span>
+0045 <span class="keyword">if</span> ~exist(<span class="string">'endpoints'</span>,<span class="string">'var'</span>) || isempty(endpoints)
+0046     endpoints = <a href="par_globalsetting.html" class="code" title="function res = par_globalsetting(name,val)">par_globalsetting</a>(<span class="string">'pool'</span>); <span class="keyword">end</span>
+0047 <span class="keyword">if</span> ~iscellstr(endpoints)
+0048     error(<span class="string">'The given Hostnames argument must be a cell array of strings.'</span>); <span class="keyword">end</span>
+0049 <span class="keyword">if</span> ~exist(<span class="string">'nokillall'</span>,<span class="string">'var'</span>) || isempty(nokillall)
+0050     nokillall = false; <span class="keyword">end</span>
+0051 
+0052 <span class="comment">% drop any port assignments</span>
+0053 <span class="keyword">for</span> i=1:length(endpoints)
+0054     colons = endpoints{i}==<span class="string">':'</span>;
+0055     <span class="keyword">if</span> any(colons)
+0056         hostpid{i} = endpoints{i}(1:find(colons)-1); 
+0057     <span class="keyword">else</span>
+0058         hostpid{i} = endpoints{i};
+0059     <span class="keyword">end</span>
+0060 <span class="keyword">end</span>
+0061 
+0062 <span class="comment">% also split off the pid parts</span>
+0063 <span class="keyword">for</span> i=1:length(hostpid)
+0064     match = hostpid{i}==<span class="string">'@'</span>;
+0065     <span class="keyword">if</span> any(match)
+0066         hosts{i} = hostpid{i}(find(match,1)+1:end); 
+0067         pids{i} = hostpid{i}(1:find(match,1)-1);    
+0068     <span class="keyword">else</span>
+0069         hosts{i} = hostpid{i};
+0070         pids{i} = <span class="string">'all'</span>;
+0071     <span class="keyword">end</span>
+0072 <span class="keyword">end</span>
+0073 
+0074 <span class="comment">% remove duplicates</span>
+0075 uniquehosts = unique(hosts);
+0076 pids_per_host = repmat({{}},1,length(uniquehosts));
+0077 killall = false(1,length(uniquehosts));
+0078 
+0079 <span class="comment">% for each unique host, accumulate the pids to kill (or record 'all' if no pid given)</span>
+0080 <span class="keyword">for</span> i=1:length(hosts)    
+0081     <span class="comment">% position of this host in uniquehosts, pids_per_host, and killall</span>
+0082     pos = find(strcmp(uniquehosts,hosts{i}));    
+0083     <span class="keyword">if</span> strcmp(pids{i},<span class="string">'all'</span>)
+0084         killall(pos) = true;
+0085     <span class="keyword">else</span>
+0086         pids_per_host{pos}{end+1} = pids{i};
+0087     <span class="keyword">end</span>
+0088 <span class="keyword">end</span>
+0089 
+0090 <span class="comment">% if the own host is among them, move it last</span>
+0091 myhost = hlp_hostname;
+0092 match = strncmp(myhost,uniquehosts, min(cellfun(<span class="string">'length'</span>,[{myhost} uniquehosts])));
+0093 <span class="keyword">if</span> any(match)
+0094     uniquehosts = [uniquehosts(~match) uniquehosts(match)]; <span class="keyword">end</span>
+0095 
+0096 <span class="comment">% now clear them</span>
+0097 fprintf(<span class="string">'Clearing workers on %i machines...'</span>,length(uniquehosts));
+0098 <span class="keyword">for</span> h = 1:length(uniquehosts)
+0099     <span class="keyword">if</span> ~isempty(pids_per_host{h})
+0100         [status,info] = system(sprintf(<span class="string">'ssh -x %s kill %s'</span>,uniquehosts{h},sprintf(<span class="string">'%s '</span>,pids_per_host{h}{:}))); <span class="keyword">end</span>
+0101     <span class="keyword">if</span> ~nokillall &amp;&amp; killall(h)
+0102         [status,info] = system(sprintf(<span class="string">'ssh -x %s killall MATLAB'</span>,uniquehosts{h})); <span class="keyword">end</span>
+0103 <span class="keyword">end</span> <span class="comment">%#ok&lt;NASGU,ASGLU&gt;</span>
+0104 fprintf(<span class="string">'done.\n'</span>);</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

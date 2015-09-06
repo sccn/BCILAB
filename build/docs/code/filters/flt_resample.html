@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>flt_resample
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -88,15 +89,24 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
+
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function varargout = arraydeal(arr)</a></li><li><a href="#_sub2" class="code">function w = lanczos(N)</a></li><li><a href="#_sub3" class="code">function y = sinc(x)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function w = lanczos(N)</a></li>
+<li><a href="#_sub2" class="code">function y = sinc(x)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal,state] = flt_resample(varargin)</a>
@@ -157,7 +167,7 @@ This function is called by:
 0056 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
 0057 <span class="comment">%                                2010-03-28</span>
 0058 
-0059 <span class="comment">% flt_resample_version&lt;1.0&gt; -- for the cache</span>
+0059 <span class="comment">% flt_resample_version&lt;1.04&gt; -- for the cache</span>
 0060 
 0061 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
 0062 
@@ -166,9 +176,9 @@ This function is called by:
 0065 
 0066 arg_define(varargin, <span class="keyword">...</span>
 0067     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
-0068     arg({<span class="string">'srate'</span>,<span class="string">'SamplingRate'</span>}, [], [], <span class="string">'Sampling rate after resampling.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>), <span class="keyword">...</span>
-0069     arg({<span class="string">'fltlen'</span>,<span class="string">'FilterLength'</span>}, 10, [], <span class="string">'Filter length. This determines both the quality and the delay of the resampling. The default should be fine.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
-0070     arg({<span class="string">'stopweight'</span>,<span class="string">'StopbandWeight'</span>}, 1, [], <span class="string">'Stop-band weight. Relative weight of the stop-band.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0068     arg({<span class="string">'srate'</span>,<span class="string">'SamplingRate'</span>}, [], [0 Inf], <span class="string">'Sampling rate after resampling.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>,<span class="string">'nowarning'</span>,true), <span class="keyword">...</span>
+0069     arg({<span class="string">'fltlen'</span>,<span class="string">'FilterLength'</span>}, 10, uint32([1 5 50 10000]), <span class="string">'Filter length. This determines both the quality and the delay of the resampling. The default should be fine.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0070     arg({<span class="string">'stopweight'</span>,<span class="string">'StopbandWeight'</span>}, 1, [0 0.05 20 Inf], <span class="string">'Stop-band weight. Relative weight of the stop-band.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
 0071     arg_norep({<span class="string">'state'</span>,<span class="string">'State'</span>},unassigned));
 0072 
 0073 <span class="comment">% if no srate is specified, we adopt the sampling rate of the signal</span>
@@ -182,47 +192,59 @@ This function is called by:
 0081 <span class="comment">% need to resample?</span>
 0082 <span class="keyword">if</span> srate ~= signal.srate
 0083     <span class="comment">% do we have previous state?</span>
-0084     <span class="keyword">if</span> ~exist(<span class="string">'state'</span>,<span class="string">'var'</span>)
+0084     <span class="keyword">if</span> ~exist(<span class="string">'state'</span>,<span class="string">'var'</span>) || isempty(state)
 0085         <span class="comment">% find rational resampling factors</span>
 0086         [p,q] = rat(srate/signal.srate, 0.001);
 0087         <span class="comment">% design resampling filter</span>
 0088         pqmax = max(p,q);
 0089         cutoff = 1/2/pqmax;
 0090         len = 2*fltlen*pqmax + 1;
-0091         H = p*firlp(len,2*cutoff,2*cutoff,stopweight) .* <a href="#_sub2" class="code" title="subfunction w = lanczos(N)">lanczos</a>(len);
+0091         H = p*firlp(len,2*cutoff,2*cutoff,stopweight) .* <a href="#_sub1" class="code" title="subfunction w = lanczos(N)">lanczos</a>(len);
 0092         H = [zeros(1,floor(q-mod((len-1)/2,q))) H(:).'];
 0093         <span class="comment">% construct state struct</span>
-0094         state = struct(<span class="string">'conds'</span>,[],<span class="string">'H'</span>,H,<span class="string">'p'</span>,p,<span class="string">'q'</span>,q);
+0094         state = struct(<span class="string">'H'</span>,H,<span class="string">'p'</span>,p,<span class="string">'q'</span>,q);
 0095     <span class="keyword">end</span>
 0096     
-0097     <span class="comment">% resample the data itself</span>
-0098     signal.data = single(signal.data)';
-0099     [tmp,state.conds] = upfirdn2(signal.data,state.H,state.p,state.q,state.conds);
-0100     signal.data = tmp';
-0101     <span class="comment">% update signal meta-data</span>
-0102     signal.icaact = [];
-0103     signal.srate = srate;
-0104     signal.pnts = size(signal.data,2);
-0105     signal.xmax = signal.xmin + (signal.pnts-1)/signal.srate;
-0106     <span class="keyword">if</span> isfield(signal,<span class="string">'event'</span>) &amp;&amp; isfield(signal.event,<span class="string">'latency'</span>)
-0107         [signal.event.latency] = <a href="#_sub1" class="code" title="subfunction varargout = arraydeal(arr)">arraydeal</a>([signal.event.latency]*state.p/state.q); <span class="keyword">end</span>
-0108     <span class="keyword">if</span> isfield(signal,<span class="string">'urevent'</span>) &amp;&amp; isfield(signal.urevent,<span class="string">'latency'</span>)
-0109         [signal.urevent.latency] = <a href="#_sub1" class="code" title="subfunction varargout = arraydeal(arr)">arraydeal</a>([signal.urevent.latency]*state.p/state.q); <span class="keyword">end</span>
-0110 <span class="keyword">end</span>
-0111 
-0112 exp_endfun;
-0113 
-0114 
-0115 <a name="_sub1" href="#_subfunctions" class="code">function varargout = arraydeal(arr)</a>
-0116 varargout = num2cell(arr);
-0117 
-0118 <a name="_sub2" href="#_subfunctions" class="code">function w = lanczos(N)</a>
-0119 w = <a href="#_sub3" class="code" title="subfunction y = sinc(x)">sinc</a>(2*(0:(N-1))/(N-1)-1);
-0120 
-0121 <a name="_sub3" href="#_subfunctions" class="code">function y = sinc(x)</a>
-0122 y = ones(size(x));
-0123 n = x~=0;
-0124 y(n) = sin(pi*x(n))./(pi*x(n));</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0097     <span class="comment">% resample each time-series field</span>
+0098     n = length(state.H);
+0099     <span class="keyword">for</span> f = utl_timeseries_fields(signal)
+0100         <span class="keyword">if</span> isempty(signal.(f{1}))
+0101             <span class="keyword">continue</span>; <span class="keyword">end</span>
+0102         <span class="keyword">if</span> ~isfield(state,f{1})
+0103             state.(f{1}).conds = []; <span class="keyword">end</span>        
+0104 
+0105         <span class="comment">% flip dimensions so that we can filter along the 1st dimension &amp; convert to single for mex code</span>
+0106         [X,dims] = spatialize_transpose(single(signal.(f{1})));
+0107         <span class="comment">% do processing</span>
+0108         [X,state.(f{1}).conds] = upfirdn2(X,state.H,state.p,state.q,state.(f{1}).conds);
+0109         <span class="comment">% unflip dimensions and write the result back; also convert back to double</span>
+0110         signal.(f{1}) = double(unspatialize_transpose(X,dims));
+0111     <span class="keyword">end</span>
+0112     
+0113     <span class="comment">% update signal meta-data</span>
+0114     <span class="keyword">if</span> ~isfield(signal.etc,<span class="string">'filter_delay'</span>)
+0115         signal.etc.filter_delay = 0; <span class="keyword">end</span>    
+0116     signal.etc.filter_delay = signal.etc.filter_delay + ceil(argmax(state.H))/signal.srate;
+0117     signal.icaact = [];
+0118     signal.srate = srate;
+0119     signal.pnts = size(signal.data,2);
+0120     signal.xmax = signal.xmin + (signal.pnts-1)/signal.srate;
+0121     <span class="keyword">if</span> isfield(signal,<span class="string">'event'</span>) &amp;&amp; ~isempty(signal.event) &amp;&amp; isfield(signal.event,<span class="string">'latency'</span>) 
+0122         [signal.event.latency] = arraydeal(max(1,min(signal.pnts,([signal.event.latency]-1)*state.p/state.q+1))); <span class="keyword">end</span>
+0123     <span class="keyword">if</span> isfield(signal,<span class="string">'urevent'</span>) &amp;&amp; ~isempty(signal.urevent) &amp;&amp; isfield(signal.urevent,<span class="string">'latency'</span>)
+0124         [signal.urevent.latency] = arraydeal(max(1,min(signal.pnts,([signal.urevent.latency]-1)*state.p/state.q+1))); <span class="keyword">end</span>
+0125 <span class="keyword">end</span>
+0126 
+0127 exp_endfun;
+0128 
+0129 <a name="_sub1" href="#_subfunctions" class="code">function w = lanczos(N)</a>
+0130 w = <a href="#_sub2" class="code" title="subfunction y = sinc(x)">sinc</a>(2*(0:(N-1))/(N-1)-1);
+0131 
+0132 <a name="_sub2" href="#_subfunctions" class="code">function y = sinc(x)</a>
+0133 y = ones(size(x));
+0134 n = x~=0;
+0135 y(n) = sin(pi*x(n))./(pi*x(n));</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

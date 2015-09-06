@@ -18,38 +18,50 @@
 <td align="right"><a href="index.html">Index for code/online_analysis&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>onl_append
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="box"><strong>Append a block of raw data to a stream.</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>function onl_append(name, chunk, stamp) </strong></div>
+<div class="box"><strong>function onl_append(name, chunk, markers, stamp) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre class="comment"> Append a block of raw data to a stream.
- onl_append(Name, Chunk, Timestamp)
+ onl_append(StreamName, Chunk, Markers, Timestamp)
+
+ This function appends a chunk of data (#samples x #channels) and possibly some markers to an
+ online stream that was previously created with onl_newstream. It is also possible to pass in the
+ time stamp of the most recent sample for accurate multi-stream synchronization (but usually not
+ necessary).
 
  The number of columns in the appended data block must match the number of channels in the stream,
  and the data must have been sampled at the rate specified in the stream's .srate field.
- Predictions are always being made with respect to the most recently appended sample.
 
- The sequence of samples fed into a stream (over the course of multiple calls to onl_append) must
- have no omissions (i.e., samples must not be skipped) or repetitions (i.e., samples that have been
- supplied in a previous call must not be fed again). If samples are not available from the data
- source or were missed (for whatever reason), the corresponding number of zero-valued samples
- should be fed).
+ The sequence of samples fed into a stream (over the course of multiple calls to onl_append) should
+ have no omissions (i.e., samples should not be skipped if possible) or repetitions (i.e., samples
+ that have been supplied in a previous call must not be fed again) since the filters would then see
+ jumps and glitches in the data as a result.
 
  Processing (i.e., appending samples and calculating predictions from them) does not have to happen
  in real time (i.e., the actual wall-clock time does not affect the calulated results).
 
  In:
-   Name : variable name of the stream to which the data should be appended
+   StreamName : Name of the stream data structure in the MATLAB workspace to which the data should 
+                be appended (must have been previously created with onl_newstream).
 
    Chunk : [#Channels x #Samples] matrix of raw data
 
-   Timestamp : optional time stamp for the last sample in the chunk, in seconds, in some arbitary
-               time domain which is consistent across all streams used by dependent predictors
+   Markers : Optional struct array of markers in the chunk with one struct per marker. Each
+             struct must have a .type field that contains the marker type (string) and a .latency
+             field that contains the marker latency (where 1 is the first sample in the chunk and
+             #Samples is the last sample in the chunk). Additional fields are allowed, but note
+             that the field names of multiple successively appended marker structs must be
+             identical. Marker latencies should never exceed the bounds of the chunk. (default: empty)
+
+   Timestamp : Optional time stamp for the last sample in the chunk, in seconds, in some arbitary
+               time domain which is consistent across all streams used to make a given prediction.
                (default: computed from xmin)
 
  Notes:
@@ -66,8 +78,13 @@
    mychunk = get_data_from_device();
    onl_append('mystream',mychunk);
 
+   % append both a 32-channel/1000-sample chunk and 3 markers
+   mychunk = randn(32,1000);
+   mymarkers = struct('type',{'test','sdfsdf','asd'},'latency',{10,300,801.5});
+   onl_append('mystream',mychunk,mymarkers);
+
  See also:
-   <a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>, <a href="onl_newpredictor.html" class="code" title="function id = onl_newpredictor(name, model, streams)">onl_newpredictor</a>, <a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_output)">onl_predict</a>
+   <a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>, <a href="onl_newpredictor.html" class="code" title="function id = onl_newpredictor(name, model, streams, predict_at)">onl_newpredictor</a>, <a href="onl_predict.html" class="code" title="function y = onl_predict(name,outfmt,suppress_console_output,empty_result_value)">onl_predict</a>
 
                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                                 2010-04-03</pre></div>
@@ -76,173 +93,282 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="onl_read_background.html" class="code" title="function stream_id = onl_read_background(varargin)">onl_read_background</a>	Read from an external device in the background and periodically update a stream with the results.</li><li><a href="onl_simulate.html" class="code" title="function [predictions,predict_at,timings] = onl_simulate(varargin)">onl_simulate</a>	Apply a predictive model to some raw data set at specified time points.</li></ul>
+
+<li><a href="onl_read_background.html" class="code" title="function stream_id = onl_read_background(varargin)">onl_read_background</a>	Read from an external device in the background and periodically update a stream with the results.</li>
+<li><a href="onl_simulate.html" class="code" title="function [predictions,predict_at,timings] = onl_simulate(varargin)">onl_simulate</a>	Apply a predictive model to some raw data set at specified time points.</li>
+</ul>
 <!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function perform_update(streamname,dataname,datavalue,code)</a></li>
+</ul>
+
 
 
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function onl_append(name, chunk, stamp)</a>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function onl_append(name, chunk, markers, stamp)</a>
 0002 <span class="comment">% Append a block of raw data to a stream.</span>
-0003 <span class="comment">% onl_append(Name, Chunk, Timestamp)</span>
+0003 <span class="comment">% onl_append(StreamName, Chunk, Markers, Timestamp)</span>
 0004 <span class="comment">%</span>
-0005 <span class="comment">% The number of columns in the appended data block must match the number of channels in the stream,</span>
-0006 <span class="comment">% and the data must have been sampled at the rate specified in the stream's .srate field.</span>
-0007 <span class="comment">% Predictions are always being made with respect to the most recently appended sample.</span>
-0008 <span class="comment">%</span>
-0009 <span class="comment">% The sequence of samples fed into a stream (over the course of multiple calls to onl_append) must</span>
-0010 <span class="comment">% have no omissions (i.e., samples must not be skipped) or repetitions (i.e., samples that have been</span>
-0011 <span class="comment">% supplied in a previous call must not be fed again). If samples are not available from the data</span>
-0012 <span class="comment">% source or were missed (for whatever reason), the corresponding number of zero-valued samples</span>
-0013 <span class="comment">% should be fed).</span>
-0014 <span class="comment">%</span>
-0015 <span class="comment">% Processing (i.e., appending samples and calculating predictions from them) does not have to happen</span>
-0016 <span class="comment">% in real time (i.e., the actual wall-clock time does not affect the calulated results).</span>
+0005 <span class="comment">% This function appends a chunk of data (#samples x #channels) and possibly some markers to an</span>
+0006 <span class="comment">% online stream that was previously created with onl_newstream. It is also possible to pass in the</span>
+0007 <span class="comment">% time stamp of the most recent sample for accurate multi-stream synchronization (but usually not</span>
+0008 <span class="comment">% necessary).</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% The number of columns in the appended data block must match the number of channels in the stream,</span>
+0011 <span class="comment">% and the data must have been sampled at the rate specified in the stream's .srate field.</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">% The sequence of samples fed into a stream (over the course of multiple calls to onl_append) should</span>
+0014 <span class="comment">% have no omissions (i.e., samples should not be skipped if possible) or repetitions (i.e., samples</span>
+0015 <span class="comment">% that have been supplied in a previous call must not be fed again) since the filters would then see</span>
+0016 <span class="comment">% jumps and glitches in the data as a result.</span>
 0017 <span class="comment">%</span>
-0018 <span class="comment">% In:</span>
-0019 <span class="comment">%   Name : variable name of the stream to which the data should be appended</span>
+0018 <span class="comment">% Processing (i.e., appending samples and calculating predictions from them) does not have to happen</span>
+0019 <span class="comment">% in real time (i.e., the actual wall-clock time does not affect the calulated results).</span>
 0020 <span class="comment">%</span>
-0021 <span class="comment">%   Chunk : [#Channels x #Samples] matrix of raw data</span>
-0022 <span class="comment">%</span>
-0023 <span class="comment">%   Timestamp : optional time stamp for the last sample in the chunk, in seconds, in some arbitary</span>
-0024 <span class="comment">%               time domain which is consistent across all streams used by dependent predictors</span>
-0025 <span class="comment">%               (default: computed from xmin)</span>
+0021 <span class="comment">% In:</span>
+0022 <span class="comment">%   StreamName : Name of the stream data structure in the MATLAB workspace to which the data should</span>
+0023 <span class="comment">%                be appended (must have been previously created with onl_newstream).</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%   Chunk : [#Channels x #Samples] matrix of raw data</span>
 0026 <span class="comment">%</span>
-0027 <span class="comment">% Notes:</span>
-0028 <span class="comment">%   For many applications, accurate time codes are not necessary for reasonably good performance (or</span>
-0029 <span class="comment">%   not worth the development burden). For some applications, accurate timing across streams is</span>
-0030 <span class="comment">%   essential (especially if the relative lags are significant and temporal structure across streams</span>
-0031 <span class="comment">%   is being used for predictions). In this case, the time codes should be reasonably precise</span>
-0032 <span class="comment">%   estimates of the time stamp of the last sample, in a time domain that is the same across all</span>
-0033 <span class="comment">%   streams that are being used by a given predictor. This can be seconds since startup, or, for</span>
-0034 <span class="comment">%   example, the estimated (negative) age of the sample.</span>
-0035 <span class="comment">%</span>
-0036 <span class="comment">% Examples:</span>
-0037 <span class="comment">%   % get a chunk of new data from a device and append it to a (previously created) online stream</span>
-0038 <span class="comment">%   mychunk = get_data_from_device();</span>
-0039 <span class="comment">%   onl_append('mystream',mychunk);</span>
-0040 <span class="comment">%</span>
-0041 <span class="comment">% See also:</span>
-0042 <span class="comment">%   onl_newstream, onl_newpredictor, onl_predict</span>
-0043 <span class="comment">%</span>
-0044 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0045 <span class="comment">%                                2010-04-03</span>
-0046 
-0047 
-0048 <span class="keyword">try</span>
-0049     <span class="keyword">if</span> nargin &lt;= 2 || isempty(stamp)
-0050         
-0051         <span class="keyword">try</span>
-0052             
-0053             <span class="comment">% put the chunk into the workspace</span>
-0054             assignin(<span class="string">'base'</span>,[name <span class="string">'_chunk'</span>],chunk);            
-0055             <span class="keyword">try</span>
-0056                 <span class="comment">% append the chunk to the stream (atomically); we do this by running an</span>
-0057                 <span class="comment">% auto-generated mini script, to save the interpreter time</span>
-0058                 scriptname = [<span class="string">'update__'</span> name];
-0059                 evalin(<span class="string">'base'</span>,scriptname);
-0060             <span class="keyword">catch</span> e
-0061                 <span class="keyword">if</span> isempty(chunk)
-0062                     <span class="keyword">return</span>; <span class="keyword">end</span>;
-0063                 
-0064                 <span class="comment">% check what's wrong...</span>
-0065                 <span class="keyword">persistent</span> cannot_script; <span class="comment">%#ok&lt;TLEV&gt;</span>
-0066                 <span class="keyword">if</span> cannot_script
-0067                     <span class="comment">% if we previously determined that we cannot work with scripts for some reason,</span>
-0068                     <span class="comment">% we run the code directly (at some performance cost)</span>
-0069                     evalin(<span class="string">'base'</span>,[<span class="string">'['</span> name <span class="string">'.smax,'</span> name <span class="string">'.buffer(:,1+mod('</span> name <span class="string">'.smax:'</span> name <span class="string">'.smax+size('</span> name <span class="string">'_chunk,2)-1,'</span> name <span class="string">'.buffer_len))] = deal('</span> name <span class="string">'.smax + size('</span> name <span class="string">'_chunk,2),'</span> name <span class="string">'_chunk);'</span>]);
-0070                 <span class="keyword">else</span>
-0071                     <span class="comment">% does the script exist?</span>
-0072                     <span class="keyword">if</span> ~exist(scriptname,<span class="string">'file'</span>)
-0073                         <span class="keyword">try</span>
-0074                             <span class="comment">% try to create it (likely a first-time use)</span>
-0075                             filename = env_translatepath([<span class="string">'functions:/temp/'</span> scriptname <span class="string">'.m'</span>]);
-0076                             f = fopen(filename,<span class="string">'w+'</span>);
-0077                             fprintf(f,[<span class="string">'['</span> name <span class="string">'.smax,'</span> name <span class="string">'.buffer(:,1+mod('</span> name <span class="string">'.smax:'</span> name <span class="string">'.smax+size('</span> name <span class="string">'_chunk,2)-1,'</span> name <span class="string">'.buffer_len))] = deal('</span> name <span class="string">'.smax + size('</span> name <span class="string">'_chunk,2),'</span> name <span class="string">'_chunk);'</span>]);
-0078                             fclose(f);
-0079                             rehash;
-0080                         <span class="keyword">catch</span>
-0081                             cannot_script = true;
-0082                             <span class="comment">% error during creation</span>
-0083                             warning(<span class="string">'BCILAB:cannot_create_script'</span>,<span class="string">'Could not create script &quot;%s&quot;; please make sure that you have write permission in that folder.'</span>,filename);
-0084                             error(<span class="string">'scripting problem...'</span>);
-0085                         <span class="keyword">end</span>
-0086                         <span class="comment">% now re-run it</span>
-0087                         evalin(<span class="string">'base'</span>,scriptname);
-0088                     <span class="keyword">else</span>
-0089                         <span class="comment">% script did exist: error likely had a different cause (caught below...)</span>
-0090                         rethrow(e);
-0091                     <span class="keyword">end</span>
-0092                 <span class="keyword">end</span>
-0093             <span class="keyword">end</span>
-0094         <span class="keyword">catch</span> le
-0095             
-0096             <span class="comment">% nothing to do?</span>
-0097             <span class="keyword">if</span> isempty(chunk)
-0098                 <span class="keyword">return</span>; <span class="keyword">end</span>;
-0099             
-0100             <span class="comment">% error: interpret the source of the error &amp; display an appropriate message</span>
-0101             <span class="keyword">try</span>
-0102                 stream = evalin(<span class="string">'base'</span>,name);
-0103             <span class="keyword">catch</span>
-0104                 error([<span class="string">'A stream named '</span> name <span class="string">' does not exist.'</span>]);
-0105             <span class="keyword">end</span>
-0106             <span class="keyword">if</span> ndims(chunk) ~= 2
-0107                 error(<span class="string">'onl_append expects a [#Channels x #Samples] matrix.'</span>);
-0108             <span class="keyword">elseif</span> ~isstruct(stream) || ~isscalar(stream)
-0109                 error([<span class="string">'The stream '</span> name <span class="string">' is not a 1x1 struct. Probably it was accidentally overwritten by another function.'</span>]);
-0110             <span class="keyword">elseif</span> ~isfield(stream,<span class="string">'buffer'</span>)
-0111                 error([<span class="string">'The stream '</span> name <span class="string">' has no buffer. Probably it was accidentally overwritten by another function.'</span>]);
-0112             <span class="keyword">elseif</span> ~isnumeric(stream.buffer)
-0113                 error([<span class="string">'The stream '</span> name <span class="string">' has an invalid buffer. Probably it was accidentally overwritten by another function.'</span>]);
-0114             <span class="keyword">elseif</span> ~isfield(stream,<span class="string">'buffer_len'</span>)
-0115                 error([<span class="string">'The stream '</span> name <span class="string">' has no buffer_len field. Probably it was accidentally overwritten by another function.'</span>]);
-0116             <span class="keyword">elseif</span> ~isscalar(stream.buffer_len) || ~isnumeric(stream.buffer_len)
-0117                 error([<span class="string">'The stream '</span> name <span class="string">' has an invalid buffer_len field. Probably it was accidentally overwritten by another function.'</span>]);
-0118             <span class="keyword">elseif</span> size(stream.buffer,2) ~= stream.buffer_len
-0119                 error([<span class="string">'The stream '</span> name <span class="string">' has a buffer with an invalid length. Probably it was accidentally overwritten by another function.'</span>]);
-0120             <span class="keyword">elseif</span> ~isfield(stream,<span class="string">'smax'</span>)
-0121                 error([<span class="string">'The stream '</span> name <span class="string">' has no smax field. Probably it was accidentally overwritten by another function.'</span>]);
-0122             <span class="keyword">elseif</span> ~isscalar(stream.smax) || ~isnumeric(stream.smax)
-0123                 error([<span class="string">'The stream '</span> name <span class="string">' has an invalid smax field. Probably it was accidentally overwritten by another function.'</span>]);
-0124             <span class="keyword">elseif</span> size(stream.buffer,1) ~= size(chunk,1)
-0125                 error(<span class="string">'Number of channels in the supplied chunk does not match the number of channels / channel names in the stream.'</span>);
-0126             <span class="keyword">elseif</span> strcmp(<span class="string">'MATLAB:UndefinedFunction'</span>,le.identifier)
-0127                 cannot_script = true;
-0128                 error(<span class="string">'BCILAB:script_failure'</span>,<span class="string">'Execution of script &quot;%s&quot; failed; falling back to interpreted code'</span>,scriptname);
-0129             <span class="keyword">else</span>
-0130                 rethrow(le);
-0131             <span class="keyword">end</span>
-0132             
-0133         <span class="keyword">end</span>
-0134         
-0135     <span class="keyword">else</span>
-0136         <span class="comment">% time stamp was supplied, need to do non-trivial time-stamp updating: get the stream</span>
-0137         stream = evalin(<span class="string">'base'</span>,name);
-0138         
-0139         <span class="comment">% update the buffer</span>
-0140         stream.buffer(:,1+mod(stream.smax:stream.smax+size(lastchunk,2)-1,stream.buffer_len)) = chunk;
-0141         stream.smax = stream.smax + size(lastchunk,2);
-0142         <span class="comment">% insert timestamp at the end if the buffer (contains the time in timestamp domain and in</span>
-0143         <span class="comment">% 0-based stream time domain)</span>
-0144         stream.timestamp_ptr = 1+mod(stream.timestamp_ptr,stream.timestamp_avgs);
-0145         stream.timestamps(stream.timestamp_ptr,:) = [stamp stream.smax/stream.srate];
-0146         <span class="comment">% estimate time lag (offset of time stamp time relative to 0-based stream time)</span>
-0147         lag = sum(stream.timestamps(:,1) - stream.timestamps(:,2))/nnz(stream.timestamps(:,2));
-0148         <span class="comment">% derive xmin/xmax in the time stamp domain</span>
-0149         stream.xmax = stream.smax/stream.srate + lag;
-0150         stream.xmin = (1+max(0,stream.smax-stream.buffer_len))/stream.srate + lag;
-0151         
-0152         <span class="comment">% atomically write back the updated stream</span>
-0153         assignin(<span class="string">'base'</span>,name,stream);
-0154     <span class="keyword">end</span>
-0155 <span class="keyword">catch</span> e
-0156     disp(<span class="string">'An exception occured during onl_append:'</span>);
-0157     env_handleerror(e);
-0158 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0027 <span class="comment">%   Markers : Optional struct array of markers in the chunk with one struct per marker. Each</span>
+0028 <span class="comment">%             struct must have a .type field that contains the marker type (string) and a .latency</span>
+0029 <span class="comment">%             field that contains the marker latency (where 1 is the first sample in the chunk and</span>
+0030 <span class="comment">%             #Samples is the last sample in the chunk). Additional fields are allowed, but note</span>
+0031 <span class="comment">%             that the field names of multiple successively appended marker structs must be</span>
+0032 <span class="comment">%             identical. Marker latencies should never exceed the bounds of the chunk. (default: empty)</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">%   Timestamp : Optional time stamp for the last sample in the chunk, in seconds, in some arbitary</span>
+0035 <span class="comment">%               time domain which is consistent across all streams used to make a given prediction.</span>
+0036 <span class="comment">%               (default: computed from xmin)</span>
+0037 <span class="comment">%</span>
+0038 <span class="comment">% Notes:</span>
+0039 <span class="comment">%   For many applications, accurate time codes are not necessary for reasonably good performance (or</span>
+0040 <span class="comment">%   not worth the development burden). For some applications, accurate timing across streams is</span>
+0041 <span class="comment">%   essential (especially if the relative lags are significant and temporal structure across streams</span>
+0042 <span class="comment">%   is being used for predictions). In this case, the time codes should be reasonably precise</span>
+0043 <span class="comment">%   estimates of the time stamp of the last sample, in a time domain that is the same across all</span>
+0044 <span class="comment">%   streams that are being used by a given predictor. This can be seconds since startup, or, for</span>
+0045 <span class="comment">%   example, the estimated (negative) age of the sample.</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">% Examples:</span>
+0048 <span class="comment">%   % get a chunk of new data from a device and append it to a (previously created) online stream</span>
+0049 <span class="comment">%   mychunk = get_data_from_device();</span>
+0050 <span class="comment">%   onl_append('mystream',mychunk);</span>
+0051 <span class="comment">%</span>
+0052 <span class="comment">%   % append both a 32-channel/1000-sample chunk and 3 markers</span>
+0053 <span class="comment">%   mychunk = randn(32,1000);</span>
+0054 <span class="comment">%   mymarkers = struct('type',{'test','sdfsdf','asd'},'latency',{10,300,801.5});</span>
+0055 <span class="comment">%   onl_append('mystream',mychunk,mymarkers);</span>
+0056 <span class="comment">%</span>
+0057 <span class="comment">% See also:</span>
+0058 <span class="comment">%   onl_newstream, onl_newpredictor, onl_predict</span>
+0059 <span class="comment">%</span>
+0060 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0061 <span class="comment">%                                2010-04-03</span>
+0062 
+0063 max_simultaneous_markers = 1000; <span class="comment">% note: this constant must equal the one in onl_newstream</span>
+0064 
+0065 <span class="keyword">try</span>
+0066     <span class="keyword">if</span> isempty(chunk)
+0067         <span class="keyword">return</span>; <span class="keyword">end</span>
+0068     
+0069     <span class="comment">% append markers</span>
+0070     <span class="keyword">if</span> nargin&gt;3 || (nargin==3 &amp;&amp; isstruct(markers) &amp;&amp; ~isempty(markers))        
+0071         <span class="comment">% create a sparse index array for the markers that can be streamed efficiently</span>
+0072         [marker_pos,residual] = sparse_binning(max(0.5,min(size(chunk,2)+0.5,[markers.latency])),max_simultaneous_markers,size(chunk,2));
+0073         <span class="comment">% rewrite the marker latency into fractional offset relative to the marker index</span>
+0074         [markers.latency] = arraydeal(residual);
+0075         <span class="comment">% append the marker chunk to the marker buffer</span>
+0076         <a href="#_sub1" class="code" title="subfunction perform_update(streamname,dataname,datavalue,code)">perform_update</a>(name,<span class="string">'marker_chunk'</span>,markers, <span class="keyword">...</span>
+0077             [<span class="string">'try\n'</span> <span class="keyword">...</span>
+0078             <span class="string">'    X.marker_buffer(:,1+mod(X.mmax:X.mmax+size(X_marker_chunk,2)-1,X.marker_buffer_len)) = X_marker_chunk;\n'</span> <span class="keyword">...</span>
+0079             <span class="string">'catch e\n'</span> <span class="keyword">...</span>
+0080             <span class="string">'    if any(strcmp(e.identifier,{''MATLAB:heterogeneousStrucAssignment'',''MATLAB:heterogenousStrucAssignment''}))\n'</span> <span class="keyword">...</span>
+0081             <span class="string">'        X.marker_buffer = X_marker_chunk(ones(1,X.marker_buffer_len));\n'</span> <span class="keyword">...</span>
+0082             <span class="string">'        X.marker_buffer(:,1+mod(X.mmax:X.mmax+size(X_marker_chunk,2)-1,X.marker_buffer_len)) = X_marker_chunk;\n'</span> <span class="keyword">...</span>
+0083             <span class="string">'    else\n'</span> <span class="keyword">...</span>
+0084             <span class="string">'        rethrow(e);\n'</span> <span class="keyword">...</span>
+0085             <span class="string">'    end\n'</span> <span class="keyword">...</span>
+0086             <span class="string">'end'</span>]);
+0087         <span class="comment">% append the marker positions</span>
+0088         <a href="#_sub1" class="code" title="subfunction perform_update(streamname,dataname,datavalue,code)">perform_update</a>(name,<span class="string">'marker_pos'</span>,marker_pos, [<span class="keyword">...</span>
+0089             <span class="string">'X.marker_pos(:,1+mod(X.smax:X.smax+size(X_marker_pos,2)-1,X.buffer_len)) = X_marker_pos+logical(X_marker_pos)*X.mmax;\n'</span><span class="keyword">...</span>
+0090             <span class="string">'X.mmax = X.mmax + nnz(X_marker_pos);'</span>]);
+0091         <span class="comment">% append data chunk</span>
+0092         <a href="#_sub1" class="code" title="subfunction perform_update(streamname,dataname,datavalue,code)">perform_update</a>(name,<span class="string">'chunk'</span>,chunk,[<span class="keyword">...</span>
+0093             <span class="string">'X.buffer(:,1+mod(X.smax:X.smax+size(X_chunk,2)-1,X.buffer_len)) = X_chunk;\n'</span> <span class="keyword">...</span>
+0094             <span class="string">'X.smax = X.smax + size(X_chunk,2);'</span>]);
+0095     <span class="keyword">else</span>
+0096         <span class="comment">% append data chunk and clear marker positions in the range</span>
+0097         <a href="#_sub1" class="code" title="subfunction perform_update(streamname,dataname,datavalue,code)">perform_update</a>(name,<span class="string">'chunk_clr'</span>,chunk,[<span class="keyword">...</span>
+0098             <span class="string">'X_range = 1+mod(X.smax:X.smax+size(X_chunk_clr,2)-1,X.buffer_len);\n'</span> <span class="keyword">...</span>
+0099             <span class="string">'X.marker_pos(:,X_range) = 0;\n'</span> <span class="keyword">...</span><span class="comment">.</span>
+0100             <span class="string">'X.buffer(:,X_range) = X_chunk_clr;\n'</span> <span class="keyword">...</span>
+0101             <span class="string">'X.smax = X.smax + size(X_chunk_clr,2);'</span>]);
+0102     <span class="keyword">end</span>
+0103 
+0104     <span class="comment">% update time stamps</span>
+0105     <span class="keyword">if</span> (nargin==3 &amp;&amp; isnumeric(markers)) || nargin&gt;3
+0106         <span class="keyword">if</span> nargin == 3
+0107             stamp = markers; 
+0108             clear markers;
+0109         <span class="keyword">end</span>
+0110         <span class="keyword">if</span> isempty(stamp)
+0111             <span class="keyword">return</span>; <span class="keyword">end</span>
+0112         <a href="#_sub1" class="code" title="subfunction perform_update(streamname,dataname,datavalue,code)">perform_update</a>(name,<span class="string">'stamp'</span>,stamp,[<span class="keyword">...</span>
+0113             <span class="keyword">...</span><span class="comment"> % insert timestamp at the end if the buffer (contains the time in timestamp domain and in</span>
+0114             <span class="keyword">...</span><span class="comment"> % 0-based stream time domain)</span>
+0115             <span class="string">'X.tmax = 1+mod(X.tmax,X.timestamps_len-1);'</span> <span class="keyword">...</span>
+0116             <span class="string">'X.timestamps(X.tmax,:) = [X_stamp X.smax/X.srate];'</span> <span class="keyword">...</span>
+0117             <span class="keyword">...</span><span class="comment"> % estimate time lag (offset of time stamp time relative to 0-based stream time)</span>
+0118             <span class="string">'X.lag = sum(X.timestamps(:,1) - X.timestamps(:,2))/nnz(X.timestamps(:,2));'</span> <span class="keyword">...</span>
+0119             <span class="keyword">...</span><span class="comment"> % derive xmin/xmax in the time stamp domain</span>
+0120             <span class="string">'[X.xmin,X.xmax] = deal((1+max(0,X.smax-X.buffer_len))/X.srate + X.lag,X.smax/X.srate + X.lag);'</span>]);
+0121     <span class="keyword">end</span>
+0122 <span class="keyword">catch</span> e
+0123     <span class="comment">% diagnose the error</span>
+0124     <span class="keyword">try</span>        
+0125         <span class="comment">% validate name argument</span>
+0126         <span class="keyword">if</span> nargin &lt; 2
+0127             error(<span class="string">'At least the Name and Chunk argument must be given to onl_append.'</span>); <span class="keyword">end</span>
+0128         <span class="keyword">if</span> ~ischar(name) || ~isempty(name)
+0129             error(<span class="string">'The given Name argument must be a string that refers to a variable in the MATLAB workspace, but was: %s'</span>,hlp_tostring(name,10000)); <span class="keyword">end</span>
+0130         <span class="keyword">if</span> ~isvarname(name)
+0131             error(<span class="string">'The given Name argument must be a valid variable name in the MATLAB workspace, but was: %s'</span>,name); <span class="keyword">end</span>        
+0132         <span class="keyword">try</span>
+0133             stream = evalin(<span class="string">'base'</span>,name);
+0134         <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0135             error(<span class="string">'A stream named %s does not exist in the MATLAB workspace.'</span>,name);
+0136         <span class="keyword">end</span>
+0137 
+0138         <span class="comment">% validate chunk argument</span>
+0139         <span class="keyword">if</span> ndims(chunk) ~= 2 <span class="comment">%#ok&lt;ISMAT&gt;</span>
+0140             error(<span class="string">'The given Chunk argument must be a [#Channels x #Samples] matrix, but was: %s'</span>,hlp_tostring(chunk,10000)); <span class="keyword">end</span>
+0141         <span class="keyword">if</span> ~isnumeric(chunk)
+0142             error(<span class="string">'The given Chunk argument must be a numeric matrix, but was: %s'</span>,hlp_tostring(chunk,10000)); <span class="keyword">end</span>
+0143         
+0144         <span class="comment">% validate stream fields</span>
+0145         <span class="keyword">if</span> ~isstruct(stream) || ~isscalar(stream)
+0146             error(<span class="string">'The stream %s is not a 1x1 struct, but was: %s. It might have been overwritten by another function or you use the wrong stream name.'</span>,name,hlp_tostring(stream,10000)); <span class="keyword">end</span>
+0147         <span class="keyword">if</span> ~isfield(stream,<span class="string">'buffer'</span>)
+0148             error(<span class="string">'The stream %s has no .buffer field. It might have been overwritten by another function or you use the wrong stream name.'</span>,name); <span class="keyword">end</span>
+0149         <span class="keyword">if</span> ~isnumeric(stream.buffer)
+0150             error(<span class="string">'The stream %s has an invalid buffer. It might have been overwritten by another function or you use the wrong stream name.'</span>,name); <span class="keyword">end</span>
+0151         <span class="keyword">if</span> ~isfield(stream,<span class="string">'buffer_len'</span>)
+0152             error(<span class="string">'The stream %s has no buffer_len field. It might have been overwritten by another function or you use the wrong stream name.'</span>,name); <span class="keyword">end</span>
+0153         <span class="keyword">if</span> ~isscalar(stream.buffer_len) || ~isnumeric(stream.buffer_len)
+0154             error(<span class="string">'The stream %s has an invalid buffer_len field. It might have been overwritten by another function or you use the wrong stream name.'</span>,name); <span class="keyword">end</span>
+0155         <span class="keyword">if</span> size(stream.buffer,2) ~= stream.buffer_len
+0156             error(<span class="string">'The stream %s has a buffer with an invalid length. It might have been overwritten by another function or you use the wrong stream name.'</span>,name); <span class="keyword">end</span>
+0157         <span class="keyword">if</span> ~isfield(stream,<span class="string">'smax'</span>)
+0158             error(<span class="string">'The stream %s has no smax field. It might have been overwritten by another function or you use the wrong stream name.'</span>,name); <span class="keyword">end</span>
+0159         <span class="keyword">if</span> ~isscalar(stream.smax) || ~isnumeric(stream.smax)
+0160             error(<span class="string">'The stream %s has an invalid smax field. It might have been overwritten by another function or you use the wrong stream name.'</span>,name); <span class="keyword">end</span>
+0161         <span class="keyword">if</span> size(stream.buffer,1) ~= size(chunk,1)
+0162             error(<span class="string">'Number of channels in the supplied chunk (%i) does not match the number of channels / channel names in the stream (%i).'</span>,size(chunk,1),size(stream.buffer,1)); <span class="keyword">end</span>
+0163         <span class="keyword">if</span> ~isfield(stream,<span class="string">'marker_pos'</span>)
+0164             error(<span class="string">'The stream %s has no marker_pos field. It might have been overwritten by another function or you use the wrong stream name.'</span>,name); <span class="keyword">end</span>
+0165         
+0166         <span class="comment">% validate marker-related properties</span>
+0167         <span class="keyword">if</span> exist(<span class="string">'markers'</span>,<span class="string">'var'</span>)
+0168             <span class="comment">% validate markers argument</span>
+0169             <span class="keyword">if</span> ~(isequal(markers,[]) || isstruct(markers))
+0170                 error(<span class="string">'The given Markers argument must be either [] or a struct array, but was: %s'</span>,hlp_tostring(markers,10000)); <span class="keyword">end</span>
+0171             <span class="keyword">if</span> ~isempty(markers) 
+0172                 <span class="keyword">if</span> ~isfield(markers,<span class="string">'type'</span>)
+0173                     error(<span class="string">'The given Markers array is lacking the required .type field.'</span>); <span class="keyword">end</span>
+0174                 <span class="keyword">if</span> ~isfield(markers,<span class="string">'latency'</span>)
+0175                     error(<span class="string">'The given Markers array is lacking the required .latency field.'</span>); <span class="keyword">end</span>
+0176             <span class="keyword">end</span>
+0177             <span class="comment">% validate stream fields</span>
+0178             <span class="keyword">if</span> ~isfield(stream,<span class="string">'mmax'</span>)
+0179                 error(<span class="string">'The stream %s has no mmax field. It might have been overwritten by another function or you use the wrong stream name.'</span>,name); <span class="keyword">end</span>
+0180             <span class="keyword">if</span> ~isfield(stream,<span class="string">'marker_buffer'</span>)
+0181                 error(<span class="string">'The stream %s has no marker_buffer field. It might have been overwritten by another function or you use the wrong stream name.'</span>,name); <span class="keyword">end</span>
+0182             <span class="keyword">if</span> ~isfield(stream,<span class="string">'marker_buffer_len'</span>)
+0183                 error(<span class="string">'The stream %s has no marker_buffer_len field. It might have been overwritten by another function or you use the wrong stream name.'</span>,name); <span class="keyword">end</span>            
+0184         <span class="keyword">end</span>
+0185         
+0186         <span class="comment">% validate timestamp-related properties</span>
+0187         <span class="keyword">if</span> exist(<span class="string">'stamp'</span>,<span class="string">'var'</span>)
+0188             <span class="comment">% validate stamp argument</span>
+0189             <span class="keyword">if</span> ~isnumeric(stamp) || ~isscalar(stamp)
+0190                 error(<span class="string">'The given Timestamp argument must be a scalar numeric value, but was: %s'</span>,hlp_tostring(stamp,10000)); <span class="keyword">end</span>
+0191             <span class="comment">% validate stream fields</span>
+0192             <span class="keyword">if</span> ~isfield(stream,<span class="string">'tmax'</span>)
+0193                 error(<span class="string">'The stream %s has no tmax field. It might have been overwritten by another function or you use the wrong stream name.'</span>,name); <span class="keyword">end</span>
+0194             <span class="keyword">if</span> ~isfield(stream,<span class="string">'timestamps'</span>)
+0195                 error(<span class="string">'The stream %s has no timestamps field. It might have been overwritten by another function or you use the wrong stream name.'</span>,name); <span class="keyword">end</span>
+0196             <span class="keyword">if</span> ~isfield(stream,<span class="string">'timestamps_len'</span>)
+0197                 error(<span class="string">'The stream %s has no timestamps_len field. It might have been overwritten by another function or you use the wrong stream name.'</span>,name); <span class="keyword">end</span>
+0198             <span class="keyword">if</span> ~isfield(stream,<span class="string">'srate'</span>)
+0199                 error(<span class="string">'The stream %s has no srate field. It might have been overwritten by another function or you use the wrong stream name.'</span>,name); <span class="keyword">end</span>
+0200         <span class="keyword">end</span>
+0201         <span class="comment">% unknown error</span>
+0202         rethrow(hlp_handleerror(e));
+0203     <span class="keyword">catch</span> e
+0204         disp(sprintf(<span class="string">'onl_append error: %s'</span>,e.message));
+0205     <span class="keyword">end</span>
+0206 <span class="keyword">end</span>
+0207 
+0208 
+0209 <a name="_sub1" href="#_subfunctions" class="code">function perform_update(streamname,dataname,datavalue,code)</a>
+0210 <span class="keyword">persistent</span> cannot_script;
+0211 <span class="comment">% put the data into the workspace</span>
+0212 assignin(<span class="string">'base'</span>,[streamname <span class="string">'_'</span> dataname],datavalue);
+0213 <span class="keyword">if</span> cannot_script
+0214     <span class="comment">% if we previously determined that we cannot work with scripts for some reason,</span>
+0215     <span class="comment">% we run the code directly (at some performance cost)</span>
+0216     evalin(<span class="string">'base'</span>,strrep(sprintf(code),<span class="string">'X'</span>,streamname));
+0217 <span class="keyword">else</span>
+0218     <span class="keyword">try</span>
+0219         <span class="comment">% try to run an auto-generated script for this stream and data value (saving interpreter</span>
+0220         <span class="comment">% time over running the code directly)</span>
+0221         scriptname = [<span class="string">'update__'</span> streamname <span class="string">'_'</span> dataname];
+0222         evalin(<span class="string">'base'</span>,scriptname);
+0223     <span class="keyword">catch</span> e
+0224         code = strrep(sprintf(code),<span class="string">'X'</span>,streamname);
+0225         <span class="keyword">if</span> ~exist(scriptname,<span class="string">'file'</span>)
+0226             <span class="comment">% try to create the script if it doesn't exist</span>
+0227             <span class="keyword">try</span>                
+0228                 filename = env_translatepath([<span class="string">'functions:/temp/'</span> scriptname <span class="string">'.m'</span>]);
+0229                 f = fopen(filename,<span class="string">'w+'</span>);
+0230                 fprintf(f,code);
+0231                 fclose(f);
+0232                 rehash;
+0233             <span class="keyword">catch</span> e
+0234                 cannot_script = true;
+0235                 warning(<span class="string">'BCILAB:cannot_create_script'</span>,<span class="string">'Could not create script &quot;%s&quot; (error message: %s); please make sure that you have write permission in that folder.'</span>,filename,e.message);
+0236                 evalin(<span class="string">'base'</span>,code);
+0237                 <span class="keyword">return</span>;
+0238             <span class="keyword">end</span>
+0239             <span class="comment">% then try to run the newly created script</span>
+0240             <span class="keyword">try</span>
+0241                 evalin(<span class="string">'base'</span>,scriptname);
+0242             <span class="keyword">catch</span> e
+0243                 <span class="keyword">if</span> strcmp(e.identifier,<span class="string">'MATLAB:UndefinedFunction'</span>)
+0244                     cannot_script = true;
+0245                     evalin(<span class="string">'base'</span>,code);
+0246                 <span class="keyword">else</span>
+0247                     rethrow(e);
+0248                 <span class="keyword">end</span>
+0249             <span class="keyword">end</span>
+0250         <span class="keyword">else</span>
+0251             rethrow(e);
+0252         <span class="keyword">end</span>
+0253     <span class="keyword">end</span>
+0254 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

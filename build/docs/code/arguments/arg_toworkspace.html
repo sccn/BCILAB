@@ -18,31 +18,52 @@
 <td align="right"><a href="index.html">Index for code/arguments&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>arg_toworkspace
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="box"><strong>Copy the arguments in the given Struct into the workspace of the calling function.</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>function arg_toworkspace(args) </strong></div>
+<div class="box"><strong>function varargout = arg_toworkspace(s) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre class="comment"> Copy the arguments in the given Struct into the workspace of the calling function. 
- arg_toworkspace(Struct)
+ Outputs... = arg_toworkspace(Struct)
+
+ This function can be used to populate the function's workspace with fields of a struct, and
+ optionally allows to assign the first k fields of the struct to explicitly named output variables.
+ For all other fields variables with the same name as the field are created implicitly in the
+ function's workspace by arg_toworkspace.
+
+ Using explicit names and return values allows to work around situations where MATLAB &quot;doesn't
+ realize&quot; that a given variable has been written to the workspace and accidentally looks up the
+ identifier from the MATLAB path (e.g., a function with the same name). The latter issue is
+ explained in online posts about &quot;poofing&quot; variables into the workspace.
 
  In:
    Struct : an argument structure, as produced by arg_define
 
+ Out:
+   Outputs... : optional output arguments that shall receive the first k fields in the Struct
+                all remaining fields are written into the workspace by their name.
+
  Examples:
    function myfunction(varargin)
    opts = arg_define(varargin, ...
-               arg(...), ...
-               arg(...));
+               arg('myarg1',...), ...
+               arg('myarg2',...), ...
+               arg('myarg3',...));
 
+   % copy all args into the workspace
    arg_toworkspace(opts);
 
+   % alternative: accept the first two arguments (myarg1,myarg2) into variables named myfirstarg, 
+   % and mysecondarg, copy the rest into the workspace by name (myarg3)
+   [myfirstarg,mysecondarg] = arg_toworkspace(opts);
+
  See also:
-   <a href="arg_define.html" class="code" title="function res = arg_define(vals,varargin)">arg_define</a>
+   <a href="arg_define.html" class="code" title="function outstruct = arg_define(vals,varargin)">arg_define</a>
 
                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                                 2010-09-24</pre></div>
@@ -51,53 +72,87 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
 
 
+
+
+
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function arg_toworkspace(args)</a>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function varargout = arg_toworkspace(s)</a>
 0002 <span class="comment">% Copy the arguments in the given Struct into the workspace of the calling function.</span>
-0003 <span class="comment">% arg_toworkspace(Struct)</span>
+0003 <span class="comment">% Outputs... = arg_toworkspace(Struct)</span>
 0004 <span class="comment">%</span>
-0005 <span class="comment">% In:</span>
-0006 <span class="comment">%   Struct : an argument structure, as produced by arg_define</span>
-0007 <span class="comment">%</span>
-0008 <span class="comment">% Examples:</span>
-0009 <span class="comment">%   function myfunction(varargin)</span>
-0010 <span class="comment">%   opts = arg_define(varargin, ...</span>
-0011 <span class="comment">%               arg(...), ...</span>
-0012 <span class="comment">%               arg(...));</span>
-0013 <span class="comment">%</span>
-0014 <span class="comment">%   arg_toworkspace(opts);</span>
-0015 <span class="comment">%</span>
-0016 <span class="comment">% See also:</span>
-0017 <span class="comment">%   arg_define</span>
-0018 <span class="comment">%</span>
-0019 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0020 <span class="comment">%                                2010-09-24</span>
-0021 
-0022 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
-0023 <span class="comment">%</span>
-0024 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
-0025 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
-0026 <span class="comment">% License, or (at your option) any later version.</span>
-0027 <span class="comment">%</span>
-0028 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
-0029 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
-0030 <span class="comment">% General Public License for more details.</span>
+0005 <span class="comment">% This function can be used to populate the function's workspace with fields of a struct, and</span>
+0006 <span class="comment">% optionally allows to assign the first k fields of the struct to explicitly named output variables.</span>
+0007 <span class="comment">% For all other fields variables with the same name as the field are created implicitly in the</span>
+0008 <span class="comment">% function's workspace by arg_toworkspace.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% Using explicit names and return values allows to work around situations where MATLAB &quot;doesn't</span>
+0011 <span class="comment">% realize&quot; that a given variable has been written to the workspace and accidentally looks up the</span>
+0012 <span class="comment">% identifier from the MATLAB path (e.g., a function with the same name). The latter issue is</span>
+0013 <span class="comment">% explained in online posts about &quot;poofing&quot; variables into the workspace.</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">% In:</span>
+0016 <span class="comment">%   Struct : an argument structure, as produced by arg_define</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">% Out:</span>
+0019 <span class="comment">%   Outputs... : optional output arguments that shall receive the first k fields in the Struct</span>
+0020 <span class="comment">%                all remaining fields are written into the workspace by their name.</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">% Examples:</span>
+0023 <span class="comment">%   function myfunction(varargin)</span>
+0024 <span class="comment">%   opts = arg_define(varargin, ...</span>
+0025 <span class="comment">%               arg('myarg1',...), ...</span>
+0026 <span class="comment">%               arg('myarg2',...), ...</span>
+0027 <span class="comment">%               arg('myarg3',...));</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">%   % copy all args into the workspace</span>
+0030 <span class="comment">%   arg_toworkspace(opts);</span>
 0031 <span class="comment">%</span>
-0032 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
-0033 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
-0034 <span class="comment">% USA</span>
-0035 
-0036 <span class="comment">% place the variables in the caller's workspace</span>
-0037 <span class="keyword">for</span> fn=fieldnames(args)'
-0038     assignin(<span class="string">'caller'</span>,fn{1},args.(fn{1})); <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0032 <span class="comment">%   % alternative: accept the first two arguments (myarg1,myarg2) into variables named myfirstarg,</span>
+0033 <span class="comment">%   % and mysecondarg, copy the rest into the workspace by name (myarg3)</span>
+0034 <span class="comment">%   [myfirstarg,mysecondarg] = arg_toworkspace(opts);</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">% See also:</span>
+0037 <span class="comment">%   arg_define</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0040 <span class="comment">%                                2010-09-24</span>
+0041 
+0042 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0045 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0046 <span class="comment">% License, or (at your option) any later version.</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0049 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0050 <span class="comment">% General Public License for more details.</span>
+0051 <span class="comment">%</span>
+0052 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0053 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0054 <span class="comment">% USA</span>
+0055 
+0056 
+0057 <span class="comment">% assign the first k arguments to the given output variables</span>
+0058 <span class="keyword">if</span> nargout &gt; 0
+0059     fields = struct2cell(s);
+0060     varargout(1:nargout) = fields(1:nargout);
+0061 <span class="keyword">end</span>
+0062 
+0063 <span class="comment">% place all remaining variables in the workspace by their name</span>
+0064 fnames = fieldnames(s);
+0065 <span class="keyword">for</span> fn=fnames(nargout+1:end)'
+0066     assignin(<span class="string">'caller'</span>,fn{1},s.(fn{1})); <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

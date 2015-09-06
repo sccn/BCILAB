@@ -128,6 +128,8 @@ function model = ml_traindal(varargin)
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-06-25
 
+expose_handles(@process_fold,varargin{:});
+
 arg_define([0 3],varargin, ...
     arg_norep('trials'), ...
     arg_norep('targets'), ...
@@ -143,6 +145,8 @@ arg_define([0 3],varargin, ...
     arg({'verbose','Verbose'},false,[],'Show diagnostic output.'), ...
     arg({'solver','Solver'},'conjugate gradient',{'conjugate gradient','quasi-Newton','cg','qn'},'Solution method. These differ in robustness, speed and memory requirements.'),...
     arg({'votingScheme','VotingScheme'},'1vR',{'1v1','1vR'},'Voting scheme. If multi-class classification is used, this determine how binary classifiers are arranged to solve the multi-class problem. 1v1 gets slow for large numbers of classes (as all pairs are tested), but can be more accurate than 1vR.'), ...
+    arg({'parallel_scope','ParallelScope'},[],[],'Optional parallel scope. If this is a cell array of name-value pairs, cluster resources will be acquired with these options for the duration of bci_train (and released thereafter) Options as in env_acquire_cluster.','type','expression'), ...
+    arg({'engine_cv','ParallelEngine','engine'},'global',{'global','local','BLS','Reference','ParallelComputingToolbox'}, 'Parallel engine to use. This can either be one of the supported parallel engines (BLS for BCILAB Scheduler, Reference for a local reference implementation, and ParallelComputingToolbox for a PCT-based implementation), or local to skip parallelization altogether, or global to select the currently globally selected setting (in the global tracking variable).'), ...
     arg_deprecated({'doinspect','InspectMode'},false,[],'Inspection Mode. Not used any more -- use a breakpoint instead.'));
 
 
@@ -158,7 +162,7 @@ else
     
     % get the correct feature matrix shape
     vectorize_trials = false;
-    if isempty(shape) %#ok<*NODEF>
+    if isempty(shape) 
         if ndims(trials) == 3
             shape = [size(trials,1) size(trials,2)];
             % ... also make sure that the trials are vectorized
@@ -256,50 +260,18 @@ else
     if length(lambdas) > 1        
         % cross-validate to score the lambda's
         foldid = 1+floor((0:length(targets)-1)/length(targets)*nfolds); 
-        reptargets = repmat(targets,1,length(lambdas));
-        predictions = zeros(length(targets),length(lambdas));
-        % for each fold...
-        for i = 1:nfolds
-            if verbose
-                disp(['Fitting fold # ' num2str(i) ' of ' num2str(nfolds)]); end
-            
-            % determine training and test set indices
-            which = foldid==i;
-            trainids = ~which;
-            whichpos = find(which);
-            for j=1:foldmargin
-                trainids(max(1,whichpos-j)) = false;
-                trainids(min(length(which),whichpos+j)) = false;
-            end
-            
-            % learn an ensemble of models...
-            subensemble = hlp_diskcache('predictivemodels',@learn_ensemble,learner,lambdas,shape,trials(trainids,:),targets(trainids),solver,loss,verbose,regularizer);
-            
-            % obtain test-set predictions for each model...
-            testset = [trials(which,:) ones(length(whichpos),1)];
-            for m=1:length(subensemble)
-                curmodel = subensemble{m};
-                w = full([curmodel.w(:); curmodel.b]);
-                predictions(which,m) = (testset*w)';
-            end
-            if strcmp(loss,'logistic')
-                predictions(which,:) = 2*(1 ./ (1 + exp(-predictions(which,:))))-1; end
-
-            % evaluate the loss
-            if isempty(cvmetric)
-                if strcmp(loss,'logistic')
-                    loss_mean(i,:) = mean(reptargets(which,:) ~= sign(predictions(which,:)));
-                else
-                    loss_mean(i,:) = mean((reptargets(which,:) - predictions(which,:)).^2);
-                end
-            else
-                for r=1:length(lambdas)
-                    loss_mean(i,r) = ml_calcloss(cvmetric,reptargets(which,r),predictions(which,r)); end
-            end
-        end
+        % generate parallel cross-validation tasks
+        for f = nfolds:-1:1
+            tasks{f} = {@hlp_wrapresults,@process_fold,f,nfolds,foldid==f,foldmargin,cvmetric,learner,lambdas,shape,trials,targets,solver,loss,verbose,regularizer}; end        
+        % run tasks & consolidate results
+        results = par_schedule(tasks, 'scope', parallel_scope);        
+        results = vertcat(results{:});
+        predictions = vertcat(results{:,1});
+        loss_mean = vertcat(results{:,2});
         loss_mean = mean(loss_mean,1);
 
         % legacy losses output
+        reptargets = repmat(targets,1,length(lambdas));
         if strcmp(loss,'logistic')
             losses = reptargets ~= sign(predictions);
         else
@@ -324,6 +296,45 @@ else
     model.ensemble = ensemble;
     model.losses = losses;
     model.vectorize = vectorize_trials;
+end
+
+
+function [predictions,loss_mean] = process_fold(f,nfolds,testmask,foldmargin,cvmetric,learner,lambdas,shape,trials,targets,solver,loss,verbose,regularizer)
+if verbose
+    disp(['Fitting fold # ' num2str(f) ' of ' num2str(nfolds)]); end
+
+% determine training and test set indices
+trainids = ~testmask;
+whichpos = find(testmask);
+for j=1:foldmargin
+    trainids(max(1,whichpos-j)) = false;
+    trainids(min(length(testmask),whichpos+j)) = false;
+end
+
+% learn an ensemble of models...
+subensemble = hlp_diskcache('predictivemodels',@learn_ensemble,learner,lambdas,shape,trials(trainids,:),targets(trainids),solver,loss,verbose,regularizer);
+
+% obtain test-set predictions for each model...
+testset = [trials(testmask,:) ones(length(whichpos),1)];
+for m=length(subensemble):-1:1
+    curmodel = subensemble{m};
+    w = full([curmodel.w(:); curmodel.b]);
+    predictions(:,m) = (testset*w)';
+end
+if strcmp(loss,'logistic')
+    predictions = 2*(1 ./ (1 + exp(-predictions)))-1; end
+
+% evaluate the loss
+reptargets = repmat(targets,1,length(lambdas));
+if isempty(cvmetric)
+    if strcmp(loss,'logistic')
+        loss_mean = mean(reptargets(testmask,:) ~= sign(predictions));
+    else
+        loss_mean = mean((reptargets(testmask,:) - predictions).^2);
+    end
+else
+    for r=length(lambdas):-1:1
+        loss_mean(r) = ml_calcloss(cvmetric,reptargets(testmask,r),predictions(r)); end
 end
 
 

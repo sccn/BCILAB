@@ -92,6 +92,8 @@ function env_startup(varargin)
 %                          which lets the toolbox act as a commandline-less worker (waiting to 
 %                          receive jobs over the network) (default: false)
 %
+%               'workflow' : "workflow" script to auto-launch upon startup (default: '')
+%
 %               --- misc settings ---
 %
 %               'menu' : create a menu bar (default: true) -- if this is set to 'separate', the BCILAB
@@ -115,6 +117,8 @@ function env_startup(varargin)
 %
 %               'disabled_caches' : cell array of disabled disk caches; see hlp_diskcache lines at
 %                                   the bottom of this file for available caches (default: {})
+%
+%               'temp_fileformat' : file format for BCILAB's temporary files (default: 'sto')
 %
 %
 % Examples:
@@ -192,6 +196,9 @@ resource_dir = [base_dir 'resources'];
 script_dir = [base_dir 'userscripts'];
 build_dir = [base_dir 'build'];
 
+% note: if you want other paths to work with utl_whichfile you need to append them to this cell array;
+% if they are in dependencies, it's best to make it something like [dependency_dir filesep 'mytoolbox-x.y'],
+toolbox_dirs = {function_dir, [dependency_dir filesep 'SIFT-private']};
         
 % add them all to the MATLAB path (except for dependencies, which are loaded separately)
 if ~isdeployed
@@ -235,7 +242,8 @@ if hlp_matlab_version < 706
 % get options
 opts = hlp_varargin2struct(varargin,'data',[],'store',[],'cache',[],'temp',[],'private',[],'mem_capacity',2,'data_reuses',3, ...
     'parallel',{'use','local'}, 'menu',true, 'configscript','', 'worker',false, 'autocompile',true, 'acquire_method','SSH', 'acquire_options',{}, ...
-    'autokill_workers',true,'show_experimental',false,'show_guru',false,'fingerprinting',true,'disabled_caches',{});
+    'autokill_workers',true,'show_experimental',false,'show_guru',false,'fingerprinting',true,'disabled_caches',{}, ...
+    'temp_fileformat','sto','workflow','');
 
 % load all dependencies, recursively...
 disp('Loading BCILAB dependencies...');
@@ -325,7 +333,8 @@ end
 
 % set global variables
 global tracking
-tracking.paths = struct('bcilab_path',{base_dir(1:end-1)}, 'function_path',{function_dir}, 'data_paths',{opts.data}, 'store_path',{opts.store}, 'dependency_path',{dependency_dir},'resource_path',{resource_dir},'temp_path',{opts.temp}, 'private_path',{opts.private});
+tracking.paths = struct('bcilab_path',{base_dir(1:end-1)}, 'function_path',{function_dir}, 'data_paths',{opts.data}, 'store_path',{opts.store}, 'dependency_path',{dependency_dir}, ...
+                        'resource_path',{resource_dir},'temp_path',{opts.temp}, 'private_path',{opts.private}, 'toolboxes',{toolbox_dirs});
 for d=1:length(opts.cache)
     location = rmfield(opts.cache{d},'tag');
     % convert GiB to bytes
@@ -397,6 +406,7 @@ tracking.configscript = opts.configscript;
 % set GUI settings
 tracking.gui.show_experimental = opts.show_experimental;
 tracking.gui.show_guru = opts.show_guru;
+tracking.temp_fileformat = opts.temp_fileformat;
 try
     cd(script_dir);
 catch
@@ -479,6 +489,7 @@ warning off MATLAB:structOnObject
 warning off MATLAB:log:logOfZero
 warning off MATLAB:divideByZero %#ok<RMWRN>
 warning off MATLAB:RandStream:ReadingInactiveLegacyGeneratorState % for GMMs....
+warning off MATLAB:catenate:DimensionMismatch % for hlp_summarize -- TODO: fix once feature removed
 
 if isequal(opts.worker,false) || isequal(opts.worker,0)
     % --- regular mode ---   
@@ -607,6 +618,10 @@ else
     % start!
     par_worker(opts.worker{:});
 end
+
+% optionally launch the given workflow script
+if ~isempty(opts.workflow)
+    run_script(opts.workflow); end
 
 try
     % pretend to invoke the dependency list so that the compiler finds it...

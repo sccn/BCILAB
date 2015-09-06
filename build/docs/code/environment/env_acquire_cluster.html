@@ -18,16 +18,18 @@
 <td align="right"><a href="index.html">Index for code/environment&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>env_acquire_cluster
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="box"><strong>Acquire a cluster using the currently configured acquire options.</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>function env_acquire_cluster </strong></div>
+<div class="box"><strong>function needs_shutdown = env_acquire_cluster(varargin) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre class="comment"> Acquire a cluster using the currently configured acquire options.
+ env_acquire_cluster(Overrides...)
 
  The behavior of this function is governed by the configuration variable acquire_options that can
  be set either in the config file or in the &quot;Cluster Settings&quot; GUI dialog. Generally, this function
@@ -41,6 +43,15 @@
  The heartbeat signal can be disabled by calling env_release_cluster or pressing the &quot;request
  cluster availability&quot; button in the GUI toolbar for a second time.
 
+ In:
+   Overrides...: optionally override arguments for the cluster acquisition method (e.g.
+                  par_getworkers_ssh)
+
+   NoRelease : don't release workers after having acquired them
+
+ Out:
+   NeedsShutdown : whether the cluster shall be shut down via env_release_cluster
+
                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                                 2012-04-12</pre></div>
 
@@ -48,106 +59,155 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="env_handleerror.html" class="code" title="function varargout = env_handleerror(varargin)">env_handleerror</a>	Displays a formatted error message for some error object, including a full stack trace.</li></ul>
+
+<li><a href="env_handleerror.html" class="code" title="function varargout = env_handleerror(varargin)">env_handleerror</a>	Displays a formatted error message for some error object, including a full stack trace.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
+
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function send_heartbeat(timer_handle)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function send_heartbeat(timer_handle)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function env_acquire_cluster</a>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function needs_shutdown = env_acquire_cluster(varargin)</a>
 0002 <span class="comment">% Acquire a cluster using the currently configured acquire options.</span>
-0003 <span class="comment">%</span>
-0004 <span class="comment">% The behavior of this function is governed by the configuration variable acquire_options that can</span>
-0005 <span class="comment">% be set either in the config file or in the &quot;Cluster Settings&quot; GUI dialog. Generally, this function</span>
-0006 <span class="comment">% will (if supported by the OS), check which of the desired cluster resources are already up, and</span>
-0007 <span class="comment">% start what still needs to be started. There is no guarantee that the cluster resources actually</span>
-0008 <span class="comment">% start successfully (and don't crash, etc), the function just tries its best. After that, the</span>
-0009 <span class="comment">% function will start a &quot;heartbeat&quot; timer that periodically tells the cluster resources that it is</span>
-0010 <span class="comment">% still interested in keeping them alive. Depending on how the cluster was configured, it may shut</span>
-0011 <span class="comment">% down the resources after they are no longer needed (e.g., for cost reasons).</span>
-0012 <span class="comment">%</span>
-0013 <span class="comment">% The heartbeat signal can be disabled by calling env_release_cluster or pressing the &quot;request</span>
-0014 <span class="comment">% cluster availability&quot; button in the GUI toolbar for a second time.</span>
-0015 <span class="comment">%</span>
-0016 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0017 <span class="comment">%                                2012-04-12</span>
-0018 
-0019 <span class="keyword">global</span> tracking;
-0020 import java.io.*
-0021 import java.net.*
-0022 import java.lang.*
-0023 
-0024 <span class="comment">% interpret as cell array of arguments to par_getworkers_ssh</span>
-0025 arguments = tracking.acquire_options;
-0026 <span class="keyword">if</span> isempty(arguments)
-0027     disp(<span class="string">'No settings for acquiring the cluster have been specified, no startup command will be issued.'</span>); 
-0028 <span class="keyword">elseif</span> ~iscell(arguments)
-0029     disp(<span class="string">'The acquire_options parameter should be a cell array of name-value pairs which form arguments to par_getworkers_ssh.'</span>);
-0030 <span class="keyword">elseif</span> isunix
-0031     <span class="comment">% invoke, but also impose default arguments (if unspecified)</span>
-0032     <span class="comment">% by default, workers do not recruit (but only list) other workers, preventing a cascading effect</span>
-0033     <span class="keyword">try</span>
-0034         par_getworkers_ssh(arguments{:});
-0035     <span class="keyword">catch</span> e
-0036         disp(<span class="string">'Could not acquire worker machines; traceback: '</span>);
-0037         <a href="env_handleerror.html" class="code" title="function varargout = env_handleerror(varargin)">env_handleerror</a>(e);
-0038     <span class="keyword">end</span>
-0039 <span class="keyword">else</span>
-0040     disp(<span class="string">'Cannot automatically acquire hosts from a non-UNIX system.'</span>);
-0041 <span class="keyword">end</span>
-0042 
-0043 <span class="comment">% start the heartbeat timer</span>
-0044 <span class="keyword">if</span> ~isempty(tracking.parallel.pool)
-0045     fprintf(<span class="string">'Initiating heartbeat signal... '</span>);
-0046     tracking.cluster_requested = {};
-0047     <span class="comment">% for each endpoint in the pool...</span>
-0048     <span class="keyword">for</span> p=1:length(tracking.parallel.pool)
-0049         <span class="comment">% make a new socket</span>
-0050         sock = DatagramSocket();
-0051         <span class="comment">% and &quot;connect&quot; it to the worker endpoint (its heartbeat server)</span>
-0052         endpoint = hlp_split(tracking.parallel.pool{p},<span class="string">':'</span>);
-0053         sock.connect(InetSocketAddress(endpoint{1}, str2num(endpoint{2})));
-0054         tracking.cluster_requested{p} = sock;
-0055     <span class="keyword">end</span>
-0056     <span class="comment">% start a timer that sends the heartbeat (every 30 seconds)</span>
-0057     start(timer(<span class="string">'ExecutionMode'</span>,<span class="string">'fixedRate'</span>, <span class="string">'Name'</span>,<span class="string">'heartbeat_timer'</span>, <span class="string">'Period'</span>,15, <span class="keyword">...</span>
-0058         <span class="string">'TimerFcn'</span>,@(timer_handle,varargin)<a href="#_sub1" class="code" title="subfunction send_heartbeat(timer_handle)">send_heartbeat</a>(timer_handle)));
-0059     disp(<span class="string">'success.'</span>);
-0060 <span class="keyword">else</span>
-0061     tracking.cluster_requested = true;
-0062 <span class="keyword">end</span>
-0063 
-0064 <span class="comment">% called periodically to send heartbeat messages over the network</span>
-0065 <a name="_sub1" href="#_subfunctions" class="code">function send_heartbeat(timer_handle)</a>
-0066 import java.io.*
-0067 import java.net.*
-0068 import java.lang.*
-0069 <span class="keyword">global</span> tracking;
-0070 <span class="keyword">try</span>
-0071     <span class="keyword">if</span> ~isfield(tracking,<span class="string">'cluster_requested'</span>) || isempty(tracking.cluster_requested) || ~iscell(tracking.cluster_requested)
-0072         error(<span class="string">'ouch!'</span>); <span class="keyword">end</span>
-0073     
-0074     <span class="comment">% for each socket in the list of heartbeat sockets...</span>
-0075     <span class="keyword">for</span> p=1:length(tracking.cluster_requested)
-0076         <span class="keyword">try</span>
-0077             <span class="comment">% send the message</span>
-0078             tmp = DatagramPacket(uint8(<span class="string">'dsfjk45djf'</span>),10);
-0079             tracking.cluster_requested{p}.send(tmp);
-0080         <span class="keyword">catch</span> e
-0081             <span class="comment">% some socket problem: ignored.</span>
-0082         <span class="keyword">end</span>
-0083     <span class="keyword">end</span>
-0084 <span class="keyword">catch</span> e
-0085     <span class="comment">% issue (most likely the request has been cancelled) stop &amp; sdelete the heartbeat timer</span>
-0086     stop(timer_handle);
-0087     delete(timer_handle);
-0088     disp(<span class="string">'Heartbeat signal stopped.'</span>);
-0089 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0003 <span class="comment">% env_acquire_cluster(Overrides...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% The behavior of this function is governed by the configuration variable acquire_options that can</span>
+0006 <span class="comment">% be set either in the config file or in the &quot;Cluster Settings&quot; GUI dialog. Generally, this function</span>
+0007 <span class="comment">% will (if supported by the OS), check which of the desired cluster resources are already up, and</span>
+0008 <span class="comment">% start what still needs to be started. There is no guarantee that the cluster resources actually</span>
+0009 <span class="comment">% start successfully (and don't crash, etc), the function just tries its best. After that, the</span>
+0010 <span class="comment">% function will start a &quot;heartbeat&quot; timer that periodically tells the cluster resources that it is</span>
+0011 <span class="comment">% still interested in keeping them alive. Depending on how the cluster was configured, it may shut</span>
+0012 <span class="comment">% down the resources after they are no longer needed (e.g., for cost reasons).</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">% The heartbeat signal can be disabled by calling env_release_cluster or pressing the &quot;request</span>
+0015 <span class="comment">% cluster availability&quot; button in the GUI toolbar for a second time.</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">% In:</span>
+0018 <span class="comment">%   Overrides...: optionally override arguments for the cluster acquisition method (e.g.</span>
+0019 <span class="comment">%                  par_getworkers_ssh)</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   NoRelease : don't release workers after having acquired them</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">% Out:</span>
+0024 <span class="comment">%   NeedsShutdown : whether the cluster shall be shut down via env_release_cluster</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0027 <span class="comment">%                                2012-04-12</span>
+0028 
+0029 <span class="keyword">global</span> tracking;
+0030 import java.io.*
+0031 import java.net.*
+0032 import java.lang.*
+0033 
+0034 needs_shutdown = false;
+0035 no_release = false;
+0036 <span class="keyword">if</span> ~strcmp(par_globalsetting(<span class="string">'engine'</span>),<span class="string">'local'</span>)
+0037     disp(<span class="string">'env_acquire_cluster: cluster already running.'</span>);    
+0038 <span class="keyword">else</span>
+0039     <span class="comment">% interpret as cell array of arguments to par_getworkers_ssh</span>
+0040     opts = hlp_varargin2struct(varargin,tracking.acquire_options{:});
+0041     <span class="keyword">if</span> isfield(opts,<span class="string">'NoRelease'</span>)
+0042         no_release = true;
+0043         opts = rmfield(opts,<span class="string">'NoRelease'</span>);
+0044     <span class="keyword">end</span>
+0045     arguments = hlp_struct2varargin(opts);
+0046     method = tracking.acquire_method;
+0047     <span class="keyword">if</span> ~ischar(method)
+0048         error(<span class="string">'The given worker acquire method (global tracking.acquire_method) must be a string, but was: %s'</span>,hlp_tostring(method,1000)); <span class="keyword">end</span>
+0049     <span class="keyword">if</span> isempty(arguments)
+0050         disp(<span class="string">'No settings for acquiring the cluster have been specified, no startup command will be issued.'</span>); 
+0051     <span class="keyword">elseif</span> ~iscell(arguments)
+0052         disp(<span class="string">'The acquire_options parameter should be a cell array of name-value pairs which form arguments to par_getworkers_ssh.'</span>);
+0053     <span class="keyword">elseif</span> isunix    
+0054         <span class="comment">% invoke, but also impose default arguments (if unspecified)</span>
+0055         <span class="comment">% by default, workers do not recruit (but only list) other workers, preventing a cascading effect</span>
+0056         <span class="keyword">try</span>
+0057             [pool,logpaths] = feval([<span class="string">'par_getworkers_'</span> lower(method)],arguments{:});
+0058             par_globalsetting(<span class="string">'pool'</span>,pool);
+0059             par_globalsetting(<span class="string">'logfiles'</span>,logpaths);
+0060             par_globalsetting(<span class="string">'engine'</span>,<span class="string">'BLS'</span>);
+0061             disp(<span class="string">'Set default compute scheduler to BLS (parallel).'</span>);
+0062         <span class="keyword">catch</span> e
+0063             disp(<span class="string">'Could not acquire worker machines; traceback: '</span>);
+0064             <a href="env_handleerror.html" class="code" title="function varargout = env_handleerror(varargin)">env_handleerror</a>(e);
+0065         <span class="keyword">end</span>
+0066     <span class="keyword">else</span>
+0067         disp(<span class="string">'Cannot automatically acquire hosts from a non-UNIX system.'</span>);
+0068     <span class="keyword">end</span>
+0069 
+0070     <span class="comment">% start the heartbeat timer</span>
+0071     pool = par_globalsetting(<span class="string">'pool'</span>);
+0072     <span class="keyword">if</span> ~isempty(pool)
+0073         fprintf(<span class="string">'Initiating heartbeat signal... '</span>);
+0074         tracking.cluster_requested = {};    
+0075         <span class="comment">% for each endpoint in the pool...</span>
+0076         <span class="keyword">for</span> p=1:length(pool)
+0077             <span class="comment">% remove the pid@ portion from the endpoint</span>
+0078             pos = pool{p}==<span class="string">'@'</span>;
+0079             <span class="keyword">if</span> any(pos)
+0080                 pool{p} = pool{p}(find(pos,1)+1:end); <span class="keyword">end</span>
+0081             <span class="comment">% make a new socket</span>
+0082             sock = DatagramSocket();
+0083             <span class="comment">% and &quot;connect&quot; it to the worker endpoint (its heartbeat server)</span>
+0084             endpoint = hlp_split(pool{p},<span class="string">':'</span>);
+0085             sock.connect(InetSocketAddress(endpoint{1}, str2num(endpoint{2})));
+0086             tracking.cluster_requested{p} = sock;
+0087         <span class="keyword">end</span>
+0088         <span class="comment">% start a timer that sends the heartbeat (every 30 seconds)</span>
+0089         start(timer(<span class="string">'ExecutionMode'</span>,<span class="string">'fixedRate'</span>, <span class="string">'Name'</span>,<span class="string">'heartbeat_timer'</span>, <span class="string">'Period'</span>,15, <span class="keyword">...</span>
+0090             <span class="string">'TimerFcn'</span>,@(timer_handle,varargin)<a href="#_sub1" class="code" title="subfunction send_heartbeat(timer_handle)">send_heartbeat</a>(timer_handle)));
+0091         disp(<span class="string">'success.'</span>);
+0092     <span class="keyword">else</span>
+0093         tracking.cluster_requested = true;
+0094     <span class="keyword">end</span>
+0095     needs_shutdown = true;
+0096 <span class="keyword">end</span>
+0097 
+0098 <span class="keyword">if</span> no_release
+0099     needs_shutdown = false; <span class="keyword">end</span>
+0100     
+0101 
+0102 
+0103 <span class="comment">% called periodically to send heartbeat messages over the network</span>
+0104 <a name="_sub1" href="#_subfunctions" class="code">function send_heartbeat(timer_handle)</a>
+0105 import java.io.*
+0106 import java.net.*
+0107 import java.lang.*
+0108 <span class="keyword">global</span> tracking;
+0109 <span class="keyword">try</span>
+0110     <span class="keyword">if</span> ~isfield(tracking,<span class="string">'cluster_requested'</span>) || isempty(tracking.cluster_requested) || ~iscell(tracking.cluster_requested)
+0111         error(<span class="string">'ouch!'</span>); <span class="keyword">end</span>
+0112     
+0113     <span class="comment">% for each socket in the list of heartbeat sockets...</span>
+0114     <span class="keyword">for</span> p=1:length(tracking.cluster_requested)
+0115         <span class="keyword">try</span>
+0116             <span class="comment">% send the message</span>
+0117             tmp = DatagramPacket(uint8(<span class="string">'dsfjk45djf'</span>),10);
+0118             tracking.cluster_requested{p}.send(tmp);
+0119         <span class="keyword">catch</span> e
+0120             <span class="comment">% some socket problem: ignored.</span>
+0121         <span class="keyword">end</span>
+0122     <span class="keyword">end</span>
+0123 <span class="keyword">catch</span> e
+0124     <span class="comment">% issue (most likely the request has been cancelled) stop &amp; sdelete the heartbeat timer</span>
+0125     stop(timer_handle);
+0126     delete(timer_handle);
+0127     disp(<span class="string">'Heartbeat signal stopped.'</span>);
+0128 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

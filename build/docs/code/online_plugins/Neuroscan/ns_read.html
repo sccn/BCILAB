@@ -1,0 +1,152 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ns_read</title>
+  <meta name="keywords" content="ns_read">
+  <meta name="description" content="Block reader for Neuroscan Scan Recorder">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="#">online_plugins</a> &gt; <a href="index.html">Neuroscan</a> &gt; ns_read.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/online_plugins/Neuroscan&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>ns_read
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Block reader for Neuroscan Scan Recorder</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function block = ns_read(h) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Block reader for Neuroscan Scan Recorder
+ ns_read(h)
+
+
+ In:
+   h : handle to an existing Neuroscan connection
+
+ Out:
+   block: cell array data block containing EEG and event values
+     
+ Author: Visual Attention and Cognition Lab, Dan Roberts, and Nick Peñaranda, George Mason University, Spring 2014
+         Released under the GPLv3, see COPYING.txt
+         Based on the BrainVision BCILAB plug-in by Hal Greenwald</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+<li><a href="ns_parseheader.html" class="code" title="function hdr = ns_parseheader(header)">ns_parseheader</a>	Parse the header info packet returned by Neuroscan Scan server</li>
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+<li><a href="run_readneuroscan.html" class="code" title="function run_readneuroscan(varargin)">run_readneuroscan</a>	Receive real-time data from Neuroscan Scan Recorder</li>
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function block = ns_read(h)</a>
+0002 <span class="comment">% Block reader for Neuroscan Scan Recorder</span>
+0003 <span class="comment">% ns_read(h)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">%</span>
+0006 <span class="comment">% In:</span>
+0007 <span class="comment">%   h : handle to an existing Neuroscan connection</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">% Out:</span>
+0010 <span class="comment">%   block: cell array data block containing EEG and event values</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">% Author: Visual Attention and Cognition Lab, Dan Roberts, and Nick Peñaranda, George Mason University, Spring 2014</span>
+0013 <span class="comment">%         Released under the GPLv3, see COPYING.txt</span>
+0014 <span class="comment">%         Based on the BrainVision BCILAB plug-in by Hal Greenwald</span>
+0015 
+0016 data = [];
+0017 <span class="keyword">if</span> (~h.initialized)
+0018     <span class="keyword">return</span>;
+0019 <span class="keyword">end</span>
+0020 
+0021 <span class="keyword">try</span>
+0022     <span class="comment">% check for existing data in socket buffer</span>
+0023     headerBytes = pnet(h.handle, <span class="string">'read'</span>, h.headerSize, <span class="string">'uint8'</span>, <span class="string">'noblock'</span>);
+0024     
+0025     events = [];
+0026                 
+0027     <span class="keyword">if</span> ~isempty(headerBytes)
+0028         
+0029         headerData = <a href="ns_parseheader.html" class="code" title="function hdr = ns_parseheader(header)">ns_parseheader</a>(headerBytes);
+0030         
+0031         <span class="keyword">if</span> strcmp(headerData.id, <span class="string">'DATA'</span>)
+0032             
+0033             <span class="comment">% wait until the data packet body is available</span>
+0034             dataPreview = [];
+0035             <span class="keyword">while</span> length(dataPreview) &lt; headerData.bodysize
+0036                 <span class="comment">% wait until the rest of the packet is available</span>
+0037                 dataPreview = pnet(h.handle, <span class="string">'read'</span>, headerData.bodysize,<span class="keyword">...</span>
+0038                     <span class="string">'uint8'</span>, <span class="string">'view'</span>, <span class="string">'noblock'</span>);
+0039             <span class="keyword">end</span>
+0040             
+0041             <span class="comment">% read the data packet body</span>
+0042             dataBytes = pnet(h.handle, <span class="string">'read'</span>, headerData.bodysize, <span class="string">'uint8'</span>, <span class="string">'noblock'</span>);
+0043             
+0044             dataBytes = reshape(uint8(dataBytes), [h.bytesPerSample, h.totalChan, h.samplesPerBlock]);
+0045             
+0046             markerValues = squeeze((dataBytes(1,h.markerChanIdx, :)));
+0047             markerPoints = find(markerValues);
+0048                         
+0049             <span class="keyword">if</span> ~isempty(markerPoints)
+0050                 markers = markerValues(markerPoints);
+0051                 latencies = markerPoints;
+0052                 <span class="keyword">for</span> m = 1:length(markers)
+0053                    events(m).type = num2str(markers(m)); <span class="comment">%#ok&lt;AGROW&gt;</span>
+0054                    events(m).latency = latencies(m); <span class="comment">%#ok&lt;AGROW&gt;</span>
+0055                 <span class="keyword">end</span>
+0056             <span class="keyword">else</span>
+0057                events = []; 
+0058             <span class="keyword">end</span>
+0059             
+0060             dataBytes(:,h.markerChanIdx, :) = [];
+0061             
+0062             dataCell = squeeze(num2cell(dataBytes, 1));
+0063             dataBlock = cellfun(@(x) typecast(x, h.datatype), dataCell);
+0064             data = horzcat(data, dataBlock);
+0065                         
+0066         <span class="keyword">else</span>
+0067             disp(<span class="string">'unknown message'</span>);
+0068         <span class="keyword">end</span>
+0069                 
+0070     <span class="keyword">end</span>
+0071     
+0072         
+0073 <span class="keyword">catch</span> er
+0074     disp(er.message);
+0075     rethrow(er);
+0076 <span class="keyword">end</span>
+0077 
+0078 <span class="keyword">if</span> ~isempty(data)
+0079     <span class="comment">% scale data to uV units</span>
+0080     data = bsxfun(@times,data,h.resolution);
+0081 <span class="keyword">end</span>
+0082 
+0083 block = {data,events};
+0084</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -18,26 +18,39 @@
 <td align="right"><a href="index.html">Index for code/dataset_editing&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>set_infer_chanlocs
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="box"><strong>Infer the chanlocs subfields (positions and type) from labels.</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>function [data,coords] = set_infer_chanlocs(data) </strong></div>
+<div class="box"><strong>function data = set_infer_chanlocs(data,disambiguation_rule) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre class="comment"> Infer the chanlocs subfields (positions and type) from labels.
- [Data] = set_infer_chanlocs(Data)
+ Data = set_infer_chanlocs(Data,DisambiguationRule)
 
  In:
    Data   : some EEGLAB data set with a chanlocs field or the chanlocs field itself
+
+   DisambiguationRule : rule to apply to disambiguate montages when a given set of channel labels
+                        match multiple montage files similarly well. Can be:
+                        * 'coverage' : picks the one with maximum coverage
+                        * 'first' : picks the first one in the list of candidates (out of those that 
+                                    have reasonable coverage)
+                        * 'deduce' : uses correlation analysis to deduce the best fit (can be slow)
+                        * filename : uses the montage with the given file name
+                        (default: 'deduce')
 
  Out:
    Data   : original set with updated chanlocs field, or the updated chanlocs themselves
 
  Notes:
-   parameters cannot be passed by name to this function.
+   Parameters cannot be passed by name to this function.
+   To add a custom cap design to set_infer_chanlocs, see documentation in the
+   bcilab:/resources/caps folder.
+
 
  Examples:
    % given a data set with labeled channels (but no locations), fill in standard channel locations
@@ -62,192 +75,366 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="set_new.html" class="code" title="function signal = set_new(varargin)">set_new</a>	Create a new EEGLAB data set from individual fields.</li></ul>
+
+<li><a href="set_new.html" class="code" title="function signal = set_new(varargin)">set_new</a>	Create a new EEGLAB data set from individual fields.</li>
+</ul>
 <!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function [found,idx_in_res,idx_in_locdb] = do_matching(fitlocs,locdb,use_lower)</a></li>
+<li><a href="#_sub2" class="code">function quality = fit_quality(signal,sorted_fractions,order,fitlocs)</a></li>
+<li><a href="#_sub3" class="code">function M = interpolation_matrix(positions)</a></li>
+</ul>
+
 
 
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [data,coords] = set_infer_chanlocs(data)</a>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function data = set_infer_chanlocs(data,disambiguation_rule)</a>
 0002 <span class="comment">% Infer the chanlocs subfields (positions and type) from labels.</span>
-0003 <span class="comment">% [Data] = set_infer_chanlocs(Data)</span>
+0003 <span class="comment">% Data = set_infer_chanlocs(Data,DisambiguationRule)</span>
 0004 <span class="comment">%</span>
 0005 <span class="comment">% In:</span>
 0006 <span class="comment">%   Data   : some EEGLAB data set with a chanlocs field or the chanlocs field itself</span>
 0007 <span class="comment">%</span>
-0008 <span class="comment">% Out:</span>
-0009 <span class="comment">%   Data   : original set with updated chanlocs field, or the updated chanlocs themselves</span>
-0010 <span class="comment">%</span>
-0011 <span class="comment">% Notes:</span>
-0012 <span class="comment">%   parameters cannot be passed by name to this function.</span>
-0013 <span class="comment">%</span>
-0014 <span class="comment">% Examples:</span>
-0015 <span class="comment">%   % given a data set with labeled channels (but no locations), fill in standard channel locations</span>
-0016 <span class="comment">%   eeg = set_infer_chanlocs(eeg)</span>
-0017 <span class="comment">%</span>
-0018 <span class="comment">%   % given a .chanlocs field of a data set with only labels, fill in standard channel locations</span>
-0019 <span class="comment">%   chanlocs = set_infer_chanlocs(eeg.chanlocs)</span>
-0020 <span class="comment">%</span>
-0021 <span class="comment">%   % given a cell array of channel labels, obtain a chanlocs structure with locations filled in</span>
-0022 <span class="comment">%   chanlocs = set_infer_chanlocs({'C3','Cz','C4'})</span>
-0023 <span class="comment">%</span>
-0024 <span class="comment">%   % given a chanlocs file in a format recognized by EEGLAB, obtain a corresponding chanlocs struct</span>
-0025 <span class="comment">%   chanlocs = set_infer_chanlocs('mylocs.sfp')</span>
-0026 <span class="comment">%</span>
-0027 <span class="comment">% See also:</span>
-0028 <span class="comment">%   io_loadset</span>
+0008 <span class="comment">%   DisambiguationRule : rule to apply to disambiguate montages when a given set of channel labels</span>
+0009 <span class="comment">%                        match multiple montage files similarly well. Can be:</span>
+0010 <span class="comment">%                        * 'coverage' : picks the one with maximum coverage</span>
+0011 <span class="comment">%                        * 'first' : picks the first one in the list of candidates (out of those that</span>
+0012 <span class="comment">%                                    have reasonable coverage)</span>
+0013 <span class="comment">%                        * 'deduce' : uses correlation analysis to deduce the best fit (can be slow)</span>
+0014 <span class="comment">%                        * filename : uses the montage with the given file name</span>
+0015 <span class="comment">%                        (default: 'deduce')</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">% Out:</span>
+0018 <span class="comment">%   Data   : original set with updated chanlocs field, or the updated chanlocs themselves</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">% Notes:</span>
+0021 <span class="comment">%   Parameters cannot be passed by name to this function.</span>
+0022 <span class="comment">%   To add a custom cap design to set_infer_chanlocs, see documentation in the</span>
+0023 <span class="comment">%   bcilab:/resources/caps folder.</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">% Examples:</span>
+0027 <span class="comment">%   % given a data set with labeled channels (but no locations), fill in standard channel locations</span>
+0028 <span class="comment">%   eeg = set_infer_chanlocs(eeg)</span>
 0029 <span class="comment">%</span>
-0030 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0031 <span class="comment">%                                2010-11-05</span>
-0032 
-0033 <span class="comment">% obtain the chanlocs</span>
-0034 <span class="keyword">if</span> isfield(data,{<span class="string">'head'</span>,<span class="string">'parts'</span>})
-0035     data = exp_eval(data); <span class="keyword">end</span>
-0036 <span class="keyword">if</span> isfield(data,<span class="string">'chanlocs'</span>)
-0037     locs = data.chanlocs;
-0038     <span class="keyword">if</span> ~isfield(data.chaninfo,<span class="string">'labelscheme'</span>)
-0039         data.chaninfo.labelscheme = <span class="string">'10-20'</span>; <span class="keyword">end</span>
-0040 <span class="keyword">else</span>
-0041     locs = data;
-0042 <span class="keyword">end</span>
-0043 
-0044 <span class="comment">% channel labels given as a cell array</span>
-0045 <span class="keyword">if</span> iscell(locs)
-0046     locs = struct(<span class="string">'labels'</span>,locs); <span class="keyword">end</span>;
+0030 <span class="comment">%   % given a .chanlocs field of a data set with only labels, fill in standard channel locations</span>
+0031 <span class="comment">%   chanlocs = set_infer_chanlocs(eeg.chanlocs)</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%   % given a cell array of channel labels, obtain a chanlocs structure with locations filled in</span>
+0034 <span class="comment">%   chanlocs = set_infer_chanlocs({'C3','Cz','C4'})</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">%   % given a chanlocs file in a format recognized by EEGLAB, obtain a corresponding chanlocs struct</span>
+0037 <span class="comment">%   chanlocs = set_infer_chanlocs('mylocs.sfp')</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">% See also:</span>
+0040 <span class="comment">%   io_loadset</span>
+0041 <span class="comment">%</span>
+0042 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0043 <span class="comment">%                                2010-11-05</span>
+0044 
+0045 <span class="comment">% path where *.cap files are located</span>
+0046 cappath = <span class="string">'resources:/caps/'</span>;
 0047 
-0048 <span class="keyword">if</span> ischar(locs)
-0049     locs = readlocs(env_translatepath(locs)); <span class="keyword">end</span>
+0048 <span class="keyword">if</span> nargin &lt; 2
+0049     disambiguation_rule = <span class="string">'deduce'</span>; <span class="keyword">end</span>
 0050 
-0051 <span class="comment">% if no channel locations present, try to look them up</span>
-0052 <span class="keyword">if</span> (~all(isfield(locs,{<span class="string">'X'</span>,<span class="string">'Y'</span>,<span class="string">'Z'</span>})) || all(cellfun(<span class="string">'isempty'</span>,{locs.X}))) &amp;&amp; ~isempty(locs)
-0053     <span class="comment">% go through a variety of caps and retain the best (i.e. largest) match</span>
-0054     caps = {<span class="string">'resources:/Standard-10-5-Cap385.sfp'</span>,<span class="string">'resources:/sccn_LSIE_cap128.xyz'</span>,<span class="string">'resources:/sccn_BEM_coregistered_128_v2.xyz'</span>,<span class="string">'resources:/sccn_BEM_coregistered_256_v1.xyz'</span>,<span class="string">'resources:/sccn_BEM_coregistered_128_v1.xyz'</span>};
-0055     schemes = {<span class="string">'10-20'</span>,<span class="string">'sccn_128_v3'</span>,<span class="string">'sccn_128_v2'</span>,<span class="string">'sccn_256_v1'</span>,<span class="string">'sccn_128_v1'</span>};
-0056     matching = {<span class="string">'nocase'</span>,<span class="string">'substr'</span>,<span class="string">'substr'</span>,<span class="string">'substr'</span>};
-0057     nosedir = {<span class="string">'+X'</span>,<span class="string">'+Y'</span>,<span class="string">'+Y'</span>,<span class="string">'+Y'</span>};
-0058     <span class="keyword">for</span> c = 1:length(caps)
-0059         <span class="keyword">try</span>
-0060             cap = caps{c};
-0061             fitlocs{c} = locs;
-0062             <span class="keyword">switch</span> matching{c}
-0063                 <span class="keyword">case</span> <span class="string">'nocase'</span>
-0064                     <span class="comment">% not case sensitive</span>
-0065                     fitlocs{c} = pop_chanedit(locs,<span class="string">'lookup'</span>,env_translatepath(cap));
-0066                 <span class="keyword">case</span> <span class="string">'case'</span>
-0067                     <span class="comment">% case sensitive matching</span>
-0068                     fitlocs = locs;
-0069                     locdb = readlocs(env_translatepath(cap));
-0070                     [found,idx_in_locdb,idx_in_res] = intersect({locdb.labels},{locs.labels}); <span class="comment">%#ok&lt;ASGLU&gt;</span>
-0071                     <span class="keyword">for</span> fname = fieldnames(locdb)'
-0072                         [fitlocs{c}(idx_in_res).(fname{1})] = locdb(idx_in_locdb).(fname{1}); <span class="keyword">end</span>
-0073                     [fitlocs{c}(idx_in_res).type] = deal(<span class="string">'EEG'</span>);
-0074                 <span class="keyword">case</span> <span class="string">'substr'</span>
-0075                     <span class="comment">% case-sensitive sub-string matching</span>
-0076                     locdb = readlocs(env_translatepath(cap));
-0077                     found = {};
-0078                     idx_in_res = [];
-0079                     idx_in_locdb = [];
-0080                     <span class="keyword">for</span> k=1:length(locdb)
-0081                         match = ~cellfun(<span class="string">'isempty'</span>,strfind({fitlocs{c}.labels},locdb(k).labels));
-0082                         <span class="keyword">if</span> any(match)
-0083                             found{end+1} = locdb(k).labels;
-0084                             idx_in_res(end+1) = find(match,1);
-0085                             idx_in_locdb(end+1) = k;
-0086                         <span class="keyword">end</span>
-0087                     <span class="keyword">end</span>
-0088                     <span class="keyword">for</span> fname = fieldnames(locdb)'
-0089                         [fitlocs{c}(idx_in_res).(fname{1})] = locdb(idx_in_locdb).(fname{1}); <span class="keyword">end</span>
-0090                     [fitlocs{c}(idx_in_res).type] = deal(<span class="string">'EEG'</span>);
-0091             <span class="keyword">end</span>
-0092             fraction_found(c) = 1-mean(cellfun(<span class="string">'isempty'</span>,{fitlocs{c}.X}));
-0093             <span class="keyword">if</span> fraction_found(c) &gt; 0.75
-0094                 <span class="keyword">break</span>; <span class="keyword">end</span>
-0095         <span class="keyword">catch</span>
-0096         <span class="keyword">end</span>
-0097     <span class="keyword">end</span>
-0098     <span class="keyword">try</span> 
-0099         bestidx = argmax(fraction_found);
-0100         locs = fitlocs{bestidx};
-0101         <span class="keyword">if</span> isstruct(data)
-0102             data.chaninfo.labelscheme = schemes{bestidx};
-0103             data.chaninfo.nosedir = nosedir{bestidx};
-0104         <span class="keyword">end</span>
-0105         <span class="comment">% optimize the head center</span>
-0106         <span class="keyword">if</span>  mean(cellfun(<span class="string">'isempty'</span>,{locs.X})) &lt; 0.75
-0107             locs = pop_chanedit(locs,<span class="string">'eval'</span>,<span class="string">'chans = pop_chancenter( chans, [],[]);'</span>); <span class="keyword">end</span>
-0108     <span class="keyword">catch</span>
-0109     <span class="keyword">end</span>
-0110 <span class="keyword">end</span>    
+0051 <span class="comment">% obtain the chanlocs</span>
+0052 signal = [];
+0053 <span class="keyword">if</span> isfield(data,{<span class="string">'head'</span>,<span class="string">'parts'</span>})
+0054     data = exp_eval(data); <span class="keyword">end</span>
+0055 <span class="keyword">if</span> isfield(data,<span class="string">'chanlocs'</span>)
+0056     locs = data.chanlocs;
+0057     signal = data;
+0058     <span class="keyword">if</span> ~isfield(data.chaninfo,<span class="string">'labelscheme'</span>)
+0059         data.chaninfo.labelscheme = <span class="string">'10-20'</span>; <span class="keyword">end</span>
+0060 <span class="keyword">else</span>
+0061     locs = data;
+0062 <span class="keyword">end</span>
+0063 
+0064 <span class="comment">% channel labels given as a cell array</span>
+0065 <span class="keyword">if</span> iscellstr(locs)
+0066     locs = struct(<span class="string">'labels'</span>,locs); <span class="keyword">end</span>;
+0067 <span class="keyword">if</span> ischar(locs)
+0068     locs = readlocs(env_translatepath(locs)); <span class="keyword">end</span>
+0069 <span class="keyword">if</span> ~isstruct(locs)
+0070     error(<span class="string">'The given data is not in an appropriate format (expected either a file name, a cell array of labels, a .chanlocs struct, or an EEGLAB dataset struct).'</span>); <span class="keyword">end</span>
+0071 
+0072 <span class="comment">% --- find best-matching cap if some locs missing ---</span>
+0073 
+0074 <span class="keyword">if</span> (~all(isfield(locs,{<span class="string">'X'</span>,<span class="string">'Y'</span>,<span class="string">'Z'</span>})) || all(cellfun(<span class="string">'isempty'</span>,{locs.X}))) &amp;&amp; ~isempty(locs)
+0075     <span class="comment">% get a list of all cap files</span>
+0076     capfiles = dir(env_translatepath(cappath));
+0077     capfiles = capfiles(cellfun(@(n)~isempty(strfind(n,<span class="string">'.cap'</span>)),{capfiles.name}));
+0078     caps = cellfun(@(n){[cappath n]},{capfiles.name});
+0079     
+0080     <span class="comment">% for each cap file, try to match channel labels</span>
+0081     <span class="keyword">for</span> c = 1:length(caps)
+0082         <span class="keyword">try</span>
+0083             cap = caps{c};
+0084             capdata{c} = hlp_microcache(<span class="string">'chanlocs'</span>,@io_load,cap,<span class="string">'-mat'</span>);
+0085             locdb = capdata{c}.CAP;
+0086             fitlocs{c} = locs;
+0087             <span class="keyword">switch</span> capdata{c}.MATCH
+0088                 <span class="keyword">case</span> {<span class="string">'exact'</span>,<span class="string">'nocase_exact'</span>}
+0089                     <span class="comment">% exact matching (both cases supported)</span>
+0090                     <span class="keyword">if</span> ~isempty(strfind(capdata{c}.MATCH,<span class="string">'nocase'</span>))                        
+0091                         [found,idx_in_locdb,idx_in_res] = intersect(lower({locdb.labels}),lower({locs.labels})); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0092                     <span class="keyword">else</span>
+0093                         [found,idx_in_locdb,idx_in_res] = intersect({locdb.labels},{locs.labels}); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0094                     <span class="keyword">end</span>
+0095                     <span class="keyword">for</span> fname = fieldnames(locdb)'
+0096                         [fitlocs{c}(idx_in_res).(fname{1})] = locdb(idx_in_locdb).(fname{1}); <span class="keyword">end</span>
+0097                     [fitlocs{c}(idx_in_res).type] = deal(<span class="string">'EEG'</span>);
+0098                 <span class="keyword">case</span> {<span class="string">'substr'</span>,<span class="string">'nocase_substr'</span>}
+0099                     <span class="comment">% sub-string matching (both cases supported)</span>
+0100                     [found,idx_in_res,idx_in_locdb] = hlp_microcache(<span class="string">'chanlocs'</span>,@<a href="#_sub1" class="code" title="subfunction [found,idx_in_res,idx_in_locdb] = do_matching(fitlocs,locdb,use_lower)">do_matching</a>,fitlocs{c},locdb,~isempty(strfind(capdata{c}.MATCH,<span class="string">'nocase'</span>))); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0101                     <span class="keyword">for</span> fname = fieldnames(locdb)'
+0102                         [fitlocs{c}(idx_in_res).(fname{1})] = locdb(idx_in_locdb).(fname{1}); <span class="keyword">end</span> <span class="comment">%#ok&lt;*AGROW&gt;</span>
+0103                     [fitlocs{c}(idx_in_res).type] = deal(<span class="string">'EEG'</span>);
+0104             <span class="keyword">end</span>
+0105             fraction_found(c) = 1-mean(cellfun(<span class="string">'isempty'</span>,{fitlocs{c}.X}));
+0106         <span class="keyword">catch</span> e
+0107             fprintf(<span class="string">'Not matching channel labels with cap %s due to error: %s'</span>,cap,hlp_handleerror(e));
+0108             fraction_found(c) = 0;
+0109         <span class="keyword">end</span>
+0110     <span class="keyword">end</span>
 0111 
-0112 <span class="keyword">if</span> ~isfield(locs,<span class="string">'labels'</span>)
-0113     <span class="keyword">for</span> k=data.nbchan:-1:1
-0114         locs(k).labels = num2str(k); <span class="keyword">end</span>
-0115 <span class="keyword">end</span>
-0116 <span class="keyword">if</span> ~isfield(locs,<span class="string">'type'</span>)
-0117     locs(1).type = []; <span class="keyword">end</span>
-0118 <span class="keyword">if</span> ~isfield(locs,<span class="string">'theta'</span>)
-0119     locs(1).theta = []; <span class="keyword">end</span>
-0120 
-0121 <span class="comment">% reset 'unknown' channel types to empty</span>
-0122 <span class="keyword">for</span> k=1:length(locs)
-0123     <span class="keyword">if</span> strcmpi(locs(k).type,<span class="string">'unknown'</span>)
-0124         locs(k).type = <span class="string">''</span>; <span class="keyword">end</span>
-0125 <span class="keyword">end</span>
-0126 <span class="comment">% if some channel types are missing, try to look them up</span>
-0127 empty_type = cellfun(<span class="string">'isempty'</span>,{locs.type});
-0128 <span class="keyword">if</span> any(empty_type)
-0129     <span class="comment">% assign all successfully retrieved EEG channels</span>
-0130     [locs(~cellfun(<span class="string">'isempty'</span>,{locs.theta}) &amp; empty_type).type] = deal(<span class="string">'EEG'</span>);
-0131     <span class="comment">% assign the most common prefixes</span>
-0132     prefixes = {<span class="string">'eo'</span>,<span class="string">'EOG'</span>,<span class="string">'em'</span>,<span class="string">'EMG'</span>,<span class="string">'ec'</span>,<span class="string">'ECG'</span>,<span class="string">'ex'</span>,<span class="string">'EXG'</span>,<span class="string">'gsr'</span>,<span class="string">'GSR'</span>};
-0133     <span class="keyword">for</span> p=1:2:length(prefixes)
-0134         [locs(strncmpi(prefixes{p},{locs.labels},length(prefixes{p})) &amp; empty_type).type] = deal(prefixes{p+1}); <span class="keyword">end</span>
-0135     <span class="comment">% also look for occurrence of EO, EM, ECG, EX, and GSR patterns</span>
-0136     patterns = {<span class="string">'EO'</span>,<span class="string">'EOG'</span>,<span class="string">'EM'</span>,<span class="string">'EMG'</span>,<span class="string">'ECG'</span>,<span class="string">'ECG'</span>,<span class="string">'EX'</span>,<span class="string">'EXG'</span>,<span class="string">'GSR'</span>,<span class="string">'GSR'</span>,<span class="string">'RE'</span>,<span class="string">'EOG'</span>,<span class="string">'LE'</span>,<span class="string">'EOG'</span>};
-0137     <span class="keyword">for</span> p=1:2:length(patterns)
-0138        [locs(~cellfun(<span class="string">'isempty'</span>,strfind({locs.labels},patterns{p})) &amp; empty_type).type] = deal(patterns{p+1}); <span class="keyword">end</span>
-0139     <span class="comment">% assign type 'EEG' to all numerically labeled channels (default assumption)</span>
-0140     [locs(cellfun(@(x)~isempty(str2num(x)),{locs.labels})).type] = deal(<span class="string">'EEG'</span>);
-0141     <span class="comment">% assign 'EEG' to all unknown channels that are preceded and followed by EEG channels...</span>
-0142     filled_in = false;
-0143     <span class="keyword">for</span> k = find(cellfun(<span class="string">'isempty'</span>,{locs.type}))
-0144         <span class="comment">% check if there is an EEG channel before this one (besides other unknowns)</span>
-0145         eeg_before = false;
-0146         <span class="keyword">for</span> j=k-1:-1:1
-0147             <span class="keyword">if</span> ~isempty(locs(j).type)
-0148                 <span class="keyword">if</span> strcmp(locs(j).type,<span class="string">'EEG'</span>)
-0149                     eeg_before = true; <span class="keyword">end</span>
-0150                 <span class="keyword">break</span>;
-0151             <span class="keyword">end</span>
-0152         <span class="keyword">end</span>
-0153         <span class="comment">% check if there is an EEG channel after this one (besides other unknowns)</span>
-0154         eeg_after = false;
-0155         <span class="keyword">for</span> j=k+1:length(locs)
-0156             <span class="keyword">if</span> ~isempty(locs(j).type)
-0157                 <span class="keyword">if</span> strcmp(locs(j).type,<span class="string">'EEG'</span>)
-0158                     eeg_after = true; <span class="keyword">end</span>
-0159                 <span class="keyword">break</span>;
-0160             <span class="keyword">end</span>
-0161         <span class="keyword">end</span>        
-0162         <span class="keyword">if</span> eeg_before &amp;&amp; eeg_after
-0163             locs(k).type = <span class="string">'EEG'</span>; 
-0164             filled_in = true;
-0165         <span class="keyword">end</span>        
-0166     <span class="keyword">end</span>
-0167     <span class="keyword">if</span> filled_in
-0168         disp(<span class="string">'Note: some channels could not clearly be recognized as EEG (not in the 10-5 system), but were preceded and followed by EEG channels; assuming they are EEG.'</span>); <span class="keyword">end</span>
-0169     <span class="comment">% assign 'unknown' to the rest</span>
-0170     [locs(cellfun(<span class="string">'isempty'</span>,{locs.type})).type] = deal(<span class="string">'unknown'</span>);
-0171 <span class="keyword">end</span>
-0172 
-0173 <span class="keyword">if</span> isfield(data,<span class="string">'chanlocs'</span>)
-0174     data.chanlocs = locs;
-0175 <span class="keyword">else</span>
-0176     data = locs;
-0177 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0112     <span class="comment">% determine whether we have a clear-cut case</span>
+0113     [sorted_fractions,order] = sort(fraction_found,<span class="string">'descend'</span>);
+0114     <span class="keyword">if</span> max(sorted_fractions) &lt; 0.5
+0115         fprintf(<span class="string">'WARNING: only %.0f%% of your channel labels match any known cap design; inferred locations might be wrong. Please consider adding your cap to set_infer_chanlocs.'</span>,100*max(sorted_fractions)); <span class="keyword">end</span>
+0116     <span class="keyword">if</span> sorted_fractions(1) &gt;= 1.5*sorted_fractions(2)
+0117         <span class="comment">% at least twice as many channels matched for this cap as for the next best one: keep it</span>
+0118         bestidx = order(1);
+0119     <span class="keyword">elseif</span> ~isempty(signal) &amp;&amp; size(signal.data,1)==length(locs)
+0120         <span class="comment">% not a clear-cut case but we have a signal to work with</span>
+0121         <span class="keyword">switch</span> disambiguation_rule
+0122             <span class="keyword">case</span> <span class="string">'coverage'</span>
+0123                 fprintf(<span class="string">'Multiple known cap designs match to your data''s channel labels; picking the one with greatest coverage...\n'</span>);
+0124                 bestidx = order(1);
+0125             <span class="keyword">case</span> <span class="string">'first'</span>
+0126                 fprintf(<span class="string">'Multiple known cap designs match to your data''s channel labels; picking the first one in the list...\n'</span>);
+0127                 bestidx = 1;
+0128             <span class="keyword">case</span> <span class="string">'deduce'</span>
+0129                 fprintf(<span class="string">'Multiple known cap designs match to your data''s channel labels; determining the best fit...\n'</span>);
+0130                 quality = hlp_diskcache(<span class="string">'montage_quality'</span>,@<a href="#_sub2" class="code" title="subfunction quality = fit_quality(signal,sorted_fractions,order,fitlocs)">fit_quality</a>,signal,sorted_fractions,order,fitlocs);
+0131                 <span class="comment">% assess quality of best fit</span>
+0132                 <span class="keyword">if</span> max(quality)&lt;0.3
+0133                     fprintf(<span class="string">'WARNING: Did not find a cap design that matches your data. You need to add channel locations for your cap to set_infer_chanlocs to use any function that requires these locations.\n'</span>); 
+0134                     bestidx = NaN;
+0135                 <span class="keyword">else</span>
+0136                     <span class="keyword">if</span> max(quality)&lt;0.5
+0137                         fprintf(<span class="string">'WARNING: The agreement between your data and the available cap designs is low and the chosen locations might be partially wrong. Either your data is too noisy for a reliable determination or your cap design differs from the known ones.\n'</span>);  <span class="keyword">end</span>
+0138                     bestidx = order(argmax(quality));
+0139                 <span class="keyword">end</span>
+0140             <span class="keyword">otherwise</span>
+0141                 <span class="comment">% assume that a montage file name was given</span>
+0142                 match = ~cellfun(<span class="string">'isempty'</span>,strfind(caps,disambiguation_rule));
+0143                 <span class="keyword">if</span> nnz(match) == 1
+0144                     bestidx = find(match);
+0145                 <span class="keyword">elseif</span> nnz(match) &gt; 1
+0146                     fprintf(<span class="string">'WARNING: multiple montages match your montage name: picking the first one.\n'</span>);
+0147                     bestidx = find(match,1);
+0148                 <span class="keyword">else</span>
+0149                     <span class="comment">% assume that this is a file name and try to load it</span>
+0150                     bestidx = NaN;
+0151                     tmp = getfield(hlp_microcache(<span class="string">'chanlocs'</span>,@io_load,disambiguation_rule,<span class="string">'-mat'</span>),<span class="string">'CAP'</span>);
+0152                     <span class="keyword">if</span> ~isequal({tmp.labels},{locs.labels})
+0153                         error(<span class="string">'Currently the given cap file must match the available channel labels exactly.'</span>); <span class="keyword">end</span>
+0154                 <span class="keyword">end</span>
+0155         <span class="keyword">end</span>
+0156     <span class="keyword">elseif</span> sorted_fractions(1)&gt;sorted_fractions(2)
+0157         <span class="comment">% not a clear-cut case but minor evidence in favor of best cap</span>
+0158         fprintf(<span class="string">'NOTE: multiple cap designs are compatible with your channel labels, using the best-matching one; inferred locations might be wrong.\n'</span>);
+0159         bestidx = order(1);
+0160     <span class="keyword">else</span>
+0161         <span class="comment">% no clear winner</span>
+0162         fprintf(<span class="string">'WARNING: multiple cap designs match your channel labels equally well, using the first cap in the list; inferred locations may be wrong.\n'</span>);
+0163         bestidx = order(1);
+0164     <span class="keyword">end</span>
+0165     
+0166     <span class="comment">% use the picked locations</span>
+0167     <span class="keyword">if</span> ~isnan(bestidx)
+0168         fprintf(<span class="string">'  using montage %s.\n'</span>,caps{bestidx});
+0169         locs = fitlocs{bestidx};
+0170         <span class="keyword">if</span> isstruct(data) &amp;&amp; isfield(data,<span class="string">'data'</span>)
+0171             data.chaninfo.labelscheme = capdata{bestidx}.SCHEME;
+0172             data.chaninfo.nosedir = capdata{bestidx}.NOSE;
+0173         <span class="keyword">end</span>
+0174     <span class="keyword">end</span>
+0175     
+0176     <span class="comment">% optionally optimize the head center</span>
+0177     <span class="keyword">if</span> isfield(capdata{bestidx},<span class="string">'RECENTER'</span>) &amp;&amp; capdata{bestidx}.RECENTER
+0178         <span class="keyword">try</span>
+0179             <span class="keyword">if</span>  mean(cellfun(<span class="string">'isempty'</span>,{locs.X})) &lt; 0.75
+0180                 locs = hlp_microcache(<span class="string">'chanlocs'</span>,@pop_chanedit,locs,<span class="string">'eval'</span>,<span class="string">'chans = pop_chancenter( chans, [],[]);'</span>); <span class="keyword">end</span>
+0181         <span class="keyword">catch</span> e
+0182             fprintf(<span class="string">'Failed trying to optimized the head center location for your cap montage due to error: %s\n'</span>,e.message);
+0183         <span class="keyword">end</span>
+0184     <span class="keyword">end</span>
+0185 <span class="keyword">end</span>    
+0186 
+0187 <span class="comment">% --- do post-processing ---</span>
+0188 
+0189 <span class="keyword">if</span> ~isfield(locs,<span class="string">'labels'</span>)
+0190     <span class="keyword">for</span> k=data.nbchan:-1:1
+0191         locs(k).labels = num2str(k); <span class="keyword">end</span>
+0192 <span class="keyword">end</span>
+0193 <span class="keyword">if</span> ~isfield(locs,<span class="string">'type'</span>)
+0194     locs(1).type = []; <span class="keyword">end</span>
+0195 <span class="keyword">if</span> ~isfield(locs,<span class="string">'theta'</span>)
+0196     locs(1).theta = []; <span class="keyword">end</span>
+0197 
+0198 <span class="comment">% reset 'unknown' channel types to empty</span>
+0199 <span class="keyword">for</span> k=1:length(locs)
+0200     <span class="keyword">if</span> strcmpi(locs(k).type,<span class="string">'unknown'</span>)
+0201         locs(k).type = <span class="string">''</span>; <span class="keyword">end</span>
+0202 <span class="keyword">end</span>
+0203 
+0204 <span class="comment">% if some channel types are missing, try to look them up</span>
+0205 empty_type = cellfun(<span class="string">'isempty'</span>,{locs.type});
+0206 <span class="keyword">if</span> any(empty_type)
+0207     <span class="comment">% assign all successfully retrieved EEG channels</span>
+0208     [locs(~cellfun(<span class="string">'isempty'</span>,{locs.theta}) &amp; empty_type).type] = deal(<span class="string">'EEG'</span>);
+0209 
+0210     <span class="comment">% assign the most common prefixes</span>
+0211     prefixes = {<span class="string">'eo'</span>,<span class="string">'EOG'</span>,<span class="string">'em'</span>,<span class="string">'EMG'</span>,<span class="string">'ec'</span>,<span class="string">'ECG'</span>,<span class="string">'ex'</span>,<span class="string">'EXG'</span>,<span class="string">'gsr'</span>,<span class="string">'GSR'</span>};
+0212     <span class="keyword">for</span> p=1:2:length(prefixes)
+0213         [locs(strncmpi(prefixes{p},{locs.labels},length(prefixes{p})) &amp; empty_type).type] = deal(prefixes{p+1}); <span class="keyword">end</span>
+0214     
+0215     <span class="comment">% also look for occurrence of EO, EM, ECG, EX, and GSR patterns</span>
+0216     patterns = {<span class="string">'EO'</span>,<span class="string">'EOG'</span>,<span class="string">'EM'</span>,<span class="string">'EMG'</span>,<span class="string">'ECG'</span>,<span class="string">'ECG'</span>,<span class="string">'EX'</span>,<span class="string">'EXG'</span>,<span class="string">'GSR'</span>,<span class="string">'GSR'</span>,<span class="string">'RE'</span>,<span class="string">'EOG'</span>,<span class="string">'LE'</span>,<span class="string">'EOG'</span>};
+0217     <span class="keyword">for</span> p=1:2:length(patterns)
+0218        [locs(~cellfun(<span class="string">'isempty'</span>,strfind({locs.labels},patterns{p})) &amp; empty_type).type] = deal(patterns{p+1}); <span class="keyword">end</span>
+0219     
+0220    <span class="comment">% assign type 'EEG' to all numerically labeled channels (default assumption)</span>
+0221     [locs(cellfun(@(x)~isempty(str2num(x)),{locs.labels})).type] = deal(<span class="string">'EEG'</span>); <span class="comment">%#ok&lt;ST2NM&gt;</span>
+0222    
+0223     <span class="comment">% assign 'EEG' to all unknown channels that are preceded and followed by EEG channels...</span>
+0224     filled_in = false;
+0225     <span class="keyword">for</span> k = find(cellfun(<span class="string">'isempty'</span>,{locs.type}))
+0226         <span class="comment">% check if there is an EEG channel before this one (besides other unknowns)</span>
+0227         eeg_before = false;
+0228         <span class="keyword">for</span> j=k-1:-1:1
+0229             <span class="keyword">if</span> ~isempty(locs(j).type)
+0230                 <span class="keyword">if</span> strcmp(locs(j).type,<span class="string">'EEG'</span>)
+0231                     eeg_before = true; <span class="keyword">end</span>
+0232                 <span class="keyword">break</span>;
+0233             <span class="keyword">end</span>
+0234         <span class="keyword">end</span>
+0235         <span class="comment">% check if there is an EEG channel after this one (besides other unknowns)</span>
+0236         eeg_after = false;
+0237         <span class="keyword">for</span> j=k+1:length(locs)
+0238             <span class="keyword">if</span> ~isempty(locs(j).type)
+0239                 <span class="keyword">if</span> strcmp(locs(j).type,<span class="string">'EEG'</span>)
+0240                     eeg_after = true; <span class="keyword">end</span>
+0241                 <span class="keyword">break</span>;
+0242             <span class="keyword">end</span>
+0243         <span class="keyword">end</span>        
+0244         <span class="keyword">if</span> eeg_before &amp;&amp; eeg_after
+0245             locs(k).type = <span class="string">'EEG'</span>; 
+0246             filled_in = true;
+0247         <span class="keyword">end</span>        
+0248     <span class="keyword">end</span>
+0249     <span class="keyword">if</span> filled_in
+0250         disp(<span class="string">'Note: some channels could not clearly be recognized as EEG (not in the 10-5 system), but were preceded and followed by EEG channels; assuming they are EEG.'</span>); <span class="keyword">end</span>
+0251     
+0252     <span class="comment">% assign 'unknown' to the rest</span>
+0253     [locs(cellfun(<span class="string">'isempty'</span>,{locs.type})).type] = deal(<span class="string">'unknown'</span>);
+0254 <span class="keyword">end</span>
+0255 
+0256 <span class="keyword">if</span> isfield(data,<span class="string">'chanlocs'</span>)
+0257     data.chanlocs = locs;
+0258 <span class="keyword">else</span>
+0259     data = locs;
+0260 <span class="keyword">end</span>
+0261 
+0262 <span class="comment">% function for sub-string matching between labels and a location struct array</span>
+0263 <a name="_sub1" href="#_subfunctions" class="code">function [found,idx_in_res,idx_in_locdb] = do_matching(fitlocs,locdb,use_lower)</a>
+0264 found = {};
+0265 idx_in_res = [];
+0266 idx_in_locdb = [];
+0267 fitlabels = {fitlocs.labels};
+0268 dblabels = {locdb.labels};
+0269 <span class="keyword">if</span> use_lower
+0270     fitlabels = lower(fitlabels);
+0271     dblabels = lower(dblabels);
+0272 <span class="keyword">end</span>
+0273 <span class="keyword">for</span> k=1:length(locdb)
+0274     match = ~cellfun(<span class="string">'isempty'</span>,strfind(fitlabels,dblabels{k}));
+0275     <span class="keyword">if</span> any(match)
+0276         found{end+1} = locdb(k).labels;
+0277         idx_in_res(end+1) = find(match,1);
+0278         idx_in_locdb(end+1) = k;
+0279     <span class="keyword">end</span>
+0280 <span class="keyword">end</span>
+0281                     
+0282 
+0283 <a name="_sub2" href="#_subfunctions" class="code">function quality = fit_quality(signal,sorted_fractions,order,fitlocs)</a>
+0284 <span class="comment">% first calculate bandpass-filtered signal X</span>
+0285 attenuation = 80;
+0286 frequencies = min(1,2*[0.5 2 45 50]/signal.srate);        
+0287 w = design_kaiser(frequencies(1),frequencies(2),attenuation,true);
+0288 B = design_fir(length(w)-1,[0 frequencies 1],[0 0 1 1 0 0],[],w);
+0289 <span class="keyword">try</span>
+0290     <span class="comment">% try to process all data at once</span>
+0291     X = filtfilt_fast(B,1,signal.data')';
+0292 <span class="keyword">catch</span>
+0293     <span class="comment">% fall back to channel-by-channel processing (if out of memory)</span>
+0294     <span class="keyword">for</span> c=signal.nbchan:-1:1
+0295         X(c,:) = filtfilt_fast(B,1,signal.data(c,:)')'; <span class="keyword">end</span>
+0296 <span class="keyword">end</span>
+0297 
+0298 <span class="comment">% for each cap design that matches reasonably well...</span>
+0299 <span class="keyword">for</span> k=1:nnz(sorted_fractions(1) &lt; 2*sorted_fractions)
+0300     o = order(k);
+0301     <span class="comment">% get matched locations</span>
+0302     tmp = fitlocs{o};
+0303     [x,y,z] = deal({tmp.X},{tmp.Y},{tmp.Z});
+0304     usable_channels = find(~cellfun(<span class="string">'isempty'</span>,x) &amp; ~cellfun(<span class="string">'isempty'</span>,y) &amp; ~cellfun(<span class="string">'isempty'</span>,z));
+0305     positions = [cell2mat(x(usable_channels));cell2mat(y(usable_channels));cell2mat(z(usable_channels))];
+0306     <span class="comment">% calculate channel interpolation matrix</span>
+0307     M = hlp_diskcache(<span class="string">'montages'</span>,@<a href="#_sub3" class="code" title="subfunction M = interpolation_matrix(positions)">interpolation_matrix</a>,positions);
+0308     <span class="comment">% calculated interpolated signal Y</span>
+0309     Y = M*X(usable_channels,:);
+0310     <span class="comment">% calculated median of windowed correlation between X and Y</span>
+0311     window_len = 1*signal.srate;
+0312     wnd = 0:window_len-1;
+0313     offsets = round(1:window_len:size(Y,2)-window_len);
+0314     W = length(offsets);
+0315     corrs = [];
+0316     <span class="keyword">for</span> o=W:-1:1
+0317         XX = X(usable_channels,offsets(o)+wnd)'; XX = bsxfun(@minus,XX,mean(XX));
+0318         YY = Y(:,offsets(o)+wnd)'; YY = bsxfun(@minus,YY,mean(YY));
+0319         corrs(:,o) = sum(XX.*YY)./(sqrt(sum(XX.^2)).*sqrt(sum(YY.^2)));
+0320     <span class="keyword">end</span>
+0321     chancorr = median(corrs,2);
+0322     <span class="comment">% use average self-correlation across channels as quality index for this cap design</span>
+0323     quality(k) = mean(chancorr);
+0324 <span class="keyword">end</span>
+0325 
+0326 
+0327 <a name="_sub3" href="#_subfunctions" class="code">function M = interpolation_matrix(positions)</a>
+0328 <span class="comment">% interpolation_matrix_version&lt;1.0&gt; -- for the cache</span>
+0329 fprintf(<span class="string">'  calculating interpolation matrix for your montage; this is a one-time process'</span>);
+0330 range = 1:length(positions);
+0331 M = zeros(length(positions));
+0332 <span class="keyword">for</span> k=range
+0333     M(k,range~=k) = real(sphericalSplineInterpolate(positions(:,range~=k),positions(:,k)))'; 
+0334     fprintf(<span class="string">'.'</span>);
+0335 <span class="keyword">end</span>
+0336 fprintf(<span class="string">'\n'</span>);
+0337</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

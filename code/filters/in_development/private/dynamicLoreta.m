@@ -1,119 +1,132 @@
-function [J,alpha,beta,T,history] = dynamicLoreta(Ut,Y,s2,iLV,L,options,alpha,beta)
+function [J,sigma2,tau2,T,history] = dynamicLoreta(Y, Ut, s2,iLV,sigma2,tau2, options)
 
 %[J,varargout] = dynamicLoreta(V,varargin)
 %
 % Computes the posterior distribution of the parameters J given some data V. 
 % The program solves levels of inference: 1) optimization of parameters J, and
-% 2) optimization of hyperparameters alpha and beta. See Trujillo-Barreto
-% et. al. (2004) for details.
+% 2) optimization of hyperparameters sigma and tau. See references for details.
 %
 % Ut,s2, and iLV are defined as follows: 
 %     Y: Nsensors x time points data matrix
 %     K: N x P predictor matrix
 %     L: sparse P x P square root of the precision matrix 
-%     [U,s,V] = svd( K*inv(L) )
+%     [U,s,V] = svd( K*\L )
 %     iLV = inv(L)*V
 %     s2  = s.^2
 %
-% alpha, beta: hyperparameters
-% J: estimated parapeters
+% sigma, tau: hyperparameters
+% J: current source density (estimated parameters)
 % 
-%                     P(V|J,alpha)*P(J|beta)
-% P(J|V,alpha,beta) = ---------------------- 
-%                        P(V|alpha,beta)
+%                     p(V|J,sigma)*P(J|tau)
+% p(J|V,sigma,tau) = ---------------------- 
+%                        p(V|sigma,tau)
 % 
-% Author: Alejandro Ojeda, SCCN/INC/UCSD, Jan-2013
-%
+%                     /      
+% l(sigma, tau) = log | p(V|J,sigma) *p(J|tau)
+%                     /
 % References:
 %   Trujillo-Barreto, N., Aubert-Vazquez, E., Valdes-Sosa, P.A., 2004.
-%     Bayesian model averaging in EEG/MEG imaging. NeuroImage 21, 1300–1319
+%       Bayesian model averaging in EEG/MEG imaging. NeuroImage 21, 1300???1319
+%
+%   Yamashita, O., Galka,A., Ozaki, T., Biscay, R. Valdes-Sosa, P.A., 2004.
+%       Recursive Penalized Least Squares Solution for Dynamical Inverse Problems
+%       of EEG Generation. Human Brain Mapping 21:221–235
+%
+% Author: Alejandro Ojeda, Syntrogi Inc., Jan-2014
 
-
-if nargin < 5, error('Not enough input arguments.');end
-if nargin < 6
-    options.maxTol          = 1e-3;
-    options.maxIter         = 100;
-    options.gridSize        = 100;
-    options.history         = true;
-    options.verbose         = true;
-    options.initNoiseFactor = 0.001;
+if nargin < 4, error('Not enough input arguments.');end
+if nargin < 5, sigma2 = [];end
+if nargin < 6, tau2 = [];end
+if nargin < 7,
+    options = struct('maxTol',1e-3,'maxIter',100,'gridSize',100,'verbose',true,'history',true,'useGPU',false,'initNoiseFactor',0.001);
 end
-
-if options.history
-    [history.alpha ...
-     history.beta  ...
-     history.err] = deal(nan(1,options.maxIter));
-else
-    history = [];
-end
-
-% Y = Y ./ std(Y(:));
-
+[history.sigma2, history.tau2, history.gcv, history.error] = deal(nan(1,options.maxIter));
+error_win = 3;
+Y2 = Y.^2;
 s = s2.^(0.5);
-n = size(Ut,1);
-p = length(s);
+n = numel(Y);
+p = numel(Y);
 
 % Initialize hyperparameters
-if nargin < 7 || isempty(alpha)
-    UtY     = Ut*Y;
-    tol     = max([n p])*eps(max(s));
-    options.gridSize = options.maxIter;
+if isempty(sigma2) || isempty(tau2)
+    UtY = Ut*Y;
+    tol = max([n p])*eps(max(s));
     lambda2 = logspace(log10(tol),log10(max(s)),options.gridSize);
-    gcv     = zeros(options.gridSize,1);
+    gcv = zeros(options.gridSize,1);
     for k=1:options.gridSize
         d = lambda2(k)./(s2+lambda2(k));
-        f = diag(d)*UtY(:,1);
+        f = mean(diag(d)*UtY,2);
         gcv(k) = dot(f,f,1)/sum(d)^2;
     end
     loc = getMinima(gcv);
-    if isempty(loc), loc = 1; end
-    loc = loc(end);
-    lambda2 = lambda2(loc);
-     
-    alpha = options.initNoiseFactor*(Y(:)'*Y(:))/n;
-    beta  = alpha*lambda2;
+    if isempty(loc), loc = 1;end
+    lambda2 = lambda2(loc(end));
+    sigma2  = options.initNoiseFactor*(Y(:)'*Y(:))/n;
+    tau2    = sigma2*lambda2;
+    gcv     = gcv(loc(end));
+else
+    lambda2 = tau2/sigma2;
+    gcv = Inf;
 end
-err = inf;
+history.sigma2(1) = sigma2;
+history.tau2(1) = tau2;
+history.gcv(1) = gcv;
+history.error(1) = inf;
 
-for it=1:options.maxIter
-    if err < options.maxTol, break;end
-    
-    % updating parameters
-    % J = iLV*diag(alpha*s./(alpha*s.^2+beta))*UtY;
-%     T = iLV*diag(alpha*s./(alpha*s2+beta))*Ut;
-    T = iLV*(diag(alpha*s./(alpha*s2+beta))*Ut);
-    J = T*Y;
-    
-    % updating hyperparameters
-    alpha_old = alpha;
-    beta_old  = beta;
-    gamma     = p-beta*sum(1./(alpha*s2+beta));
-    alpha     = n-gamma;
-    beta      = gamma/norm(L*J,'fro');
-    err       = 0.5*(abs(alpha_old-alpha) + abs(beta_old-beta));
-    if options.history
-        history.alpha(it) = alpha;
-        history.beta(it)  = beta;
-        history.err(it)   = err;
-    end
-    if options.verbose
-        fprintf([num2str(it) ' => alpha: ' num2str(alpha) '  beta: ' num2str(beta) ' df: ' num2str(gamma) ' error: ' num2str(err) '\n']);
-    end
-end
+
 if options.verbose
-    if it == options.maxIter
-        fprintf('Maximum iterations reached. Failed to converge.\n');
+    fprintf('Iter\tSigma2\t\tLambda2\t\tDf\t\tHyperp. Error\tGCV\n');
+end
+for it=2:options.maxIter
+        
+    % Computing hat matrix and mse
+    H   = Ut'*diag(s2./(s2+lambda2))*Ut;
+    mse = mean(sum((Y - H*Y).^2));
+        
+    % Computing GCV
+    gcv = mse/(1-trace(H)/n)^2;
+    history.gcv(it) = gcv;   
+    
+    % Updating hyperparameters
+    sigma2  = estimateAlpha(Y2,s2,lambda2);
+    lambda2 = estimateLambda2(Y2,sigma2);
+    
+    history.sigma2(it) = sigma2;
+    history.tau2(it)   = sigma2/lambda2;
+    if it-error_win < 1
+        err = 0.5*std(history.sigma2(1:it)) + 0.5*std(history.tau2(1:it));
     else
-        fprintf('LORETA converged in %d iterations\n',it);
+        err = 0.5*std(history.sigma2(it-error_win:it)) + 0.5*std(history.tau2(it-error_win:it));
     end
+    history.error(it) = err;
+    
+    if options.verbose
+        %disp([num2str(it-1) ' => sigma2: ' num2str(sigma2) '  lambda2: ' num2str(lambda2) ' df: ' num2str( (1-trace(H)/n) ) ' hyperp. error: ' num2str(err) ' gcv: ' num2str(gcv)]);
+        fprintf('%i\t%e\t%e\t%e\t%e\t%e\n',it-1,sigma2,lambda2,1-trace(H)/n,err,gcv);
+    end
+    if err < options.maxTol, break;end
+end
+if it == options.maxIter, warning('Maximum iteration reached. Failed to converge.');end
+if options.verbose
+    fprintf('\n')
+end
+if ~options.history
+    history = [];
+end
+tau2 = sigma2/lambda2;
+
+% parameters's estimation
+T = iLV*diag(s./(s2+lambda2))*Ut;
+J = T*Y;
 end
 
-if options.history
-    history.alpha(it:end) = [];
-    history.beta(it:end)  = [];
-    history.err(it:end)   = [];
+%--
+function sigma2 = estimateAlpha(Y2,s2,lambda2)
+sigma2 = mean(mean(bsxfun(@times,Y2,lambda2./(s2+lambda2))));
 end
-
+%--
+function lambda2 = estimateLambda2(Y2,sigma2)
+lambda2 = sigma2/mean(mean(Y2));
 end
 
 %---
@@ -123,12 +136,3 @@ fminor = ~fminor(1:end-1, :) & fminor(2:end, :);
 fminor = [0; fminor; 0];
 indmin = find(fminor);
 end
-
-% function T = standT(T,gamma,Y,L,iLV,s,Ut)
-% H = (L*iLV*diag(s)*Ut)'*T;
-% E = Y-H*Y;
-% sigma = E'*E/gamma;
-% dT = 1./sqrt(dot(T,T,2));
-% S = 1./sigma*dT;
-% T = bsxfun(@times,S,T);
-% end

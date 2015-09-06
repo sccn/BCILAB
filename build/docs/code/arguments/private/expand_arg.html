@@ -1,0 +1,207 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of expand_arg</title>
+  <meta name="keywords" content="expand_arg">
+  <meta name="description" content="Internal: expand the output of an arg(...) declaration function into an argument specifier.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../index.html">arguments</a> &gt; <a href="index.html">private</a> &gt; expand_arg.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/arguments/private&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>expand_arg
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Internal: expand the output of an arg(...) declaration function into an argument specifier.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function spec = expand_arg(unused,varargin) %#ok<INUSL> </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Internal: expand the output of an arg(...) declaration function into an argument specifier.
+ Specifier = expand_arg(ReportType, ...)
+
+ The argument declaration functions used in an arg_define declaration produce a compact and
+ low-overhead representation that first needs to be expanded into a full specifier struct that
+ contains all properties of the argument and can be processed by other functions. This function
+ performs the expansion for the atomic arguments, including arg(), arg_nogui(), and arg_norep().
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-09-24</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+<li><a href="deduce_shape.html" class="code" title="function shape = deduce_shape(value)">deduce_shape</a>	Deduce the array shape of a given value.</li>
+<li><a href="deduce_type.html" class="code" title="function type = deduce_type(value)">deduce_type</a>	Deduce the type of a given value.</li>
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function spec = expand_specifier(names,default,range,help,varargin)</a></li>
+</ul>
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function spec = expand_arg(unused,varargin) </a><span class="comment">%#ok&lt;INUSL&gt;</span>
+0002 <span class="comment">% Internal: expand the output of an arg(...) declaration function into an argument specifier.</span>
+0003 <span class="comment">% Specifier = expand_arg(ReportType, ...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% The argument declaration functions used in an arg_define declaration produce a compact and</span>
+0006 <span class="comment">% low-overhead representation that first needs to be expanded into a full specifier struct that</span>
+0007 <span class="comment">% contains all properties of the argument and can be processed by other functions. This function</span>
+0008 <span class="comment">% performs the expansion for the atomic arguments, including arg(), arg_nogui(), and arg_norep().</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0011 <span class="comment">%                                2010-09-24</span>
+0012 
+0013 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0016 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0017 <span class="comment">% License, or (at your option) any later version.</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0020 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0021 <span class="comment">% General Public License for more details.</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0024 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0025 <span class="comment">% USA</span>
+0026 
+0027     <span class="comment">% the result of build_specifier is cached in memory for efficient processing of repeated calls</span>
+0028     spec = hlp_microcache(<span class="string">'arg'</span>,@<a href="#_sub1" class="code" title="subfunction spec = expand_specifier(names,default,range,help,varargin)">expand_specifier</a>,varargin{:});
+0029 <span class="keyword">end</span>
+0030 
+0031 
+0032 <span class="comment">% expand the arg(...) declaration line into an argument specifier</span>
+0033 <a name="_sub1" href="#_subfunctions" class="code">function spec = expand_specifier(names,default,range,help,varargin)</a>
+0034     <span class="comment">% set defaults</span>
+0035     <span class="keyword">if</span> nargin &lt; 1
+0036         names = {}; <span class="keyword">end</span>
+0037     <span class="keyword">if</span> nargin &lt; 2
+0038         default = []; <span class="keyword">end</span>
+0039     <span class="keyword">if</span> nargin &lt; 3
+0040         range = []; <span class="keyword">end</span>
+0041     <span class="keyword">if</span> nargin &lt; 4
+0042         help = <span class="string">''</span>; <span class="keyword">end</span>
+0043     
+0044     <span class="comment">% initialize specification struct</span>
+0045     spec = arg_specifier(<span class="string">'head'</span>,<span class="string">'arg'</span>, <span class="string">'names'</span>,names, <span class="string">'range'</span>,range, <span class="string">'help'</span>,help, <span class="string">'to_double'</span>,[], varargin{:}, <span class="string">'mapper'</span>,[]);
+0046     
+0047     <span class="comment">% parse the type</span>
+0048     <span class="keyword">if</span> isempty(spec.type)
+0049         <span class="comment">% if the type is unspecified it is deduced</span>
+0050         <span class="keyword">if</span> iscellstr(spec.range) &amp;&amp; ((iscellstr(default) &amp;&amp; isempty(fast_setdiff(default,spec.range))) || (isa(default,<span class="string">'logical'</span>) &amp;&amp; isscalar(default)))
+0051             <span class="comment">% if both the value and the range are cell-string arrays and the value is a subset of</span>
+0052             <span class="comment">% the range, the type is 'logical'; alternatively the default may be a logical scalar,</span>
+0053             <span class="comment">% which stands for all-true/all-false</span>
+0054             spec.type = <span class="string">'logical'</span>;
+0055         <span class="keyword">elseif</span> ~isempty(default) &amp;&amp; ~(isequal(default,<span class="string">'__arg_mandatory__'</span>) || isequal(default,<span class="string">'__arg_unassigned__'</span>))
+0056             <span class="comment">% if the value is non-empty, the type is deduced from the value</span>
+0057             spec.type = <a href="deduce_type.html" class="code" title="function type = deduce_type(value)">deduce_type</a>(default);
+0058         <span class="keyword">elseif</span> isnumeric(spec.range) &amp;&amp; ~isempty(spec.range)
+0059             <span class="comment">% if the range is numeric and non-empty, the type is deduced from the range</span>
+0060             spec.type = <a href="deduce_type.html" class="code" title="function type = deduce_type(value)">deduce_type</a>(spec.range);
+0061         <span class="keyword">elseif</span> iscell(spec.range) &amp;&amp; isscalar(unique(cellfun(@<a href="deduce_type.html" class="code" title="function type = deduce_type(value)">deduce_type</a>,spec.range,<span class="string">'UniformOutput'</span>,false)))
+0062             <span class="comment">% if the range is a cell array of uniformly-typed values, the type is the unique</span>
+0063             <span class="comment">% type of the cell entries</span>
+0064             spec.type = <a href="deduce_type.html" class="code" title="function type = deduce_type(value)">deduce_type</a>(spec.range{1});
+0065         <span class="keyword">elseif</span> isempty(default) &amp;&amp; isempty(spec.range) &amp;&amp; ~isa(default,<span class="string">'double'</span>)
+0066             <span class="comment">% if both default and range are empty, and the default is not [], we deduce the type from the default</span>
+0067             spec.type = <a href="deduce_type.html" class="code" title="function type = deduce_type(value)">deduce_type</a>(default);
+0068         <span class="keyword">else</span>
+0069             <span class="comment">% if no other rule applies, the type is expression</span>
+0070             spec.type = <span class="string">'expression'</span>;
+0071         <span class="keyword">end</span>
+0072     <span class="keyword">end</span>    
+0073     
+0074     <span class="comment">% parse the shape</span>
+0075     <span class="keyword">if</span> isempty(spec.shape)
+0076         <span class="comment">% if the shape is unspecified, it is deduced</span>
+0077         <span class="keyword">if</span> ~isempty(default) &amp;&amp; ~(isequal(default,<span class="string">'__arg_mandatory__'</span>) || isequal(default,<span class="string">'__arg_unassigned__'</span>))
+0078             <span class="comment">% if the value is not empty, the shape is deduced from the value</span>
+0079             <span class="keyword">if</span> (isequal(default,true) || isequal(default,false) || iscellstr(default)) &amp;&amp; iscellstr(spec.range)
+0080                 <span class="comment">% except in the special case where the default value is true, false or a cell array of strings,</span>
+0081                 <span class="comment">% while the range is a cell array of strings, the shape is set to row</span>
+0082                 spec.shape = <span class="string">'row'</span>;
+0083             <span class="keyword">else</span>
+0084                 spec.shape = <a href="deduce_shape.html" class="code" title="function shape = deduce_shape(value)">deduce_shape</a>(default);
+0085             <span class="keyword">end</span>
+0086         <span class="keyword">elseif</span> ischar(default) &amp;&amp; isempty(default)
+0087             <span class="comment">% if the value is an empty char array, the shape is by default 'row'</span>
+0088             spec.shape = <span class="string">'row'</span>;
+0089         <span class="keyword">elseif</span> ~isempty(spec.range) &amp;&amp; isnumeric(spec.range)
+0090             <span class="comment">% if a non-empty numeric range is given, the shape is assumed to be a scalar</span>
+0091             spec.shape = <span class="string">'scalar'</span>;
+0092         <span class="keyword">elseif</span> iscell(spec.range) &amp;&amp; isscalar(unique(cellfun(@<a href="deduce_shape.html" class="code" title="function shape = deduce_shape(value)">deduce_shape</a>,spec.range,<span class="string">'UniformOutput'</span>,false)))
+0093             <span class="comment">% if a cell-array range with uniform shapes is given, the shape is by default the</span>
+0094             <span class="comment">% unique shape of the cell entries</span>
+0095             spec.shape = <a href="deduce_shape.html" class="code" title="function shape = deduce_shape(value)">deduce_shape</a>(spec.range{1});
+0096         <span class="keyword">else</span>
+0097             <span class="comment">% if no other rule applies, the shape is matrix</span>
+0098             spec.shape = <span class="string">'matrix'</span>;
+0099         <span class="keyword">end</span>
+0100     <span class="keyword">end</span>
+0101     
+0102     <span class="comment">% parse the default value</span>
+0103     <span class="keyword">if</span> isequal(default,[]) &amp;&amp; iscellstr(spec.range)
+0104         <span class="comment">% if the value is [] but the range is a cell-string array (as in a multi-option argument),</span>
+0105         <span class="comment">% the value is set to the first option</span>
+0106         default = spec.range{1};
+0107     <span class="keyword">elseif</span> islogical(default) &amp;&amp; isscalar(default) &amp;&amp; iscellstr(spec.range)    
+0108         <span class="comment">% if the value is true/false, and the range is a cell-string array (as in a set of</span>
+0109         <span class="comment">% options), false maps to the empty set and true maps to the full set</span>
+0110         default = quickif(default,spec.range,{});
+0111     <span class="keyword">elseif</span> isequal(default,[])    
+0112         <span class="comment">% if the value is [], it is converted to the declared type</span>
+0113         <span class="keyword">switch</span> spec.type
+0114             <span class="keyword">case</span> {<span class="string">'cellstr'</span>,<span class="string">'cell'</span>}
+0115                 default = {};
+0116             <span class="keyword">case</span> {<span class="string">'char'</span>}
+0117                 default = <span class="string">''</span>;
+0118             <span class="keyword">case</span> {<span class="string">'denserealdouble'</span>,<span class="string">'densecomplexdouble'</span>}
+0119                 default = full(double(default));
+0120             <span class="keyword">case</span> {<span class="string">'sparserealdouble'</span>,<span class="string">'sparsecomplexdouble'</span>}
+0121                 default = sparse(double(default));
+0122             <span class="keyword">case</span> {<span class="string">'denserealsingle'</span>,<span class="string">'densecomplexsingle'</span>}
+0123                 default = full(single(default));
+0124             <span class="keyword">case</span> {<span class="string">'sparserealsingle'</span>,<span class="string">'sparsecomplexsingle'</span>}
+0125                 default = sparse(single(default));
+0126             <span class="keyword">case</span> {<span class="string">'int8'</span>,<span class="string">'uint8'</span>,<span class="string">'int16'</span>,<span class="string">'uint16'</span>,<span class="string">'int32'</span>,<span class="string">'uint32'</span>,<span class="string">'int64'</span>,<span class="string">'logical'</span>}
+0127                 default = cast(default, spec.type);
+0128         <span class="keyword">end</span>
+0129     <span class="keyword">end</span>
+0130     
+0131     <span class="comment">% if to_double is still undecided, enable it only if the input type is an integer</span>
+0132     <span class="keyword">if</span> isempty(spec.to_double)
+0133         spec.to_double = any(strcmp(spec.type,{<span class="string">'int8'</span>,<span class="string">'uint8'</span>,<span class="string">'int16'</span>,<span class="string">'uint16'</span>,<span class="string">'int32'</span>,<span class="string">'uint32'</span>,<span class="string">'int64'</span>})); <span class="keyword">end</span>
+0134 
+0135     <span class="comment">% set up the sequence of defaults</span>
+0136     spec.defaults = {default};
+0137 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

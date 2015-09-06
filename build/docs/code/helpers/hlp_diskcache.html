@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>hlp_diskcache
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -101,6 +102,8 @@
       * exactmatch_cutoff: if the input is larger than this many bytes, it will not be stored with the result
                            and will not be compared byte-for-byte during lookup, in bytes (default: 1000000)
                            note that the hash is usually strong enough to make a byte-for-byte check unnecessary
+      * spot_hashing: if true, faster hashing will be performed on a subset of the data for speed
+                      (default: false)
       * cleanup: clean up old cache entries when running out of disk space (default: true)
       * serialize: use serialization for the result, faster than raw save/load for large files (default: true)
       * permissions: cell array of file permissions to use for created directories and files, as in fileattrib 
@@ -109,8 +112,10 @@
                                   otherwise the folder will be created if missing (default: false)
                                   note: this can be useful to prevent inadvertent littering of directories 
                                   with cache files when running from a different installation
-        overwrite_files: overwrite existing files (can create broken files when multiple processes write
+      * overwrite_files: overwrite existing files (can create broken files when multiple processes write
                          to the same files in parallel) (default: false)
+      * load_only: if true and no result is in the cache, then this function will return the string
+                   'hlp_diskcache:notfound' (default: true)
 
 
  Pre-defining and Recalling Settings:
@@ -162,15 +167,35 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="hlp_cryptohash.html" class="code" title="function hash = hlp_cryptohash(data,fromfile)">hlp_cryptohash</a>	Compute an MD5 hash of a file, string or generic data structure.</li><li><a href="hlp_deserialize.html" class="code" title="function v = hlp_deserialize(m)">hlp_deserialize</a>	Convert a serialized byte vector back into the corresponding MATLAB data structure.</li><li><a href="hlp_handleerror.html" class="code" title="function s = hlp_handleerror(e,level)">hlp_handleerror</a>	Displays a formatted error message for some error object, including a full stack trace.</li><li><a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>	Convert a MATLAB data structure into a compact byte vector.</li></ul>
+
+<li><a href="hlp_cryptohash.html" class="code" title="function hash = hlp_cryptohash(data,fromfile)">hlp_cryptohash</a>	Compute an MD5 hash of a file, string or generic data structure.</li>
+<li><a href="hlp_deserialize.html" class="code" title="function v = hlp_deserialize(m)">hlp_deserialize</a>	Convert a serialized byte vector back into the corresponding MATLAB data structure.</li>
+<li><a href="hlp_fingerprint.html" class="code" title="function fp = hlp_fingerprint(data,hashed)">hlp_fingerprint</a>	Make a fingerprint (hash) of the given data structure.</li>
+<li><a href="hlp_handleerror.html" class="code" title="function s = hlp_handleerror(e,level,hyperlinks)">hlp_handleerror</a>	Displays a formatted error message for some error object, including a full stack trace.</li>
+<li><a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>	Convert a MATLAB data structure into a compact byte vector.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
+
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function options = assign_defaults(options)</a></li><li><a href="#_sub2" class="code">function x = trim_expression(x)</a></li><li><a href="#_sub3" class="code">function v = func_version(func,versiontag)</a></li><li><a href="#_sub4" class="code">function res = disk_total_space(path)</a></li><li><a href="#_sub5" class="code">function res = disk_free_space(path)</a></li><li><a href="#_sub6" class="code">function error_message(msg,e)</a></li><li><a href="#_sub7" class="code">function res = strsplit(str,delims)</a></li><li><a href="#_sub8" class="code">function make_directories(filepath,attribs)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function options = assign_defaults(options)</a></li>
+<li><a href="#_sub2" class="code">function x = trim_expression(x)</a></li>
+<li><a href="#_sub3" class="code">function v = func_version(func,versiontag)</a></li>
+<li><a href="#_sub4" class="code">function res = disk_total_space(path)</a></li>
+<li><a href="#_sub5" class="code">function res = disk_free_space(path)</a></li>
+<li><a href="#_sub6" class="code">function error_message(msg,e)</a></li>
+<li><a href="#_sub7" class="code">function res = strsplit(str,delims)</a></li>
+<li><a href="#_sub8" class="code">function make_directories(filepath,attribs)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function varargout = hlp_diskcache(options, f, varargin)</a>
@@ -248,429 +273,472 @@ This function is called by:
 0073 <span class="comment">%      * exactmatch_cutoff: if the input is larger than this many bytes, it will not be stored with the result</span>
 0074 <span class="comment">%                           and will not be compared byte-for-byte during lookup, in bytes (default: 1000000)</span>
 0075 <span class="comment">%                           note that the hash is usually strong enough to make a byte-for-byte check unnecessary</span>
-0076 <span class="comment">%      * cleanup: clean up old cache entries when running out of disk space (default: true)</span>
-0077 <span class="comment">%      * serialize: use serialization for the result, faster than raw save/load for large files (default: true)</span>
-0078 <span class="comment">%      * permissions: cell array of file permissions to use for created directories and files, as in fileattrib</span>
-0079 <span class="comment">%                     (default: {'+w','a'})</span>
-0080 <span class="comment">%      * bypass_if_folder_missing: if the given folder does not exist, the cache will be bypassed;</span>
-0081 <span class="comment">%                                  otherwise the folder will be created if missing (default: false)</span>
-0082 <span class="comment">%                                  note: this can be useful to prevent inadvertent littering of directories</span>
-0083 <span class="comment">%                                  with cache files when running from a different installation</span>
-0084 <span class="comment">%        overwrite_files: overwrite existing files (can create broken files when multiple processes write</span>
-0085 <span class="comment">%                         to the same files in parallel) (default: false)</span>
-0086 <span class="comment">%</span>
-0087 <span class="comment">%</span>
-0088 <span class="comment">% Pre-defining and Recalling Settings:</span>
-0089 <span class="comment">%   If Settings is passed in as a string instead of a cell array of name-value pairs or a struct,</span>
-0090 <span class="comment">%   it is taken as the name of a settings profile (similar to a cache &quot;domain&quot; in hlp_microcache).</span>
-0091 <span class="comment">%   Note that the profile name should be a valid MATLAB field name.</span>
-0092 <span class="comment">%</span>
-0093 <span class="comment">%   Pre-defining settings for a profile:</span>
-0094 <span class="comment">%       To assign settings for a named cache profile, call:</span>
-0095 <span class="comment">%       &gt; hlp_diskcache('myprofile','name',value,'name',value, ...)</span>
-0096 <span class="comment">%       Where myprofile is the name of the profile for which settings shall be assigned</span>
-0097 <span class="comment">%       and the names/values are the settings to assign to it (what would normally be passed as a</span>
-0098 <span class="comment">%       cell array). Note that settings are not persistent across MATLAB runs, so you'd need to</span>
-0099 <span class="comment">%       put them into an initializer or startup function. By default a &quot;clear all&quot; does not clear the</span>
-0100 <span class="comment">%       settings (this can be disabled by setting clearable_settings to true in the code below).</span>
-0101 <span class="comment">%</span>
-0102 <span class="comment">%   Recalling settings from a profile:</span>
-0103 <span class="comment">%       To recall settings from a profile in a call of hlp_diskcache, just use the name of the</span>
-0104 <span class="comment">%       profile instead of the Settings cell array. It is permitted to recall from a profile that</span>
-0105 <span class="comment">%       has not been defined before (in this case, all defaults will be assumed).</span>
-0106 <span class="comment">%</span>
-0107 <span class="comment">%</span>
-0108 <span class="comment">% Examples:</span>
-0109 <span class="comment">%   % if this line is executed for the first time, it is as slow as magic(2000)</span>
-0110 <span class="comment">%   % the result will be written into a sub-directory of ~/myresults</span>
-0111 <span class="comment">%   m = hlp_diskcache({'folder','./myresults'},@magic,2000);</span>
-0112 <span class="comment">%</span>
-0113 <span class="comment">%   % if it is executed a second time, it is likely much faster than m=magic(2000)</span>
-0114 <span class="comment">%   % if the result is found on disk</span>
+0076 <span class="comment">%      * spot_hashing: if true, faster hashing will be performed on a subset of the data for speed</span>
+0077 <span class="comment">%                      (default: false)</span>
+0078 <span class="comment">%      * cleanup: clean up old cache entries when running out of disk space (default: true)</span>
+0079 <span class="comment">%      * serialize: use serialization for the result, faster than raw save/load for large files (default: true)</span>
+0080 <span class="comment">%      * permissions: cell array of file permissions to use for created directories and files, as in fileattrib</span>
+0081 <span class="comment">%                     (default: {'+w','a'})</span>
+0082 <span class="comment">%      * bypass_if_folder_missing: if the given folder does not exist, the cache will be bypassed;</span>
+0083 <span class="comment">%                                  otherwise the folder will be created if missing (default: false)</span>
+0084 <span class="comment">%                                  note: this can be useful to prevent inadvertent littering of directories</span>
+0085 <span class="comment">%                                  with cache files when running from a different installation</span>
+0086 <span class="comment">%      * overwrite_files: overwrite existing files (can create broken files when multiple processes write</span>
+0087 <span class="comment">%                         to the same files in parallel) (default: false)</span>
+0088 <span class="comment">%      * load_only: if true and no result is in the cache, then this function will return the string</span>
+0089 <span class="comment">%                   'hlp_diskcache:notfound' (default: true)</span>
+0090 <span class="comment">%</span>
+0091 <span class="comment">%</span>
+0092 <span class="comment">% Pre-defining and Recalling Settings:</span>
+0093 <span class="comment">%   If Settings is passed in as a string instead of a cell array of name-value pairs or a struct,</span>
+0094 <span class="comment">%   it is taken as the name of a settings profile (similar to a cache &quot;domain&quot; in hlp_microcache).</span>
+0095 <span class="comment">%   Note that the profile name should be a valid MATLAB field name.</span>
+0096 <span class="comment">%</span>
+0097 <span class="comment">%   Pre-defining settings for a profile:</span>
+0098 <span class="comment">%       To assign settings for a named cache profile, call:</span>
+0099 <span class="comment">%       &gt; hlp_diskcache('myprofile','name',value,'name',value, ...)</span>
+0100 <span class="comment">%       Where myprofile is the name of the profile for which settings shall be assigned</span>
+0101 <span class="comment">%       and the names/values are the settings to assign to it (what would normally be passed as a</span>
+0102 <span class="comment">%       cell array). Note that settings are not persistent across MATLAB runs, so you'd need to</span>
+0103 <span class="comment">%       put them into an initializer or startup function. By default a &quot;clear all&quot; does not clear the</span>
+0104 <span class="comment">%       settings (this can be disabled by setting clearable_settings to true in the code below).</span>
+0105 <span class="comment">%</span>
+0106 <span class="comment">%   Recalling settings from a profile:</span>
+0107 <span class="comment">%       To recall settings from a profile in a call of hlp_diskcache, just use the name of the</span>
+0108 <span class="comment">%       profile instead of the Settings cell array. It is permitted to recall from a profile that</span>
+0109 <span class="comment">%       has not been defined before (in this case, all defaults will be assumed).</span>
+0110 <span class="comment">%</span>
+0111 <span class="comment">%</span>
+0112 <span class="comment">% Examples:</span>
+0113 <span class="comment">%   % if this line is executed for the first time, it is as slow as magic(2000)</span>
+0114 <span class="comment">%   % the result will be written into a sub-directory of ~/myresults</span>
 0115 <span class="comment">%   m = hlp_diskcache({'folder','./myresults'},@magic,2000);</span>
 0116 <span class="comment">%</span>
-0117 <span class="comment">%   % it is also possible to assign settings separately for a named 'profile', and then later recall</span>
-0118 <span class="comment">%   % them:</span>
-0119 <span class="comment">%   hlp_diskcache('myprofile','folder','./myresults','freemem',10);</span>
-0120 <span class="comment">%   m = hlp_diskcache('myprofile',@magic,2000);</span>
-0121 <span class="comment">%</span>
-0122 <span class="comment">%</span>
-0123 <span class="comment">% See also:</span>
-0124 <span class="comment">%  hlp_microcache</span>
+0117 <span class="comment">%   % if it is executed a second time, it is likely much faster than m=magic(2000)</span>
+0118 <span class="comment">%   % if the result is found on disk</span>
+0119 <span class="comment">%   m = hlp_diskcache({'folder','./myresults'},@magic,2000);</span>
+0120 <span class="comment">%</span>
+0121 <span class="comment">%   % it is also possible to assign settings separately for a named 'profile', and then later recall</span>
+0122 <span class="comment">%   % them:</span>
+0123 <span class="comment">%   hlp_diskcache('myprofile','folder','./myresults','freemem',10);</span>
+0124 <span class="comment">%   m = hlp_diskcache('myprofile',@magic,2000);</span>
 0125 <span class="comment">%</span>
-0126 <span class="comment">% Depends on:</span>
-0127 <span class="comment">%  hlp_serialize, hlp_deserialize, hlp_cryptohash</span>
-0128 <span class="comment">%</span>
+0126 <span class="comment">%</span>
+0127 <span class="comment">% See also:</span>
+0128 <span class="comment">%  hlp_microcache</span>
 0129 <span class="comment">%</span>
-0130 <span class="comment">%                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0131 <span class="comment">%                                 2013-04-15</span>
-0132 
-0133 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2013, christian@sccn.ucsd.edu</span>
-0134 <span class="comment">%</span>
-0135 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
-0136 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
-0137 <span class="comment">% License, or (at your option) any later version.</span>
+0130 <span class="comment">% Depends on:</span>
+0131 <span class="comment">%  hlp_serialize, hlp_deserialize, hlp_cryptohash</span>
+0132 <span class="comment">%</span>
+0133 <span class="comment">%</span>
+0134 <span class="comment">%                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0135 <span class="comment">%                                 2013-04-15</span>
+0136 
+0137 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2013, christian@sccn.ucsd.edu</span>
 0138 <span class="comment">%</span>
-0139 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
-0140 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
-0141 <span class="comment">% General Public License for more details.</span>
+0139 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0140 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0141 <span class="comment">% License, or (at your option) any later version.</span>
 0142 <span class="comment">%</span>
-0143 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
-0144 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
-0145 <span class="comment">% USA</span>
-0146 
-0147 
-0148 bypass = false;             <span class="comment">% whether to bypass caching (switch for debugging)</span>
-0149 clearable_settings = false; <span class="comment">% whether settings should be clearable by &quot;clear all&quot;</span>
-0150 
-0151 archive_version = 1.0;      <span class="comment">% version of the archive format</span>
-0152 <span class="keyword">persistent</span> settings;
-0153 
-0154 <span class="comment">% parse options</span>
-0155 <span class="keyword">if</span> iscell(options) || isstruct(options)
-0156     <span class="comment">% options are directly given as cell array or struct</span>
-0157     options = <a href="#_sub1" class="code" title="subfunction options = assign_defaults(options)">assign_defaults</a>(options);
-0158 <span class="keyword">elseif</span> ischar(options)
-0159     <span class="comment">% options is referring to the name of a profile</span>
-0160     profilename = options;
-0161     <span class="comment">% make sure that it exists</span>
-0162     <span class="keyword">if</span> ~isfield(settings,profilename)
-0163         settings.(profilename) = <a href="#_sub1" class="code" title="subfunction options = assign_defaults(options)">assign_defaults</a>({}); <span class="keyword">end</span>
-0164     <span class="keyword">if</span> isa(f,<span class="string">'function_handle'</span>)
-0165         <span class="comment">% recall options from it</span>
-0166         options = settings.(profilename);
-0167     <span class="keyword">elseif</span> ischar(f)
-0168         <span class="comment">% assign options to it</span>
-0169         varargin = [{f} varargin];
-0170         <span class="keyword">for</span> k=1:2:length(varargin)
-0171             settings.(profilename).(varargin{k}) = varargin{k+1}; <span class="keyword">end</span>
-0172         <span class="keyword">if</span> ~clearable_settings
-0173             mlock; <span class="keyword">end</span>
-0174         <span class="keyword">return</span>;
-0175     <span class="keyword">else</span>
-0176         error(<span class="string">'Unrecognized syntax.'</span>);
-0177     <span class="keyword">end</span>
-0178 <span class="keyword">else</span>
-0179     error(<span class="string">'Unrecognized syntax.'</span>);
-0180 <span class="keyword">end</span> 
-0181 
-0182 <span class="comment">% make path platform-specific</span>
-0183 <span class="keyword">if</span> ~exist(<span class="string">'env_translatepath'</span>,<span class="string">'file'</span>)
-0184     options.folder = strrep(strrep(options.folder,<span class="string">'\'</span>,filesep),<span class="string">'/'</span>,filesep);
-0185 <span class="keyword">else</span>
-0186     options.folder = env_translatepath(options.folder); 
-0187 <span class="keyword">end</span>
-0188 
-0189 <span class="comment">% optionally bypass the caching</span>
-0190 <span class="keyword">if</span> bypass || options.bypass || (options.bypass_if_folder_missing &amp;&amp; ~exist(options.folder,<span class="string">'dir'</span>))
-0191     [varargout{1:nargout}] = f(varargin{:});
-0192     <span class="keyword">return</span>;
-0193 <span class="keyword">end</span>
-0194 
-0195 <span class="comment">% get a unique identifier of the computation</span>
-0196 uid = <a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>(<a href="#_sub2" class="code" title="subfunction x = trim_expression(x)">trim_expression</a>({nargout,f,<a href="#_sub3" class="code" title="subfunction v = func_version(func,versiontag)">func_version</a>(f,options.versiontag),varargin}));
-0197 
-0198 <span class="comment">% get a short hash value of that</span>
-0199 hash = <a href="hlp_cryptohash.html" class="code" title="function hash = hlp_cryptohash(data,fromfile)">hlp_cryptohash</a>(uid);
-0200 
-0201 <span class="comment">% get the file name under which this would be cached</span>
-0202 cachedir = [options.folder filesep options.subdir];
-0203 filename = [cachedir filesep hash(1:2) filesep hash(3:end) <span class="string">'.mat'</span>];
-0204 
-0205 <span class="keyword">if</span> exist(filename,<span class="string">'file'</span>)    
-0206     <span class="keyword">try</span>
-0207         <span class="comment">% try to load from disk</span>
-0208         result = load(filename);
-0209         <span class="comment">% do some sanity checks</span>
-0210         <span class="keyword">if</span> floor(result.settings.archive_version) &gt; floor(archive_version)
-0211             disp(<span class="string">'Note: The file was saved with a newer major archive version. Performing a safe fallback...'</span>);
-0212         <span class="keyword">elseif</span> ~all(isfield(result,{<span class="string">'settings'</span>,<span class="string">'hash'</span>,<span class="string">'uid'</span>,<span class="string">'varargout'</span>}))
-0213             disp(<span class="string">'The cached file is apparently malformed (missing some required fields). Performing a safe fallback...'</span>); 
-0214         <span class="keyword">elseif</span> ~isequal(result.hash,hash)
-0215             disp(<span class="string">'Note: the hash does not match that of the file on disk. Performing a safe fallback...'</span>);
-0216         <span class="keyword">elseif</span> ~isempty(result.uid) &amp;&amp; ~isequal(result.uid,uid)
-0217             disp(<span class="string">'Note: two results yielded the same MD5 hash; this should be a very rare event. Performing a safe fallback...'</span>);
-0218         <span class="keyword">else</span>
-0219             <span class="comment">% deserialize data if necessary</span>
-0220             <span class="keyword">if</span> result.settings.is_serialized
-0221                 result.varargout = <a href="hlp_deserialize.html" class="code" title="function v = hlp_deserialize(m)">hlp_deserialize</a>(result.varargout); <span class="keyword">end</span>
-0222             <span class="comment">% all went well: return result</span>
-0223             varargout = result.varargout;
-0224             <span class="keyword">return</span>;
-0225         <span class="keyword">end</span>
-0226     <span class="keyword">catch</span> e
-0227         <a href="#_sub6" class="code" title="subfunction error_message(msg,e)">error_message</a>(<span class="string">'Could not look up result from disk'</span>,e);
-0228         disp(<span class="string">'Performing a safe fallback...'</span>);
-0229     <span class="keyword">end</span>
-0230 <span class="keyword">end</span>
+0143 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0144 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0145 <span class="comment">% General Public License for more details.</span>
+0146 <span class="comment">%</span>
+0147 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0148 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0149 <span class="comment">% USA</span>
+0150 dp;
+0151 
+0152 bypass = false;             <span class="comment">% whether to bypass caching (switch for debugging)</span>
+0153 clearable_settings = false; <span class="comment">% whether settings should be clearable by &quot;clear all&quot;</span>
+0154 
+0155 archive_version = 1.0;      <span class="comment">% version of the archive format</span>
+0156 <span class="keyword">persistent</span> settings;
+0157 <span class="keyword">persistent</span> have_translatepath;
+0158 <span class="keyword">if</span> isempty(have_translatepath)
+0159     have_translatepath = exist(<span class="string">'env_translatepath'</span>,<span class="string">'file'</span>); <span class="keyword">end</span>
+0160 
+0161 <span class="comment">% parse options</span>
+0162 <span class="keyword">if</span> isstruct(options) || (iscell(options) &amp;&amp; mod(length(options),2) == 0 &amp;&amp; iscellstr(options(1:2:end)))
+0163     <span class="comment">% options are directly given as cell array or struct</span>
+0164     options = <a href="#_sub1" class="code" title="subfunction options = assign_defaults(options)">assign_defaults</a>(options);
+0165 <span class="keyword">elseif</span> ischar(options) || iscell(options) &amp;&amp; mod(length(options),2) == 1 &amp;&amp; iscellstr(options([1 2:2:end]))
+0166     <span class="comment">% options is referring to the name of a profile (possibly followed by option overrides)</span>
+0167     <span class="keyword">if</span> ischar(options)
+0168         profilename = options;
+0169         overrides = {};
+0170     <span class="keyword">else</span>
+0171         profilename = options{1};
+0172         overrides = options(2:end);
+0173     <span class="keyword">end</span>
+0174     <span class="keyword">if</span> ~isvarname(profilename)
+0175         error(<span class="string">'The given profile name is not a valid MATLAB variable name: %s'</span>,profilename); <span class="keyword">end</span>
+0176     <span class="comment">% make sure that it exists</span>
+0177     <span class="keyword">if</span> ~isfield(settings,profilename)
+0178         settings.(profilename) = <a href="#_sub1" class="code" title="subfunction options = assign_defaults(options)">assign_defaults</a>({}); <span class="keyword">end</span>
+0179     <span class="keyword">if</span> isa(f,<span class="string">'function_handle'</span>)
+0180         <span class="comment">% recall options from it</span>
+0181         options = settings.(profilename);
+0182         <span class="keyword">if</span> ~isempty(overrides)
+0183             <span class="comment">% have more options</span>
+0184             <span class="keyword">for</span> o=1:2:length(overrides)
+0185                 options.(overrides{o}) = overrides{o+1}; <span class="keyword">end</span>
+0186         <span class="keyword">end</span>
+0187     <span class="keyword">elseif</span> ischar(f)
+0188         <span class="comment">% assign options to it</span>
+0189         varargin = [{f} varargin];
+0190         <span class="keyword">for</span> k=1:2:length(varargin)
+0191             settings.(profilename).(varargin{k}) = varargin{k+1}; <span class="keyword">end</span>
+0192         <span class="keyword">if</span> ~clearable_settings
+0193             mlock; <span class="keyword">end</span>
+0194         <span class="keyword">return</span>;
+0195     <span class="keyword">else</span>
+0196         error(<span class="string">'Unrecognized syntax: the second argument must be either a function handle or a string.'</span>);
+0197     <span class="keyword">end</span>
+0198 <span class="keyword">else</span>
+0199     error(<span class="string">'Unrecognized syntax: the Settings argument must be either a struct, cell array, or string/'</span>);
+0200 <span class="keyword">end</span> 
+0201 
+0202 <span class="comment">% make path platform-specific</span>
+0203 <span class="keyword">if</span> ~have_translatepath
+0204     options.folder = strrep(strrep(options.folder,<span class="string">'\'</span>,filesep),<span class="string">'/'</span>,filesep);
+0205 <span class="keyword">else</span>
+0206     options.folder = env_translatepath(options.folder); 
+0207 <span class="keyword">end</span>
+0208 
+0209 <span class="comment">% optionally bypass the caching</span>
+0210 <span class="keyword">if</span> bypass || options.bypass || (options.bypass_if_folder_missing &amp;&amp; ~exist(options.folder,<span class="string">'dir'</span>))
+0211     [varargout{1:nargout}] = f(varargin{:});
+0212     <span class="keyword">return</span>;
+0213 <span class="keyword">end</span>
+0214 
+0215 uid_struct = <a href="#_sub2" class="code" title="subfunction x = trim_expression(x)">trim_expression</a>({nargout,f,<a href="#_sub3" class="code" title="subfunction v = func_version(func,versiontag)">func_version</a>(f,options.versiontag),varargin});
+0216 <span class="keyword">if</span> ~options.spot_hashing
+0217     <span class="comment">% get a unique identifier of the computation</span>
+0218     uid = <a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>(uid_struct);
+0219     <span class="comment">% get a short hash value of that</span>
+0220     hash = <a href="hlp_cryptohash.html" class="code" title="function hash = hlp_cryptohash(data,fromfile)">hlp_cryptohash</a>(uid);
+0221 <span class="keyword">else</span>
+0222     <span class="comment">% get the UID via fingerprinting</span>
+0223     uid = <a href="hlp_fingerprint.html" class="code" title="function fp = hlp_fingerprint(data,hashed)">hlp_fingerprint</a>(uid_struct,false);
+0224     <span class="comment">% get a short hash value of that</span>
+0225     hash = <a href="hlp_cryptohash.html" class="code" title="function hash = hlp_cryptohash(data,fromfile)">hlp_cryptohash</a>(uid);
+0226 <span class="keyword">end</span>
+0227     
+0228 <span class="comment">% get the file name under which this would be cached</span>
+0229 cachedir = [options.folder filesep options.subdir];
+0230 filename = [cachedir filesep hash(1:2) filesep hash(3:end) <span class="string">'.mat'</span>];
 0231 
-0232 result.settings = options;
-0233 <span class="keyword">if</span> numel(uid) &lt;= result.settings.exactmatch_cutoff
-0234     result.uid = uid;
-0235 <span class="keyword">else</span>
-0236     result.uid = [];
-0237     clear uid;
-0238 <span class="keyword">end</span>
-0239 result.settings.is_serialized = result.settings.serialize;
-0240 result.settings.archive_version = archive_version;
-0241 result.hash = hash;
-0242 
-0243 <span class="comment">% (re)calculate the result</span>
-0244 start_time = tic;
-0245 [varargout{1:nargout}] = f(varargin{:});
-0246 computation_time = toc(start_time);
-0247 
-0248 <span class="comment">% prepare result for writeback</span>
-0249 <span class="keyword">if</span> result.settings.is_serialized
-0250     <span class="keyword">try</span>
-0251         result.varargout = <a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>(varargout);
-0252     <span class="keyword">catch</span> e
-0253         <a href="#_sub6" class="code" title="subfunction error_message(msg,e)">error_message</a>(<span class="string">'Could not serialize the result (try to disable the option serialize)'</span>,e);
-0254         disp(<span class="string">'Saving result in unserialized form (can be slow).'</span>)
-0255         result.varargout = varargout;
+0232 <span class="keyword">if</span> exist(filename,<span class="string">'file'</span>)    
+0233     <span class="keyword">try</span>
+0234         <span class="comment">% try to load from disk</span>
+0235         result = load(filename);
+0236         <span class="comment">% do some sanity checks</span>
+0237         <span class="keyword">if</span> floor(result.settings.archive_version) &gt; floor(archive_version)
+0238             disp(<span class="string">'Note: The file was saved with a newer major archive version. Performing a safe fallback...'</span>);
+0239         <span class="keyword">elseif</span> ~all(isfield(result,{<span class="string">'settings'</span>,<span class="string">'hash'</span>,<span class="string">'uid'</span>,<span class="string">'varargout'</span>}))
+0240             disp(<span class="string">'The cached file is apparently malformed (missing some required fields). Performing a safe fallback...'</span>); 
+0241         <span class="keyword">elseif</span> ~isequal(result.hash,hash)
+0242             disp(<span class="string">'Note: the hash does not match that of the file on disk. Performing a safe fallback...'</span>);
+0243         <span class="keyword">elseif</span> ~isempty(result.uid) &amp;&amp; ~isequal(result.uid,uid)
+0244             disp(<span class="string">'Note: two results yielded the same MD5 hash; this should be a very rare event. Performing a safe fallback...'</span>);
+0245         <span class="keyword">else</span>
+0246             <span class="comment">% deserialize data if necessary</span>
+0247             <span class="keyword">if</span> result.settings.is_serialized
+0248                 result.varargout = <a href="hlp_deserialize.html" class="code" title="function v = hlp_deserialize(m)">hlp_deserialize</a>(result.varargout); <span class="keyword">end</span>
+0249             <span class="comment">% all went well: return result</span>
+0250             varargout = result.varargout;
+0251             <span class="keyword">return</span>;
+0252         <span class="keyword">end</span>
+0253     <span class="keyword">catch</span> e
+0254         <a href="#_sub6" class="code" title="subfunction error_message(msg,e)">error_message</a>(<span class="string">'Could not look up result from disk'</span>,e);
+0255         disp(<span class="string">'Performing a safe fallback...'</span>);
 0256     <span class="keyword">end</span>
-0257 <span class="keyword">else</span>
-0258     result.varargout = varargout;
-0259 <span class="keyword">end</span>
-0260 
-0261 <span class="comment">% do some size &amp; time checks</span>
-0262 stats = whos(<span class="string">'result'</span>);
-0263 resultsize = stats.bytes;
-0264 <span class="keyword">if</span> resultsize &gt; options.maxsize
-0265     <span class="comment">% result too big to store</span>
-0266     <span class="keyword">return</span>;
-0267 <span class="keyword">elseif</span> resultsize &lt; options.minsize
-0268     <span class="comment">% result too small to store</span>
-0269     <span class="keyword">return</span>;
-0270 <span class="keyword">elseif</span> computation_time &lt; options.mintime
-0271     <span class="comment">% computation too short to be worth it</span>
-0272     <span class="keyword">return</span>;
-0273 <span class="keyword">else</span>
-0274     
-0275     <span class="comment">% ensure that we have enough space</span>
-0276     total_space = <a href="#_sub4" class="code" title="subfunction res = disk_total_space(path)">disk_total_space</a>(filename);
-0277     <span class="keyword">if</span> options.freemem &gt; 0 &amp;&amp; total_space &gt; 0    
-0278         free_space = <a href="#_sub5" class="code" title="subfunction res = disk_free_space(path)">disk_free_space</a>(filename);
-0279         <span class="keyword">if</span> options.freemem &lt; 1
-0280             ensured_space = total_space * options.freemem;
-0281         <span class="keyword">else</span>
-0282             ensured_space = options.freemem*(2^9);
-0283         <span class="keyword">end</span>
-0284         <span class="keyword">if</span> total_space &amp;&amp; free_space-resultsize &lt; ensured_space
-0285             <span class="keyword">if</span> ~options.cleanup
-0286                 <span class="keyword">return</span>; <span class="keyword">end</span>
-0287             <span class="comment">% generate a list of all result files</span>
-0288             allfiles = struct();
-0289             records = dir(cachedir);
-0290             <span class="keyword">for</span> d = 1:length(records)
-0291                 record = records(d);
-0292                 <span class="keyword">if</span> record.isdir &amp;&amp; length(record.name) == 2 &amp;&amp; all(record.name~=<span class="string">'.'</span>)
-0293                     <span class="comment">% get a list of all MATAB files in this subdir</span>
-0294                     files = dir([cachedir filesep record.name filesep <span class="string">'*.mat'</span>]);
-0295                     <span class="keyword">for</span> f=1:length(files)
-0296                         files(f).path = [cachedir filesep record.name filesep files(f).name]; 
-0297                         allfiles(end+1) = files(f);
-0298                     <span class="keyword">end</span>
-0299                     <span class="comment">% try to remove dirs that are empty</span>
-0300                     <span class="keyword">if</span> isempty(files)
-0301                         <span class="keyword">try</span> rmdir([cachedir filesep record.name]); <span class="keyword">catch</span>,<span class="keyword">end</span>; <span class="keyword">end</span>
-0302                 <span class="keyword">end</span>
-0303             <span class="keyword">end</span>
-0304             <span class="comment">% delete old files as long as ours doesn't yet fit into memory</span>
-0305             [dummy,newest_to_oldest] = sort([allfiles.datenum],<span class="string">'descend'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
-0306             <span class="keyword">while</span> ~isempty(newest_to_oldest) &amp;&amp; <a href="#_sub5" class="code" title="subfunction res = disk_free_space(path)">disk_free_space</a>(filename) - resultsize &lt; ensured_space
-0307                 <span class="keyword">try</span> delete(allfiles(newest_to_oldest(end)).path); <span class="keyword">catch</span>,<span class="keyword">end</span>
-0308                 newest_to_oldest = newest_to_oldest(1:end-1);
-0309             <span class="keyword">end</span>
-0310         <span class="keyword">end</span>
-0311     <span class="keyword">else</span>
-0312         <span class="keyword">persistent</span> message_shown; <span class="comment">%#ok&lt;TLEV&gt;</span>
-0313         <span class="keyword">if</span> isempty(message_shown)
-0314             disp(<span class="string">'Note: cannot determine free disk space on your platform, trying to cache results anyway. This message will only be shown once.'</span>);
-0315             message_shown = true;
-0316         <span class="keyword">end</span>
-0317     <span class="keyword">end</span>
-0318     
-0319     <span class="comment">% save the result</span>
-0320     <span class="keyword">try</span>
-0321         <span class="comment">% ensure that the target directory exists</span>
-0322         <a href="#_sub8" class="code" title="subfunction make_directories(filepath,attribs)">make_directories</a>(filename,options.permissions);
-0323         <span class="comment">% save result file</span>
-0324         fldnames = fieldnames(result);
-0325         <span class="keyword">if</span> exist(filename,<span class="string">'file'</span>) &amp;&amp; ~options.overwrite_files
-0326             <span class="keyword">return</span>; <span class="keyword">end</span>
-0327         <span class="keyword">if</span> resultsize &gt;= (2000*1024*1024)
-0328             save(filename,<span class="string">'-struct'</span>,<span class="string">'result'</span>,fldnames{:},<span class="string">'-v7.3'</span>);
-0329         <span class="keyword">else</span>
-0330             save(filename,<span class="string">'-struct'</span>,<span class="string">'result'</span>,fldnames{:});
-0331         <span class="keyword">end</span>
-0332         <span class="comment">% finalize file permissions</span>
-0333         <span class="keyword">if</span> ~isempty(options.permissions)
-0334             warning off MATLAB:FILEATTRIB:SyntaxWarning
-0335             <span class="keyword">try</span>
-0336                 fileattrib(filename,options.permissions{:});
-0337             <span class="keyword">catch</span> e
-0338                 <a href="#_sub6" class="code" title="subfunction error_message(msg,e)">error_message</a>(<span class="string">'Note: could not set permissions for result file'</span>,e);
-0339             <span class="keyword">end</span>
-0340         <span class="keyword">end</span>
-0341     <span class="keyword">catch</span> e
-0342         <a href="#_sub6" class="code" title="subfunction error_message(msg,e)">error_message</a>(<span class="string">'Could not cache result on disk'</span>,e);
-0343     <span class="keyword">end</span>
-0344 <span class="keyword">end</span>
-0345 
-0346 
-0347 <a name="_sub1" href="#_subfunctions" class="code">function options = assign_defaults(options)</a>
-0348 <span class="comment">% Assign default settings to an options struct / name-value pair list</span>
-0349 <span class="keyword">if</span> iscell(options)
-0350     options = cell2struct(options(2:2:end),options(1:2:end),2); <span class="keyword">end</span>
-0351 <span class="keyword">if</span> ~isfield(options,<span class="string">'folder'</span>)
-0352     options.folder = <span class="string">'.'</span>; <span class="keyword">end</span>
-0353 <span class="keyword">if</span> ~isfield(options,<span class="string">'maxsize'</span>)
-0354     options.maxsize = Inf; <span class="keyword">end</span>
-0355 <span class="keyword">if</span> ~isfield(options,<span class="string">'minsize'</span>)
-0356     options.minsize = 0; <span class="keyword">end</span>
-0357 <span class="keyword">if</span> ~isfield(options,<span class="string">'mintime'</span>)
-0358     options.mintime = 0; <span class="keyword">end</span>
-0359 <span class="keyword">if</span> ~isfield(options,<span class="string">'freemem'</span>)
-0360     options.freemem = 80; <span class="keyword">end</span>
-0361 <span class="keyword">if</span> ~isfield(options,<span class="string">'versiontag'</span>)
-0362     options.versiontag = <span class="string">'$(funcname)_version&lt;\S+&gt;'</span>; <span class="keyword">end</span>
-0363 <span class="keyword">if</span> ~isfield(options,<span class="string">'serialize'</span>)
-0364     options.serialize = true; <span class="keyword">end</span>
-0365 <span class="keyword">if</span> ~isfield(options,<span class="string">'subdir'</span>)
-0366     options.subdir = <span class="string">'diskcache'</span>; <span class="keyword">end</span>
-0367 <span class="keyword">if</span> ~isfield(options,<span class="string">'exactmatch_cutoff'</span>)
-0368     options.exactmatch_cutoff = 1000000; <span class="keyword">end</span>
-0369 <span class="keyword">if</span> ~isfield(options,<span class="string">'cleanup'</span>)
-0370     options.cleanup = true; <span class="keyword">end</span>
-0371 <span class="keyword">if</span> ~isfield(options,<span class="string">'permissions'</span>)
-0372     options.permissions = {<span class="string">'+w'</span>,<span class="string">'a'</span>}; <span class="keyword">end</span>
-0373 <span class="keyword">if</span> ~isfield(options,<span class="string">'bypass'</span>)
-0374     options.bypass = false; <span class="keyword">end</span>
-0375 <span class="keyword">if</span> ~isfield(options,<span class="string">'bypass_if_folder_missing'</span>)
-0376     options.bypass_if_folder_missing = false; <span class="keyword">end</span>
-0377 <span class="keyword">if</span> ~isfield(options,<span class="string">'overwrite_files'</span>)
-0378     options.overwrite_files = false; <span class="keyword">end</span>
-0379 
-0380 
-0381 <a name="_sub2" href="#_subfunctions" class="code">function x = trim_expression(x)</a>
-0382 <span class="comment">% Recursively trim partially evaluated parts of a data structure containing expressions.</span>
-0383 <span class="comment">% In particular, x.tracking.expression is replaced by x.</span>
-0384 <span class="keyword">if</span> isfield(x,<span class="string">'tracking'</span>) &amp;&amp; isfield(x.tracking,<span class="string">'expression'</span>)
-0385     x = <a href="#_sub2" class="code" title="subfunction x = trim_expression(x)">trim_expression</a>(x.tracking.expression);
-0386 <span class="keyword">elseif</span> iscell(x)
-0387     <span class="keyword">for</span> i=1:length(x)
-0388         x{i} = <a href="#_sub2" class="code" title="subfunction x = trim_expression(x)">trim_expression</a>(x{i}); <span class="keyword">end</span>
-0389 <span class="keyword">elseif</span> isfield(x,{<span class="string">'head'</span>,<span class="string">'parts'</span>})
-0390     <span class="keyword">for</span> i=1:length(x.parts)
-0391         x.parts{i} = <a href="#_sub2" class="code" title="subfunction x = trim_expression(x)">trim_expression</a>(x.parts{i}); <span class="keyword">end</span>
-0392 <span class="keyword">end</span>
-0393 
-0394 
-0395 <a name="_sub3" href="#_subfunctions" class="code">function v = func_version(func,versiontag)</a>
-0396 <span class="comment">% Get the version string of a MATLAB function, or an MD5 hash if unversioned.</span>
-0397 <span class="comment">% Returns just the string form of the input if a version cannot be determined</span>
-0398 <span class="comment">% or if the versiontag is passed in as false.</span>
-0399 func = char(func);
-0400 <span class="keyword">if</span> isequal(versiontag,false)
-0401     v = func;
-0402 <span class="keyword">else</span>
-0403     filename = which(func);
-0404     <span class="keyword">if</span> ~isempty(filename)
-0405         <span class="comment">% open the source file</span>
-0406         f = fopen(filename,<span class="string">'r'</span>);
-0407         <span class="keyword">try</span>
-0408             <span class="comment">% read the code</span>
-0409             code = fread(f,Inf,<span class="string">'uint8=&gt;char'</span>)';
-0410             <span class="comment">% check if it contains the version descriptor tag</span>
-0411             v = regexp(code,strrep(versiontag,<span class="string">'$(funcname)'</span>,func),<span class="string">'match'</span>);
-0412             <span class="comment">% otherwise we just hash the entire code</span>
-0413             <span class="keyword">if</span> isempty(versiontag) || isempty(v)
-0414                 v = <a href="hlp_cryptohash.html" class="code" title="function hash = hlp_cryptohash(data,fromfile)">hlp_cryptohash</a>(code); <span class="keyword">end</span>
-0415             fclose(f);
-0416         <span class="keyword">catch</span>
-0417             <span class="keyword">try</span>
-0418                 fclose(f);
-0419             <span class="keyword">catch</span>,<span class="keyword">end</span>
-0420             v = func;
-0421         <span class="keyword">end</span>
-0422     <span class="keyword">else</span>
-0423         <span class="comment">% otherwise use the string representation as version</span>
-0424         v = func;
-0425     <span class="keyword">end</span>
-0426 <span class="keyword">end</span>
+0257 <span class="keyword">elseif</span> options.load_only
+0258     fprintf(<span class="string">'hlp_diskcache: result not found.\n'</span>);
+0259     varargout = {<span class="string">'hlp_diskcache:notfound'</span>};
+0260     <span class="keyword">return</span>;
+0261 <span class="keyword">end</span>
+0262 
+0263 result.settings = options;
+0264 <span class="keyword">if</span> numel(uid) &lt;= result.settings.exactmatch_cutoff
+0265     result.uid = uid;
+0266 <span class="keyword">else</span>
+0267     result.uid = [];
+0268     clear uid;
+0269 <span class="keyword">end</span>
+0270 result.settings.is_serialized = result.settings.serialize;
+0271 result.settings.archive_version = archive_version;
+0272 result.hash = hash;
+0273 
+0274 <span class="comment">% (re)calculate the result</span>
+0275 start_time = tic;
+0276 [varargout{1:nargout}] = f(varargin{:});
+0277 computation_time = toc(start_time);
+0278 
+0279 <span class="comment">% prepare result for writeback</span>
+0280 <span class="keyword">if</span> result.settings.is_serialized
+0281     <span class="keyword">try</span>
+0282         result.varargout = <a href="hlp_serialize.html" class="code" title="function m = hlp_serialize(v)">hlp_serialize</a>(varargout);
+0283     <span class="keyword">catch</span> e
+0284         <a href="#_sub6" class="code" title="subfunction error_message(msg,e)">error_message</a>(<span class="string">'Could not serialize the result (try to disable the option serialize)'</span>,e);
+0285         disp(<span class="string">'Saving result in unserialized form (can be slow).'</span>)
+0286         result.varargout = varargout;
+0287     <span class="keyword">end</span>
+0288 <span class="keyword">else</span>
+0289     result.varargout = varargout;
+0290 <span class="keyword">end</span>
+0291 
+0292 <span class="comment">% do some size &amp; time checks</span>
+0293 stats = whos(<span class="string">'result'</span>);
+0294 resultsize = stats.bytes;
+0295 <span class="keyword">if</span> resultsize &gt; options.maxsize
+0296     <span class="comment">% result too big to store</span>
+0297     <span class="keyword">return</span>;
+0298 <span class="keyword">elseif</span> resultsize &lt; options.minsize
+0299     <span class="comment">% result too small to store</span>
+0300     <span class="keyword">return</span>;
+0301 <span class="keyword">elseif</span> computation_time &lt; options.mintime
+0302     <span class="comment">% computation too short to be worth it</span>
+0303     <span class="keyword">return</span>;
+0304 <span class="keyword">else</span>
+0305     
+0306     <span class="comment">% ensure that we have enough space</span>
+0307     total_space = <a href="#_sub4" class="code" title="subfunction res = disk_total_space(path)">disk_total_space</a>(filename);
+0308     <span class="keyword">if</span> options.freemem &gt; 0 &amp;&amp; total_space &gt; 0    
+0309         free_space = <a href="#_sub5" class="code" title="subfunction res = disk_free_space(path)">disk_free_space</a>(filename);
+0310         <span class="keyword">if</span> options.freemem &lt; 1
+0311             ensured_space = total_space * options.freemem;
+0312         <span class="keyword">else</span>
+0313             ensured_space = options.freemem*(2^9);
+0314         <span class="keyword">end</span>
+0315         <span class="keyword">if</span> total_space &amp;&amp; free_space-resultsize &lt; ensured_space
+0316             <span class="keyword">if</span> ~options.cleanup
+0317                 <span class="keyword">return</span>; <span class="keyword">end</span>
+0318             <span class="comment">% generate a list of all result files</span>
+0319             allfiles = struct();
+0320             records = dir(cachedir);
+0321             <span class="keyword">for</span> d = 1:length(records)
+0322                 record = records(d);
+0323                 <span class="keyword">if</span> record.isdir &amp;&amp; length(record.name) == 2 &amp;&amp; all(record.name~=<span class="string">'.'</span>)
+0324                     <span class="comment">% get a list of all MATAB files in this subdir</span>
+0325                     files = dir([cachedir filesep record.name filesep <span class="string">'*.mat'</span>]);
+0326                     <span class="keyword">for</span> f=1:length(files)
+0327                         files(f).path = [cachedir filesep record.name filesep files(f).name]; 
+0328                         allfiles(end+1) = files(f); <span class="comment">%#ok&lt;AGROW&gt;</span>
+0329                     <span class="keyword">end</span>
+0330                     <span class="comment">% try to remove dirs that are empty</span>
+0331                     <span class="keyword">if</span> isempty(files)
+0332                         <span class="keyword">try</span> rmdir([cachedir filesep record.name]); <span class="keyword">catch</span>,<span class="keyword">end</span>; <span class="keyword">end</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0333                 <span class="keyword">end</span>
+0334             <span class="keyword">end</span>
+0335             <span class="comment">% delete old files as long as ours doesn't yet fit into memory</span>
+0336             [dummy,newest_to_oldest] = sort([allfiles.datenum],<span class="string">'descend'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0337             <span class="keyword">while</span> ~isempty(newest_to_oldest) &amp;&amp; <a href="#_sub5" class="code" title="subfunction res = disk_free_space(path)">disk_free_space</a>(filename) - resultsize &lt; ensured_space
+0338                 <span class="keyword">try</span> delete(allfiles(newest_to_oldest(end)).path); <span class="keyword">catch</span>,<span class="keyword">end</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0339                 newest_to_oldest = newest_to_oldest(1:end-1);
+0340             <span class="keyword">end</span>
+0341         <span class="keyword">end</span>
+0342     <span class="keyword">else</span>
+0343         <span class="keyword">persistent</span> message_shown; <span class="comment">%#ok&lt;TLEV&gt;</span>
+0344         <span class="keyword">if</span> isempty(message_shown)
+0345             disp(<span class="string">'Note: cannot determine free disk space on your platform, trying to cache results anyway. This message will only be shown once.'</span>);
+0346             message_shown = true;
+0347         <span class="keyword">end</span>
+0348     <span class="keyword">end</span>
+0349     
+0350     <span class="comment">% save the result</span>
+0351     <span class="keyword">try</span>
+0352         <span class="comment">% ensure that the target directory exists</span>
+0353         <a href="#_sub8" class="code" title="subfunction make_directories(filepath,attribs)">make_directories</a>(filename,options.permissions);
+0354         <span class="comment">% save result file</span>
+0355         fldnames = fieldnames(result);
+0356         <span class="keyword">if</span> exist(filename,<span class="string">'file'</span>) &amp;&amp; ~options.overwrite_files
+0357             <span class="keyword">return</span>; <span class="keyword">end</span>
+0358         <span class="keyword">if</span> resultsize &gt;= (2000*1024*1024)
+0359             save(filename,<span class="string">'-struct'</span>,<span class="string">'result'</span>,fldnames{:},<span class="string">'-v7.3'</span>);
+0360         <span class="keyword">else</span>
+0361             save(filename,<span class="string">'-struct'</span>,<span class="string">'result'</span>,fldnames{:});
+0362         <span class="keyword">end</span>
+0363         <span class="comment">% finalize file permissions</span>
+0364         <span class="keyword">if</span> ~isempty(options.permissions)
+0365             warning off MATLAB:FILEATTRIB:SyntaxWarning
+0366             <span class="keyword">try</span>
+0367                 fileattrib(filename,options.permissions{:});
+0368             <span class="keyword">catch</span> e
+0369                 <a href="#_sub6" class="code" title="subfunction error_message(msg,e)">error_message</a>(<span class="string">'Note: could not set permissions for result file'</span>,e);
+0370             <span class="keyword">end</span>
+0371         <span class="keyword">end</span>
+0372     <span class="keyword">catch</span> e
+0373         <a href="#_sub6" class="code" title="subfunction error_message(msg,e)">error_message</a>(<span class="string">'Could not cache result on disk'</span>,e);
+0374     <span class="keyword">end</span>
+0375 <span class="keyword">end</span>
+0376 
+0377 
+0378 <a name="_sub1" href="#_subfunctions" class="code">function options = assign_defaults(options)</a>
+0379 <span class="comment">% Assign default settings to an options struct / name-value pair list</span>
+0380 <span class="keyword">if</span> iscell(options)
+0381     options = cell2struct(options(2:2:end),options(1:2:end),2); <span class="keyword">end</span>
+0382 <span class="keyword">if</span> ~isfield(options,<span class="string">'folder'</span>)
+0383     options.folder = <span class="string">'.'</span>; <span class="keyword">end</span>
+0384 <span class="keyword">if</span> ~isfield(options,<span class="string">'maxsize'</span>)
+0385     options.maxsize = Inf; <span class="keyword">end</span>
+0386 <span class="keyword">if</span> ~isfield(options,<span class="string">'minsize'</span>)
+0387     options.minsize = 0; <span class="keyword">end</span>
+0388 <span class="keyword">if</span> ~isfield(options,<span class="string">'mintime'</span>)
+0389     options.mintime = 0; <span class="keyword">end</span>
+0390 <span class="keyword">if</span> ~isfield(options,<span class="string">'freemem'</span>)
+0391     options.freemem = 80; <span class="keyword">end</span>
+0392 <span class="keyword">if</span> ~isfield(options,<span class="string">'versiontag'</span>)
+0393     options.versiontag = <span class="string">'$(funcname)_version&lt;\S+&gt;'</span>; <span class="keyword">end</span>
+0394 <span class="keyword">if</span> ~isfield(options,<span class="string">'serialize'</span>)
+0395     options.serialize = true; <span class="keyword">end</span>
+0396 <span class="keyword">if</span> ~isfield(options,<span class="string">'subdir'</span>)
+0397     options.subdir = <span class="string">'diskcache'</span>; <span class="keyword">end</span>
+0398 <span class="keyword">if</span> ~isfield(options,<span class="string">'exactmatch_cutoff'</span>)
+0399     options.exactmatch_cutoff = 1000000; <span class="keyword">end</span>
+0400 <span class="keyword">if</span> ~isfield(options,<span class="string">'spot_hashing'</span>)
+0401     options.spot_hashing = false; <span class="keyword">end</span>
+0402 <span class="keyword">if</span> ~isfield(options,<span class="string">'cleanup'</span>)
+0403     options.cleanup = true; <span class="keyword">end</span>
+0404 <span class="keyword">if</span> ~isfield(options,<span class="string">'permissions'</span>)
+0405     options.permissions = {<span class="string">'+w'</span>,<span class="string">'a'</span>}; <span class="keyword">end</span>
+0406 <span class="keyword">if</span> ~isfield(options,<span class="string">'bypass'</span>)
+0407     options.bypass = false; <span class="keyword">end</span>
+0408 <span class="keyword">if</span> ~isfield(options,<span class="string">'bypass_if_folder_missing'</span>)
+0409     options.bypass_if_folder_missing = false; <span class="keyword">end</span>
+0410 <span class="keyword">if</span> ~isfield(options,<span class="string">'overwrite_files'</span>)
+0411     options.overwrite_files = false; <span class="keyword">end</span>
+0412 <span class="keyword">if</span> ~isfield(options,<span class="string">'load_only'</span>)
+0413     options.load_only = false; <span class="keyword">end</span>
+0414 
+0415 
+0416 <a name="_sub2" href="#_subfunctions" class="code">function x = trim_expression(x)</a>
+0417 <span class="comment">% Recursively trim partially evaluated parts of a data structure containing expressions.</span>
+0418 <span class="comment">% In particular, x.tracking.expression is replaced by x.</span>
+0419 <span class="keyword">if</span> isfield(x,<span class="string">'tracking'</span>) &amp;&amp; isfield(x.tracking,<span class="string">'expression'</span>)
+0420     x = <a href="#_sub2" class="code" title="subfunction x = trim_expression(x)">trim_expression</a>(x.tracking.expression);
+0421 <span class="keyword">elseif</span> iscell(x)
+0422     x = cellfun(@<a href="#_sub2" class="code" title="subfunction x = trim_expression(x)">trim_expression</a>,x,<span class="string">'UniformOutput'</span>,false);
+0423 <span class="keyword">elseif</span> isfield(x,{<span class="string">'head'</span>,<span class="string">'parts'</span>})
+0424     x.parts = <a href="#_sub2" class="code" title="subfunction x = trim_expression(x)">trim_expression</a>(x.parts);
+0425 <span class="keyword">end</span>
+0426 
 0427 
-0428 <a name="_sub4" href="#_subfunctions" class="code">function res = disk_total_space(path)</a>
-0429 <span class="comment">% Get the amount of total space on the disk (can be 0 if the check fails).</span>
-0430 f = java.io.File(path);
-0431 res = f.getTotalSpace();
-0432 
-0433 
-0434 <a name="_sub5" href="#_subfunctions" class="code">function res = disk_free_space(path)</a>
-0435 <span class="comment">% Get the amount of free space on the disk (can be 0 if the check fails).</span>
-0436 f = java.io.File(path);
-0437 res = f.getFreeSpace();
-0438 
-0439 
-0440 <a name="_sub6" href="#_subfunctions" class="code">function error_message(msg,e)</a>
-0441 <span class="comment">% Display a formatted error message with traceback.</span>
-0442 <span class="keyword">if</span> exist(<span class="string">'hlp_handleerror'</span>,<span class="string">'file'</span>)
-0443     disp([msg <span class="string">': '</span>]);
-0444     <a href="hlp_handleerror.html" class="code" title="function s = hlp_handleerror(e,level)">hlp_handleerror</a>(e);
-0445 <span class="keyword">else</span>
-0446     disp([msg <span class="string">': '</span> e.message]);
-0447 <span class="keyword">end</span>
-0448 
-0449 
-0450 <a name="_sub7" href="#_subfunctions" class="code">function res = strsplit(str,delims)</a>
-0451 <span class="comment">% Split a string according to some delimiter(s).</span>
-0452 pos = find(diff([0 ~sum(bsxfun(@eq,str(:)',delims(:)),1) 0]));
-0453 res = cell(~isempty(pos),length(pos)/2);
-0454 <span class="keyword">for</span> k=1:length(res)
-0455     res{k} = str(pos(k*2-1):pos(k*2)-1); <span class="keyword">end</span>
-0456 
-0457 
-0458 <a name="_sub8" href="#_subfunctions" class="code">function make_directories(filepath,attribs)</a>
-0459 <span class="comment">% Create directories recursively for a given file path.</span>
-0460 paths = <a href="#_sub7" class="code" title="subfunction res = strsplit(str,delims)">strsplit</a>(filepath,filesep);
-0461 <span class="comment">% find the base directory where the directory creation begins</span>
-0462 <span class="keyword">if</span> filepath(1) == filesep
-0463     <span class="comment">% Unix, absolute</span>
-0464     curpath = filesep; first = 1;
-0465 <span class="keyword">elseif</span> ~isempty(strfind(paths{1},<span class="string">':'</span>)) &amp;&amp; ispc
-0466     <span class="comment">% Windows, absolute</span>
-0467     curpath = [paths{1} filesep]; first = 2;
-0468 <span class="keyword">else</span>
-0469     <span class="comment">% relative</span>
-0470     curpath = [pwd filesep]; first = 1;
-0471 <span class="keyword">end</span>
-0472 <span class="comment">% determine where to stop</span>
-0473 <span class="keyword">if</span> filepath(end) == filesep
-0474     last = length(paths);
-0475 <span class="keyword">else</span>
-0476     last = length(paths)-1;
-0477 <span class="keyword">end</span>
-0478 <span class="comment">% walk...</span>
-0479 <span class="keyword">for</span> i=first:last
-0480     <span class="keyword">if</span> ~exist([curpath paths{i}],<span class="string">'dir'</span>)
-0481         <span class="keyword">if</span> ~mkdir(curpath,paths{i})
-0482             error([<span class="string">'Unable to create directory '</span> filepath]);
-0483         <span class="keyword">else</span>
-0484             <span class="comment">% set attributes</span>
-0485             <span class="keyword">if</span> ~isempty(attribs)
-0486                 warning off MATLAB:FILEATTRIB:SyntaxWarning
-0487                 <span class="keyword">try</span>
-0488                     fileattrib([curpath paths{i}],attribs{:});
-0489                 <span class="keyword">catch</span> e
-0490                     <a href="#_sub6" class="code" title="subfunction error_message(msg,e)">error_message</a>([<span class="string">'Note: could not set permissions for created directory ('</span> filepath <span class="string">')'</span>],e);
-0491                 <span class="keyword">end</span>
-0492             <span class="keyword">end</span>
-0493         <span class="keyword">end</span>
-0494     <span class="keyword">end</span>
-0495     curpath = [curpath paths{i} filesep];
-0496 <span class="keyword">end</span>
-0497 
-0498</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0428 <a name="_sub3" href="#_subfunctions" class="code">function v = func_version(func,versiontag)</a>
+0429 <span class="comment">% Get a version identifier of a MATLAB function; can be any of the following</span>
+0430 <span class="comment">%  * cell array of version strings of a MATLAB function, if present</span>
+0431 <span class="comment">%  * MD5 hash of the file if unversioned.</span>
+0432 <span class="comment">%  * string form of the input if there is no accessible file (e.g., anonymous function),</span>
+0433 <span class="comment">%    or if the versiontag is passed in as false</span>
+0434 <span class="keyword">try</span>
+0435     <span class="keyword">if</span> ischar(func)
+0436         filename = which(func);
+0437     <span class="keyword">else</span>
+0438         filename = getfield(functions(func),<span class="string">'file'</span>);
+0439     <span class="keyword">end</span>
+0440 <span class="keyword">catch</span>
+0441     filename = <span class="string">''</span>;
+0442 <span class="keyword">end</span>
+0443 func = char(func);
+0444 <span class="keyword">if</span> isequal(versiontag,false) || strncmp(char(func),<span class="string">'@'</span>,1)
+0445     v = char(func);
+0446 <span class="keyword">else</span>
+0447     <span class="keyword">if</span> ~isempty(filename)
+0448         <span class="comment">% open the source file</span>
+0449         f = fopen(filename,<span class="string">'r'</span>);
+0450         <span class="keyword">try</span>
+0451             <span class="comment">% read the code</span>
+0452             code = fread(f,Inf,<span class="string">'uint8=&gt;char'</span>)';
+0453             <span class="comment">% check if it contains the version descriptor tag</span>
+0454             v = regexp(code,strrep(versiontag,<span class="string">'$(funcname)'</span>,func),<span class="string">'match'</span>);
+0455             <span class="comment">% otherwise we just hash the entire code</span>
+0456             <span class="keyword">if</span> isempty(versiontag) || isempty(v)
+0457                 v = <a href="hlp_cryptohash.html" class="code" title="function hash = hlp_cryptohash(data,fromfile)">hlp_cryptohash</a>(code); <span class="keyword">end</span>
+0458             fclose(f);
+0459         <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0460             <span class="keyword">try</span>
+0461                 fclose(f);
+0462             <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0463             <span class="keyword">end</span>
+0464             v = func;
+0465         <span class="keyword">end</span>
+0466     <span class="keyword">else</span>
+0467         <span class="comment">% otherwise use the string representation as version</span>
+0468         v = func;
+0469     <span class="keyword">end</span>
+0470 <span class="keyword">end</span>
+0471 
+0472 <a name="_sub4" href="#_subfunctions" class="code">function res = disk_total_space(path)</a>
+0473 <span class="comment">% Get the amount of total space on the disk (can be 0 if the check fails).</span>
+0474 f = java.io.File(path);
+0475 res = f.getTotalSpace();
+0476 
+0477 
+0478 <a name="_sub5" href="#_subfunctions" class="code">function res = disk_free_space(path)</a>
+0479 <span class="comment">% Get the amount of free space on the disk (can be 0 if the check fails).</span>
+0480 f = java.io.File(path);
+0481 res = f.getFreeSpace();
+0482 
+0483 
+0484 <a name="_sub6" href="#_subfunctions" class="code">function error_message(msg,e)</a>
+0485 <span class="comment">% Display a formatted error message with traceback.</span>
+0486 <span class="keyword">if</span> exist(<span class="string">'hlp_handleerror'</span>,<span class="string">'file'</span>)
+0487     disp([msg <span class="string">': '</span>]);
+0488     <a href="hlp_handleerror.html" class="code" title="function s = hlp_handleerror(e,level,hyperlinks)">hlp_handleerror</a>(e);
+0489 <span class="keyword">else</span>
+0490     disp([msg <span class="string">': '</span> e.message]);
+0491 <span class="keyword">end</span>
+0492 
+0493 
+0494 <a name="_sub7" href="#_subfunctions" class="code">function res = strsplit(str,delims)</a>
+0495 <span class="comment">% Split a string according to some delimiter(s).</span>
+0496 pos = find(diff([0 ~sum(bsxfun(@eq,str(:)',delims(:)),1) 0]));
+0497 res = cell(~isempty(pos),length(pos)/2);
+0498 <span class="keyword">for</span> k=1:length(res)
+0499     res{k} = str(pos(k*2-1):pos(k*2)-1); <span class="keyword">end</span>
+0500 
+0501 
+0502 <a name="_sub8" href="#_subfunctions" class="code">function make_directories(filepath,attribs)</a>
+0503 <span class="comment">% Create directories recursively for a given file path.</span>
+0504 paths = <a href="#_sub7" class="code" title="subfunction res = strsplit(str,delims)">strsplit</a>(filepath,filesep);
+0505 <span class="comment">% find the base directory where the directory creation begins</span>
+0506 <span class="keyword">if</span> filepath(1) == filesep
+0507     <span class="comment">% Unix, absolute</span>
+0508     curpath = filesep; first = 1;
+0509 <span class="keyword">elseif</span> ~isempty(strfind(paths{1},<span class="string">':'</span>)) &amp;&amp; ispc
+0510     <span class="comment">% Windows, absolute</span>
+0511     curpath = [paths{1} filesep]; first = 2;
+0512 <span class="keyword">else</span>
+0513     <span class="comment">% relative</span>
+0514     curpath = [pwd filesep]; first = 1;
+0515 <span class="keyword">end</span>
+0516 <span class="comment">% determine where to stop</span>
+0517 <span class="keyword">if</span> filepath(end) == filesep
+0518     last = length(paths);
+0519 <span class="keyword">else</span>
+0520     last = length(paths)-1;
+0521 <span class="keyword">end</span>
+0522 <span class="comment">% walk...</span>
+0523 <span class="keyword">for</span> i=first:last
+0524     <span class="keyword">if</span> ~exist([curpath paths{i}],<span class="string">'dir'</span>)
+0525         <span class="keyword">if</span> ~mkdir(curpath,paths{i})
+0526             error([<span class="string">'Unable to create directory '</span> filepath]);
+0527         <span class="keyword">else</span>
+0528             <span class="comment">% set attributes</span>
+0529             <span class="keyword">if</span> ~isempty(attribs)
+0530                 warning off MATLAB:FILEATTRIB:SyntaxWarning
+0531                 <span class="keyword">try</span>
+0532                     fileattrib([curpath paths{i}],attribs{:});
+0533                 <span class="keyword">catch</span> e
+0534                     <a href="#_sub6" class="code" title="subfunction error_message(msg,e)">error_message</a>([<span class="string">'Note: could not set permissions for created directory ('</span> filepath <span class="string">')'</span>],e);
+0535                 <span class="keyword">end</span>
+0536             <span class="keyword">end</span>
+0537         <span class="keyword">end</span>
+0538     <span class="keyword">end</span>
+0539     curpath = [curpath paths{i} filesep]; <span class="comment">%#ok&lt;AGROW&gt;</span>
+0540 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>flt_iir
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -51,13 +52,12 @@
 
    Type         :   'butter' for a Butterworth filter -- pro: flat response overall; con: slow
                              attenuation (default)
-                    'cheb1' for a Chebychev Type I filter -- pro: steep attennuation; con:
-                            strong passband ripple
-                    'cheb2' for a Chebychev Type II filter -- pro: flat
-                            passband response; con: slower
-                            attenuation than cheb1
+                    'cheb1' for a Chebychev Type I filter -- pro: steep attenuation; con:
+                            passband ripple, moderate phase distortion
+                    'cheb2' for a Chebychev Type II filter -- pro: steep attenuation; 
+                            con: stopband ripple, moderate phase distortion
                     'ellip' for an Elliptic filter -- pro: steepest rolloff, lowest latency;
-                            con: passband ripple
+                            con: passband and stopband ripple, strong phase distortion
                     'yulewalk' for a Yule-Walker filter -- allows for free-form designs, but can 
                             be erratic (automatic for free-form mode)
 
@@ -105,9 +105,6 @@
  Notes:
    Requires the Signal Processing toolbox.
 
-   This function is currently somewhat slow during online processing due to the way in which the
-   dfilt object is used; if wall-clock timing is critical, compare the latency to <a href="flt_fir.html" class="code" title="function [signal,state] = flt_fir(varargin)">flt_fir</a>.
-
                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                                 2010-04-17</pre></div>
 
@@ -115,11 +112,17 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="flt_clean_settings.html" class="code" title="function signal = flt_clean_settings(varargin)">flt_clean_settings</a>	Clean EEG data according to a particular cleaning setting.</li></ul>
+
+<li><a href="flt_clean_settings.html" class="code" title="function signal = flt_clean_settings(varargin)">flt_clean_settings</a>	Clean EEG data according to a particular cleaning setting.</li>
+</ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -149,155 +152,185 @@ This function is called by:
 0023 <span class="comment">%</span>
 0024 <span class="comment">%   Type         :   'butter' for a Butterworth filter -- pro: flat response overall; con: slow</span>
 0025 <span class="comment">%                             attenuation (default)</span>
-0026 <span class="comment">%                    'cheb1' for a Chebychev Type I filter -- pro: steep attennuation; con:</span>
-0027 <span class="comment">%                            strong passband ripple</span>
-0028 <span class="comment">%                    'cheb2' for a Chebychev Type II filter -- pro: flat</span>
-0029 <span class="comment">%                            passband response; con: slower</span>
-0030 <span class="comment">%                            attenuation than cheb1</span>
-0031 <span class="comment">%                    'ellip' for an Elliptic filter -- pro: steepest rolloff, lowest latency;</span>
-0032 <span class="comment">%                            con: passband ripple</span>
-0033 <span class="comment">%                    'yulewalk' for a Yule-Walker filter -- allows for free-form designs, but can</span>
-0034 <span class="comment">%                            be erratic (automatic for free-form mode)</span>
-0035 <span class="comment">%</span>
-0036 <span class="comment">%   Attenuation  :   stop-band attenuation, in db, default: 50</span>
-0037 <span class="comment">%</span>
-0038 <span class="comment">%   Ripple       :   maximum allowed pass-band ripple, in db, default: 3</span>
-0039 <span class="comment">%</span>
-0040 <span class="comment">%   ChunkLength : Maximum chunk length. Process the data in chunks of no larger than this (to avoid</span>
-0041 <span class="comment">%                 memory limitations). (default: 50000)</span>
-0042 <span class="comment">%</span>
-0043 <span class="comment">%   YuleWalkerOrder : Filter order to use for Yule-Walker design. Only used when that design is chosen.</span>
-0044 <span class="comment">%</span>
-0045 <span class="comment">%   State        :   previous filter state, as obtained by a previous execution of flt_iir on an</span>
-0046 <span class="comment">%                    immediately preceding data set (default: [])</span>
-0047 <span class="comment">%</span>
-0048 <span class="comment">% Out:</span>
-0049 <span class="comment">%   Signal       :  filtered, continuous EEGLAB data set</span>
-0050 <span class="comment">%</span>
-0051 <span class="comment">%   State        :  state of the filter, can be used to continue on a subsequent portion of the data</span>
-0052 <span class="comment">%</span>
-0053 <span class="comment">% Examples:</span>
-0054 <span class="comment">%   % apply a 7-30 Hz IIR filter with generous transition regions</span>
-0055 <span class="comment">%   eeg = flt_iir(eeg,[5 10 25 35])</span>
-0056 <span class="comment">%</span>
-0057 <span class="comment">%   % apply a 1Hz highpass filter with 1Hz transition bandwidth</span>
-0058 <span class="comment">%   eeg = flt_iir(eeg,[0.5 1.5],'highpass')</span>
-0059 <span class="comment">%</span>
-0060 <span class="comment">%   % apply a 45-55 Hz notch filter for east european line noise</span>
-0061 <span class="comment">%   eeg = flt_iir(eeg,[40 45 55 60],'bandstop')</span>
-0062 <span class="comment">%</span>
-0063 <span class="comment">%   % apply a 45-55 Hz notch filter with Chebychev Type I design, passing all arguments by name</span>
-0064 <span class="comment">%   eeg = flt_iir('Signal',eeg,'Frequencies',[40 45 55 60],'Mode','bandstop','Type','chebychev1')</span>
+0026 <span class="comment">%                    'cheb1' for a Chebychev Type I filter -- pro: steep attenuation; con:</span>
+0027 <span class="comment">%                            passband ripple, moderate phase distortion</span>
+0028 <span class="comment">%                    'cheb2' for a Chebychev Type II filter -- pro: steep attenuation;</span>
+0029 <span class="comment">%                            con: stopband ripple, moderate phase distortion</span>
+0030 <span class="comment">%                    'ellip' for an Elliptic filter -- pro: steepest rolloff, lowest latency;</span>
+0031 <span class="comment">%                            con: passband and stopband ripple, strong phase distortion</span>
+0032 <span class="comment">%                    'yulewalk' for a Yule-Walker filter -- allows for free-form designs, but can</span>
+0033 <span class="comment">%                            be erratic (automatic for free-form mode)</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%   Attenuation  :   stop-band attenuation, in db, default: 50</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%   Ripple       :   maximum allowed pass-band ripple, in db, default: 3</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%   ChunkLength : Maximum chunk length. Process the data in chunks of no larger than this (to avoid</span>
+0040 <span class="comment">%                 memory limitations). (default: 50000)</span>
+0041 <span class="comment">%</span>
+0042 <span class="comment">%   YuleWalkerOrder : Filter order to use for Yule-Walker design. Only used when that design is chosen.</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">%   State        :   previous filter state, as obtained by a previous execution of flt_iir on an</span>
+0045 <span class="comment">%                    immediately preceding data set (default: [])</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">% Out:</span>
+0048 <span class="comment">%   Signal       :  filtered, continuous EEGLAB data set</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">%   State        :  state of the filter, can be used to continue on a subsequent portion of the data</span>
+0051 <span class="comment">%</span>
+0052 <span class="comment">% Examples:</span>
+0053 <span class="comment">%   % apply a 7-30 Hz IIR filter with generous transition regions</span>
+0054 <span class="comment">%   eeg = flt_iir(eeg,[5 10 25 35])</span>
+0055 <span class="comment">%</span>
+0056 <span class="comment">%   % apply a 1Hz highpass filter with 1Hz transition bandwidth</span>
+0057 <span class="comment">%   eeg = flt_iir(eeg,[0.5 1.5],'highpass')</span>
+0058 <span class="comment">%</span>
+0059 <span class="comment">%   % apply a 45-55 Hz notch filter for east european line noise</span>
+0060 <span class="comment">%   eeg = flt_iir(eeg,[40 45 55 60],'bandstop')</span>
+0061 <span class="comment">%</span>
+0062 <span class="comment">%   % apply a 45-55 Hz notch filter with Chebychev Type I design, passing all arguments by name</span>
+0063 <span class="comment">%   eeg = flt_iir('Signal',eeg,'Frequencies',[40 45 55 60],'Mode','bandstop','Type','chebychev1')</span>
+0064 <span class="comment">%</span>
 0065 <span class="comment">%</span>
-0066 <span class="comment">%</span>
-0067 <span class="comment">% References:</span>
-0068 <span class="comment">%  [1] T. W. Parks and C. S. Burrus, &quot;Digital Filter Design&quot;,</span>
-0069 <span class="comment">%      John Wiley &amp; Sons, 1987, chapter 7.</span>
-0070 <span class="comment">%</span>
-0071 <span class="comment">% See also:</span>
-0072 <span class="comment">%   butter, cheby1, cheby2, ellip, dfilt, filter</span>
-0073 <span class="comment">%</span>
-0074 <span class="comment">% TODO:</span>
-0075 <span class="comment">%   Current filter design can flip signal sign, fix.</span>
-0076 <span class="comment">%</span>
-0077 <span class="comment">% Notes:</span>
-0078 <span class="comment">%   Requires the Signal Processing toolbox.</span>
-0079 <span class="comment">%</span>
-0080 <span class="comment">%   This function is currently somewhat slow during online processing due to the way in which the</span>
-0081 <span class="comment">%   dfilt object is used; if wall-clock timing is critical, compare the latency to flt_fir.</span>
-0082 <span class="comment">%</span>
-0083 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0084 <span class="comment">%                                2010-04-17</span>
+0066 <span class="comment">% References:</span>
+0067 <span class="comment">%  [1] T. W. Parks and C. S. Burrus, &quot;Digital Filter Design&quot;,</span>
+0068 <span class="comment">%      John Wiley &amp; Sons, 1987, chapter 7.</span>
+0069 <span class="comment">%</span>
+0070 <span class="comment">% See also:</span>
+0071 <span class="comment">%   butter, cheby1, cheby2, ellip, dfilt, filter</span>
+0072 <span class="comment">%</span>
+0073 <span class="comment">% TODO:</span>
+0074 <span class="comment">%   Current filter design can flip signal sign, fix.</span>
+0075 <span class="comment">%</span>
+0076 <span class="comment">% Notes:</span>
+0077 <span class="comment">%   Requires the Signal Processing toolbox.</span>
+0078 <span class="comment">%</span>
+0079 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0080 <span class="comment">%                                2010-04-17</span>
+0081 
+0082 <span class="comment">% flt_iir_version&lt;1.05&gt; -- for the cache</span>
+0083 
+0084 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
 0085 
-0086 <span class="comment">% flt_iir_version&lt;1.0&gt; -- for the cache</span>
+0086 declare_properties(<span class="string">'name'</span>,<span class="string">'IIRFilter'</span>, <span class="string">'cannot_follow'</span>,<span class="string">'set_makepos'</span>, <span class="string">'independent_channels'</span>,true, <span class="string">'independent_trials'</span>,true);
 0087 
-0088 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
-0089 
-0090 <span class="comment">% running after the FIR can improve numeric stability; makes no sense on epoched data</span>
-0091 declare_properties(<span class="string">'name'</span>,<span class="string">'IIRFilter'</span>, <span class="string">'cannot_follow'</span>,<span class="string">'set_makepos'</span>, <span class="string">'independent_channels'</span>,true, <span class="string">'independent_trials'</span>,true);
-0092 
-0093 arg_define(varargin, <span class="keyword">...</span>
-0094     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
-0095     arg({<span class="string">'fspec'</span>,<span class="string">'Frequencies'</span>,<span class="string">'f'</span>}, [], [], <span class="string">'Frequency specification of the filter. For a low/high-pass filter, this is: [transition-start, transition-end], in Hz and for a band-pass/stop filter, this is: [low-transition-start, low-transition-end, hi-transition-start, hi-transition-end], in Hz. For a free-form filter, this is a 2d matrix of the form [frequency,frequency,frequency, ...; amplitude, amplitude, amplitude, ...].'</span>), <span class="keyword">...</span>
-0096     arg({<span class="string">'fmode'</span>,<span class="string">'Mode'</span>}, <span class="string">'bandpass'</span>, {<span class="string">'bandpass'</span>,<span class="string">'highpass'</span>,<span class="string">'lowpass'</span>,<span class="string">'bandstop'</span>,<span class="string">'freeform'</span>}, <span class="string">'Filtering mode. Determines how the Frequencies parameter is interpreted.'</span>), <span class="keyword">...</span>
-0097     arg({<span class="string">'ftype'</span>,<span class="string">'Type'</span>},<span class="string">'butterworth'</span>, {<span class="string">'butterworth'</span>,<span class="string">'chebychev1'</span>,<span class="string">'chebychev2'</span>,<span class="string">'elliptic'</span>,<span class="string">'yule-walker'</span>}, <span class="string">'Filter type. Butterworth has a flat response overall but a slow/gentle rolloff. Chebychev Type I has a steep rolloff, but strong passband ripples. Chebychev Type II has a flat passband response, but a slower rolloff than Type I. The elliptic filter has the steepest rolloff (or lowest latency at comparable steepness) but passband rippling. Yule-walker is enabled implicitly for free-form filter design.'</span>), <span class="keyword">...</span>
-0098     arg({<span class="string">'atten'</span>,<span class="string">'Attenuation'</span>}, 60, [0 180], <span class="string">'Minimum signal attenuation in the stop band. In db.'</span>),<span class="keyword">...</span>
-0099     arg({<span class="string">'ripple'</span>,<span class="string">'Ripple'</span>}, 0.1, [0 60], <span class="string">'Maximum peak-to-peak ripple in pass band. In db.'</span>), <span class="keyword">...</span>
-0100     arg({<span class="string">'chunk_length'</span>,<span class="string">'ChunkLength'</span>},50000,[], <span class="string">'Maximum chunk length. Process the data in chunks of no larger than this (to avoid memory limitations).'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
-0101     arg({<span class="string">'yulewalk_order'</span>,<span class="string">'YulewalkerOrder'</span>},8,[], <span class="string">'Order for Yule-Walker design. Only used if that design is selected.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
-0102     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>}));
-0103 
-0104 <span class="keyword">if</span> signal.trials &gt; 1
-0105     error(<span class="string">'flt_iir is supposed to be applied to continuous (non-epoched) data.'</span>); <span class="keyword">end</span>
-0106 
-0107 <span class="keyword">if</span> isempty(state)
-0108     <span class="comment">% check if we have the toolbox</span>
-0109     <span class="keyword">if</span> ~exist(<span class="string">'dfilt'</span>,<span class="string">'file'</span>)
-0110         error(<span class="string">'You need the Signal Processing toolbox to make use of IIR filters in BCILAB.'</span>); <span class="keyword">end</span>
-0111 
-0112     <span class="comment">% compute filter parameters</span>
-0113     f = 2*fspec/signal.srate;
-0114     <span class="keyword">if</span> length(f) &lt; 4 &amp;&amp; any(strcmp(fmode,{<span class="string">'bp'</span>,<span class="string">'bs'</span>}))
-0115         error(<span class="string">'For an IIR bandpass/bandstop filter, four frequencies must be specified.'</span>); <span class="keyword">end</span>
-0116     <span class="keyword">switch</span> fmode
-0117         <span class="keyword">case</span> {<span class="string">'bandpass'</span>,<span class="string">'bp'</span>}
-0118             [Wp,Ws,label] = deal(f([2,3]),f([1,4]),{});
-0119         <span class="keyword">case</span> {<span class="string">'bandstop'</span>,<span class="string">'bs'</span>}
-0120             [Wp,Ws,label] = deal(f([1,4]),f([2,3]),{<span class="string">'stop'</span>});
-0121         <span class="keyword">case</span> {<span class="string">'lowpass'</span>,<span class="string">'lp'</span>}
-0122             [Wp,Ws,label] = deal(f(1),f(2),{<span class="string">'low'</span>});
-0123         <span class="keyword">case</span> {<span class="string">'highpass'</span>,<span class="string">'hp'</span>}
-0124             [Wp,Ws,label] = deal(f(2),f(1),{<span class="string">'high'</span>});
-0125         <span class="keyword">case</span> {<span class="string">'freeform'</span>,<span class="string">'ff'</span>}
-0126             [F,M] = deal([0 2*fspec(1,:)/signal.srate 1],fspec(2,[1 1:end end]));
-0127             ftype = <span class="string">'yulewalk'</span>;
-0128         <span class="keyword">otherwise</span>
-0129             error([<span class="string">'Unrecognized filter mode specified: '</span> hlp_tostring(fmode)]);
-0130     <span class="keyword">end</span>
-0131 
-0132     <span class="comment">% compute filter coefficients</span>
-0133     <span class="keyword">switch</span> ftype
-0134         <span class="keyword">case</span> {<span class="string">'butterworth'</span>,<span class="string">'butt'</span>}
-0135             [n,Wn] = buttord(Wp,Ws,ripple,atten);
-0136             [z,p,k] = butter(n,Wn,label{:});
-0137         <span class="keyword">case</span> {<span class="string">'chebychev1'</span>,<span class="string">'cheb1'</span>}
-0138             [n,Wn] = cheb1ord(Wp,Ws,ripple,atten);
-0139             [z,p,k] = cheby1(n,ripple,Wn,label{:});
-0140         <span class="keyword">case</span> {<span class="string">'chebychev2'</span>,<span class="string">'cheb2'</span>}
-0141             [n,Wn] = cheb2ord(Wp,Ws,ripple,atten);
-0142             [z,p,k] = cheby2(n,atten,Wn,label{:});
-0143         <span class="keyword">case</span> {<span class="string">'elliptic'</span>,<span class="string">'ellip'</span>}
-0144             [n,Wn] = ellipord(Wp,Ws,ripple,atten);
-0145             [z,p,k] = ellip(n,ripple,atten,Wn,label{:});
-0146         <span class="keyword">case</span> {<span class="string">'yule-walker'</span>,<span class="string">'yulewalk'</span>}
-0147             [b,a] = yulewalk(yulewalk_order,F,M);
-0148             [z,p,k] = tf2zp(b,a);
-0149     <span class="keyword">end</span>
-0150     [sos,g] = zp2sos(z,p,k);
-0151     
-0152     <span class="comment">% create state object</span>
-0153     <span class="keyword">for</span> fld = utl_timeseries_fields(signal)
-0154         state.(fld{1}) = dfilt.df2sos(sos,g);
-0155         set(state.(fld{1}),<span class="string">'PersistentMemory'</span>,true);
-0156     <span class="keyword">end</span>
-0157 <span class="keyword">else</span>
-0158     <span class="comment">% make a deep copy of the state before modification</span>
-0159     <span class="keyword">for</span> fld = utl_timeseries_fields(signal)
-0160         state.(fld{1}) = copy(state.(fld{1})); <span class="keyword">end</span>
-0161 <span class="keyword">end</span>
-0162 
-0163 <span class="comment">% apply the filter</span>
-0164 <span class="keyword">for</span> fld = utl_timeseries_fields(signal)
-0165     field = fld{1};
-0166     S = size(signal.(field),2);
-0167     numsplits = ceil(S/chunk_length);
-0168     <span class="keyword">for</span> i=0:numsplits-1
-0169         range = 1+floor(i*S/numsplits) : min(S,floor((i+1)*S/numsplits));
-0170         signal.(field)(:,range) = filter(state.(field),double(signal.(field)(:,range)),2);
-0171     <span class="keyword">end</span>
-0172 <span class="keyword">end</span>
-0173 
-0174 exp_endfun;</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0088 arg_define(varargin, <span class="keyword">...</span>
+0089     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0090     arg({<span class="string">'fspec'</span>,<span class="string">'Frequencies'</span>,<span class="string">'f'</span>}, [], [], <span class="string">'Frequency specification of the filter. For a low/high-pass filter, this is: [transition-start, transition-end], in Hz and for a band-pass/stop filter, this is: [low-transition-start, low-transition-end, hi-transition-start, hi-transition-end], in Hz. For a free-form filter, this is a 2d matrix of the form [frequency,frequency,frequency, ...; amplitude, amplitude, amplitude, ...].'</span>), <span class="keyword">...</span>
+0091     arg({<span class="string">'fmode'</span>,<span class="string">'Mode'</span>}, <span class="string">'bandpass'</span>, {<span class="string">'bandpass'</span>,<span class="string">'highpass'</span>,<span class="string">'lowpass'</span>,<span class="string">'bandstop'</span>,<span class="string">'freeform'</span>}, <span class="string">'Filtering mode. Determines how the Frequencies parameter is interpreted.'</span>), <span class="keyword">...</span>
+0092     arg({<span class="string">'ftype'</span>,<span class="string">'Type'</span>},<span class="string">'butterworth'</span>, {<span class="string">'butterworth'</span>,<span class="string">'chebychev1'</span>,<span class="string">'chebychev2'</span>,<span class="string">'elliptic'</span>,<span class="string">'yule-walker'</span>}, <span class="string">'Filter type. Butterworth has a flat response overall but a slow/gentle rolloff. Chebychev Type I has a steep rolloff, but strong passband ripples. Chebychev Type II has a flat passband response, but a slower rolloff than Type I. The elliptic filter has the steepest rolloff (or lowest latency at comparable steepness) but passband rippling. Yule-walker is enabled implicitly for free-form filter design.'</span>), <span class="keyword">...</span>
+0093     arg({<span class="string">'atten'</span>,<span class="string">'Attenuation'</span>}, 60, [0 20 80 180], <span class="string">'Minimum signal attenuation in the stop band. In db.'</span>),<span class="keyword">...</span>
+0094     arg({<span class="string">'ripple'</span>,<span class="string">'Ripple'</span>}, 0.1, [0 60], <span class="string">'Maximum peak-to-peak ripple in pass band. In db.'</span>), <span class="keyword">...</span>
+0095     arg({<span class="string">'chunk_length'</span>,<span class="string">'ChunkLength'</span>},50000,uint32([1 1000 100000 1000000000]), <span class="string">'Maximum chunk length. Process the data in chunks of no larger than this (to avoid memory limitations).'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0096     arg({<span class="string">'yulewalk_order'</span>,<span class="string">'YulewalkerOrder'</span>},8,uint32([1 2 30 100]), <span class="string">'Order for Yule-Walker design. Only used if that design is selected.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0097     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>}));
+0098 
+0099 <span class="keyword">if</span> signal.trials &gt; 1
+0100     error(<span class="string">'flt_iir is supposed to be applied to continuous (non-epoched) data.'</span>); <span class="keyword">end</span>
+0101 
+0102 <span class="keyword">if</span> isempty(state)
+0103     <span class="comment">% compute filter parameters</span>
+0104     f = 2*fspec/signal.srate;
+0105     
+0106     <span class="keyword">if</span> any(strcmp(fmode,{<span class="string">'lowpass'</span>,<span class="string">'lp'</span>,<span class="string">'highpass'</span>,<span class="string">'hp'</span>})) &amp;&amp; isnumeric(fspec) &amp;&amp; length(fspec)==4
+0107         disp_once(<span class="string">'flt_iir: received 4 frequency coefficients instead of 2; assuming that a bandpass is desired.'</span>);
+0108         fmode = <span class="string">'bandpass'</span>;
+0109     <span class="keyword">end</span>
+0110     
+0111     <span class="keyword">if</span> length(f) &lt; 4 &amp;&amp; any(strcmp(fmode,{<span class="string">'bp'</span>,<span class="string">'bs'</span>}))
+0112         error(<span class="string">'For an IIR bandpass/bandstop filter, four frequencies must be specified.'</span>); <span class="keyword">end</span>
+0113     <span class="keyword">switch</span> fmode
+0114         <span class="keyword">case</span> {<span class="string">'bandpass'</span>,<span class="string">'bp'</span>}
+0115             [Wp,Ws,label] = deal(f([2,3]),f([1,4]),{});
+0116         <span class="keyword">case</span> {<span class="string">'bandstop'</span>,<span class="string">'bs'</span>}
+0117             [Wp,Ws,label] = deal(f([1,4]),f([2,3]),{<span class="string">'stop'</span>});
+0118         <span class="keyword">case</span> {<span class="string">'lowpass'</span>,<span class="string">'lp'</span>}
+0119             [Wp,Ws,label] = deal(f(1),f(2),{<span class="string">'low'</span>});
+0120         <span class="keyword">case</span> {<span class="string">'highpass'</span>,<span class="string">'hp'</span>}
+0121             [Wp,Ws,label] = deal(f(2),f(1),{<span class="string">'high'</span>});
+0122         <span class="keyword">case</span> {<span class="string">'freeform'</span>,<span class="string">'ff'</span>}
+0123             [F,M] = deal([0 2*fspec(1,:)/signal.srate 1],fspec(2,[1 1:end end]));
+0124             ftype = <span class="string">'yulewalk'</span>;
+0125         <span class="keyword">otherwise</span>
+0126             error([<span class="string">'Unrecognized filter mode specified: '</span> hlp_tostring(fmode)]);
+0127     <span class="keyword">end</span>
+0128 
+0129     <span class="comment">% compute filter coefficients</span>
+0130     <span class="keyword">switch</span> ftype
+0131         <span class="keyword">case</span> {<span class="string">'butterworth'</span>,<span class="string">'butt'</span>}
+0132             [n,Wn] = hlp_diskcache(<span class="string">'filterdesign'</span>,@buttord,Wp,Ws,ripple,atten);
+0133             [z,p,k] = hlp_diskcache(<span class="string">'filterdesign'</span>,@butter,n,Wn,label{:});
+0134         <span class="keyword">case</span> {<span class="string">'chebychev1'</span>,<span class="string">'cheb1'</span>}
+0135             [n,Wn] = hlp_diskcache(<span class="string">'filterdesign'</span>,@cheb1ord,Wp,Ws,ripple,atten);
+0136             [z,p,k] = hlp_diskcache(<span class="string">'filterdesign'</span>,@cheby1,n,ripple,Wn,label{:});
+0137         <span class="keyword">case</span> {<span class="string">'chebychev2'</span>,<span class="string">'cheb2'</span>}
+0138             [n,Wn] = hlp_diskcache(<span class="string">'filterdesign'</span>,@cheb2ord,Wp,Ws,ripple,atten);
+0139             [z,p,k] = hlp_diskcache(<span class="string">'filterdesign'</span>,@cheby2,n,atten,Wn,label{:});
+0140         <span class="keyword">case</span> {<span class="string">'elliptic'</span>,<span class="string">'ellip'</span>}
+0141             [n,Wn] = hlp_diskcache(<span class="string">'filterdesign'</span>,@ellipord,Wp,Ws,ripple,atten);
+0142             [z,p,k] = hlp_diskcache(<span class="string">'filterdesign'</span>,@ellip,n,ripple,atten,Wn,label{:});
+0143         <span class="keyword">case</span> {<span class="string">'yule-walker'</span>,<span class="string">'yulewalk'</span>}
+0144             [b,a] = hlp_diskcache(<span class="string">'filterdesign'</span>,@yulewalk,yulewalk_order,F,M);
+0145             [z,p,k] = hlp_diskcache(<span class="string">'filterdesign'</span>,@tf2zp,b,a);
+0146         <span class="keyword">otherwise</span> 
+0147             error([<span class="string">'Unrecognized filter type specified: '</span> hlp_tostring(ftype)]);
+0148     <span class="keyword">end</span>
+0149     [state.sos,state.g] = hlp_diskcache(<span class="string">'filterdesign'</span>,@zp2sos,z,p,k);
+0150     
+0151     <span class="comment">% fix the sign and estimate filter delay</span>
+0152     X = zeros(1000,1); X(500) = 1;
+0153     <span class="keyword">for</span> s = 1:size(state.sos,1)
+0154         X = filter(state.sos(s,1:3),state.sos(s,4:6),X,[],1); <span class="keyword">end</span>
+0155     X = X*state.g;
+0156     <span class="keyword">if</span> -min(X) &gt; max(X)
+0157         state.g = -state.g; <span class="keyword">end</span>
+0158     state.conds = struct();
+0159     state.filter_delay = argmax(abs(X))-500;
+0160     extrapolate = min(signal.pnts,round(600*signal.srate));
+0161 <span class="keyword">else</span>
+0162     extrapolate = 0;
+0163 <span class="keyword">end</span>
+0164 
+0165 <span class="keyword">for</span> f = utl_timeseries_fields(signal)
+0166     <span class="keyword">if</span> ~isempty(signal.(f{1}))
+0167         <span class="keyword">if</span> ~isfield(state.conds,f{1})
+0168             state.conds.(f{1}) = repmat({[]},1,size(state.sos,1)); <span class="keyword">end</span>
+0169 
+0170         <span class="comment">% flip dimensions so that we can filter along the 1st dimension</span>
+0171         [X,dims] = spatialize_transpose(double(signal.(f{1})));
+0172                 
+0173         <span class="comment">% extrapolate the signal into the past</span>
+0174         <span class="keyword">if</span> extrapolate
+0175             X = [repmat(2*X(1,:),extrapolate,1) - X(1+mod(((extrapolate+1):-1:2)-1,size(X,1)),:); X]; <span class="keyword">end</span>
+0176         
+0177         <span class="comment">% apply filter for each section</span>
+0178         <span class="keyword">for</span> s = 1:size(state.sos,1)
+0179             [X,state.conds.(f{1}){s}] = filter(state.sos(s,1:3),state.sos(s,4:6),X,state.conds.(f{1}){s},1); <span class="keyword">end</span>
+0180         <span class="comment">% apply gain</span>
+0181         X = X*state.g;
+0182         
+0183         <span class="comment">% remove extrapolated part again</span>
+0184         <span class="keyword">if</span> extrapolate
+0185             X = X(1+extrapolate:<span class="keyword">end</span>,:); <span class="keyword">end</span>
+0186         
+0187         <span class="comment">% unflip dimensions and write the result back</span>
+0188         signal.(f{1}) = unspatialize_transpose(X,dims);
+0189     <span class="keyword">end</span>
+0190 <span class="keyword">end</span>
+0191 
+0192 <span class="comment">% update filter delay</span>
+0193 <span class="keyword">if</span> ~isfield(signal.etc,<span class="string">'filter_delay'</span>)
+0194     signal.etc.filter_delay = 0; <span class="keyword">end</span>
+0195 signal.etc.filter_delay = signal.etc.filter_delay + state.filter_delay/signal.srate;
+0196 
+0197 <span class="comment">% append IIR filter kernel</span>
+0198 <span class="keyword">if</span> ~isfield(signal.etc,<span class="string">'iir_kernels'</span>)
+0199     signal.etc.iir_kernels = {}; <span class="keyword">end</span>
+0200 signal.etc.iir_kernels{end+1} = struct(<span class="string">'sos'</span>,state.sos,<span class="string">'g'</span>,state.g);
+0201 
+0202 
+0203 exp_endfun;</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

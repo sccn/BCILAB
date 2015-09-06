@@ -58,6 +58,7 @@ else
     if isfield(sched,'ReferenceResults')
         % collect results from the Reference implementation
         raw = sched.ReferenceResults;
+        raw_unencoded = sched.ReferenceResultsUnencoded;
     else
         % collect results from the BLS scheduler
         if ~opts.show_logs
@@ -70,10 +71,15 @@ else
         end                    
         
         % obtain raw results & convert to cell-string array
-        strings = sched.sched.results();
-        raw = cell(1,length(strings));
-        for k=1:length(strings)
-            raw{k} = char(strings(k)); end
+        tasks = sched.sched.results();
+        raw = cell(1,size(tasks,1));                
+        for k=1:size(tasks,1)
+            if iscell(tasks)
+                raw{k} = typecast(tasks{k}(:),'uint8'); 
+            else
+                raw{k} = typecast(tasks(k,:)','uint8'); 
+            end
+        end
         
         % terminate scheduler
         if opts.keep
@@ -84,15 +90,17 @@ else
     end
     
     % deserialize & reorder the string-formatted results
+    tagpattern = uint8('tag__')';
     to_remove = {};
     for r=1:length(raw)
         try
             % deserialize result
-            if strncmp(raw{r},'tag__',5)
+            if length(raw{r}) > 5 && isequal(raw{r}(1:5),tagpattern)
                 % this result is a reference to the global result table; read and remove it from there
-                tag = raw{r};
+                % also convert into a fieldname (string)
+                tag = char(raw{r})';
                 try
-                    raw{r} = tracking.parallel.results.(tag);
+                    raw{r} = typecast(tracking.parallel.results.(tag),'uint8')';
                     to_remove{end+1} = tag;                     %#ok<AGROW>
                 catch e
                     if isfield(tracking,'parallel') && isfield(tracking.parallel,'results')                        
@@ -100,9 +108,10 @@ else
                     else
                         fprintf('The global results table does not exist (%s). Was it deleted?\n',e.message);
                     end
+                    raw = hlp_serialize(e);
                 end
             end
-            raw{r} = hlp_deserialize(fast_decode(raw{r}));
+            raw{r} = hlp_deserialize(raw{r});
             if all(isfield(raw{r}{2},{'message','identifier','stack'}))
                 % append to errors
                 errors{end+1} = raw{r}; %#ok<AGROW>

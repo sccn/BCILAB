@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/environment&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>env_testslave
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -58,15 +59,26 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>	Translates platform-independent directories into a system-specific directories.</li></ul>
+
+<li><a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>	Translates platform-independent directories into a system-specific directories.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
+
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function ts = timestamp(loc)</a></li><li><a href="#_sub2" class="code">function makefile(name)</a></li><li><a href="#_sub3" class="code">function rmfile(name)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function ts = timestamp(loc)</a></li>
+<li><a href="#_sub2" class="code">function makefile(name)</a></li>
+<li><a href="#_sub3" class="code">function rmfile(name)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function env_testslave(varargin)</a>
@@ -98,150 +110,152 @@ This function is called by:
 0027 <span class="comment">%                                2011-03-17</span>
 0028 
 0029 <span class="comment">% read options</span>
-0030 o = hlp_varargin2struct(varargin, <span class="keyword">...</span>
-0031     {<span class="string">'scan_interval'</span>,<span class="string">'ScanInterval'</span>},15, <span class="keyword">...</span>
-0032     {<span class="string">'wait_period'</span>,<span class="string">'WaitPeriod'</span>},120, <span class="keyword">...</span>
-0033     {<span class="string">'scan_dirs'</span>,<span class="string">'ScanDirectories'</span>},{<span class="string">'bcilab:/code'</span>,<span class="string">'bcilab:/*.m'</span>}, <span class="keyword">...</span>
-0034     {<span class="string">'issue_test'</span>,<span class="string">'IssueTest'</span>},@env_test_bcilab, <span class="keyword">...</span>
-0035     {<span class="string">'post_test'</span>,<span class="string">'PostTest'</span>},[], <span class="keyword">...</span>
-0036     {<span class="string">'log'</span>,<span class="string">'LogFile'</span>},sprintf(<span class="string">'bcilab:/resources/testcases/log_%s.log'</span>,hlp_hostname), <span class="keyword">...</span>
-0037     {<span class="string">'report'</span>,<span class="string">'ReportFile'</span>},<span class="string">'bcilab:/resources/testcases/report_%s-%s.log'</span>);
-0038 
-0039 <span class="comment">% sanitize inputs</span>
-0040 <span class="keyword">if</span> ischar(o.scan_dirs)
-0041     o.scan_dirs = {o.scan_dirs}; <span class="keyword">end</span>
-0042 <span class="keyword">for</span> d=1:length(o.scan_dirs)
-0043     o.scan_dirs{d} = <a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(o.scan_dirs{d}); <span class="keyword">end</span>
-0044 o.log = <a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(o.log);
-0045 o.report = <a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(o.report);
-0046 <span class="keyword">if</span> ischar(o.post_build)
-0047     o.post_build = str2func(o.post_build); <span class="keyword">end</span>
-0048 
-0049 <span class="comment">% names of marker files</span>
-0050 mrk_untested = [proj_dir <span class="string">'untested'</span>];
-0051 mrk_testing = [proj_dir <span class="string">'testing'</span>];
-0052 mrk_tested = [proj_dir <span class="string">'tested'</span>];
-0053 
-0054 <span class="comment">% turn off a few warnings</span>
-0055 <span class="keyword">if</span> ispc
-0056     warning off MATLAB:FILEATTRIB:SyntaxWarning; <span class="keyword">end</span>
-0057 warning off MATLAB:DELETE:FileNotFound;
-0058 
-0059 <span class="comment">% run...</span>
-0060 quicklog(o.log,<span class="string">'===== Now running as test slave ====='</span>);
-0061 <span class="keyword">while</span> 1
-0062     <span class="comment">% get the date of the last test (if any)</span>
-0063     testdate = <a href="#_sub1" class="code" title="subfunction ts = timestamp(loc)">timestamp</a>(mrk_tested);
-0064     
-0065     <span class="comment">% get the most recent date of scanned directories</span>
-0066     codedate = max(cellfun(@<a href="#_sub1" class="code" title="subfunction ts = timestamp(loc)">timestamp</a>,o.scan_dirs));
-0067     
-0068     <span class="comment">% check if we are still up-to-date</span>
-0069     <span class="keyword">if</span> codedate &gt; testdate
-0070         quicklog(o.log,<span class="string">'out of sync'</span>);
-0071         <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_tested);
-0072         <a href="#_sub2" class="code" title="subfunction makefile(name)">makefile</a>(mrk_untested);
-0073         <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_testing);
-0074     <span class="keyword">end</span>
-0075     
-0076     <span class="comment">% check if wait period expired ...</span>
-0077     <span class="keyword">if</span> (codedate - testdate)*24*60*60 &gt; o.wait_period
-0078         <span class="comment">% issue a re-test...</span>
-0079         quicklog(o.log,<span class="string">'re-testing...'</span>);
-0080         <a href="#_sub2" class="code" title="subfunction makefile(name)">makefile</a>(mrk_testing);
-0081         <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_untested);
-0082         <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_tested);
-0083                 
-0084         <span class="comment">% issue a re-test</span>
-0085         <span class="keyword">try</span>
-0086             results = o.issue_test();
-0087         <span class="keyword">catch</span> e
-0088             quicklog(o.log,evalc(<span class="string">'env_handleerror(e)'</span>));
-0089             rethrow(e);
-0090         <span class="keyword">end</span>
-0091         
-0092         quicklog(o.log,<span class="string">'finished.'</span>);
-0093         
-0094         <span class="comment">% check whether the code has been edited during the build</span>
-0095         newdate = max(cellfun(@<a href="#_sub1" class="code" title="subfunction ts = timestamp(loc)">timestamp</a>,o.scan_dirs));
-0096         <span class="keyword">if</span> (newdate &gt; codedate) &amp;&amp; codedate
-0097             quicklog(o.log,<span class="string">'code has been edited concurrently.'</span>);
-0098             <span class="comment">% if so, revert to untested</span>
-0099             <a href="#_sub2" class="code" title="subfunction makefile(name)">makefile</a>(mrk_untested);
-0100             <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_tested);
-0101             <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_testing);            
-0102         <span class="keyword">else</span>
-0103             quicklog(o.log,<span class="string">'testing completed.'</span>);
-0104             <span class="keyword">if</span> ~isempty(o.post_test)
-0105                 <span class="comment">% run the post-testing step</span>
-0106                 <span class="keyword">try</span>
-0107                     quicklog(o.log,<span class="string">'running post-testing step...'</span>);
-0108                     o.post_test(results);
-0109                     quicklog(o.log,<span class="string">'post-testing step completed successfully...'</span>);
-0110                 <span class="keyword">catch</span> e
-0111                     quicklog(o.log,evalc(<span class="string">'env_handleerror(e)'</span>));
-0112                     rethrow(e);
-0113                 <span class="keyword">end</span>
-0114             <span class="keyword">end</span>            
-0115             <span class="comment">% test completed successfully</span>
-0116             <a href="#_sub2" class="code" title="subfunction makefile(name)">makefile</a>(mrk_tested);
-0117             <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_untested);
-0118             <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_testing);
-0119             <span class="comment">% write/update report, if applicable</span>
-0120             ds = datestr(clock); ds(ds == <span class="string">':'</span> | ds == <span class="string">' '</span>) = <span class="string">'-'</span>;
-0121             <span class="keyword">if</span> ischar(results)
-0122                 quicklog(sprintf(o.report,hlp_hostname,ds),results); <span class="keyword">end</span>
-0123         <span class="keyword">end</span>
-0124     <span class="keyword">else</span>
-0125         <span class="keyword">if</span> codedate &gt; testdate
-0126             quicklog(o.log,<span class="string">'waiting for edits to finish...'</span>); <span class="keyword">end</span>
-0127         pause(o.scan_interval);
-0128     <span class="keyword">end</span>
-0129 <span class="keyword">end</span>
-0130 
+0030 o = arg_define(varargin, <span class="keyword">...</span>
+0031     arg({<span class="string">'scan_interval'</span>,<span class="string">'ScanInterval'</span>},15,[0.1 15 3600 1000000],<span class="string">'Interval between scans for changes. In seconds.'</span>), <span class="keyword">...</span>
+0032     arg({<span class="string">'wait_period'</span>,<span class="string">'WaitPeriod'</span>},120,[0 60 300 3600],<span class="string">'Wait this long for further changes until rebuild.'</span>), <span class="keyword">...</span>
+0033     arg({<span class="string">'proj_dir'</span>,<span class="string">'ProjectDirectory'</span>},<span class="string">'bcilab:/build'</span>,[],<span class="string">'Name/location of the test project.'</span>), <span class="keyword">...</span>
+0034     arg({<span class="string">'scan_dirs'</span>,<span class="string">'ScanDirectories'</span>},{<span class="string">'bcilab:/code'</span>,<span class="string">'bcilab:/*.m'</span>},[],<span class="string">'Directories/files to scan for changes.'</span>), <span class="keyword">...</span>
+0035     arg({<span class="string">'issue_test'</span>,<span class="string">'IssueTest'</span>},<span class="string">'@env_test_bcilab'</span>,[],<span class="string">'Function called to run new tests. Assumed to return data related to the test summary.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0036     arg({<span class="string">'post_test'</span>,<span class="string">'PostTest'</span>},[],[],<span class="string">'Function called after successful tests.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0037     arg({<span class="string">'log'</span>,<span class="string">'LogFile'</span>},sprintf(<span class="string">'bcilab:/resources/testcases/log_%s.log'</span>,hlp_hostname),[],<span class="string">'Name/location of log file.'</span>), <span class="keyword">...</span>
+0038     arg({<span class="string">'report'</span>,<span class="string">'ReportFile'</span>},<span class="string">'bcilab:/resources/testcases/report_%s-%s.log'</span>,[],<span class="string">'Name/location of build report file.'</span>));
+0039 
+0040 <span class="comment">% sanitize inputs</span>
+0041 <span class="keyword">if</span> ischar(o.scan_dirs)
+0042     o.scan_dirs = {o.scan_dirs}; <span class="keyword">end</span>
+0043 <span class="keyword">for</span> d=1:length(o.scan_dirs)
+0044     o.scan_dirs{d} = <a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(o.scan_dirs{d}); <span class="keyword">end</span>
+0045 o.log = <a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(o.log);
+0046 o.report = <a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(o.report);
+0047 <span class="keyword">if</span> ischar(o.post_test)
+0048     o.post_test = str2func(o.post_test); <span class="keyword">end</span>
+0049 
+0050 <span class="comment">% names of marker files</span>
+0051 mrk_untested = [o.proj_dir <span class="string">'untested'</span>];
+0052 mrk_testing = [o.proj_dir <span class="string">'testing'</span>];
+0053 mrk_tested = [o.proj_dir <span class="string">'tested'</span>];
+0054 
+0055 <span class="comment">% turn off a few warnings</span>
+0056 <span class="keyword">if</span> ispc
+0057     warning off MATLAB:FILEATTRIB:SyntaxWarning; <span class="keyword">end</span>
+0058 warning off MATLAB:DELETE:FileNotFound;
+0059 
+0060 <span class="comment">% run...</span>
+0061 quicklog(o.log,<span class="string">'===== Now running as test slave ====='</span>);
+0062 <span class="keyword">while</span> 1
+0063     <span class="comment">% get the date of the last test (if any)</span>
+0064     testdate = <a href="#_sub1" class="code" title="subfunction ts = timestamp(loc)">timestamp</a>(mrk_tested);
+0065     
+0066     <span class="comment">% get the most recent date of scanned directories</span>
+0067     codedate = max(cellfun(@<a href="#_sub1" class="code" title="subfunction ts = timestamp(loc)">timestamp</a>,o.scan_dirs));
+0068     
+0069     <span class="comment">% check if we are still up-to-date</span>
+0070     <span class="keyword">if</span> codedate &gt; testdate
+0071         quicklog(o.log,<span class="string">'out of sync'</span>);
+0072         <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_tested);
+0073         <a href="#_sub2" class="code" title="subfunction makefile(name)">makefile</a>(mrk_untested);
+0074         <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_testing);
+0075     <span class="keyword">end</span>
+0076     
+0077     <span class="comment">% check if wait period expired ...</span>
+0078     <span class="keyword">if</span> (codedate - testdate)*24*60*60 &gt; o.wait_period
+0079         <span class="comment">% issue a re-test...</span>
+0080         quicklog(o.log,<span class="string">'re-testing...'</span>);
+0081         <a href="#_sub2" class="code" title="subfunction makefile(name)">makefile</a>(mrk_testing);
+0082         <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_untested);
+0083         <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_tested);
+0084                 
+0085         <span class="comment">% issue a re-test</span>
+0086         <span class="keyword">try</span>
+0087             results = o.issue_test();
+0088         <span class="keyword">catch</span> e
+0089             quicklog(o.log,evalc(<span class="string">'env_handleerror(e)'</span>));
+0090             rethrow(e);
+0091         <span class="keyword">end</span>
+0092         
+0093         quicklog(o.log,<span class="string">'finished.'</span>);
+0094         
+0095         <span class="comment">% check whether the code has been edited during the build</span>
+0096         newdate = max(cellfun(@<a href="#_sub1" class="code" title="subfunction ts = timestamp(loc)">timestamp</a>,o.scan_dirs));
+0097         <span class="keyword">if</span> (newdate &gt; codedate) &amp;&amp; codedate
+0098             quicklog(o.log,<span class="string">'code has been edited concurrently.'</span>);
+0099             <span class="comment">% if so, revert to untested</span>
+0100             <a href="#_sub2" class="code" title="subfunction makefile(name)">makefile</a>(mrk_untested);
+0101             <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_tested);
+0102             <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_testing);            
+0103         <span class="keyword">else</span>
+0104             quicklog(o.log,<span class="string">'testing completed.'</span>);
+0105             <span class="keyword">if</span> ~isempty(o.post_test)
+0106                 <span class="comment">% run the post-testing step</span>
+0107                 <span class="keyword">try</span>
+0108                     quicklog(o.log,<span class="string">'running post-testing step...'</span>);
+0109                     o.post_test(results);
+0110                     quicklog(o.log,<span class="string">'post-testing step completed successfully...'</span>);
+0111                 <span class="keyword">catch</span> e
+0112                     quicklog(o.log,evalc(<span class="string">'env_handleerror(e)'</span>));
+0113                     rethrow(e);
+0114                 <span class="keyword">end</span>
+0115             <span class="keyword">end</span>            
+0116             <span class="comment">% test completed successfully</span>
+0117             <a href="#_sub2" class="code" title="subfunction makefile(name)">makefile</a>(mrk_tested);
+0118             <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_untested);
+0119             <a href="#_sub3" class="code" title="subfunction rmfile(name)">rmfile</a>(mrk_testing);
+0120             <span class="comment">% write/update report, if applicable</span>
+0121             ds = datestr(clock); ds(ds == <span class="string">':'</span> | ds == <span class="string">' '</span>) = <span class="string">'-'</span>;
+0122             <span class="keyword">if</span> ischar(results)
+0123                 quicklog(sprintf(o.report,hlp_hostname,ds),results); <span class="keyword">end</span>
+0124         <span class="keyword">end</span>
+0125     <span class="keyword">else</span>
+0126         <span class="keyword">if</span> codedate &gt; testdate
+0127             quicklog(o.log,<span class="string">'waiting for edits to finish...'</span>); <span class="keyword">end</span>
+0128         pause(o.scan_interval);
+0129     <span class="keyword">end</span>
+0130 <span class="keyword">end</span>
 0131 
-0132 <span class="comment">% calc the most recent time stamp of a given file system location</span>
-0133 <a name="_sub1" href="#_subfunctions" class="code">function ts = timestamp(loc)</a>
-0134 <span class="keyword">if</span> any(loc==<span class="string">'*'</span>) || ~exist(loc,<span class="string">'dir'</span>)
-0135     <span class="comment">% assume that it's a file mask / reference</span>
-0136     infos = dir(loc);
-0137 <span class="keyword">else</span>
-0138     <span class="comment">% assume that it's a directory reference</span>
-0139     infos = cellfun(@dir,hlp_split(genpath(loc),pathsep),<span class="string">'UniformOutput'</span>,false);
-0140     infos = vertcat(infos{:});
-0141 <span class="keyword">end</span>
-0142 <span class="keyword">if</span> ~isempty(infos)
-0143     <span class="comment">% take the maximum time stamp</span>
-0144     <span class="keyword">if</span> ~isfield(infos,<span class="string">'datenum'</span>)
-0145         [infos.datenum] = celldeal(cellfun(@datenum,{infos.date},<span class="string">'UniformOutput'</span>,false)); <span class="keyword">end</span>
-0146     ts = max([infos.datenum]);
-0147 <span class="keyword">else</span>
-0148     <span class="comment">% no file: set to the beginning of time...</span>
-0149     ts = 0;
-0150 <span class="keyword">end</span>
-0151 
+0132 
+0133 <span class="comment">% calc the most recent time stamp of a given file system location</span>
+0134 <a name="_sub1" href="#_subfunctions" class="code">function ts = timestamp(loc)</a>
+0135 <span class="keyword">if</span> any(loc==<span class="string">'*'</span>) || ~exist(loc,<span class="string">'dir'</span>)
+0136     <span class="comment">% assume that it's a file mask / reference</span>
+0137     infos = dir(loc);
+0138 <span class="keyword">else</span>
+0139     <span class="comment">% assume that it's a directory reference</span>
+0140     infos = cellfun(@dir,hlp_split(genpath(loc),pathsep),<span class="string">'UniformOutput'</span>,false);
+0141     infos = vertcat(infos{:});
+0142 <span class="keyword">end</span>
+0143 <span class="keyword">if</span> ~isempty(infos)
+0144     <span class="comment">% take the maximum time stamp</span>
+0145     <span class="keyword">if</span> ~isfield(infos,<span class="string">'datenum'</span>)
+0146         [infos.datenum] = celldeal(cellfun(@datenum,{infos.date},<span class="string">'UniformOutput'</span>,false)); <span class="keyword">end</span>
+0147     ts = max([infos.datenum]);
+0148 <span class="keyword">else</span>
+0149     <span class="comment">% no file: set to the beginning of time...</span>
+0150     ts = 0;
+0151 <span class="keyword">end</span>
 0152 
-0153 <span class="comment">% create a status marker file...</span>
-0154 <a name="_sub2" href="#_subfunctions" class="code">function makefile(name)</a>
-0155 <span class="keyword">try</span>
-0156     fid = fopen(name,<span class="string">'w+'</span>);
-0157     fclose(fid);
-0158     fileattrib(name,<span class="string">'+w'</span>,<span class="string">'a'</span>);
-0159 <span class="keyword">catch</span>
-0160     <span class="keyword">if</span> fid ~= -1
-0161         <span class="keyword">try</span> fclose(fid); <span class="keyword">catch</span>,<span class="keyword">end</span>
-0162     <span class="keyword">end</span>
-0163 <span class="keyword">end</span>
-0164 
+0153 
+0154 <span class="comment">% create a status marker file...</span>
+0155 <a name="_sub2" href="#_subfunctions" class="code">function makefile(name)</a>
+0156 <span class="keyword">try</span>
+0157     fid = fopen(name,<span class="string">'w+'</span>);
+0158     fclose(fid);
+0159     fileattrib(name,<span class="string">'+w'</span>,<span class="string">'a'</span>);
+0160 <span class="keyword">catch</span>
+0161     <span class="keyword">if</span> fid ~= -1
+0162         <span class="keyword">try</span> fclose(fid); <span class="keyword">catch</span>,<span class="keyword">end</span>
+0163     <span class="keyword">end</span>
+0164 <span class="keyword">end</span>
 0165 
-0166 <span class="comment">% remove a status marker file...</span>
-0167 <a name="_sub3" href="#_subfunctions" class="code">function rmfile(name)</a>
-0168 <span class="keyword">try</span>
-0169     delete(name);
-0170 <span class="keyword">catch</span>
-0171 <span class="keyword">end</span>
-0172 
-0173</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0166 
+0167 <span class="comment">% remove a status marker file...</span>
+0168 <a name="_sub3" href="#_subfunctions" class="code">function rmfile(name)</a>
+0169 <span class="keyword">try</span>
+0170     delete(name);
+0171 <span class="keyword">catch</span>
+0172 <span class="keyword">end</span>
+0173 
+0174</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

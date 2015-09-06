@@ -23,7 +23,7 @@ arg_define(varargin, ...
 if ~exist('removed_channels','var')
     
     if signal.pnts < imp_period*2
-        return; end
+        exp_endfun; return; end
 
     ISTIM = 0.000000024;
     TO_Z  = 1.4/(ISTIM*2.0);

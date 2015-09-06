@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>utl_check_bundle
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -34,6 +35,7 @@
   * each stream has all markers (with matching type, latency and target field; each stream may have 
     its unique additional marker meta-data)
   * the expression associated with each stream (if any) matches the data (via a stored fingerprint)
+    unless that functionality is disabled
  
  In:
    Bundle : stream bundle to be checked; 
@@ -52,11 +54,18 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="utl_check_dataset.html" class="code" title="function sig = utl_check_dataset(sig,opts,ctx,exp)">utl_check_dataset</a>	Check whether the given argument is an imporperly tracked data set and fix.</li></ul>
+
+<li><a href="utl_check_dataset.html" class="code" title="function sig = utl_check_dataset(sig,opts,ctx,exp)">utl_check_dataset</a>	Check whether the given argument is an imporperly tracked data set and fix.</li>
+<li><a href="utl_check_fields.html" class="code" title="function utl_check_fields(x,required_fields,argname,typename)">utl_check_fields</a>	Check whether a given value is a scalar struct that has the required fields.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -69,89 +78,169 @@ This function is called by:
 0006 <span class="comment">%  * each stream has all markers (with matching type, latency and target field; each stream may have</span>
 0007 <span class="comment">%    its unique additional marker meta-data)</span>
 0008 <span class="comment">%  * the expression associated with each stream (if any) matches the data (via a stored fingerprint)</span>
-0009 <span class="comment">%</span>
-0010 <span class="comment">% In:</span>
-0011 <span class="comment">%   Bundle : stream bundle to be checked;</span>
-0012 <span class="comment">%            if this is an EEGLAB data set, it will be turned into a bundle</span>
-0013 <span class="comment">%</span>
-0014 <span class="comment">% Out:</span>
-0015 <span class="comment">%   Bundle : adjusted bundle</span>
-0016 <span class="comment">%</span>
-0017 <span class="comment">% See also:</span>
-0018 <span class="comment">%   utl_check_dataset</span>
-0019 <span class="comment">%</span>
-0020 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0021 <span class="comment">%                                2011-08-28</span>
-0022 
-0023 <span class="comment">% turn into a bundle if necessary</span>
-0024 <span class="keyword">if</span> ~isfield(bundle,<span class="string">'streams'</span>)
-0025     bundle = struct(<span class="string">'streams'</span>,{{bundle}}); <span class="keyword">end</span>
-0026 
-0027 str = bundle.streams;
+0009 <span class="comment">%    unless that functionality is disabled</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">% In:</span>
+0012 <span class="comment">%   Bundle : stream bundle to be checked;</span>
+0013 <span class="comment">%            if this is an EEGLAB data set, it will be turned into a bundle</span>
+0014 <span class="comment">%</span>
+0015 <span class="comment">% Out:</span>
+0016 <span class="comment">%   Bundle : adjusted bundle</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">% See also:</span>
+0019 <span class="comment">%   utl_check_dataset</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0022 <span class="comment">%                                2011-08-28</span>
+0023 dp;
+0024 
+0025 <span class="comment">% turn into a bundle if necessary</span>
+0026 <span class="keyword">if</span> ~isfield(bundle,<span class="string">'streams'</span>)
+0027     bundle = struct(<span class="string">'streams'</span>,{{bundle}}); <span class="keyword">end</span>
 0028 
-0029 mrk_type = {};
-0030 mrk_latency = {};
-0031 mrk_target = {};
-0032 mrk_source = [];
-0033 xmin = [];
-0034 xmax = [];
-0035 
-0036 <span class="comment">% find intervals that are covered by all streams</span>
-0037 <span class="keyword">for</span> s=1:length(str)
-0038     <span class="comment">% evaluate if necessary</span>
-0039     str{s} = exp_eval_optimized(str{s});
-0040     <span class="comment">% check if epoched</span>
-0041     epoched(s) = isempty(str{s}.epoch);
-0042     <span class="comment">% get xmin / xmax</span>
-0043     xmin(s) = str{s}.xmin;
-0044     xmax(s) = str{s}.xmax;
-0045 <span class="keyword">end</span>
-0046 
-0047 <span class="keyword">if</span> length(unique(epoched)) &gt; 1
-0048     error(<span class="string">'The streams in a bundle must either all be epoched or all be non-epoched.'</span>); <span class="keyword">end</span>
-0049 
-0050 <span class="comment">% restrict to the intervals that are covered by all streams</span>
-0051 xmin = max(xmin);
-0052 xmax = min(xmax);
-0053 <span class="keyword">for</span> s=1:length(str)    
-0054     <span class="keyword">if</span> xmin &gt; str{s}.xmin || xmax &lt; str{s}.xmax
-0055         str{s} = pop_select(str{s},<span class="string">'time'</span>,[xmin xmax]); <span class="keyword">end</span>
-0056 <span class="keyword">end</span>
-0057 
-0058 <span class="comment">% collect markers across all streams</span>
-0059 <span class="keyword">for</span> s=1:length(str)
-0060     <span class="comment">% collect marker types, latencies and target values across streams</span>
-0061     <span class="keyword">if</span> ~isempty(str{s}.event)
-0062         mrk_type = [mrk_type {str{s}.event.type}];
-0063         mrk_latency = [mrk_latency {str{s}.event.latency}];    
-0064         <span class="keyword">if</span> ~isfield(str{s}.event,<span class="string">'target'</span>)
-0065             str{s}.event(1).target = []; <span class="keyword">end</span>
-0066         mrk_target = [mrk_target {str{s}.event.target}];
-0067         mrk_source = [mrk_source s*ones(1,length(str{s}.event))];
-0068     <span class="keyword">end</span>
-0069 <span class="keyword">end</span>
-0070 
-0071 <span class="comment">% map all markers onto their unique identifier (latency_type)</span>
-0072 uids = cellfun(@(a,b)[num2str(b) <span class="string">'_'</span> a],mrk_type,mrk_latency,<span class="string">'UniformOutput'</span>,false);
-0073 <span class="comment">% for each stream..</span>
-0074 <span class="keyword">for</span> s=1:length(str)
-0075     <span class="comment">% get the list of markers indices that need to be added to it</span>
-0076     [dummy,add_idx] = setdiff(uids,uids(mrk_source==s)); <span class="comment">%#ok&lt;ASGLU&gt;</span>
-0077     <span class="comment">% append those markers to the stream</span>
-0078     evt = [str{s}.event];
-0079     range = length(evt)+1:length(evt)+length(add_idx);
-0080     [evt(range).type] = mrk_type{add_idx};
-0081     [evt(range).latency] = mrk_latency{add_idx};
-0082     [evt(range).target] = mrk_target{add_idx};
-0083     <span class="comment">% re-sort the events by latency</span>
-0084     [dummy,sort_idx] = sort([evt.latency]); <span class="comment">%#ok&lt;ASGLU&gt;</span>
-0085     str{s}.event = evt(sort_idx);
-0086     <span class="comment">% check for internal consistency of each data set</span>
-0087     str{s} = <a href="utl_check_dataset.html" class="code" title="function sig = utl_check_dataset(sig,opts,ctx,exp)">utl_check_dataset</a>(str{s});
-0088 <span class="keyword">end</span>
-0089 
-0090 <span class="comment">% finalize</span>
-0091 bundle.streams = str;</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0029 str = bundle.streams;
+0030 
+0031 <span class="comment">% some aggregate information</span>
+0032 mrk_type = {};
+0033 mrk_latency = {};
+0034 mrk_target = {};
+0035 mrk_source = [];
+0036 xmin = [];
+0037 xmax = [];
+0038 
+0039 <span class="comment">% evaluate and validate inputs</span>
+0040 <span class="keyword">for</span> s=1:length(str)
+0041     <span class="comment">% evaluate if necessary</span>
+0042     str{s} = exp_eval_optimized(str{s});
+0043     <a href="utl_check_fields.html" class="code" title="function utl_check_fields(x,required_fields,argname,typename)">utl_check_fields</a>(str{s},{<span class="string">'data'</span>,<span class="string">'epoch'</span>,<span class="string">'event'</span>,<span class="string">'xmin'</span>,<span class="string">'xmax'</span>,<span class="string">'srate'</span>,<span class="string">'pnts'</span>,<span class="string">'nbchan'</span>,<span class="string">'trials'</span>,<span class="string">'chanlocs'</span>},<span class="string">'signal'</span>,<span class="string">'signal'</span>);
+0044     <span class="comment">% validate event field</span>
+0045     <span class="keyword">if</span> ~isempty(str{s}.event)
+0046         <span class="keyword">if</span> ~isfield(str{s}.event,<span class="string">'type'</span>)
+0047             error(<span class="string">'WARNING: One of the signals is lacking the .event.type field. This likely leads to errors during later processing.'</span>); <span class="keyword">end</span>
+0048         <span class="keyword">if</span> ~all(cellfun(<span class="string">'isclass'</span>,{str{s}.event.type},<span class="string">'char'</span>) | cellfun(<span class="string">'isempty'</span>,{str{s}.event.type}))
+0049             error(<span class="string">'The signal contains events whose .type field is non-empty and not a string. This is an error.'</span>); <span class="keyword">end</span>
+0050         <span class="keyword">if</span> ~isfield(str{s}.event,<span class="string">'latency'</span>)
+0051             error(<span class="string">'One of the signals is lacking the .event.latency field.'</span>); <span class="keyword">end</span>
+0052         <span class="keyword">if</span> ~isempty(str{s}.epoch) &amp;&amp; ~isfield(str{s}.event,<span class="string">'epoch'</span>)
+0053             error(<span class="string">'One of the signals is lacking the .event.epoch field.'</span>); <span class="keyword">end</span>
+0054         latencies = {str{s}.event.latency};
+0055         latency_numels = cellfun(<span class="string">'prodofsize'</span>,latencies);
+0056         <span class="keyword">if</span> any(latency_numels == 0)
+0057             error(<span class="string">'One or more of the events in the given signal have an empty .latency field, which is not permitted.'</span>); <span class="keyword">end</span>
+0058         <span class="keyword">if</span> any(latency_numels ~= 1)
+0059             error(<span class="string">'One or more of the events in the given signal have a .latency value that is not a scalar, which is not permitted.'</span>); <span class="keyword">end</span>
+0060         latencies = [latencies{:}];
+0061         out_of_bounds = latencies &lt; 1 | latencies &gt; size(str{s}.data,2);
+0062         <span class="keyword">if</span> any(out_of_bounds)
+0063             disp_once(<span class="string">'WARNING: The signal contains %i events with out-of-bounds latencies.'</span>,nnz(out_of_bounds)); <span class="keyword">end</span>
+0064         <span class="keyword">if</span> ~isequal(sort(latencies),latencies)
+0065             disp_once(<span class="string">'Warning: The signal has unsorted event latencies.'</span>); <span class="keyword">end</span>
+0066     <span class="keyword">end</span>
+0067     <span class="comment">% validate epoch field</span>
+0068     <span class="keyword">if</span> isempty(str{s}.epoch)
+0069         <span class="keyword">if</span> size(str{s}.data,3) &gt; 1
+0070             error(<span class="string">'One of the signals has an epoched .data field but an empty .epoch field.'</span>); <span class="keyword">end</span>
+0071     <span class="keyword">else</span>
+0072         <span class="keyword">if</span> length(str{s}.epoch) ~= size(str{s}.data,3)
+0073             error(<span class="string">'The number of epochs in the signal (%i) does not match the length of the .epoch field (%i).'</span>,length(str{s}.epoch),size(str{s}.data,3)); <span class="keyword">end</span>
+0074         <span class="keyword">if</span> ~isfield(str{s}.epoch,<span class="string">'event'</span>)
+0075             error(<span class="string">'One of the signals in the bundle is lacking the .epoch.event field.'</span>); <span class="keyword">end</span>
+0076         eventepochs = {str{s}.event.epoch};
+0077         epoch_numels = cellfun(<span class="string">'prodofsize'</span>,eventepochs);
+0078         <span class="keyword">if</span> any(epoch_numels == 0)
+0079             error(<span class="string">'One or more of the events in the given signal have an empty .epoch field, which is not permitted.'</span>); <span class="keyword">end</span>
+0080         <span class="keyword">if</span> any(epoch_numels ~= 1)
+0081             error(<span class="string">'One or more of the events in the given signal have an .epoch value that is not a scalar, which is not permitted.'</span>); <span class="keyword">end</span>
+0082         eventepochs = [eventepochs{:}];
+0083         <span class="keyword">if</span> any(eventepochs &lt; 1 | eventepochs &gt; size(signal.data,3))
+0084             error(<span class="string">'The given signal has invalid (out-of-bounds) .event.epoch indices.'</span>); <span class="keyword">end</span>
+0085         epochevents = [str{s}.epoch.event];
+0086         <span class="keyword">if</span> any(epochevents &lt; 1 | epochevents &gt; length(str{s}.event))
+0087             error(<span class="string">'The given signal has invalid (out-of-bounds) .epoch.event indices.'</span>); <span class="keyword">end</span>
+0088     <span class="keyword">end</span>
+0089     
+0090     <span class="comment">% check if the bundle contains a non-trivial online expression</span>
+0091     <span class="keyword">if</span> isfield(str{s},<span class="string">'tracking'</span>) &amp;&amp; isfield(str{s}.tracking,<span class="string">'online_expression'</span>)
+0092         <span class="keyword">if</span> ~strcmp(char(str{s}.tracking.online_expression.head),<span class="string">'rawdata'</span>)
+0093             <span class="comment">% in this case we forget about all processing applied to the dataset and treat it as if it were &quot;raw&quot;</span>
+0094             disp_once(<span class="string">'WARNING: The given dataset has non-trivial BCILAB filters applied to it. Such filters should be applied in the approach instead, and will not be reflected in the model:\n         %s'</span>,hlp_tostring(str{s}.tracking.expression,1000));
+0095             str{s} = rmfield(str{s},<span class="string">'tracking'</span>);
+0096         <span class="keyword">end</span>
+0097     <span class="keyword">end</span>
+0098     
+0099     <span class="comment">% some more sanity checks</span>
+0100     <span class="keyword">if</span> size(str{s}.data,1) ~= length(str{s}.chanlocs)
+0101         error(<span class="string">'The number of channels in the .data field (%i) does not match the length of the .chanlocs field (%i).'</span>,size(str{s}.data,1),length(str{s}.chanlocs)); <span class="keyword">end</span>
+0102     <span class="keyword">if</span> size(str{s}.data,1) ~= str{s}.nbchan
+0103         disp_once(<span class="string">'WARNING: The number of channels in the signal''s .data field (%i) does not match the .nbchan value.'</span>,size(str{s}.data,1),str{s}.nbchan); <span class="keyword">end</span>
+0104     <span class="keyword">if</span> size(str{s}.data,2) ~= str{s}.pnts
+0105         disp_once(<span class="string">'WARNING: The number of time points in the signal''s .data field (%i) does not match the .pnts value.'</span>,size(str{s}.data,2),str{s}.pnts); <span class="keyword">end</span>
+0106     <span class="keyword">if</span> size(str{s}.data,3) ~= str{s}.trials
+0107         disp_once(<span class="string">'WARNING: The number of epochs in the signal''s .data field (%i) does not match the .trials value.'</span>,size(str{s}.data,3),str{s}.trials); <span class="keyword">end</span>
+0108     <span class="keyword">if</span> str{s}.xmax ~= str{s}.xmin + (str{s}.pnts-1)/str{s}.srate
+0109         disp_once(<span class="string">'WARNING: The given signal''s .xmin (%.2f), .xmax (%.2f), .pnts (%i) and .srate (%.1f) values are not mutually consistent.'</span>,str{s}.xmin,str{s}.xmax,str{s}.pnts,str{s}.srate); <span class="keyword">end</span>
+0110     <span class="keyword">if</span> ischar(str{s}.data)
+0111         error(<span class="string">'The given signal has non-numeric data (apparently a reference to a file: %s, make sure that you import it correctly)'</span>,str{s}.data); <span class="keyword">end</span>
+0112     <span class="keyword">if</span> ~isa(str{s}.data,<span class="string">'double'</span>)
+0113         disp_once(<span class="string">'WARNING: The given data is not in double-precision format; this can cause severe numerical errors.'</span>); <span class="keyword">end</span>
+0114 <span class="keyword">end</span>
+0115 
+0116 <span class="comment">% find intervals that are covered by all streams</span>
+0117 <span class="keyword">for</span> s=length(str):-1:1
+0118     <span class="comment">% check if epoched</span>
+0119     epoched(s) = isempty(str{s}.epoch);
+0120     <span class="comment">% get xmin / xmax</span>
+0121     xmin(s) = str{s}.xmin;
+0122     xmax(s) = str{s}.xmax;
+0123 <span class="keyword">end</span>
+0124 
+0125 <span class="keyword">if</span> length(unique(epoched)) &gt; 1
+0126     error(<span class="string">'The streams in a bundle must either all be epoched or all be non-epoched.'</span>); <span class="keyword">end</span>
+0127 
+0128 <span class="comment">% restrict to the intervals that are covered by all streams</span>
+0129 xmin = max(xmin);
+0130 xmax = min(xmax);
+0131 <span class="keyword">for</span> s=1:length(str)    
+0132     <span class="keyword">if</span> xmin &gt; str{s}.xmin || xmax &lt; str{s}.xmax
+0133         str{s} = exp_eval(set_selinterval(str{s},[xmin xmax],<span class="string">'seconds'</span>)); <span class="keyword">end</span>;
+0134 <span class="keyword">end</span>
+0135 
+0136 <span class="comment">% collect markers across all streams</span>
+0137 <span class="keyword">for</span> s=length(str):-1:1
+0138     <span class="comment">% collect marker types, latencies and target values across streams</span>
+0139     <span class="keyword">if</span> ~isempty(str{s}.event)
+0140         mrk_type = [mrk_type {str{s}.event.type}]; <span class="comment">%#ok&lt;AGROW&gt;</span>
+0141         mrk_latency = [mrk_latency {str{s}.event.latency}];     <span class="comment">%#ok&lt;AGROW&gt;</span>
+0142         <span class="keyword">if</span> ~isfield(str{s}.event,<span class="string">'target'</span>)
+0143             str{s}.event(1).target = []; <span class="keyword">end</span>
+0144         mrk_target = [mrk_target {str{s}.event.target}]; <span class="comment">%#ok&lt;AGROW&gt;</span>
+0145         mrk_source = [mrk_source s*ones(1,length(str{s}.event))]; <span class="comment">%#ok&lt;AGROW&gt;</span>
+0146     <span class="keyword">end</span>
+0147 <span class="keyword">end</span>
+0148 
+0149 <span class="comment">% map all markers onto their unique identifier (latency_type)</span>
+0150 uids = cellfun(@(a,b)sprintf(<span class="string">'%i_%s'</span>,b,a),mrk_type,mrk_latency,<span class="string">'UniformOutput'</span>,false);
+0151 <span class="comment">% for each stream..</span>
+0152 <span class="keyword">for</span> s=1:length(str)
+0153     <span class="comment">% get the list of markers indices that need to be added to it</span>
+0154     [dummy,add_idx] = setdiff(uids,uids(mrk_source==s)); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0155     <span class="comment">% append those markers to the stream</span>
+0156     evt = [str{s}.event];
+0157     range = length(evt)+1:length(evt)+length(add_idx);
+0158     [evt(range).type] = mrk_type{add_idx};
+0159     [evt(range).latency] = mrk_latency{add_idx};
+0160     [evt(range).target] = mrk_target{add_idx};
+0161     <span class="comment">% re-sort the events by latency</span>
+0162     [dummy,sort_idx] = sort([evt.latency]); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0163     str{s}.event = evt(sort_idx);
+0164     <span class="comment">% check for internal consistency of each data set</span>
+0165     str{s} = exp_eval(<a href="utl_check_dataset.html" class="code" title="function sig = utl_check_dataset(sig,opts,ctx,exp)">utl_check_dataset</a>(str{s}));
+0166 <span class="keyword">end</span>
+0167 
+0168 <span class="comment">% finalize</span>
+0169 bundle.streams = str;
+0170</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

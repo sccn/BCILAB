@@ -176,6 +176,8 @@ regularizer_params = @(name) arg_subswitch({lower(name),name},{'none'},{ ...
     arg({'shape','Shape'},'',[],'Final feature shape. Allows to reshape the linearly transformed features into a matrix to apply matrix norms. If empty defaults to the shape of the original features.','shape','row'), ...
     }}, 'Regularization term. Defines a term in the optimization problem; multiple types are supported and can be mixed freely.');
 
+expose_handles(@solve_regularization_path,varargin{:});
+
 arg_define([0 2],varargin, ...
     arg_norep('trials'), ...
     arg_norep('targets'), ...
@@ -191,7 +193,7 @@ arg_define([0 2],varargin, ...
     arg({'regweights','TermWeights'},{[]},[],'Weights of the regularizers. This is a cell array of vectors of (relative) regularization parameters. Default is 1/N for N regularization terms. The cell array lists all possible assignments to search over.','type','expression','shape','row'), ...
     arg_sub({'solverOptions','SolverOptions'},{},{ ...
         arg({'maxit','MaxIterations'},2000,uint32([1 100 5000 10000]),'Maximum number of iterations.'), ...
-        arg({'rel_tol','RelativeTolerance'},2e-4,[0 1],'Relative tolerance criterion. If the relative difference between two successive iterates is lower than this value the algorithm terminates.'),...
+        arg({'rel_tol','RelativeTolerance'},1e-3,[0 1],'Relative tolerance criterion. If the relative difference between two successive iterates is lower than this value the algorithm terminates.'),...
         arg({'abs_tol','AbsoluteTolerance'},0.000001,[0 Inf],'Absolute tolerance criterion. If the objective function value falls below this the algorithm terminates.'), ...
         arg({'rho','CouplingParameter'},4,[0 1 30 Inf],'Initial coupling parameter. For proximal algorithms this is the coupling strength between the terms between updates. Increasing this can improve the convergence speed but too strong values can prevent any convergence.'), ...
         arg({'rho_update','RhoUpdate'},true,[],'Update Rho. Whether to update rho dynamically according to 3.4.1 in [1]. Note, this can sometimes cause r_norm, s_norm to "blow up".'), ...
@@ -203,7 +205,7 @@ arg_define([0 2],varargin, ...
     arg_sub({'lbfgsOptions','LBFGSOptions'},{},{ ...
         arg({'MaxIter','MaxIterations'},10,uint32([1 1 20 1000]),'Maximum number of iterations.'), ...
         arg({'m','HessianHistory'},6,uint32([1 4 10 20]),'LBFGS history length. The number of corrections to approximate the inverse hessian matrix.','guru',true), ...
-        arg({'epsilon','Epsilon'},1e-4,[],'Tolerance criterion.  A minimization terminates when ||g|| < epsilon*max(1,||x||).'), ...
+        arg({'epsilon','Epsilon'},1e-3,[],'Tolerance criterion.  A minimization terminates when ||g|| < epsilon*max(1,||x||).'), ...
         arg({'past','DeltaDistance'},0,[],'Distance for delta-based convergence test.','guru',true), ...
         arg({'delta','Delta'},1e-5,[],'Delta for convergence test.','guru',true), ...
         arg({'linesearch','LineSearchAlgorithm'},'more_thuente',{'more_thuente','backtracking_armijo','backtracking_wolfe','backtracking_strong_wolfe'},'The line search algorithm.','guru',true), ...
@@ -220,7 +222,8 @@ arg_define([0 2],varargin, ...
     },'Options of the inner LBFGS solver. This is for the logistic objective function.'), ...
     arg_sub({'lambdaSearch','LambdaSearch'},{},{ ...
         arg({'lambdas','Lambdas'}, 2.^(3:-0.66:-8), [0 2^-8 2^15 Inf], 'Regulariation parameters. Controls the sparsity/simplicity of the result. Typically, this is an interval to scan, such as 2.^(10:-1:-15).'), ...
-        arg({'nfolds','NumFolds'},5,[],'Cross-validation folds. The cross-validation is used to determine the best regularization parameter.'),...
+        arg({'nfolds','NumFolds'},5,[],'Cross-validation folds. The cross-validation is used to determine the best regularization parameter. If in 0..1, k calulated as fraction of #trials, if in -1..0, taken as the p in p-holdout, if given as [low, high], taken as a fractional interval for interval holdout.','shape','row'),...
+        arg({'force_cv','ForceCV'},false,[],'Force cross-validation. This will perform a nested cross-validation even if there is only one lambda/regweight (i.e., a search wouldn''t be strictly necessary). Can be useful to simultaneously run multiple within-task/subject cross-validations given fixed reg parameters.','shape','row'),...
         arg({'foldmargin','FoldMargin'},0,uint32([0 0 10 1000]),'Margin between folds. This is the number of trials omitted between training and test set.'), ...
         arg({'cvmetric','ParameterMetric'},'',{'','kld','nll','mcr','mae','mse','max','rms','bias','medse','auc','cond_entropy','cross_entropy','f_measure'},'Metric for Parameter Optimization. By default auto-determined; can be any of the ml_calcloss-supported metrics. In particular, auc is a good idea if the classification task is between highly imbalanced classes.') ...
         arg({'return_regpath','ReturnRegpath'}, true, [], 'Return the entire regularization path. This is for the best relative weighting of terms. If false, only the best model will be returned.'), ...
@@ -233,6 +236,8 @@ arg_define([0 2],varargin, ...
     arg({'verbosity','Verbosity'},1,uint32([1 5]),'Diagnostic output level. Zero is off, 1 only shows cross-validation diagnostics, 2 shows solver diagnostics, 3 shows iteration diagnostics.'), ...
     arg({'continuous_targets','ContinuousTargets','Regression'}, false, [], 'Whether to use continuous targets. This allows to implement some kind of damped regression approach.'),...
     arg({'votingScheme','VotingScheme'},'1v1',{'1v1','1vR'},'Voting scheme. If multi-class classification is used, this determine how binary classifiers are arranged to solve the multi-class problem. 1v1 gets slow for large numbers of classes (as all pairs are tested), but can be more accurate than 1vR.'), ...
+    arg({'parallel_scope','ParallelScope'},[],[],'Optional parallel scope. If this is a cell array of name-value pairs, cluster resources will be acquired with these options for the duration of bci_train (and released thereafter) Options as in env_acquire_cluster.','type','expression'), ...
+    arg({'engine_cv','ParallelEngine','engine'},'global',{'global','local','BLS','Reference','ParallelComputingToolbox'}, 'Parallel engine to use. This can either be one of the supported parallel engines (BLS for BCILAB Scheduler, Reference for a local reference implementation, and ParallelComputingToolbox for a PCT-based implementation), or local to skip parallelization altogether, or global to select the currently globally selected setting (in the global tracking variable).'), ...
     arg({'includebias','IncludeBias','bias'},true,[],'Include bias param. Also learns an unregularized bias param (strongly recommended for typical classification problems).'));
 
 if ~iscell(targets)
@@ -253,10 +258,20 @@ elseif length(classes) == 1
     error('BCILAB:only_one_class','Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.');
 else
         
-    % optionally allow nfolds to be a function of #trials
+    if isscalar(lambdaSearch.nfolds)
+        % if nfolds is in [0..1], we take it as a function of #trials
     if lambdaSearch.nfolds < 1 && lambdaSearch.nfolds > 0
         lambdaSearch.nfolds = round(lambdaSearch.nfolds*mean(cellfun('length',targets))); end
+        % (if instead it's in [-1..0], we take it as the p in p-holdout)
+        % (else if an integer, we take it as the number of folds)
     nFolds = ceil(abs(lambdaSearch.nfolds));
+    elseif isequal(size(lambdaSearch.nfolds), [1 2])
+        % if nfolds is of the form [low high], we treat these numbers as an interval specification,
+        % where low and high are taken as fractions of the number of trials
+        nFolds = 1;
+    else
+        error('NumFolds format is unsupported.');
+    end
     
     % sanitize some more inputs
     solverOptions.verbose = max(0,verbosity-1);    
@@ -304,7 +319,11 @@ else
     % predictions{regweight,task}(trial,lambda) is the classifier prediction for a given task, regweight setting, trial, and lambda choice
     predictions = repmat(cellfun(@(t)zeros(length(t),nLambdas),targets(:)','UniformOutput',false),nRegweights,1);
     % foldid{task}(trial) is the fold in which a given trial is in the test set, for a given task
-    if lambdaSearch.nfolds < 0 && lambdaSearch.nfolds > -1
+    if isequal(size(lambdaSearch.nfolds), [1 2])
+        % interval form
+        p = lambdaSearch.nfolds;
+        foldids = cellfun(@(t)(0:length(t)-1)/length(t) > p(1) & (0:length(t)-1)/length(t) < p(2),targets,'UniformOutput',false);
+    elseif lambdaSearch.nfolds < 0 && lambdaSearch.nfolds > -1
         p = abs(lambdaSearch.nfolds);
         % negative fractional value encodes p-holdout (positive fractional value is already defined
         % as the a fraction of the number of trials)
@@ -313,59 +332,69 @@ else
         foldids = cellfun(@(t)1+floor((0:length(t)-1)/length(t)*nFolds),targets,'UniformOutput',false);
     end
     
-    if (nLambdas*nRegweights) > 1
+    if (nLambdas*nRegweights) > 1 || lambdaSearch.force_cv
         % for each fold...
         model_seq = cell(nFolds,nRegweights); % model_seq(fold,regweight}{lambda}{task} is the model for a given fold, regweight and lambda setting, and task
         history_seq = cell(nFolds,nRegweights); % history_seq(fold,regweight}{lambda}( is a struct of optimization histories for a given fold, regweight and lambda setting, for all concurrent tasks
+        jobs = {}; % compute jobs
         for f = 1:nFolds
             if verbosity
                 disp(['Fitting fold # ' num2str(f) ' of ' num2str(nFolds)]); end
 
             % determine training and test set masks
-            testmask = cellfun(@(foldid)foldid==f,foldids,'UniformOutput',false); % testmask{task}(trial) a bitmask of test-set trials for a given task
-            trainmask = cellfun(@(x)~x,testmask,'UniformOutput',false);           % trainmask{task}(trial) is a bitmask of train-set trials
+            % TODO: calc all this per fold and don't recalc below
+            testmask{f} = cellfun(@(foldid)foldid==f,foldids,'UniformOutput',false); % testmask{fold}{task}(trial) a bitmask of test-set trials for a given task
+            trainmask{f} = cellfun(@(x)~x,testmask{f},'UniformOutput',false);           % trainmask{fold}{task}(trial) is a bitmask of train-set trials
             % cut train/test margins into trainmask
             for t=1:nTasks
-                testpos = find(testmask{t});
+                testpos = find(testmask{f}{t});
                 for j=1:lambdaSearch.foldmargin
-                    trainmask{t}(max(1,testpos-j)) = false;
-                    trainmask{t}(min(length(testmask{t}),testpos+j)) = false;
+                    trainmask{f}{t}(max(1,testpos-j)) = false;
+                    trainmask{f}{t}(min(length(testmask{f}{t}),testpos+j)) = false;
                 end
             end
 
             % set up design matrices
-            [A,y,B,z] = deal(cell(1,nTasks));
+            [A{f},y{f},B{f},z{f}] = deal(cell(1,nTasks));
             for t=1:nTasks
                 % training data
-                A{t} = trials{t}(trainmask{t},:);
-                y{t} = targets{t}(trainmask{t});
+                A{f}{t} = trials{t}(trainmask{f}{t},:);
+                y{f}{t} = targets{t}(trainmask{f}{t});
                 % test data
-                B{t} = [trials{t}(testmask{t},:) ones(nnz(testmask{t}),double(includebias))];
-                z{t} = targets{t}(testmask{t});
+                B{f}{t} = [trials{t}(testmask{f}{t},:) ones(nnz(testmask{f}{t}),double(includebias))];
+                z{f}{t} = targets{t}(testmask{f}{t});
             end
 
             % for each relative regularization term weighting...
             for w = 1:nRegweights
-                [model_seq{f,w},history_seq{f,w}] = hlp_diskcache('predictivemodels',@solve_regularization_path,A,y,lambdaSearch.lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,regweights{w},weightshape,data_weights);
-
+                jobs{end+1} = {@hlp_diskcache,'predictivemodels',@solve_regularization_path,A{f},y{f},lambdaSearch.lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,regweights{w},weightshape,data_weights}; end            
+        end
+        
+        % run the jobs
+        results = par_schedule(jobs, 'engine',engine_cv, 'scope',parallel_scope);
+        predictions = repmat(cellfun(@(t)zeros(length(t),nLambdas),targets(:)','UniformOutput',false),nRegweights,1);
+        ji = 1;
+        for f = 1:nFolds
+            for w = 1:nRegweights
+                [model_seq{f,w},history_seq{f,w}] = deal(results{ji}.regpath,results{ji}.hist); ji = ji+1;
                 % for each task...
                 for t = 1:nTasks
                     % calc test-set predictions for each model
-                    for m=1:nLambdas
-                        predictions{w,t}(testmask{t},m) = (B{t}*model_seq{f,w}{m}{t}(:))'; end
+                    for m=nLambdas:-1:1
+                        predictions{w,t}(testmask{f}{t},m) = (B{f}{t}*model_seq{f,w}{m}{t}(:))'; end
                     if strcmp(loss,'logistic')
-                        predictions{w,t}(testmask{t},:) = 2*(1 ./ (1 + exp(-predictions{w,t}(testmask{t},:))))-1; end
+                        predictions{w,t}(testmask{f}{t},:) = 2*(1 ./ (1 + exp(-predictions{w,t}(testmask{f}{t},:))))-1; end
 
                     % evaluate test-set losses
                     if isempty(lambdaSearch.cvmetric)
                         if strcmp(loss,'logistic')
-                            loss_means{w,t}(f,:) = mean(~bsxfun(@eq,z{t},sign(predictions{w,t}(testmask{t},:))));
+                            loss_means{w,t}(f,:) = mean(~bsxfun(@eq,z{f}{t},sign(predictions{w,t}(testmask{f}{t},:))));
                         else
-                            loss_means{w,t}(f,:) = mean((bsxfun(@minus,z{t},predictions{w,t}(testmask{t},:))).^2);
+                            loss_means{w,t}(f,:) = mean((bsxfun(@minus,z{f}{t},predictions{w,t}(testmask{f}{t},:))).^2);
                         end
                     else
                         for m=1:nLambdas
-                            loss_means{w,t}(f,m) = ml_calcloss(lambdaSearch.cvmetric,z{t},predictions{w,t}(testmask{t},m)); end
+                            loss_means{w,t}(f,m) = ml_calcloss(lambdaSearch.cvmetric,z{f}{t},predictions{w,t}(testmask{f}{t},m)); end
                     end
                 end
             end
@@ -408,12 +437,14 @@ else
     % pick the model at the minimum...
     if lambdaSearch.return_regpath
         % run the whole regularization path for the jointly best regweight combination
-        [regpath,history] = hlp_diskcache('predictivemodels',@solve_regularization_path,trials,targets,lambdaSearch.lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,joint_best_regweights,weightshape,data_weights);
+        res = hlp_diskcache('predictivemodels',@solve_regularization_path,trials,targets,lambdaSearch.lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,joint_best_regweights,weightshape,data_weights);
+        [regpath,history] = deal(res.regpath, res.hist);
         model.regularization_path = regpath;                                  % the model for a given {lambda}{task} at best regweights, for whole data
         model.regularization_loss = loss_mean(best_regidx,:);                 % the associated loss estimatses for a given {task}(lambda)
         model.ws = regpath{find(lambdaSearch.lambdas == joint_best_lambda,1)};% the best model for a given {task}
     else
-        [tmp,history] = hlp_diskcache('predictivemodels',@solve_regularization_path,trials,targets,lambdaSearch.lambdas(find(lambdaSearch.lambdas==joint_best_lambda,1)),loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,joint_best_regweights,weightshape,data_weights);
+        res = hlp_diskcache('predictivemodels',@solve_regularization_path,trials,targets,lambdaSearch.lambdas(find(lambdaSearch.lambdas==joint_best_lambda,1)),loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,joint_best_regweights,weightshape,data_weights);
+        [tmp,history] = deal(res.regpath, res.hist);
         model.ws = tmp{1};  % optimal model for each {task}
     end
     
@@ -446,8 +477,8 @@ end
 
 
 % learn the regularization path
-function [regpath,hist] = solve_regularization_path(A,y,lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizersArg,regweights,weightshape,data_weights)
-% solve_regularization_path_version<1.0.2>
+function res = solve_regularization_path(A,y,lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizersArg,regweights,weightshape,data_weights)
+% solve_regularization_path_version<1.0.3>
 if ~includebias
     error('This implementation currently requires that a bias is included.'); end
 nTasks = length(A);
@@ -706,6 +737,13 @@ for k =1:nLambdas
             tmpregfuncs(r).y0 = y0{1+r}; end %#ok<AGROW>
     end
     
+    % we stash the termweights in the solverOptions because the hlp_diskcache below will by default
+    % not parse the tmpregfuncs anonymous function deep enough to discover the termweights, and thus 
+    % cause cache collisions (this can be resolved by setting the serialize_anonymous_fully option
+    % to true, but since that is a global option it could cause unexpected behavior in the rest of
+    % BCILAB)
+    solverOptions.termweights = termweights;
+    
     % solve
     t0 = tic;
     if verbosity
@@ -727,6 +765,8 @@ for k =1:nLambdas
         regpath{k}{1} = w;
     end
 end
+
+[res.regpath,res.hist] = deal(regpath,hist);
 
 
 % --- multi-task logistic loss code ---

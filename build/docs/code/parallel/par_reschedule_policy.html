@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/parallel&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>par_reschedule_policy
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -53,7 +54,7 @@
                 (or the empty Vector).
 
  Notes:
-   A log of what is was rescheduled when is collected in the global variable 
+   A log of what was rescheduled and when is collected in the global variable 
    tracking.temp.rescheduled.
 
                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
@@ -63,11 +64,16 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -99,7 +105,7 @@ This function is called by:
 0025 <span class="comment">%                (or the empty Vector).</span>
 0026 <span class="comment">%</span>
 0027 <span class="comment">% Notes:</span>
-0028 <span class="comment">%   A log of what is was rescheduled when is collected in the global variable</span>
+0028 <span class="comment">%   A log of what was rescheduled and when is collected in the global variable</span>
 0029 <span class="comment">%   tracking.temp.rescheduled.</span>
 0030 <span class="comment">%</span>
 0031 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
@@ -119,138 +125,154 @@ This function is called by:
 0045 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
 0046 <span class="comment">% USA</span>
 0047 
-0048 <span class="keyword">try</span>
-0049     <span class="comment">% here we keep track of our meta-data for each of the batches</span>
-0050     <span class="keyword">persistent</span> batches; <span class="comment">%#ok&lt;TLEV&gt;</span>
-0051     default_batch = struct(<span class="string">'rescheduled'</span>,{[]});  <span class="comment">% set of already rescheduled tasks for this batch</span>
-0052     <span class="keyword">if</span> length(batches) &lt; batchid
-0053         <span class="keyword">if</span> isempty(batches)
-0054             batches = default_batch; <span class="keyword">end</span>
-0055         batches(batchid) = default_batch;
-0056     <span class="keyword">end</span>
-0057     
-0058     <span class="comment">% turn times into seconds relative to the first event</span>
-0059     times = [times{:}]/1000;
-0060     starttime = min(times);
-0061     times = (times-starttime);
-0062     
-0063     <span class="comment">% turn inflight into a vector</span>
-0064     inflight = [inflight{:}];
-0065     
-0066     
-0067     
-0068     <span class="comment">% --- begin policies ---</span>
-0069     reschedule = [];
+0048 <span class="keyword">global</span> tracking;
+0049 
+0050 <span class="comment">% set this to true if your cluster is reliable and you want to minimize resources</span>
+0051 no_reschedules = false;
+0052 
+0053 <span class="keyword">if</span> no_reschedules
+0054     import java.lang.*;
+0055     import java.util.*;
+0056     result = java.util.Vector();
+0057     <span class="keyword">return</span>;
+0058 <span class="keyword">end</span>
+0059 
+0060 <span class="keyword">try</span>
+0061         
+0062     <span class="comment">% here we keep track of our meta-data for each of the batches</span>
+0063     <span class="keyword">persistent</span> batches; <span class="comment">%#ok&lt;TLEV&gt;</span>
+0064     default_batch = struct(<span class="string">'rescheduled'</span>,{[]});  <span class="comment">% set of already rescheduled tasks for this batch</span>
+0065     <span class="keyword">if</span> length(batches) &lt; batchid
+0066         <span class="keyword">if</span> isempty(batches)
+0067             batches = default_batch; <span class="keyword">end</span>
+0068         batches(batchid) = default_batch;
+0069     <span class="keyword">end</span>
 0070     
-0071     
-0072     <span class="comment">% Policy 1: endgame mode: if less than N tasks in flight, re-schedule them to other machines (so</span>
-0073     <span class="comment">% that they are being worked on by two machines)</span>
-0074     <span class="keyword">if</span> isempty(waiting) &amp;&amp; length(inflight) &lt;= 1
-0075         <span class="comment">% but do not reschedule them twice</span>
-0076         reschedule = setdiff(inflight,batches(batchid).rescheduled);
-0077     <span class="keyword">end</span>
+0071     <span class="comment">% turn times into seconds relative to the first event</span>
+0072     times = [times{:}]/1000;
+0073     starttime = min(times);
+0074     times = (times-starttime);
+0075     
+0076     <span class="comment">% turn inflight into a vector</span>
+0077     inflight = [inflight{:}];
 0078     
 0079     
-0080     <span class="comment">% Policy 2: identify stragglers, and re-schedule them, assuming that task completion time is</span>
-0081     <span class="comment">% normally distributed</span>
-0082     <span class="keyword">try</span>
-0083         <span class="comment">% get a table of recorded tasks</span>
-0084         tasks = struct();
-0085         <span class="keyword">for</span> m=1:length(msgs)
-0086             msg = msgs{m};
-0087             assigned = strncmp(<span class="string">'assigned'</span>,msg,8);
-0088             received = strncmp(<span class="string">'received'</span>,msg,8);
-0089             <span class="keyword">if</span> assigned || received
-0090                 tmp = hlp_split(msg,<span class="string">':'</span>);
-0091                 taskid = [<span class="string">'x'</span> tmp{2}];
-0092                 <span class="keyword">if</span> assigned
-0093                     tasks.(taskid).assigned = times(m);
-0094                 <span class="keyword">elseif</span> received
-0095                     tasks.(taskid).received = times(m);
-0096                 <span class="keyword">end</span>
-0097                 tasks.(taskid).worker = tmp{3};
-0098             <span class="keyword">end</span>
-0099         <span class="keyword">end</span>
-0100         
-0101         <span class="comment">% get the task completion times for the completed tasks</span>
-0102         completion_times = [];
-0103         <span class="keyword">for</span> f=fieldnames(tasks)'
-0104             t = tasks.(f{1});
-0105             <span class="keyword">if</span> isfield(t,{<span class="string">'assigned'</span>,<span class="string">'received'</span>})
-0106                 completion_times(end+1) = t.received - t.assigned; <span class="keyword">end</span>
-0107         <span class="keyword">end</span>
-0108         
-0109         <span class="comment">% if estimates are reasonable at this point (half of the jobs have been scheduled)</span>
-0110         <span class="keyword">if</span> length(completion_times) &gt;= length(inflight) &amp;&amp; length(completion_times) &gt;= 5
-0111             tnow = double(tic)/1000000 - starttime;
-0112             <span class="comment">% estimate the parameters mu,sigma assuming a truncated normal distribution of</span>
-0113             <span class="comment">% completion times</span>
-0114             custompdf = @(x,mu,sigma) normpdf(x,mu,sigma)./normcdf(tnow,mu,sigma);
-0115             
-0116             [estim,conf] = mle(completion_times,<span class="string">'pdf'</span>,custompdf,<span class="string">'start'</span>,[mean(completion_times),std(completion_times)],<span class="string">'lower'</span>,[-Inf 0]);       <span class="comment">%#ok&lt;NASGU&gt;</span>
-0117             mu = estim(1);
-0118             sigma = estim(2);
-0119             
-0120             <span class="comment">% for all inflight (and registered) tasks...</span>
-0121             <span class="keyword">for</span> i=1:length(inflight)
-0122                 t = inflight(i);
-0123                 taskid = [<span class="string">'x'</span> num2str(t)];
-0124                 <span class="comment">% estimate their duration (tasks for which we have no record are assumed to have</span>
-0125                 <span class="comment">% started before our records began)</span>
-0126                 <span class="keyword">if</span> isfield(tasks,taskid) &amp;&amp; isfield(tasks.(taskid),<span class="string">'asssigned'</span>)
-0127                     duration(i) = tnow - tasks.(taskid).assigned;
-0128                 <span class="keyword">else</span>
-0129                     duration(i) = tnow;
-0130                 <span class="keyword">end</span>
-0131             <span class="keyword">end</span>
+0080     
+0081     <span class="comment">% --- begin policies ---</span>
+0082     reschedule = [];
+0083     
+0084     
+0085     <span class="comment">% Policy 1: endgame mode: if less than N tasks in flight, re-schedule them to other machines (so</span>
+0086     <span class="comment">% that they are being worked on by two machines)</span>
+0087     <span class="keyword">if</span> isempty(waiting) &amp;&amp; length(inflight) &lt;= 1
+0088         <span class="comment">% but do not reschedule them twice</span>
+0089         reschedule = setdiff(inflight,batches(batchid).rescheduled);
+0090     <span class="keyword">end</span>
+0091     
+0092     
+0093     <span class="comment">% Policy 2: identify stragglers, and re-schedule them, assuming that task completion time is</span>
+0094     <span class="comment">% normally distributed</span>
+0095     <span class="keyword">try</span>
+0096         <span class="comment">% get a table of recorded tasks</span>
+0097         tasks = struct();
+0098         <span class="keyword">for</span> m=1:length(msgs)
+0099             msg = msgs{m};
+0100             assigned = strncmp(<span class="string">'assigned'</span>,msg,8);
+0101             received = strncmp(<span class="string">'received'</span>,msg,8);
+0102             <span class="keyword">if</span> assigned || received
+0103                 tmp = hlp_split(msg,<span class="string">':'</span>);
+0104                 taskid = [<span class="string">'x'</span> tmp{2}];
+0105                 <span class="keyword">if</span> assigned
+0106                     tasks.(taskid).assigned = times(m);
+0107                 <span class="keyword">elseif</span> received
+0108                     tasks.(taskid).received = times(m);
+0109                 <span class="keyword">end</span>
+0110                 tasks.(taskid).worker = tmp{3};
+0111             <span class="keyword">end</span>
+0112         <span class="keyword">end</span>
+0113         
+0114         <span class="comment">% get the task completion times for the completed tasks</span>
+0115         completion_times = [];
+0116         <span class="keyword">for</span> f=fieldnames(tasks)'
+0117             t = tasks.(f{1});
+0118             <span class="keyword">if</span> isfield(t,{<span class="string">'assigned'</span>,<span class="string">'received'</span>})
+0119                 completion_times(end+1) = t.received - t.assigned; <span class="keyword">end</span>
+0120         <span class="keyword">end</span>
+0121         
+0122         <span class="comment">% if estimates are reasonable at this point (half of the jobs have been scheduled)</span>
+0123         <span class="keyword">if</span> length(completion_times) &gt;= length(inflight) &amp;&amp; length(completion_times) &gt;= 5
+0124             tnow = double(tic)/1000000 - starttime;
+0125             <span class="comment">% estimate the parameters mu,sigma assuming a truncated normal distribution of</span>
+0126             <span class="comment">% completion times</span>
+0127             custompdf = @(x,mu,sigma) normpdf(x,mu,sigma)./normcdf(tnow,mu,sigma);
+0128             
+0129             [estim,conf] = mle(completion_times,<span class="string">'pdf'</span>,custompdf,<span class="string">'start'</span>,[mean(completion_times),std(completion_times)],<span class="string">'lower'</span>,[-Inf 0]);       <span class="comment">%#ok&lt;NASGU&gt;</span>
+0130             mu = estim(1);
+0131             sigma = estim(2);
 0132             
-0133             <span class="comment">% decide which ones we reschedule, based on how long other tasks took so far</span>
+0133             <span class="comment">% for all inflight (and registered) tasks...</span>
 0134             <span class="keyword">for</span> i=1:length(inflight)
-0135                 taskid = inflight(i);
-0136                 <span class="comment">% duration relative to mean, in std. devs (mahalanobis metric)</span>
-0137                 mahal = (duration(i) - mu) / sigma;
-0138                 <span class="keyword">if</span> mahal &gt; 3 &amp;&amp; isempty(find(batches(batchid).rescheduled,taskid))
-0139                     <span class="comment">% is at least &gt;3 std devs, and the task has not yet been rescheduled</span>
-0140                     reschedule(end+1) = taskid;
-0141                 <span class="keyword">end</span>
-0142             <span class="keyword">end</span>
-0143         <span class="keyword">end</span>
-0144         
-0145     <span class="keyword">catch</span> e
-0146         <span class="keyword">if</span> ~any(strcmp(e.identifier,{<span class="string">'stats:mle:NonfinitePdfVal'</span>,<span class="string">'stats:mle:NonpositivePdfVal'</span>}))
-0147             disp(<span class="string">'Issue in the reschedule policy: '</span>);
-0148             env_handleerror(e);
-0149         <span class="keyword">end</span>
-0150     <span class="keyword">end</span>
-0151     
-0152     
-0153     <span class="comment">% --- end policies ---</span>
-0154     
-0155     <span class="comment">% log what is being rescheduled and when</span>
-0156     <span class="keyword">if</span> ~isempty(reschedule)
-0157         <span class="keyword">global</span> tracking; <span class="comment">%#ok&lt;TLEV&gt;</span>
-0158         <span class="keyword">try</span>
-0159             tracking.temp.rescheduled{end+1} = [now reschedule];
-0160         <span class="keyword">catch</span>
-0161             tracking.temp.rescheduled = {[now reschedule]};
+0135                 t = inflight(i);
+0136                 taskid = [<span class="string">'x'</span> num2str(t)];
+0137                 <span class="comment">% estimate their duration (tasks for which we have no record are assumed to have</span>
+0138                 <span class="comment">% started before our records began)</span>
+0139                 <span class="keyword">if</span> isfield(tasks,taskid) &amp;&amp; isfield(tasks.(taskid),<span class="string">'asssigned'</span>)
+0140                     duration(i) = tnow - tasks.(taskid).assigned;
+0141                 <span class="keyword">else</span>
+0142                     duration(i) = tnow;
+0143                 <span class="keyword">end</span>
+0144             <span class="keyword">end</span>
+0145             
+0146             <span class="comment">% decide which ones we reschedule, based on how long other tasks took so far</span>
+0147             <span class="keyword">for</span> i=1:length(inflight)
+0148                 taskid = inflight(i);
+0149                 <span class="comment">% duration relative to mean, in std. devs (mahalanobis metric)</span>
+0150                 mahal = (duration(i) - mu) / sigma;
+0151                 <span class="keyword">if</span> mahal &gt; 3 &amp;&amp; isempty(find(batches(batchid).rescheduled,taskid))
+0152                     <span class="comment">% is at least &gt;3 std devs, and the task has not yet been rescheduled</span>
+0153                     reschedule(end+1) = taskid;
+0154                 <span class="keyword">end</span>
+0155             <span class="keyword">end</span>
+0156         <span class="keyword">end</span>
+0157         
+0158     <span class="keyword">catch</span> e
+0159         <span class="keyword">if</span> ~any(strcmp(e.identifier,{<span class="string">'stats:mle:NonfinitePdfVal'</span>,<span class="string">'stats:mle:NonpositivePdfVal'</span>}))
+0160             disp(<span class="string">'Issue in the reschedule policy: '</span>);
+0161             hlp_handleerror(e);
 0162         <span class="keyword">end</span>
 0163     <span class="keyword">end</span>
 0164     
-0165     reschedule = unique(reschedule);
-0166     batches(batchid).rescheduled = [batches(batchid).rescheduled reschedule];
+0165     
+0166     <span class="comment">% --- end policies ---</span>
 0167     
-0168     <span class="comment">% emit the result as a Java Vector (pre-Generics)</span>
-0169     import java.lang.*;
-0170     import java.util.*;
-0171     result = java.util.Vector();
-0172     <span class="keyword">for</span> k=reschedule
-0173         result.add(Integer(k)); <span class="keyword">end</span>
-0174     
-0175 <span class="keyword">catch</span> e
-0176     disp(<span class="string">'Error executing the reschedule policy; traceback:'</span>);
-0177     env_handleerror(e);
-0178     result = java.util.Vector();
-0179 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0168     <span class="comment">% log what is being rescheduled and when</span>
+0169     <span class="keyword">if</span> ~isempty(reschedule)
+0170         <span class="keyword">try</span>
+0171             tracking.temp.rescheduled{end+1} = [now reschedule];
+0172         <span class="keyword">catch</span>
+0173             tracking.temp.rescheduled = {[now reschedule]};
+0174         <span class="keyword">end</span>
+0175     <span class="keyword">end</span>
+0176     
+0177     reschedule = unique(reschedule);
+0178     <span class="keyword">if</span> ~isempty(reschedule)
+0179         batches(batchid).rescheduled = [batches(batchid).rescheduled reschedule]; <span class="keyword">end</span>
+0180     
+0181     <span class="comment">% emit the result as a Java Vector (pre-Generics)</span>
+0182     import java.lang.*;
+0183     import java.util.*;
+0184     result = java.util.Vector();
+0185     <span class="keyword">if</span> ~isempty(reschedule)
+0186         <span class="keyword">for</span> k=reschedule
+0187             result.add(Integer(k)); <span class="keyword">end</span>
+0188     <span class="keyword">end</span>
+0189     
+0190 <span class="keyword">catch</span> e
+0191     disp(<span class="string">'Error executing the reschedule policy; traceback:'</span>);
+0192     hlp_handleerror(e);
+0193     result = java.util.Vector();
+0194 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

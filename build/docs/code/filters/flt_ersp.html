@@ -1,0 +1,147 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_ersp</title>
+  <meta name="keywords" content="flt_ersp">
+  <meta name="description" content="Calculate the event-related spectral perturbation for an epoched signal.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_ersp.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_ersp
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Calculate the event-related spectral perturbation for an epoched signal.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function signal = flt_ersp(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Calculate the event-related spectral perturbation for an epoched signal.
+ Signal = flt_ersp(Signal)
+
+ This calculates a time/frequency representation for each channel at the given resolution.
+
+ In:
+   Signal : epoched data set to be processed
+
+ Out: 
+   Signal : processed data set
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2013-12-06</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function signal = flt_ersp(varargin)</a>
+0002 <span class="comment">% Calculate the event-related spectral perturbation for an epoched signal.</span>
+0003 <span class="comment">% Signal = flt_ersp(Signal)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This calculates a time/frequency representation for each channel at the given resolution.</span>
+0006 <span class="comment">%</span>
+0007 <span class="comment">% In:</span>
+0008 <span class="comment">%   Signal : epoched data set to be processed</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% Out:</span>
+0011 <span class="comment">%   Signal : processed data set</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0014 <span class="comment">%                                2013-12-06</span>
+0015 
+0016 <span class="comment">% flt_ersp_version&lt;1.0&gt; -- for the cache</span>
+0017 
+0018 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0019 
+0020 <span class="comment">% requires epoched data, works best on spatially filtered data</span>
+0021 declare_properties(<span class="string">'name'</span>,<span class="string">'ERSPTransform'</span>, <span class="string">'depends'</span>,<span class="string">'set_makepos'</span>, <span class="string">'follows'</span>,{<span class="string">'flt_fourier'</span>}, <span class="string">'independent_channels'</span>,true, <span class="string">'independent_trials'</span>,true);
+0022 
+0023 arg_define(varargin,<span class="keyword">...</span>
+0024     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0025     arg({<span class="string">'windowlength'</span>,<span class="string">'WindowLength'</span>},0.5,[0 0.1 5 Inf],<span class="string">'Moving window length. Length of the moving window within which the spectrum shall be calculated (in seconds).'</span>), <span class="keyword">...</span>
+0026     arg({<span class="string">'windowstep'</span>,<span class="string">'WindowStep'</span>},0.1,[0 0.05 1 Inf],<span class="string">'Moving window stepping. Step size by which the moving window shall be moved (in seconds).'</span>), <span class="keyword">...</span>
+0027     arg({<span class="string">'freqrange'</span>,<span class="string">'FrequencyRange'</span>},[2 48],[0 Inf],<span class="string">'Frequency range. The frequency range for which the ERSP shall be calculated.'</span>), <span class="keyword">...</span>
+0028     arg({<span class="string">'timebandwidth'</span>,<span class="string">'TimeBandwidth'</span>,<span class="string">'bandwidth'</span>},3,[],<span class="string">'Spectral smoothing. Controls the bias vs. variance of the spectral estimation. Reasonable values are 1 to 3 (1 being fairly noisy, and 3 being fairly smooth but 5x slower)'</span>), <span class="keyword">...</span>
+0029     arg({<span class="string">'numtapers'</span>,<span class="string">'Tapers'</span>,<span class="string">'tapers'</span>},[],uint32([1,1000]),<span class="string">'Number of tapers. Should be an integer smaller than 2*TimeBandwith; default 2*TimeBandwidth-1'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0030     arg({<span class="string">'padding'</span>,<span class="string">'Padding'</span>},0,[],<span class="string">'FFT padding factor. Controls the oversampling of the spectrum; 0 is the next largest power of two, 1 is 2x as much, etc.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0031     arg({<span class="string">'normalized'</span>,<span class="string">'Normalized'</span>}, true, [], <span class="string">'Normalize the spectrum by 1/f. Doing this has benefits for classifiers that work best with naturally normalized features (e.g. some regularized classifiers).'</span>), <span class="keyword">...</span>
+0032     arg({<span class="string">'spectralmap'</span>,<span class="string">'SpectralMap'</span>,<span class="string">'SpectralMapping'</span>}, <span class="string">'linear'</span>, {<span class="string">'linear'</span>,<span class="string">'sqrt'</span>,<span class="string">'log'</span>}, <span class="string">'Spectral mapping. The sqrt and log transformations can help make the features more suitable for linear classifiers.'</span>), <span class="keyword">...</span>
+0033     arg({<span class="string">'logspacing'</span>,<span class="string">'LogSpacing'</span>}, 0, [], <span class="string">'Log-Spacing. Whether to sub-sample the data in the log domain. If this is a number (&gt;1) it determines the number of samples taken. If this is a fractional number &lt; 1, it is a fraction of the number of trials.'</span>));
+0034 
+0035 <span class="keyword">if</span> isempty(numtapers)
+0036     numtapers = 2*timebandwidth-1; <span class="keyword">end</span>
+0037 
+0038 <span class="comment">% for each non-empty time-series field...</span>
+0039 <span class="keyword">for</span> f = utl_timeseries_fields(signal)
+0040     <span class="keyword">if</span> ~isempty(signal.(f{1}))
+0041         X = double(signal.(f{1}));
+0042         dims = size(X);
+0043         <span class="comment">% fix NaN's and Inf's</span>
+0044         X(~isfinite(X(:))) = 0;
+0045         <span class="comment">% flip dimensions so the time dimension comes first</span>
+0046         X = permute(X,[2 1 3:length(dims)]);
+0047         <span class="comment">% calculate time/frequency decomposition with all non-time dimensions collapsed into one</span>
+0048         [X,T,F] = mtspecgramc(X(:,:),[windowlength windowstep],struct(<span class="string">'tapers'</span>,[2*timebandwidth numtapers],<span class="string">'pad'</span>,padding,<span class="string">'Fs'</span>,signal.srate,<span class="string">'fpass'</span>,freqrange));
+0049         <span class="comment">% expand the non-time dimensions again (time x frequency x channels x trials)</span>
+0050         X = reshape(X,[size(X,1) size(X,2) dims([1 3:end])]);
+0051         <span class="comment">% permute back into (channels x time x frequency x trials)</span>
+0052         X = permute(X,[3 1 2 4:(1+length(dims))]);
+0053         <span class="comment">% normalize spectrum</span>
+0054         <span class="keyword">if</span> normalized
+0055             X = bsxfun(@times,X,permute(([1 1:size(X,3)-1])/size(X,3),[1 3 2])); <span class="keyword">end</span>
+0056         <span class="comment">% perform spectral mapping</span>
+0057         <span class="keyword">if</span> strcmp(spectralmap,<span class="string">'log'</span>)
+0058             X = log(X+0.001); 
+0059         <span class="keyword">elseif</span> strcmp(spectralmap,<span class="string">'sqrt'</span>)
+0060             X = sqrt(X);
+0061         <span class="keyword">end</span>
+0062         <span class="comment">% perform logspacing</span>
+0063         <span class="keyword">if</span> logspacing
+0064             <span class="keyword">if</span> logspacing &lt;= 1
+0065                 logspacing = round(logspacing*size(X,3)); <span class="keyword">end</span>
+0066             idx = unique(round(logspace(log10(3),log10(size(X,3)),logspacing)));
+0067             X = X(:,:,idx,:,:,:,:,:);
+0068             F = F(idx);
+0069         <span class="keyword">end</span>
+0070         <span class="comment">% write back, but permute as channels x time x trials x frequency</span>
+0071         signal.(f{1}) = permute(X,[1 2 4 3]);
+0072     <span class="keyword">end</span>
+0073 <span class="keyword">end</span>
+0074 
+0075 <span class="comment">% update signal meta-data</span>
+0076 signal.srate = 1/windowstep;
+0077 signal.pnts = size(signal.data,2);
+0078 signal.times = signal.xmin+T;
+0079 signal.freqs = F;
+0080 
+0081 exp_endfun;</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

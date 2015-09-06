@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/dataset_editing&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>set_infer_markers
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -110,11 +111,16 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -204,112 +210,116 @@ This function is called by:
 0083 arg_define(varargin, <span class="keyword">...</span>
 0084     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
 0085     arg({<span class="string">'force_processing'</span>,<span class="string">'ForceProcessing'</span>},false,[], <span class="string">'Force marker processing. Scan for marker channels even if a data set already has events.'</span>), <span class="keyword">...</span>
-0086     arg({<span class="string">'max_events'</span>,<span class="string">'MaxEvents'</span>},30000,[], <span class="string">'Number of events allowed. If a channel would produce more than this many events, it is not considered an event channel.'</span>), <span class="keyword">...</span>
-0087     arg({<span class="string">'max_event_fraction'</span>,<span class="string">'MaxEventFraction'</span>},0.3,[], <span class="string">'Maximum fraction of events. If a channel would produce more events than this fraction of its total number of samples, the channel is not considered an event channel.'</span>), <span class="keyword">...</span>
-0088     arg({<span class="string">'max_types'</span>,<span class="string">'MaxTypes'</span>},300,[], <span class="string">'Number of eventtypes allowed. If a channel would produce more than this many event types, it is not considered an event channel.'</span>), <span class="keyword">...</span>
+0086     arg({<span class="string">'max_events'</span>,<span class="string">'MaxEvents'</span>},30000,uint32([0 1000000000]), <span class="string">'Number of events allowed. If a channel would produce more than this many events, it is not considered an event channel.'</span>), <span class="keyword">...</span>
+0087     arg({<span class="string">'max_event_fraction'</span>,<span class="string">'MaxEventFraction'</span>},0.3,[0 1], <span class="string">'Maximum fraction of events. If a channel would produce more events than this fraction of its total number of samples, the channel is not considered an event channel.'</span>), <span class="keyword">...</span>
+0088     arg({<span class="string">'max_types'</span>,<span class="string">'MaxTypes'</span>},300,uint32([0 1000000000]), <span class="string">'Number of eventtypes allowed. If a channel would produce more than this many event types, it is not considered an event channel.'</span>), <span class="keyword">...</span>
 0089     arg({<span class="string">'include_label'</span>,<span class="string">'IncludeLabel'</span>},<span class="string">'multiplechans'</span>,{<span class="string">'always'</span>,<span class="string">'multiplechans'</span>,<span class="string">'never'</span>},<span class="string">'Integrate channel labels. When to integrate channel labels into the event types - by default. only when there are multiple event channels.'</span>), <span class="keyword">...</span>
 0090     arg({<span class="string">'all_positive'</span>,<span class="string">'AllPositive'</span>},true,[],<span class="string">'Events must be positive. Only if all event types produced by a channel would correspond to positive numbers, the channel is considered an event channel.'</span>), <span class="keyword">...</span>
 0091     arg({<span class="string">'encode_plateaus'</span>,<span class="string">'EncodePlateaus'</span>},true,[],<span class="string">'Plateaus encoded. The trigger channel may contain (non-baseline) plateaus, to be encoded in event duration.'</span>), <span class="keyword">...</span>
 0092     arg({<span class="string">'strict_integer'</span>,<span class="string">'StrictInteger'</span>},true,[],<span class="string">'Strictly integer. Only allow channels that have integer event types (otherwise: round to integers).'</span>), <span class="keyword">...</span>
 0093     arg({<span class="string">'relative_baseline_thresh'</span>,<span class="string">'RelativeBaselineThreshold'</span>},10000,[],<span class="string">'Relative baseline threshold. If the event types would be larger than this threshold, they will be re-coded to be relative to the smallest event type in the channel.'</span>), <span class="keyword">...</span>
-0094     arg({<span class="string">'omit_baseline_thresh'</span>,<span class="string">'OmitBaselineThreshold'</span>},0.8,[],<span class="string">'Baseline omission threshold. If the baseline event takes up more than this fraction of the data, it will not be encoded as events.'</span>), <span class="keyword">...</span>
+0094     arg({<span class="string">'omit_baseline_thresh'</span>,<span class="string">'OmitBaselineThreshold'</span>},0.8,[0 1],<span class="string">'Baseline omission threshold. If the baseline event takes up more than this fraction of the data, it will not be encoded as events.'</span>), <span class="keyword">...</span>
 0095     arg({<span class="string">'remove_eventchns'</span>,<span class="string">'RemoveEventChannels'</span>},true,[],<span class="string">'Remove event channels. Whether to remove those channels that have been identified as event channels.'</span>));
 0096 
 0097 <span class="comment">% obtain the chanlocs</span>
 0098 <span class="keyword">if</span> isfield(signal,{<span class="string">'head'</span>,<span class="string">'parts'</span>})
 0099     signal = exp_eval(signal); <span class="keyword">end</span>
-0100 
-0101 <span class="comment">% figure out which are the event channels</span>
-0102 fprintf(<span class="string">'Scanning potential marker channel '</span>);
-0103 <span class="keyword">for</span> k=1:signal.nbchan <span class="comment">%#ok&lt;*NODEF&gt;</span>
-0104     fprintf(<span class="string">'%i '</span>,k);
-0105     X = signal.data(k,:);
-0106     X(isnan(X)) = 0;
-0107     <span class="comment">% do a few vectorized computations for speed...</span>
-0108     numtypes(k) = length(unique(X));
-0109     <span class="keyword">if</span> numtypes(k) &lt;= max_types
-0110         <span class="keyword">if</span> encode_plateaus
-0111             <span class="comment">% in the plateaus case, the baseline is 0 or the smallest value</span>
-0112             baseline(k) = min(X);
-0113             <span class="keyword">if</span> baseline(k) &lt; relative_baseline_thresh &amp;&amp; baseline(k) &gt; 0
-0114                 baseline(k) = 0; <span class="keyword">end</span>
-0115             <span class="comment">% whether baseline periods are encoded as events depends on the fraction of time in the</span>
-0116             <span class="comment">% data set</span>
-0117             omit_baseline(k) = mean(X == baseline(k)) &gt; omit_baseline_thresh;
-0118             eventmask = ([1; diff(X(:))] ~= 0);
-0119             <span class="keyword">if</span> omit_baseline(k)
-0120                 eventmask = eventmask &amp; (X(:) ~= baseline(k)); <span class="keyword">end</span>
-0121             numevents(k) = nnz(eventmask);
-0122         <span class="keyword">else</span>
-0123             <span class="comment">% without plateaus, the baseline type is the mode</span>
-0124             baseline(k) = mode(X);
-0125             numevents(k) = nnz(X - baseline(k));
-0126             omit_baseline(k) = true;
-0127         <span class="keyword">end</span>
-0128     <span class="keyword">else</span>
-0129         <span class="comment">% channel will not be considered</span>
-0130         baseline(k) = 0;
-0131         omit_baseline(k) = true;
-0132         numevents(k) = 0;
-0133     <span class="keyword">end</span>
-0134     allpositive(k) = all(X &gt;= baseline(k));
-0135     allinteger(k) = all(abs(X-round(X)) &lt;= eps(X));
-0136 <span class="keyword">end</span>
-0137 fprintf(<span class="string">'\n'</span>);
-0138 
-0139 <span class="comment">% find the mask of event channels</span>
-0140 eventchans = (numtypes &lt;= max_types) &amp; (numevents &lt;= max_events) &amp; (numevents &lt;= signal.pnts*max_event_fraction) &amp; (~all_positive | allpositive) &amp; (~strict_integer | allinteger);
-0141     
-0142 <span class="comment">% determine whether to include labels</span>
-0143 include_label = hlp_rewrite(include_label,<span class="string">'always'</span>,true,<span class="string">'never'</span>,false,<span class="string">'multiplechans'</span>,nnz(eventchans) &gt; 1);
-0144 
-0145 <span class="comment">% initialize events</span>
-0146 <span class="keyword">if</span> ~isfield(signal,<span class="string">'event'</span>) || isempty(signal.event)
-0147     signal.event = struct(<span class="string">'latency'</span>,{},<span class="string">'duration'</span>,{},<span class="string">'type'</span>,{}); <span class="keyword">end</span>
-0148 
-0149 <span class="comment">% generate events</span>
-0150 <span class="keyword">for</span> k = find(eventchans)
-0151     <span class="keyword">try</span>
-0152         <span class="comment">% find event codes per sample</span>
-0153         X = round(signal.data(k,:) - baseline(k));
-0154         X(isnan(X)) = 0;
-0155         <span class="comment">% do a run-length encode into events</span>
-0156         lat = find([1; diff(X(:))] ~= 0);
-0157         <span class="comment">% optionally mask out baseline events</span>
-0158         <span class="keyword">if</span> omit_baseline(k)
-0159             mask = X(lat) ~= 0;
-0160         <span class="keyword">else</span>
-0161             mask = true(1,length(lat));
-0162         <span class="keyword">end</span>
-0163         <span class="comment">% get values, duration, and latency as cell arrays</span>
-0164         dur = num2cell(diff([lat; numel(X)+1]));
-0165         val = cellfun(@num2str,num2cell(X(lat(mask)),1),<span class="string">'UniformOutput'</span>,false);
-0166         <span class="keyword">if</span> include_label
-0167             val = cellfun(@(n) [signal.chanlocs(k).labels <span class="string">'_'</span> n],val,<span class="string">'UniformOutput'</span>,false); <span class="keyword">end</span>
-0168         lat = num2cell(lat(mask));
-0169         dur = dur(mask);
-0170         <span class="keyword">if</span> ~isempty(lat)
-0171             <span class="comment">% make space</span>
-0172             signal.event(end+length(lat)).latency = [];
-0173             <span class="comment">% insert new content</span>
-0174             [signal.event(end-length(lat)+1:end).latency] = lat{:};
-0175             [signal.event(end-length(lat)+1:end).duration] = dur{:};
-0176             [signal.event(end-length(lat)+1:end).type] = val{:};
-0177         <span class="keyword">else</span>
-0178             <span class="comment">% the channel is not actually an event channel (but a flatline)</span>
-0179             eventchans(k) = false;
-0180         <span class="keyword">end</span>
-0181     <span class="keyword">catch</span> e
-0182         disp([<span class="string">'Could not process channel '</span> num2str(k)]);
-0183         env_handleerror(e);
-0184     <span class="keyword">end</span>
-0185 <span class="keyword">end</span>
-0186 
-0187 <span class="comment">% sort events</span>
-0188 signal.event = signal.event(hlp_getresult(2,@sort,[signal.event.latency]));
-0189 
-0190 <span class="comment">% remove event channels</span>
-0191 signal = pop_select(signal,<span class="string">'channel'</span>,find(~eventchans));</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0100 utl_check_fields(signal,{<span class="string">'data'</span>,<span class="string">'chanlocs'</span>},<span class="string">'signal'</span>,<span class="string">'signal'</span>);
+0101 
+0102 <span class="comment">% figure out which are the event channels</span>
+0103 fprintf(<span class="string">'Scanning potential marker channel '</span>);
+0104 <span class="keyword">for</span> k=1:size(signal.data,1) <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0105     fprintf(<span class="string">'%i '</span>,k);
+0106     X = signal.data(k,:);
+0107     X(isnan(X)) = 0;
+0108     <span class="comment">% do a few vectorized computations for speed...</span>
+0109     numtypes(k) = length(unique(X));
+0110     <span class="keyword">if</span> numtypes(k) &lt;= max_types
+0111         <span class="keyword">if</span> encode_plateaus
+0112             <span class="comment">% in the plateaus case, the baseline is 0 or the smallest value</span>
+0113             baseline(k) = min(X);
+0114             <span class="keyword">if</span> baseline(k) &lt; relative_baseline_thresh &amp;&amp; baseline(k) &gt; 0
+0115                 baseline(k) = 0; <span class="keyword">end</span>
+0116             <span class="comment">% whether baseline periods are encoded as events depends on the fraction of time in the</span>
+0117             <span class="comment">% data set</span>
+0118             omit_baseline(k) = mean(X == baseline(k)) &gt; omit_baseline_thresh;
+0119             eventmask = ([1; diff(X(:))] ~= 0);
+0120             <span class="keyword">if</span> omit_baseline(k)
+0121                 eventmask = eventmask &amp; (X(:) ~= baseline(k)); <span class="keyword">end</span>
+0122             numevents(k) = nnz(eventmask);
+0123         <span class="keyword">else</span>
+0124             <span class="comment">% without plateaus, the baseline type is the mode</span>
+0125             baseline(k) = mode(X);
+0126             numevents(k) = nnz(X - baseline(k));
+0127             omit_baseline(k) = true;
+0128         <span class="keyword">end</span>
+0129     <span class="keyword">else</span>
+0130         <span class="comment">% channel will not be considered</span>
+0131         baseline(k) = 0;
+0132         omit_baseline(k) = true;
+0133         numevents(k) = 0;
+0134     <span class="keyword">end</span>
+0135     allpositive(k) = all(X &gt;= baseline(k));
+0136     allinteger(k) = all(abs(X-round(X)) &lt;= eps(X));
+0137 <span class="keyword">end</span>
+0138 fprintf(<span class="string">'\n'</span>);
+0139 
+0140 <span class="comment">% find the mask of event channels</span>
+0141 eventchans = (numtypes &lt;= max_types) &amp; (numevents &lt;= max_events) &amp; (numevents &lt;= size(signal.data,2)*max_event_fraction) &amp; (~all_positive | allpositive) &amp; (~strict_integer | allinteger);
+0142     
+0143 <span class="comment">% determine whether to include labels</span>
+0144 include_label = hlp_rewrite(include_label,<span class="string">'always'</span>,true,<span class="string">'never'</span>,false,<span class="string">'multiplechans'</span>,nnz(eventchans) &gt; 1);
+0145 
+0146 <span class="comment">% initialize events</span>
+0147 <span class="keyword">if</span> ~isfield(signal,<span class="string">'event'</span>) || isempty(signal.event)
+0148     signal.event = struct(<span class="string">'latency'</span>,{},<span class="string">'duration'</span>,{},<span class="string">'type'</span>,{}); <span class="keyword">end</span>
+0149 
+0150 <span class="comment">% generate events</span>
+0151 <span class="keyword">for</span> k = find(eventchans)
+0152     <span class="keyword">try</span>
+0153         <span class="comment">% find event codes per sample</span>
+0154         X = round(signal.data(k,:) - baseline(k));
+0155         X(isnan(X)) = 0;
+0156         <span class="comment">% do a run-length encode into events</span>
+0157         lat = find([1; diff(X(:))] ~= 0);
+0158         <span class="comment">% optionally mask out baseline events</span>
+0159         <span class="keyword">if</span> omit_baseline(k)
+0160             mask = X(lat) ~= 0;
+0161         <span class="keyword">else</span>
+0162             mask = true(1,length(lat));
+0163         <span class="keyword">end</span>
+0164         <span class="comment">% get values, duration, and latency as cell arrays</span>
+0165         dur = num2cell(diff([lat; numel(X)+1]));
+0166         val = cellfun(@num2str,num2cell(X(lat(mask)),1),<span class="string">'UniformOutput'</span>,false);
+0167         <span class="keyword">if</span> include_label
+0168             val = cellfun(@(n) [signal.chanlocs(k).labels <span class="string">'_'</span> n],val,<span class="string">'UniformOutput'</span>,false); <span class="keyword">end</span>
+0169         lat = num2cell(lat(mask));
+0170         dur = dur(mask);
+0171         <span class="keyword">if</span> ~isempty(lat)
+0172             <span class="comment">% make space</span>
+0173             signal.event(end+length(lat)).latency = [];
+0174             <span class="comment">% insert new content</span>
+0175             [signal.event(end-length(lat)+1:end).latency] = lat{:};
+0176             [signal.event(end-length(lat)+1:end).duration] = dur{:};
+0177             [signal.event(end-length(lat)+1:end).type] = val{:};
+0178         <span class="keyword">else</span>
+0179             <span class="comment">% the channel is not actually an event channel (but a flatline)</span>
+0180             eventchans(k) = false;
+0181         <span class="keyword">end</span>
+0182     <span class="keyword">catch</span> e
+0183         disp([<span class="string">'Could not process channel '</span> num2str(k)]);
+0184         env_handleerror(e);
+0185     <span class="keyword">end</span>
+0186 <span class="keyword">end</span>
+0187 
+0188 <span class="comment">% sort events</span>
+0189 signal.event = signal.event(hlp_getresult(2,@sort,[signal.event.latency]));
+0190 
+0191 <span class="comment">% remove event channels</span>
+0192 signal.data = signal.data(~eventchans,:,:,:,:,:,:,:);
+0193 signal.chanlocs = signal.chanlocs(~eventchans);
+0194 signal.nbchan = size(signal.data,1);</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

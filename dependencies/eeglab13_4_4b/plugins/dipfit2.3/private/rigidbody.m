@@ -51,7 +51,7 @@ function [H] = rigidbody(f);
 T = translate(f([1 2 3]));
 
 % compute the homogenous transformation matrix for the rotation
-R = rotate(f([4 5 6]));
+R = rotate_new(f([4 5 6]));
 
 % compute the homogenous transformation matrix for the combination
 H = T*R;

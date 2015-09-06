@@ -55,7 +55,7 @@ switch m(pos)
         [v,pos] = deserialize_scalar(m,pos);
     case 133
         [v,pos] = deserialize_logical(m,pos);
-    case {151,152,153}
+    case {150,151,152,153}
         [v,pos] = deserialize_handle(m,pos);
     case {17,18,19,20,21,22,23,24,25,26}
         [v,pos] = deserialize_numeric_simple(m,pos);
@@ -68,7 +68,7 @@ switch m(pos)
     case 134
         [v,pos] = deserialize_object(m,pos);
     otherwise
-        error('Unknown class');
+        error('Unknown class: %i', m(pos));
 end
 end
 

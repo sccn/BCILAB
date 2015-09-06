@@ -4,7 +4,7 @@
 <head>
   <title>Description of ml_trainglm</title>
   <meta name="keywords" content="ml_trainglm">
-  <meta name="description" content="Learn a Bayesian generalized linear model">
+  <meta name="description" content="Variational Bayesian estimation in a Generalized Linear Model.">
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
   <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
   <meta name="robots" content="index, follow">
@@ -18,49 +18,149 @@
 <td align="right"><a href="index.html">Index for code/machine_learning&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>ml_trainglm
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>Learn a Bayesian generalized linear model</strong></div>
+<div class="box"><strong>Variational Bayesian estimation in a Generalized Linear Model.</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="box"><strong>function model = ml_trainglm(varargin) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre class="comment"> Learn a Bayesian generalized linear model
+<div class="fragment"><pre class="comment"> Variational Bayesian estimation in a Generalized Linear Model.
  Model = ml_trainglm(Trials, Targets, Options...)
 
- This is an incomplete experimental implementatation wrapping the glm-ie toolbox; more to come
- later.
+ This method allows to learn parameters of a generalized linear model (GLM) set up to predict some
+ target variable in which the unknowns are estimated using Variational Bayesian (VB) inference
+ (yielding the posterior mean and covariance). The model is quite flexible and allows to set up
+ multiple priors with Gaussian or super-Gaussian (e.g., Laplace, Sech^2, Student-T) distributions,
+ possibly linked to the unknowns via known linear transformations (such as Wavelet, finite
+ differences, Fourier transform), and can perform both regression and classification. However, the
+ specification of the model is quite complicated due to the flexibility, so advanced functionality
+ is only usable by experts. Uses glm-ie as the inference engine.
 
  In:
    Trials       : training data, as in ml_train
-                  in addition, it may be specified as UxVxN 3d matrix,
-                  with UxV-formatted feature matrices per trial (N trials), or
-                  as {{U1xV1,U2xV2,...}, {U1xV1,U2xV2,...}
+                  in addition, it may be specified as UxVx...xN multi-way array,
+                  with UxVx...-formatted feature tensors per trial (N trials).
 
    Targets      : target variable, as in ml_train
 
-   Options  : optional name-value parameters to control the training details:
-              'ptype': problem type: 'classification' (default) or 'regression'
+   Lambdas : Noise variance parameter. If multiple values are given, the one with the best evidence
+             is chosen. A good default value is 1. (default: 2.^(-4:0.5:4))
 
-              'shape': if trials is a NxF 2d matrix of vectorized matrices,
-                           this is the dimensions of the matrices (default: Fx1)
-                       if trials is specified as an UxVxN 3d matrix, shape defaults to
-                           [U,V] and trials are vectorized into the regular [N, U*V]
-                       if shape is specified with one of the values being NaN,
-                           that value is set so that prod(shape)==F==U*V
+   Type : Problem type, either 'classification' or 'regression' (default: 'classification')
 
-              'scaling': pre-scaling of the data (see hlp_findscaling for options) (default: 'std')
+   Priors : cell array of prior term definitions; each given as 'TermN',{Distribution, Arguments...}
+            where Distribution can be one of 'Laplace','Gaussian','Logistic','StudentT','Sech2','ExpPow',
+            and Arguments... is a sequence of name-value pairs with the following possible names:
 
-              'setupfcn': Setup Function. Receives trials, targets and the options structure, and 
-                          returns the variables [X,y,B,pot,tau,G]. If empty, performs ridge
-                          regression or logistic regression depending on Type parameter.
+            'LinearOperator' : Linear transform. The distribution applies to the linearly
+                               transformed weight vector. Either an expression that is evaluated in
+                               the workspace or a function handle. When defining the linear
+                               operator as an anonymous function, the variables a to h can be used
+                               to refer to the sizes of the first 8 dimensions of x. (default: '@(x)x(:)''')
 
-               for additional parameters see infEngine.m in the glm-ie directory.
+            'Groups' : Grouping matrix. Sparse matrix whose columns are indicator vectors for the
+                       respective groups in the linearly transformed data (under linear indexing).
+                       If empty, the *columns* of the linearly transformed data are taken as the
+                       groups -- so if you vectorize your features with (:) you probably want to 
+                       transpose them, too. (default: [])
+
+            'Scales' : Scales of the distribution. Allows for scaling of the distributions; can be
+                       a scalar or a row vector to set a per-feature scale (or a search range, see 
+                       ScaleSeach). (default: 1)
+
+            'ScaleSearch' : Use Scales as searchable hyper-parameter. If enabled, multiple values
+                            can be given and will be maximized subject to log-marginal likelihood
+                            in a grid search (possibly together with other hyper-parameters); if
+                            unchecked, multiple values are assumed to apply to different features
+                            after application of the linear operator. (default: true)
+
+            'Shifts' : Shifts for an affine transform. Allows for shifting of the distributions.
+                       (default: 0)
+            
+            Depending on the Distribution, some extra arguments apply, including:
+            'DegreesOfFreedom' (StudentT) : Degrees of freedom. If multiple values are given the
+                                            optimal one will be determined by evidence maximization.
+                                            (default: 1)
+
+            'ShapeExponent' (ExpPow) : Shape parameter (exponent). This is the beta parameter of a
+                                       type-1 generalized Gaussian distribution.  If multiple
+                                       values are given the optimal one will be determined by
+                                       evidence maximization. (default: 8)
+
+            'AppendToX' (Gaussian) : Rarely used; append parameters to X matrix instead of B. If
+                                     true, the Scales parameter will be ignored and the global
+                                     Lambdas will be used instead (and may be searched). This is
+                                     probably better unless per-feature control of scales is
+                                     desired. This setting will be ignored if there is otherwise no
+                                     potential at B. (default: true)
+           
+   Shape : Reshaping for features. Allows to reshape (perhaps vectorized) features into a
+           particular representation. (default: [])
+
+   Scaling : Pre-scaling of the data. For the regulariation to work best, the features should
+             either be naturally scaled well, or be artificially scaled (see hlp_findscaling).
+             (default: 'std')
+
+   IncludeBias : Include bias param. Adds an unregularized bias term to the data (strongly
+                 recommended for typical situations). (default: true)
+
+   SolverOptions : Extensive set of tuning parameters for the solver; mostly for speed optimization,
+                   sometimes also to improve convergence.
+
+   ContinuousTargets : Whether to use continuous targets. This allows to implement some kind of
+                       damped regression approach when logistic regression is being used. (default:
+                       false)
+
+   VotingScheme : Type of voting to use in the multi-class classification scenario; can be '1vR' 
+                  or '1v1' (default: '1v1')
+
+   Verbosity : Verbosity level, 0-2 (default: 0)
 
  Out:
-   Models   : a predictive model
+   Model   : a predictive model
+
+ Examples:
+   % basic ridge regression
+   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1','Gaussian'})
+
+   % using evidence maximization (estimate noise variance)
+   model = ml_trainglm(trials,targets,'Type','regression','Lambdas',2.^(-4:0.5:4),'Priors',{'Term1','Gaussian'})
+
+   % basic logistic regression
+   model = ml_trainglm(trials,targets,'Type','classification','Priors',{'Term1','Gaussian'})
+
+   % sparse regression (LASSO-style)
+   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1','Laplace'})
+
+   % as before, but explicitly optimize the scale parameter of the laplacian prior
+   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'Laplace','Scales',2.^(-4:0.5:4)}})
+
+   % use a different sparse prior (Student-T), and also optimize the degrees of freedom (nu)
+   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'StudentT','nu',[1,2,3,4,5,6,7,8]}})
+
+   % jointly optimize the degrees of freedom and the lambdas
+   model = ml_trainglm(trials,targets,'Type','regression','Lambdas',2.^(-4:0.5:4),'Priors',{'Term1',{'StudentT','nu',[1,2,3,4,5,6,7,8]}})
+
+   % fused LASSO (laplacian prior on finite differences) with a hard (tight) prior scale
+   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'Laplace','LinearOperator','@(x)vec(diff(x))''','Scales',50}})
+
+   % group sparsity over columns of the feature matrix (assuming that features are matrix-shaped)
+   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'Laplace','LinearOperator','@(x)x','Scales',50}})
+
+   % group sparsity over rows of the feature matrix (assuming that features are matrix-shaped)
+   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'Laplace','LinearOperator','@(x)x''','Scales',50}})
+
+   % sparsity in a wavelet basis
+   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'Laplace','LinearOperator','@(x)vec(mydwt(x,daubcqf(4,''min''),2))''','Scales',50}})
+
+   % both group sparsity over rows and sparsity in a wavelet basis
+   model = ml_trainglm(trials,targets,'Type','regression','Priors',{ ...
+       'Term1',{'Laplace','LinearOperator','@(x)x''','Scales',80}, ...
+       'Term2',{'Laplace','LinearOperator','@(x)vec(mydwt(x,daubcqf(4,''min''),2))''','Scales',15}})
 
  See also:
    <a href="ml_predictglm.html" class="code" title="function pred = ml_predictglm(trials,model)">ml_predictglm</a>, dli
@@ -72,192 +172,565 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="ml_predictglm.html" class="code" title="function pred = ml_predictglm(trials,model)">ml_predictglm</a>	Simple prediction function for the Bayesian GLM.</li><li><a href="ml_trainglm.html" class="code" title="function model = ml_trainglm(varargin)">ml_trainglm</a>	Learn a Bayesian generalized linear model</li><li><a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>	Internal meta-algorithm for voting. Used by other machine learning functions.</li></ul>
+
+<li><a href="ml_predictglm.html" class="code" title="function pred = ml_predictglm(trials,model)">ml_predictglm</a>	Simple prediction function for the Bayesian GLM.</li>
+<li><a href="ml_trainglm.html" class="code" title="function model = ml_trainglm(varargin)">ml_trainglm</a>	Variational Bayesian estimation in a Generalized Linear Model.</li>
+<li><a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>	Internal meta-algorithm for voting. Used by other machine learning functions.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="ml_trainglm.html" class="code" title="function model = ml_trainglm(varargin)">ml_trainglm</a>	Learn a Bayesian generalized linear model</li></ul>
+
+<li><a href="ml_trainglm.html" class="code" title="function model = ml_trainglm(varargin)">ml_trainglm</a>	Variational Bayesian estimation in a Generalized Linear Model.</li>
+</ul>
 <!-- crossreference -->
+
 
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function [X,y,B,pot,tau,G] = default_setup(trials,targets,shape,opts)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function [nlZ,m,ga,b,z,zu,Q,T] = dli_wrap(X,y,s2,B,t,pots,taus,opts,G,verbosity)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function model = ml_trainglm(varargin)</a>
-0002 <span class="comment">% Learn a Bayesian generalized linear model</span>
+0002 <span class="comment">% Variational Bayesian estimation in a Generalized Linear Model.</span>
 0003 <span class="comment">% Model = ml_trainglm(Trials, Targets, Options...)</span>
 0004 <span class="comment">%</span>
-0005 <span class="comment">% This is an incomplete experimental implementatation wrapping the glm-ie toolbox; more to come</span>
-0006 <span class="comment">% later.</span>
-0007 <span class="comment">%</span>
-0008 <span class="comment">% In:</span>
-0009 <span class="comment">%   Trials       : training data, as in ml_train</span>
-0010 <span class="comment">%                  in addition, it may be specified as UxVxN 3d matrix,</span>
-0011 <span class="comment">%                  with UxV-formatted feature matrices per trial (N trials), or</span>
-0012 <span class="comment">%                  as {{U1xV1,U2xV2,...}, {U1xV1,U2xV2,...}</span>
+0005 <span class="comment">% This method allows to learn parameters of a generalized linear model (GLM) set up to predict some</span>
+0006 <span class="comment">% target variable in which the unknowns are estimated using Variational Bayesian (VB) inference</span>
+0007 <span class="comment">% (yielding the posterior mean and covariance). The model is quite flexible and allows to set up</span>
+0008 <span class="comment">% multiple priors with Gaussian or super-Gaussian (e.g., Laplace, Sech^2, Student-T) distributions,</span>
+0009 <span class="comment">% possibly linked to the unknowns via known linear transformations (such as Wavelet, finite</span>
+0010 <span class="comment">% differences, Fourier transform), and can perform both regression and classification. However, the</span>
+0011 <span class="comment">% specification of the model is quite complicated due to the flexibility, so advanced functionality</span>
+0012 <span class="comment">% is only usable by experts. Uses glm-ie as the inference engine.</span>
 0013 <span class="comment">%</span>
-0014 <span class="comment">%   Targets      : target variable, as in ml_train</span>
-0015 <span class="comment">%</span>
-0016 <span class="comment">%   Options  : optional name-value parameters to control the training details:</span>
-0017 <span class="comment">%              'ptype': problem type: 'classification' (default) or 'regression'</span>
+0014 <span class="comment">% In:</span>
+0015 <span class="comment">%   Trials       : training data, as in ml_train</span>
+0016 <span class="comment">%                  in addition, it may be specified as UxVx...xN multi-way array,</span>
+0017 <span class="comment">%                  with UxVx...-formatted feature tensors per trial (N trials).</span>
 0018 <span class="comment">%</span>
-0019 <span class="comment">%              'shape': if trials is a NxF 2d matrix of vectorized matrices,</span>
-0020 <span class="comment">%                           this is the dimensions of the matrices (default: Fx1)</span>
-0021 <span class="comment">%                       if trials is specified as an UxVxN 3d matrix, shape defaults to</span>
-0022 <span class="comment">%                           [U,V] and trials are vectorized into the regular [N, U*V]</span>
-0023 <span class="comment">%                       if shape is specified with one of the values being NaN,</span>
-0024 <span class="comment">%                           that value is set so that prod(shape)==F==U*V</span>
+0019 <span class="comment">%   Targets      : target variable, as in ml_train</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   Lambdas : Noise variance parameter. If multiple values are given, the one with the best evidence</span>
+0022 <span class="comment">%             is chosen. A good default value is 1. (default: 2.^(-4:0.5:4))</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   Type : Problem type, either 'classification' or 'regression' (default: 'classification')</span>
 0025 <span class="comment">%</span>
-0026 <span class="comment">%              'scaling': pre-scaling of the data (see hlp_findscaling for options) (default: 'std')</span>
-0027 <span class="comment">%</span>
-0028 <span class="comment">%              'setupfcn': Setup Function. Receives trials, targets and the options structure, and</span>
-0029 <span class="comment">%                          returns the variables [X,y,B,pot,tau,G]. If empty, performs ridge</span>
-0030 <span class="comment">%                          regression or logistic regression depending on Type parameter.</span>
-0031 <span class="comment">%</span>
-0032 <span class="comment">%               for additional parameters see infEngine.m in the glm-ie directory.</span>
-0033 <span class="comment">%</span>
-0034 <span class="comment">% Out:</span>
-0035 <span class="comment">%   Models   : a predictive model</span>
-0036 <span class="comment">%</span>
-0037 <span class="comment">% See also:</span>
-0038 <span class="comment">%   ml_predictglm, dli</span>
-0039 <span class="comment">%</span>
-0040 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0041 <span class="comment">%                                2011-07-08</span>
-0042 
-0043 
-0044 args = arg_define([0 2],varargin, <span class="keyword">...</span>
-0045     arg_norep(<span class="string">'trials'</span>), <span class="keyword">...</span>
-0046     arg_norep(<span class="string">'targets'</span>), <span class="keyword">...</span>
-0047     <span class="keyword">...</span><span class="comment"> % (pre)processing options</span>
-0048     arg({<span class="string">'lambdas'</span>,<span class="string">'Lambdas'</span>}, 1, [], <span class="string">'Noise variance parameter. This can be used as a regularization parameter.'</span>), <span class="keyword">...</span>
-0049     arg({<span class="string">'ptype'</span>,<span class="string">'Type'</span>}, <span class="string">'classification'</span>, {<span class="string">'classification'</span>,<span class="string">'regression'</span>}, <span class="string">'Type of problem to solve.'</span>), <span class="keyword">...</span>
-0050     arg({<span class="string">'shape'</span>,<span class="string">'Shape'</span>}, [], [], <span class="string">'Shape of the feature matrices. If given as [X,NaN] or [NaN,X], such that X is a divisor of the number of features F, the NaN is replaced by F/X.'</span>), <span class="keyword">...</span>
-0051     arg({<span class="string">'scaling'</span>,<span class="string">'Scaling'</span>}, <span class="string">'std'</span>, {<span class="string">'none'</span>,<span class="string">'center'</span>,<span class="string">'std'</span>,<span class="string">'minmax'</span>,<span class="string">'whiten'</span>}, <span class="string">'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.'</span>), <span class="keyword">...</span>
-0052     <span class="keyword">...</span><span class="comment"> % misc</span>
-0053     arg({<span class="string">'vectorize_trials'</span>,<span class="string">'VectorizeTrials'</span>}, false, [], <span class="string">'Vectorize trial matrices. Auto-determined if left unspecified.'</span>), <span class="keyword">...</span>
-0054     <span class="keyword">...</span><span class="comment"> % parameter setup</span>
-0055     arg({<span class="string">'setupfcn'</span>,<span class="string">'SetupFunction'</span>}, [], [], <span class="string">'Setup Function. Receives trials, targets, shape and the options structure, and returns the variables [X,y,B,pot,tau,G]. If empty, performs ridge regression or logistic regression depending on Type parameter.'</span>), <span class="keyword">...</span>
-0056     <span class="keyword">...</span><span class="comment"> % inference engine parameters</span>
-0057     arg({<span class="string">'outerNiter'</span>,<span class="string">'OuterIterations'</span>},10,[],<span class="string">'Outer loop iterations.'</span>),<span class="keyword">...</span>
-0058     arg({<span class="string">'outerMVM'</span>,<span class="string">'OuterLanczosVectors'</span>},50,[],<span class="string">'Outer Lanczos vectors. Number of Lanczos vectors to compute; more may yields a more complete posterior estimation.'</span>),<span class="keyword">...</span>
-0059     arg({<span class="string">'innerMVM'</span>,<span class="string">'InnerMVMSteps'</span>},50,[],<span class="string">'Inner-loop MVM steps. Number of matrix-vector multiplications and/or conjugate gradient steps to perform in inner loop.'</span>),<span class="keyword">...</span>
-0060     arg({<span class="string">'innerIt'</span>,<span class="string">'InnerNewtonSteps'</span>},15,[],<span class="string">'Inner-loop MVM steps. Number of Newton steps to perform in inner loop (if Truncated-Newton is used as the solver).'</span>),<span class="keyword">...</span>
-0061     arg({<span class="string">'outerZinit'</span>,<span class="string">'InitialUpperBound'</span>},0.05,[],<span class="string">'Initial upper bound.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span>
-0062     arg({<span class="string">'outerGainit'</span>,<span class="string">'InitialVariationalParam'</span>},1,[],<span class="string">'Initial variational parameter.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span>
-0063     arg({<span class="string">'outerExact'</span>,<span class="string">'ExactSolution'</span>},false,[],<span class="string">'Exact solution. Whether the posterior covariance should be exactly computed (note: this may be prohibitively slow).'</span>),<span class="keyword">...</span>
-0064     arg({<span class="string">'outerOutput'</span>,<span class="string">'OuterVerbose'</span>,<span class="string">'verbose'</span>},false,[],<span class="string">'Verbose outer loop. Show diagonstic output in the outer loop of the algorithm.'</span>),<span class="keyword">...</span>
-0065     arg({<span class="string">'innerOutput'</span>,<span class="string">'InnerVerbose'</span>},false,[],<span class="string">'Verbose inner loop. Show diagonstic output in the inner loop of the algorithm.'</span>),<span class="keyword">...</span>
-0066     arg({<span class="string">'innerType'</span>,<span class="string">'InferenceEngine'</span>},<span class="string">'VariationalBayes'</span>,{<span class="string">'VariationalBayes'</span>,<span class="string">'ExpectationPropagation'</span>},<span class="string">'Inference engine. Inference engine to use in the inner loop; Variational Bayes is highly recommended as it works with all options, whereas Expectation Propagation comes with some restrictions (see glm-ie help).'</span>),<span class="keyword">...</span>
-0067     arg({<span class="string">'innerVBpls'</span>,<span class="string">'Solver'</span>},<span class="string">'Conjugate Gradients'</span>,{<span class="string">'Quasi-Newton'</span>,<span class="string">'Truncated Newton'</span>,<span class="string">'Backtracking Conjugate Gradients'</span>,<span class="string">'Conjugate Gradients'</span>,<span class="string">'Split-Bregman'</span>},<span class="string">'PLS solver. Penalized least-squares solver to use in the inner loop; Quasi-Newton (L-BFGS) is preferred but depends on Fortran code, (backtracking) Conjugate Gradients and truncated Newton are among the most useful fallbacks.'</span>),<span class="keyword">...</span>
-0068     arg({<span class="string">'innerEPeta'</span>,<span class="string">'InnerEPEta'</span>},1,[],<span class="string">'Fractional EP parameter. Parameter used for fractional expectation-propagation (only works with Gauss and Laplace potential functions).'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
-0069     arg({<span class="string">'doinspect'</span>,<span class="string">'InspectMode'</span>},false,[],<span class="string">'Inspection Mode. If enabled, the execution will break after the weights have been learned.'</span>,<span class="string">'guru'</span>,true));
-0070 
-0071 arg_toworkspace(args);
-0072 
-0073 <span class="comment">% set default setup function</span>
-0074 <span class="keyword">if</span> isempty(setupfcn)
-0075     setupfcn = @<a href="#_sub1" class="code" title="subfunction [X,y,B,pot,tau,G] = default_setup(trials,targets,shape,opts)">default_setup</a>; <span class="keyword">end</span>
-0076 
-0077 <span class="comment">% get the correct feature matrix shape</span>
-0078 <span class="keyword">if</span> isempty(shape) <span class="comment">%#ok&lt;*NODEF&gt;</span>
-0079     <span class="keyword">if</span> ndims(trials) == 3
-0080         shape = [size(trials,1) size(trials,2)];
-0081         <span class="comment">% ... also make sure that the trials are vectorized</span>
-0082         trials = double(reshape(trials,[],size(trials,3))');
-0083         vectorize_trials = true;
-0084     <span class="keyword">else</span>
-0085         shape = [size(trials,2) 1];
-0086     <span class="keyword">end</span>
-0087 <span class="keyword">elseif</span> size(shape,1) == 1
-0088     nf = size(trials,2);
-0089     ni = isnan(shape);
-0090     <span class="keyword">if</span> any(ni)
-0091         <span class="comment">% if necessary, set NaN shape parameters appropriately</span>
-0092         shape(ni) = nf / shape(~ni);
-0093     <span class="keyword">elseif</span> nf ~= shape(1)*shape(2)
-0094         <span class="comment">% otherwise check for consistency</span>
-0095         error(<span class="string">'shape parameter is inconsistent with feature space dimension.'</span>);
-0096     <span class="keyword">end</span>
-0097 <span class="keyword">end</span>
-0098 
-0099 
-0100 <span class="comment">% pre-process the data</span>
-0101 <span class="keyword">if</span> strcmp(ptype,<span class="string">'classification'</span>)
-0102     classes = unique(targets);
-0103     <span class="keyword">if</span> length(classes) &gt; 2
-0104         <span class="comment">% in the multi-class case we use the voter</span>
-0105         model = <a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>(trials, targets, <span class="string">'1v1'</span>, @<a href="ml_trainglm.html" class="code" title="function model = ml_trainglm(varargin)">ml_trainglm</a>, @<a href="ml_predictglm.html" class="code" title="function pred = ml_predictglm(trials,model)">ml_predictglm</a>, varargin{:},<span class="string">'shape'</span>,shape,<span class="string">'vectorize_trials'</span>,vectorize_trials);
-0106         <span class="keyword">return</span>
-0107     <span class="keyword">elseif</span> length(classes) == 1
-0108         error(<span class="string">'BCILAB:only_one_class'</span>,<span class="string">'Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.'</span>);
-0109     <span class="keyword">else</span>       
-0110         <span class="comment">% optionally scale the data</span>
-0111         sc_info = hlp_findscaling(trials,scaling);
-0112         trials = hlp_applyscaling(trials,sc_info);
-0113         <span class="comment">% remap target labels to -1,+1</span>
-0114         targets(targets==classes(1)) = -1;
-0115         targets(targets==classes(2)) = +1;
-0116     <span class="keyword">end</span>
-0117 <span class="keyword">elseif</span> strcmp(ptype,<span class="string">'regression'</span>)
-0118     classes = [];
-0119     <span class="comment">% scale the data</span>
-0120     sc_info = hlp_findscaling(trials,scaling);
-0121     trials = hlp_applyscaling(trials,sc_info);
-0122 <span class="keyword">else</span>
-0123     error(<span class="string">'Unrecognized problem type.'</span>);
-0124 <span class="keyword">end</span>
-0125 
-0126 <span class="comment">% rewrite arguments</span>
-0127 args.innerType = hlp_rewrite(args.innerType,<span class="string">'VariationalBayes'</span>,<span class="string">'VB'</span>,<span class="string">'ExpectationPropagation'</span>,<span class="string">'EP'</span>);
-0128 args.innerVBpls = hlp_rewrite(args.innerVBpls,<span class="string">'Quasi-Newton'</span>,<span class="string">'plsLBFGS'</span>,<span class="string">'Truncated Newton'</span>,<span class="string">'plsTN'</span>,<span class="string">'Backtracking Conjugate Gradients'</span>,<span class="string">'plsCGBT'</span>,<span class="string">'Conjugate Gradients'</span>,<span class="string">'plsCG'</span>,<span class="string">'Split-Bregman'</span>,<span class="string">'plsSB'</span>,<span class="string">'Barzilai/Borwein'</span>,<span class="string">'plsBB'</span>);
-0129 
-0130 <span class="comment">% call setup function</span>
-0131 <span class="keyword">if</span> nargout(setupfcn) == 5
-0132     [X,y,B,pot,tau] = setupfcn(trials,targets,shape,args);
-0133     G = [];
-0134 <span class="keyword">else</span>
-0135     [X,y,B,pot,tau,G] = setupfcn(trials,targets,shape,args);
-0136 <span class="keyword">end</span>
-0137 
-0138 <span class="comment">% run inference</span>
-0139 [uinf,ga,b,z,nlZ,Q,T] = hlp_diskcache(<span class="string">'predictivemodels'</span>,@dli,X,y,lambdas,B,pot,tau,rmfield(args,{<span class="string">'trials'</span>,<span class="string">'targets'</span>,<span class="string">'lambdas'</span>,<span class="string">'ptype'</span>,<span class="string">'scaling'</span>,<span class="string">'setupfcn'</span>,<span class="string">'shape'</span>,<span class="string">'doinspect'</span>}),G); <span class="comment">%#ok&lt;ASGLU&gt;</span>
-0140 
-0141 <span class="comment">% add misc meta-data to the model</span>
-0142 model.ptype = ptype;
-0143 model.classes = classes;
-0144 model.sc_info = sc_info;
-0145 model.shape = shape;
-0146 model.w = uinf;
-0147 model.vectorize = vectorize_trials;
-0148 
-0149 <span class="comment">% graphics</span>
-0150 <span class="keyword">if</span> doinspect
-0151     disp(<span class="string">'GLM inspection breakpoint; halted.'</span>);
-0152     keyboard;
-0153 <span class="keyword">end</span>
-0154 
-0155 
-0156 <a name="_sub1" href="#_subfunctions" class="code">function [X,y,B,pot,tau,G] = default_setup(trials,targets,shape,opts)</a>
-0157 [n,f] = size(trials);
-0158 <span class="keyword">if</span> strcmp(opts.ptype,<span class="string">'regression'</span>)
-0159     <span class="comment">% ridge regression</span>
-0160     X = trials';
-0161     y = targets;
-0162     B = eye(f);
-0163     pot = @potGauss;
-0164     tau = ones(f,1);
-0165     G = [];
-0166 <span class="keyword">else</span>
-0167     <span class="comment">% logistic regression</span>
-0168     X = eye(f);
-0169     y = zeros(f,1);
-0170     B = trials';
-0171     pot = @potLogistic;
-0172     tau = targets;
-0173     G = [];
-0174 <span class="keyword">end</span>
-0175</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0026 <span class="comment">%   Priors : cell array of prior term definitions; each given as 'TermN',{Distribution, Arguments...}</span>
+0027 <span class="comment">%            where Distribution can be one of 'Laplace','Gaussian','Logistic','StudentT','Sech2','ExpPow',</span>
+0028 <span class="comment">%            and Arguments... is a sequence of name-value pairs with the following possible names:</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%            'LinearOperator' : Linear transform. The distribution applies to the linearly</span>
+0031 <span class="comment">%                               transformed weight vector. Either an expression that is evaluated in</span>
+0032 <span class="comment">%                               the workspace or a function handle. When defining the linear</span>
+0033 <span class="comment">%                               operator as an anonymous function, the variables a to h can be used</span>
+0034 <span class="comment">%                               to refer to the sizes of the first 8 dimensions of x. (default: '@(x)x(:)''')</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">%            'Groups' : Grouping matrix. Sparse matrix whose columns are indicator vectors for the</span>
+0037 <span class="comment">%                       respective groups in the linearly transformed data (under linear indexing).</span>
+0038 <span class="comment">%                       If empty, the *columns* of the linearly transformed data are taken as the</span>
+0039 <span class="comment">%                       groups -- so if you vectorize your features with (:) you probably want to</span>
+0040 <span class="comment">%                       transpose them, too. (default: [])</span>
+0041 <span class="comment">%</span>
+0042 <span class="comment">%            'Scales' : Scales of the distribution. Allows for scaling of the distributions; can be</span>
+0043 <span class="comment">%                       a scalar or a row vector to set a per-feature scale (or a search range, see</span>
+0044 <span class="comment">%                       ScaleSeach). (default: 1)</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">%            'ScaleSearch' : Use Scales as searchable hyper-parameter. If enabled, multiple values</span>
+0047 <span class="comment">%                            can be given and will be maximized subject to log-marginal likelihood</span>
+0048 <span class="comment">%                            in a grid search (possibly together with other hyper-parameters); if</span>
+0049 <span class="comment">%                            unchecked, multiple values are assumed to apply to different features</span>
+0050 <span class="comment">%                            after application of the linear operator. (default: true)</span>
+0051 <span class="comment">%</span>
+0052 <span class="comment">%            'Shifts' : Shifts for an affine transform. Allows for shifting of the distributions.</span>
+0053 <span class="comment">%                       (default: 0)</span>
+0054 <span class="comment">%</span>
+0055 <span class="comment">%            Depending on the Distribution, some extra arguments apply, including:</span>
+0056 <span class="comment">%            'DegreesOfFreedom' (StudentT) : Degrees of freedom. If multiple values are given the</span>
+0057 <span class="comment">%                                            optimal one will be determined by evidence maximization.</span>
+0058 <span class="comment">%                                            (default: 1)</span>
+0059 <span class="comment">%</span>
+0060 <span class="comment">%            'ShapeExponent' (ExpPow) : Shape parameter (exponent). This is the beta parameter of a</span>
+0061 <span class="comment">%                                       type-1 generalized Gaussian distribution.  If multiple</span>
+0062 <span class="comment">%                                       values are given the optimal one will be determined by</span>
+0063 <span class="comment">%                                       evidence maximization. (default: 8)</span>
+0064 <span class="comment">%</span>
+0065 <span class="comment">%            'AppendToX' (Gaussian) : Rarely used; append parameters to X matrix instead of B. If</span>
+0066 <span class="comment">%                                     true, the Scales parameter will be ignored and the global</span>
+0067 <span class="comment">%                                     Lambdas will be used instead (and may be searched). This is</span>
+0068 <span class="comment">%                                     probably better unless per-feature control of scales is</span>
+0069 <span class="comment">%                                     desired. This setting will be ignored if there is otherwise no</span>
+0070 <span class="comment">%                                     potential at B. (default: true)</span>
+0071 <span class="comment">%</span>
+0072 <span class="comment">%   Shape : Reshaping for features. Allows to reshape (perhaps vectorized) features into a</span>
+0073 <span class="comment">%           particular representation. (default: [])</span>
+0074 <span class="comment">%</span>
+0075 <span class="comment">%   Scaling : Pre-scaling of the data. For the regulariation to work best, the features should</span>
+0076 <span class="comment">%             either be naturally scaled well, or be artificially scaled (see hlp_findscaling).</span>
+0077 <span class="comment">%             (default: 'std')</span>
+0078 <span class="comment">%</span>
+0079 <span class="comment">%   IncludeBias : Include bias param. Adds an unregularized bias term to the data (strongly</span>
+0080 <span class="comment">%                 recommended for typical situations). (default: true)</span>
+0081 <span class="comment">%</span>
+0082 <span class="comment">%   SolverOptions : Extensive set of tuning parameters for the solver; mostly for speed optimization,</span>
+0083 <span class="comment">%                   sometimes also to improve convergence.</span>
+0084 <span class="comment">%</span>
+0085 <span class="comment">%   ContinuousTargets : Whether to use continuous targets. This allows to implement some kind of</span>
+0086 <span class="comment">%                       damped regression approach when logistic regression is being used. (default:</span>
+0087 <span class="comment">%                       false)</span>
+0088 <span class="comment">%</span>
+0089 <span class="comment">%   VotingScheme : Type of voting to use in the multi-class classification scenario; can be '1vR'</span>
+0090 <span class="comment">%                  or '1v1' (default: '1v1')</span>
+0091 <span class="comment">%</span>
+0092 <span class="comment">%   Verbosity : Verbosity level, 0-2 (default: 0)</span>
+0093 <span class="comment">%</span>
+0094 <span class="comment">% Out:</span>
+0095 <span class="comment">%   Model   : a predictive model</span>
+0096 <span class="comment">%</span>
+0097 <span class="comment">% Examples:</span>
+0098 <span class="comment">%   % basic ridge regression</span>
+0099 <span class="comment">%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1','Gaussian'})</span>
+0100 <span class="comment">%</span>
+0101 <span class="comment">%   % using evidence maximization (estimate noise variance)</span>
+0102 <span class="comment">%   model = ml_trainglm(trials,targets,'Type','regression','Lambdas',2.^(-4:0.5:4),'Priors',{'Term1','Gaussian'})</span>
+0103 <span class="comment">%</span>
+0104 <span class="comment">%   % basic logistic regression</span>
+0105 <span class="comment">%   model = ml_trainglm(trials,targets,'Type','classification','Priors',{'Term1','Gaussian'})</span>
+0106 <span class="comment">%</span>
+0107 <span class="comment">%   % sparse regression (LASSO-style)</span>
+0108 <span class="comment">%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1','Laplace'})</span>
+0109 <span class="comment">%</span>
+0110 <span class="comment">%   % as before, but explicitly optimize the scale parameter of the laplacian prior</span>
+0111 <span class="comment">%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'Laplace','Scales',2.^(-4:0.5:4)}})</span>
+0112 <span class="comment">%</span>
+0113 <span class="comment">%   % use a different sparse prior (Student-T), and also optimize the degrees of freedom (nu)</span>
+0114 <span class="comment">%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'StudentT','nu',[1,2,3,4,5,6,7,8]}})</span>
+0115 <span class="comment">%</span>
+0116 <span class="comment">%   % jointly optimize the degrees of freedom and the lambdas</span>
+0117 <span class="comment">%   model = ml_trainglm(trials,targets,'Type','regression','Lambdas',2.^(-4:0.5:4),'Priors',{'Term1',{'StudentT','nu',[1,2,3,4,5,6,7,8]}})</span>
+0118 <span class="comment">%</span>
+0119 <span class="comment">%   % fused LASSO (laplacian prior on finite differences) with a hard (tight) prior scale</span>
+0120 <span class="comment">%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'Laplace','LinearOperator','@(x)vec(diff(x))''','Scales',50}})</span>
+0121 <span class="comment">%</span>
+0122 <span class="comment">%   % group sparsity over columns of the feature matrix (assuming that features are matrix-shaped)</span>
+0123 <span class="comment">%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'Laplace','LinearOperator','@(x)x','Scales',50}})</span>
+0124 <span class="comment">%</span>
+0125 <span class="comment">%   % group sparsity over rows of the feature matrix (assuming that features are matrix-shaped)</span>
+0126 <span class="comment">%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'Laplace','LinearOperator','@(x)x''','Scales',50}})</span>
+0127 <span class="comment">%</span>
+0128 <span class="comment">%   % sparsity in a wavelet basis</span>
+0129 <span class="comment">%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{'Term1',{'Laplace','LinearOperator','@(x)vec(mydwt(x,daubcqf(4,''min''),2))''','Scales',50}})</span>
+0130 <span class="comment">%</span>
+0131 <span class="comment">%   % both group sparsity over rows and sparsity in a wavelet basis</span>
+0132 <span class="comment">%   model = ml_trainglm(trials,targets,'Type','regression','Priors',{ ...</span>
+0133 <span class="comment">%       'Term1',{'Laplace','LinearOperator','@(x)x''','Scales',80}, ...</span>
+0134 <span class="comment">%       'Term2',{'Laplace','LinearOperator','@(x)vec(mydwt(x,daubcqf(4,''min''),2))''','Scales',15}})</span>
+0135 <span class="comment">%</span>
+0136 <span class="comment">% See also:</span>
+0137 <span class="comment">%   ml_predictglm, dli</span>
+0138 <span class="comment">%</span>
+0139 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0140 <span class="comment">%                                2011-07-08</span>
+0141 
+0142 <span class="comment">% define common parameters of different distributions</span>
+0143 common_parameters = { <span class="keyword">...</span>
+0144         arg({<span class="string">'B'</span>,<span class="string">'LinearOperator'</span>},<span class="string">'@(x)x(:)'''</span>,[],<span class="string">'Linear transform. The distribution applies to the linearly transformed weight vector. Either an expression that is evaluated in the workspace or a function handle. When defining the linear operator as an anonymous function, the variables a to h can be used to refer to the sizes of the first 8 dimensions of x.'</span>), <span class="keyword">...</span>
+0145         arg({<span class="string">'G'</span>,<span class="string">'Groups'</span>},[],[],<span class="string">'Grouping matrix. Sparse matrix whose columns are indicator vectors for the respective groups in the linearly transformed data (under linear indexing). If empty, the columns of the linearly transformed data are taken as the groups.'</span>), <span class="keyword">...</span>
+0146         arg({<span class="string">'tau'</span>,<span class="string">'Scales'</span>},1,[],<span class="string">'Scales of the distribution. Allows for scaling of the distributions.'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0147         arg({<span class="string">'tauSearch'</span>,<span class="string">'ScalesSearch'</span>},true,[],<span class="string">'Use Scales as regularization parameter. If enabled, multiple values can be given and will be maximized subject to log-marginal likelihood in a grid search (possibly together with other hyper-parameters); if unchecked, multiple values are assumed to apply to different features after application of the linear operator.'</span>), <span class="keyword">...</span>
+0148         arg({<span class="string">'t'</span>,<span class="string">'Shifts'</span>},0,[],<span class="string">'Shifts for an affine transform. Allows for shifting of the distributions.'</span>), <span class="keyword">...</span>
+0149     };
+0150 
+0151 <span class="comment">% define the possible distributions supported by the inference engine</span>
+0152 distributions = @(argname) arg_subswitch({lower(argname),argname},{<span class="string">'none'</span>},{ <span class="keyword">...</span>
+0153         <span class="string">'none'</span>, {}, <span class="keyword">...</span>
+0154         <span class="string">'Laplace'</span>, common_parameters, <span class="keyword">...</span>
+0155         <span class="string">'Gaussian'</span>, [common_parameters {arg({<span class="string">'appendToX'</span>,<span class="string">'AppendToX'</span>},true,[],<span class="string">'Append to X matrix instead of B. If true, the Scales parameter will be ignored and the global Lambdas will be used instead (and may be searched). Also, a non-factorial posterior will be estimated for this parameter (by default). This setting will be ignored if there is otherwise no potential at B.'</span>)}], <span class="keyword">...</span>
+0156         <span class="string">'Logistic'</span>, common_parameters, <span class="keyword">...</span>
+0157         <span class="string">'StudentT'</span>,[common_parameters {arg({<span class="string">'nu'</span>,<span class="string">'DegreesOfFreedom'</span>},1,[1 Inf],<span class="string">'Degrees of freedom. If multiple values are given the optimal one will be determined by evidence maximization.'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>)}], <span class="keyword">...</span>
+0158         <span class="string">'Sech2'</span>, common_parameters, <span class="keyword">...</span>
+0159         <span class="string">'ExpPow'</span>,[common_parameters {arg({<span class="string">'alpha'</span>,<span class="string">'ShapeExponent'</span>},8,[0 Inf],<span class="string">'Shape parameter (exponent). This is the beta parameter of a type-1 generalized Gaussian distribution.  If multiple values are given the optimal one will be determined by evidence maximization.'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>)}]<span class="keyword">...</span>
+0160     }, <span class="string">'Distribution type. Defines a parametric prior distribution applied to a linear transform of the data.'</span>);
+0161 
+0162 <span class="comment">% define the arguments of ml_trainglm()</span>
+0163 args = arg_define([0 2],varargin, <span class="keyword">...</span>
+0164     arg_norep(<span class="string">'trials'</span>), <span class="keyword">...</span>
+0165     arg_norep(<span class="string">'targets'</span>), <span class="keyword">...</span>
+0166     arg({<span class="string">'lambdas'</span>,<span class="string">'NoiseVariance'</span>,<span class="string">'Lambdas'</span>}, 1, [0 Inf], <span class="string">'Gaussian noise variance. If multiple values are given, the one with the best evidence is used. A good search range is 2.^(-4:0.5:4). Note: this only applies to Gaussian terms -- e.g., in linear regression or when using a Gaussian prior in logistic regression.'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0167     arg({<span class="string">'ptype'</span>,<span class="string">'Type'</span>}, <span class="string">'classification'</span>, {<span class="string">'classification'</span>,<span class="string">'regression'</span>}, <span class="string">'Type of problem to solve.'</span>), <span class="keyword">...</span>
+0168     arg_sub({<span class="string">'priors'</span>,<span class="string">'Priors'</span>},{},{ <span class="keyword">...</span>
+0169         distributions(<span class="string">'Term1'</span>), <span class="keyword">...</span>
+0170         distributions(<span class="string">'Term2'</span>), <span class="keyword">...</span>
+0171         distributions(<span class="string">'Term3'</span>), <span class="keyword">...</span>
+0172         distributions(<span class="string">'Term4'</span>), <span class="keyword">...</span>
+0173         distributions(<span class="string">'Term5'</span>), <span class="keyword">...</span>
+0174         distributions(<span class="string">'Term6'</span>), <span class="keyword">...</span>
+0175         distributions(<span class="string">'Term7'</span>)}, <span class="string">'Definition of the prior terms. Any combination of terms is permitted.'</span>), <span class="keyword">...</span>
+0176     arg_nogui({<span class="string">'shape'</span>,<span class="string">'Shape'</span>}, [], [], <span class="string">'Reshaping for features. Allows to reshape (perhaps vectorized) features into a particular representation.'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0177     arg({<span class="string">'scaling'</span>,<span class="string">'Scaling'</span>}, <span class="string">'std'</span>, {<span class="string">'none'</span>,<span class="string">'center'</span>,<span class="string">'std'</span>,<span class="string">'minmax'</span>,<span class="string">'whiten'</span>}, <span class="string">'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.'</span>), <span class="keyword">...</span>
+0178     arg({<span class="string">'includeBias'</span>,<span class="string">'IncludeBias'</span>,<span class="string">'bias'</span>,<span class="string">'includebias'</span>},true,[],<span class="string">'Include bias param. Also learns an unregularized bias param (strongly recommended for typical classification problems).'</span>), <span class="keyword">...</span>
+0179     arg_sub({<span class="string">'solverOptions'</span>,<span class="string">'SolverOptions'</span>},{},{
+0180         arg({<span class="string">'outerNiter'</span>,<span class="string">'OuterIterations'</span>},10,uint32([1 5 25 1000]),<span class="string">'Outer loop iterations.'</span>),<span class="keyword">...</span>
+0181         arg({<span class="string">'innerMVM'</span>,<span class="string">'InnerIterations'</span>},50,uint32([1 10 150 1000]),<span class="string">'Inner-loop iterations. Number of matrix-vector multiplications and/or conjugate gradient steps to perform in inner loop.'</span>),<span class="keyword">...</span>
+0182         arg_subswitch({<span class="string">'outerMethod'</span>,<span class="string">'OuterMethod'</span>},<span class="string">'Lanczos'</span>,{ <span class="keyword">...</span>
+0183             <span class="string">'full'</span>,{}, <span class="keyword">...</span><span class="comment">    </span>
+0184             <span class="string">'Lanczos'</span>,{ <span class="keyword">...</span>
+0185                 arg({<span class="string">'MVM'</span>,<span class="string">'LanczosVectors'</span>},50,uint32([1 10 100 1000]),<span class="string">'Number of Lanczos vectors. This is the precision of the variational approximation. More more will yield a more complete posterior approximation.'</span>)},<span class="keyword">...</span>
+0186             <span class="string">'sample'</span>,{ <span class="keyword">...</span>
+0187                 arg({<span class="string">'NSamples'</span>,<span class="string">'NumSamples'</span>},10,uint32([1 5 100 1000]),<span class="string">'Number of Monte Carlo samples.'</span>), <span class="keyword">...</span>
+0188                 arg({<span class="string">'Ncg'</span>,<span class="string">'NumCGSteps'</span>},20,uint32([1 5 100 1000]),<span class="string">'Number of Conjugate-Gradient steps.'</span>)}, <span class="keyword">...</span>
+0189             <span class="string">'Woodbury'</span>,{}, <span class="keyword">...</span>
+0190             <span class="string">'factorial'</span>,{}},<span class="string">'Posterior covariance algorithm. The ''full'' method produces an exact dense matrix, ''lanczos'' produces a low-rank approximation with a given number of Lanczos vectors, ''sample'' calculates a Monte Carlo estimate, ''woodbury'' calculates an exact solution using the Woodbury formula, requires that B=I, ''factorial'' yields a factorial (mean-field) estimate.'</span>),<span class="keyword">...</span>
+0191         arg_subswitch({<span class="string">'innerVBpls'</span>,<span class="string">'InnerMethod'</span>},<span class="string">'Conjugate Gradients'</span>,{ <span class="keyword">...</span>
+0192             <span class="string">'Quasi-Newton'</span>,{ <span class="keyword">...</span>
+0193                 arg({<span class="string">'LBFGSnonneg'</span>,<span class="string">'NonNegative'</span>},false,[],<span class="string">'Non-negative. Whether to restrict the solution space to non-negative values.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span>
+0194             }, <span class="keyword">...</span><span class="comment"> </span>
+0195             <span class="string">'Truncated Newton'</span>,{ <span class="keyword">...</span>
+0196                 arg({<span class="string">'nit'</span>,<span class="string">'NewtonSteps'</span>},15,uint32([1 5 50 1000]),<span class="string">'Number of Newton steps.'</span>),<span class="keyword">...</span>
+0197                 arg({<span class="string">'nline'</span>,<span class="string">'LineSearchSteps'</span>},10,uint32([1 3 50 1000]),<span class="string">'Max line-search steps. Maximum number of bisections in Brent''s line-search algorithm.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span>
+0198                 arg({<span class="string">'exactNewt'</span>,<span class="string">'ExactNewton'</span>},false,[],<span class="string">'Compute exact direction. This is instead of CG; works only if B=1 and X is numeric.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span>
+0199             },<span class="keyword">...</span>
+0200             <span class="string">'Backtracking Conjugate Gradients'</span>,{<span class="keyword">...</span>
+0201                 arg({<span class="string">'nline'</span>,<span class="string">'LineSearchSteps'</span>},20,uint32([1 3 50 1000]),<span class="string">'Max line-search steps. Maximum number of backtracking steps in line search.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span><span class="comment">        </span>
+0202                 arg({<span class="string">'al'</span>,<span class="string">'ArmijoAlpha'</span>},0.01,[0 0.001 1 Inf],<span class="string">'Armijo alpha parameters. Parameter in Armijo-rule line search.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span><span class="comment">        </span>
+0203                 arg({<span class="string">'be'</span>,<span class="string">'ArmijoShrink'</span>},0.6,[0 0.1 0.9 1],<span class="string">'Armijo shrinking parameter. This is the beta or tau shrinking parameter in the line search.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span><span class="comment">        </span>
+0204                 arg({<span class="string">'cmax'</span>,<span class="string">'MaxStepsize'</span>},1,[0 Inf],<span class="string">'Maximum stepsize. Scaling factor for the gradient direction.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span><span class="comment">        </span>
+0205                 arg({<span class="string">'eps_grad'</span>,<span class="string">'GradientTol'</span>},1e-10,[0 Inf],<span class="string">'Gradient norm convergence threshold.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span>
+0206                 arg({<span class="string">'nrestart'</span>,<span class="string">'NumRestarts'</span>},0,uint32([0 0 10 100]),<span class="string">'Max CG restarts.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span>
+0207             }, <span class="keyword">...</span>
+0208             <span class="string">'Conjugate Gradients'</span>, {<span class="keyword">...</span>
+0209             }, <span class="keyword">...</span>
+0210             <span class="string">'Split-Bregman'</span>,{<span class="keyword">...</span><span class="comment">            </span>
+0211                 arg({<span class="string">'SBeta'</span>,<span class="string">'ConstraintCoefficient'</span>},1,[],<span class="string">'Coefficient for constraint term. Data is rescaled such that 1 should work.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span><span class="comment">        </span>
+0212                 arg({<span class="string">'SBga'</span>,<span class="string">'RegularizationParameter'</span>},[],[],<span class="string">'Regularization parameter. Best to leave unspecified; default is then 0.01/lambda.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span><span class="comment">        </span>
+0213                 arg({<span class="string">'SBinner'</span>,<span class="string">'InnerSteps'</span>},30,uint32([1 5 100 1000]),<span class="string">'Number of (inner) loop steps. For the constraint. Sometimes 5-10 iterations are OK.'</span>),<span class="keyword">...</span>
+0214                 arg({<span class="string">'SBouter'</span>,<span class="string">'OuterSteps'</span>},15,uint32([1 5 100 1000]),<span class="string">'Number of (outer) Bregman iterations.'</span>),<span class="keyword">...</span>
+0215                 arg({<span class="string">'SBncg'</span>,<span class="string">'CGSteps'</span>},50,uint32([1 5 100 1000]),<span class="string">'Number of CG steps.'</span>),<span class="keyword">...</span>
+0216             }, <span class="keyword">...</span>
+0217             <span class="string">'Barzilai-Borwein'</span>,{<span class="keyword">...</span>
+0218                 arg({<span class="string">'eps_grad'</span>,<span class="string">'GradientTol'</span>},1e-10,[0 Inf],<span class="string">'Gradient norm convergence threshold.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span>
+0219                 arg({<span class="string">'plsBBstepsizetype'</span>,<span class="string">'UseEquationFive'</span>},true,[],<span class="string">'Use equation 5 for update. Otherwise uses (equivalent) equation 6 from BB paper.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span>
+0220             }},<span class="string">'PLS solver. Penalized least-squares solver to use in the inner loop; Quasi-Newton (L-BFGS) is one of the most efficient method, but depends on C code; Truncated-Newton performs TN with CG-approximated Newton steps, Backtracking Conjugate Gradients uses CG with Armijo backtracking, Conjugate Gradients uses Carl Rasmussen''s minimize function using Polak-Ribiere line search, Split-Bregman uses an augmented Lagrangian / Bregman splitting approach, Barzilai-Borwein uses a stepsize-adjusted gradient method without descent guarantee.'</span>), <span class="keyword">...</span><span class="comment">        </span>
+0221         arg({<span class="string">'outerZinit'</span>,<span class="string">'InitialUpperBound'</span>},0.05,[],<span class="string">'Initial upper bound.'</span>,<span class="string">'guru'</span>,true),<span class="keyword">...</span>
+0222         arg({<span class="string">'outerGainit'</span>,<span class="string">'InitialVariationalParam'</span>},1,[],<span class="string">'Initial variational parameter.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0223     }, <span class="string">'Solver options. The options for the Variational Bayes solver of glm-ie.'</span>), <span class="keyword">...</span>
+0224     arg({<span class="string">'continuousTargets'</span>,<span class="string">'ContinuousTargets'</span>,<span class="string">'Regression'</span>}, false, [], <span class="string">'Whether to use continuous targets. This allows to implement some kind of damped regression approach.'</span>),<span class="keyword">...</span>
+0225     arg({<span class="string">'votingScheme'</span>,<span class="string">'VotingScheme'</span>},<span class="string">'1vR'</span>,{<span class="string">'1v1'</span>,<span class="string">'1vR'</span>},<span class="string">'Voting scheme. If multi-class classification is used, this determine how binary classifiers are arranged to solve the multi-class problem. 1v1 gets slow for large numbers of classes (as all pairs are tested), but can be more accurate than 1vR.'</span>), <span class="keyword">...</span>
+0226     arg({<span class="string">'verbosity'</span>,<span class="string">'Verbosity'</span>},0,uint32([0 3]),<span class="string">'Verbosity level. Set to 0=disable output, 1=show progress dots, 2=show outer-loop output, too, 3=show inner-loop outputs, too.'</span>));
+0227 
+0228 [trials,targets,lambdas,type,priors,shape,scaling,includeBias,solverOptions,continuousTargets,votingScheme,verbosity] = arg_toworkspace(args);
+0229 trials = double(trials);
+0230 targets = double(targets);
+0231 
+0232 <span class="comment">% check if we need to handle multi-class classification by voting</span>
+0233 classes = unique(targets);
+0234 <span class="keyword">if</span> length(classes) &gt; 2 &amp;&amp; strcmp(type,<span class="string">'classification'</span>) &amp;&amp; ~continuousTargets
+0235     model = <a href="ml_trainvote.html" class="code" title="function model = ml_trainvote(trials, targets, votingscheme, learner, predictor, varargin)">ml_trainvote</a>(trials, targets, votingScheme, @<a href="ml_trainglm.html" class="code" title="function model = ml_trainglm(varargin)">ml_trainglm</a>, @<a href="ml_predictglm.html" class="code" title="function pred = ml_predictglm(trials,model)">ml_predictglm</a>, varargin{:});
+0236 <span class="keyword">elseif</span> length(classes) == 1
+0237     error(<span class="string">'BCILAB:only_one_class'</span>,<span class="string">'Your training data set has no trials for one of your classes; you need at least two classes to train a classifier.\n\nThe most likely reasons are that one of your target markers does not occur in the data, or that all your trials of a particular class are concentrated in a single short segment of your data (10 or 20 percent). The latter would be a problem with the experiment design.'</span>);
+0238 <span class="keyword">else</span>
+0239     <span class="comment">% === pre-process data ===</span>
+0240     
+0241     <span class="comment">% determine featureshape and vectorize data if necessary</span>
+0242     [featureShape,trials,vectorizeTrials] = utl_determine_featureshape(trials,shape,false);
+0243     nFeatures = prod(featureShape);  <span class="comment">% nFeatures does not count the bias</span>
+0244     nTrials = numel(trials)/nFeatures;
+0245 
+0246     <span class="comment">% apply data scaling</span>
+0247     sc_info = hlp_findscaling(trials,scaling);
+0248     trials = hlp_applyscaling(trials,sc_info);
+0249 
+0250     <span class="comment">% remap target labels to -1,+1 for use with the logistic link function</span>
+0251     <span class="keyword">if</span> strcmp(type,<span class="string">'classification'</span>) &amp;&amp; length(classes) == 2 &amp;&amp; ~continuousTargets
+0252         targets(targets==classes(1)) = -1;
+0253         targets(targets==classes(2)) = +1;
+0254     <span class="keyword">end</span>
+0255 
+0256     <span class="comment">% optionally add bias term</span>
+0257     <span class="keyword">if</span> includeBias
+0258         trials = [trials ones(size(trials,1),1)]; <span class="keyword">end</span>    
+0259     nWeights = size(trials,2);  <span class="comment">% nWeights counts the bias</span>
+0260     
+0261     <span class="comment">% === set up data matrices for the solver ===</span>
+0262     
+0263     <span class="comment">% initialize data from given trials/targets</span>
+0264     [X,y,B,t] = deal([]);
+0265     tau = {};                       <span class="comment">% tau will be vertically concatenated by dli_wrap()</span>
+0266     G = {};                         <span class="comment">% G will be concatenated at the end</span>
+0267     potentials = {};                <span class="comment">% cell array of potential functions</span>
+0268     potentialArgs = {};             <span class="comment">% cell array of cell arrays of extra arguments to potential functions</span>
+0269     potentialVars = [];             <span class="comment">% number of variables accepted by each potential</span>
+0270     <span class="keyword">if</span> strcmp(type,<span class="string">'regression'</span>)
+0271         <span class="comment">% linear regression</span>
+0272         X = trials;
+0273         y = targets(:);
+0274     <span class="keyword">elseif</span> strcmp(type,<span class="string">'classification'</span>)
+0275         <span class="comment">% logistic regression</span>
+0276         B = trials;
+0277         potentials = {@potLogistic};
+0278         potentialArgs = {{}};
+0279         potentialVars = nTrials;
+0280         tau = {targets(:)};
+0281         t = zeros(nTrials,1);
+0282         G = {eye(nTrials)};
+0283     <span class="keyword">else</span>
+0284         error(<span class="string">'Unsupported problem type: %s'</span>,hlp_tostring(type));
+0285     <span class="keyword">end</span>
+0286     
+0287     <span class="comment">% dummy weight vector so we can test whether the linear operators work</span>
+0288     w = zeros(nFeatures + includeBias,1);
+0289     
+0290     <span class="comment">% count how many potentials we have for X and for B to make sure that there is at least one</span>
+0291     <span class="comment">% for each site (otherwise dli cannot handle it)</span>
+0292     num_X = ~isempty(X);
+0293     num_B = ~isempty(B);
+0294     <span class="keyword">for</span> trm=fieldnames(priors)'
+0295         term = priors.(trm{1});
+0296         <span class="keyword">if</span> ~strcmp(term.arg_selection,<span class="string">'none'</span>)
+0297             <span class="keyword">if</span> isfield(term,<span class="string">'appendToX'</span>) &amp;&amp; term.appendToX
+0298                 num_X = num_X+1;
+0299             <span class="keyword">else</span>
+0300                 num_B = num_B+1;
+0301             <span class="keyword">end</span>
+0302         <span class="keyword">end</span>
+0303     <span class="keyword">end</span>
+0304     
+0305     <span class="comment">% for each prior term, append appropriate matrices</span>
+0306     <span class="keyword">for</span> trm=fieldnames(priors)'
+0307         tname = trm{1};
+0308         term = priors.(tname);
+0309         dist = term.arg_selection;
+0310         <span class="keyword">if</span> ~strcmp(dist,<span class="string">'none'</span>)
+0311             <span class="comment">% --- process linear operator (note: needs to be in a separate function to keep @()'s clean) ---</span>
+0312             B_mat = [];
+0313             
+0314             <span class="keyword">if</span> ischar(term.B)
+0315                 <span class="comment">% parse operators in string form</span>
+0316                 <span class="comment">% (we allow use of convenience variables named a,..,h to describe the shape of the features)</span>
+0317                 <span class="keyword">try</span>
+0318                     [a,b,c,d,e,f,g,h] = size(reshape(w(1:nFeatures),featureShape)); <span class="comment">%#ok&lt;NASGU,ASGLU&gt;</span>
+0319                     term.B = eval(term.B);
+0320                 <span class="keyword">catch</span> e
+0321                     error(<span class="string">'The linear operator for prior term %s (%s, %s) seems to have a syntax error: %s'</span>,tname,dist,char(term.B),hlp_handleerror(e));
+0322                 <span class="keyword">end</span>
+0323             <span class="keyword">elseif</span> isnumeric(term.B)
+0324                 <span class="comment">% parse operators in numeric form</span>
+0325                 B_mat = term.B;
+0326                 term.B = @(x)B_mat*x;
+0327             <span class="keyword">else</span>
+0328                 error(<span class="string">'Unsupported format for prior term %s (%s): %s'</span>,tname,dist,hlp_tostring(term.B,1000));
+0329             <span class="keyword">end</span>
+0330             
+0331             <span class="comment">% try to evaluate the operator on dummy weights; determine if it can accept weights in</span>
+0332             <span class="comment">% the feature shape or whether we should to fall back to vectorized weights; also</span>
+0333             <span class="comment">% get the output size of B</span>
+0334             opB = term.B;
+0335             <span class="keyword">try</span>
+0336                 opResult = opB(reshape(w(1:nFeatures),featureShape));
+0337                 term.B = @(x)opB(reshape(x(1:nFeatures),featureShape));
+0338             <span class="keyword">catch</span> e1
+0339                 <span class="keyword">try</span>
+0340                     opResult = opB(w(1:nFeatures));
+0341                     term.B = @(x)opB(x(1:nFeatures));
+0342                 <span class="keyword">catch</span> e2
+0343                     error(<span class="string">'The linear operator for prior term %s (%s, %s) yields and error when applied to weight vector w: %s\nIt also fails when applied to weight tensor w:%s'</span>,tname,type,char(term.B),hlp_handleerror(e2),hlp_handleerror(e1));
+0344                 <span class="keyword">end</span>
+0345             <span class="keyword">end</span>
+0346             nProjections = numel(opResult);
+0347             
+0348             <span class="comment">% deduce actual operator matrix</span>
+0349             <span class="keyword">if</span> isempty(B_mat)
+0350                 B_mat = operator_to_matrix(term.B,nWeights); <span class="keyword">end</span>
+0351             
+0352             <span class="comment">% --- process remaining parameters ---</span>
+0353             
+0354             <span class="comment">% generate group matrix G if necessary</span>
+0355             <span class="keyword">if</span> isempty(term.G)
+0356                 <span class="keyword">if</span> size(opResult,1) == 1
+0357                     <span class="comment">% the output of G is a row vector: trivial groups</span>
+0358                     term.G = eye(nProjections);
+0359                 <span class="keyword">elseif</span> size(opResult,1) == nProjections
+0360                     <span class="comment">% the output of G is a column vector: one group for all</span>
+0361                     term.G = ones(1,nProjections);
+0362                 <span class="keyword">else</span>
+0363                     <span class="comment">% the output of G is a matrix or tensor: generate group matrix</span>
+0364                     groups = ones(size(opResult,1),1) * (1:(nProjections/size(opResult,1)));                    
+0365                     <span class="keyword">for</span> g=size(groups,2):-1:1
+0366                         term.G(g,:) = vec(groups==g)'; <span class="keyword">end</span>
+0367                 <span class="keyword">end</span>
+0368             <span class="keyword">elseif</span> size(term.G,2) ~= nProjections
+0369                 error(<span class="string">'The given group matrix must be of size [#groups x #features] where #features=%i, but G is of size %s'</span>,nProjections,hlp_tostring(size(G)));
+0370             <span class="keyword">end</span>
+0371                 
+0372             nGroups = size(term.G,1);
+0373             
+0374             <span class="comment">% sanity-check t (shift parameter)</span>
+0375             <span class="keyword">if</span> isscalar(term.t)
+0376                 <span class="comment">% replicate for each projection</span>
+0377                 term.t = term.t*ones(nProjections,1);
+0378             <span class="keyword">elseif</span> numel(term.t) ~= nProjections
+0379                 error(<span class="string">'The given t (shift) parameter of prior term %s (%s) has %s elements, but should have %s (after application of the linear operator).'</span>,tname,char(term.B),numel(term.t),nProjections);
+0380             <span class="keyword">else</span>
+0381                 term.t = term.t(:);
+0382             <span class="keyword">end</span>
+0383             
+0384             <span class="comment">% sanity-check tau (scale parameter)</span>
+0385             <span class="keyword">if</span> isscalar(term.tau)
+0386                 <span class="comment">% replicate for each projection</span>
+0387                 term.tau = term.tau*ones(nGroups,1);
+0388             <span class="keyword">elseif</span> term.tauSearch
+0389                 <span class="comment">% generate search() object, with each value in tau replicated for each projection</span>
+0390                 term.tau = search(cellfun(@(tau){tau*ones(nGroups,1)},num2cell(term.tau(:)')));
+0391             <span class="keyword">elseif</span> numel(term.tau) ~= nGroups
+0392                 error(<span class="string">'The given tau (scale) parameter of prior term %s (%s) has %s elements, but should have %s (after application of the group matrix).'</span>,tname,char(term.B),numel(term.tau),nGroups);
+0393             <span class="keyword">elseif</span> strcmp(type,<span class="string">'Gaussian'</span>) &amp;&amp; term.appendToX
+0394                 error(<span class="string">'The prior term %s (%s) has a multi-valued tau term, but tau cannot be used if appendToX is set to true; you can disable appendToX or reset tau to its default to get this to work.'</span>,tname,char(term.B));
+0395             <span class="keyword">else</span>
+0396                 term.tau = term.tau(:);
+0397             <span class="keyword">end</span>
+0398    
+0399             <span class="comment">% --- append to input data matrices</span>
+0400             
+0401             <span class="comment">% append B_mat and tau</span>
+0402             <span class="keyword">if</span> strcmp(dist,<span class="string">'Gaussian'</span>) &amp;&amp; ((term.appendToX || num_X==0) &amp;&amp; num_B&gt;0)
+0403                 <span class="comment">% append it to X/y instead of B/tau if so desired, or if X would otherwise be blank,</span>
+0404                 <span class="comment">% but not if B would be blank</span>
+0405                 X = [X; B_mat]; <span class="comment">%#ok&lt;*AGROW&gt;</span>
+0406                 y = [y; term.t(:)];
+0407             <span class="keyword">else</span>
+0408                 <span class="comment">% append to B, G, t, tau</span>
+0409                 B = [B; B_mat];
+0410                 G{end+1} = term.G;
+0411                 t = [t; term.t];
+0412                 tau{end+1} = term.tau;
+0413                 <span class="comment">% append potentials</span>
+0414                 potentialVars(end+1) = nGroups;
+0415                 <span class="keyword">switch</span> dist
+0416                     <span class="keyword">case</span> <span class="string">'Laplace'</span>
+0417                         potentials{end+1} = @potLaplace;
+0418                         potentialArgs{end+1} = {};
+0419                     <span class="keyword">case</span> <span class="string">'Gaussian'</span>
+0420                         potentials{end+1} = @potGauss;
+0421                         potentialArgs{end+1} = {};                        
+0422                     <span class="keyword">case</span> <span class="string">'Logistic'</span>
+0423                         potentials{end+1} = @potLogistic;
+0424                         potentialArgs{end+1} = {};
+0425                     <span class="keyword">case</span> <span class="string">'StudentT'</span>
+0426                         potentials{end+1} = @potT;
+0427                         potentialArgs{end+1} = {quickif(length(term.nu)&gt;1,search(term.nu),term.nu)};
+0428                     <span class="keyword">case</span> <span class="string">'Sech2'</span>
+0429                         potentials{end+1} = @potSech2;
+0430                         potentialArgs{end+1} = {};
+0431                     <span class="keyword">case</span> <span class="string">'ExpPow'</span>
+0432                         potentials{end+1} = @potExpPow;
+0433                         potentialArgs{end+1} = {quickif(length(term.alpha)&gt;1,search(term.alpha),term.alpha)};
+0434                     <span class="keyword">otherwise</span>
+0435                         error(<span class="string">'Unsupported distribution type requested: %s'</span>,dist);
+0436                 <span class="keyword">end</span>
+0437             <span class="keyword">end</span>
+0438         <span class="keyword">end</span>
+0439     <span class="keyword">end</span>
+0440     
+0441     <span class="comment">% concatenate G's block-diagonally and eliminate if trivial</span>
+0442     G = blkdiag(G{:});
+0443     <span class="keyword">if</span> isequal(G,eye(size(G)))
+0444         G = []; <span class="keyword">end</span>
+0445     
+0446     <span class="comment">% append a Gaussian prior if no Gaussian part is included</span>
+0447     <span class="keyword">if</span> isempty(X)
+0448         X = eye(nFeatures,nWeights);
+0449         y = zeros(nFeatures,1);
+0450     <span class="keyword">end</span>
+0451     
+0452     <span class="comment">% === generate options struct for the solver ===</span>
+0453     
+0454     opts = solverOptions;
+0455     <span class="comment">% post-process outerMethod</span>
+0456     opts.outerVarOpts = solverOptions.outerMethod;
+0457     opts.outerMethod = lower(solverOptions.outerMethod.arg_selection);
+0458     <span class="comment">% post-process innerVBpls</span>
+0459     <span class="keyword">for</span> fn=fieldnames(solverOptions.innerVBpls)'
+0460         opts.(fn{1}) = solverOptions.innerVBpls.(fn{1}); <span class="keyword">end</span>
+0461     opts.innerVBpls = hlp_rewrite(solverOptions.innerVBpls.arg_selection, <span class="string">'Quasi-Newton'</span>,<span class="string">'plsLBFGS'</span>, <span class="keyword">...</span>
+0462         <span class="string">'Truncated Newton'</span>,<span class="string">'plsTN'</span>, <span class="string">'Backtracking Conjugate Gradients'</span>,<span class="string">'plsCGBT'</span>, <span class="keyword">...</span>
+0463         <span class="string">'Conjugate Gradients'</span>,<span class="string">'plsCG'</span>, <span class="string">'Split-Bregman'</span>,<span class="string">'plsSB'</span>, <span class="string">'Barzilai-Borwein'</span>,<span class="string">'plsBB'</span>);
+0464     <span class="comment">% post-process verbosity</span>
+0465     opts.outerOutput = verbosity&gt;1;
+0466     opts.innerOutput = verbosity&gt;2;
+0467     <span class="keyword">if</span> isfield(opts.innerVBpls,<span class="string">'SBga'</span>) &amp;&amp; isempty(opts.innerVBpls.SBga)
+0468         opts.innerVBpls = rmfield(opts.innerVBpls,<span class="string">'SBga'</span>); <span class="keyword">end</span>
+0469     
+0470     <span class="comment">% === run inference ===</span>
+0471     
+0472     <span class="keyword">if</span> length(lambdas)&gt;1
+0473         lambdas = search(lambdas); <span class="keyword">end</span>
+0474     
+0475     <span class="comment">% build arguments for solver</span>
+0476     args = {X,y,lambdas,B,t,struct(<span class="string">'funcs'</span>,{potentials},<span class="string">'args'</span>,{potentialArgs},<span class="string">'lengths'</span>,{potentialVars}),tau,opts,G,verbosity};
+0477     
+0478     <span class="comment">% perform evidence maximization if requested</span>
+0479     <span class="keyword">if</span> verbosity&gt;0
+0480         fprintf(<span class="string">'\n'</span>); <span class="keyword">end</span>
+0481     <span class="keyword">if</span> is_search(hlp_flattensearch(args))
+0482         [bestIdx,allInputs,allOutputs] = utl_gridsearch(<span class="string">'clauses'</span>,@<a href="#_sub1" class="code" title="subfunction [nlZ,m,ga,b,z,zu,Q,T] = dli_wrap(X,y,s2,B,t,pots,taus,opts,G,verbosity)">dli_wrap</a>,args{:}); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0483         args = allInputs{bestIdx};
+0484         model.best_lambda = args{3};
+0485         model.best_pot = args{6};
+0486         model.best_tau = args{end-2};
+0487     <span class="keyword">end</span>
+0488     <span class="comment">% zz=vertcat(allOutputs{:});figure;plot([zz{:,1}])</span>
+0489     
+0490     <span class="comment">% infer the model</span>
+0491     [nlZ,m,ga,b,z,zu,Q,T] = <a href="#_sub1" class="code" title="subfunction [nlZ,m,ga,b,z,zu,Q,T] = dli_wrap(X,y,s2,B,t,pots,taus,opts,G,verbosity)">dli_wrap</a>(args{:});
+0492     
+0493     <span class="comment">% === finalize model ===</span>
+0494     model.w = m;                                    <span class="comment">% posterior mean of weights</span>
+0495     model.zu = zu;                                  <span class="comment">% posterior marginal variances of weights</span>
+0496     model.Q = Q;                                    <span class="comment">% posterior covariance factors</span>
+0497     model.T = T;                                    <span class="comment">% posterior covariance scale matrix</span>
+0498     model.z = z;                                    <span class="comment">% posterior marginal variances of projections</span>
+0499     model.nlZ = nlZ;                                <span class="comment">% negative log marginal likelihood</span>
+0500     model.ga = ga;                                  <span class="comment">% optimal value of the variational width parameters</span>
+0501     model.b = b;                                    <span class="comment">% optimal value of the variational position parameters</span>
+0502     
+0503     model.type = type;
+0504     model.classes = classes;                        <span class="comment">% set of class labels in training data</span>
+0505     model.continuousTargets = continuousTargets;    <span class="comment">% whether continuous target values were requested</span>
+0506     model.includeBias = includeBias;                <span class="comment">% whether a bias is included in the model</span>
+0507     model.vectorizeTrials = vectorizeTrials;        <span class="comment">% whether trials need to be vectorized first</span>
+0508     model.featureShape = featureShape;              <span class="comment">% shape vector for features</span>
+0509     model.sc_info = sc_info;                        <span class="comment">% overall scaling info</span>
+0510 <span class="keyword">end</span>
+0511 
+0512 
+0513 <span class="comment">% wrapper around dli() which has nlZ as first output and which assembles pots and tau from parts</span>
+0514 <a name="_sub1" href="#_subfunctions" class="code">function [nlZ,m,ga,b,z,zu,Q,T] = dli_wrap(X,y,s2,B,t,pots,taus,opts,G,verbosity)</a>
+0515 <span class="keyword">if</span> verbosity&gt;0
+0516     fprintf(<span class="string">'.'</span>); <span class="keyword">end</span>
+0517 <span class="comment">% construct tau and pot inputs from cell arrays</span>
+0518 tau = vertcat(taus{:});
+0519 <span class="comment">% build inputs for potCat</span>
+0520 potList = {};
+0521 <span class="keyword">for</span> p=1:length(pots.funcs)
+0522     potFunc = pots.funcs{p};
+0523     potArgs = pots.args{p};
+0524     potList{end+1} = @(s,varargin) potFunc(s,potArgs{:},varargin{:});
+0525 <span class="keyword">end</span>
+0526 [potRanges{1:length(potList)}] = chopdeal(1:sum(pots.lengths),pots.lengths);
+0527 pot = @(s,varargin)potCat(s,varargin{:},potList,potRanges);
+0528 <span class="keyword">if</span> isempty(potList)
+0529     pot = @(varargin)[]; <span class="keyword">end</span>
+0530 <span class="comment">% invoke actual solver</span>
+0531 [m,ga,b,z,zu,nlZ,Q,T,phi0,ldA] = dli(X,y,s2,B,t,pot,tau,opts,G);
+0532 nlZ = nlZ(end);
+0533 nlZ = ldA(end); <span class="comment">% ck: TODO:remove!</span>
+0534 
+0535</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

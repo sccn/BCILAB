@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>utl_default_partitioner
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -32,17 +33,23 @@
    otherwise return data restricted to the given index set
 
  See also:
-   <a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(data, varargin)">utl_crossval</a>, <a href="utl_partition_bundle.html" class="code" title="function res = utl_partition_bundle(bundle,inds,varargin)">utl_partition_bundle</a>, set_partition</pre></div>
+   <a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(varargin)">utl_crossval</a>, <a href="utl_partition_bundle.html" class="code" title="function res = utl_partition_bundle(bundle,inds,varargin)">utl_partition_bundle</a>, set_partition</pre></div>
 
 <!-- crossreference -->
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="utl_partition_bundle.html" class="code" title="function res = utl_partition_bundle(bundle,inds,varargin)">utl_partition_bundle</a>	Internal. Cross-validation partitioner for stream bundles.</li></ul>
+
+<li><a href="utl_partition_bundle.html" class="code" title="function res = utl_partition_bundle(bundle,inds,varargin)">utl_partition_bundle</a>	Internal. Cross-validation partitioner for stream bundles.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="utl_crossval.html" class="code" title="function [measure,stats] = utl_crossval(data, varargin)">utl_crossval</a>	Run a generic cross-validation over indexable data.</li></ul>
+
+</ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -54,90 +61,92 @@ This function is called by:
 0005 <span class="comment">%</span>
 0006 <span class="comment">% See also:</span>
 0007 <span class="comment">%   utl_crossval, utl_partition_bundle, set_partition</span>
-0008 
-0009 <span class="keyword">if</span> ~exist(<span class="string">'inds'</span>,<span class="string">'var'</span>)
-0010     inds = []; <span class="keyword">end</span>
-0011 
-0012 <span class="comment">% check supported special cases first</span>
-0013 <span class="keyword">if</span> iscell(data) &amp;&amp; length(data) == 2 &amp;&amp; isnumeric(data{1}) 
-0014     <span class="comment">% these are the std formats used by ml_train and ml_predict</span>
-0015     <span class="keyword">if</span> isnumeric(data{2}) &amp;&amp; size(data{1},1) == size(data{2},1) &amp;&amp; size(data{1},2) ~= 1 &amp;&amp; size(data{2},2) == 1
-0016         <span class="comment">% a cell array of the form {NxF,Nx1} -- indicating data and target variable; partitioned along N; F&gt;1</span>
-0017         <span class="keyword">if</span> isempty(inds)
-0018             res = length(data{2});
-0019         <span class="keyword">else</span>
-0020             res = {data{1}(inds,:),data{2}(inds,:)};
-0021         <span class="keyword">end</span>
-0022     <span class="keyword">elseif</span> iscell(data{2}) &amp;&amp; length(data{2}) &gt; 1 &amp;&amp; ischar(data{2}{1}) &amp;&amp; ((isnumeric(data{2}{2}) &amp;&amp; size(data{1},1) == size(data{2}{2},1)) || (iscell(data{2}{2}) &amp;&amp; size(data{1},1) == length(data{2}{2})))
-0023         <span class="comment">% a cell array of the form {NxF,{distrib,[NxD],...}} or {NxF,{distrib,{N},...}} --  indicating data and target variable, partitioned along N</span>
-0024         <span class="keyword">if</span> isempty(inds)
-0025             res = size(data{1},1);
-0026         <span class="keyword">else</span>
-0027             <span class="keyword">if</span> isnumeric(data{2}{2})
-0028                 res = {data{1}(inds,:), {data{2}{1},data{2}{2}(inds,:), data{2}{3:end}}};
-0029             <span class="keyword">else</span>
-0030                 res = {data{1}(inds,:), {data{2}{1},data{2}{2}(inds), data{2}{3:end}}};
-0031             <span class="keyword">end</span>
-0032         <span class="keyword">end</span>
-0033     <span class="keyword">end</span>
-0034 <span class="keyword">elseif</span> isstruct(data) &amp;&amp; isscalar(data) &amp;&amp; isfield(data,<span class="string">'X'</span>)   
-0035     <span class="comment">% a struct with fields X &amp; ...</span>
-0036     <span class="keyword">if</span> isfield(data,<span class="string">'Y'</span>) &amp;&amp; size(data.X,1) == size(data.Y,1)
-0037         <span class="comment">% ... upper-case Y: partition X and Y</span>
-0038         <span class="keyword">if</span> isempty(inds)
-0039             res = ult_default_partitioner(data.Y);
-0040         <span class="keyword">else</span>
-0041             res = data;
-0042             res.X = ult_default_partitioner(res.X,inds);
-0043             res.Y = ult_default_partitioner(res.Y,inds);
-0044         <span class="keyword">end</span>
-0045     <span class="keyword">elseif</span> isfield(data,<span class="string">'y'</span>) &amp;&amp; size(data.X,1) == size(data.y,1)
-0046         <span class="comment">% ... lower-case y: partition X and y</span>
-0047         <span class="keyword">if</span> isempty(inds)
-0048             res = ult_default_partitioner(data.y);
-0049         <span class="keyword">else</span>
-0050             res = data;
-0051             res.X = ult_default_partitioner(res.X,inds);
-0052             res.y = ult_default_partitioner(res.y,inds);
-0053         <span class="keyword">end</span>
-0054     <span class="keyword">end</span>
-0055 <span class="keyword">elseif</span> isstruct(data) &amp;&amp; isfield(data,{<span class="string">'data'</span>,<span class="string">'chanlocs'</span>})
-0056     <span class="comment">% EEGLAB data set</span>
-0057     <span class="keyword">if</span> isempty(inds)
-0058         res = exp_eval(set_partition(data,[],varargin{:}),inf);
-0059     <span class="keyword">else</span>
-0060         res = set_partition(data,inds,varargin{:});
-0061     <span class="keyword">end</span>
-0062 <span class="keyword">elseif</span> isstruct(data) &amp;&amp; isfield(data,{<span class="string">'streams'</span>})
-0063     <span class="comment">% stream bundle</span>
-0064     res = <a href="utl_partition_bundle.html" class="code" title="function res = utl_partition_bundle(bundle,inds,varargin)">utl_partition_bundle</a>(data,inds,varargin{:});
-0065 <span class="keyword">end</span>
-0066 
-0067 
-0068 <span class="keyword">if</span> ~exist(<span class="string">'res'</span>,<span class="string">'var'</span>)
-0069     <span class="comment">% no special case: get the highest non-singleton dimension in the data</span>
-0070     dim = find(size(data)~=1,1,<span class="string">'last'</span>);
-0071     <span class="keyword">if</span> isnumeric(data)
-0072         <span class="comment">% in the numeric array case, we never partition along the first dimension</span>
-0073         dim = max(2,dim); <span class="keyword">end</span>
-0074     
-0075     <span class="keyword">if</span> isempty(inds) 
-0076         res = size(data,dim);
-0077     <span class="keyword">else</span>
-0078         <span class="keyword">switch</span> dim
-0079             <span class="keyword">case</span> 1
-0080                 res = data(inds);
-0081             <span class="keyword">case</span> 2
-0082                 res = data(:,inds);                
-0083             <span class="keyword">case</span> 3
-0084                 res = data(:,:,inds);
-0085             <span class="keyword">case</span> 4
-0086                 res = data(:,:,:,inds);
-0087             <span class="keyword">otherwise</span>
-0088                 error(<span class="string">'More than 4-dimensional data is not (yet) supported.'</span>);
-0089         <span class="keyword">end</span>
-0090     <span class="keyword">end</span>
-0091 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0008 dp;
+0009 
+0010 <span class="keyword">if</span> ~exist(<span class="string">'inds'</span>,<span class="string">'var'</span>)
+0011     inds = []; <span class="keyword">end</span>
+0012 
+0013 <span class="comment">% check supported special cases first</span>
+0014 <span class="keyword">if</span> iscell(data) &amp;&amp; length(data) == 2 &amp;&amp; isnumeric(data{1}) 
+0015     <span class="comment">% these are the std formats used by ml_train and ml_predict</span>
+0016     <span class="keyword">if</span> isnumeric(data{2}) &amp;&amp; size(data{1},1) == size(data{2},1) &amp;&amp; size(data{1},2) ~= 1 &amp;&amp; size(data{2},2) == 1
+0017         <span class="comment">% a cell array of the form {NxF,Nx1} -- indicating data and target variable; partitioned along N; F&gt;1</span>
+0018         <span class="keyword">if</span> isempty(inds)
+0019             res = length(data{2});
+0020         <span class="keyword">else</span>
+0021             res = {data{1}(inds,:),data{2}(inds,:)};
+0022         <span class="keyword">end</span>
+0023     <span class="keyword">elseif</span> iscell(data{2}) &amp;&amp; length(data{2}) &gt; 1 &amp;&amp; ischar(data{2}{1}) &amp;&amp; ((isnumeric(data{2}{2}) &amp;&amp; size(data{1},1) == size(data{2}{2},1)) || (iscell(data{2}{2}) &amp;&amp; size(data{1},1) == length(data{2}{2})))
+0024         <span class="comment">% a cell array of the form {NxF,{distrib,[NxD],...}} or {NxF,{distrib,{N},...}} --  indicating data and target variable, partitioned along N</span>
+0025         <span class="keyword">if</span> isempty(inds)
+0026             res = size(data{1},1);
+0027         <span class="keyword">else</span>
+0028             <span class="keyword">if</span> isnumeric(data{2}{2})
+0029                 res = {data{1}(inds,:), {data{2}{1},data{2}{2}(inds,:), data{2}{3:end}}};
+0030             <span class="keyword">else</span>
+0031                 res = {data{1}(inds,:), {data{2}{1},data{2}{2}(inds), data{2}{3:end}}};
+0032             <span class="keyword">end</span>
+0033         <span class="keyword">end</span>
+0034     <span class="keyword">end</span>
+0035 <span class="keyword">elseif</span> isstruct(data) &amp;&amp; isscalar(data) &amp;&amp; isfield(data,<span class="string">'X'</span>)   
+0036     <span class="comment">% a struct with fields X &amp; ...</span>
+0037     <span class="keyword">if</span> isfield(data,<span class="string">'Y'</span>) &amp;&amp; size(data.X,1) == size(data.Y,1)
+0038         <span class="comment">% ... upper-case Y: partition X and Y</span>
+0039         <span class="keyword">if</span> isempty(inds)
+0040             res = ult_default_partitioner(data.Y);
+0041         <span class="keyword">else</span>
+0042             res = data;
+0043             res.X = ult_default_partitioner(res.X,inds);
+0044             res.Y = ult_default_partitioner(res.Y,inds);
+0045         <span class="keyword">end</span>
+0046     <span class="keyword">elseif</span> isfield(data,<span class="string">'y'</span>) &amp;&amp; size(data.X,1) == size(data.y,1)
+0047         <span class="comment">% ... lower-case y: partition X and y</span>
+0048         <span class="keyword">if</span> isempty(inds)
+0049             res = ult_default_partitioner(data.y);
+0050         <span class="keyword">else</span>
+0051             res = data;
+0052             res.X = ult_default_partitioner(res.X,inds);
+0053             res.y = ult_default_partitioner(res.y,inds);
+0054         <span class="keyword">end</span>
+0055     <span class="keyword">end</span>
+0056 <span class="keyword">elseif</span> isstruct(data) &amp;&amp; isfield(data,{<span class="string">'data'</span>,<span class="string">'chanlocs'</span>})
+0057     <span class="comment">% EEGLAB data set</span>
+0058     <span class="keyword">if</span> isempty(inds)
+0059         res = exp_eval(set_partition(data,[],varargin{:}),inf);
+0060     <span class="keyword">else</span>
+0061         res = set_partition(data,inds,varargin{:});
+0062     <span class="keyword">end</span>
+0063 <span class="keyword">elseif</span> isstruct(data) &amp;&amp; isfield(data,{<span class="string">'streams'</span>})
+0064     <span class="comment">% stream bundle</span>
+0065     res = <a href="utl_partition_bundle.html" class="code" title="function res = utl_partition_bundle(bundle,inds,varargin)">utl_partition_bundle</a>(data,inds,varargin{:});
+0066 <span class="keyword">elseif</span> isnumeric(data) || iscell(data)
+0067     <span class="comment">% no special case: get the highest non-singleton dimension in the data</span>
+0068     dim = find(size(data)~=1,1,<span class="string">'last'</span>);
+0069     <span class="comment">% in the numeric array case, we never partition along the first dimension</span>
+0070     <span class="keyword">if</span> isnumeric(data)
+0071         dim = max(2,dim); <span class="keyword">end</span>
+0072     
+0073     <span class="keyword">if</span> isempty(inds) 
+0074         res = size(data,dim);
+0075     <span class="keyword">else</span>
+0076         <span class="keyword">switch</span> dim
+0077             <span class="keyword">case</span> 1
+0078                 res = data(inds);
+0079             <span class="keyword">case</span> 2
+0080                 res = data(:,inds);                
+0081             <span class="keyword">case</span> 3
+0082                 res = data(:,:,inds);
+0083             <span class="keyword">case</span> 4
+0084                 res = data(:,:,:,inds);
+0085             <span class="keyword">otherwise</span>
+0086                 error(<span class="string">'More than 4-dimensional data is not (yet) supported.'</span>);
+0087         <span class="keyword">end</span>
+0088     <span class="keyword">end</span>
+0089 <span class="keyword">end</span>    
+0090 
+0091 <span class="keyword">if</span> ~exist(<span class="string">'res'</span>,<span class="string">'var'</span>)
+0092     error(<span class="string">'The given data is not in a form that can be partitioned by the default partitioner of utl_crossval.'</span>); <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

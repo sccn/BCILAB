@@ -298,7 +298,7 @@ function V = expected_value(D)
 if ~is_distributed(D)
     V = D;
 elseif is_discrete(D)
-    V = D{2}*D{3};
+    V = D{2}*D{3}(:);
 elseif is_1d_distributed(D)
     params = mat2cell(D{2}, size(D{2},1), ones(1,size(D{2},2)));
     V = feval([D{1},'stat'], params{:});

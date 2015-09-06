@@ -82,7 +82,7 @@ function signal = set_targetmarkers(varargin)
 %                                2011-08-27
 dp;
 
-% set_targetmarkers_version<1.12> -- for the cache
+% set_targetmarkers_version<1.13> -- for the cache
 
 if ~exp_beginfun('editing') return; end %#ok<SEPEX>
 
@@ -204,6 +204,10 @@ if ~isempty(signal.event)
     % optionally prune non-target events
     if prune_nontarget
         signal.event(~matchidx) = []; end
+    
+    % assign trial number per event (for debugging)
+    target_mask = find(~cellfun('isempty',{signal.event.target}));
+    [signal.event(target_mask).targnum] = arraydeal(1:length(target_mask));
 end
 
 % update misc fields

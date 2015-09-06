@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>hlp_aggregatestructs
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -88,15 +89,31 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="hlp_aggregatestructs.html" class="code" title="function res = hlp_aggregatestructs(structs,defaultop,varargin)">hlp_aggregatestructs</a>	Aggregate structs (recursively), using the given combiner operations.</li><li><a href="hlp_varargin2struct.html" class="code" title="function res = hlp_varargin2struct(args, varargin)">hlp_varargin2struct</a>	Convert a list of name-value pairs into a struct with values assigned to names.</li></ul>
+
+<li><a href="hlp_aggregatestructs.html" class="code" title="function res = hlp_aggregatestructs(structs,defaultop,varargin)">hlp_aggregatestructs</a>	Aggregate structs (recursively), using the given combiner operations.</li>
+<li><a href="hlp_tostring.html" class="code" title="function str = hlp_tostring(v,stringcutoff,prec)">hlp_tostring</a>	Get an human-readable string representation of a data structure.</li>
+<li><a href="hlp_varargin2struct.html" class="code" title="function res = hlp_varargin2struct(args, varargin)">hlp_varargin2struct</a>	Convert a list of name-value pairs into a struct with values assigned to names.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="hlp_aggregatestructs.html" class="code" title="function res = hlp_aggregatestructs(structs,defaultop,varargin)">hlp_aggregatestructs</a>	Aggregate structs (recursively), using the given combiner operations.</li></ul>
+
+<li><a href="hlp_aggregatestructs.html" class="code" title="function res = hlp_aggregatestructs(structs,defaultop,varargin)">hlp_aggregatestructs</a>	Aggregate structs (recursively), using the given combiner operations.</li>
+</ul>
 <!-- crossreference -->
+
 
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function res = aggregate(structs,defaultop,fieldops)</a></li><li><a href="#_sub2" class="code">function x = finalize(x,defaultop,fieldops)</a></li><li><a href="#_sub3" class="code">function op = translateop(op)</a></li><li><a href="#_sub4" class="code">function res = structarray2cellarray(arg)</a></li><li><a href="#_sub5" class="code">function val = fastif(cond,trueval,falseval)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function res = aggregate(structs,defaultop,fieldops)</a></li>
+<li><a href="#_sub2" class="code">function x = finalize(x,defaultop,fieldops)</a></li>
+<li><a href="#_sub3" class="code">function op = translateop(op)</a></li>
+<li><a href="#_sub4" class="code">function res = structarray2cellarray(arg)</a></li>
+<li><a href="#_sub5" class="code">function val = quickif(cond,trueval,falseval)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function res = hlp_aggregatestructs(structs,defaultop,varargin)</a>
@@ -173,7 +190,7 @@ This function is called by:
 0072 
 0073 warning off MATLAB:warn_r14_function_handle_transition
 0074 
-0075 <span class="keyword">if</span> ~exist(<span class="string">'defaultop'</span>,<span class="string">'var'</span>)
+0075 <span class="keyword">if</span> nargin &lt; 2
 0076     defaultop = <span class="string">'cat'</span>; <span class="keyword">end</span>
 0077 <span class="keyword">if</span> ~iscell(structs)
 0078     structs = {structs}; <span class="keyword">end</span>
@@ -312,32 +329,35 @@ This function is called by:
 0211             <span class="keyword">case</span> <span class="string">'random'</span>
 0212                 op = {@(a,b)[a b], @(x) x(min(length(x),ceil(eps+rand(1)*length(x))))};
 0213             <span class="keyword">case</span> <span class="string">'fillblanks'</span>
-0214                 op = @(a,b)<a href="#_sub5" class="code" title="subfunction val = fastif(cond,trueval,falseval)">fastif</a>(isempty(a),b,a);
+0214                 op = @(a,b)<a href="#_sub5" class="code" title="subfunction val = quickif(cond,trueval,falseval)">quickif</a>(isempty(a),b,a);
 0215             <span class="keyword">otherwise</span>
-0216                 error(<span class="string">'unsupported combiner op specified'</span>);
+0216                 error(<span class="string">'Unsupported combiner operation specified: %s'</span>,op);
 0217         <span class="keyword">end</span>
-0218     <span class="keyword">end</span>
-0219     <span class="comment">% add finalizer if missing</span>
-0220     <span class="keyword">if</span> ~iscell(op)
-0221         op = {op,@(x)x}; <span class="keyword">end</span>
-0222 <span class="keyword">end</span>
-0223 
-0224 
+0218     <span class="keyword">elseif</span> ~isa(op,<span class="string">'function_handle'</span>)
+0219         error(<span class="string">'The given combiner operation must be either a string or a function handle, but was: %s'</span>,<a href="hlp_tostring.html" class="code" title="function str = hlp_tostring(v,stringcutoff,prec)">hlp_tostring</a>(op,1000));        
+0220     <span class="keyword">end</span>
+0221     <span class="comment">% add finalizer if missing</span>
+0222     <span class="keyword">if</span> ~iscell(op)
+0223         op = {op,@(x)x}; <span class="keyword">end</span>
+0224 <span class="keyword">end</span>
 0225 
-0226 <span class="comment">% inefficiently turn a struct array into a cell array of structs</span>
-0227 <a name="_sub4" href="#_subfunctions" class="code">function res = structarray2cellarray(arg)</a>
-0228 res = {};
-0229 <span class="keyword">for</span> k=1:numel(arg)
-0230     res = [res {arg(k)}]; <span class="keyword">end</span>
-0231 
-0232 
-0233 <span class="comment">% for the 'fillblanks' translate op</span>
-0234 <a name="_sub5" href="#_subfunctions" class="code">function val = fastif(cond,trueval,falseval)</a>
-0235 <span class="keyword">if</span> cond
-0236     val = trueval;
-0237 <span class="keyword">else</span>
-0238     val = falseval;
-0239 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0226 
+0227 
+0228 <span class="comment">% inefficiently turn a struct array into a cell array of structs</span>
+0229 <a name="_sub4" href="#_subfunctions" class="code">function res = structarray2cellarray(arg)</a>
+0230 res = {};
+0231 <span class="keyword">for</span> k=1:numel(arg)
+0232     res = [res {arg(k)}]; <span class="keyword">end</span>
+0233 
+0234 
+0235 <span class="comment">% for the 'fillblanks' translate op</span>
+0236 <a name="_sub5" href="#_subfunctions" class="code">function val = quickif(cond,trueval,falseval)</a>
+0237 <span class="keyword">if</span> cond
+0238     val = trueval;
+0239 <span class="keyword">else</span>
+0240     val = falseval;
+0241 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

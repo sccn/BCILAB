@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>flt_repair_channels
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -48,6 +49,16 @@
                      if this is too low some sharp-onset artifacts will leave brief glitches in the
                      data. (default: 0.125).
 
+
+   The following are detail parameters that usually do not have to be tuned. If you can't get
+   the function to do what you want, you might consider adapting these to your data.
+
+   NumSamples : Number of RANSAC samples. This is the number of samples to generate in the random
+                sampling consensus process. (default: 20)
+
+   SubsetSize : Subset size. This is the size of the channel subsets to use, as number of channels
+                or a fraction of the total number of channels. (default: 0.25)
+
    ReferenceExtraction : Group of sub-parameters to control how clean reference data shall be extracted 
                          for calibration of the statistics (these are arguments to flt_clean_windows).
 
@@ -59,10 +70,9 @@
                         contain (more than this and it is removed). Reasonable range is 0.05 (very clean
                         output) to 0.3 (very lax cleaning of only coarse artifacts). Default: 0.15.
 
-   CalibPrecision : Block size for calculating the robust data covariance, in samples; allows to 
-                    reduce the memory requirements of the robust estimator by this factor (down to
-                    Channels x Channels x Samples x 16 / Blocksize bytes). The value is further
-                    incremented if necessary to fit the data in memory. (default: 10).
+   CalibPrecision : Block granularity for calibration. The data covariance will be estimated in
+                    blocks of this size and then robustly averaged (larger values admit smaller
+                    memory requirements). (default: 10)
 
    LineNoiseAware : Whether the operation should be performed in a line-noise aware manner. If enabled,
                     the correlation measure will not be affected by the presence or absence of line 
@@ -90,7 +100,7 @@
    eeg = flt_clean_channels('Signal',eeg,'MinimumCorrelation',0.7, 'WindowLength',1.5);
 
  See also:
-   <a href="flt_clean_windows.html" class="code" title="function [signal,sample_mask] = flt_clean_windows(varargin)">flt_clean_windows</a>, <a href="flt_clean_channels.html" class="code" title="function signal = flt_clean_channels(varargin)">flt_clean_channels</a>, <a href="flt_repair_bursts.html" class="code" title="function [signal,state] = flt_repair_bursts(varargin)">flt_repair_bursts</a>
+   <a href="flt_clean_windows.html" class="code" title="function signal = flt_clean_windows(varargin)">flt_clean_windows</a>, <a href="flt_clean_channels.html" class="code" title="function signal = flt_clean_channels(varargin)">flt_clean_channels</a>, <a href="flt_repair_bursts.html" class="code" title="function [signal,state] = flt_repair_bursts(varargin)">flt_repair_bursts</a>
 
  TODO:
    The notch filter is a somewhat lacking solution.
@@ -102,15 +112,26 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="flt_clean_windows.html" class="code" title="function [signal,sample_mask] = flt_clean_windows(varargin)">flt_clean_windows</a>	Remove periods with abnormally high/low-amplitude content from continuous data.</li></ul>
+
+<li><a href="flt_clean_windows.html" class="code" title="function signal = flt_clean_windows(varargin)">flt_clean_windows</a>	Remove periods with abnormally high/low-amplitude content from continuous data.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="flt_clean_settings.html" class="code" title="function signal = flt_clean_settings(varargin)">flt_clean_settings</a>	Clean EEG data according to a particular cleaning setting.</li></ul>
+
+<li><a href="flt_clean_settings.html" class="code" title="function signal = flt_clean_settings(varargin)">flt_clean_settings</a>	Clean EEG data according to a particular cleaning setting.</li>
+</ul>
 <!-- crossreference -->
+
 
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function [X,Zf] = moving_average(N,X,Zi)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function [X,Zf] = moving_average(N,X,Zi)</a></li>
+<li><a href="#_sub2" class="code">function Y = randsample(X,num)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal,state] = flt_repair_channels(varargin)</a>
@@ -135,260 +156,280 @@ This function is called by:
 0020 <span class="comment">%                     if this is too low some sharp-onset artifacts will leave brief glitches in the</span>
 0021 <span class="comment">%                     data. (default: 0.125).</span>
 0022 <span class="comment">%</span>
-0023 <span class="comment">%   ReferenceExtraction : Group of sub-parameters to control how clean reference data shall be extracted</span>
-0024 <span class="comment">%                         for calibration of the statistics (these are arguments to flt_clean_windows).</span>
-0025 <span class="comment">%</span>
-0026 <span class="comment">%       PowerTolerances: The minimum and maximum standard deviations within which the power of a channel</span>
-0027 <span class="comment">%                        must lie (relative to a robust estimate of the clean EEG power distribution in</span>
-0028 <span class="comment">%                        the channel) for it to be considered &quot;not bad&quot;. Default: [-3.5 5.5].</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   The following are detail parameters that usually do not have to be tuned. If you can't get</span>
+0025 <span class="comment">%   the function to do what you want, you might consider adapting these to your data.</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">%   NumSamples : Number of RANSAC samples. This is the number of samples to generate in the random</span>
+0028 <span class="comment">%                sampling consensus process. (default: 20)</span>
 0029 <span class="comment">%</span>
-0030 <span class="comment">%       MaxBadChannels : The maximum number or fraction of bad channels that a retained window may still</span>
-0031 <span class="comment">%                        contain (more than this and it is removed). Reasonable range is 0.05 (very clean</span>
-0032 <span class="comment">%                        output) to 0.3 (very lax cleaning of only coarse artifacts). Default: 0.15.</span>
-0033 <span class="comment">%</span>
-0034 <span class="comment">%   CalibPrecision : Block size for calculating the robust data covariance, in samples; allows to</span>
-0035 <span class="comment">%                    reduce the memory requirements of the robust estimator by this factor (down to</span>
-0036 <span class="comment">%                    Channels x Channels x Samples x 16 / Blocksize bytes). The value is further</span>
-0037 <span class="comment">%                    incremented if necessary to fit the data in memory. (default: 10).</span>
-0038 <span class="comment">%</span>
-0039 <span class="comment">%   LineNoiseAware : Whether the operation should be performed in a line-noise aware manner. If enabled,</span>
-0040 <span class="comment">%                    the correlation measure will not be affected by the presence or absence of line</span>
-0041 <span class="comment">%                    noise. (default: true).</span>
-0042 <span class="comment">%</span>
-0043 <span class="comment">%   UseGPU : Whether to run on the GPU. Makes sense for offline processing if you have a GTX 780 or</span>
-0044 <span class="comment">%            better. Default: false</span>
-0045 <span class="comment">%</span>
-0046 <span class="comment">%   State        :   previous filter state, as obtained by a previous execution of the filter on an</span>
-0047 <span class="comment">%                    immediately preceding data set (default: [])</span>
-0048 <span class="comment">%</span>
-0049 <span class="comment">% Out:</span>
-0050 <span class="comment">%   Signal : data set with bad channels removed</span>
+0030 <span class="comment">%   SubsetSize : Subset size. This is the size of the channel subsets to use, as number of channels</span>
+0031 <span class="comment">%                or a fraction of the total number of channels. (default: 0.25)</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%   ReferenceExtraction : Group of sub-parameters to control how clean reference data shall be extracted</span>
+0034 <span class="comment">%                         for calibration of the statistics (these are arguments to flt_clean_windows).</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">%       PowerTolerances: The minimum and maximum standard deviations within which the power of a channel</span>
+0037 <span class="comment">%                        must lie (relative to a robust estimate of the clean EEG power distribution in</span>
+0038 <span class="comment">%                        the channel) for it to be considered &quot;not bad&quot;. Default: [-3.5 5.5].</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">%       MaxBadChannels : The maximum number or fraction of bad channels that a retained window may still</span>
+0041 <span class="comment">%                        contain (more than this and it is removed). Reasonable range is 0.05 (very clean</span>
+0042 <span class="comment">%                        output) to 0.3 (very lax cleaning of only coarse artifacts). Default: 0.15.</span>
+0043 <span class="comment">%</span>
+0044 <span class="comment">%   CalibPrecision : Block granularity for calibration. The data covariance will be estimated in</span>
+0045 <span class="comment">%                    blocks of this size and then robustly averaged (larger values admit smaller</span>
+0046 <span class="comment">%                    memory requirements). (default: 10)</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">%   LineNoiseAware : Whether the operation should be performed in a line-noise aware manner. If enabled,</span>
+0049 <span class="comment">%                    the correlation measure will not be affected by the presence or absence of line</span>
+0050 <span class="comment">%                    noise. (default: true).</span>
 0051 <span class="comment">%</span>
-0052 <span class="comment">%   State  :  state of the filter, after it got applied</span>
-0053 <span class="comment">%</span>
-0054 <span class="comment">% Examples:</span>
-0055 <span class="comment">%   % use with defaults</span>
-0056 <span class="comment">%   eeg = flt_repair_channels(eeg);</span>
+0052 <span class="comment">%   UseGPU : Whether to run on the GPU. Makes sense for offline processing if you have a GTX 780 or</span>
+0053 <span class="comment">%            better. Default: false</span>
+0054 <span class="comment">%</span>
+0055 <span class="comment">%   State        :   previous filter state, as obtained by a previous execution of the filter on an</span>
+0056 <span class="comment">%                    immediately preceding data set (default: [])</span>
 0057 <span class="comment">%</span>
-0058 <span class="comment">%   % override the MinimumCorrelation default (making it more aggressive)</span>
-0059 <span class="comment">%   eeg = flt_clean_channels(eeg,0.7);</span>
+0058 <span class="comment">% Out:</span>
+0059 <span class="comment">%   Signal : data set with bad channels removed</span>
 0060 <span class="comment">%</span>
-0061 <span class="comment">%   % override the MinimumCorrelation and the WindowLength, using name-value pairs</span>
-0062 <span class="comment">%   eeg = flt_clean_channels('Signal',eeg,'MinimumCorrelation',0.7, 'WindowLength',1.5);</span>
-0063 <span class="comment">%</span>
-0064 <span class="comment">% See also:</span>
-0065 <span class="comment">%   flt_clean_windows, flt_clean_channels, flt_repair_bursts</span>
+0061 <span class="comment">%   State  :  state of the filter, after it got applied</span>
+0062 <span class="comment">%</span>
+0063 <span class="comment">% Examples:</span>
+0064 <span class="comment">%   % use with defaults</span>
+0065 <span class="comment">%   eeg = flt_repair_channels(eeg);</span>
 0066 <span class="comment">%</span>
-0067 <span class="comment">% TODO:</span>
-0068 <span class="comment">%   The notch filter is a somewhat lacking solution.</span>
+0067 <span class="comment">%   % override the MinimumCorrelation default (making it more aggressive)</span>
+0068 <span class="comment">%   eeg = flt_clean_channels(eeg,0.7);</span>
 0069 <span class="comment">%</span>
-0070 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0071 <span class="comment">%                                2012-01-10</span>
-0072 
-0073 <span class="comment">% flt_repair_channels_version&lt;0.9.5&gt; -- for the cache</span>
-0074 
-0075 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>;
-0076 
-0077 declare_properties(<span class="string">'name'</span>,<span class="string">'ChannelRepair'</span>, <span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,false);
-0078 
-0079 arg_define(varargin, <span class="keyword">...</span>
-0080     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
-0081     arg({<span class="string">'min_corr'</span>,<span class="string">'MinimumCorrelation'</span>}, 0.7, [0 1], <span class="string">'Minimum correlation between channels. This controls the aggressiveness of the filter: if the measure falls below this threshold for a channel in some time window, the window of that channel is considered bad.'</span>), <span class="keyword">...</span>
-0082     arg({<span class="string">'window_len'</span>,<span class="string">'WindowLength'</span>}, 0.5, [], <span class="string">'Window length to compute correlations. The length of the windows (in seconds) for which channel &quot;badness&quot; is computed, i.e. time granularity of the measure; ideally short enough to reasonably capture periods of artifacts, but no shorter (otherwise the statistic becomes too noisy).'</span>),<span class="keyword">...</span>
-0083     arg({<span class="string">'processing_delay'</span>,<span class="string">'ProcessingDelay'</span>}, 0.05, [], <span class="string">'Signal delay, in seconds. This can be anywhere between 0 and WindowLength/2; if this is too low some sharp-onset artifacts will leave brief &quot;knacks&quot; in the data.'</span>), <span class="keyword">...</span>
-0084     arg({<span class="string">'num_samples'</span>,<span class="string">'NumSamples'</span>}, 20, [], <span class="string">'Number of RANSAC samples. This is the number of samples to generate in the random sampling consensus process.'</span>), <span class="keyword">...</span>
-0085     arg({<span class="string">'subset_size'</span>,<span class="string">'SubsetSize'</span>}, 0.25, [], <span class="string">'Subset size. This is the size of the channel subsets to use, as number of channels or a fraction of the total number of channels.'</span>), <span class="keyword">...</span>
-0086     arg_sub({<span class="string">'ref_extraction'</span>,<span class="string">'ReferenceExtraction'</span>},{<span class="string">'zthresholds'</span>,[-3.5 5.5]}, @<a href="flt_clean_windows.html" class="code" title="function [signal,sample_mask] = flt_clean_windows(varargin)">flt_clean_windows</a>, <span class="string">'Reference data extraction. Group of sub-parameters to control how clean reference data shall be extracted for calibration of the statistics.'</span>), <span class="keyword">...</span>
-0087     arg({<span class="string">'calib_precision'</span>,<span class="string">'CalibPrecision'</span>}, 10, [], <span class="string">'Block granularity for calibration. The data covariance will be estimated in blocks of this size and then robustly averaged (larger values admit smaller memory requirements).'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
-0088     arg({<span class="string">'linenoise_aware'</span>,<span class="string">'LineNoiseAware'</span>},true,[],<span class="string">'Line-noise aware processing. If enabled, a notch filter will be applied to ensure that line noise does not affect the correlation measure.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
-0089     arg({<span class="string">'chunk_length'</span>,<span class="string">'ChunkLength'</span>},50000,[], <span class="string">'Maximum chunk length. Process the data in chunks of no larger than this (to avoid memory limitations).'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
-0090     arg({<span class="string">'use_gpu'</span>,<span class="string">'UseGPU'</span>}, false, [], <span class="string">'Whether to run on the GPU. Makes sense for offline processing if you have a GTX 780 or better.'</span>), <span class="keyword">...</span>
-0091     arg_deprecated({<span class="string">'history_fraction'</span>,<span class="string">'HistoryFraction'</span>}), arg_deprecated({<span class="string">'history_len'</span>,<span class="string">'HistoryLength'</span>}), arg_deprecated({<span class="string">'prefer_ica'</span>,<span class="string">'PreferICAoverPCA'</span>},false), <span class="keyword">...</span>
-0092     arg_deprecated({<span class="string">'pca_flagquant'</span>,<span class="string">'PCACleanliness'</span>}),arg_deprecated({<span class="string">'pca_maxchannels'</span>,<span class="string">'PCAForgiveChannels'</span>}), <span class="keyword">...</span>
-0093     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>}));
-0094 
-0095 <span class="keyword">if</span> subset_size &lt; 1 <span class="comment">%#ok&lt;NODEF&gt;</span>
-0096     subset_size = round(subset_size*size(signal.data,1)); <span class="keyword">end</span>
-0097 
-0098 signal.data = double(signal.data);
-0099 signal.data(~isfinite(signal.data(:))) = 0;
-0100 
-0101 N = round(window_len*signal.srate);
-0102 P = round(processing_delay*signal.srate);
+0070 <span class="comment">%   % override the MinimumCorrelation and the WindowLength, using name-value pairs</span>
+0071 <span class="comment">%   eeg = flt_clean_channels('Signal',eeg,'MinimumCorrelation',0.7, 'WindowLength',1.5);</span>
+0072 <span class="comment">%</span>
+0073 <span class="comment">% See also:</span>
+0074 <span class="comment">%   flt_clean_windows, flt_clean_channels, flt_repair_bursts</span>
+0075 <span class="comment">%</span>
+0076 <span class="comment">% TODO:</span>
+0077 <span class="comment">%   The notch filter is a somewhat lacking solution.</span>
+0078 <span class="comment">%</span>
+0079 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0080 <span class="comment">%                                2012-01-10</span>
+0081 
+0082 <span class="comment">% flt_repair_channels_version&lt;0.9.5&gt; -- for the cache</span>
+0083 
+0084 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>;
+0085 
+0086 declare_properties(<span class="string">'name'</span>,<span class="string">'ChannelRepair'</span>, <span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,false);
+0087 
+0088 arg_define(varargin, <span class="keyword">...</span>
+0089     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0090     arg({<span class="string">'min_corr'</span>,<span class="string">'MinimumCorrelation'</span>}, 0.7, [0 0.3 0.95 1], <span class="string">'Minimum correlation between channels. This controls the aggressiveness of the filter: if the measure falls below this threshold for a channel in some time window, the window of that channel is considered bad.'</span>), <span class="keyword">...</span>
+0091     arg({<span class="string">'window_len'</span>,<span class="string">'WindowLength'</span>}, 0.5, [0 0.25 5 Inf], <span class="string">'Window length to compute correlations. The length of the windows (in seconds) for which channel &quot;badness&quot; is computed, i.e. time granularity of the measure; ideally short enough to reasonably capture periods of artifacts, but no shorter (otherwise the statistic becomes too noisy).'</span>),<span class="keyword">...</span>
+0092     arg({<span class="string">'processing_delay'</span>,<span class="string">'ProcessingDelay'</span>}, 0.05, [0 0 2.5 Inf], <span class="string">'Signal delay, in seconds. This can be anywhere between 0 and WindowLength/2; if this is too low some sharp-onset artifacts will leave brief &quot;knacks&quot; in the data.'</span>), <span class="keyword">...</span>
+0093     arg({<span class="string">'num_samples'</span>,<span class="string">'NumSamples'</span>}, 20, uint32([1 10 100 10000]), <span class="string">'Number of RANSAC samples. This is the number of samples to generate in the random sampling consensus process.'</span>), <span class="keyword">...</span>
+0094     arg({<span class="string">'subset_size'</span>,<span class="string">'SubsetSize'</span>}, 0.25, [0 Inf], <span class="string">'Subset size. This is the size of the channel subsets to use, as number of channels or a fraction of the total number of channels.'</span>), <span class="keyword">...</span>
+0095     arg_sub({<span class="string">'ref_extraction'</span>,<span class="string">'ReferenceExtraction'</span>},{<span class="string">'zthresholds'</span>,[-3.5 5.5]}, @<a href="flt_clean_windows.html" class="code" title="function signal = flt_clean_windows(varargin)">flt_clean_windows</a>, <span class="string">'Reference data extraction. Group of sub-parameters to control how clean reference data shall be extracted for calibration of the statistics.'</span>), <span class="keyword">...</span>
+0096     arg({<span class="string">'calib_precision'</span>,<span class="string">'CalibPrecision'</span>}, 10, uint32([1 1 1000 10000]), <span class="string">'Block granularity for calibration. The data covariance will be estimated in blocks of this size and then robustly averaged (larger values admit smaller memory requirements).'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0097     arg({<span class="string">'linenoise_aware'</span>,<span class="string">'LineNoiseAware'</span>},true,[],<span class="string">'Line-noise aware processing. If enabled, a notch filter will be applied to ensure that line noise does not affect the correlation measure.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0098     arg({<span class="string">'chunk_length'</span>,<span class="string">'ChunkLength'</span>},50000,uint32([1 1000 100000 1000000000]), <span class="string">'Maximum chunk length. Process the data in chunks of no larger than this (to avoid memory limitations).'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0099     arg({<span class="string">'use_gpu'</span>,<span class="string">'UseGPU'</span>}, false, [], <span class="string">'Whether to run on the GPU. Makes sense for offline processing if you have a GTX 780 or better.'</span>), <span class="keyword">...</span>
+0100     arg_deprecated({<span class="string">'history_fraction'</span>,<span class="string">'HistoryFraction'</span>}), arg_deprecated({<span class="string">'history_len'</span>,<span class="string">'HistoryLength'</span>}), arg_deprecated({<span class="string">'prefer_ica'</span>,<span class="string">'PreferICAoverPCA'</span>},false), <span class="keyword">...</span>
+0101     arg_deprecated({<span class="string">'pca_flagquant'</span>,<span class="string">'PCACleanliness'</span>}),arg_deprecated({<span class="string">'pca_maxchannels'</span>,<span class="string">'PCAForgiveChannels'</span>}), <span class="keyword">...</span>
+0102     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>}));
 0103 
-0104 <span class="comment">% initialize filter state if necessary</span>
-0105 <span class="keyword">if</span> isempty(state)
-0106     <span class="comment">% extract a relatively clean section of data</span>
-0107     disp(<span class="string">'Finding a clean section of the data...'</span>);
-0108     ref_section = exp_eval_optimized(<a href="flt_clean_windows.html" class="code" title="function [signal,sample_mask] = flt_clean_windows(varargin)">flt_clean_windows</a>(ref_extraction,<span class="string">'signal'</span>,signal));
-0109     <span class="comment">% determine the notch filter (if any)</span>
-0110     [state.B,state.A] = deal([]);
-0111     <span class="keyword">if</span> linenoise_aware
-0112         <span class="keyword">try</span>
-0113             <span class="keyword">if</span> signal.srate &gt; 130
-0114                 [state.B,state.A] = yulewalk(8,[[0 45 50 55 60 65]*2/signal.srate 1],[1 1 0 1 0 1 1]);
-0115             <span class="keyword">elseif</span> signal.srate &gt; 110
-0116                 [state.B,state.A] = yulewalk(4,[[0 45 50 55]*2/signal.srate 1],[1 1 0 1 1]);
-0117             <span class="keyword">end</span>
-0118         <span class="keyword">catch</span>
-0119         <span class="keyword">end</span>
-0120     <span class="keyword">end</span>
-0121  
-0122     <span class="comment">% apply the notch filter and initialize the IIR filter state</span>
-0123     [C,S] = size(ref_section.data);
-0124     <span class="keyword">if</span> state.B
-0125         [X,state.iir] = filter(state.B,state.A,ref_section.data,[],2); X = X';
-0126     <span class="keyword">else</span>
-0127         X = ref_section.data';
-0128     <span class="keyword">end</span>
-0129         
-0130     <span class="comment">% calculate the sample covariance matrices U (averaged in blocks of blocksize successive samples)</span>
-0131     <span class="keyword">if</span> use_gpu
-0132         <span class="keyword">try</span> X = gpuArray(X); <span class="keyword">catch</span>,<span class="keyword">end</span>; <span class="keyword">end</span>
-0133     U = zeros(length(1:calib_precision:S),C*C);
-0134     <span class="keyword">for</span> k=1:calib_precision
-0135         range = min(S,k:calib_precision:(S+k-1));
-0136         U = U + reshape(bsxfun(@times,reshape(X(range,:),[],1,C),reshape(X(range,:),[],C,1)),size(U));
+0104 <span class="keyword">if</span> subset_size &lt; 1 <span class="comment">%#ok&lt;NODEF&gt;</span>
+0105     subset_size = round(subset_size*size(signal.data,1)); <span class="keyword">end</span> <span class="comment">%#ok&lt;NODEF&gt;</span>
+0106 
+0107 signal.data = double(signal.data);
+0108 signal.data(~isfinite(signal.data(:))) = 0;
+0109 
+0110 N = round(window_len*signal.srate);
+0111 P = round(processing_delay*signal.srate);
+0112 
+0113 <span class="comment">% initialize filter state if necessary</span>
+0114 <span class="keyword">if</span> isempty(state) <span class="comment">%#ok&lt;NODEF&gt;</span>
+0115     <span class="comment">% extract a relatively clean section of data</span>
+0116     disp(<span class="string">'Finding a clean section of the data...'</span>);
+0117     ref_section = exp_eval_optimized(<a href="flt_clean_windows.html" class="code" title="function signal = flt_clean_windows(varargin)">flt_clean_windows</a>(ref_extraction,<span class="string">'signal'</span>,signal));
+0118     <span class="comment">% determine the notch filter (if any)</span>
+0119     [state.B,state.A] = deal([]);
+0120     <span class="keyword">if</span> linenoise_aware
+0121         <span class="keyword">try</span>
+0122             <span class="keyword">if</span> signal.srate &gt; 130
+0123                 [state.B,state.A] = yulewalk(8,[[0 45 50 55 60 65]*2/signal.srate 1],[1 1 0 1 0 1 1]);
+0124             <span class="keyword">elseif</span> signal.srate &gt; 110
+0125                 [state.B,state.A] = yulewalk(4,[[0 45 50 55]*2/signal.srate 1],[1 1 0 1 1]);
+0126             <span class="keyword">end</span>
+0127         <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0128         <span class="keyword">end</span>
+0129     <span class="keyword">end</span>
+0130  
+0131     <span class="comment">% apply the notch filter and initialize the IIR filter state</span>
+0132     [C,S] = size(ref_section.data);
+0133     <span class="keyword">if</span> state.B
+0134         [X,state.iir] = filter(state.B,state.A,ref_section.data,[],2); X = X';
+0135     <span class="keyword">else</span>
+0136         X = ref_section.data';
 0137     <span class="keyword">end</span>
-0138 
-0139     <span class="comment">% get the reference mixing matrix M</span>
-0140     state.M = sqrtm(real(reshape(block_geometric_median(U/calib_precision),C,C)));
-0141     
-0142     <span class="comment">% calculate randomly sampled reconstruction matrices</span>
-0143     <span class="keyword">for</span> k=1:num_samples
-0144         subset = randsample(1:C,subset_size);
-0145         keep = false(C,1); keep(subset) = true;
-0146         state.rand_samples{k} = real(state.M*pinv(bsxfun(@times,keep,state.M)))';
-0147     <span class="keyword">end</span>
-0148     state.projector = horzcat(state.rand_samples{:});
-0149     
-0150     <span class="comment">% initialize prior filter state by extrapolating available data into the past (if necessary)</span>
-0151     state.carry = repmat(2*signal.data(:,1),1,P) - signal.data(:,1+mod(((P+1):-1:2)-1,S));
-0152     
-0153     <span class="comment">% and set other filters to zero</span>
-0154     [state.X_mov,state.Y_mov,state.XY_mov] = deal([]);
-0155     <span class="comment">% this is our breakage pattern database with associated reconstruction matrices</span>
-0156     state.patterns = [];
-0157     state.reconstructors = {};
-0158 <span class="keyword">end</span>
-0159 
-0160 [C,S] = size(signal.data);
-0161 
-0162 <span class="comment">% pre-pend carry-over state</span>
-0163 signal.data = [state.carry signal.data];
-0164 
-0165 <span class="comment">% split up the total sample range into k chunks that will fit in memory</span>
-0166 splits = ceil(S/chunk_length);
-0167 <span class="keyword">if</span> splits &gt; 1
-0168     fprintf(<span class="string">'Now repairing channels in %i blocks'</span>,splits); <span class="keyword">end</span>
-0169 
-0170 <span class="keyword">for</span> i=1:splits
-0171     range = 1+floor((i-1)*S/splits) : min(S,floor(i*S/splits));
-0172     <span class="keyword">if</span> ~isempty(range)        
-0173         <span class="comment">% get new chunk of data (range shifted by processing_delay)</span>
-0174         X = signal.data(:,range+P);
-0175         <span class="comment">% get filtered data X</span>
-0176         <span class="keyword">if</span> state.B
-0177             [X,state.iir] = filter(state.B,state.A,X,state.iir,2); <span class="keyword">end</span>
-0178         <span class="comment">% move it to the GPU if applicable</span>
-0179         <span class="keyword">if</span> use_gpu &amp;&amp; length(range) &gt; 1000
-0180             <span class="keyword">try</span> X = gpuArray(X); <span class="keyword">catch</span>,<span class="keyword">end</span>; <span class="keyword">end</span>
-0181         
-0182         <span class="comment">% get the RANSAC'ed reconstruction Y</span>
-0183         Y = sort(reshape(X'*state.projector,size(X,2),C,[]),3);
-0184         Y = Y(:,:,round(end/2))';
-0185         
-0186         <span class="comment">% calc running variances E[X.^2] and E[Y.^2]</span>
-0187         [X_var,state.X_mov] = <a href="#_sub1" class="code" title="subfunction [X,Zf] = moving_average(N,X,Zi)">moving_average</a>(N,X.^2,state.X_mov);
-0188         [Y_var,state.Y_mov] = <a href="#_sub1" class="code" title="subfunction [X,Zf] = moving_average(N,X,Zi)">moving_average</a>(N,Y.^2,state.Y_mov);
-0189         <span class="comment">% calc running covariance E[X.*Y]</span>
-0190         [XY_cov,state.XY_mov] = <a href="#_sub1" class="code" title="subfunction [X,Zf] = moving_average(N,X,Zi)">moving_average</a>(N,X.*Y,state.XY_mov);
-0191         <span class="comment">% calc running correlation  (assuming zero means)</span>
-0192         XY_corr = XY_cov ./ (sqrt(abs(X_var)).*sqrt(abs(Y_var)));
-0193         
-0194         <span class="comment">% determine matrix of bad channels</span>
-0195         bad_channels = XY_corr &lt; min_corr;
-0196         <span class="keyword">if</span> use_gpu
-0197             bad_channels = gather(bad_channels); <span class="keyword">end</span>
-0198             
-0199         <span class="comment">% get a mask of samples that need handling</span>
-0200         bad_samples = any(bad_channels);
-0201         pattern_indices = zeros(size(bad_samples));
-0202         <span class="comment">% get the unique breakage patterns and a vector that encodes where the patterns fall</span>
-0203         [patterns,dummy,pattern_indices(bad_samples)] = unique(bad_channels(:,bad_samples)',<span class="string">'rows'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
-0204         
-0205         <span class="comment">% for each such pattern...</span>
-0206         <span class="keyword">for</span> p=1:size(patterns,1)
-0207             patt = patterns(p,:);
-0208             <span class="comment">% generate the corresponding reconstruction matrix</span>
-0209             reconstruct = state.M*pinv(state.M(~patt,:));
-0210             <span class="comment">% apply it to the samples where the pattern occurs</span>
-0211             mask = p==pattern_indices;
-0212             signal.data(patt,range(mask)) = reconstruct(patt,:) * signal.data(~patt,range(mask));
-0213         <span class="keyword">end</span>
-0214     <span class="keyword">end</span>
-0215     <span class="keyword">if</span> splits &gt; 1
-0216         fprintf(<span class="string">'.'</span>); <span class="keyword">end</span>
-0217 <span class="keyword">end</span>
-0218 <span class="keyword">if</span> splits &gt; 1
-0219     fprintf(<span class="string">'\n'</span>); <span class="keyword">end</span>
-0220 
-0221 <span class="comment">% annotate signal with filter delay</span>
-0222 <span class="keyword">if</span> ~isfield(signal.etc,<span class="string">'filter_delay'</span>)
-0223     signal.etc.filter_delay = 0; <span class="keyword">end</span>
-0224 signal.etc.filter_delay = signal.etc.filter_delay+round(processing_delay*signal.srate)/signal.srate;
-0225 
-0226 <span class="comment">% carry the look-ahead portion of the data over to the state (for successive calls)</span>
-0227 state.carry = [state.carry signal.data(:,(end-P+1):end)];
-0228 state.carry = state.carry(:,(end-P+1):end);
-0229 <span class="keyword">if</span> use_gpu
-0230     state.iir = gather(state.iir);
-0231     state.X_mov = gather(state.X_mov);
-0232     state.Y_mov = gather(state.Y_mov);
-0233     state.XY_mov = gather(state.XY_mov);
-0234     state.projector = gather(state.projector);
-0235     state.M = gather(state.M);
-0236 <span class="keyword">end</span>
-0237 
-0238 <span class="comment">% finalize outputs</span>
-0239 signal.data = signal.data(:,1:(end-P));
-0240 
-0241 exp_endfun;
-0242 
-0243 
-0244 
-0245 <a name="_sub1" href="#_subfunctions" class="code">function [X,Zf] = moving_average(N,X,Zi)</a>
-0246 <span class="comment">% Run a moving-average filter along the second dimension of the data.</span>
-0247 <span class="comment">% [X,Zf] = moving_average(N,X,Zi)</span>
-0248 <span class="comment">%</span>
-0249 <span class="comment">% In:</span>
-0250 <span class="comment">%   N : filter length in samples</span>
-0251 <span class="comment">%   X : data matrix [#Channels x #Samples]</span>
-0252 <span class="comment">%   Zi : initial filter conditions (default: [])</span>
-0253 <span class="comment">%</span>
-0254 <span class="comment">% Out:</span>
-0255 <span class="comment">%   X : the filtered data</span>
-0256 <span class="comment">%   Zf : final filter conditions</span>
+0138         
+0139     <span class="comment">% calculate the sample covariance matrices U (averaged in blocks of blocksize successive samples)</span>
+0140     <span class="keyword">if</span> use_gpu
+0141         <span class="keyword">try</span> X = gpuArray(X); <span class="keyword">catch</span>,<span class="keyword">end</span>; <span class="keyword">end</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0142     U = zeros(length(1:calib_precision:S),C*C);
+0143     <span class="keyword">for</span> k=1:calib_precision
+0144         range = min(S,k:calib_precision:(S+k-1));
+0145         U = U + reshape(bsxfun(@times,reshape(X(range,:),[],1,C),reshape(X(range,:),[],C,1)),size(U));
+0146     <span class="keyword">end</span>
+0147 
+0148     <span class="comment">% get the reference mixing matrix M</span>
+0149     state.M = sqrtm(real(reshape(geometric_median(U/calib_precision),C,C)));
+0150     
+0151     <span class="comment">% calculate randomly sampled reconstruction matrices</span>
+0152     <span class="keyword">for</span> k=1:num_samples
+0153         subset = <a href="#_sub2" class="code" title="subfunction Y = randsample(X,num)">randsample</a>(1:C,subset_size);
+0154         keep = false(C,1); keep(subset) = true;
+0155         state.rand_samples{k} = real(state.M*pinv(bsxfun(@times,keep,state.M)))';
+0156     <span class="keyword">end</span>
+0157     state.projector = horzcat(state.rand_samples{:});
+0158     
+0159     <span class="comment">% initialize prior filter state by extrapolating available data into the past (if necessary)</span>
+0160     state.carry = repmat(2*signal.data(:,1),1,P) - signal.data(:,1+mod(((P+1):-1:2)-1,S));
+0161     
+0162     <span class="comment">% and set other filters to zero</span>
+0163     [state.X_mov,state.Y_mov,state.XY_mov] = deal([]);
+0164     <span class="comment">% this is our breakage pattern database with associated reconstruction matrices</span>
+0165     state.patterns = [];
+0166     state.reconstructors = {};
+0167 <span class="keyword">end</span>
+0168 
+0169 [C,S] = size(signal.data);
+0170 
+0171 <span class="comment">% pre-pend carry-over state</span>
+0172 signal.data = [state.carry signal.data];
+0173 
+0174 <span class="comment">% split up the total sample range into k chunks that will fit in memory</span>
+0175 splits = ceil(S/chunk_length);
+0176 <span class="keyword">if</span> splits &gt; 1
+0177     fprintf(<span class="string">'Now repairing channels in %i blocks'</span>,splits); <span class="keyword">end</span>
+0178 
+0179 <span class="keyword">for</span> i=1:splits
+0180     range = 1+floor((i-1)*S/splits) : min(S,floor(i*S/splits));
+0181     <span class="keyword">if</span> ~isempty(range)        
+0182         <span class="comment">% get new chunk of data (range shifted by processing_delay)</span>
+0183         X = signal.data(:,range+P);
+0184         <span class="comment">% get filtered data X</span>
+0185         <span class="keyword">if</span> state.B
+0186             [X,state.iir] = filter(state.B,state.A,X,state.iir,2); <span class="keyword">end</span>
+0187         <span class="comment">% move it to the GPU if applicable</span>
+0188         <span class="keyword">if</span> use_gpu &amp;&amp; length(range) &gt; 1000
+0189             <span class="keyword">try</span> X = gpuArray(X); <span class="keyword">catch</span>,<span class="keyword">end</span>; <span class="keyword">end</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0190         
+0191         <span class="comment">% get the RANSAC'ed reconstruction Y</span>
+0192         Y = sort(reshape(X'*state.projector,size(X,2),C,[]),3);
+0193         Y = Y(:,:,round(end/2))';
+0194         
+0195         <span class="comment">% calc running variances E[X.^2] and E[Y.^2]</span>
+0196         [X_var,state.X_mov] = <a href="#_sub1" class="code" title="subfunction [X,Zf] = moving_average(N,X,Zi)">moving_average</a>(N,X.^2,state.X_mov);
+0197         [Y_var,state.Y_mov] = <a href="#_sub1" class="code" title="subfunction [X,Zf] = moving_average(N,X,Zi)">moving_average</a>(N,Y.^2,state.Y_mov);
+0198         <span class="comment">% calc running covariance E[X.*Y]</span>
+0199         [XY_cov,state.XY_mov] = <a href="#_sub1" class="code" title="subfunction [X,Zf] = moving_average(N,X,Zi)">moving_average</a>(N,X.*Y,state.XY_mov);
+0200         <span class="comment">% calc running correlation  (assuming zero means)</span>
+0201         XY_corr = XY_cov ./ (sqrt(abs(X_var)).*sqrt(abs(Y_var)));
+0202         
+0203         <span class="comment">% determine matrix of bad channels</span>
+0204         bad_channels = XY_corr &lt; min_corr;
+0205         <span class="keyword">if</span> use_gpu
+0206             bad_channels = gather(bad_channels); <span class="keyword">end</span>
+0207             
+0208         <span class="comment">% get a mask of samples that need handling</span>
+0209         bad_samples = any(bad_channels);
+0210         pattern_indices = zeros(size(bad_samples));
+0211         <span class="comment">% get the unique breakage patterns and a vector that encodes where the patterns fall</span>
+0212         [patterns,dummy,pattern_indices(bad_samples)] = unique(bad_channels(:,bad_samples)',<span class="string">'rows'</span>); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0213         
+0214         <span class="comment">% for each such pattern...</span>
+0215         <span class="keyword">for</span> p=1:size(patterns,1)
+0216             patt = patterns(p,:);
+0217             <span class="comment">% generate the corresponding reconstruction matrix</span>
+0218             reconstruct = state.M*pinv(state.M(~patt,:));
+0219             <span class="comment">% apply it to the samples where the pattern occurs</span>
+0220             mask = p==pattern_indices;
+0221             signal.data(patt,range(mask)) = reconstruct(patt,:) * signal.data(~patt,range(mask));
+0222         <span class="keyword">end</span>
+0223     <span class="keyword">end</span>
+0224     <span class="keyword">if</span> splits &gt; 1
+0225         fprintf(<span class="string">'.'</span>); <span class="keyword">end</span>
+0226 <span class="keyword">end</span>
+0227 <span class="keyword">if</span> splits &gt; 1
+0228     fprintf(<span class="string">'\n'</span>); <span class="keyword">end</span>
+0229 
+0230 <span class="comment">% annotate signal with filter delay</span>
+0231 <span class="keyword">if</span> ~isfield(signal.etc,<span class="string">'filter_delay'</span>)
+0232     signal.etc.filter_delay = 0; <span class="keyword">end</span>
+0233 signal.etc.filter_delay = signal.etc.filter_delay+round(processing_delay*signal.srate)/signal.srate;
+0234 
+0235 <span class="comment">% carry the look-ahead portion of the data over to the state (for successive calls)</span>
+0236 state.carry = [state.carry signal.data(:,(end-P+1):end)];
+0237 state.carry = state.carry(:,(end-P+1):end);
+0238 <span class="keyword">if</span> use_gpu
+0239     state.iir = gather(state.iir);
+0240     state.X_mov = gather(state.X_mov);
+0241     state.Y_mov = gather(state.Y_mov);
+0242     state.XY_mov = gather(state.XY_mov);
+0243     state.projector = gather(state.projector);
+0244     state.M = gather(state.M);
+0245 <span class="keyword">end</span>
+0246 
+0247 <span class="comment">% finalize outputs</span>
+0248 signal.data = signal.data(:,1:(end-P));
+0249 
+0250 exp_endfun;
+0251 
+0252 
+0253 
+0254 <a name="_sub1" href="#_subfunctions" class="code">function [X,Zf] = moving_average(N,X,Zi)</a>
+0255 <span class="comment">% Run a moving-average filter along the second dimension of the data.</span>
+0256 <span class="comment">% [X,Zf] = moving_average(N,X,Zi)</span>
 0257 <span class="comment">%</span>
-0258 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0259 <span class="comment">%                           2012-01-10</span>
-0260 
-0261 <span class="keyword">if</span> nargin &lt;= 2 || isempty(Zi)
-0262     Zi = zeros(size(X,1),N); <span class="keyword">end</span>
-0263 
-0264 <span class="comment">% pre-pend initial state &amp; get dimensions</span>
-0265 Y = [Zi X]; M = size(Y,2);
-0266 <span class="comment">% get alternating index vector (for additions &amp; subtractions)</span>
-0267 I = [1:M-N; 1+N:M];
-0268 <span class="comment">% get sign vector (also alternating, and includes the scaling)</span>
-0269 S = [-ones(1,M-N); ones(1,M-N)]/N;
-0270 <span class="comment">% run moving average</span>
-0271 X = cumsum(bsxfun(@times,Y(:,I(:)),S(:)'),2);
-0272 <span class="comment">% read out result</span>
-0273 X = X(:,2:2:end);
-0274 
-0275 <span class="keyword">if</span> nargout &gt; 1
-0276     Zf = [-(X(:,end)*N-Y(:,end-N+1)) Y(:,end-N+2:end)]; <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0258 <span class="comment">% In:</span>
+0259 <span class="comment">%   N : filter length in samples</span>
+0260 <span class="comment">%   X : data matrix [#Channels x #Samples]</span>
+0261 <span class="comment">%   Zi : initial filter conditions (default: [])</span>
+0262 <span class="comment">%</span>
+0263 <span class="comment">% Out:</span>
+0264 <span class="comment">%   X : the filtered data</span>
+0265 <span class="comment">%   Zf : final filter conditions</span>
+0266 <span class="comment">%</span>
+0267 <span class="comment">%                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0268 <span class="comment">%                           2012-01-10</span>
+0269 
+0270 <span class="keyword">if</span> nargin &lt;= 2 || isempty(Zi)
+0271     Zi = zeros(size(X,1),N); <span class="keyword">end</span>
+0272 
+0273 <span class="comment">% pre-pend initial state &amp; get dimensions</span>
+0274 Y = [Zi X]; M = size(Y,2);
+0275 <span class="comment">% get alternating index vector (for additions &amp; subtractions)</span>
+0276 I = [1:M-N; 1+N:M];
+0277 <span class="comment">% get sign vector (also alternating, and includes the scaling)</span>
+0278 S = [-ones(1,M-N); ones(1,M-N)]/N;
+0279 <span class="comment">% run moving average</span>
+0280 X = cumsum(bsxfun(@times,Y(:,I(:)),S(:)'),2);
+0281 <span class="comment">% read out result</span>
+0282 X = X(:,2:2:end);
+0283 
+0284 <span class="keyword">if</span> nargout &gt; 1
+0285     Zf = [-(X(:,end)*N-Y(:,end-N+1)) Y(:,end-N+2:end)]; <span class="keyword">end</span>
+0286 
+0287 
+0288 
+0289 <a name="_sub2" href="#_subfunctions" class="code">function Y = randsample(X,num)</a>
+0290 Y = [];
+0291 <span class="keyword">while</span> length(Y)&lt;num
+0292     pick = round(1 + (length(X)-1).*rand);
+0293     Y(end+1) = X(pick);
+0294     X(pick) = [];
+0295 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

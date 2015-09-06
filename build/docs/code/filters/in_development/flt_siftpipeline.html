@@ -1,0 +1,254 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_siftpipeline</title>
+  <meta name="keywords" content="flt_siftpipeline">
+  <meta name="description" content="Implements a basic SIFT pipeline">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="../index.html">filters</a> &gt; <a href="index.html">in_development</a> &gt; flt_siftpipeline.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../../index.html"><img alt="<" border="0" src="../../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters/in_development&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
+
+<h1>flt_siftpipeline
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>Implements a basic SIFT pipeline</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="box"><strong>function [signal,state] = flt_siftpipeline(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Implements a basic SIFT pipeline 
+ (Preprocessing, Dynamical Modeling, Connectivity estimation)
+
+ This filter requires the Source Information Flow Toolbox
+ version 1.3b or later (http://sccn.ucsd.edu/wiki/SIFT)
+
+ A SIFT object will be returned in signal.CAT
+ See hlp_sift_emptyset() for object contents
+
+           Tim Mullen, SCCN/INC/UCSD 2012-14</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal,state] = flt_siftpipeline(varargin)</a>
+0002 <span class="comment">% Implements a basic SIFT pipeline</span>
+0003 <span class="comment">% (Preprocessing, Dynamical Modeling, Connectivity estimation)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This filter requires the Source Information Flow Toolbox</span>
+0006 <span class="comment">% version 1.3b or later (http://sccn.ucsd.edu/wiki/SIFT)</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% A SIFT object will be returned in signal.CAT</span>
+0009 <span class="comment">% See hlp_sift_emptyset() for object contents</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">%           Tim Mullen, SCCN/INC/UCSD 2012-14</span>
+0012 
+0013 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>), <span class="keyword">return</span>; <span class="keyword">end</span>
+0014 declare_properties(<span class="string">'name'</span>,<span class="string">'SIFT'</span>, <span class="string">'experimental'</span>,true, <span class="string">'follows'</span>,{<span class="string">'flt_ica'</span>,<span class="string">'flt_fir'</span>,<span class="string">'flt_iir'</span>,<span class="string">'flt_project'</span>,<span class="string">'flt_sourceLocalize'</span>}, <span class="string">'cannot_precede'</span>,{<span class="string">'flt_clean_settings'</span>},<span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,false);
+0015 signal = arg_extract(varargin,{<span class="string">'signal'</span>,<span class="string">'Signal'</span>,<span class="string">'EEG'</span>},[],[]);
+0016 
+0017 
+0018 <span class="comment">% signal.srcpot = [];</span>
+0019 signal.icaweights = [];
+0020 g = arg_define(varargin, <span class="keyword">...</span>
+0021         arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>,<span class="string">'EEG'</span>}), <span class="keyword">...</span>
+0022         arg({<span class="string">'channels'</span>,<span class="string">'Channels'</span>}, [], [], <span class="string">'Cell array of channel names to retain.'</span>,<span class="string">'type'</span>,<span class="string">'cellstr'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0023         arg_sub({<span class="string">'preproc'</span>,<span class="string">'Preprocessing'</span>},{<span class="string">'EEG'</span>,signal},@pre_prepData,<span class="string">'Pre-processing options'</span>), <span class="keyword">...</span>
+0024         arg_subswitch({<span class="string">'modeling'</span>,<span class="string">'Modeling'</span>},{<span class="string">'Segmentation VAR'</span> <span class="string">'EEG'</span>,signal}, <span class="keyword">...</span>
+0025             hlp_getModelingApproaches, <span class="string">'Select a modeling approach and define parameters.'</span>), <span class="keyword">...</span>
+0026         arg_subtoggle({<span class="string">'selModelOrder'</span>,<span class="string">'AutoSelectModelOrder'</span>},<span class="string">'off'</span>,<span class="keyword">...</span>
+0027         { <span class="keyword">...</span><span class="comment">  % FIXME: for some reason setting this as defaults in modelOrderSelection gens an error: {'plot','off','icselector',{'hq'}}</span>
+0028             arg_sub({<span class="string">'modelOrderSelection'</span>,<span class="string">'ModelOrderSelection'</span>},{<span class="string">'plot'</span>,<span class="string">'off'</span>,<span class="string">'icselector'</span>,{<span class="string">'hq'</span>}},@est_selModelOrder,<span class="string">'Model order selection control.'</span>,<span class="string">'suppress'</span>,{<span class="string">'modelingApproach'</span>}), <span class="keyword">...</span>
+0029             arg_subswitch({<span class="string">'minimizer'</span>,<span class="string">'Selector'</span>},{<span class="string">'min'</span>}, <span class="keyword">...</span>
+0030             {<span class="string">'elbow'</span>, {}, <span class="keyword">...</span>
+0031              <span class="string">'min'</span>,   {}, <span class="keyword">...</span>
+0032              <span class="string">'prctile'</span> <span class="keyword">...</span>
+0033              {arg({<span class="string">'prclim'</span>,<span class="string">'PercentileLimits'</span>},90,[1 100],<span class="string">'Upper percentile limit for order selection. If PercentileLimits = L, This selects the model order, p, for which L% of all sampled windows indicate an optimal model order of p or lower.'</span>)} <span class="keyword">...</span>
+0034              },<span class="string">'Method for determining optimal model order. If &quot;min&quot;, then the optimal model order is the one that minimizes the information criterion. If &quot;elbow&quot; then the optimal order is the elbow of the function of informaton criterion versus model order. If &quot;prctile&quot; then percentile is used.'</span>), <span class="keyword">...</span>
+0035         },<span class="string">'Automatically select model order'</span>), <span class="keyword">...</span>
+0036         arg_subtoggle({<span class="string">'connectivity'</span>,<span class="string">'Connectivity'</span>},{<span class="string">'EEG'</span>,signal,<span class="string">'MODEL'</span>,struct([]),<span class="string">'connmethods'</span>,{<span class="string">'S'</span>,<span class="string">'dDTF08'</span>}},@est_mvarConnectivity,<span class="string">'Select connectivity methods'</span>), <span class="keyword">...</span>
+0037         arg_subtoggle({<span class="string">'collapseconn'</span>,<span class="string">'CollapseConn'</span>},<span class="string">'off'</span>,@hlp_collapseConn,<span class="string">'Collapse connectivity across time or freq'</span>), <span class="keyword">...</span>
+0038         arg_subtoggle({<span class="string">'validation'</span>,<span class="string">'Validation'</span>},{<span class="string">'EEG'</span>,signal},@est_validateMVAR,<span class="string">'Validate Model fit'</span>), <span class="keyword">...</span>
+0039         arg({<span class="string">'printValidation'</span>,<span class="string">'PrintValidation'</span>},false,[],<span class="string">'Print validation output to console'</span>), <span class="keyword">...</span>
+0040         arg({<span class="string">'verb'</span>,<span class="string">'VerbosityLevel'</span>},0,uint32([0 2]),<span class="string">'Verbosity level. 0 = no output, 1 = text, 2 = graphical'</span>), <span class="keyword">...</span>
+0041         arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>}) <span class="keyword">...</span>
+0042         );
+0043 
+0044 <span class="keyword">if</span> g.selModelOrder.arg_selection &amp;&amp; length(g.selModelOrder.modelOrderSelection.icselector) &gt; 1
+0045     error(<span class="string">'SIFT:onl_siftpipeline:MoreThanOneIC'</span>,<span class="string">'Only one InformationCriterion can be selected for ModelOrderSelection.'</span>); <span class="keyword">end</span>
+0046             
+0047 state = g.state;
+0048 preproc = g.signal;
+0049 g      = rmfield(g,<span class="string">'signal'</span>);
+0050 
+0051 <span class="comment">% Implement basic SIFT pipeline (Preprocessing, Modeling, Connectivity)</span>
+0052 <span class="comment">% -------------------------------------------------------------------------</span>
+0053 
+0054 <span class="comment">% select channels</span>
+0055 <span class="comment">% -------------------------------------------------------------------------</span>
+0056 <span class="keyword">if</span> ~isempty(g.channels) <span class="keyword">...</span>
+0057         &amp;&amp; ~isequal(g.channels,1:preproc.nbchan) <span class="keyword">...</span>
+0058         &amp;&amp; ~isequal(g.channels,{char(zeros(1,0))}) <span class="comment">% TODO: remove last isequal hack</span>
+0059     preproc.chanlocs = preproc.chanlocs(g.channels);
+0060     preproc.data = preproc.data(g.channels,:,:);
+0061     preproc.nbchan = size(preproc.data,1);
+0062 <span class="keyword">end</span>
+0063 
+0064 
+0065 <span class="comment">% buffer data if not epoched</span>
+0066 <span class="comment">% -------------------------------------------------------------------------</span>
+0067 <span class="keyword">if</span> isempty(preproc.epoch)
+0068     <span class="comment">% initialize state if necessary</span>
+0069     <span class="keyword">if</span> isempty(state)
+0070         <span class="keyword">for</span> f = utl_timeseries_fields(signal)
+0071             state.(f{1}).buffer = zeros(size(signal.(f{1}),1),0); <span class="comment">% buffer of data carried over to next call</span>
+0072             state.(f{1}).next_index = 1;                          <span class="comment">% window start index relative to beginning of buffer (1-based)</span>
+0073         <span class="keyword">end</span>
+0074     <span class="keyword">end</span>
+0075     <span class="comment">% get the desired windowing</span>
+0076     winstep = max(1,round(g.modeling.winstep * preproc.srate));
+0077     winlen = max(1,round(g.modeling.winlen * preproc.srate));
+0078     <span class="comment">% get the field that serves as source data (this governs the buffering)</span>
+0079     srcFieldMap = struct(<span class="string">'Channels'</span>,<span class="string">'data'</span>,<span class="string">'Sources'</span>,<span class="string">'srcpot'</span>,<span class="string">'Components'</span>,<span class="string">'icaact'</span>);    
+0080     f = {srcFieldMap.(g.preproc.sigtype.arg_selection)};
+0081     <span class="comment">% prepend buffer contents to data (consistently for all time-series fields)</span>
+0082     <span class="keyword">for</span> tf = utl_timeseries_fields(preproc)
+0083         preproc.(tf{1}) = [state.(tf{1}).buffer preproc.(tf{1})]; <span class="keyword">end</span>
+0084     <span class="comment">% determine the correct window positions for the desired source signal</span>
+0085     g.modeling.winStartIdx = state.(f{1}).next_index:winstep:(size(preproc.(f{1}),2)-winlen+1);
+0086     g.modeling.winStartIdx(g.modeling.winStartIdx&lt;1) = [];
+0087     <span class="keyword">if</span> ~isempty(g.modeling.winStartIdx)
+0088         <span class="comment">% buffer all data that will be needed on the next call</span>
+0089         next_index = g.modeling.winStartIdx(end)+winstep;
+0090         <span class="keyword">for</span> tf = utl_timeseries_fields(preproc)
+0091             state.(tf{1}).buffer = preproc.(tf{1})(:,next_index:end); <span class="keyword">end</span>
+0092         <span class="comment">% decrement next_index based on how much we removed at the beginning</span>
+0093         state.(f{1}).next_index = next_index - (size(preproc.(f{1}),2) - size(state.(f{1}).buffer,2));
+0094     <span class="keyword">else</span>
+0095         <span class="comment">% if we cannot make a prediction keep everything buffered</span>
+0096         <span class="keyword">for</span> tf = utl_timeseries_fields(preproc)
+0097             state.(tf{1}).buffer = preproc.(tf{1}); <span class="keyword">end</span>
+0098     <span class="keyword">end</span>
+0099     <span class="comment">% consistently update signal meta-data</span>
+0100     preproc.pnts = size(preproc.data,2);
+0101     preproc.xmax = preproc.xmin + (preproc.pnts-1)/preproc.srate;
+0102 <span class="keyword">else</span>
+0103     <span class="comment">% TODO: handle epoched data</span>
+0104 <span class="keyword">end</span>
+0105 
+0106 <span class="keyword">if</span> isempty(preproc.epoch) &amp;&amp; isempty(g.modeling.winStartIdx)
+0107     <span class="comment">% data is empty, return empty model</span>
+0108     <span class="comment">% -------------------------------------------------------------------------</span>
+0109     signal.CAT = hlp_sift_emptyset;
+0110     signal.CAT.Conn = hlp_sift_emptyconn;
+0111     signal.CAT.MODEL = hlp_sift_emptymodel;
+0112     <span class="keyword">for</span> f=g.connectivity.connmethods(:)'
+0113         signal.CAT.Conn.(f{1}) = []; <span class="keyword">end</span>
+0114 <span class="keyword">else</span>
+0115 
+0116     <span class="comment">% pre-process data</span>
+0117     <span class="comment">% -------------------------------------------------------------------------</span>
+0118     preproc = pre_prepData(<span class="string">'EEG'</span>,preproc,g.preproc,<span class="string">'verb'</span>,g.verb,<span class="string">'arg_direct'</span>,true);
+0119 
+0120     <span class="comment">% get the m-file name of the function implementing the modeling approach</span>
+0121     <span class="comment">% -------------------------------------------------------------------------</span>
+0122     modelingFuncName = hlp_getModelingApproaches(<span class="string">'mfileNameOnly'</span>,g.modeling.arg_selection);
+0123 
+0124     <span class="comment">% determine optimal model order</span>
+0125     <span class="comment">% -------------------------------------------------------------------------</span>
+0126     <span class="keyword">if</span> g.selModelOrder.arg_selection
+0127         g.selModelOrder.modelOrderSelection.modelingApproach = g.modeling;
+0128         IC = est_selModelOrder(<span class="string">'EEG'</span>,preproc,g.selModelOrder.modelOrderSelection,<span class="string">'arg_direct'</span>,true);
+0129         <span class="keyword">if</span> iscell(IC), IC = IC{1}; <span class="keyword">end</span>
+0130         icselector = g.selModelOrder.modelOrderSelection.icselector{1};
+0131         <span class="keyword">switch</span> g.selModelOrder.minimizer.arg_selection
+0132             <span class="keyword">case</span> <span class="string">'min'</span>
+0133                 popt = ceil(mean(IC.(icselector).popt));                    
+0134             <span class="keyword">case</span> <span class="string">'elbow'</span>
+0135                 popt = ceil(mean(IC.(icselector).pelbow));
+0136             <span class="keyword">case</span> <span class="string">'prctile'</span>
+0137                 popt = ceil(prctile(IC.(icselector).popt,g.selModelOrder.minimizer.prclim));
+0138         <span class="keyword">end</span>
+0139         g.modeling.morder = popt;
+0140     <span class="keyword">end</span>
+0141 
+0142     <span class="comment">% fit model</span>
+0143     <span class="comment">% -------------------------------------------------------------------------</span>
+0144     preproc.data(~isfinite(preproc.data(:))) = 0;
+0145     preproc.CAT.MODEL = feval(modelingFuncName,<span class="string">'EEG'</span>,preproc,g.modeling,<span class="string">'verb'</span>,g.verb,<span class="string">'arg_direct'</span>,true);
+0146 
+0147     <span class="comment">% perform model validation</span>
+0148     <span class="comment">% -------------------------------------------------------------------------</span>
+0149     <span class="keyword">if</span> g.validation.arg_selection
+0150         [whitestats, PCstats, stability, residualstats] = est_validateMVAR(<span class="string">'EEG'</span>,preproc,g.validation,<span class="string">'arg_direct'</span>,true);
+0151         <span class="keyword">if</span> isempty(whitestats)
+0152             whitenessCriteria = {};
+0153         <span class="keyword">else</span>
+0154             whitenessCriteria = g.validation.checkWhiteness.whitenessCriteria;
+0155         <span class="keyword">end</span>
+0156         <span class="keyword">if</span> g.printValidation
+0157             vis_validation(whitestats,PCstats,stability,whitenessCriteria);
+0158         <span class="keyword">end</span>
+0159         <span class="comment">% store results</span>
+0160         preproc.CAT.validation.whitestats = whitestats;
+0161         preproc.CAT.validation.PCstats    = PCstats;
+0162         preproc.CAT.validation.stability  = stability;
+0163         preproc.CAT.validation.residualstats = residualstats;
+0164     <span class="keyword">end</span>
+0165 
+0166     <span class="comment">% calculate connectivity</span>
+0167     <span class="comment">% -------------------------------------------------------------------------</span>
+0168     <span class="keyword">if</span> g.connectivity.arg_selection
+0169         preproc.CAT.Conn = est_mvarConnectivity(<span class="string">'EEG'</span>,preproc,<span class="string">'MODEL'</span>,preproc.CAT.MODEL,g.connectivity,<span class="string">'verb'</span>,g.verb,<span class="string">'arg_direct'</span>,true);
+0170         <span class="keyword">if</span> g.collapseconn.arg_selection
+0171             [preproc.CAT.Conn, preproc.CAT.Conn.peak_freqs] = hlp_collapseConn(<span class="string">'Conn'</span>,preproc.CAT.Conn,g.collapseconn,<span class="string">'arg_direct'</span>,true);
+0172         <span class="keyword">end</span>
+0173     <span class="keyword">else</span>
+0174         preproc.CAT.Conn = [];
+0175     <span class="keyword">end</span>
+0176 
+0177     signal.CAT = preproc.CAT;
+0178 <span class="keyword">end</span>
+0179 
+0180 
+0181 <span class="comment">% append time-series fields</span>
+0182 <span class="keyword">for</span> f=vec(hlp_getConnMethodNames(signal.CAT.Conn))'
+0183     fname = f{1};
+0184     signal = utl_register_field(signal,<span class="string">'timeseries'</span>,fname,signal.CAT.Conn.(fname));  <span class="comment">% [space,space,freq,time]</span>
+0185     <span class="keyword">if</span> ~isempty(signal.(fname))
+0186         signal.(fname) = permute(signal.(fname),[1 4 5 2 3]);                        <span class="comment">% [space,time,epoch,space,freq]</span>
+0187     <span class="keyword">end</span>
+0188     signal.sift_ipermute = [1 4 5 2 3];
+0189 <span class="keyword">end</span>
+0190 
+0191 exp_endfun;</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

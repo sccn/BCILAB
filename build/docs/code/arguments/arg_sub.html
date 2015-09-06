@@ -4,7 +4,7 @@
 <head>
   <title>Description of arg_sub</title>
   <meta name="keywords" content="arg_sub">
-  <meta name="description" content="Specify an argument of a function which is a structure of sub-arguments.">
+  <meta name="description" content="Define an argument of a function which is a structure of sub-arguments.">
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
   <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
   <meta name="robots" content="index, follow">
@@ -18,23 +18,24 @@
 <td align="right"><a href="index.html">Index for code/arguments&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>arg_sub
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>Specify an argument of a function which is a structure of sub-arguments.</strong></div>
+<div class="box"><strong>Define an argument of a function which is a structure of sub-arguments.</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="box"><strong>function res = arg_sub(varargin) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre class="comment"> Specify an argument of a function which is a structure of sub-arguments.
+<div class="fragment"><pre class="comment"> Define an argument of a function which is a structure of sub-arguments.
  Spec = arg_sub(Names,Defaults,Source,Help,Options...)
 
- Delivered to the function as a struct, and visible in the GUI as a an expandable sub-list of
- arguments. A function may have an argument which itself consists of several arguments. For
- example, a function may be passing the contents of this struct as arguments to another function,
- or may just collect several arguments into sub-fields of a single struct. Differs from the default
- arg() function by allowing, instead of the Range, either a Source function which exposes a list of
+ Passed back to the function as a struct, and visible in the GUI as a sub-list of arguments. A
+ function may have an argument which itself consists of several sub-arguments. For example, a
+ function may be passing the contents of this struct as arguments to another function, or may just
+ collect several arguments into sub-fields of a single struct. Differs from the default arg()
+ function by allowing, instead of the Range, either a Source function which exposes a list of
  arguments (itself using arg_define), or a cell array with argument specifications, identical in
  format to the Specification part of an arg_define() clause.
 
@@ -44,25 +45,20 @@
            * The first name specified is the argument's &quot;code&quot; name, as it should appear in the
              function's code (= the name under which arg_define() returns it to the function).
            * The second name, if specified, is the &quot;Human-readable&quot; name, which is exposed in the
-             GUIs (if omitted, the code name is displayed).
-           * Further specified names are alternative names for the argument (e.g., for backwards
+             GUIs (if omitted, the code name is displayed). For consistency with other MATLAB 
+             functions it should be in CamelCase.
+           * Further specified names are aliases for the argument (e.g., for backwards
              compatibility with older function syntaxes/parameter names).
 
-   Defaults : A cell array of arguments to override defaults for the Source; all syntax accepted by
-              the Source is allowed here, whereas in the case of positional arguments, the leading
-              arg_norep() arguments of the source are implicitly skipped. If empty, the defaults of
-              the Source are unaffected.
+   Defaults : A cell array of values to override defaults for the Source; all syntax accepted by
+              the Source is allowed here, although it is recommended to pass the Defaults (and the
+              values to be assigned to the arg_sub) as NVPs/structs. (default: {})
 
-   Source : A source of argument specifications, usually a function handle (referring to a function
-            which defines arguments via arg_define()).
+   Source : A source of argument specifications, either a function handle (referring to a function
+            which defines arguments via arg_define()) or a cell array with a list of argument
+            declarations. (default: {})
 
-            For convenience, a cell array with a list of argument declarations, formatted like the
-            Specification part of an arg_define() clause can be given, instead. In this case, the
-            effect is the same as specifying @some_function, for a function implemented as:
-
-               function some_function(varargin) arg_define(Format,varargin,Source{:});
-
-   Help : The help text for this argument (displayed inside GUIs), optional. (default: []).
+   Help : The help text for this argument (displayed inside GUIs), optional. (default: '').
           (Developers: Please do *not* omit this, as it is the key bridge between ease of use and
           advanced functionality.)
 
@@ -72,32 +68,24 @@
           sentence). If ambiguous, the help can also be specified as a cell array of 2 cells.
 
    Options... : Optional name-value pairs to denote additional properties:
-                 'cat' :  The human-readable category of this argument, helpful to present a list
-                          of many parameters in a categorized list, and to separate &quot;Core
-                          Parameters&quot; from &quot;Miscellaneous&quot; arguments. Developers: When choosing
-                          names, every bit of consistency with other function in the toolbox helps
-                          the uses find their way (default: []).
+                 'reflag' : list of {'subargument-name',overrides, 'subargument-name',overrides, ...}
+                            that allows to selectively override flags (e.g., 'guru') in the
+                            sub-arguments. The overrides are themselves cell arrays of name-value
+                            pairs, e.g., {'displayable',false, 'guru',true, 'deprecated',false}
 
-                 'fmt' : Optional format specification for the Source (if it is a cell array)
-                         (default: []). See arg_define() for a detailed explanation.
+                 'suppress' : A simpler alternative to reflag that holds a list of argument names
+                              that shall be suppressed from GUIs (by setting displayable to false).
 
-                 'merge': Whether a value (cell array of arguments) assigned to this argument
-                          should completely replace all arguments of the default, or whether
-                          instead the two cell arrays should be concatenated ('merged'), so that
-                          defaults are only selectively overridden. Note that for concatenation to
-                          make sense, the cell array of Defaults cannot be some subset of all
-                          allowed positional arguments, but must instead either be the full set of
-                          positional arguments (and possibly some NVPs) or be specified as NVPs in
-                          the first place. (default: true)
+                 'fmt' : Optional format specification for the Source (default: [0 Inf]). 
+                         See arg_define() for a detailed explanation.
+
+                 others: as in arg()
 
  Out:
-   Spec : A cell array, that, when called as spec{1}(reptype,spec{2}{:}), yields a specification of
-          the argument, for use by arg_define. Technical note: Upon assignment with a value (via
-          the assigner field), the 'children' field of the specifier struct is populated according
-          to how the Source parses the value into arguments.
-
- Notes:
-   for MATLAB versions older than 2008a, type and shape checking is not necessarily enforced.
+   Spec : A cell array, that, when called as feval(spec{1},reptype,spec{2}{:}), yields a specification of
+          the argument, for use by arg_define. Technical note: Upon assignment with a value, the
+          'children' field of the specifier struct is populated according to how the Source parses
+          the value into arguments.
 
  Examples:
    % define 3 arguments for a function, including one which is a struct of two other arguments.
@@ -143,7 +131,7 @@
            }, 'Struct argument. This argument has sub-structure. Assign it as a string of the form ''name=value; name=value;''.', 'fmt',@myparser), ...
 
  See also:
-   <a href="arg.html" class="code" title="function res = arg(varargin)">arg</a>, <a href="arg_nogui.html" class="code" title="function res = arg_nogui(varargin)">arg_nogui</a>, <a href="arg_norep.html" class="code" title="function res = arg_norep(varargin)">arg_norep</a>, <a href="arg_subswitch.html" class="code" title="function res = arg_subswitch(varargin)">arg_subswitch</a>, <a href="arg_subtoggle.html" class="code" title="function res = arg_subtoggle(varargin)">arg_subtoggle</a>, <a href="arg_define.html" class="code" title="function res = arg_define(vals,varargin)">arg_define</a>
+   <a href="arg.html" class="code" title="function res = arg(varargin)">arg</a>, <a href="arg_nogui.html" class="code" title="function res = arg_nogui(varargin)">arg_nogui</a>, <a href="arg_norep.html" class="code" title="function res = arg_norep(varargin)">arg_norep</a>, <a href="arg_subswitch.html" class="code" title="function res = arg_subswitch(varargin)">arg_subswitch</a>, <a href="arg_subtoggle.html" class="code" title="function res = arg_subtoggle(varargin)">arg_subtoggle</a>, <a href="arg_define.html" class="code" title="function outstruct = arg_define(vals,varargin)">arg_define</a>
 
                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                                 2010-09-24</pre></div>
@@ -152,26 +140,29 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="arg_define.html" class="code" title="function res = arg_define(vals,varargin)">arg_define</a>	Declare function arguments with optional defaults and built-in GUI support.</li><li><a href="arg_report.html" class="code" title="function res = arg_report(type,func,args)">arg_report</a>	Report information of a certain Type from the given Function.</li><li><a href="arg_specifier.html" class="code" title="function spec = arg_specifier(varargin)">arg_specifier</a>	Internal: create a base specifier struct for an argument.</li><li><a href="arg_sub.html" class="code" title="function res = arg_sub(varargin)">arg_sub</a>	Specify an argument of a function which is a structure of sub-arguments.</li><li><a href="parse_help.html" class="code" title="function help = parse_help(help,summary_len)">parse_help</a>	helper function for the arg* specifiers, to parse the help into a first and second part.</li></ul>
+
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="arg_sub.html" class="code" title="function res = arg_sub(varargin)">arg_sub</a>	Specify an argument of a function which is a structure of sub-arguments.</li></ul>
+
+</ul>
 <!-- crossreference -->
 
-<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function spec = invoke_argsub_cached(varargin)</a></li><li><a href="#_sub2" class="code">function spec = invoke_argsub(reptype,names,defaults,source,help,varargin)</a></li><li><a href="#_sub3" class="code">function spec = assign_argsub(spec,value,reptype,source,default,suppressNames)</a></li></ul>
+
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function res = arg_sub(varargin)</a>
-0002 <span class="comment">% Specify an argument of a function which is a structure of sub-arguments.</span>
+0002 <span class="comment">% Define an argument of a function which is a structure of sub-arguments.</span>
 0003 <span class="comment">% Spec = arg_sub(Names,Defaults,Source,Help,Options...)</span>
 0004 <span class="comment">%</span>
-0005 <span class="comment">% Delivered to the function as a struct, and visible in the GUI as a an expandable sub-list of</span>
-0006 <span class="comment">% arguments. A function may have an argument which itself consists of several arguments. For</span>
-0007 <span class="comment">% example, a function may be passing the contents of this struct as arguments to another function,</span>
-0008 <span class="comment">% or may just collect several arguments into sub-fields of a single struct. Differs from the default</span>
-0009 <span class="comment">% arg() function by allowing, instead of the Range, either a Source function which exposes a list of</span>
+0005 <span class="comment">% Passed back to the function as a struct, and visible in the GUI as a sub-list of arguments. A</span>
+0006 <span class="comment">% function may have an argument which itself consists of several sub-arguments. For example, a</span>
+0007 <span class="comment">% function may be passing the contents of this struct as arguments to another function, or may just</span>
+0008 <span class="comment">% collect several arguments into sub-fields of a single struct. Differs from the default arg()</span>
+0009 <span class="comment">% function by allowing, instead of the Range, either a Source function which exposes a list of</span>
 0010 <span class="comment">% arguments (itself using arg_define), or a cell array with argument specifications, identical in</span>
 0011 <span class="comment">% format to the Specification part of an arg_define() clause.</span>
 0012 <span class="comment">%</span>
@@ -181,219 +172,113 @@ This function is called by:
 0016 <span class="comment">%           * The first name specified is the argument's &quot;code&quot; name, as it should appear in the</span>
 0017 <span class="comment">%             function's code (= the name under which arg_define() returns it to the function).</span>
 0018 <span class="comment">%           * The second name, if specified, is the &quot;Human-readable&quot; name, which is exposed in the</span>
-0019 <span class="comment">%             GUIs (if omitted, the code name is displayed).</span>
-0020 <span class="comment">%           * Further specified names are alternative names for the argument (e.g., for backwards</span>
-0021 <span class="comment">%             compatibility with older function syntaxes/parameter names).</span>
-0022 <span class="comment">%</span>
-0023 <span class="comment">%   Defaults : A cell array of arguments to override defaults for the Source; all syntax accepted by</span>
-0024 <span class="comment">%              the Source is allowed here, whereas in the case of positional arguments, the leading</span>
-0025 <span class="comment">%              arg_norep() arguments of the source are implicitly skipped. If empty, the defaults of</span>
-0026 <span class="comment">%              the Source are unaffected.</span>
+0019 <span class="comment">%             GUIs (if omitted, the code name is displayed). For consistency with other MATLAB</span>
+0020 <span class="comment">%             functions it should be in CamelCase.</span>
+0021 <span class="comment">%           * Further specified names are aliases for the argument (e.g., for backwards</span>
+0022 <span class="comment">%             compatibility with older function syntaxes/parameter names).</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">%   Defaults : A cell array of values to override defaults for the Source; all syntax accepted by</span>
+0025 <span class="comment">%              the Source is allowed here, although it is recommended to pass the Defaults (and the</span>
+0026 <span class="comment">%              values to be assigned to the arg_sub) as NVPs/structs. (default: {})</span>
 0027 <span class="comment">%</span>
-0028 <span class="comment">%   Source : A source of argument specifications, usually a function handle (referring to a function</span>
-0029 <span class="comment">%            which defines arguments via arg_define()).</span>
-0030 <span class="comment">%</span>
-0031 <span class="comment">%            For convenience, a cell array with a list of argument declarations, formatted like the</span>
-0032 <span class="comment">%            Specification part of an arg_define() clause can be given, instead. In this case, the</span>
-0033 <span class="comment">%            effect is the same as specifying @some_function, for a function implemented as:</span>
-0034 <span class="comment">%</span>
-0035 <span class="comment">%               function some_function(varargin) arg_define(Format,varargin,Source{:});</span>
-0036 <span class="comment">%</span>
-0037 <span class="comment">%   Help : The help text for this argument (displayed inside GUIs), optional. (default: []).</span>
-0038 <span class="comment">%          (Developers: Please do *not* omit this, as it is the key bridge between ease of use and</span>
-0039 <span class="comment">%          advanced functionality.)</span>
+0028 <span class="comment">%   Source : A source of argument specifications, either a function handle (referring to a function</span>
+0029 <span class="comment">%            which defines arguments via arg_define()) or a cell array with a list of argument</span>
+0030 <span class="comment">%            declarations. (default: {})</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%   Help : The help text for this argument (displayed inside GUIs), optional. (default: '').</span>
+0033 <span class="comment">%          (Developers: Please do *not* omit this, as it is the key bridge between ease of use and</span>
+0034 <span class="comment">%          advanced functionality.)</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">%          The first sentence should be the executive summary (max. 60 chars), any further sentences</span>
+0037 <span class="comment">%          are a detailed explanation (examples, units, considerations). The end of the first</span>
+0038 <span class="comment">%          sentence is indicated by a '. ' followed by a capital letter (beginning of the next</span>
+0039 <span class="comment">%          sentence). If ambiguous, the help can also be specified as a cell array of 2 cells.</span>
 0040 <span class="comment">%</span>
-0041 <span class="comment">%          The first sentence should be the executive summary (max. 60 chars), any further sentences</span>
-0042 <span class="comment">%          are a detailed explanation (examples, units, considerations). The end of the first</span>
-0043 <span class="comment">%          sentence is indicated by a '. ' followed by a capital letter (beginning of the next</span>
-0044 <span class="comment">%          sentence). If ambiguous, the help can also be specified as a cell array of 2 cells.</span>
-0045 <span class="comment">%</span>
-0046 <span class="comment">%   Options... : Optional name-value pairs to denote additional properties:</span>
-0047 <span class="comment">%                 'cat' :  The human-readable category of this argument, helpful to present a list</span>
-0048 <span class="comment">%                          of many parameters in a categorized list, and to separate &quot;Core</span>
-0049 <span class="comment">%                          Parameters&quot; from &quot;Miscellaneous&quot; arguments. Developers: When choosing</span>
-0050 <span class="comment">%                          names, every bit of consistency with other function in the toolbox helps</span>
-0051 <span class="comment">%                          the uses find their way (default: []).</span>
+0041 <span class="comment">%   Options... : Optional name-value pairs to denote additional properties:</span>
+0042 <span class="comment">%                 'reflag' : list of {'subargument-name',overrides, 'subargument-name',overrides, ...}</span>
+0043 <span class="comment">%                            that allows to selectively override flags (e.g., 'guru') in the</span>
+0044 <span class="comment">%                            sub-arguments. The overrides are themselves cell arrays of name-value</span>
+0045 <span class="comment">%                            pairs, e.g., {'displayable',false, 'guru',true, 'deprecated',false}</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">%                 'suppress' : A simpler alternative to reflag that holds a list of argument names</span>
+0048 <span class="comment">%                              that shall be suppressed from GUIs (by setting displayable to false).</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">%                 'fmt' : Optional format specification for the Source (default: [0 Inf]).</span>
+0051 <span class="comment">%                         See arg_define() for a detailed explanation.</span>
 0052 <span class="comment">%</span>
-0053 <span class="comment">%                 'fmt' : Optional format specification for the Source (if it is a cell array)</span>
-0054 <span class="comment">%                         (default: []). See arg_define() for a detailed explanation.</span>
-0055 <span class="comment">%</span>
-0056 <span class="comment">%                 'merge': Whether a value (cell array of arguments) assigned to this argument</span>
-0057 <span class="comment">%                          should completely replace all arguments of the default, or whether</span>
-0058 <span class="comment">%                          instead the two cell arrays should be concatenated ('merged'), so that</span>
-0059 <span class="comment">%                          defaults are only selectively overridden. Note that for concatenation to</span>
-0060 <span class="comment">%                          make sense, the cell array of Defaults cannot be some subset of all</span>
-0061 <span class="comment">%                          allowed positional arguments, but must instead either be the full set of</span>
-0062 <span class="comment">%                          positional arguments (and possibly some NVPs) or be specified as NVPs in</span>
-0063 <span class="comment">%                          the first place. (default: true)</span>
-0064 <span class="comment">%</span>
-0065 <span class="comment">% Out:</span>
-0066 <span class="comment">%   Spec : A cell array, that, when called as spec{1}(reptype,spec{2}{:}), yields a specification of</span>
-0067 <span class="comment">%          the argument, for use by arg_define. Technical note: Upon assignment with a value (via</span>
-0068 <span class="comment">%          the assigner field), the 'children' field of the specifier struct is populated according</span>
-0069 <span class="comment">%          to how the Source parses the value into arguments.</span>
-0070 <span class="comment">%</span>
-0071 <span class="comment">% Notes:</span>
-0072 <span class="comment">%   for MATLAB versions older than 2008a, type and shape checking is not necessarily enforced.</span>
-0073 <span class="comment">%</span>
-0074 <span class="comment">% Examples:</span>
-0075 <span class="comment">%   % define 3 arguments for a function, including one which is a struct of two other arguments.</span>
-0076 <span class="comment">%   % some valid calls to the function are:</span>
-0077 <span class="comment">%   %   myfunction('somearg',false, 'anotherarg',10, 'structarg',{'myarg1',5,'myarg2','xyz'})</span>
-0078 <span class="comment">%   %   myfunction(false, 10, {'myarg1',5,'myarg2','xyz'})</span>
-0079 <span class="comment">%   %   myfunction('structarg',{'myarg2','xyz'}, 'somearg',false)</span>
-0080 <span class="comment">%   %   myfunction('structarg',struct('myarg2','xyz','myarg1',10), 'somearg',false)</span>
-0081 <span class="comment">%   function myfunction(varargin)</span>
-0082 <span class="comment">%   arg_define(varargin, ...</span>
-0083 <span class="comment">%       arg('somearg',true,[],'Some argument.'),...</span>
-0084 <span class="comment">%       arg_sub('structarg',{},{ ...</span>
-0085 <span class="comment">%           arg('myarg1',4,[],'Some sub-argument. This is a sub-argument of the argument named structarg in the function'), ...</span>
-0086 <span class="comment">%           arg('myarg2','test',[],'Another sub-argument. This, too, is a sub-argument of structarg.')</span>
-0087 <span class="comment">%           }, 'Struct argument. This argument has sub-structure. It can generally be assigned a cell array of name-value pairs, or a struct.'), ...</span>
-0088 <span class="comment">%       arg('anotherarg',5,[],'Another argument. This is a regular numeric argument of myfunction again.));</span>
+0053 <span class="comment">%                 others: as in arg()</span>
+0054 <span class="comment">%</span>
+0055 <span class="comment">% Out:</span>
+0056 <span class="comment">%   Spec : A cell array, that, when called as feval(spec{1},reptype,spec{2}{:}), yields a specification of</span>
+0057 <span class="comment">%          the argument, for use by arg_define. Technical note: Upon assignment with a value, the</span>
+0058 <span class="comment">%          'children' field of the specifier struct is populated according to how the Source parses</span>
+0059 <span class="comment">%          the value into arguments.</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">% Examples:</span>
+0062 <span class="comment">%   % define 3 arguments for a function, including one which is a struct of two other arguments.</span>
+0063 <span class="comment">%   % some valid calls to the function are:</span>
+0064 <span class="comment">%   %   myfunction('somearg',false, 'anotherarg',10, 'structarg',{'myarg1',5,'myarg2','xyz'})</span>
+0065 <span class="comment">%   %   myfunction(false, 10, {'myarg1',5,'myarg2','xyz'})</span>
+0066 <span class="comment">%   %   myfunction('structarg',{'myarg2','xyz'}, 'somearg',false)</span>
+0067 <span class="comment">%   %   myfunction('structarg',struct('myarg2','xyz','myarg1',10), 'somearg',false)</span>
+0068 <span class="comment">%   function myfunction(varargin)</span>
+0069 <span class="comment">%   arg_define(varargin, ...</span>
+0070 <span class="comment">%       arg('somearg',true,[],'Some argument.'),...</span>
+0071 <span class="comment">%       arg_sub('structarg',{},{ ...</span>
+0072 <span class="comment">%           arg('myarg1',4,[],'Some sub-argument. This is a sub-argument of the argument named structarg in the function'), ...</span>
+0073 <span class="comment">%           arg('myarg2','test',[],'Another sub-argument. This, too, is a sub-argument of structarg.')</span>
+0074 <span class="comment">%           }, 'Struct argument. This argument has sub-structure. It can generally be assigned a cell array of name-value pairs, or a struct.'), ...</span>
+0075 <span class="comment">%       arg('anotherarg',5,[],'Another argument. This is a regular numeric argument of myfunction again.));</span>
+0076 <span class="comment">%</span>
+0077 <span class="comment">%   % define a struct argument with some overridden defaults</span>
+0078 <span class="comment">%       arg_sub('structarg',{'myarg2','toast'},{ ...</span>
+0079 <span class="comment">%           arg('myarg1',4,[],'Some sub-argument. This is a sub-argument of the argument named structarg in the function'), ...</span>
+0080 <span class="comment">%           arg('myarg2','test',[],'Another sub-argument. This, too, is a sub-argument of structarg.')</span>
+0081 <span class="comment">%           }, 'Struct argument. This argument has sub-structure. It can generally be assigned a cell array of name-value pairs, or a struct.'), ...</span>
+0082 <span class="comment">%</span>
+0083 <span class="comment">%   % define an arguments including one whose sub-parameters match those that are declared in some</span>
+0084 <span class="comment">%   % other function (@myotherfunction), which uses arg_define itself</span>
+0085 <span class="comment">%   function myfunction(varargin)</span>
+0086 <span class="comment">%   arg_define(varargin, ...</span>
+0087 <span class="comment">%       arg('somearg',[],[],'Some help text.'), ...</span>
+0088 <span class="comment">%       arg_sub('structarg',{},@myotherfunction, 'A struct argument. Arguments are as in myotherfunction(), can be assigned as a cell array of name-value pairs or structs.'));</span>
 0089 <span class="comment">%</span>
-0090 <span class="comment">%   % define a struct argument with some overridden defaults</span>
-0091 <span class="comment">%       arg_sub('structarg',{'myarg2','toast'},{ ...</span>
-0092 <span class="comment">%           arg('myarg1',4,[],'Some sub-argument. This is a sub-argument of the argument named structarg in the function'), ...</span>
-0093 <span class="comment">%           arg('myarg2','test',[],'Another sub-argument. This, too, is a sub-argument of structarg.')</span>
-0094 <span class="comment">%           }, 'Struct argument. This argument has sub-structure. It can generally be assigned a cell array of name-value pairs, or a struct.'), ...</span>
-0095 <span class="comment">%</span>
-0096 <span class="comment">%   % define an arguments including one whose sub-parameters match those that are declared in some</span>
-0097 <span class="comment">%   % other function (@myotherfunction), which uses arg_define itself</span>
-0098 <span class="comment">%   function myfunction(varargin)</span>
-0099 <span class="comment">%   arg_define(varargin, ...</span>
-0100 <span class="comment">%       arg('somearg',[],[],'Some help text.'), ...</span>
-0101 <span class="comment">%       arg_sub('structarg',{},@myotherfunction, 'A struct argument. Arguments are as in myotherfunction(), can be assigned as a cell array of name-value pairs or structs.'));</span>
-0102 <span class="comment">%</span>
-0103 <span class="comment">%   % define an argument with sub-parameters sourced from some other function, but with partially overridden defaults</span>
-0104 <span class="comment">%       arg_sub('structarg',{'myarg1',1001},@myotherfunction, 'A struct argument. Arguments are as in myotherfunction(), can be assigned as a cell array of name-value pairs or structs.'));</span>
-0105 <span class="comment">%</span>
-0106 <span class="comment">%   % define an argument with sub-parameters sourced from some other function, with a particular set of custom defaults</span>
-0107 <span class="comment">%   % which are jointly replaced when a value is assigned to structarg (including an empty cell array)</span>
-0108 <span class="comment">%       arg_sub('structarg',{'myarg1',1001},@myotherfunction, 'A struct argument. Arguments are as in myotherfunction().', 'merge',false));</span>
-0109 <span class="comment">%</span>
-0110 <span class="comment">%   % define a struct argument with a custom formatting function (analogously to the optional Format function in arg_define)</span>
-0111 <span class="comment">%   % myparser shall be a function that takes a string and returns a cell array of name-value pairs (names compatible to the sub-argument names)</span>
-0112 <span class="comment">%       arg_sub('structarg',{},{ ...</span>
-0113 <span class="comment">%           arg('myarg1',4,[],'Some sub-argument. This is a sub-argument of the argument named structarg in the function'), ...</span>
-0114 <span class="comment">%           arg('myarg2','test',[],'Another sub-argument. This, too, is a sub-argument of structarg.')</span>
-0115 <span class="comment">%           }, 'Struct argument. This argument has sub-structure. Assign it as a string of the form ''name=value; name=value;''.', 'fmt',@myparser), ...</span>
-0116 <span class="comment">%</span>
-0117 <span class="comment">% See also:</span>
-0118 <span class="comment">%   arg, arg_nogui, arg_norep, arg_subswitch, arg_subtoggle, arg_define</span>
+0090 <span class="comment">%   % define an argument with sub-parameters sourced from some other function, but with partially overridden defaults</span>
+0091 <span class="comment">%       arg_sub('structarg',{'myarg1',1001},@myotherfunction, 'A struct argument. Arguments are as in myotherfunction(), can be assigned as a cell array of name-value pairs or structs.'));</span>
+0092 <span class="comment">%</span>
+0093 <span class="comment">%   % define an argument with sub-parameters sourced from some other function, with a particular set of custom defaults</span>
+0094 <span class="comment">%   % which are jointly replaced when a value is assigned to structarg (including an empty cell array)</span>
+0095 <span class="comment">%       arg_sub('structarg',{'myarg1',1001},@myotherfunction, 'A struct argument. Arguments are as in myotherfunction().', 'merge',false));</span>
+0096 <span class="comment">%</span>
+0097 <span class="comment">%   % define a struct argument with a custom formatting function (analogously to the optional Format function in arg_define)</span>
+0098 <span class="comment">%   % myparser shall be a function that takes a string and returns a cell array of name-value pairs (names compatible to the sub-argument names)</span>
+0099 <span class="comment">%       arg_sub('structarg',{},{ ...</span>
+0100 <span class="comment">%           arg('myarg1',4,[],'Some sub-argument. This is a sub-argument of the argument named structarg in the function'), ...</span>
+0101 <span class="comment">%           arg('myarg2','test',[],'Another sub-argument. This, too, is a sub-argument of structarg.')</span>
+0102 <span class="comment">%           }, 'Struct argument. This argument has sub-structure. Assign it as a string of the form ''name=value; name=value;''.', 'fmt',@myparser), ...</span>
+0103 <span class="comment">%</span>
+0104 <span class="comment">% See also:</span>
+0105 <span class="comment">%   arg, arg_nogui, arg_norep, arg_subswitch, arg_subtoggle, arg_define</span>
+0106 <span class="comment">%</span>
+0107 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0108 <span class="comment">%                                2010-09-24</span>
+0109 
+0110 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
+0111 <span class="comment">%</span>
+0112 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0113 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0114 <span class="comment">% License, or (at your option) any later version.</span>
+0115 <span class="comment">%</span>
+0116 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0117 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0118 <span class="comment">% General Public License for more details.</span>
 0119 <span class="comment">%</span>
-0120 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0121 <span class="comment">%                                2010-09-24</span>
-0122 
-0123 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2010, christian@sccn.ucsd.edu</span>
-0124 <span class="comment">%</span>
-0125 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
-0126 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
-0127 <span class="comment">% License, or (at your option) any later version.</span>
-0128 <span class="comment">%</span>
-0129 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
-0130 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
-0131 <span class="comment">% General Public License for more details.</span>
-0132 <span class="comment">%</span>
-0133 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
-0134 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
-0135 <span class="comment">% USA</span>
-0136 
-0137 <span class="comment">% we return a function that an be invoked to yield a specification (its output is cached for</span>
-0138 <span class="comment">% efficiency) packed in a cell array together with the remaining arguments</span>
-0139 res = {@<a href="#_sub1" class="code" title="subfunction spec = invoke_argsub_cached(varargin)">invoke_argsub_cached</a>,varargin};
-0140 
-0141 
-0142 <a name="_sub1" href="#_subfunctions" class="code">function spec = invoke_argsub_cached(varargin)</a>
-0143 spec = hlp_microcache(<span class="string">'arg'</span>,@<a href="#_sub2" class="code" title="subfunction spec = invoke_argsub(reptype,names,defaults,source,help,varargin)">invoke_argsub</a>,varargin{:});
-0144 
-0145 
-0146 <span class="comment">% the function that does the actual work of building the argument specifier</span>
-0147 <a name="_sub2" href="#_subfunctions" class="code">function spec = invoke_argsub(reptype,names,defaults,source,help,varargin)</a>
-0148 
-0149 <span class="comment">% start with a base specification</span>
-0150 spec = <a href="arg_specifier.html" class="code" title="function spec = arg_specifier(varargin)">arg_specifier</a>(<span class="string">'head'</span>,@<a href="arg_sub.html" class="code" title="function res = arg_sub(varargin)">arg_sub</a>,<span class="string">'fmt'</span>,[], <span class="string">'value'</span>,<span class="string">''</span>, <span class="string">'type'</span>,<span class="string">'char'</span>, <span class="string">'shape'</span>,<span class="string">'row'</span>);
-0151 
-0152 suppressNames = {};
-0153 
-0154 <span class="comment">% override properties</span>
-0155 <span class="keyword">if</span> exist(<span class="string">'names'</span>,<span class="string">'var'</span>)
-0156     spec.names = names; <span class="keyword">end</span>
-0157 <span class="keyword">if</span> exist(<span class="string">'help'</span>,<span class="string">'var'</span>)
-0158     spec.help = help; <span class="keyword">end</span>
-0159 <span class="keyword">for</span> k=1:2:length(varargin)
-0160     <span class="keyword">if</span> isfield(spec,varargin{k})
-0161         spec.(varargin{k}) = varargin{k+1}; 
-0162     <span class="keyword">elseif</span> strcmpi(varargin{k},<span class="string">'suppress'</span>)
-0163         suppressNames = varargin{k+1};
-0164     <span class="keyword">else</span>
-0165         error(<span class="string">'BCILAB:arg:no_new_fields'</span>,<span class="string">'It is not allowed to introduce fields into a specifier that are not declared in arg_specifier.'</span>);
-0166     <span class="keyword">end</span>
-0167 <span class="keyword">end</span>
-0168 
-0169 <span class="comment">% do checking</span>
-0170 <span class="keyword">if</span> ~iscell(spec.names)
-0171     spec.names = {spec.names}; <span class="keyword">end</span>
-0172 <span class="keyword">if</span> isempty(spec.names) || ~iscellstr(spec.names)
-0173     error(<span class="string">'The argument must have a name or cell array of names.'</span>); <span class="keyword">end</span>
-0174 <span class="keyword">if</span> ~exist(<span class="string">'source'</span>,<span class="string">'var'</span>) || isequal(source,[])
-0175     error(<span class="string">'BCILAB:args:no_source'</span>,<span class="string">'The Source argument for arg_sub() may not be omitted.'</span>); <span class="keyword">end</span> <span class="comment">%#ok&lt;*NODEF&gt;</span>
-0176 <span class="comment">% parse the help</span>
-0177 <span class="keyword">if</span> ~isempty(spec.help)
-0178     <span class="keyword">try</span>
-0179         spec.help = <a href="parse_help.html" class="code" title="function help = parse_help(help,summary_len)">parse_help</a>(spec.help,100);
-0180     <span class="keyword">catch</span> e
-0181         disp([<span class="string">'Problem with the help text for argument '</span> spec.names{1} <span class="string">': '</span> e.message]);
-0182         spec.help = {};
-0183     <span class="keyword">end</span>
-0184 <span class="keyword">elseif</span> spec.reportable &amp;&amp; spec.displayable
-0185     disp([<span class="string">'Please specify a description for argument '</span> spec.names{1} <span class="string">', or specify it via arg_nogui() instead.'</span>]);
-0186 <span class="keyword">end</span>
-0187 
-0188 <span class="keyword">if</span> ~isempty(source)
-0189     <span class="comment">% uniformize Source syntax</span>
-0190     <span class="keyword">if</span> iscell(source)
-0191         <span class="comment">% args is a cell array instead of a function: we effectively turn this into a regular</span>
-0192         <span class="comment">% arg_define-using function (taking &amp; parsing values)</span>
-0193         source = @(varargin) <a href="arg_define.html" class="code" title="function res = arg_define(vals,varargin)">arg_define</a>(spec.fmt,varargin,source{:});
-0194     <span class="keyword">else</span>
-0195         <span class="comment">% args is a function: was a custom format specified?</span>
-0196         <span class="keyword">if</span> isa(spec.fmt,<span class="string">'function_handle'</span>)
-0197             source = @(varargin) source(spec.fmt(varargin));
-0198         <span class="keyword">elseif</span> ~isempty(spec.fmt)
-0199             error(<span class="string">'The only allowed form in which the Format of a Source that is a function may be overridden is as a pre-parser (given as a function handle)'</span>);
-0200         <span class="keyword">end</span>
-0201     <span class="keyword">end</span>
-0202 <span class="keyword">end</span>
-0203 spec = rmfield(spec,<span class="string">'fmt'</span>);
-0204 
-0205 <span class="comment">% assignment to this object does not touch the value, but instead creates a new children structure</span>
-0206 spec.assigner = @(spec,value) <a href="#_sub3" class="code" title="subfunction spec = assign_argsub(spec,value,reptype,source,default,suppressNames)">assign_argsub</a>(spec,value,reptype,source,defaults,suppressNames);
-0207 
-0208 <span class="comment">% assign the default</span>
-0209 spec = <a href="#_sub3" class="code" title="subfunction spec = assign_argsub(spec,value,reptype,source,default,suppressNames)">assign_argsub</a>(spec,defaults,reptype,source,[],suppressNames);
-0210 
-0211 
-0212 
-0213 <span class="comment">% function to do the value assignment</span>
-0214 <a name="_sub3" href="#_subfunctions" class="code">function spec = assign_argsub(spec,value,reptype,source,default,suppressNames)</a>
-0215 <span class="keyword">if</span> ~isempty(source)
-0216     <span class="keyword">if</span> spec.merge
-0217         spec.children = <a href="arg_report.html" class="code" title="function res = arg_report(type,func,args)">arg_report</a>(reptype,source,[default,value]);
-0218     <span class="keyword">else</span>
-0219         spec.children = <a href="arg_report.html" class="code" title="function res = arg_report(type,func,args)">arg_report</a>(reptype,source,value);
-0220     <span class="keyword">end</span>
-0221 <span class="keyword">end</span>
-0222 
-0223 <span class="comment">% toggle the displayable option for children which should be suppressed</span>
-0224 <span class="keyword">if</span> ~isempty(suppressNames)
-0225     <span class="comment">% identify which children we want to suppress display</span>
-0226     hidden = find(cellfun(@any,cellfun(@(x,y) ismember(x,suppressNames),{spec.children.names},<span class="string">'UniformOutput'</span>,false)));
-0227     <span class="comment">% set display flag to false</span>
-0228     <span class="keyword">for</span> k=hidden(:)'
-0229         spec.children(k).displayable = false;
-0230     <span class="keyword">end</span>
-0231 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0120 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0121 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0122 <span class="comment">% USA</span>
+0123 
+0124 res = {<span class="string">'expand_argsub'</span>,varargin};</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

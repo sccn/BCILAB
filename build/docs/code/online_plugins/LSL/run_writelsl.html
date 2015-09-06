@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/online_plugins/LSL&nbsp;<img alt=">" border="0" src="../../../right.png"></a></td></tr></table>-->
 
 <h1>run_writelsl
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
@@ -35,24 +36,38 @@
  the lab streaming layer for use by other programs.
 
  In:
-   Model : predictive model to use (see onl_newpredictor) (default: 'lastmodel')
+   Model : A model data structure (as obtained from bci_train) based on which the predictor shall be 
+           created; typically this is a model struct, but for convenience it can be a file name, 
+           variable name in the base workspace, or a cell array of {file name, variable name} to 
+           refer to a variable inside a .mat file. The model is not modified by this function.
+           (default: 'lastmodel')
 
-   SourceStream : real-time stream name to read from in MATLAB workspace (default: 'laststream')
+   SourceStreamNames : Optional names of stream data structures in the MATLAB base workspace to
+                       consider as possible data sources (previously created with onl_newstream); 
+                       if a stream contains all channels that are needed by the predictor, or 
+                       alternatively has the right number and type of channels it will be considered 
+                       as a potential source stream unless ambiguous. (default: 'laststream')
 
-   LabStreamName : name of the stream in the lab streaming layer (default: 'BCI')
+   LabStreamName : Name of the output stream in the lab streaming layer (default: 'BCI')
 
    ChannelNames : labels for each output channel (if this is for classification and the output form 
                   is set to distribution, the channels correspond to the labels of the respective classes 
                   (default: {'class1','class2', ..., 'classN'} depending on the # of classes)
 
-   OutputForm : output data form, see onl_predict (default: 'distribution')
+   OutputForm : Output data form, see onl_predict (default: 'distribution')
 
-   UpdateFrequency : update frequency (default: 10)
+   UpdateFrequency : The rate at which new outputs will be computed. (default: 10)
 
-   PredictorName : name for new predictor, in the workspace (default: 'lastpredictor')
+   PredictAt : Predict at markers. If nonempty, this is a cell array of online target markers relative 
+               to which predictions shall be made. If empty, predictions are always made on the most 
+               recently added sample. (default: {})
 
- Notes:
-   This code is currently untested.
+   Verbose : Verbose output. If false, the console output of the online pipeline will be suppressed.
+             (default: false)
+
+   PredictorName : Name of the predictor to be created; a variable of this name will be created in 
+                   the MATLAB base workspace to hold the predictor's state. If a variable with this
+                   name already exists it will be overridden. (default: 'lastpredictor')
 
  Examples:
    % open a new BCILAB processing stream, using the previously learned predictive model 'mymodel',
@@ -71,11 +86,21 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../../up.png"></a></h2>
+<ul style="list-style-image:url(../../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function send_samples(outlet,y)</a></li>
+</ul>
+
 
 
 
@@ -89,105 +114,146 @@ This function is called by:
 0007 <span class="comment">% the lab streaming layer for use by other programs.</span>
 0008 <span class="comment">%</span>
 0009 <span class="comment">% In:</span>
-0010 <span class="comment">%   Model : predictive model to use (see onl_newpredictor) (default: 'lastmodel')</span>
-0011 <span class="comment">%</span>
-0012 <span class="comment">%   SourceStream : real-time stream name to read from in MATLAB workspace (default: 'laststream')</span>
-0013 <span class="comment">%</span>
-0014 <span class="comment">%   LabStreamName : name of the stream in the lab streaming layer (default: 'BCI')</span>
+0010 <span class="comment">%   Model : A model data structure (as obtained from bci_train) based on which the predictor shall be</span>
+0011 <span class="comment">%           created; typically this is a model struct, but for convenience it can be a file name,</span>
+0012 <span class="comment">%           variable name in the base workspace, or a cell array of {file name, variable name} to</span>
+0013 <span class="comment">%           refer to a variable inside a .mat file. The model is not modified by this function.</span>
+0014 <span class="comment">%           (default: 'lastmodel')</span>
 0015 <span class="comment">%</span>
-0016 <span class="comment">%   ChannelNames : labels for each output channel (if this is for classification and the output form</span>
-0017 <span class="comment">%                  is set to distribution, the channels correspond to the labels of the respective classes</span>
-0018 <span class="comment">%                  (default: {'class1','class2', ..., 'classN'} depending on the # of classes)</span>
-0019 <span class="comment">%</span>
-0020 <span class="comment">%   OutputForm : output data form, see onl_predict (default: 'distribution')</span>
+0016 <span class="comment">%   SourceStreamNames : Optional names of stream data structures in the MATLAB base workspace to</span>
+0017 <span class="comment">%                       consider as possible data sources (previously created with onl_newstream);</span>
+0018 <span class="comment">%                       if a stream contains all channels that are needed by the predictor, or</span>
+0019 <span class="comment">%                       alternatively has the right number and type of channels it will be considered</span>
+0020 <span class="comment">%                       as a potential source stream unless ambiguous. (default: 'laststream')</span>
 0021 <span class="comment">%</span>
-0022 <span class="comment">%   UpdateFrequency : update frequency (default: 10)</span>
+0022 <span class="comment">%   LabStreamName : Name of the output stream in the lab streaming layer (default: 'BCI')</span>
 0023 <span class="comment">%</span>
-0024 <span class="comment">%   PredictorName : name for new predictor, in the workspace (default: 'lastpredictor')</span>
-0025 <span class="comment">%</span>
-0026 <span class="comment">% Notes:</span>
-0027 <span class="comment">%   This code is currently untested.</span>
-0028 <span class="comment">%</span>
-0029 <span class="comment">% Examples:</span>
-0030 <span class="comment">%   % open a new BCILAB processing stream, using the previously learned predictive model 'mymodel',</span>
-0031 <span class="comment">%   % and reading from a previously opened input stream named 'mystream'. Name the stream 'BCI' and</span>
-0032 <span class="comment">%   % name the channels according to the classes whose probabilities they carry (here for some hypothetical</span>
-0033 <span class="comment">%   % error perception classifier)</span>
-0034 <span class="comment">%   run_writelsl('mymodel','mystream','BCI',{'error','no_error'})</span>
+0024 <span class="comment">%   ChannelNames : labels for each output channel (if this is for classification and the output form</span>
+0025 <span class="comment">%                  is set to distribution, the channels correspond to the labels of the respective classes</span>
+0026 <span class="comment">%                  (default: {'class1','class2', ..., 'classN'} depending on the # of classes)</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">%   OutputForm : Output data form, see onl_predict (default: 'distribution')</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%   UpdateFrequency : The rate at which new outputs will be computed. (default: 10)</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%   PredictAt : Predict at markers. If nonempty, this is a cell array of online target markers relative</span>
+0033 <span class="comment">%               to which predictions shall be made. If empty, predictions are always made on the most</span>
+0034 <span class="comment">%               recently added sample. (default: {})</span>
 0035 <span class="comment">%</span>
-0036 <span class="comment">%   % as before, but pass arguments by name</span>
-0037 <span class="comment">%   run_writelsl('Model','mymodel','SourceStream','mystream','ChannelNames',{'error','no_error'})</span>
+0036 <span class="comment">%   Verbose : Verbose output. If false, the console output of the online pipeline will be suppressed.</span>
+0037 <span class="comment">%             (default: false)</span>
 0038 <span class="comment">%</span>
-0039 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0040 <span class="comment">%                                2012-03-21</span>
-0041 
-0042 <span class="keyword">persistent</span> lib;
-0043 
-0044 <span class="comment">% declare the name of this component (shown in the menu)</span>
-0045 declare_properties(<span class="string">'name'</span>,<span class="string">'Lab streaming layer'</span>);
-0046 
-0047 <span class="comment">% define arguments</span>
-0048 opts = arg_define(varargin, <span class="keyword">...</span>
-0049     arg({<span class="string">'pred_model'</span>,<span class="string">'Model'</span>}, <span class="string">'lastmodel'</span>, [], <span class="string">'Predictive model. As obtained via bci_train or the Model Calibration dialog.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
-0050     arg({<span class="string">'in_stream'</span>,<span class="string">'SourceStream'</span>}, <span class="string">'laststream'</span>,[],<span class="string">'Input Matlab stream. This is the stream that shall be analyzed and processed.'</span>), <span class="keyword">...</span>
-0051     arg({<span class="string">'out_stream'</span>,<span class="string">'LabStreamName'</span>,<span class="string">'Target'</span>},<span class="string">'bci'</span>,[],<span class="string">'Name of the lab stream. This is the name under which the stream is provided to the lab streaming layer.'</span>), <span class="keyword">...</span>
-0052     arg({<span class="string">'channel_names'</span>,<span class="string">'ChannelNames'</span>},{<span class="string">'class1'</span>,<span class="string">'class2'</span>},[],<span class="string">'Output channel labels. These are the labels of the stream''s channels. In a typical classification setting each channel carries the probability for one of the possible classes.'</span>), <span class="keyword">...</span>
-0053     arg({<span class="string">'out_form'</span>,<span class="string">'OutputForm'</span>,<span class="string">'Form'</span>},<span class="string">'expectation'</span>,{<span class="string">'expectation'</span>,<span class="string">'distribution'</span>,<span class="string">'mode'</span>},<span class="string">'Output form. Can be the expected value (posterior mean) of the target variable, or the distribution over possible target values (probabilities for each outcome, or parametric distribution), or the mode (most likely value) of the target variable.'</span>), <span class="keyword">...</span>
-0054     arg({<span class="string">'update_freq'</span>,<span class="string">'UpdateFrequency'</span>},10,[],<span class="string">'Update frequency. This is the rate at which the output is updated.'</span>), <span class="keyword">...</span>
-0055     arg({<span class="string">'pred_name'</span>,<span class="string">'PredictorName'</span>}, <span class="string">'lastpredictor'</span>,[],<span class="string">'Name of new predictor. This is the workspace variable name under which a predictor will be created.'</span>));
-0056 
+0039 <span class="comment">%   PredictorName : Name of the predictor to be created; a variable of this name will be created in</span>
+0040 <span class="comment">%                   the MATLAB base workspace to hold the predictor's state. If a variable with this</span>
+0041 <span class="comment">%                   name already exists it will be overridden. (default: 'lastpredictor')</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">% Examples:</span>
+0044 <span class="comment">%   % open a new BCILAB processing stream, using the previously learned predictive model 'mymodel',</span>
+0045 <span class="comment">%   % and reading from a previously opened input stream named 'mystream'. Name the stream 'BCI' and</span>
+0046 <span class="comment">%   % name the channels according to the classes whose probabilities they carry (here for some hypothetical</span>
+0047 <span class="comment">%   % error perception classifier)</span>
+0048 <span class="comment">%   run_writelsl('mymodel','mystream','BCI',{'error','no_error'})</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">%   % as before, but pass arguments by name</span>
+0051 <span class="comment">%   run_writelsl('Model','mymodel','SourceStream','mystream','ChannelNames',{'error','no_error'})</span>
+0052 <span class="comment">%</span>
+0053 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0054 <span class="comment">%                                2012-03-21</span>
+0055 
+0056 <span class="keyword">persistent</span> lib;
 0057 
-0058 <span class="comment">% check if channel labels make sense for the model</span>
-0059 model = opts.pred_model;
-0060 <span class="keyword">if</span> ischar(model)
-0061     model = evalin(<span class="string">'base'</span>,opts.pred_model); <span class="keyword">end</span>
-0062 <span class="keyword">if</span> strcmp(opts.out_form,<span class="string">'distribution'</span>)
-0063     <span class="keyword">if</span> isfield(model,<span class="string">'classes'</span>) &amp;&amp; ~isempty(model.classes)
-0064         <span class="keyword">if</span> length(opts.channel_names) ~= length(model.classes)
-0065             disp(<span class="string">'The number of classes provided by the model does not match the number of provided channel names; falling back to default names.'</span>);
-0066             opts.channel_names = cellfun(@(k)[<span class="string">'class'</span> num2str(k)],num2cell(1:length(model.classes),1),<span class="string">'UniformOutput'</span>,false);
-0067         <span class="keyword">end</span>
-0068     <span class="keyword">end</span>
-0069 <span class="keyword">else</span>
-0070     <span class="keyword">if</span> isfield(model,<span class="string">'classes'</span>) &amp;&amp; ~isempty(model.classes)
-0071         <span class="keyword">if</span> length(opts.channel_names) ~= 1
-0072             disp(<span class="string">'A classification model will produce just one channel if the output is not in distribution form, but a different number of channels was given. Falling back to the default channel label.'</span>);
-0073             opts.channel_names = {<span class="string">'class'</span>};
-0074         <span class="keyword">end</span>        
-0075     <span class="keyword">end</span>
-0076 <span class="keyword">end</span>
-0077 
-0078 <span class="comment">% try to calculate a UID for the stream based on the model</span>
-0079 <span class="keyword">try</span>
-0080     uid = hlp_cryptohash(rmfield(model,<span class="string">'timestamp'</span>));
-0081 <span class="keyword">catch</span>
-0082     disp(<span class="string">'Could not generate a unique ID for the predictive model; the BCI stream will not be recovered automatically after the provider system had a crash.'</span>);
-0083     uid = <span class="string">''</span>;
-0084 <span class="keyword">end</span>
-0085 
-0086 <span class="comment">% instantiate the library</span>
-0087 disp(<span class="string">'Opening the library...'</span>);
-0088 <span class="keyword">if</span> isempty(lib)
-0089     lib = lsl_loadlib(env_translatepath(<span class="string">'dependencies:/liblsl-Matlab/bin'</span>)); <span class="keyword">end</span>
-0090 
-0091 <span class="comment">% describe the stream</span>
-0092 disp(<span class="string">'Creating a new streaminfo...'</span>);
-0093 info = lsl_streaminfo(lib,opts.out_stream,<span class="string">'MentalState'</span>,length(opts.channel_names),opts.update_freq,<span class="string">'cf_float32'</span>,uid);
-0094 <span class="comment">% ... including some meta-data</span>
-0095 desc = info.desc();
-0096 <span class="keyword">for</span> c=1:length(opts.channel_names)
-0097     newchn = desc.append_child(<span class="string">'channel'</span>);
-0098     newchn.append_child_value(<span class="string">'name'</span>,opts.channel_names{c});
-0099     newchn.append_child_value(<span class="string">'type'</span>,opts.out_form);
-0100 <span class="keyword">end</span>
-0101 
-0102 
-0103 <span class="comment">% create an outlet</span>
-0104 outlet = lsl_outlet(info);
-0105 
-0106 <span class="comment">% start background writer job</span>
-0107 onl_write_background(@(y)outlet.push_sample(y),opts.in_stream,opts.pred_model,opts.out_form,opts.update_freq,0,opts.pred_name);
-0108</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0058 <span class="comment">% declare the name of this component (shown in the menu)</span>
+0059 declare_properties(<span class="string">'name'</span>,<span class="string">'Lab streaming layer'</span>);
+0060 
+0061 <span class="comment">% define arguments</span>
+0062 opts = arg_define(varargin, <span class="keyword">...</span>
+0063     arg({<span class="string">'pred_model'</span>,<span class="string">'Model'</span>}, <span class="string">'lastmodel'</span>, [], <span class="string">'Predictive model. As obtained via bci_train or the Model Calibration dialog.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0064     arg({<span class="string">'in_stream'</span>,<span class="string">'SourceStreamNames'</span>,<span class="string">'SourceStream'</span>}, <span class="string">'laststream'</span>,[],<span class="string">'Input Matlab stream name(s). Optional names of stream data structures in the MATLAB base workspace to consider as possible data sources (previously created with onl_newstream); if a stream contains all channels that are needed by the predictor, or alternatively has the right number and type of channels it will be considered as a potential source stream unless ambiguous.'</span>,<span class="string">'typecheck'</span>,false,<span class="string">'shapecheck'</span>,false), <span class="keyword">...</span>
+0065     arg({<span class="string">'out_stream'</span>,<span class="string">'LabStreamName'</span>,<span class="string">'Target'</span>},<span class="string">'bci'</span>,[],<span class="string">'Name of the lab stream. This is the name under which the stream is provided to the lab streaming layer.'</span>), <span class="keyword">...</span>
+0066     arg({<span class="string">'channel_names'</span>,<span class="string">'ChannelNames'</span>},{<span class="string">'class1'</span>,<span class="string">'class2'</span>},[],<span class="string">'Output channel labels. These are the labels of the stream''s channels. In a typical classification setting each channel carries the probability for one of the possible classes.'</span>), <span class="keyword">...</span>
+0067     arg({<span class="string">'out_form'</span>,<span class="string">'OutputForm'</span>,<span class="string">'Form'</span>},<span class="string">'expectation'</span>,{<span class="string">'expectation'</span>,<span class="string">'distribution'</span>,<span class="string">'mode'</span>,<span class="string">'raw'</span>},<span class="string">'Output form. Can be the expected value (posterior mean) of the target variable, or the distribution over possible target values (probabilities for each outcome, or parametric distribution), or the mode (most likely value) of the target variable.'</span>), <span class="keyword">...</span>
+0068     arg({<span class="string">'update_freq'</span>,<span class="string">'UpdateFrequency'</span>},10,[0 Inf],<span class="string">'Update frequency. The rate at which new outputs will be computed.'</span>), <span class="keyword">...</span>
+0069     arg({<span class="string">'predict_at'</span>,<span class="string">'PredictAt'</span>}, {},[],<span class="string">'Predict at markers. If nonempty, this is a cell array of online target markers relative to which predictions shall be made. If empty, predictions are always made on the most recently added sample.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0070     arg({<span class="string">'verbose'</span>,<span class="string">'Verbose'</span>}, false,[],<span class="string">'Verbose output. If false, the console output of the online pipeline will be suppressed.'</span>), <span class="keyword">...</span>
+0071     arg({<span class="string">'source_id'</span>,<span class="string">'SourceID'</span>}, <span class="string">'input_data'</span>,{<span class="string">'input_data'</span>,<span class="string">'model'</span>},<span class="string">'Use as source ID. This is the data that determines the source ID of the stream (if the stream is restarted, readers will continue reading from it if it has the same source ID). Can be input_data (use a hash of dataset ID + target markers used for training) or model (use all model parameters).'</span>), <span class="keyword">...</span>
+0072     arg({<span class="string">'pred_name'</span>,<span class="string">'PredictorName'</span>}, <span class="string">'lastpredictor'</span>,[],<span class="string">'Name of new predictor. A variable of this name will be created in the MATLAB base workspace to hold the predictor''s state. If a variable with this name already exists it will be overridden.'</span>));
+0073 
+0074 <span class="comment">% load the model</span>
+0075 model = utl_loadmodel(opts.pred_model);
+0076 
+0077 <span class="comment">% check if channel labels make sense for the model</span>
+0078 <span class="keyword">if</span> strcmp(opts.out_form,<span class="string">'distribution'</span>)
+0079     <span class="keyword">if</span> isfield(model,<span class="string">'classes'</span>) &amp;&amp; ~isempty(model.classes)
+0080         <span class="keyword">if</span> length(opts.channel_names) ~= length(model.classes)
+0081             disp(<span class="string">'The number of classes provided by the model does not match the number of provided channel names; falling back to default names.'</span>);
+0082             opts.channel_names = cellfun(@(k)[<span class="string">'class'</span> num2str(k)],num2cell(1:length(model.classes),1),<span class="string">'UniformOutput'</span>,false);
+0083         <span class="keyword">end</span>
+0084     <span class="keyword">end</span>
+0085 <span class="keyword">else</span>
+0086     <span class="keyword">if</span> isfield(model,<span class="string">'classes'</span>) &amp;&amp; ~isempty(model.classes)
+0087         <span class="keyword">if</span> length(opts.channel_names) ~= 1
+0088             disp(<span class="string">'A classification model will produce just one channel if the output is not in distribution form, but a different number of channels was given. Falling back to the default channel label.'</span>);
+0089             opts.channel_names = {<span class="string">'class'</span>};
+0090         <span class="keyword">end</span>        
+0091     <span class="keyword">end</span>
+0092 <span class="keyword">end</span>
+0093 
+0094 <span class="comment">% try to calculate a UID for the stream</span>
+0095 <span class="keyword">try</span>
+0096     <span class="keyword">if</span> strcmp(opts.source_id,<span class="string">'model'</span>)
+0097         uid = hlp_cryptohash({rmfield(model,<span class="string">'timestamp'</span>),opts.predict_at,opts.in_stream,opts.out_stream});
+0098     <span class="keyword">elseif</span> strcmp(opts.source_id,<span class="string">'input_data'</span>)
+0099         uid = hlp_cryptohash({model.source_data,opts.predict_at,opts.in_stream,opts.out_stream});
+0100     <span class="keyword">else</span>
+0101         error(<span class="string">'Unsupported SourceID option: %s'</span>,hlp_tostring(opts.source_id));
+0102     <span class="keyword">end</span>
+0103 <span class="keyword">catch</span> e
+0104     disp(<span class="string">'Could not generate a unique ID for the predictive model; the BCI stream will not be recovered automatically after the provider system had a crash.'</span>);
+0105     hlp_handleerror(e);
+0106     uid = <span class="string">''</span>;
+0107 <span class="keyword">end</span>
+0108 
+0109 <span class="comment">% instantiate the library</span>
+0110 disp(<span class="string">'Opening the library...'</span>);
+0111 <span class="keyword">if</span> isempty(lib)
+0112     lib = lsl_loadlib(env_translatepath(<span class="string">'dependencies:/liblsl-Matlab/bin'</span>)); <span class="keyword">end</span>
+0113 
+0114 <span class="comment">% describe the stream</span>
+0115 disp(<span class="string">'Creating a new streaminfo...'</span>);
+0116 info = lsl_streaminfo(lib,opts.out_stream,<span class="string">'MentalState'</span>,length(opts.channel_names),opts.update_freq,<span class="string">'cf_float32'</span>,uid);
+0117 <span class="comment">% ... including some meta-data</span>
+0118 desc = info.desc();
+0119 channels = desc.append_child(<span class="string">'channels'</span>);
+0120 <span class="keyword">for</span> c=1:length(opts.channel_names)
+0121     newchn = channels.append_child(<span class="string">'channel'</span>);
+0122     newchn.append_child_value(<span class="string">'name'</span>,opts.channel_names{c});
+0123     newchn.append_child_value(<span class="string">'type'</span>,opts.out_form);
+0124 <span class="keyword">end</span>
+0125 
+0126 <span class="comment">% create an outlet</span>
+0127 outlet = lsl_outlet(info);
+0128 
+0129 <span class="comment">% start background writer job</span>
+0130 onl_write_background( <span class="keyword">...</span>
+0131     <span class="string">'ResultWriter'</span>,@(y)<a href="#_sub1" class="code" title="subfunction send_samples(outlet,y)">send_samples</a>(outlet,y),<span class="keyword">...</span>
+0132     <span class="string">'MatlabStream'</span>,opts.in_stream, <span class="keyword">...</span>
+0133     <span class="string">'Model'</span>,opts.pred_model, <span class="keyword">...</span>
+0134     <span class="string">'OutputFormat'</span>,opts.out_form, <span class="keyword">...</span>
+0135     <span class="string">'UpdateFrequency'</span>,opts.update_freq, <span class="keyword">...</span>
+0136     <span class="string">'PredictorName'</span>,opts.pred_name, <span class="keyword">...</span>
+0137     <span class="string">'PredictAt'</span>,opts.predict_at, <span class="keyword">...</span>
+0138     <span class="string">'Verbose'</span>,opts.verbose, <span class="keyword">...</span>
+0139     <span class="string">'StartDelay'</span>,0,<span class="keyword">...</span>
+0140     <span class="string">'EmptyResultValue'</span>,[]);
+0141 
+0142 disp(<span class="string">'Now writing...'</span>);
+0143 
+0144 
+0145 <a name="_sub1" href="#_subfunctions" class="code">function send_samples(outlet,y)</a>
+0146 <span class="keyword">if</span> ~isempty(y)
+0147     outlet.push_chunk(y'); <span class="keyword">end</span>
+0148</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>utl_timeseries_fields
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -40,10 +41,12 @@
    Signal : a signal for which time-series field names shall be looked up
 
  Out:
-   Fields : cell array of field names (row vector)
+   Fields : Cell array of field names (row vector). It is assumed that the second dimension of
+            these fields is the time axis along which buffering and/or filtering should happen; any
+            number of other dimensions may be present for any field returned by this function.
 
  See also:
-   utl_register_fields
+   <a href="utl_register_field.html" class="code" title="function signal = utl_register_field(signal,fieldtype,fieldname,fieldvalue)">utl_register_field</a>
 
                                        Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                                        2013-08-16</pre></div>
@@ -52,15 +55,24 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="utl_buffer.html" class="code" title="function chunk = utl_buffer(chunk,buffer,desired_length)">utl_buffer</a>	Append a chunk to a buffer and trim the buffer to the desired length.</li>
 </ul>
 <!-- crossreference -->
 
+
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function fields = get_timeseries_fields(field_names,ts_fields)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function fields = get_timeseries_fields(field_names,ts_fields)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function fields = utl_timeseries_fields(signal)</a>
@@ -77,63 +89,86 @@ This function is called by:
 0012 <span class="comment">%   Signal : a signal for which time-series field names shall be looked up</span>
 0013 <span class="comment">%</span>
 0014 <span class="comment">% Out:</span>
-0015 <span class="comment">%   Fields : cell array of field names (row vector)</span>
-0016 <span class="comment">%</span>
-0017 <span class="comment">% See also:</span>
-0018 <span class="comment">%   utl_register_fields</span>
-0019 <span class="comment">%</span>
-0020 <span class="comment">%                                       Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0021 <span class="comment">%                                       2013-08-16</span>
-0022 
-0023 <span class="comment">% define a database of cached queries and associated results</span>
-0024 <span class="comment">% (this approach is more than 10x as fast as using unique/intersect every time)</span>
-0025 <span class="keyword">persistent</span> keys;
-0026 <span class="keyword">persistent</span> values;
-0027 
-0028 <span class="comment">% generate the query (assuming that the signal usually has the right fields)</span>
-0029 <span class="keyword">try</span>
-0030     query = [fieldnames(signal)' {<span class="string">'|'</span>} signal.tracking.timeseries_fields];
-0031 <span class="keyword">catch</span>
-0032     query = fieldnames(signal)';
-0033 <span class="keyword">end</span>
-0034 
-0035 <span class="comment">% turn into a string</span>
-0036 query = [query{:}];
+0015 <span class="comment">%   Fields : Cell array of field names (row vector). It is assumed that the second dimension of</span>
+0016 <span class="comment">%            these fields is the time axis along which buffering and/or filtering should happen; any</span>
+0017 <span class="comment">%            number of other dimensions may be present for any field returned by this function.</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">% See also:</span>
+0020 <span class="comment">%   utl_register_field</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">%                                       Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0023 <span class="comment">%                                       2013-08-16</span>
+0024 
+0025 <span class="comment">% define a database of cached queries and associated results</span>
+0026 <span class="comment">% (this approach is more than 10x as fast as using unique/intersect every time)</span>
+0027 <span class="keyword">persistent</span> keys;
+0028 <span class="keyword">persistent</span> values;
+0029 
+0030 <span class="keyword">try</span>
+0031     <span class="comment">% generate the query (assuming that the signal usually has the right fields)</span>
+0032     <span class="keyword">try</span>
+0033         query = [fieldnames(signal)' {<span class="string">'|'</span>} signal.tracking.timeseries_fields];
+0034     <span class="keyword">catch</span>
+0035         query = fieldnames(signal)';
+0036     <span class="keyword">end</span>
 0037 
-0038 <span class="keyword">try</span>
-0039     <span class="comment">% look up from the database (assuming that it is already contained)</span>
-0040     fields = values{strcmp(keys,query)};
-0041 <span class="keyword">catch</span>
-0042     <span class="comment">% not yet in DB: actually determine the timeseries fields</span>
-0043     <span class="keyword">if</span> isfield(signal.tracking,<span class="string">'timeseries_fields'</span>)
-0044         fields = <a href="#_sub1" class="code" title="subfunction fields = get_timeseries_fields(field_names,ts_fields)">get_timeseries_fields</a>(fieldnames(signal),signal.tracking.timeseries_fields);
-0045     <span class="keyword">else</span>
-0046         fields = <a href="#_sub1" class="code" title="subfunction fields = get_timeseries_fields(field_names,ts_fields)">get_timeseries_fields</a>(fieldnames(signal),[]);
-0047     <span class="keyword">end</span>
-0048     <span class="comment">% initialize the DB if necessary, otherwise append</span>
-0049     <span class="keyword">if</span> ~iscell(keys)
-0050         keys = {query};
-0051         values = {fields};
-0052     <span class="keyword">else</span>
-0053         keys{end+1} = query;
-0054         values{end+1} = fields;
-0055     <span class="keyword">end</span>
-0056 <span class="keyword">end</span>
-0057 
-0058  
-0059 <a name="_sub1" href="#_subfunctions" class="code">function fields = get_timeseries_fields(field_names,ts_fields)</a>
-0060 <span class="comment">% This function performs the actual computation</span>
-0061 
-0062 <span class="comment">% generate initial list of candidates</span>
-0063 candidates = {<span class="string">'data'</span>,<span class="string">'icaact'</span>,<span class="string">'srcpot'</span>};
-0064 
-0065 <span class="comment">% append whatever is registered in the signal's .tracking.timeseries_fields</span>
-0066 candidates = unique([candidates(:); ts_fields(:)]);
-0067 
-0068 <span class="comment">% restrict to those that are actually present in the signal</span>
-0069 fields = intersect(candidates(:),field_names);
-0070 fields = fields(:)';
-0071</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0038     <span class="comment">% turn into a string</span>
+0039     query = [query{:}];
+0040 
+0041     <span class="keyword">try</span>
+0042         <span class="comment">% look up from the database (assuming that it is already contained)</span>
+0043         fields = values{strcmp(keys,query)};
+0044     <span class="keyword">catch</span>
+0045         <span class="comment">% not yet in DB: actually determine the timeseries fields</span>
+0046         <span class="keyword">if</span> isfield(signal,<span class="string">'tracking'</span>) &amp;&amp; isfield(signal.tracking,<span class="string">'timeseries_fields'</span>)
+0047             fields = <a href="#_sub1" class="code" title="subfunction fields = get_timeseries_fields(field_names,ts_fields)">get_timeseries_fields</a>(fieldnames(signal),signal.tracking.timeseries_fields);
+0048         <span class="keyword">else</span>
+0049             fields = <a href="#_sub1" class="code" title="subfunction fields = get_timeseries_fields(field_names,ts_fields)">get_timeseries_fields</a>(fieldnames(signal),[]);
+0050         <span class="keyword">end</span>
+0051         <span class="comment">% initialize the DB if necessary, otherwise append</span>
+0052         <span class="keyword">if</span> ~iscell(keys)
+0053             keys = {query};
+0054             values = {fields};
+0055         <span class="keyword">else</span>
+0056             keys{end+1} = query;
+0057             values{end+1} = fields;
+0058         <span class="keyword">end</span>
+0059     <span class="keyword">end</span>
+0060 <span class="keyword">catch</span> e
+0061     <span class="comment">% diagnose the error</span>
+0062     <span class="keyword">if</span> ~isstruct(signal)
+0063         error(<span class="string">'The given argument must be a signal struct.'</span>); <span class="keyword">end</span>
+0064     <span class="keyword">if</span> ~isscalar(signal)
+0065         error(<span class="string">'The given argument must be a 1x1 struct.'</span>); <span class="keyword">end</span>
+0066     <span class="keyword">if</span> ~isfield(signal,<span class="string">'tracking'</span>)
+0067         <span class="keyword">if</span> ~any(isfield(signal,{<span class="string">'data'</span>,<span class="string">'srate'</span>}))
+0068             <span class="keyword">if</span> all(isfield(signal,{<span class="string">'head'</span>,<span class="string">'parts'</span>}))
+0069                 error(<span class="string">'The given input is an unevaluated expression but this function expects a signal data structure. You may have to first evaluate the data using exp_eval.'</span>);
+0070             <span class="keyword">else</span>
+0071                 error(<span class="string">'The given data structure does not appear to be a valid signal struct.'</span>);
+0072             <span class="keyword">end</span>
+0073         <span class="keyword">else</span>
+0074             error(<span class="string">'The given signal is lacking the required .tracking field.'</span>); 
+0075         <span class="keyword">end</span>
+0076     <span class="keyword">else</span>
+0077         rethrow(e);
+0078     <span class="keyword">end</span>
+0079 <span class="keyword">end</span>
+0080  
+0081 <a name="_sub1" href="#_subfunctions" class="code">function fields = get_timeseries_fields(field_names,ts_fields)</a>
+0082 <span class="comment">% This function performs the actual computation</span>
+0083 
+0084 <span class="comment">% generate initial list of candidates</span>
+0085 candidates = {<span class="string">'data'</span>,<span class="string">'icaact'</span>,<span class="string">'srcpot'</span>,<span class="string">'stamps'</span>};
+0086 
+0087 <span class="comment">% append whatever is registered in the signal's .tracking.timeseries_fields</span>
+0088 candidates = unique([candidates(:); ts_fields(:)]);
+0089 
+0090 <span class="comment">% restrict to those that are actually present in the signal</span>
+0091 fields = intersect(candidates(:),field_names);
+0092 fields = fields(:)';
+0093</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

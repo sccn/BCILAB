@@ -150,7 +150,7 @@ if any(strcmp(opts.engine,{'BLS','Reference'}))
     if opts.verbosity>0
         t0=tic; fprintf('Serializing %d tasks...\n', length(tasks)); end
     for t=1:length(tasks)        
-        tasks{t} = fast_encode(hlp_serialize([{t} tasks{t}])); end
+        tasks{t} = hlp_serialize([{t} tasks{t}]); end
     if opts.verbosity>0
         fprintf('Tasks serialized (%.1f seconds).\n', toc(t0)); end
 end
@@ -167,15 +167,22 @@ switch opts.engine
             sched(t) = {{t,tasks{t}{1}(tasks{t}{2:end})}}; end
     case 'BLS'
         % over the scheduler
+        fprintf('Converting tasks for scheduler...');
+        bam = ByteArrayMaker();
+        for t=1:length(tasks)
+            tasks{t} = bam.makeByteArray(tasks{t}); end
+        tasks = [tasks{:}];
+        fprintf('done.\n');
         if opts.verbosity>0
             fprintf('Submitting tasks to scheduler...\n'); end
         sched.sched.submit(tasks);
     case 'Reference'
         % evaluate locally, but go through the same evaluation function as the BLS workers
+        unencoded_results = cell(1,length(tasks)); % holds unencoded results for debugging
         for t=1:length(tasks)
-            tasks{t} = fast_encode(par_evaluate(fast_decode(tasks{t}))); end
+            [tasks{t},unencoded_results{t}] = par_evaluate(tasks{t}); end
         % return the collected result in sched
-        sched = struct('ReferenceResults',{tasks});
+        sched = struct('ReferenceResults',{tasks},'ReferenceResultsUnencoded',{unencoded_results});
     otherwise
         error('Unsupported parallelization engine selected: %s',hlp_tostring(opts.engine));
 end

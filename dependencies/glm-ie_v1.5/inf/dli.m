@@ -26,7 +26,7 @@
 %
 % (c) by Hannes Nickisch, Philips Research, 2013 August 31
 
-function [m,ga,b,z,zu,nlZ,Q,T] = dli(X,y,s2,B,t,pot,tau, opts,G)
+function [m,ga,b,z,zu,nlZ,Q,T,phi0_i,ldA_i] = dli(X,y,s2,B,t,pot,tau, opts,G)
 
 if nargin<7, error('We need at least 6 input arguments'), end
 if nargin==7, opts = 1; end
@@ -112,7 +112,7 @@ end
 
 n = max(size(X,2),size(B,2)); u = zeros(n,1);
 q = numel(B*u);
-z = z0(:).*ones(q,1); ldA = 0; nlZ = inf(nout,1);
+z = z0(:).*ones(q,1); ldA = 0; nlZ = inf(nout,1); phi0_i = inf(nout,1); ldA_i = inf(nout,1);
 b = G'*feval(pot,zeros(q,1)); b = b(:,4); % ck: inserted G'* here
 PI = 2*acos(0);   % this is the usual pi which is used by the natural parameters
 
@@ -131,6 +131,7 @@ for i = 1:nout
   % -2 log(Z_Q) = min_u R(u,b,pi) + log(det(A)) - C1
   C1 = n*log(2*PI) - size(X,1)*log(2*PI*s2);
   nlZ(i) = ( phi0 + ldA - C1 )/2;
+  phi0_i(i) = phi0; ldA_i(i) = ldA; % ck: recording the history of log-evidence terms
   if output, fprintf('NLZ(%s): %1.4e\n',innerType,nlZ(i)), end
   
   % 3) OUTER loop: compute marginal variances z from X, s2, B, pi

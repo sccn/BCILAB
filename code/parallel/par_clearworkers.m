@@ -87,6 +87,12 @@ for i=1:length(hosts)
     end
 end
 
+% if the own host is among them, move it last
+myhost = hlp_hostname;
+match = strncmp(myhost,uniquehosts, min(cellfun('length',[{myhost} uniquehosts])));
+if any(match)
+    uniquehosts = [uniquehosts(~match) uniquehosts(match)]; end
+
 % now clear them
 fprintf('Clearing workers on %i machines...',length(uniquehosts));
 for h = 1:length(uniquehosts)

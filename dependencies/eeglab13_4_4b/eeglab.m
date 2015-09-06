@@ -1214,6 +1214,7 @@ W_MAIN = figure('Units','points', ...
 
 % java chat
 eeglab_options;
+option_chat = 0;
 if option_chat == 1
     if is_sccn
         disp('Starting chat...');
@@ -1395,6 +1396,7 @@ index = 1;
 indexmenu = 1;
 MAX_SET = max(length( ALLEEG ), length(EEGMENU)-1);
 	
+warning off MATLAB:lang:cannotClearExecutingFunction % for warning-free eeglab launch
 clear functions;
 eeglab_options;
 if isempty(ALLEEG) && ~isempty(EEG) && ~isempty(EEG.data)

@@ -4,7 +4,7 @@
 <head>
   <title>Description of fit_eeg_distribution</title>
   <meta name="keywords" content="fit_eeg_distribution">
-  <meta name="description" content="Fit a truncated Gaussian to possibly contaminated EEG data.">
+  <meta name="description" content="Estimate the mean and standard deviation of clean EEG from contaminated data.">
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
   <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
   <meta name="robots" content="index, follow">
@@ -18,28 +18,38 @@
 <td align="right"><a href="index.html">Index for code/misc&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>fit_eeg_distribution
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>Fit a truncated Gaussian to possibly contaminated EEG data.</strong></div>
+<div class="box"><strong>Estimate the mean and standard deviation of clean EEG from contaminated data.</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>function [mu,sig] = fit_eeg_distribution(x,min_clean_fraction,max_dropout_fraction,fit_quantiles,step_sizes,num_bins) </strong></div>
+<div class="box"><strong>function [mu,sig,alpha,beta] = fit_eeg_distribution(X,min_clean_fraction,max_dropout_fraction,quants,step_sizes,beta) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre class="comment"> Fit a truncated Gaussian to possibly contaminated EEG data.
- [Mu,Sigma] = fit_eeg_distribution(X,MinCleanFraction,MaxDropoutFraction,FitQuantiles,StepSizes,NumBins)
+<div class="fragment"><pre class="comment"> Estimate the mean and standard deviation of clean EEG from contaminated data.
+ [Mu,Sigma,Alpha,Beta] = fit_eeg_distribution(X,MinCleanFraction,MaxDropoutFraction,FitQuantiles,StepSizes,ShapeRange)
 
- This function assumes that the observations are EEG amplitude values that can be characterized
- as a Gaussian component (the clean data) with a heavy and potentially peaky tail, and possibly a 
- relatively small fraction of samples with amplitude below that of the Gaussian component.
- 
- The method works by finding a quantile range that best fits a truncated Gaussian (in terms of KL 
- divergence), using a grid search over a range of the data that is restricted by MinCleanFraction
- and MaxDropoutFraction.
+ This function estimates the mean and standard deviation of clean EEG from a sample of amplitude
+ values (that have preferably been computed over short windows) that may include a large fraction
+ of contaminated samples. The clean EEG is assumed to represent a generalized Gaussian component in
+ a mixture with near-arbitrary artifact components. By default, at least 25% (MinCleanFraction) of
+ the data must be clean EEG, and the rest can be contaminated. No more than 10%
+ (MaxDropoutFraction) of the data is allowed to come from contaminations that cause lower-than-EEG
+ amplitudes (e.g., sensor unplugged). There are no restrictions on artifacts causing
+ larger-than-EEG amplitudes, i.e., virtually anything is handled (with the exception of a very
+ unlikely type of distribution that combines with the clean EEG samples into a larger symmetric
+ generalized Gaussian peak and thereby &quot;fools&quot; the estimator). The default parameters should be
+ fine for a wide range of settings but may be adapted to accomodate special circumstances.
+
+ The method works by fitting a truncated generalized Gaussian whose parameters are constrained by
+ MinCleanFraction, MaxDropoutFraction, FitQuantiles, and ShapeRange. The alpha and beta parameters
+ of the gen. Gaussian are also returned. The fit is performed by a grid search that always finds a
+ close-to-optimal solution if the above assumptions are fulfilled.
 
  In:
-   X : vector of amplitude values of EEG, possible containing artifacts 
+   X : vector of amplitude values of EEG, possible containing artifacts
        (coming from single samples or windowed averages)
 
    MinCleanFraction : Minimum fraction of values in X that needs to be clean
@@ -48,23 +58,25 @@
    MaxDropoutFraction : Maximum fraction of values in X that can be subject to
                         signal dropouts (e.g., sensor unplugged) (default: 0.1)
 
-   FitQuantiles : Quantile range [upper,lower] of the truncated Gaussian distribution 
+   FitQuantiles : Quantile range [lower,upper] of the truncated generalized Gaussian distribution
                   that shall be fit to the EEG contents (default: [0.022 0.6])
 
    StepSizes : Step size of the grid search; the first value is the stepping of the lower bound
                (which essentially steps over any dropout samples), and the second value
-               is the stepping over possible scales (i.e., clean-data quantiles) 
+               is the stepping over possible scales (i.e., clean-data quantiles)
                (default: [0.01 0.01])
 
-   NumBins : Number of bins for Kullback-Leibler divergence calculation (default: 50)
+   ShapeRange : Range that the clean EEG distribution's shape parameter beta may take (default:
+                1.7:0.15:3.5)
 
  Out:
-   Mu : estimated mean of the distribution
+   Mu : estimated mean of the clean EEG distribution
 
-   Sigma : estimated standard deviation of the distribution
+   Sigma : estimated standard deviation of the clean EEG distribution
 
- Notes:
-   For small numbers of samples (&lt;10000) it may help to use fewer bins.
+   Alpha : estimated scale parameter of the generalized Gaussian clean EEG distribution (optional)
+
+   Beta : estimated shape parameter of the generalized Gaussian clean EEG distribution (optional)
 
                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                                 2013-08-15</pre></div>
@@ -73,124 +85,166 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
 
 
+
+
+
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [mu,sig] = fit_eeg_distribution(x,min_clean_fraction,max_dropout_fraction,fit_quantiles,step_sizes,num_bins)</a>
-0002 <span class="comment">% Fit a truncated Gaussian to possibly contaminated EEG data.</span>
-0003 <span class="comment">% [Mu,Sigma] = fit_eeg_distribution(X,MinCleanFraction,MaxDropoutFraction,FitQuantiles,StepSizes,NumBins)</span>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [mu,sig,alpha,beta] = fit_eeg_distribution(X,min_clean_fraction,max_dropout_fraction,quants,step_sizes,beta)</a>
+0002 <span class="comment">% Estimate the mean and standard deviation of clean EEG from contaminated data.</span>
+0003 <span class="comment">% [Mu,Sigma,Alpha,Beta] = fit_eeg_distribution(X,MinCleanFraction,MaxDropoutFraction,FitQuantiles,StepSizes,ShapeRange)</span>
 0004 <span class="comment">%</span>
-0005 <span class="comment">% This function assumes that the observations are EEG amplitude values that can be characterized</span>
-0006 <span class="comment">% as a Gaussian component (the clean data) with a heavy and potentially peaky tail, and possibly a</span>
-0007 <span class="comment">% relatively small fraction of samples with amplitude below that of the Gaussian component.</span>
-0008 <span class="comment">%</span>
-0009 <span class="comment">% The method works by finding a quantile range that best fits a truncated Gaussian (in terms of KL</span>
-0010 <span class="comment">% divergence), using a grid search over a range of the data that is restricted by MinCleanFraction</span>
-0011 <span class="comment">% and MaxDropoutFraction.</span>
-0012 <span class="comment">%</span>
-0013 <span class="comment">% In:</span>
-0014 <span class="comment">%   X : vector of amplitude values of EEG, possible containing artifacts</span>
-0015 <span class="comment">%       (coming from single samples or windowed averages)</span>
+0005 <span class="comment">% This function estimates the mean and standard deviation of clean EEG from a sample of amplitude</span>
+0006 <span class="comment">% values (that have preferably been computed over short windows) that may include a large fraction</span>
+0007 <span class="comment">% of contaminated samples. The clean EEG is assumed to represent a generalized Gaussian component in</span>
+0008 <span class="comment">% a mixture with near-arbitrary artifact components. By default, at least 25% (MinCleanFraction) of</span>
+0009 <span class="comment">% the data must be clean EEG, and the rest can be contaminated. No more than 10%</span>
+0010 <span class="comment">% (MaxDropoutFraction) of the data is allowed to come from contaminations that cause lower-than-EEG</span>
+0011 <span class="comment">% amplitudes (e.g., sensor unplugged). There are no restrictions on artifacts causing</span>
+0012 <span class="comment">% larger-than-EEG amplitudes, i.e., virtually anything is handled (with the exception of a very</span>
+0013 <span class="comment">% unlikely type of distribution that combines with the clean EEG samples into a larger symmetric</span>
+0014 <span class="comment">% generalized Gaussian peak and thereby &quot;fools&quot; the estimator). The default parameters should be</span>
+0015 <span class="comment">% fine for a wide range of settings but may be adapted to accomodate special circumstances.</span>
 0016 <span class="comment">%</span>
-0017 <span class="comment">%   MinCleanFraction : Minimum fraction of values in X that needs to be clean</span>
-0018 <span class="comment">%                      (default: 0.25)</span>
-0019 <span class="comment">%</span>
-0020 <span class="comment">%   MaxDropoutFraction : Maximum fraction of values in X that can be subject to</span>
-0021 <span class="comment">%                        signal dropouts (e.g., sensor unplugged) (default: 0.1)</span>
-0022 <span class="comment">%</span>
-0023 <span class="comment">%   FitQuantiles : Quantile range [upper,lower] of the truncated Gaussian distribution</span>
-0024 <span class="comment">%                  that shall be fit to the EEG contents (default: [0.022 0.6])</span>
+0017 <span class="comment">% The method works by fitting a truncated generalized Gaussian whose parameters are constrained by</span>
+0018 <span class="comment">% MinCleanFraction, MaxDropoutFraction, FitQuantiles, and ShapeRange. The alpha and beta parameters</span>
+0019 <span class="comment">% of the gen. Gaussian are also returned. The fit is performed by a grid search that always finds a</span>
+0020 <span class="comment">% close-to-optimal solution if the above assumptions are fulfilled.</span>
+0021 <span class="comment">%</span>
+0022 <span class="comment">% In:</span>
+0023 <span class="comment">%   X : vector of amplitude values of EEG, possible containing artifacts</span>
+0024 <span class="comment">%       (coming from single samples or windowed averages)</span>
 0025 <span class="comment">%</span>
-0026 <span class="comment">%   StepSizes : Step size of the grid search; the first value is the stepping of the lower bound</span>
-0027 <span class="comment">%               (which essentially steps over any dropout samples), and the second value</span>
-0028 <span class="comment">%               is the stepping over possible scales (i.e., clean-data quantiles)</span>
-0029 <span class="comment">%               (default: [0.01 0.01])</span>
-0030 <span class="comment">%</span>
-0031 <span class="comment">%   NumBins : Number of bins for Kullback-Leibler divergence calculation (default: 50)</span>
-0032 <span class="comment">%</span>
-0033 <span class="comment">% Out:</span>
-0034 <span class="comment">%   Mu : estimated mean of the distribution</span>
-0035 <span class="comment">%</span>
-0036 <span class="comment">%   Sigma : estimated standard deviation of the distribution</span>
-0037 <span class="comment">%</span>
-0038 <span class="comment">% Notes:</span>
-0039 <span class="comment">%   For small numbers of samples (&lt;10000) it may help to use fewer bins.</span>
-0040 <span class="comment">%</span>
-0041 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0042 <span class="comment">%                                2013-08-15</span>
-0043 
-0044 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2013, christian@sccn.ucsd.edu</span>
+0026 <span class="comment">%   MinCleanFraction : Minimum fraction of values in X that needs to be clean</span>
+0027 <span class="comment">%                      (default: 0.25)</span>
+0028 <span class="comment">%</span>
+0029 <span class="comment">%   MaxDropoutFraction : Maximum fraction of values in X that can be subject to</span>
+0030 <span class="comment">%                        signal dropouts (e.g., sensor unplugged) (default: 0.1)</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%   FitQuantiles : Quantile range [lower,upper] of the truncated generalized Gaussian distribution</span>
+0033 <span class="comment">%                  that shall be fit to the EEG contents (default: [0.022 0.6])</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%   StepSizes : Step size of the grid search; the first value is the stepping of the lower bound</span>
+0036 <span class="comment">%               (which essentially steps over any dropout samples), and the second value</span>
+0037 <span class="comment">%               is the stepping over possible scales (i.e., clean-data quantiles)</span>
+0038 <span class="comment">%               (default: [0.01 0.01])</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">%   ShapeRange : Range that the clean EEG distribution's shape parameter beta may take (default:</span>
+0041 <span class="comment">%                1.7:0.15:3.5)</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">% Out:</span>
+0044 <span class="comment">%   Mu : estimated mean of the clean EEG distribution</span>
 0045 <span class="comment">%</span>
-0046 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
-0047 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
-0048 <span class="comment">% License, or (at your option) any later version.</span>
+0046 <span class="comment">%   Sigma : estimated standard deviation of the clean EEG distribution</span>
+0047 <span class="comment">%</span>
+0048 <span class="comment">%   Alpha : estimated scale parameter of the generalized Gaussian clean EEG distribution (optional)</span>
 0049 <span class="comment">%</span>
-0050 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
-0051 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
-0052 <span class="comment">% General Public License for more details.</span>
-0053 <span class="comment">%</span>
-0054 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
-0055 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
-0056 <span class="comment">% USA</span>
-0057 
-0058 <span class="comment">% assign defaults</span>
-0059 <span class="keyword">if</span> ~exist(<span class="string">'min_clean_fraction'</span>,<span class="string">'var'</span>) || isempty(min_clean_fraction)
-0060     min_clean_fraction = 0.25; <span class="keyword">end</span>
-0061 <span class="keyword">if</span> ~exist(<span class="string">'max_dropout_fraction'</span>,<span class="string">'var'</span>) || isempty(max_dropout_fraction)
-0062     max_dropout_fraction = 0.1; <span class="keyword">end</span>
-0063 <span class="keyword">if</span> ~exist(<span class="string">'fit_quantiles'</span>,<span class="string">'var'</span>) || isempty(fit_quantiles)
-0064     fit_quantiles = [0.022 0.6]; <span class="keyword">end</span>
-0065 <span class="keyword">if</span> ~exist(<span class="string">'step_sizes'</span>,<span class="string">'var'</span>) || isempty(step_sizes)
-0066     step_sizes = [0.01 0.01]; <span class="keyword">end</span>
-0067 <span class="keyword">if</span> ~exist(<span class="string">'num_bins'</span>,<span class="string">'var'</span>) || isempty(num_bins)
-0068     num_bins = 50; <span class="keyword">end</span>
-0069 
-0070 <span class="comment">% sort data so we can access quantiles directly</span>
-0071 x = sort(x(:));
-0072 n = length(x);
-0073 
-0074 <span class="comment">% generate a binned approximation for the truncated Gaussian pdf</span>
-0075 series = (0:num_bins)/num_bins; series(end) = Inf;
-0076 bounds = -sqrt(2)*erfcinv(2*[min(fit_quantiles) max(fit_quantiles)]);
-0077 p = exp(-0.5*(bounds(1)+(0:(num_bins-1))/(num_bins-1)*diff(bounds)).^2)/(sqrt(2*pi)); p=p'/sum(p);
-0078 
-0079 <span class="comment">% determine the limits for the grid search</span>
-0080 lower_min = min(fit_quantiles);                     <span class="comment">% we can generally skip the tail below the lower quantile</span>
-0081 min_width = min_clean_fraction*diff(fit_quantiles); <span class="comment">% minimum width of the fit interval, as fraction of data</span>
-0082 max_width = diff(fit_quantiles);                    <span class="comment">% maximum width is the fit interval if all data is clean</span>
-0083 
-0084 opt_kl = Inf;
-0085 <span class="comment">% for each interval width</span>
-0086 <span class="keyword">for</span> width = min_width : step_sizes(2) : max_width
-0087     inds = (1:round(n*width))';
-0088     offsets = round(n*(lower_min : step_sizes(1) : lower_min+max_dropout_fraction));
-0089     
-0090     <span class="comment">% get data in shifted intervals</span>
-0091     T = x(bsxfun(@plus,inds,offsets));
-0092     
-0093     <span class="comment">% calculate histograms</span>
-0094     q = histc(bsxfun(@times,bsxfun(@minus,T,T(1,:)),1./(T(<span class="keyword">end</span>,:)-T(1,:))),series);
-0095     
-0096     <span class="comment">% calc KL divergences</span>
-0097     kl = sum(bsxfun(@times,p,log(bsxfun(@rdivide,p,q(1:end-1,:))))) + log(length(inds));
-0098     
-0099     <span class="comment">% update optimal range</span>
-0100     [min_kl,idx] = min(kl);
-0101     <span class="keyword">if</span> min_kl &lt; opt_kl
-0102         opt_kl = min_kl;
-0103         opt_lu = T([1,end],idx);
-0104     <span class="keyword">end</span>
-0105 <span class="keyword">end</span>
-0106 
-0107 <span class="comment">% recover mu and sigma from optimal bounds</span>
-0108 sig = (opt_lu(2)-opt_lu(1))/diff(bounds);
-0109 mu = opt_lu(1)-bounds(1)*sig;</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0050 <span class="comment">%   Beta : estimated shape parameter of the generalized Gaussian clean EEG distribution (optional)</span>
+0051 <span class="comment">%</span>
+0052 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0053 <span class="comment">%                                2013-08-15</span>
+0054 
+0055 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2013, christiankothe@gmail.com</span>
+0056 <span class="comment">%</span>
+0057 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0058 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0059 <span class="comment">% License, or (at your option) any later version.</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0062 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0063 <span class="comment">% General Public License for more details.</span>
+0064 <span class="comment">%</span>
+0065 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0066 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0067 <span class="comment">% USA</span>
+0068 
+0069 <span class="comment">% assign defaults</span>
+0070 <span class="keyword">if</span> ~exist(<span class="string">'min_clean_fraction'</span>,<span class="string">'var'</span>) || isempty(min_clean_fraction)
+0071     min_clean_fraction = 0.25; <span class="keyword">end</span>
+0072 <span class="keyword">if</span> ~exist(<span class="string">'max_dropout_fraction'</span>,<span class="string">'var'</span>) || isempty(max_dropout_fraction)
+0073     max_dropout_fraction = 0.1; <span class="keyword">end</span>
+0074 <span class="keyword">if</span> ~exist(<span class="string">'quants'</span>,<span class="string">'var'</span>) || isempty(quants)
+0075     quants = [0.022 0.6]; <span class="keyword">end</span>
+0076 <span class="keyword">if</span> ~exist(<span class="string">'step_sizes'</span>,<span class="string">'var'</span>) || isempty(step_sizes)
+0077     step_sizes = [0.01 0.01]; <span class="keyword">end</span>
+0078 <span class="keyword">if</span> ~exist(<span class="string">'beta'</span>,<span class="string">'var'</span>) || isempty(beta)
+0079     beta = 1.7:0.15:3.5; <span class="keyword">end</span>
+0080 
+0081 <span class="comment">% sanity checks</span>
+0082 <span class="keyword">if</span> ~isvector(quants) || numel(quants) &gt; 2
+0083     error(<span class="string">'Fit quantiles needs to be a 2-element vector (support for matrices deprecated).'</span>); <span class="keyword">end</span>
+0084 <span class="keyword">if</span> any(quants(:)&lt;0) || any(quants(:)&gt;1)
+0085     error(<span class="string">'Unreasonable fit quantiles.'</span>); <span class="keyword">end</span>
+0086 <span class="keyword">if</span> any(step_sizes&lt;0.0001) || any(step_sizes&gt;0.1)
+0087     error(<span class="string">'Unreasonable step sizes.'</span>); <span class="keyword">end</span>
+0088 <span class="keyword">if</span> any(beta&gt;=7) || any(beta&lt;=1)
+0089     error(<span class="string">'Unreasonable shape range.'</span>); <span class="keyword">end</span>
+0090 
+0091 <span class="comment">% sort data so we can access quantiles directly</span>
+0092 X = double(sort(X(:)));
+0093 n = length(X);
+0094 
+0095 <span class="comment">% calc z bounds for the truncated standard generalized Gaussian pdf and pdf rescaler</span>
+0096 <span class="keyword">for</span> b=1:length(beta)    
+0097     zbounds{b} = sign(quants-1/2).*gammaincinv(sign(quants-1/2).*(2*quants-1),1/beta(b)).^(1/beta(b)); <span class="comment">%#ok&lt;*AGROW&gt;</span>
+0098     rescale(b) = beta(b)/(2*gamma(1/beta(b)));
+0099 <span class="keyword">end</span>
+0100 
+0101 <span class="comment">% determine the quantile-dependent limits for the grid search</span>
+0102 lower_min = min(quants);                    <span class="comment">% we can generally skip the tail below the lower quantile</span>
+0103 max_width = diff(quants);                   <span class="comment">% maximum width is the fit interval if all data is clean</span>
+0104 min_width = min_clean_fraction*max_width;   <span class="comment">% minimum width of the fit interval, as fraction of data</span>
+0105 
+0106 <span class="comment">% get matrix of shifted data ranges</span>
+0107 X = X(bsxfun(@plus,(1:round(n*max_width))',round(n*(lower_min:step_sizes(1):lower_min+max_dropout_fraction))));
+0108 X1 = X(1,:); X = bsxfun(@minus,X,X1);
+0109 
+0110 opt_val = Inf;
+0111 <span class="comment">% for each interval width...</span>
+0112 <span class="keyword">for</span> m = round(n*(max_width:-step_sizes(2):min_width))
+0113     <span class="comment">% scale and bin the data in the intervals</span>
+0114     nbins = round(3*log2(1+m/2));
+0115     H = bsxfun(@times,X(1:m,:),nbins./X(m,:));
+0116     logq = log(histc(H,[0:nbins-1,Inf]) + 0.01);
+0117     
+0118     <span class="comment">% for each shape value...</span>
+0119     <span class="keyword">for</span> b=1:length(beta)
+0120         bounds = zbounds{b};
+0121         <span class="comment">% evaluate truncated generalized Gaussian pdf at bin centers</span>
+0122         x = bounds(1)+(0.5:(nbins-0.5))/nbins*diff(bounds);
+0123         p = exp(-abs(x).^beta(b))*rescale(b); p=p'/sum(p);
+0124         
+0125         <span class="comment">% calc KL divergences</span>
+0126         kl = sum(bsxfun(@times,p,bsxfun(@minus,log(p),logq(1:end-1,:)))) + log(m);
+0127         
+0128         <span class="comment">% update optimal parameters</span>
+0129         [min_val,idx] = min(kl);
+0130         <span class="keyword">if</span> min_val &lt; opt_val
+0131             opt_val = min_val;
+0132             opt_beta = beta(b);
+0133             opt_bounds = bounds;
+0134             opt_lu = [X1(idx) X1(idx)+X(m,idx)];
+0135         <span class="keyword">end</span>
+0136     <span class="keyword">end</span>
+0137 <span class="keyword">end</span>
+0138 
+0139 <span class="comment">% recover distribution parameters at optimum</span>
+0140 alpha = (opt_lu(2)-opt_lu(1))/diff(opt_bounds);
+0141 mu = opt_lu(1)-opt_bounds(1)*alpha;
+0142 beta = opt_beta;
+0143 
+0144 <span class="comment">% calculate the distribution's standard deviation from alpha and beta</span>
+0145 sig = sqrt((alpha^2)*gamma(3/beta)/gamma(1/beta));</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

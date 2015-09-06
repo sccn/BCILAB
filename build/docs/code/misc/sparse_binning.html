@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of sparse_binning</title>
+  <meta name="keywords" content="sparse_binning">
+  <meta name="description" content="Round and bin the given values into a sparse array.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">misc</a> &gt; sparse_binning.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/misc&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>sparse_binning
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Round and bin the given values into a sparse array.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [B,R] = sparse_binning(V,rows,columns) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Round and bin the given values into a sparse array.
+ [BinIndices,Residuals] = sparse_binning(Values,Padding)
+ 
+ In:
+   Values : vector of values that yield valid indices (&gt;1) when rounded.
+
+   Rows : number of rows to reserve (default: []=as many as needed)
+
+   Columns : number of columns to reserve (default: []=as many as needed)
+
+ Out:
+   BinIndices : sparse array containing indices into Values, where the horizontal axis is the
+                rounded value and the vertical axis are the ranks of values that fall into the same
+                bin.
+
+   Residuals : optionally the fractional offset between the values and the bin indices.
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2013-11-12</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [B,R] = sparse_binning(V,rows,columns)</a>
+0002 <span class="comment">% Round and bin the given values into a sparse array.</span>
+0003 <span class="comment">% [BinIndices,Residuals] = sparse_binning(Values,Padding)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Values : vector of values that yield valid indices (&gt;1) when rounded.</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">%   Rows : number of rows to reserve (default: []=as many as needed)</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">%   Columns : number of columns to reserve (default: []=as many as needed)</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">% Out:</span>
+0013 <span class="comment">%   BinIndices : sparse array containing indices into Values, where the horizontal axis is the</span>
+0014 <span class="comment">%                rounded value and the vertical axis are the ranks of values that fall into the same</span>
+0015 <span class="comment">%                bin.</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">%   Residuals : optionally the fractional offset between the values and the bin indices.</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0020 <span class="comment">%                                2013-11-12</span>
+0021 
+0022 [V,order] = sort(V(:)'); <span class="comment">%#ok&lt;TRSRT&gt;</span>
+0023 <span class="comment">% get the bin index where each value falls</span>
+0024 bins = round(V);
+0025 <span class="comment">% get the within-bin rank of each value</span>
+0026 ranks = [false ~diff(bins)];
+0027 ranks = 1+cumsum(ranks)-cummax(~ranks.*cumsum(ranks));
+0028 
+0029 <span class="comment">% create a sparse matrix whose k'th column holds the indices to values in the k'th bin</span>
+0030 <span class="keyword">if</span> nargin == 1
+0031     B = sparse(ranks,bins,order);
+0032 <span class="keyword">elseif</span> nargin == 2
+0033     B = sparse(ranks,bins,order,rows,max(bins));
+0034 <span class="keyword">else</span>
+0035     <span class="keyword">if</span> isempty(rows)
+0036         rows = max(ranks); <span class="keyword">end</span>
+0037     <span class="keyword">if</span> isempty(columns)
+0038         columns = max(bins); <span class="keyword">end</span>
+0039     B = sparse(ranks,bins,order,rows,columns);
+0040 <span class="keyword">end</span>
+0041 
+0042 <span class="keyword">if</span> nargout&gt;0
+0043     R = V-bins; <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

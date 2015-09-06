@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>flt_analytic_phasor
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -36,6 +37,8 @@
  3) filter (1) with B to get sine (imaginary) part of signal (Im)
  4) compute analytic amp as A = sqrt(Re.^2 + Im.^2)
  5) compute phase as Phi = atan2(Im,Re)
+
+ This filter applies to all time-series fields of the given signal.
 
  In:
    Signal : EEGLAB data set structure
@@ -84,22 +87,28 @@
 
    State : final filter state
  
-
- Notes:
-    Requires the Signal Processing toolbox for filter design.
-
-                                Tim Mullen, Swartz Center for Computational Neuroscience, UCSD
-                                2012-03-27</pre></div>
+                 Tim Mullen and Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                 2012-03-27</pre></div>
 
 <!-- crossreference -->
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function locs = update_chanlocs(locs,nFreqs)</a></li>
+</ul>
+
 
 
 
@@ -115,158 +124,210 @@ This function is called by:
 0009 <span class="comment">% 4) compute analytic amp as A = sqrt(Re.^2 + Im.^2)</span>
 0010 <span class="comment">% 5) compute phase as Phi = atan2(Im,Re)</span>
 0011 <span class="comment">%</span>
-0012 <span class="comment">% In:</span>
-0013 <span class="comment">%   Signal : EEGLAB data set structure</span>
-0014 <span class="comment">%</span>
-0015 <span class="comment">%   DiffFilter : type of differencing filter to use and sub-options; default: 'hilbert'</span>
-0016 <span class="comment">%                'hilbert' : Hilbert differentiator; suboptions are:</span>
-0017 <span class="comment">%                   FilterLength : length of the filter, auto-determined if [] (default: [])</span>
-0018 <span class="comment">%                   FrequencyBand : Frequency band to use. The 4 numbers characterize the onset,</span>
-0019 <span class="comment">%                                   pass-band limits, and offset frequency of the filter.</span>
-0020 <span class="comment">%                                   (default: [7 8 12 13])</span>
-0021 <span class="comment">%                   PassbandRipple : Maximum relative rippling in pass-band. Assumed to be in db if</span>
-0022 <span class="comment">%                                    negative, otherwise taken as a ratio. (default: -20)</span>
-0023 <span class="comment">%                   StopbandRipple : Maximum relative rippling in stop-band. Assumed to be in db if</span>
-0024 <span class="comment">%                                    negative, otherwise taken as a ratio. (default: -30)</span>
-0025 <span class="comment">%                   DesignRule : Filter design rule. Can be either Least-Squares filter design or</span>
-0026 <span class="comment">%                                Parks-McClellan filter design (default: 'Parks-McClellan')</span>
-0027 <span class="comment">%                'differentiator' : odd-symmetry differentiator with special weighting; suboptions are:</span>
-0028 <span class="comment">%                   FilterLength : length of the filter, auto-determined if [] (default: [])</span>
-0029 <span class="comment">%                   FrequencyBand : Frequency band to use. The 4 numbers characterize the onset,</span>
-0030 <span class="comment">%                                   pass-band limits, and offset frequency of the filter.</span>
-0031 <span class="comment">%                                   (default: [7 8 12 13])</span>
-0032 <span class="comment">%                   PassbandRipple : Maximum relative rippling in pass-band. Assumed to be in db if</span>
-0033 <span class="comment">%                                    negative, otherwise taken as a ratio. (default: -20)</span>
-0034 <span class="comment">%                   StopbandRipple : Maximum relative rippling in stop-band. Assumed to be in db if</span>
-0035 <span class="comment">%                                    negative, otherwise taken as a ratio. (default: -30)</span>
-0036 <span class="comment">%                   DesignRule : Filter design rule. Can be either Least-Squares filter design or</span>
-0037 <span class="comment">%                                Parks-McClellan filter design (default: 'Parks-McClellan')</span>
-0038 <span class="comment">%                'smooth_diff' : rectangular low-pass differentiation filter; suboptions are:</span>
-0039 <span class="comment">%                   FilterLength : length of the filter (default: 10)</span>
-0040 <span class="comment">%</span>
-0041 <span class="comment">%   OverrideOriginal : Override original data. If checked, the original signals will be replaced by</span>
-0042 <span class="comment">%                      their analytic amplitudes. (default: true)</span>
-0043 <span class="comment">%</span>
-0044 <span class="comment">%   IncludeAnalyticAmplitude : Include analytic amplitude. If checked, extra fields ending in _aamp</span>
-0045 <span class="comment">%                              are included for each time series field in the signal. (default: false)</span>
-0046 <span class="comment">%</span>
-0047 <span class="comment">%   IncludeAnalyticPhase : Include analytic phase. If checked, extra fields ending in _aphase are</span>
-0048 <span class="comment">%                          included for each time series field in the signal. (default: false)</span>
-0049 <span class="comment">%</span>
-0050 <span class="comment">%   State : optionally the initial filter state from a previous invocation</span>
+0012 <span class="comment">% This filter applies to all time-series fields of the given signal.</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">% In:</span>
+0015 <span class="comment">%   Signal : EEGLAB data set structure</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">%   DiffFilter : type of differencing filter to use and sub-options; default: 'hilbert'</span>
+0018 <span class="comment">%                'hilbert' : Hilbert differentiator; suboptions are:</span>
+0019 <span class="comment">%                   FilterLength : length of the filter, auto-determined if [] (default: [])</span>
+0020 <span class="comment">%                   FrequencyBand : Frequency band to use. The 4 numbers characterize the onset,</span>
+0021 <span class="comment">%                                   pass-band limits, and offset frequency of the filter.</span>
+0022 <span class="comment">%                                   (default: [7 8 12 13])</span>
+0023 <span class="comment">%                   PassbandRipple : Maximum relative rippling in pass-band. Assumed to be in db if</span>
+0024 <span class="comment">%                                    negative, otherwise taken as a ratio. (default: -20)</span>
+0025 <span class="comment">%                   StopbandRipple : Maximum relative rippling in stop-band. Assumed to be in db if</span>
+0026 <span class="comment">%                                    negative, otherwise taken as a ratio. (default: -30)</span>
+0027 <span class="comment">%                   DesignRule : Filter design rule. Can be either Least-Squares filter design or</span>
+0028 <span class="comment">%                                Parks-McClellan filter design (default: 'Parks-McClellan')</span>
+0029 <span class="comment">%                'differentiator' : odd-symmetry differentiator with special weighting; suboptions are:</span>
+0030 <span class="comment">%                   FilterLength : length of the filter, auto-determined if [] (default: [])</span>
+0031 <span class="comment">%                   FrequencyBand : Frequency band to use. The 4 numbers characterize the onset,</span>
+0032 <span class="comment">%                                   pass-band limits, and offset frequency of the filter.</span>
+0033 <span class="comment">%                                   (default: [7 8 12 13])</span>
+0034 <span class="comment">%                   PassbandRipple : Maximum relative rippling in pass-band. Assumed to be in db if</span>
+0035 <span class="comment">%                                    negative, otherwise taken as a ratio. (default: -20)</span>
+0036 <span class="comment">%                   StopbandRipple : Maximum relative rippling in stop-band. Assumed to be in db if</span>
+0037 <span class="comment">%                                    negative, otherwise taken as a ratio. (default: -30)</span>
+0038 <span class="comment">%                   DesignRule : Filter design rule. Can be either Least-Squares filter design or</span>
+0039 <span class="comment">%                                Parks-McClellan filter design (default: 'Parks-McClellan')</span>
+0040 <span class="comment">%                'smooth_diff' : rectangular low-pass differentiation filter; suboptions are:</span>
+0041 <span class="comment">%                   FilterLength : length of the filter (default: 10)</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%   OverrideOriginal : Override original data. If checked, the original signals will be replaced by</span>
+0044 <span class="comment">%                      their analytic amplitudes. (default: true)</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">%   IncludeAnalyticAmplitude : Include analytic amplitude. If checked, extra fields ending in _aamp</span>
+0047 <span class="comment">%                              are included for each time series field in the signal. (default: false)</span>
+0048 <span class="comment">%</span>
+0049 <span class="comment">%   IncludeAnalyticPhase : Include analytic phase. If checked, extra fields ending in _aphase are</span>
+0050 <span class="comment">%                          included for each time series field in the signal. (default: false)</span>
 0051 <span class="comment">%</span>
-0052 <span class="comment">% Out:</span>
-0053 <span class="comment">%   Signal : filtered signal; the original time series fields now contain the analytic amplitude</span>
-0054 <span class="comment">%            while new time series fields ending in _aphase are added that contain the analytic</span>
-0055 <span class="comment">%            phases.</span>
-0056 <span class="comment">%</span>
-0057 <span class="comment">%   State : final filter state</span>
+0052 <span class="comment">%   State : optionally the initial filter state from a previous invocation</span>
+0053 <span class="comment">%</span>
+0054 <span class="comment">% Out:</span>
+0055 <span class="comment">%   Signal : filtered signal; the original time series fields now contain the analytic amplitude</span>
+0056 <span class="comment">%            while new time series fields ending in _aphase are added that contain the analytic</span>
+0057 <span class="comment">%            phases.</span>
 0058 <span class="comment">%</span>
-0059 <span class="comment">%</span>
-0060 <span class="comment">% Notes:</span>
-0061 <span class="comment">%    Requires the Signal Processing toolbox for filter design.</span>
-0062 <span class="comment">%</span>
-0063 <span class="comment">%                                Tim Mullen, Swartz Center for Computational Neuroscience, UCSD</span>
-0064 <span class="comment">%                                2012-03-27</span>
+0059 <span class="comment">%   State : final filter state</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">%                 Tim Mullen and Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0062 <span class="comment">%                 2012-03-27</span>
+0063 
+0064 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
 0065 
-0066 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
-0067 
-0068 <span class="comment">% follows IIR/FIR, as it should operate on a clean signal (rather than depend on HF noise, etc.)</span>
-0069 declare_properties(<span class="string">'name'</span>,<span class="string">'AnalyticPhasor'</span>, <span class="string">'cannot_follow'</span>,<span class="string">'set_makepos'</span>, <span class="string">'follows'</span>,{<span class="string">'flt_iir'</span>,<span class="string">'flt_fir'</span>},<span class="string">'independent_channels'</span>,true, <span class="string">'independent_trials'</span>,false);
-0070 
-0071 arg_define(varargin,<span class="keyword">...</span>
-0072     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
-0073     arg_subswitch({<span class="string">'flt'</span>,<span class="string">'DiffFilter'</span>,<span class="string">'diffFilter'</span>},<span class="string">'hilbert'</span>, <span class="keyword">...</span>
-0074         {<span class="string">'hilbert'</span> <span class="keyword">...</span>
-0075             {arg({<span class="string">'freqband'</span>,<span class="string">'FrequencyBand'</span>}, [7 8 12 13], [], <span class="string">'Frequency band to use. The 4 numbers characterize the onset, pass-band limits, and offset frequency of the filter.'</span>), <span class="keyword">...</span>
-0076              arg({<span class="string">'fltlen'</span>,<span class="string">'FilterLength'</span>}, [], [], <span class="string">'Filter length. This determines both the quality and the delay of the differentiator. If left empty, the optimal order will be estimated based on tolerated pass/stopband ripple.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>), <span class="keyword">...</span>
-0077              arg({<span class="string">'passripple'</span>,<span class="string">'PassbandRipple'</span>}, -20, [-180 1], <span class="string">'Maximum relative ripple amplitude in pass-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'</span>), <span class="keyword">...</span>
-0078              arg({<span class="string">'stopripple'</span>,<span class="string">'StopbandRipple'</span>}, -30, [-180 1], <span class="string">'Maximum relative ripple amplitude in stop-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'</span>), <span class="keyword">...</span>
-0079              arg({<span class="string">'designrule'</span>,<span class="string">'DesignRule'</span>}, <span class="string">'Parks-McClellan'</span>, {<span class="string">'Least-Squares'</span>,<span class="string">'Parks-McClellan'</span>}, <span class="string">'Filter design rule. Can be either least-squares filter design or Parks-McClellan filter design.'</span>)}, <span class="keyword">...</span>
-0080          <span class="string">'differentiator'</span> <span class="keyword">...</span>
-0081             {arg({<span class="string">'freqband'</span>,<span class="string">'FrequencyBand'</span>}, [7 8 12 13], [], <span class="string">'Frequency band to use. The 4 numbers characterize the onset, pass-band limits, and offset frequency of the filter.'</span>), <span class="keyword">...</span>
-0082              arg({<span class="string">'fltlen'</span>,<span class="string">'FilterLength'</span>}, [], [], <span class="string">'Filter length. This determines both the quality and the delay of the differentiator. If left empty, the optimal order will be estimated based on tolerated pass/stopband ripple.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>), <span class="keyword">...</span>
-0083              arg({<span class="string">'passripple'</span>,<span class="string">'PassbandRipple'</span>}, -20, [-180 1], <span class="string">'Maximum relative ripple amplitude in pass-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'</span>), <span class="keyword">...</span>
-0084              arg({<span class="string">'stopripple'</span>,<span class="string">'StopbandRipple'</span>}, -30, [-180 1], <span class="string">'Maximum relative ripple amplitude in stop-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'</span>), <span class="keyword">...</span>
-0085              arg({<span class="string">'designrule'</span>,<span class="string">'DesignRule'</span>}, <span class="string">'Parks-McClellan'</span>, {<span class="string">'Least-Squares'</span>,<span class="string">'Parks-McClellan'</span>}, <span class="string">'Filter design rule. Can be either least-squares filter design or Parks-McClellan filter design.'</span>)}, <span class="keyword">...</span>
-0086          <span class="string">'smooth_diff'</span> <span class="keyword">...</span>
-0087             {arg({<span class="string">'fltlen'</span>,<span class="string">'FilterLength'</span>}, 10, [], <span class="string">'Filter length. This determines both the quality and the delay of the differentiator. The default should be fine.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>)} <span class="keyword">...</span>
-0088         },<span class="string">'Differencing filter. The smooth_diff implementation is currently experimental; hilbert and differentiator should be fine.'</span>), <span class="keyword">...</span>
-0089     arg({<span class="string">'override_original'</span>,<span class="string">'OverrideOriginal'</span>},true,[],<span class="string">'Override original data. If checked, the original signals will be replaced by their analytic amplitudes.'</span>), <span class="keyword">...</span>
-0090     arg({<span class="string">'include_aamp'</span>,<span class="string">'IncludeAnalyticAmplitude'</span>},false,[],<span class="string">'Include analytic amplitude. If checked, extra fields ending in _aamp are included for each time series field in the signal.'</span>), <span class="keyword">...</span>
-0091     arg({<span class="string">'include_aphase'</span>,<span class="string">'IncludeAnalyticPhase'</span>},false,[],<span class="string">'Include analytic phase. If checked, extra fields ending in _aphase are included for each time series field in the signal.'</span>), <span class="keyword">...</span>
-0092     arg({<span class="string">'include_afreq'</span>,<span class="string">'IncludeAnalyticFrequency'</span>},false,[],<span class="string">'Include analytic frequency. If checked, extra fields ending in _afreq are included for each time series field in the signal.'</span>), <span class="keyword">...</span>
-0093     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>},[]));
-0094     
-0095 <span class="comment">% make up prior state if necessary</span>
-0096 <span class="keyword">if</span> isempty(state)
-0097     <span class="comment">% construct differentiator</span>
-0098     <span class="keyword">switch</span> flt.arg_selection
-0099         <span class="keyword">case</span> <span class="string">'smooth_diff'</span>
-0100             state.b_im = hlp_microcache(<span class="string">'fdesign'</span>,@smooth_diff,flt.fltlen);
-0101             state.b_re = abs(state.b_im);
-0102         <span class="keyword">case</span> {<span class="string">'hilbert'</span>,<span class="string">'differentiator'</span>}
-0103             <span class="comment">% build firpm freq spec</span>
-0104             <span class="keyword">if</span> flt.passripple &lt; 0
-0105                 flt.passripple = 10^(flt.passripple/10); <span class="keyword">end</span>
-0106             <span class="keyword">if</span> flt.stopripple &lt; 0
-0107                 flt.stopripple = 10^(flt.stopripple/10); <span class="keyword">end</span>            
-0108             <span class="comment">% estimate filter order if necessary (using firpmord in all cases)</span>
-0109             <span class="keyword">if</span> isempty(flt.fltlen)
-0110                 pmspec = hlp_diskcache(<span class="string">'filterdesign'</span>,@firpmord,flt.freqband,[0 1 0],flt.stopripple + [0 1 0]*(flt.passripple-flt.stopripple),signal.srate,<span class="string">'cell'</span>);
-0111                 pmspec{1} = max(3,pmspec{1});
-0112             <span class="keyword">else</span>
-0113                 pmspec = {flt.fltlen,[0 flt.freqband*2/signal.srate 1],[0 0 1 1 0 0]};
-0114             <span class="keyword">end</span>
-0115             <span class="comment">% design filters</span>
-0116             <span class="keyword">switch</span> flt.designrule
-0117                 <span class="keyword">case</span> {<span class="string">'Parks-McClellan'</span>,<span class="string">'pm'</span>}
-0118                     state.b_im = hlp_diskcache(<span class="string">'filterdesign'</span>,@firpm,pmspec{:},flt.arg_selection); 
-0119                     state.b_re = hlp_diskcache(<span class="string">'filterdesign'</span>,@firpm,pmspec{:}); 
-0120                 <span class="keyword">case</span> {<span class="string">'Least-Squares'</span>,<span class="string">'ls'</span>}
-0121                     state.b_im = hlp_diskcache(<span class="string">'filterdesign'</span>,@firls,pmspec{1},[0 flt.freqband*2/signal.srate 1],[0 0 1 1 0 0],flt.arg_selection);
-0122                     state.b_re = hlp_diskcache(<span class="string">'filterdesign'</span>,@firls,pmspec{1},[0 flt.freqband*2/signal.srate 1],[0 0 1 1 0 0]);
-0123                 <span class="keyword">otherwise</span> 
-0124                     error([<span class="string">'Unrecognized filter design rule:'</span> hlp_tostring(flt.designrule)]);
-0125             <span class="keyword">end</span>
-0126         <span class="keyword">otherwise</span>
-0127             error([<span class="string">'Unrecognized differentiator type selected: '</span> hlp_tostring(flt.arg_selection)])
-0128     <span class="keyword">end</span>
-0129     <span class="comment">% set up initial state</span>
-0130     <span class="keyword">for</span> fld = utl_timeseries_fields(signal)
-0131         state.(fld{1}) = struct(<span class="string">'zi_re'</span>,[],<span class="string">'zi_im'</span>,[]); <span class="keyword">end</span>
-0132 <span class="keyword">end</span>
-0133 
-0134 <span class="comment">% filter bandpassed signal with differentiator to get sine part</span>
-0135 <span class="keyword">for</span> fld = utl_timeseries_fields(signal)
-0136     field = fld{1};
-0137     <span class="keyword">if</span> ~isempty(signal.(field)) &amp;&amp; ~isequal(signal.(field),1)
-0138         <span class="comment">% get rid of NaN's and Inf's</span>
-0139         signal.(field)(~isfinite(signal.(field)(:))) = 0;
-0140         <span class="comment">% apply differentiator to get real (cosine) and imaginary (sine) part of signal</span>
-0141         [impart,state.(field).zi_im] = filter_fast(state.b_im,1,signal.(field),state.(field).zi_im,2);
-0142         [repart,state.(field).zi_re] = filter_fast(state.b_re,1,signal.(field),state.(field).zi_re,2);
-0143         <span class="comment">% compute analytic phase and amplitude</span>
-0144         aamp = sqrt(repart.^2 + impart.^2);
-0145         <span class="keyword">if</span> include_aphase || include_afreq
-0146             aphase = atan2(impart,repart); <span class="keyword">end</span>
-0147         <span class="keyword">if</span> include_aphase
-0148             signal = utl_register_field(signal,<span class="string">'timeseries'</span>,[field <span class="string">'_aphase'</span>],aphase); <span class="keyword">end</span>
-0149         <span class="keyword">if</span> include_aamp
-0150             signal = utl_register_field(signal,<span class="string">'timeseries'</span>,[field <span class="string">'_aamp'</span>],aamp); <span class="keyword">end</span>        
-0151         <span class="keyword">if</span> include_afreq
-0152             <span class="comment">% compute instantaneous frequency</span>
-0153             afreq = diff(aphase,[],2);
-0154             flips = afreq&lt;-pi;
-0155             afreq(flips) = afreq(flips)+2*pi;
-0156             signal = utl_register_field(signal,<span class="string">'timeseries'</span>,[field <span class="string">'_afreq'</span>],afreq/(2*pi)*signal.srate);
-0157         <span class="keyword">end</span>
-0158         <span class="keyword">if</span> override_original
-0159             signal.(field) = aamp; <span class="keyword">end</span>
+0066 <span class="comment">% follows IIR/FIR, as it should operate on a clean signal (rather than depend on HF noise, etc.)</span>
+0067 declare_properties(<span class="string">'name'</span>,<span class="string">'AnalyticPhasor'</span>, <span class="string">'cannot_follow'</span>,<span class="string">'set_makepos'</span>, <span class="string">'follows'</span>,{<span class="string">'flt_iir'</span>,<span class="string">'flt_fir'</span>},<span class="string">'independent_channels'</span>,true, <span class="string">'independent_trials'</span>,false);
+0068 
+0069 arg_define(varargin,<span class="keyword">...</span>
+0070     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0071     arg_subswitch({<span class="string">'flt'</span>,<span class="string">'DiffFilter'</span>,<span class="string">'diffFilter'</span>},<span class="string">'hilbert'</span>, <span class="keyword">...</span>
+0072         {<span class="string">'hilbert'</span> <span class="keyword">...</span>
+0073             {arg({<span class="string">'freqband'</span>,<span class="string">'FrequencyBand'</span>}, [7 8 12 13], [], <span class="string">'Frequency band to use. The 4 numbers characterize the onset, pass-band limits, and offset frequency of the filter. Can also be a cell array of multiple bands.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0074              arg({<span class="string">'fltlen'</span>,<span class="string">'FilterLength'</span>}, [], uint32([1 10 10000 100000]), <span class="string">'Filter length. This determines both the quality and the delay of the differentiator. If left empty, the optimal order will be estimated based on tolerated pass/stopband ripple.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>), <span class="keyword">...</span>
+0075              arg({<span class="string">'passripple'</span>,<span class="string">'PassbandRipple'</span>}, -20, [-180 -80 0.1 1], <span class="string">'Maximum relative ripple amplitude in pass-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'</span>), <span class="keyword">...</span>
+0076              arg({<span class="string">'stopripple'</span>,<span class="string">'StopbandRipple'</span>}, -30, [-180 -80 0.1 1], <span class="string">'Maximum relative ripple amplitude in stop-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'</span>), <span class="keyword">...</span>
+0077              arg({<span class="string">'designrule'</span>,<span class="string">'DesignRule'</span>}, <span class="string">'Frequency Sampling'</span>, {<span class="string">'Frequency Sampling'</span>,<span class="string">'Least-Squares'</span>,<span class="string">'Parks-McClellan'</span>}, <span class="string">'Filter design rule. Can be either least-squares filter design or Parks-McClellan filter design.'</span>)}, <span class="keyword">...</span>
+0078          <span class="string">'differentiator'</span> <span class="keyword">...</span>
+0079             {arg({<span class="string">'freqband'</span>,<span class="string">'FrequencyBand'</span>}, [7 8 12 13], [], <span class="string">'Frequency band to use. The 4 numbers characterize the onset, pass-band limits, and offset frequency of the filter. Can also be a cell array of multiple bands.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0080              arg({<span class="string">'fltlen'</span>,<span class="string">'FilterLength'</span>}, [], uint32([1 10 10000 100000]), <span class="string">'Filter length. This determines both the quality and the delay of the differentiator. If left empty, the optimal order will be estimated based on tolerated pass/stopband ripple.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>), <span class="keyword">...</span>
+0081              arg({<span class="string">'passripple'</span>,<span class="string">'PassbandRipple'</span>}, -20, [-180 -80 0.1 1], <span class="string">'Maximum relative ripple amplitude in pass-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'</span>), <span class="keyword">...</span>
+0082              arg({<span class="string">'stopripple'</span>,<span class="string">'StopbandRipple'</span>}, -30, [-180 -80 0.1 1], <span class="string">'Maximum relative ripple amplitude in stop-band. Relative to nominal pass-band gain. Assumed to be in db if negative, otherwise taken as a ratio.'</span>), <span class="keyword">...</span>
+0083              arg({<span class="string">'designrule'</span>,<span class="string">'DesignRule'</span>}, <span class="string">'Frequency Sampling'</span>, {<span class="string">'Frequency Sampling'</span>,<span class="string">'Least-Squares'</span>,<span class="string">'Parks-McClellan'</span>}, <span class="string">'Filter design rule. Can be either least-squares filter design or Parks-McClellan filter design.'</span>)}, <span class="keyword">...</span>
+0084          <span class="string">'smooth_diff'</span> <span class="keyword">...</span>
+0085             {arg({<span class="string">'fltlen'</span>,<span class="string">'FilterLength'</span>}, 10, uint32([1 10 10000 100000]), <span class="string">'Filter length. This determines both the quality and the delay of the differentiator. The default should be fine.'</span>,<span class="string">'shape'</span>,<span class="string">'scalar'</span>)} <span class="keyword">...</span>
+0086         },<span class="string">'Differencing filter. The smooth_diff implementation is currently experimental; hilbert and differentiator should be fine.'</span>), <span class="keyword">...</span>
+0087     arg({<span class="string">'override_original'</span>,<span class="string">'OverrideOriginal'</span>},true,[],<span class="string">'Override original data. If checked, the original signals will be replaced by their analytic amplitudes.'</span>), <span class="keyword">...</span>
+0088     arg({<span class="string">'include_aamp'</span>,<span class="string">'IncludeAnalyticAmplitude'</span>},false,[],<span class="string">'Include analytic amplitude. If checked, extra fields ending in _aamp are included for each time series field in the signal.'</span>), <span class="keyword">...</span>
+0089     arg({<span class="string">'include_aphase'</span>,<span class="string">'IncludeAnalyticPhase'</span>},false,[],<span class="string">'Include analytic phase. If checked, extra fields ending in _aphase are included for each time series field in the signal.'</span>), <span class="keyword">...</span>
+0090     arg({<span class="string">'include_afreq'</span>,<span class="string">'IncludeAnalyticFrequency'</span>},false,[],<span class="string">'Include analytic frequency. If checked, extra fields ending in _afreq are included for each time series field in the signal.'</span>), <span class="keyword">...</span>
+0091     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>},[]));
+0092     
+0093 <span class="comment">% make up prior state if necessary</span>
+0094 <span class="keyword">if</span> isempty(state)
+0095     <span class="comment">% construct differentiator</span>
+0096     <span class="keyword">switch</span> flt.arg_selection
+0097         <span class="keyword">case</span> <span class="string">'smooth_diff'</span>
+0098             state.b_im = hlp_microcache(<span class="string">'fdesign'</span>,@smooth_diff,flt.fltlen);
+0099             state.b_re = abs(state.b_im);
+0100         <span class="keyword">case</span> {<span class="string">'hilbert'</span>,<span class="string">'differentiator'</span>}
+0101             <span class="comment">% validate FrequencyBand parameter</span>
+0102             <span class="keyword">if</span> ~iscell(flt.freqband)
+0103                 flt.freqband = {flt.freqband}; <span class="keyword">end</span>
+0104             nFreqs = length(flt.freqband);
+0105             <span class="keyword">for</span> f=1:nFreqs
+0106                 fb = flt.freqband{f};
+0107                 <span class="keyword">if</span> ~isnumeric(fb) || ~isequal(size(fb),[1,4]) || ~issorted(fb)
+0108                     error(<span class="string">'A frequency band must be specified as 4 increasing frequencies, in Hz, which determine the location of the rising and the falling transition band in the trapezoidal frequency response curve, as [raise-start,raise-end,fall-start,fall-end], e.g., [6 7 30 31] for a 7-30 Hz filter with 1 Hz transition bands, but got: %s'</span>,hlp_tostring(fb,1000)); <span class="keyword">end</span>
+0109                 <span class="keyword">if</span> any(fb &gt;= signal.srate/2)
+0110                     error(<span class="string">'The given frequencies must all be below the signal''s Nyquist frequency (here: %.1f).'</span>,signal.srate); <span class="keyword">end</span>
+0111                 <span class="keyword">if</span> any(fb &lt;= 0)
+0112                     error(<span class="string">'The given frequencies must all be positive.'</span>); <span class="keyword">end</span>
+0113             <span class="keyword">end</span>
+0114             <span class="comment">% build firpm freq spec</span>
+0115             <span class="keyword">if</span> flt.passripple &lt; 0
+0116                 flt.passripple = 10^(flt.passripple/10); <span class="keyword">end</span>
+0117             <span class="keyword">if</span> flt.stopripple &lt; 0
+0118                 flt.stopripple = 10^(flt.stopripple/10); <span class="keyword">end</span>            
+0119             <span class="keyword">if</span> isempty(flt.fltlen) &amp;&amp; ~any(strcmp(flt.designrule,{<span class="string">'Frequency Sampling'</span>,<span class="string">'fs'</span>}))
+0120                 <span class="comment">% optionally estimate filters order for each band</span>
+0121                 <span class="keyword">for</span> f=nFreqs:-1:1
+0122                     pmspec{f} = hlp_diskcache(<span class="string">'filterdesign'</span>,@firpmord,flt.freqband{f},[0 1 0],flt.stopripple + [0 1 0]*(flt.passripple-flt.stopripple),signal.srate,<span class="string">'cell'</span>); <span class="keyword">end</span>
+0123                 <span class="comment">% make sure that each filter uses the same order (=delay)</span>
+0124                 maxlen = max([3,cellfun(@(x)x{1},pmspec)]);
+0125                 <span class="keyword">for</span> f=nFreqs:-1:1
+0126                     pmspec{f}{1} = maxlen; <span class="keyword">end</span>
+0127             <span class="keyword">else</span>
+0128                 <span class="keyword">for</span> f=nFreqs:-1:1
+0129                     pmspec{f} = {flt.fltlen,[0 flt.freqband{f}*2/signal.srate 1],[0 0 1 1 0 0]}; <span class="keyword">end</span>
+0130             <span class="keyword">end</span>
+0131             <span class="comment">% design filters</span>
+0132             <span class="keyword">for</span> f=nFreqs:-1:1
+0133                 <span class="keyword">switch</span> flt.designrule
+0134                     <span class="keyword">case</span> {<span class="string">'Parks-McClellan'</span>,<span class="string">'pm'</span>}                    
+0135                         state.b_im{f} = hlp_diskcache(<span class="string">'filterdesign'</span>,@firpm,pmspec{f}{:},flt.arg_selection); 
+0136                         state.b_re{f} = hlp_diskcache(<span class="string">'filterdesign'</span>,@firpm,pmspec{f}{:}); 
+0137                     <span class="keyword">case</span> {<span class="string">'Least-Squares'</span>,<span class="string">'ls'</span>}
+0138                         state.b_im{f} = hlp_diskcache(<span class="string">'filterdesign'</span>,@firls,pmspec{f}{:},flt.arg_selection);
+0139                         state.b_re{f} = hlp_diskcache(<span class="string">'filterdesign'</span>,@firls,pmspec{f}{:});
+0140                     <span class="keyword">case</span> {<span class="string">'Frequency Sampling'</span>,<span class="string">'fs'</span>}
+0141                         <span class="comment">% get frequencies and amplitudes</span>
+0142                         freqs = [0 flt.freqband{f}*2/signal.srate 1];
+0143                         amps = [0 0 1 1 0 0];
+0144                         <span class="comment">% design window</span>
+0145                         <span class="keyword">if</span> isempty(flt.fltlen)
+0146                             [dummy,pos] = min(diff(freqs)); <span class="comment">%#ok&lt;ASGLU&gt;</span>
+0147                             wnd = design_kaiser(freqs(pos),freqs(pos+1),-20*log10(flt.stopripple),false);
+0148                         <span class="keyword">else</span>
+0149                             wnd = window_func(<span class="string">'kaiser'</span>,flt.fltlen+1-mod(flt.fltlen,2));
+0150                         <span class="keyword">end</span>
+0151                         <span class="comment">% design filters</span>
+0152                         state.b_im{f} = design_fir(length(wnd)-1,freqs,amps,[],wnd,true);
+0153                         state.b_re{f} = design_fir(length(wnd)-1,freqs,amps,[],wnd);
+0154                     <span class="keyword">otherwise</span> 
+0155                         error([<span class="string">'Unrecognized filter design rule:'</span> hlp_tostring(flt.designrule)]);
+0156                 <span class="keyword">end</span>
+0157             <span class="keyword">end</span>
+0158         <span class="keyword">otherwise</span>
+0159             error([<span class="string">'Unrecognized differentiator type selected: '</span> hlp_tostring(flt.arg_selection)])
 0160     <span class="keyword">end</span>
-0161 <span class="keyword">end</span>
-0162 
-0163 exp_endfun;</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0161     <span class="comment">% set up initial state</span>
+0162     state.cached_chanlocs = <a href="#_sub1" class="code" title="subfunction locs = update_chanlocs(locs,nFreqs)">update_chanlocs</a>(signal.chanlocs,nFreqs);
+0163     <span class="keyword">for</span> fld = utl_timeseries_fields(signal)
+0164         state.(fld{1}) = struct(<span class="string">'zi_re'</span>,{cell(1,length(flt.freqband))},<span class="string">'zi_im'</span>,{cell(1,length(flt.freqband))}); <span class="keyword">end</span>
+0165 <span class="keyword">end</span>
+0166 
+0167 <span class="comment">% filter bandpassed signal with differentiator to get sine part</span>
+0168 nFreqs = length(state.b_im);
+0169 <span class="keyword">for</span> fld = utl_timeseries_fields(signal)
+0170     field = fld{1};
+0171     <span class="keyword">if</span> ~isempty(signal.(field))
+0172         <span class="comment">% get rid of NaN's and Inf's</span>
+0173         signal.(field)(~isfinite(signal.(field)(:))) = 0;
+0174         <span class="comment">% apply differentiator to get real (cosine) and imaginary (sine) part of signal</span>
+0175         [impart,repart] = deal(cell(1,nFreqs));
+0176         <span class="keyword">for</span> f=1:nFreqs
+0177             [impart{f},state.(field).zi_im{f}] = filter_fast(state.b_im{f},1,signal.(field),state.(field).zi_im{f},2);
+0178             [repart{f},state.(field).zi_re{f}] = filter_fast(state.b_re{f},1,signal.(field),state.(field).zi_re{f},2);
+0179         <span class="keyword">end</span>
+0180         <span class="comment">% concatenate across all frequencies</span>
+0181         impart = vertcat(impart{:});
+0182         repart = vertcat(repart{:});
+0183         <span class="comment">% compute analytic phase and amplitude</span>
+0184         aamp = sqrt(repart.^2 + impart.^2);
+0185         <span class="keyword">if</span> include_aphase || include_afreq
+0186             aphase = atan2(impart,repart); <span class="keyword">end</span>
+0187         <span class="keyword">if</span> include_aphase
+0188             signal = utl_register_field(signal,<span class="string">'timeseries'</span>,[field <span class="string">'_aphase'</span>],aphase); <span class="keyword">end</span>
+0189         <span class="keyword">if</span> include_aamp
+0190             signal = utl_register_field(signal,<span class="string">'timeseries'</span>,[field <span class="string">'_aamp'</span>],aamp); <span class="keyword">end</span>        
+0191         <span class="keyword">if</span> include_afreq
+0192             <span class="comment">% compute instantaneous frequency</span>
+0193             afreq = diff(aphase,[],2);
+0194             flips = afreq&lt;-pi;
+0195             afreq(flips) = afreq(flips)+2*pi;
+0196             signal = utl_register_field(signal,<span class="string">'timeseries'</span>,[field <span class="string">'_afreq'</span>],afreq/(2*pi)*signal.srate);
+0197         <span class="keyword">end</span>
+0198         <span class="keyword">if</span> override_original
+0199             signal.(field) = aamp; 
+0200             <span class="comment">% also override channel labels</span>
+0201             signal.etc.orig_chanlocs = signal.chanlocs;
+0202             signal.chanlocs = state.cached_chanlocs;
+0203             signal.nbchan = length(signal.chanlocs);
+0204         <span class="keyword">end</span>
+0205     <span class="keyword">end</span>
+0206 <span class="keyword">end</span>
+0207 
+0208 exp_endfun;
+0209 
+0210 
+0211 <a name="_sub1" href="#_subfunctions" class="code">function locs = update_chanlocs(locs,nFreqs)</a>
+0212 nChans = length(locs);
+0213 locs = repmat(locs,1,nFreqs);
+0214 [locs.labels] = celldeal(cellfun(@strcat,{locs.labels},vec(repmat(cellfun(@(f)sprintf(<span class="string">'_%i'</span>,f),num2cell(1:nFreqs),<span class="string">'UniformOutput'</span>,false),nChans,1))',<span class="string">'UniformOutput'</span>,false));</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

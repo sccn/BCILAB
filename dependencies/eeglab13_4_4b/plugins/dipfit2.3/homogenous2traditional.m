@@ -99,8 +99,8 @@ else
 end
 
 % recompute the individual rotation matrices
-Rx = rotate([rx 0 0]);
-Ry = rotate([0 ry 0]);
+Rx = rotate_new([rx 0 0]);
+Ry = rotate_new([0 ry 0]);
 Rz = inv(Ry) * inv(Rx) * H; % use left side multiplication
 
 % compute the remaining rotation using a probe point on the x-axis
@@ -108,7 +108,7 @@ p = Rz * [1 0 0 0]';
 rz = asin(p(2));
 
 % the complete rotation matrix was
-R = rotate([rx ry rz]);
+R = rotate_new([rx ry rz]);
 
 % compare the original translation with the one that was estimated
 H = T * R * S;
@@ -118,7 +118,7 @@ H = T * R * S;
 f = [tx ty tz rx ry rz sx sy sz];
 
 
-function [output] = rotate(R, input);
+function [output] = rotate_new(R, input);
 
 % ROTATE performs a 3D rotation on the input coordinates
 % around the x, y and z-axis. The direction of the rotation 

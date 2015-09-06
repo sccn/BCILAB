@@ -50,7 +50,7 @@ function [H] = globalrescale(f);
 T = translate(f([1 2 3]));
 
 % compute the homogenous transformation matrix for the rotation
-R = rotate(f([4 5 6]));
+R = rotate_new(f([4 5 6]));
 
 % compute the homogenous transformation matrix for the global scaling
 S = scale(f([7 7 7]));

@@ -10,6 +10,7 @@ function signal = flt_project(varargin)
 %                      * '.icawinv' : apply ICA back-projection
 %                      * string : use the named variable or expression in the base workspace
 %                      * matrix : use the given matrix as-is
+%                      * anonymous function of 1 argument as string: compute spatial filter with N channels
 %
 %   ChannelNames     : optional cell array of new channel names (default: {'1','2','3',...})
 %                      If this is set to false, the old channel labels will be retained.
@@ -85,6 +86,9 @@ elseif strcmp(projmat,'.icawinv')
     else
         error('No icaweights or icawinv fields are present.')
     end
+elseif isa(projmat,'function_handle')
+    randn('seed',23456);
+    projmat = projmat(signal.nbchan);
 elseif ischar(projmat)
     projmat = evalin('base',projmat);
 end

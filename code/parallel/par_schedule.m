@@ -9,7 +9,12 @@ function [results,errors] = par_schedule(tasks,varargin)
 %           * struct('head',function_handle, 'parts',{{arg1,arg2,arg3, ...}})
 %           (see also par_beginschedule for further details)
 %
-%   Options...: optional name-value pairs, same as in par_beginschedule
+%   Options...: optional name-value pairs, same as in par_beginschedule, with the addition of
+%
+%               'scope': optional parallel scope; if this is a cell array of name-value pairs, 
+%                        cluster resources will be acquired with these options for the duration of
+%                        bci_train (and released thereafter). Options as in
+%                        env_acquire_cluster.
 %
 % Out:
 %   Results : cell array of results of the scheduled computations (evaluated tasks)
@@ -50,6 +55,18 @@ function [results,errors] = par_schedule(tasks,varargin)
 % write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 % USA
 
+% optionally set up a scoped parallel run on a cluster
+opts = hlp_varargin2struct(varargin,'scope',[]);
+if iscell(opts.scope)
+    if env_acquire_cluster(opts.scope{:})
+        releaser = onCleanup(@()env_release_cluster); end
+end
+
+% if there's only one task we run locally...
+if length(tasks) == 1
+    varargin = [varargin {'engine','local'}]; end
+    
+% schedule tasks...
 id = par_beginschedule(tasks,varargin{:});
 [results,errors] = par_endschedule(id,varargin{:});
 

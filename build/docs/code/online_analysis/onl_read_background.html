@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/online_analysis&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>onl_read_background
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -35,16 +36,18 @@
  periodically invokes a user-supplied data reading function.
  
  In:
-   MatlabStream : name of the stream to be updated (default: 'laststream')
-                  (must have been previously created via onl_newstream)
+   StreamName : Name of the stream data structure in the MATLAB workspace that shall be updated 
+                in the background (must have been previously created via onl_newstream) 
+                (default: 'laststream')
  
-   BlockReader : function that reads a block from the device (format: [Channels x Samples])
-                 if no data is available, this function should return an empty result.
-                 It may also return a cell array of the form {[Channels x Samples],TimeStamp}. More 
-                 generally, all returned cells are used as arguments to onl_predict.
-                 Optionally, this function may take the current stream variable as input.
+   BlockReader : Callback function that reads a block from the device (format: [Channels x Samples])
+                 if no data is available, this function should return an empty result. It may also
+                 return a cell array of the form {[Channels x Samples],TimeStamp} or {[Channels x
+                 Samples],Markers,TimeStamp}. More generally, all returned cells are used as
+                 arguments to onl_predict. Optionally, this function may take the current stream
+                 variable as input.
 
-   UpdateFrequency : frequency at which the device should be queried, in Hz (default: 25)
+   UpdateFrequency : Frequency at which the device should be queried, in Hz (default: 10)
 
  Example:
    % after a stream has been openend, ...
@@ -55,7 +58,7 @@
    onl_read_background('mystream', @get_samples_from_my_device,30);
 
  See also:
-   <a href="onl_append.html" class="code" title="function onl_append(name, chunk, stamp)">onl_append</a>, <a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>
+   <a href="onl_append.html" class="code" title="function onl_append(name, chunk, markers, stamp)">onl_append</a>, <a href="onl_newstream.html" class="code" title="function id = onl_newstream(name,varargin)">onl_newstream</a>
 
                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                                 2011-01-18</pre></div>
@@ -64,15 +67,24 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="onl_append.html" class="code" title="function onl_append(name, chunk, stamp)">onl_append</a>	Append a block of raw data to a stream.</li></ul>
+
+<li><a href="onl_append.html" class="code" title="function onl_append(name, chunk, markers, stamp)">onl_append</a>	Append a block of raw data to a stream.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
+
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function append_data(stream_name,stream_id,timer_handle,read_block)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function append_data(stream_name,stream_id,timer_handle,read_block)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function stream_id = onl_read_background(varargin)</a>
@@ -84,72 +96,109 @@ This function is called by:
 0007 <span class="comment">% periodically invokes a user-supplied data reading function.</span>
 0008 <span class="comment">%</span>
 0009 <span class="comment">% In:</span>
-0010 <span class="comment">%   MatlabStream : name of the stream to be updated (default: 'laststream')</span>
-0011 <span class="comment">%                  (must have been previously created via onl_newstream)</span>
-0012 <span class="comment">%</span>
-0013 <span class="comment">%   BlockReader : function that reads a block from the device (format: [Channels x Samples])</span>
-0014 <span class="comment">%                 if no data is available, this function should return an empty result.</span>
-0015 <span class="comment">%                 It may also return a cell array of the form {[Channels x Samples],TimeStamp}. More</span>
-0016 <span class="comment">%                 generally, all returned cells are used as arguments to onl_predict.</span>
-0017 <span class="comment">%                 Optionally, this function may take the current stream variable as input.</span>
-0018 <span class="comment">%</span>
-0019 <span class="comment">%   UpdateFrequency : frequency at which the device should be queried, in Hz (default: 25)</span>
+0010 <span class="comment">%   StreamName : Name of the stream data structure in the MATLAB workspace that shall be updated</span>
+0011 <span class="comment">%                in the background (must have been previously created via onl_newstream)</span>
+0012 <span class="comment">%                (default: 'laststream')</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%   BlockReader : Callback function that reads a block from the device (format: [Channels x Samples])</span>
+0015 <span class="comment">%                 if no data is available, this function should return an empty result. It may also</span>
+0016 <span class="comment">%                 return a cell array of the form {[Channels x Samples],TimeStamp} or {[Channels x</span>
+0017 <span class="comment">%                 Samples],Markers,TimeStamp}. More generally, all returned cells are used as</span>
+0018 <span class="comment">%                 arguments to onl_predict. Optionally, this function may take the current stream</span>
+0019 <span class="comment">%                 variable as input.</span>
 0020 <span class="comment">%</span>
-0021 <span class="comment">% Example:</span>
-0022 <span class="comment">%   % after a stream has been openend, ...</span>
-0023 <span class="comment">%   onl_newstream('mystream','srate',200,'chanlocs',{'C3','Cz','C4'});</span>
-0024 <span class="comment">%</span>
-0025 <span class="comment">%   % ensure that it gets updated periodically (here: at 30 Hz) using new samples from some device</span>
-0026 <span class="comment">%   % the device function should return all samples that have accumulated since it was last called.</span>
-0027 <span class="comment">%   onl_read_background('mystream', @get_samples_from_my_device,30);</span>
-0028 <span class="comment">%</span>
-0029 <span class="comment">% See also:</span>
-0030 <span class="comment">%   onl_append, onl_newstream</span>
-0031 <span class="comment">%</span>
-0032 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0033 <span class="comment">%                                2011-01-18</span>
-0034 
-0035 <span class="comment">% read options</span>
-0036 arg_define(varargin, <span class="keyword">...</span>
-0037     arg({<span class="string">'stream_name'</span>,<span class="string">'MatlabStream'</span>}, <span class="string">'laststream'</span>,[],<span class="string">'New Stream to create. This is the name of the stream within the MATLAB environment.'</span>), <span class="keyword">...</span>
-0038     arg({<span class="string">'block_reader'</span>,<span class="string">'BlockReader'</span>},<span class="string">'randn(32,1)'</span>,[],<span class="string">'Block-reading function. This function reads a new block from some device'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
-0039     arg({<span class="string">'update_freq'</span>,<span class="string">'UpdateFrequency'</span>},10,[],<span class="string">'Update frequency. New data is polled at this rate, in Hz.'</span>));
-0040 
-0041 <span class="comment">% get the stream's id</span>
-0042 stream_id = evalin(<span class="string">'base'</span>,[stream_name <span class="string">'.streamid'</span>]);
-0043 
-0044 <span class="comment">% create &amp; start timer</span>
-0045 start(timer(<span class="string">'ExecutionMode'</span>,<span class="string">'fixedRate'</span>, <span class="string">'Name'</span>,[stream_name <span class="string">'_timer'</span>], <span class="string">'Period'</span>,1/update_freq, <span class="keyword">...</span>
-0046     <span class="string">'TimerFcn'</span>,@(timer_handle,varargin)<a href="#_sub1" class="code" title="subfunction append_data(stream_name,stream_id,timer_handle,read_block)">append_data</a>(stream_name,stream_id,timer_handle,block_reader)));
-0047 
-0048 <span class="comment">% timer callback: append data to a stream</span>
-0049 <a name="_sub1" href="#_subfunctions" class="code">function append_data(stream_name,stream_id,timer_handle,read_block)</a>
-0050 <span class="keyword">try</span>
-0051     <span class="comment">% check if the stream is still there</span>
-0052     x = evalin(<span class="string">'base'</span>,stream_name);
-0053     <span class="keyword">if</span> x.streamid ~= stream_id
-0054         error(<span class="string">'Stream changed.'</span>); <span class="keyword">end</span>
-0055     <span class="comment">% get a new block</span>
-0056     <span class="keyword">if</span> nargin(read_block) == 1
-0057         block = read_block(x);
-0058     <span class="keyword">else</span>
-0059         block = read_block();
-0060     <span class="keyword">end</span>
-0061     <span class="comment">% append it to the stream</span>
-0062     <span class="keyword">if</span> iscell(block)        
-0063         <span class="comment">% includes a timestamp</span>
-0064         <a href="onl_append.html" class="code" title="function onl_append(name, chunk, stamp)">onl_append</a>(stream_name,block{:});
-0065     <span class="keyword">else</span>
-0066         <span class="comment">% raw data block</span>
-0067         <a href="onl_append.html" class="code" title="function onl_append(name, chunk, stamp)">onl_append</a>(stream_name,block);
-0068     <span class="keyword">end</span>
-0069 <span class="keyword">catch</span> e
-0070     <span class="keyword">if</span> ~strcmp(e.identifier,<span class="string">'MATLAB:UndefinedFunction'</span>)
-0071         env_handleerror(e); <span class="keyword">end</span>
-0072     <span class="comment">% stream has been changed (e.g., replaced/deleted) --&gt; stop timer</span>
-0073     stop(timer_handle);
-0074     delete(timer_handle);
-0075 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0021 <span class="comment">%   UpdateFrequency : Frequency at which the device should be queried, in Hz (default: 10)</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">% Example:</span>
+0024 <span class="comment">%   % after a stream has been openend, ...</span>
+0025 <span class="comment">%   onl_newstream('mystream','srate',200,'chanlocs',{'C3','Cz','C4'});</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">%   % ensure that it gets updated periodically (here: at 30 Hz) using new samples from some device</span>
+0028 <span class="comment">%   % the device function should return all samples that have accumulated since it was last called.</span>
+0029 <span class="comment">%   onl_read_background('mystream', @get_samples_from_my_device,30);</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">% See also:</span>
+0032 <span class="comment">%   onl_append, onl_newstream</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0035 <span class="comment">%                                2011-01-18</span>
+0036 
+0037 <span class="comment">% read options</span>
+0038 arg_define(varargin, <span class="keyword">...</span>
+0039     arg({<span class="string">'stream_name'</span>,<span class="string">'StreamName'</span>,<span class="string">'MatlabStream'</span>}, <span class="string">'laststream'</span>,[],<span class="string">'Stream name to create. Name of the stream data structure in the MATLAB workspace that shall be updated in the background (must have been previously created via onl_newstream).'</span>), <span class="keyword">...</span>
+0040     arg({<span class="string">'block_reader'</span>,<span class="string">'BlockReader'</span>},[],[],<span class="string">'Block-reading function. Callback function that reads a block from the device (format: [Channels x Samples]) if no data is available, this function should return an empty result. It may also return a cell array of the form {[Channels x Samples],TimeStamp} or {[Channels x Samples],Markers,TimeStamp}. More generally, all returned cells are used as arguments to onl_predict. Optionally, this function may take the current stream variable as input.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0041     arg({<span class="string">'update_freq'</span>,<span class="string">'UpdateFrequency'</span>},10,[0 Inf],<span class="string">'Update frequency. New data is polled at this rate, in Hz.'</span>));
+0042 
+0043 <span class="comment">% input validation</span>
+0044 <span class="keyword">if</span> ~isvarname(stream_name)
+0045     error(<span class="string">'The given StreamName argument must be a valid variable name, but was: %s'</span>,hlp_tostring(stream_name,10000)); <span class="keyword">end</span>
+0046 <span class="keyword">try</span>
+0047     stream = evalin(<span class="string">'base'</span>,stream_name);
+0048 <span class="keyword">catch</span> e
+0049     error(<span class="string">'Failed to look up stream named %s in MATLAB base workspace with error: %s'</span>,stream_name,e.message);
+0050 <span class="keyword">end</span>
+0051 <span class="keyword">if</span> ~isstruct(stream)
+0052     error(<span class="string">'The given data structure named %s in the MATLAB base workspace was expected to be a stream data structure, but was not a struct (wrong name?): %s'</span>,stream_name,hlp_tostring(stream,10000)); <span class="keyword">end</span>
+0053 <span class="keyword">if</span> ~isfield(stream,<span class="string">'streamid'</span>)
+0054     <span class="keyword">if</span> isfield(stream,{<span class="string">'data'</span>,<span class="string">'srate'</span>})
+0055         error(<span class="string">'The given stream data structure named %s appears to be an EEGLAB data set struct but is not a stream (use onl_newstream to create a valid stream)'</span>,stream_name);
+0056     <span class="keyword">else</span>
+0057         error(<span class="string">'The given data structure named %s is not a valid stream (use onl_newstream to create a valid stream)'</span>,stream_name);
+0058     <span class="keyword">end</span>
+0059 <span class="keyword">end</span>
+0060 stream_id = stream.streamid;
+0061 <span class="keyword">if</span> ischar(block_reader) &amp;&amp; ~isempty(block_reader)
+0062     <span class="keyword">if</span> block_reader(1) ~= <span class="string">'@'</span> &amp;&amp; ~exist(block_reader,<span class="string">'file'</span>)
+0063         error(<span class="string">'The given BlockReader argument (%s) is not a valid function name'</span>,block_reader); <span class="keyword">end</span>
+0064     block_reader = str2func(block_reader); 
+0065 <span class="keyword">end</span>
+0066 <span class="keyword">if</span> ~isa(block_reader,<span class="string">'function_handle'</span>)
+0067     error(<span class="string">'The given BlockReader argument must be a function handle (or function name), but was: %s'</span>,hlp_tostring(block_reader,10000)); <span class="keyword">end</span>
+0068 
+0069 
+0070 <span class="comment">% create &amp; start timer</span>
+0071 start(timer(<span class="string">'ExecutionMode'</span>,<span class="string">'fixedRate'</span>, <span class="string">'Name'</span>,[stream_name <span class="string">'_timer'</span>], <span class="string">'Period'</span>,1/update_freq, <span class="keyword">...</span>
+0072     <span class="string">'TimerFcn'</span>,@(timer_handle,varargin)<a href="#_sub1" class="code" title="subfunction append_data(stream_name,stream_id,timer_handle,read_block)">append_data</a>(stream_name,stream_id,timer_handle,block_reader)));
+0073 
+0074 <span class="comment">% timer callback: append data to a stream</span>
+0075 <a name="_sub1" href="#_subfunctions" class="code">function append_data(stream_name,stream_id,timer_handle,read_block)</a>
+0076 <span class="keyword">try</span>
+0077     <span class="comment">% check if the stream is still there</span>
+0078     x = evalin(<span class="string">'base'</span>,stream_name);
+0079     <span class="keyword">if</span> x.streamid ~= stream_id
+0080         error(<span class="string">'Note: the stream named %s was recreated.'</span>,stream_name); <span class="keyword">end</span>
+0081     <span class="keyword">try</span>
+0082         <span class="comment">% get a new block</span>
+0083         <span class="keyword">if</span> nargin(read_block) == 1
+0084             block = read_block(x);
+0085         <span class="keyword">else</span>
+0086             block = read_block();
+0087         <span class="keyword">end</span>
+0088         <span class="comment">% append it to the stream</span>
+0089         <span class="keyword">if</span> iscell(block)        
+0090             <a href="onl_append.html" class="code" title="function onl_append(name, chunk, markers, stamp)">onl_append</a>(stream_name,block{:});
+0091         <span class="keyword">else</span>
+0092             <a href="onl_append.html" class="code" title="function onl_append(name, chunk, markers, stamp)">onl_append</a>(stream_name,block);
+0093         <span class="keyword">end</span>
+0094     <span class="keyword">catch</span> e
+0095         <span class="keyword">if</span> strcmp(e.identifier,<span class="string">'BCILAB:EndOfStream'</span>)
+0096             disp(<span class="string">'Encountered end-of-stream.'</span>);
+0097             evalin(<span class="string">'base'</span>,[<span class="string">'clear '</span> stream_name]);
+0098             stop(timer_handle);
+0099             delete(timer_handle);
+0100         <span class="keyword">else</span>
+0101             disp(<span class="string">'Error in block-reading function:'</span>);
+0102             hlp_handleerror(e);
+0103         <span class="keyword">end</span>
+0104     <span class="keyword">end</span>
+0105 <span class="keyword">catch</span> e
+0106     <span class="keyword">if</span> ~strcmp(e.identifier,<span class="string">'MATLAB:UndefinedFunction'</span>)
+0107         hlp_handleerror(e); <span class="keyword">end</span>
+0108     <span class="comment">% stream has been changed (e.g., replaced/deleted) --&gt; stop timer</span>
+0109     stop(timer_handle);
+0110     delete(timer_handle);
+0111 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

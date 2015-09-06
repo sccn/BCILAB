@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>flt_project
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -40,6 +41,7 @@
                       * matrix : use the given matrix as-is
 
    ChannelNames     : optional cell array of new channel names (default: {'1','2','3',...})
+                      If this is set to false, the old channel labels will be retained.
 
    ComponentSubset  : List of component indicies to which the result shall be restricted; can also 
                       be expressed as fractional intervals as in [0.1 0.3; 0.7 0.9], denoting components
@@ -77,11 +79,16 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -100,131 +107,141 @@ This function is called by:
 0012 <span class="comment">%                      * matrix : use the given matrix as-is</span>
 0013 <span class="comment">%</span>
 0014 <span class="comment">%   ChannelNames     : optional cell array of new channel names (default: {'1','2','3',...})</span>
-0015 <span class="comment">%</span>
-0016 <span class="comment">%   ComponentSubset  : List of component indicies to which the result shall be restricted; can also</span>
-0017 <span class="comment">%                      be expressed as fractional intervals as in [0.1 0.3; 0.7 0.9], denoting components</span>
-0018 <span class="comment">%                      from 10% to 30%, and 70% to 90% of the number of components. (default: [] = retain all);</span>
-0019 <span class="comment">%</span>
-0020 <span class="comment">%   ChannelSubset    : List of channel indices to which the data shall be restricted prior to</span>
-0021 <span class="comment">%                      application of the matrix (default: [] = retain all);</span>
-0022 <span class="comment">%</span>
-0023 <span class="comment">% Out:</span>
-0024 <span class="comment">%   Signal : projected EEGLAB data set</span>
-0025 <span class="comment">%</span>
-0026 <span class="comment">% Examples:</span>
-0027 <span class="comment">%   % project onto a 10-dimensional random subspace, assuming that there are 32 channels in the data</span>
-0028 <span class="comment">%   eeg = flt_project(eeg,randn(10,32))</span>
-0029 <span class="comment">%</span>
-0030 <span class="comment">%   % project onto a 10-dimensional random subspace, and pass some alphabetic channel names</span>
-0031 <span class="comment">%   eeg = flt_project(eeg,randn(10,32),{'A','B','C','D','E','F','G','H','I','J'})</span>
-0032 <span class="comment">%</span>
-0033 <span class="comment">%   % project using some independent component decomposition</span>
-0034 <span class="comment">%   eeg = flt_project(eeg,eeg.icaweights*eeg.icasphere)</span>
-0035 <span class="comment">%</span>
-0036 <span class="comment">%   % project using some independent component decomposition, passing arguments by name</span>
-0037 <span class="comment">%   eeg = flt_project('Signal',eeg,'ProjectionMatix',eeg.icaweights*eeg.icasphere)</span>
-0038 <span class="comment">%</span>
-0039 <span class="comment">% See also:</span>
-0040 <span class="comment">%   flt_ica, flt_stationary, flt_laplace, flt_selchans</span>
-0041 <span class="comment">%</span>
-0042 <span class="comment">% TODO:</span>
-0043 <span class="comment">%   Try to clean up somewhat.</span>
-0044 <span class="comment">%</span>
-0045 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0046 <span class="comment">%                                2010-03-28</span>
-0047 
-0048 <span class="comment">% flt_project_version&lt;1.0&gt; -- for the cache</span>
-0049 
-0050 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>;
-0051 
-0052 <span class="comment">% would be reverted by an ICA</span>
-0053 declare_properties(<span class="string">'name'</span>,<span class="string">'Projection'</span>, <span class="string">'follows'</span>,{<span class="string">'flt_ica'</span>,<span class="string">'flt_selvolume'</span>}, <span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,true);
-0054 
-0055 arg_define(varargin,<span class="keyword">...</span>
-0056     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
-0057     arg({<span class="string">'projmat'</span>,<span class="string">'ProjectionMatrix'</span>}, <span class="string">'.icaweights*.icasphere'</span>, {<span class="string">'.icaweights*.icasphere'</span>,<span class="string">'.icawinv'</span>}, <span class="string">'Projection matrix. The data is multiplied by this matrix, which can therefore implement any linear spatial filter. If left empty, flt_project will try to apply the ICA projection matrix, if present.'</span>),<span class="keyword">...</span>
-0058     arg({<span class="string">'newchans'</span>,<span class="string">'ChannelNames'</span>}, [], [], <span class="string">'New channel names. Cell array of new channel names, if known.'</span>,<span class="string">'type'</span>,<span class="string">'cellstr'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
-0059     arg({<span class="string">'subcomps'</span>,<span class="string">'ComponentSubset'</span>}, [], [], <span class="string">'Component subset. List of component indices to which the result shall be restricted (or []).'</span>), <span class="keyword">...</span>
-0060     arg({<span class="string">'subchans'</span>,<span class="string">'ChannelSubset'</span>}, [], [], <span class="string">'Channel subset. List of channel indices (or names) to which the data shall be restricted prior to application of the matrix.'</span>));
-0061 
-0062 append_online = {}; <span class="comment">% this is a set of arguments that shall be appended during online use</span>
-0063 <span class="keyword">if</span> strcmp(projmat,<span class="string">'.icaweights*.icasphere'</span>) || isempty(projmat)
-0064     <span class="keyword">if</span> isfield(signal.etc,<span class="string">'amica'</span>)
-0065         <span class="comment">% project using AMICA weights</span>
-0066         subchans = signal.icachansind;
-0067         <span class="keyword">for</span> m=1:size(signal.etc.amica.W,3)
-0068             tmp{m} = signal.etc.amica.W(:,:,m)*signal.etc.amica.S; <span class="keyword">end</span>
-0069         projmat = cat(1,tmp{:});        
-0070     <span class="keyword">elseif</span> isfield(signal,<span class="string">'icaweights'</span>) &amp;&amp; ~isempty(signal.icaweights)
-0071         <span class="comment">% project using ICA weights</span>
-0072         subchans = signal.icachansind;        
-0073         projmat = signal.icaweights*signal.icasphere;
-0074     <span class="keyword">else</span>
-0075         error(<span class="string">'No icaweights field is present.'</span>)
-0076     <span class="keyword">end</span>
-0077     <span class="comment">% make sure that we know what the used projection matrix &amp; channel subset was during online use</span>
-0078     append_online = {<span class="string">'projmat'</span>,projmat,<span class="string">'subchans'</span>,subchans};        
-0079 <span class="keyword">elseif</span> strcmp(projmat,<span class="string">'.icawinv'</span>)
-0080     <span class="keyword">if</span> isfield(signal,<span class="string">'icaweights'</span>) &amp;&amp; ~isempty(signal.icaweights) &amp;&amp; isfield(signal,<span class="string">'icawinv'</span>) &amp;&amp; ~isempty(signal.icawinv)
-0081         subchans = signal.icachansind;
-0082         projmat = signal.icawinv*signal.icaweights*signal.icasphere;
-0083         newchans = 1:signal.nbchan;
-0084     <span class="keyword">else</span>
-0085         error(<span class="string">'No icaweights or icawinv fields are present.'</span>)
-0086     <span class="keyword">end</span>
-0087 <span class="keyword">elseif</span> ischar(projmat)
-0088     projmat = evalin(<span class="string">'base'</span>,projmat);
-0089 <span class="keyword">end</span>
-0090 
-0091 <span class="keyword">if</span> ~isempty(subchans)
-0092     subset = set_chanid(signal,subchans);
-0093     <span class="keyword">if</span> ~isequal(subset,1:signal.nbchan)
-0094         signal = pop_select(signal,<span class="string">'channel'</span>,subset,<span class="string">'sorttrial'</span>,<span class="string">'off'</span>); <span class="keyword">end</span> 
-0095 <span class="keyword">end</span>
-0096 
-0097 <span class="comment">% project data</span>
-0098 [C,S,T] = size(signal.data); <span class="comment">%#ok&lt;*NODEF&gt;</span>
-0099 signal.data = reshape(projmat*reshape(signal.data,C,[]),[],S,T); 
-0100 signal.nbchan = size(signal.data,1);
-0101 
-0102 <span class="comment">% rewrite chanlocs</span>
-0103 <span class="keyword">if</span> isempty(signal.urchanlocs)
-0104     signal.urchanlocs = signal.chanlocs; <span class="keyword">end</span>
-0105 <span class="keyword">if</span> isempty(newchans)
-0106     signal.chanlocs = struct(<span class="string">'labels'</span>,cellfun(@num2str,num2cell(1:signal.nbchan,1),<span class="string">'UniformOutput'</span>,false));
-0107 <span class="keyword">elseif</span> length(newchans) == signal.nbchan
-0108     <span class="keyword">if</span> isfield(newchans,<span class="string">'labels'</span>)
-0109         signal.chanlocs = newchans;
-0110     <span class="keyword">elseif</span> iscellstr(newchans)
-0111         signal.chanlocs = pop_chanedit(struct(<span class="string">'labels'</span>,newchans),<span class="string">'lookup'</span>,[]);        
-0112     <span class="keyword">elseif</span> isnumeric(newchans)
-0113         signal.chanlocs = signal.chanlocs(newchans);
-0114     <span class="keyword">else</span>
-0115         error(<span class="string">'The chanlocs format is unsupported.'</span>);
-0116     <span class="keyword">end</span>
-0117 <span class="keyword">else</span>
-0118     error(<span class="string">'The number of provided channels does not match the data dimension.'</span>);
-0119 <span class="keyword">end</span>
-0120 
-0121 <span class="keyword">if</span> ~isempty(subcomps)
-0122     <span class="keyword">if</span> isnumeric(subcomps) &amp;&amp; any((subcomps(:)-floor(subcomps(:)) ~= 0)) &amp;&amp; size(subcomps,2) == 2
-0123         <span class="comment">% components are given as fractional intervals</span>
-0124         subcomps = 1 + floor(subcomps*(signal.nbchan-1));
-0125         tmp = [];
-0126         <span class="keyword">for</span> k=1:size(subcomps,1)
-0127             tmp = [tmp subcomps(k,1):subcomps(k,2)]; <span class="keyword">end</span>
-0128         subset = set_chanid(signal,tmp);
-0129         <span class="keyword">if</span> ~isequal(subset,1:signal.nbchan)
-0130             signal = pop_select(signal,<span class="string">'channel'</span>,subset,<span class="string">'sorttrial'</span>,<span class="string">'off'</span>); <span class="keyword">end</span>
-0131     <span class="keyword">else</span>
-0132         <span class="comment">% components are given as indices</span>
-0133         subset = set_chanid(signal,subcomps);
-0134         <span class="keyword">if</span> ~isequal(subset,1:signal.nbchan)
-0135             signal = pop_select(signal,<span class="string">'channel'</span>,subset,<span class="string">'sorttrial'</span>,<span class="string">'off'</span>); <span class="keyword">end</span>
-0136     <span class="keyword">end</span>
-0137 <span class="keyword">end</span>
-0138 
-0139 exp_endfun(<span class="string">'append_online'</span>,append_online);</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0015 <span class="comment">%                      If this is set to false, the old channel labels will be retained.</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">%   ComponentSubset  : List of component indicies to which the result shall be restricted; can also</span>
+0018 <span class="comment">%                      be expressed as fractional intervals as in [0.1 0.3; 0.7 0.9], denoting components</span>
+0019 <span class="comment">%                      from 10% to 30%, and 70% to 90% of the number of components. (default: [] = retain all);</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   ChannelSubset    : List of channel indices to which the data shall be restricted prior to</span>
+0022 <span class="comment">%                      application of the matrix (default: [] = retain all);</span>
+0023 <span class="comment">%</span>
+0024 <span class="comment">% Out:</span>
+0025 <span class="comment">%   Signal : projected EEGLAB data set</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">% Examples:</span>
+0028 <span class="comment">%   % project onto a 10-dimensional random subspace, assuming that there are 32 channels in the data</span>
+0029 <span class="comment">%   eeg = flt_project(eeg,randn(10,32))</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%   % project onto a 10-dimensional random subspace, and pass some alphabetic channel names</span>
+0032 <span class="comment">%   eeg = flt_project(eeg,randn(10,32),{'A','B','C','D','E','F','G','H','I','J'})</span>
+0033 <span class="comment">%</span>
+0034 <span class="comment">%   % project using some independent component decomposition</span>
+0035 <span class="comment">%   eeg = flt_project(eeg,eeg.icaweights*eeg.icasphere)</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%   % project using some independent component decomposition, passing arguments by name</span>
+0038 <span class="comment">%   eeg = flt_project('Signal',eeg,'ProjectionMatix',eeg.icaweights*eeg.icasphere)</span>
+0039 <span class="comment">%</span>
+0040 <span class="comment">% See also:</span>
+0041 <span class="comment">%   flt_ica, flt_stationary, flt_laplace, flt_selchans</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">% TODO:</span>
+0044 <span class="comment">%   Try to clean up somewhat.</span>
+0045 <span class="comment">%</span>
+0046 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0047 <span class="comment">%                                2010-03-28</span>
+0048 
+0049 <span class="comment">% flt_project_version&lt;1.0&gt; -- for the cache</span>
+0050 
+0051 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>;
+0052 
+0053 <span class="comment">% would be reverted by an ICA</span>
+0054 declare_properties(<span class="string">'name'</span>,<span class="string">'Projection'</span>, <span class="string">'follows'</span>,{<span class="string">'flt_ica'</span>,<span class="string">'flt_selvolume'</span>}, <span class="string">'independent_channels'</span>,false, <span class="string">'independent_trials'</span>,true);
+0055 
+0056 arg_define(varargin,<span class="keyword">...</span>
+0057     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0058     arg({<span class="string">'projmat'</span>,<span class="string">'ProjectionMatrix'</span>}, <span class="string">'.icaweights*.icasphere'</span>, {<span class="string">'.icaweights*.icasphere'</span>,<span class="string">'.icawinv'</span>}, <span class="string">'Projection matrix. The data is multiplied by this matrix, which can therefore implement any linear spatial filter. If left empty, flt_project will try to apply the ICA projection matrix, if present.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>),<span class="keyword">...</span>
+0059     arg({<span class="string">'newchans'</span>,<span class="string">'ChannelNames'</span>}, [], [], <span class="string">'New channel names. Cell array of new channel names, if known. If empty, channels will be named 1:n; if false, the old channel labels will be retained.'</span>,<span class="string">'type'</span>,<span class="string">'cellstr'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0060     arg({<span class="string">'subcomps'</span>,<span class="string">'ComponentSubset'</span>}, [], [], <span class="string">'Component subset. List of component indices to which the result shall be restricted (or []).'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0061     arg({<span class="string">'subchans'</span>,<span class="string">'ChannelSubset'</span>}, [], [], <span class="string">'Channel subset. List of channel indices (or names) to which the data shall be restricted prior to application of the matrix.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>));
+0062 
+0063 append_online = {}; <span class="comment">% this is a set of arguments that shall be appended during online use</span>
+0064 <span class="keyword">if</span> strcmp(projmat,<span class="string">'.icaweights*.icasphere'</span>) || isempty(projmat)
+0065     <span class="keyword">if</span> isfield(signal.etc,<span class="string">'amica'</span>)
+0066         <span class="comment">% project using AMICA weights</span>
+0067         subchans = signal.icachansind;
+0068         <span class="keyword">for</span> m=1:size(signal.etc.amica.W,3)
+0069             tmp{m} = signal.etc.amica.W(:,:,m)*signal.etc.amica.S; <span class="keyword">end</span> <span class="comment">%#ok&lt;AGROW&gt;</span>
+0070         projmat = cat(1,tmp{:});        
+0071     <span class="keyword">elseif</span> isfield(signal,<span class="string">'icaweights'</span>) &amp;&amp; ~isempty(signal.icaweights)
+0072         <span class="comment">% project using ICA weights</span>
+0073         subchans = signal.icachansind;        
+0074         projmat = signal.icaweights*signal.icasphere;
+0075     <span class="keyword">else</span>
+0076         error(<span class="string">'No icaweights field is present.'</span>)
+0077     <span class="keyword">end</span>
+0078     <span class="comment">% make sure that we know what the used projection matrix &amp; channel subset was during online use</span>
+0079     append_online = {<span class="string">'projmat'</span>,projmat,<span class="string">'subchans'</span>,subchans};        
+0080 <span class="keyword">elseif</span> strcmp(projmat,<span class="string">'.icawinv'</span>)
+0081     <span class="keyword">if</span> isfield(signal,<span class="string">'icaweights'</span>) &amp;&amp; ~isempty(signal.icaweights) &amp;&amp; isfield(signal,<span class="string">'icawinv'</span>) &amp;&amp; ~isempty(signal.icawinv)
+0082         subchans = signal.icachansind;
+0083         projmat = signal.icawinv*signal.icaweights*signal.icasphere;
+0084         newchans = 1:signal.nbchan;
+0085     <span class="keyword">else</span>
+0086         error(<span class="string">'No icaweights or icawinv fields are present.'</span>)
+0087     <span class="keyword">end</span>
+0088 <span class="keyword">elseif</span> ischar(projmat)
+0089     projmat = evalin(<span class="string">'base'</span>,projmat);
+0090 <span class="keyword">end</span>
+0091 
+0092 <span class="keyword">if</span> ~isempty(subchans)
+0093     subset = set_chanid(signal,subchans);
+0094     <span class="keyword">if</span> ~isequal(subset,1:signal.nbchan)        
+0095         signal.data = signal.data(subset,:,:,:,:,:,:,:);
+0096         signal.chanlocs = signal.chanlocs(subset);
+0097         signal.nbchan = size(signal.data,1);
+0098     <span class="keyword">end</span>
+0099 <span class="keyword">end</span>
+0100 
+0101 <span class="comment">% project data</span>
+0102 [C,S,T] = size(signal.data); <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0103 <span class="keyword">if</span> size(projmat,2) ~= C
+0104     error(<span class="string">'The given projection matrix needs to have the same number of rows as the data has channels (%i), but had: %i'</span>,C,size(projmat,2)); <span class="keyword">end</span>
+0105 signal.data = reshape(projmat*reshape(signal.data,C,[]),[],S,T); 
+0106 signal.nbchan = size(signal.data,1);
+0107 
+0108 <span class="comment">% rewrite chanlocs</span>
+0109 <span class="keyword">if</span> isempty(signal.urchanlocs)
+0110     signal.urchanlocs = signal.chanlocs; <span class="keyword">end</span>
+0111 <span class="keyword">if</span> isempty(newchans)
+0112     signal.chanlocs = struct(<span class="string">'labels'</span>,cellfun(@num2str,num2cell(1:signal.nbchan,1),<span class="string">'UniformOutput'</span>,false));
+0113 <span class="keyword">elseif</span> length(newchans) == signal.nbchan
+0114     <span class="keyword">if</span> isfield(newchans,<span class="string">'labels'</span>)
+0115         signal.chanlocs = newchans;
+0116     <span class="keyword">elseif</span> iscellstr(newchans)
+0117         signal.chanlocs = struct(<span class="string">'labels'</span>,newchans);
+0118     <span class="keyword">elseif</span> isnumeric(newchans)
+0119         signal.chanlocs = signal.chanlocs(newchans);
+0120     <span class="keyword">else</span>
+0121         error(<span class="string">'The chanlocs format is unsupported.'</span>);
+0122     <span class="keyword">end</span>
+0123 <span class="keyword">elseif</span> isequal(newchans,false) &amp;&amp; size(projmat,1)==size(projmat,2)
+0124     <span class="comment">% retain current labels</span>
+0125 <span class="keyword">else</span>
+0126     error(<span class="string">'The number of provided channel labels does not match the data dimension.'</span>);
+0127 <span class="keyword">end</span>
+0128 
+0129 <span class="keyword">if</span> ~isempty(subcomps)
+0130     <span class="keyword">if</span> isnumeric(subcomps) &amp;&amp; any((subcomps(:)-floor(subcomps(:)) ~= 0)) &amp;&amp; size(subcomps,2) == 2
+0131         <span class="comment">% components are given as fractional intervals</span>
+0132         subcomps = 1 + floor(subcomps*(signal.nbchan-1));
+0133         tmp = [];
+0134         <span class="keyword">for</span> k=1:size(subcomps,1)
+0135             tmp = [tmp subcomps(k,1):subcomps(k,2)]; <span class="keyword">end</span> <span class="comment">%#ok&lt;AGROW&gt;</span>
+0136         subset = set_chanid(signal,tmp);
+0137     <span class="keyword">else</span>
+0138         <span class="comment">% components are given as indices</span>
+0139         subset = set_chanid(signal,subcomps);
+0140     <span class="keyword">end</span>
+0141     <span class="keyword">if</span> ~isequal(subset,1:signal.nbchan)
+0142         signal.data = signal.data(subset,:,:,:,:,:,:,:);
+0143         signal.chanlocs = signal.chanlocs(subset);
+0144         signal.nbchan = size(signal.data,1);
+0145     <span class="keyword">end</span>            
+0146 <span class="keyword">end</span>
+0147 
+0148 exp_endfun(<span class="string">'append_online'</span>,append_online);</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

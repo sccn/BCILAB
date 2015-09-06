@@ -1,0 +1,250 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of flt_sliding_window</title>
+  <meta name="keywords" content="flt_sliding_window">
+  <meta name="description" content="Buffer samples and emit overlapping windows.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">filters</a> &gt; flt_sliding_window.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>flt_sliding_window
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Buffer samples and emit overlapping windows.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function [signal,state] = flt_sliding_window(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Buffer samples and emit overlapping windows.
+ function [Signal,State] = flt_sliding_window(Signal,WindowLength,WindowStep)
+
+ This filter does *not* generate event-locked segments (see set_makepos for that); instead, it 
+ generates *successive segments* with configurable overlap.
+
+ This filter turns continuous-time data into epoched data, and handles all time-series fields 
+ in the data. It assumes that each time-series field has the same sampling rate.
+
+ In:   
+   Signal      : EEGLAB data set, either continuous or epoched
+
+   WindowLength : Window length to emit. (default: 1)
+
+   WindowStep : Step size between successive windows. (default: 0.1)
+
+   TimeUnit : Unit of time parameters. This applies to WindowLength and WindowStep. 
+              Can be 'seconds' or 'samples'. (default: 'seconds')
+
+   State : input state
+
+ Out:
+   Signal : segmented signal
+
+   State : output state
+
+ Examples:
+   % use default settings
+   eeg = flt_sliding_window(eeg)
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2014-02-12</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal,state] = flt_sliding_window(varargin)</a>
+0002 <span class="comment">% Buffer samples and emit overlapping windows.</span>
+0003 <span class="comment">% function [Signal,State] = flt_sliding_window(Signal,WindowLength,WindowStep)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This filter does *not* generate event-locked segments (see set_makepos for that); instead, it</span>
+0006 <span class="comment">% generates *successive segments* with configurable overlap.</span>
+0007 <span class="comment">%</span>
+0008 <span class="comment">% This filter turns continuous-time data into epoched data, and handles all time-series fields</span>
+0009 <span class="comment">% in the data. It assumes that each time-series field has the same sampling rate.</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">% In:</span>
+0012 <span class="comment">%   Signal      : EEGLAB data set, either continuous or epoched</span>
+0013 <span class="comment">%</span>
+0014 <span class="comment">%   WindowLength : Window length to emit. (default: 1)</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%   WindowStep : Step size between successive windows. (default: 0.1)</span>
+0017 <span class="comment">%</span>
+0018 <span class="comment">%   TimeUnit : Unit of time parameters. This applies to WindowLength and WindowStep.</span>
+0019 <span class="comment">%              Can be 'seconds' or 'samples'. (default: 'seconds')</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   State : input state</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">% Out:</span>
+0024 <span class="comment">%   Signal : segmented signal</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">%   State : output state</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">% Examples:</span>
+0029 <span class="comment">%   % use default settings</span>
+0030 <span class="comment">%   eeg = flt_sliding_window(eeg)</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0033 <span class="comment">%                                2014-02-12</span>
+0034 
+0035 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0036 
+0037 declare_properties(<span class="string">'name'</span>,<span class="string">'SlidingWindow'</span>, <span class="string">'follows'</span>,<span class="string">'flt_selchans'</span>, <span class="string">'independent_channels'</span>,true, <span class="string">'independent_trials'</span>,true);
+0038 
+0039 arg_define(varargin, <span class="keyword">...</span>
+0040     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
+0041     arg({<span class="string">'window_len'</span>,<span class="string">'WindowLength'</span>}, 1, [], <span class="string">'Window length to emit.'</span>),<span class="keyword">...</span>
+0042     arg({<span class="string">'window_step'</span>,<span class="string">'WindowStep'</span>}, 0.1, [], <span class="string">'Step between successive windows. If this is set to zero, it is taken to be the same as window_len (i.e., no overlap).'</span>),<span class="keyword">...</span>
+0043     arg({<span class="string">'time_unit'</span>,<span class="string">'TimeUnit'</span>}, <span class="string">'seconds'</span>, {<span class="string">'seconds'</span>,<span class="string">'samples'</span>}, <span class="string">'Unit of time parameters. This applies to WindowLength and WindowStep.'</span>), <span class="keyword">...</span><span class="comment">    </span>
+0044     arg({<span class="string">'handle_events'</span>,<span class="string">'HandleEvents'</span>}, false, [], <span class="string">'Handle events. This will segment events in accordance with the chunking of the .data time-series field.'</span>), <span class="keyword">...</span>
+0045     arg_sub({<span class="string">'online_options'</span>,<span class="string">'OnlineOptions'</span>},{},{ <span class="keyword">...</span>
+0046         arg({<span class="string">'only_latest_segment'</span>,<span class="string">'OnlyLatestSegment'</span>},true,[],<span class="string">'Retain only the latest segment. In this case all but the latest segment are dropped from the output during online processing.'</span>), <span class="keyword">...</span><span class="comment">    </span>
+0047         arg({<span class="string">'always_at_end'</span>,<span class="string">'AlwaysAtEnd'</span>},false,[],<span class="string">'Segment always ends on last data sample. In this case the returned segment always ends on the last sample of the data and does not respect WindowStep.'</span>), <span class="keyword">...</span>
+0048     },<span class="string">'Online processing options. These only apply when the filter is called from the online system (onl_ functions).'</span>), <span class="keyword">...</span>
+0049     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>}));
+0050 
+0051 <span class="keyword">if</span> window_step == 0
+0052     window_step = window_len; <span class="keyword">end</span>
+0053 
+0054 <span class="comment">% check for event handling</span>
+0055 <span class="keyword">if</span> handle_events &amp;&amp; ~isempty(signal.event)
+0056     disp_once(<span class="string">'Warning: the event handling is not yet implemented in flt_segmentation. Dropping events.'</span>); 
+0057     signal.event = [];
+0058 <span class="keyword">end</span>
+0059 
+0060 <span class="comment">% perform unit conversion</span>
+0061 <span class="keyword">if</span> strcmp(time_unit,<span class="string">'seconds'</span>)
+0062     window_len = max(1,round(window_len*signal.srate));
+0063     window_step = max(1,round(window_step*signal.srate));
+0064 <span class="keyword">elseif</span> ~strcmp(time_unit,<span class="string">'samples'</span>)
+0065     error(<span class="string">'The time unit must be either samples or seconds, but was: %s'</span>,hlp_tostring(time_unit,100));
+0066 <span class="keyword">end</span>
+0067 
+0068 <span class="keyword">if</span> isempty(state)
+0069     state.buffers = struct();   <span class="comment">% data held in buffer</span>
+0070     state.buffer_end_idx = 0;   <span class="comment">% cumulative index of the last sample in buffer (1 = first sample in stream)</span>
+0071     state.next_chunk_idx = 1;   <span class="comment">% start sample index of the next chunk to be emitted (1 = first sample in stream)</span>
+0072 <span class="keyword">end</span>
+0073 
+0074 signal.pnts = 0;
+0075 
+0076 <span class="comment">% are we online and want to return a segment that ends on the last sample?</span>
+0077 <span class="keyword">if</span> online_options.always_at_end &amp;&amp; onl_isonline
+0078     
+0079     <span class="comment">% for each time-series fields...</span>
+0080     <span class="keyword">for</span> f = utl_timeseries_fields(signal)
+0081         field = f{1};
+0082         <span class="keyword">if</span> ~isempty(signal.(field))
+0083             <span class="comment">% init state if necessary</span>
+0084             <span class="keyword">if</span> ~isfield(state.buffers,field)
+0085                 state.buffers.(field) = []; <span class="keyword">end</span>
+0086             
+0087             <span class="comment">% concat signal and buffer, cut excess data</span>
+0088             state.buffers.(field) = cat(2,state.buffers.(field),signal.(field));
+0089             state.buffers.(f{1}) = state.buffers.(f{1})(:,max(1,end-window_len+1):<span class="keyword">end</span>,:,:,:,:,:,:);
+0090             
+0091             <span class="keyword">if</span> size(state.buffers.(field),2) &gt;= window_len
+0092                 <span class="comment">% long enough: return data</span>
+0093                 signal.(field) = state.buffers.(field);
+0094             <span class="keyword">else</span>
+0095                 <span class="comment">% too short: return no data</span>
+0096                 signal.(field) = [];
+0097             <span class="keyword">end</span>
+0098         <span class="keyword">end</span>
+0099     <span class="keyword">end</span>
+0100     
+0101 <span class="keyword">else</span>
+0102     <span class="comment">% otherwise we return chunks at fixed rate</span>
+0103 
+0104     <span class="comment">% for each time series field...</span>
+0105     <span class="keyword">for</span> f = utl_timeseries_fields(signal)
+0106         field = f{1};
+0107         <span class="keyword">if</span> ~isempty(signal.(field))
+0108 
+0109             <span class="comment">% skip already epoched fields</span>
+0110             <span class="keyword">if</span> size(signal.(field),3) &gt; 1 || ~isempty(signal.epoch)
+0111                 disp_once(<span class="string">'Note: the time-series field %s is already epoched and will not be further segmented.'</span>,field); 
+0112                 <span class="keyword">continue</span>;
+0113             <span class="keyword">end</span>
+0114 
+0115             <span class="comment">% init state if necessary</span>
+0116             <span class="keyword">if</span> ~isfield(state.buffers,field)
+0117                 state.buffers.(field) = []; <span class="keyword">end</span>
+0118 
+0119             <span class="comment">% concat data and buffer</span>
+0120             state.buffers.(field) = cat(2,state.buffers.(field),signal.(field));
+0121             state.buffer_end_idx = state.buffer_end_idx + size(signal.(field),2);
+0122 
+0123             chunks = {};
+0124 
+0125             <span class="comment">% generate chunks and consume buffer</span>
+0126             <span class="comment">% while we can emit another chunk...</span>
+0127             <span class="keyword">while</span> state.next_chunk_idx + window_len-1 &lt;= state.buffer_end_idx
+0128                 buffer_start_idx = state.buffer_end_idx-size(state.buffers.(field),2)+1;
+0129                 range_in_buffer = (state.next_chunk_idx - buffer_start_idx + 1) + (0:window_len-1);
+0130                 chunks{end+1} = state.buffers.(field)(:,range_in_buffer,1,:,:,:,:,:);
+0131                 state.next_chunk_idx = state.next_chunk_idx + window_step-1;
+0132             <span class="keyword">end</span>
+0133 
+0134             <span class="comment">% optionally drop all but latest segment in online mode</span>
+0135             <span class="keyword">if</span> online_options.only_latest_segment &amp;&amp; length(chunks)&gt;1 &amp;&amp; onl_isonline
+0136                 chunks = chunks(end); <span class="keyword">end</span>
+0137 
+0138             <span class="comment">% turn into epoched field</span>
+0139             signal.(field) = cat(3,chunks{:});
+0140             signal.pnts = size(signal.(field),2);
+0141 
+0142             <span class="comment">% consume buffer content that we don't need any more</span>
+0143             buffer_start_idx = state.buffer_end_idx-size(state.buffers.(field),2)+1;
+0144             <span class="keyword">if</span> state.next_chunk_idx &gt; buffer_start_idx
+0145                 state.buffers.(field)(:,1:(state.next_chunk_idx - buffer_start_idx),:,:,:,:,:,:) = [];            
+0146                 buffer_start_idx = state.next_chunk_idx;
+0147                 state.buffer_end_idx = buffer_start_idx + size(state.buffers.(field),2)-1;
+0148             <span class="keyword">end</span>
+0149         <span class="keyword">end</span>
+0150     <span class="keyword">end</span>
+0151 
+0152 <span class="keyword">end</span>
+0153 
+0154 <span class="comment">% update meta-data</span>
+0155 <span class="keyword">if</span> ~isempty(signal.data)
+0156     metadata_field = <span class="string">'data'</span>;
+0157 <span class="keyword">else</span>
+0158     metadata_field = utl_timeseries_fields(signal);
+0159     metadata_field = metadata_field{1};
+0160 <span class="keyword">end</span>
+0161 [signal.nbchan,signal.pnts,signal.trials,extra_dims] = size(signal.(metadata_field)); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0162 signal.xmin = signal.xmax-(signal.pnts-1)/signal.srate;
+0163 
+0164 exp_endfun;
+0165</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

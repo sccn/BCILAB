@@ -1,0 +1,433 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of gui_showmenu</title>
+  <meta name="keywords" content="gui_showmenu">
+  <meta name="description" content="Links the BCILAB menu into another menu, or creates a new root menu if necessary.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">gui</a> &gt; gui_showmenu.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/gui&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>gui_showmenu
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Links the BCILAB menu into another menu, or creates a new root menu if necessary.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function gui_showmenu(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Links the BCILAB menu into another menu, or creates a new root menu if necessary.
+ gui_showmenu(Options...)
+
+ In:
+   Options... : optional name-value pairs; names are:
+                 'parent': parent menu to link into
+
+                 'shortcuts': whether to enable keyboard shortcuts
+
+                 'forcenew': whether to force creation of a new menu
+
+ Example:
+   % bring up the BCILAB main menu if it had been closed
+   gui_showmenu;
+
+ See also:
+   env_startup
+
+                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                2010-10-29</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function about(varargin)</a></li>
+<li><a href="#_sub2" class="code">function click_read(varargin)</a></li>
+<li><a href="#_sub3" class="code">function click_write(varargin)</a></li>
+<li><a href="#_sub4" class="code">function invoke_script(varargin)</a></li>
+<li><a href="#_sub5" class="code">function cols = load_icon(filename)</a></li>
+<li><a href="#_sub6" class="code">function load_model(varargin)</a></li>
+<li><a href="#_sub7" class="code">function load_approach(varargin)</a></li>
+</ul>
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function gui_showmenu(varargin)</a>
+0002 <span class="comment">% Links the BCILAB menu into another menu, or creates a new root menu if necessary.</span>
+0003 <span class="comment">% gui_showmenu(Options...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% In:</span>
+0006 <span class="comment">%   Options... : optional name-value pairs; names are:</span>
+0007 <span class="comment">%                 'parent': parent menu to link into</span>
+0008 <span class="comment">%</span>
+0009 <span class="comment">%                 'shortcuts': whether to enable keyboard shortcuts</span>
+0010 <span class="comment">%</span>
+0011 <span class="comment">%                 'forcenew': whether to force creation of a new menu</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">% Example:</span>
+0014 <span class="comment">%   % bring up the BCILAB main menu if it had been closed</span>
+0015 <span class="comment">%   gui_showmenu;</span>
+0016 <span class="comment">%</span>
+0017 <span class="comment">% See also:</span>
+0018 <span class="comment">%   env_startup</span>
+0019 <span class="comment">%</span>
+0020 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0021 <span class="comment">%                                2010-10-29</span>
+0022 
+0023 <span class="comment">% parse options...</span>
+0024 hlp_varargin2struct(varargin,<span class="string">'parent'</span>,[], <span class="string">'shortcuts'</span>,true,<span class="string">'forcenew'</span>,false);
+0025 
+0026 <span class="comment">% check if we're an EEGLAB plugin</span>
+0027 folders = hlp_split(fileparts(mfilename(<span class="string">'fullpath'</span>)),filesep);
+0028 within_eeglab = length(folders) &gt;= 5 &amp;&amp; strcmp(folders{end-3},<span class="string">'plugins'</span>) &amp;&amp; ~isempty(strfind(folders{end-4},<span class="string">'eeglab'</span>));
+0029 
+0030 <span class="comment">% highlight the menu if already there</span>
+0031 f = findobj(<span class="string">'Tag'</span>,<span class="string">'bcilab_menu'</span>);
+0032 <span class="keyword">if</span> ~isempty(f) &amp;&amp; ~forcenew
+0033     <span class="keyword">for</span> k=1:length(f)            
+0034         <span class="keyword">try</span>        
+0035             close(get(f(k),<span class="string">'Parent'</span>)); 
+0036         <span class="keyword">catch</span> e
+0037             disp(<span class="string">'Error: previous figure handle invalid. You are in debug mode. Press dbquit to move on.'</span>);
+0038             keyboard;
+0039         <span class="keyword">end</span>
+0040     <span class="keyword">end</span>
+0041 <span class="keyword">end</span>
+0042 
+0043 <span class="keyword">if</span> isempty(parent) <span class="comment">%#ok&lt;NODEF&gt;</span>
+0044     <span class="keyword">if</span> within_eeglab &amp;&amp; ~forcenew
+0045         <span class="comment">% try to link into the EEGLAB main menu</span>
+0046         <span class="keyword">try</span>
+0047             toolsmenu = findobj(0,<span class="string">'tag'</span>,<span class="string">'tools'</span>);
+0048             <span class="keyword">if</span> ~isempty(toolsmenu)
+0049                 parent = uimenu(toolsmenu, <span class="string">'Label'</span>,<span class="string">'BCILAB'</span>);
+0050                 set(toolsmenu,<span class="string">'Enable'</span>,<span class="string">'on'</span>);
+0051             <span class="keyword">end</span>
+0052         <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0053             disp(<span class="string">'Unable to link BCILAB menu into EEGLAB menu.'</span>);
+0054         <span class="keyword">end</span>
+0055     <span class="keyword">end</span>
+0056     <span class="keyword">if</span> isempty(parent)
+0057         <span class="comment">% create new root menu, if no parent</span>
+0058         from_left = 100;
+0059         from_top = 150;
+0060         width = 500;
+0061         height = 1;
+0062         <span class="comment">% determine position on primary monitor</span>
+0063         import java.awt.GraphicsEnvironment
+0064         ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+0065         gd = ge.getDefaultScreenDevice();
+0066         scrheight = gd.getDisplayMode().getHeight();
+0067         pos = [from_left, scrheight-from_top, width, height];        
+0068         <span class="comment">% create figure</span>
+0069         release = version; <span class="keyword">try</span> release = release(find(release==<span class="string">'('</span>)+1:find(release==<span class="string">')'</span>)-1); <span class="keyword">catch</span> <span class="keyword">end</span>
+0070         figtitle = sprintf(<span class="string">'BCILAB %s (%s on %s)'</span>,env_version,release,hlp_hostname);
+0071         parent = figure(<span class="string">'DockControls'</span>,<span class="string">'off'</span>,<span class="string">'NumberTitle'</span>,<span class="string">'off'</span>,<span class="string">'Name'</span>,figtitle,<span class="string">'Resize'</span>,<span class="string">'off'</span>,<span class="string">'MenuBar'</span>,<span class="string">'none'</span>,<span class="string">'Position'</span>,pos,<span class="string">'Tag'</span>,<span class="string">'bcilab_toolwnd'</span>);
+0072     <span class="keyword">end</span>
+0073 <span class="keyword">end</span>
+0074 
+0075 <span class="comment">% Data Source menu</span>
+0076 source = uimenu(parent, <span class="string">'Label'</span>,<span class="string">'Data Source'</span>,<span class="string">'Tag'</span>,<span class="string">'bcilab_menu'</span>);
+0077 uimenu(source,<span class="string">'Label'</span>,<span class="string">'Load recording(s)...'</span>,<span class="string">'Accelerator'</span>,char(shortcuts*<span class="string">'l'</span>),<span class="string">'Callback'</span>,<span class="string">'gui_loadset'</span>);
+0078 wspace = uimenu(source,<span class="string">'Label'</span>,<span class="string">'Workspace'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>);
+0079 uimenu(wspace,<span class="string">'Label'</span>,<span class="string">'Load...'</span>,<span class="string">'Callback'</span>,<span class="string">'io_loadworkspace'</span>);
+0080 uimenu(wspace,<span class="string">'Label'</span>,<span class="string">'Save...'</span>,<span class="string">'Callback'</span>,<span class="string">'io_saveworkspace'</span>);
+0081 uimenu(wspace,<span class="string">'Label'</span>,<span class="string">'Clear...'</span>,<span class="string">'Callback'</span>,<span class="string">'clear'</span>);
+0082 uimenu(source,<span class="string">'Label'</span>,<span class="string">'Run script...'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>,<span class="string">'Callback'</span>,@<a href="#_sub4" class="code" title="subfunction invoke_script(varargin)">invoke_script</a>);
+0083 <span class="keyword">if</span> isdeployed
+0084     uimenu(source,<span class="string">'Label'</span>,<span class="string">'Quit'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>,<span class="string">'Callback'</span>,<span class="string">'exit'</span>); <span class="keyword">end</span>
+0085 
+0086 <span class="comment">% Offline Analysis menu</span>
+0087 offline = uimenu(parent, <span class="string">'Label'</span>,<span class="string">'Offline Analysis'</span>);
+0088 uimenu(offline,<span class="string">'Label'</span>,<span class="string">'New approach...'</span>,<span class="string">'Accelerator'</span>,char(shortcuts*<span class="string">'n'</span>),<span class="string">'Callback'</span>,<span class="string">'gui_newapproach'</span>);
+0089 uimenu(offline,<span class="string">'Label'</span>,<span class="string">'Modify approach...'</span>,<span class="string">'Accelerator'</span>,char(shortcuts*<span class="string">'m'</span>),<span class="string">'Callback'</span>,<span class="string">'gui_configapproach([],true);'</span>);
+0090 uimenu(offline,<span class="string">'Label'</span>,<span class="string">'Review/edit approach...'</span>,<span class="string">'Accelerator'</span>,char(shortcuts*<span class="string">'r'</span>),<span class="string">'Callback'</span>,<span class="string">'gui_reviewapproach([],true);'</span>);
+0091 uimenu(offline,<span class="string">'Label'</span>,<span class="string">'Save approach...'</span>,<span class="string">'Accelerator'</span>,char(shortcuts*<span class="string">'s'</span>),<span class="string">'Callback'</span>,<span class="string">'gui_saveapproach'</span>);
+0092 uimenu(offline,<span class="string">'Label'</span>,<span class="string">'Train new model...'</span>,<span class="string">'Accelerator'</span>,char(shortcuts*<span class="string">'t'</span>),<span class="string">'Callback'</span>,<span class="string">'gui_calibratemodel'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>);
+0093 uimenu(offline,<span class="string">'Label'</span>,<span class="string">'Apply model to data...'</span>,<span class="string">'Accelerator'</span>,char(shortcuts*<span class="string">'a'</span>),<span class="string">'Callback'</span>,<span class="string">'gui_applymodel'</span>);
+0094 uimenu(offline,<span class="string">'Label'</span>,<span class="string">'Visualize model...'</span>,<span class="string">'Accelerator'</span>,char(shortcuts*<span class="string">'v'</span>),<span class="string">'Callback'</span>,<span class="string">'gui_visualizemodel'</span>);
+0095 uimenu(offline,<span class="string">'Label'</span>,<span class="string">'Run batch analysis...'</span>,<span class="string">'Accelerator'</span>,char(shortcuts*<span class="string">'b'</span>),<span class="string">'Callback'</span>,<span class="string">'gui_batchanalysis'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>);
+0096 uimenu(offline,<span class="string">'Label'</span>,<span class="string">'Review results...'</span>,<span class="string">'Accelerator'</span>,char(shortcuts*<span class="string">'i'</span>),<span class="string">'Callback'</span>,<span class="string">'gui_selectresults'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>);
+0097 
+0098 <span class="comment">% Online Analysis menu</span>
+0099 online = uimenu(parent,<span class="string">'Label'</span>,<span class="string">'Online Analysis'</span>);
+0100 pipe = uimenu(online,<span class="string">'Label'</span>,<span class="string">'Process data within...'</span>);
+0101 read = uimenu(online,<span class="string">'Label'</span>,<span class="string">'Read input from...'</span>);
+0102 write = uimenu(online,<span class="string">'Label'</span>,<span class="string">'Write output to...'</span>);
+0103 cm_read = uicontextmenu(<span class="string">'Tag'</span>,<span class="string">'bcilab_cm_read'</span>);
+0104 cm_write = uicontextmenu(<span class="string">'Tag'</span>,<span class="string">'bcilab_cm_write'</span>);
+0105 
+0106 <span class="comment">% for each plugin sub-directory...</span>
+0107 dirs = dir(env_translatepath(<span class="string">'functions:/online_plugins'</span>));
+0108 <span class="keyword">for</span> d={dirs(3:end).name}
+0109     <span class="comment">% find all files, their names, identifiers, and function handles</span>
+0110     files = dir(env_translatepath([<span class="string">'functions:/online_plugins/'</span> d{1} <span class="string">'/run_*.m'</span>]));
+0111     names = {files.name};
+0112     idents = cellfun(@(n)n(1:end-2),names,<span class="string">'UniformOutput'</span>,false);
+0113     <span class="comment">% for each entry...</span>
+0114     <span class="keyword">for</span> f=1:length(idents)
+0115         <span class="keyword">try</span>
+0116             <span class="keyword">if</span> ~exist(idents{f},<span class="string">'file'</span>) &amp;&amp; ~isdeployed
+0117                 addpath(env_translatepath([<span class="string">'functions:/online_plugins/'</span> d{1}])); <span class="keyword">end</span>
+0118             <span class="comment">% get properties...</span>
+0119             props = arg_report(<span class="string">'properties'</span>,str2func(idents{f}));
+0120             <span class="comment">% get category</span>
+0121             <span class="keyword">if</span> strncmp(idents{f},<span class="string">'run_read'</span>,8);
+0122                 cats = [read,cm_read];
+0123             <span class="keyword">elseif</span> strncmp(idents{f},<span class="string">'run_write'</span>,9);
+0124                 cats = [write,cm_write];
+0125             <span class="keyword">elseif</span> strncmp(idents{f},<span class="string">'run_pipe'</span>,8);
+0126                 cats = pipe;
+0127             <span class="keyword">end</span>
+0128             <span class="keyword">if</span> isfield(props,<span class="string">'name'</span>)
+0129                 <span class="comment">% add menu entry</span>
+0130                 <span class="keyword">for</span> cat=cats
+0131                     uimenu(cat,<span class="string">'Label'</span>,[props.name <span class="string">'...'</span>],<span class="string">'Callback'</span>,[<span class="string">'arg_guidialog(@'</span> idents{f} <span class="string">');'</span>],<span class="string">'Enable'</span>,<span class="string">'on'</span>); <span class="keyword">end</span>
+0132             <span class="keyword">else</span>
+0133                 warning(<span class="string">'env_showmenu:missing_guiname'</span>,<span class="string">'The online plugin %s does not declare a GUI name; ignoring...'</span>,idents{f});
+0134             <span class="keyword">end</span>
+0135         <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0136             disp([<span class="string">'Could not integrate the online plugin '</span> idents{f} <span class="string">'.'</span>]);
+0137         <span class="keyword">end</span>
+0138     <span class="keyword">end</span>
+0139 <span class="keyword">end</span>
+0140 uimenu(online,<span class="string">'Label'</span>,<span class="string">'Clear all online processing'</span>,<span class="string">'Callback'</span>,<span class="string">'onl_clear'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>);
+0141 
+0142 <span class="comment">% Settings menu</span>
+0143 settings = uimenu(parent, <span class="string">'Label'</span>,<span class="string">'Settings'</span>);
+0144 uimenu(settings,<span class="string">'Label'</span>,<span class="string">'Directory settings...'</span>,<span class="string">'Callback'</span>,<span class="string">'gui_configpaths'</span>);
+0145 uimenu(settings,<span class="string">'Label'</span>,<span class="string">'Cache settings...'</span>,<span class="string">'Callback'</span>,<span class="string">'gui_configcache'</span>);
+0146 uimenu(settings,<span class="string">'Label'</span>,<span class="string">'Cluster settings...'</span>,<span class="string">'Callback'</span>,<span class="string">'gui_configcluster'</span>);
+0147 uimenu(settings,<span class="string">'Label'</span>,<span class="string">'Clear memory cache'</span>,<span class="string">'Callback'</span>,<span class="string">'env_clear_memcaches'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>);
+0148 
+0149 <span class="comment">% Help menu</span>
+0150 helping = uimenu(parent,<span class="string">'Label'</span>,<span class="string">'Help'</span>);
+0151 uimenu(helping,<span class="string">'Label'</span>,<span class="string">'BCI Paradigms...'</span>,<span class="string">'Callback'</span>,<span class="string">'env_doc code/paradigms'</span>);
+0152 uimenu(helping,<span class="string">'Label'</span>,<span class="string">'Filters...'</span>,<span class="string">'Callback'</span>,<span class="string">'env_doc code/filters'</span>);
+0153 uimenu(helping,<span class="string">'Label'</span>,<span class="string">'Machine Learning...'</span>,<span class="string">'Callback'</span>,<span class="string">'env_doc code/machine_learning'</span>);
+0154 scripting = uimenu(helping,<span class="string">'Label'</span>,<span class="string">'Scripting'</span>);
+0155 uimenu(scripting,<span class="string">'Label'</span>,<span class="string">'File input/output...'</span>,<span class="string">'Callback'</span>,<span class="string">'env_doc code/io'</span>);
+0156 uimenu(scripting,<span class="string">'Label'</span>,<span class="string">'Dataset editing...'</span>,<span class="string">'Callback'</span>,<span class="string">'env_doc code/dataset_editing'</span>);
+0157 uimenu(scripting,<span class="string">'Label'</span>,<span class="string">'Offline scripting...'</span>,<span class="string">'Callback'</span>,<span class="string">'env_doc code/offline_analysis'</span>);
+0158 uimenu(scripting,<span class="string">'Label'</span>,<span class="string">'Online scripting...'</span>,<span class="string">'Callback'</span>,<span class="string">'env_doc code/online_analysis'</span>);
+0159 uimenu(scripting,<span class="string">'Label'</span>,<span class="string">'BCILAB environment...'</span>,<span class="string">'Callback'</span>,<span class="string">'env_doc code/environment'</span>);
+0160 uimenu(scripting,<span class="string">'Label'</span>,<span class="string">'Cluster handling...'</span>,<span class="string">'Callback'</span>,<span class="string">'env_doc code/parallel'</span>);
+0161 uimenu(scripting,<span class="string">'Label'</span>,<span class="string">'Keywords...'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>,<span class="string">'Callback'</span>,<span class="string">'env_doc code/keywords'</span>);
+0162 uimenu(scripting,<span class="string">'Label'</span>,<span class="string">'Helpers...'</span>,<span class="string">'Callback'</span>,<span class="string">'env_doc code/helpers'</span>);
+0163 uimenu(scripting,<span class="string">'Label'</span>,<span class="string">'Internals...'</span>,<span class="string">'Callback'</span>,<span class="string">'env_doc code/utils'</span>);
+0164 authoring = uimenu(helping,<span class="string">'Label'</span>,<span class="string">'Plugin authoring'</span>);
+0165 uimenu(authoring,<span class="string">'Label'</span>,<span class="string">'Argument declaration...'</span>,<span class="string">'Callback'</span>,<span class="string">'env_doc code/arguments'</span>);
+0166 uimenu(authoring,<span class="string">'Label'</span>,<span class="string">'Expression functions...'</span>,<span class="string">'Callback'</span>,<span class="string">'env_doc code/expressions'</span>);
+0167 uimenu(authoring,<span class="string">'Label'</span>,<span class="string">'Online processing...'</span>,<span class="string">'Callback'</span>,<span class="string">'env_doc code/online_analysis'</span>);
+0168 uimenu(helping,<span class="string">'Label'</span>,<span class="string">'About...'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>,<span class="string">'Callback'</span>,@<a href="#_sub1" class="code" title="subfunction about(varargin)">about</a>);
+0169 uimenu(helping,<span class="string">'Label'</span>,<span class="string">'Save bug report...'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>,<span class="string">'Callback'</span>,<span class="string">'io_saveworkspace([],true)'</span>);
+0170 uimenu(helping,<span class="string">'Label'</span>,<span class="string">'File bug report...'</span>,<span class="string">'Callback'</span>,<span class="string">'arg_guidialog(@env_bugreport);'</span>);
+0171 
+0172 <span class="comment">% toolbar (if not linked into the EEGLAB menu)</span>
+0173 <span class="keyword">if</span> ~(within_eeglab &amp;&amp; ~forcenew)
+0174     <span class="keyword">global</span> tracking; <span class="comment">%#ok&lt;TLEV&gt;</span>
+0175     cluster_requested = isfield(tracking,<span class="string">'cluster_requested'</span>) &amp;&amp; ~isempty(tracking.cluster_requested);
+0176     cluster_requested = hlp_rewrite(cluster_requested,false,<span class="string">'off'</span>,true,<span class="string">'on'</span>);
+0177     
+0178     ht = uitoolbar(parent,<span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>);
+0179     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'Load recording(s)'</span>,<span class="keyword">...</span>
+0180         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/file_open.png'</span>),<span class="keyword">...</span>
+0181         <span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'ClickedCallback'</span>,<span class="string">'gui_loadset'</span>);
+0182     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'New approach'</span>,<span class="keyword">...</span>
+0183         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/approach_new.png'</span>),<span class="keyword">...</span>
+0184         <span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'ClickedCallback'</span>,<span class="string">'gui_newapproach'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>);
+0185     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'Load Approach'</span>,<span class="keyword">...</span>
+0186         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/approach_load.png'</span>),<span class="keyword">...</span>
+0187         <span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'ClickedCallback'</span>,@<a href="#_sub7" class="code" title="subfunction load_approach(varargin)">load_approach</a>);
+0188     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'Save approach'</span>,<span class="keyword">...</span>
+0189         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/approach_save.png'</span>),<span class="keyword">...</span>
+0190         <span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'ClickedCallback'</span>,<span class="string">'gui_saveapproach'</span>);
+0191     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'Modify approach'</span>,<span class="keyword">...</span>
+0192         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/approach_edit.png'</span>),<span class="keyword">...</span>
+0193         <span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'ClickedCallback'</span>,<span class="string">'gui_configapproach([],true);'</span>);
+0194     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'Review/edit approach'</span>,<span class="keyword">...</span>
+0195         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/approach_review.png'</span>),<span class="keyword">...</span>
+0196         <span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'ClickedCallback'</span>,<span class="string">'gui_reviewapproach([],true);'</span>);
+0197     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'Train new model'</span>,<span class="keyword">...</span>
+0198         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/model_new.png'</span>),<span class="keyword">...</span>
+0199         <span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'ClickedCallback'</span>,<span class="string">'gui_calibratemodel'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>);
+0200     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'Load Model'</span>,<span class="keyword">...</span>
+0201         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/model_load.png'</span>),<span class="keyword">...</span>
+0202         <span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'ClickedCallback'</span>,@<a href="#_sub6" class="code" title="subfunction load_model(varargin)">load_model</a>);
+0203     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'Save Model'</span>,<span class="keyword">...</span>
+0204         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/model_save.png'</span>),<span class="keyword">...</span>
+0205         <span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'ClickedCallback'</span>,<span class="string">'gui_savemodel'</span>);
+0206     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'Apply model to data'</span>,<span class="keyword">...</span>
+0207         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/model_apply.png'</span>),<span class="keyword">...</span>
+0208         <span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'ClickedCallback'</span>,<span class="string">'gui_applymodel'</span>);
+0209     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'Visualize model'</span>,<span class="keyword">...</span>
+0210         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/model_visualize.png'</span>),<span class="keyword">...</span>
+0211         <span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'ClickedCallback'</span>,<span class="string">'gui_visualizemodel'</span>);
+0212     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'Run batch analysis'</span>,<span class="keyword">...</span>
+0213         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/batch_analysis.png'</span>),<span class="keyword">...</span>
+0214         <span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'ClickedCallback'</span>,<span class="string">'gui_batchanalysis'</span>);
+0215     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'Read input from (online)'</span>,<span class="keyword">...</span>
+0216         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/online_in.png'</span>),<span class="keyword">...</span>
+0217         <span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>,<span class="string">'ClickedCallback'</span>,@<a href="#_sub2" class="code" title="subfunction click_read(varargin)">click_read</a>);
+0218     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'Write output to (online)'</span>,<span class="keyword">...</span>
+0219         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/online_out.png'</span>),<span class="keyword">...</span>
+0220         <span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'ClickedCallback'</span>,@<a href="#_sub3" class="code" title="subfunction click_write(varargin)">click_write</a>);
+0221     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'Clear online processing'</span>,<span class="keyword">...</span>
+0222         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/online_clear.png'</span>),<span class="keyword">...</span>
+0223         <span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'ClickedCallback'</span>,<span class="string">'onl_clear'</span>);
+0224     uitoggletool(ht,<span class="string">'TooltipString'</span>,<span class="string">'Request cluster availability'</span>,<span class="keyword">...</span>
+0225         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/acquire_cluster.png'</span>),<span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>,<span class="string">'State'</span>,cluster_requested,<span class="string">'OnCallback'</span>,<span class="string">'env_acquire_cluster;'</span>,<span class="string">'OffCallback'</span>,<span class="string">'env_release_cluster;'</span>);
+0226     uipushtool(ht,<span class="string">'TooltipString'</span>,<span class="string">'About BCILAB'</span>,<span class="keyword">...</span>
+0227         <span class="string">'CData'</span>,<a href="#_sub5" class="code" title="subfunction cols = load_icon(filename)">load_icon</a>(<span class="string">'bcilab:/resources/icons/help.png'</span>),<span class="string">'HandleVisibility'</span>,<span class="string">'callback'</span>,<span class="string">'Separator'</span>,<span class="string">'on'</span>,<span class="string">'ClickedCallback'</span>,@<a href="#_sub1" class="code" title="subfunction about(varargin)">about</a>);
+0228 <span class="keyword">end</span>
+0229 
+0230 <span class="keyword">if</span> within_eeglab &amp;&amp; forcenew
+0231     mainmenu = findobj(<span class="string">'Tag'</span>,<span class="string">'EEGLAB'</span>);
+0232     <span class="comment">% make the EEGLAB menu current again</span>
+0233     <span class="keyword">if</span> ~isempty(mainmenu)
+0234         figure(mainmenu); <span class="keyword">end</span>
+0235 <span class="keyword">end</span>
+0236 
+0237 
+0238 <a name="_sub1" href="#_subfunctions" class="code">function about(varargin)</a>
+0239 infotext = strvcat(<span class="keyword">...</span>
+0240     <span class="string">'BCILAB is an open-source toolbox for Brain-Computer Interfacing research.'</span>, <span class="keyword">...</span>
+0241     <span class="string">'It is being developed by Christian Kothe at the Swartz Center for Computational Neuroscience,'</span>,<span class="keyword">...</span>
+0242     <span class="string">'Institute for Neural Computation (University of California San Diego).'</span>, <span class="keyword">...</span>
+0243     <span class="string">' '</span>,<span class="keyword">...</span>
+0244     <span class="string">'Development of this software was supported by the Army Research Laboratories under'</span>, <span class="keyword">...</span>
+0245     <span class="string">'Cooperative Agreement Number W911NF-10-2-0022, as well as by a gift from the Swartz Foundation.'</span>, <span class="keyword">...</span>
+0246     <span class="string">' '</span>,<span class="keyword">...</span>
+0247     <span class="string">'The design was inspired by the preceding PhyPA toolbox, written by C. Kothe and T. Zander'</span>, <span class="keyword">...</span>
+0248     <span class="string">'at the Berlin Institute of Technology, Chair Human-Machine Systems.'</span>, <span class="keyword">...</span>
+0249     <span class="string">' '</span>,<span class="keyword">...</span>
+0250     <span class="string">'BCILAB connects to the following toolboxes/libraries:'</span>, <span class="keyword">...</span>
+0251     <span class="string">'* AWS SDK (Amazon)'</span>, <span class="keyword">...</span>
+0252     <span class="string">'* Amica (SCCN/UCSD)'</span>, <span class="keyword">...</span>
+0253     <span class="string">'* Chronux (Mitra Lab, Cold Spring Harbor)'</span>, <span class="keyword">...</span>
+0254     <span class="string">'* CVX (Stanford)'</span>, <span class="keyword">...</span>
+0255     <span class="string">'* DAL (U. Tokyo)'</span>, <span class="keyword">...</span>
+0256     <span class="string">'* DataSuite (SCCN/UCSD)'</span>, <span class="keyword">...</span>
+0257     <span class="string">'* EEGLAB (SCCN/UCSD)'</span>, <span class="keyword">...</span>
+0258     <span class="string">'* BCI2000import (www.bci2000.org)'</span>, <span class="keyword">...</span>
+0259     <span class="string">'* Logreg (Jan Drugowitsch)'</span>, <span class="keyword">...</span>
+0260     <span class="string">'* FastICA (Helsinki UT)'</span>, <span class="keyword">...</span>
+0261     <span class="string">'* glm-ie (Max Planck Institute for Biological Cybernetics, Tuebingen)'</span>, <span class="keyword">...</span>
+0262     <span class="string">'* glmnet (Stanford)'</span>, <span class="keyword">...</span>
+0263     <span class="string">'* GMMBayes (Helsinki UT)'</span>, <span class="keyword">...</span>
+0264     <span class="string">'* HKL (Francis Bach, INRIA)'</span>, <span class="keyword">...</span>
+0265     <span class="string">'* KernelICA (Francis Bach, Berkeley)'</span>, <span class="keyword">...</span>
+0266     <span class="string">'* LIBLINEAR (National Taiwan University)'</span>, <span class="keyword">...</span>
+0267     <span class="string">'* matlabcontrol (Joshua Kaplan)'</span>, <span class="keyword">...</span>
+0268     <span class="string">'* mlUnit (Thomas Dohmke)'</span>, <span class="keyword">...</span>
+0269     <span class="string">'* NESTA (Caltech)'</span>, <span class="keyword">...</span>
+0270     <span class="string">'* OSC (Andy Schmeder) and LibLO (Steve Harris)'</span>, <span class="keyword">...</span>
+0271     <span class="string">'* PROPACK (Stanford)'</span>, <span class="keyword">...</span>
+0272     <span class="string">'* PropertyGrid (Levente Hunyadi)'</span>, <span class="keyword">...</span>
+0273     <span class="string">'* SparseBayes (Vector Anomaly)'</span>, <span class="keyword">...</span>
+0274     <span class="string">'* SVMlight (Thorsten Joachims)'</span>, <span class="keyword">...</span>
+0275     <span class="string">'* SVMperf (Thorsten Joachims)'</span>, <span class="keyword">...</span>
+0276     <span class="string">'* Talairach (UTHSCSA)'</span>, <span class="keyword">...</span>
+0277     <span class="string">'* Time-frequency toolbox (CRNS / Rice University)'</span>, <span class="keyword">...</span>
+0278     <span class="string">'* t-SNE (TU Delft)'</span>, <span class="keyword">...</span><span class="comment">    </span>
+0279     <span class="string">'* UnLocBox (Nathanael Perraudin et al.)'</span>, <span class="keyword">...</span>
+0280     <span class="string">'* VDPGM (Kenichi Kurihara)'</span>); <span class="comment">%#ok&lt;REMFF1&gt;</span>
+0281 
+0282 warndlg2(infotext,<span class="string">'About'</span>);
+0283 
+0284 
+0285 <a name="_sub2" href="#_subfunctions" class="code">function click_read(varargin)</a>
+0286 <span class="comment">% pop up a menu when clicking the &quot;read input from&quot; toolbar button</span>
+0287 tw = findobj(<span class="string">'tag'</span>,<span class="string">'bcilab_toolwnd'</span>);
+0288 cm = findobj(<span class="string">'tag'</span>,<span class="string">'bcilab_cm_read'</span>);
+0289 tpos = get(tw,<span class="string">'Position'</span>);
+0290 ppos = get(0,<span class="string">'PointerLocation'</span>);
+0291 set(cm,<span class="string">'Position'</span>,ppos - tpos(1:2), <span class="string">'Visible'</span>, <span class="string">'on'</span>);
+0292 set(cm,<span class="string">'Position'</span>,ppos - tpos(1:2), <span class="string">'Visible'</span>, <span class="string">'on'</span>);
+0293 
+0294 
+0295 <a name="_sub3" href="#_subfunctions" class="code">function click_write(varargin)</a>
+0296 <span class="comment">% pop up a menu when clicking the &quot;write output to&quot; toolbar button</span>
+0297 tw = findobj(<span class="string">'tag'</span>,<span class="string">'bcilab_toolwnd'</span>);
+0298 cm = findobj(<span class="string">'tag'</span>,<span class="string">'bcilab_cm_write'</span>);
+0299 tpos = get(tw,<span class="string">'Position'</span>);
+0300 ppos = get(0,<span class="string">'PointerLocation'</span>);
+0301 set(cm,<span class="string">'Position'</span>,ppos - tpos(1:2), <span class="string">'Visible'</span>, <span class="string">'on'</span>);
+0302 set(cm,<span class="string">'Position'</span>,ppos - tpos(1:2), <span class="string">'Visible'</span>, <span class="string">'on'</span>);
+0303 
+0304 
+0305 <span class="comment">% run a script</span>
+0306 <a name="_sub4" href="#_subfunctions" class="code">function invoke_script(varargin)</a>
+0307 [filename,filepath] = uigetfile({<span class="string">'*.m'</span>, <span class="string">'MATLAB file'</span>},<span class="string">'Select script to run'</span>,env_translatepath(<span class="string">'bcilab:/'</span>));
+0308 <span class="keyword">if</span> ~isnumeric(filename)
+0309     run_script([filepath filename],true); <span class="keyword">end</span>
+0310 
+0311 
+0312 <span class="comment">% load a toolbar icon</span>
+0313 <a name="_sub5" href="#_subfunctions" class="code">function cols = load_icon(filename)</a>
+0314 [cols,palette,alpha] = imread(env_translatepath(filename));
+0315 <span class="keyword">if</span> ~isempty(palette)
+0316     error(<span class="string">'This function does not handle palettized icons.'</span>); <span class="keyword">end</span>
+0317 cls = class(cols);
+0318 cols = double(cols);
+0319 cols = cols/double(intmax(cls));
+0320 cols([alpha,alpha,alpha]==0) = NaN;
+0321 
+0322 
+0323 <span class="comment">% load a BCI model from disk</span>
+0324 <a name="_sub6" href="#_subfunctions" class="code">function load_model(varargin)</a>
+0325 [filename,filepath] = uigetfile({<span class="string">'*.mdl'</span>, <span class="string">'BCI Model'</span>},<span class="string">'Select BCI model to load'</span>,env_translatepath(<span class="string">'home:/.bcilab/models'</span>));
+0326 <span class="keyword">if</span> ~isnumeric(filename)
+0327     contents = io_load([filepath filename],<span class="string">'-mat'</span>);
+0328     <span class="keyword">for</span> fld=fieldnames(contents)'
+0329         tmp = contents.(fld{1});
+0330         <span class="keyword">if</span> isstruct(tmp) &amp;&amp; isfield(tmp,<span class="string">'timestamp'</span>)
+0331             tmp.timestamp = now;
+0332             assignin(<span class="string">'base'</span>,fld{1},tmp);
+0333         <span class="keyword">end</span>
+0334     <span class="keyword">end</span>
+0335 <span class="keyword">end</span>
+0336 
+0337 <span class="comment">% load a BCI approach from disk</span>
+0338 <a name="_sub7" href="#_subfunctions" class="code">function load_approach(varargin)</a>
+0339 [filename,filepath] = uigetfile({<span class="string">'*.apr'</span>, <span class="string">'BCI Approach'</span>},<span class="string">'Select BCI approach to load'</span>,env_translatepath(<span class="string">'home:/.bcilab/approaches'</span>));
+0340 <span class="keyword">if</span> ~isnumeric(filename)
+0341     contents = io_load([filepath filename],<span class="string">'-mat'</span>);
+0342     <span class="keyword">for</span> fld=fieldnames(contents)'
+0343         tmp = contents.(fld{1});
+0344         <span class="keyword">if</span> isstruct(tmp) &amp;&amp; isfield(tmp,<span class="string">'paradigm'</span>)
+0345             tmp.timestamp = now;
+0346             assignin(<span class="string">'base'</span>,fld{1},tmp);
+0347         <span class="keyword">end</span>
+0348     <span class="keyword">end</span>
+0349 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of par_accept_results</title>
+  <meta name="keywords" content="par_accept_results">
+  <meta name="description" content="Accept a result from the scheduler and store it in a result table.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">parallel</a> &gt; par_accept_results.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/parallel&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>par_accept_results
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Accept a result from the scheduler and store it in a result table.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function par_accept_results(tag, payload) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Accept a result from the scheduler and store it in a result table.
+ par_accept_result(Tag, Payload)
+
+ This function stores the results produced by the scheduler in a global result table for later
+ pickup by par_endschedule. The reason is that the scheduler, being a Java class, cannot hold very
+ large (or very many) results since the MATLAB Java memory is limited to a maximum of 64GB.
+ Therefore we need to ferry the results out of Java as they are being produced.
+
+ The function also attempts to check if the results contain errors, and prints them as they are
+ being received.
+
+ In:
+   Tag: tag string that uniquely identifies the result; should begin with 'tag__'.
+
+   Payload: payload uint8 array of the same format as returned by the Scheduler</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function par_accept_results(tag, payload)</a>
+0002 <span class="comment">% Accept a result from the scheduler and store it in a result table.</span>
+0003 <span class="comment">% par_accept_result(Tag, Payload)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% This function stores the results produced by the scheduler in a global result table for later</span>
+0006 <span class="comment">% pickup by par_endschedule. The reason is that the scheduler, being a Java class, cannot hold very</span>
+0007 <span class="comment">% large (or very many) results since the MATLAB Java memory is limited to a maximum of 64GB.</span>
+0008 <span class="comment">% Therefore we need to ferry the results out of Java as they are being produced.</span>
+0009 <span class="comment">%</span>
+0010 <span class="comment">% The function also attempts to check if the results contain errors, and prints them as they are</span>
+0011 <span class="comment">% being received.</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">% In:</span>
+0014 <span class="comment">%   Tag: tag string that uniquely identifies the result; should begin with 'tag__'.</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%   Payload: payload uint8 array of the same format as returned by the Scheduler</span>
+0017 
+0018 <span class="keyword">global</span> tracking;
+0019 <span class="comment">% atomically store payload in global results table</span>
+0020 tracking.parallel.results.(tag) = payload;
+0021  
+0022 <span class="keyword">if</span> length(payload) &lt; 16384
+0023     <span class="keyword">try</span>
+0024         <span class="comment">% for short results we check if we got an error, and if so, we print it out</span>
+0025         decoded = hlp_deserialize(typecast(payload,<span class="string">'uint8'</span>));
+0026         <span class="keyword">if</span> all(isfield(decoded{2},{<span class="string">'message'</span>,<span class="string">'identifier'</span>,<span class="string">'stack'</span>}))
+0027             fprintf(<span class="string">'Got an error during parallel execution: %s\n'</span>,hlp_handleerror(decoded{2})); <span class="keyword">end</span>
+0028     <span class="keyword">catch</span> e <span class="comment">%#ok&lt;NASGU&gt;</span>
+0029     <span class="keyword">end</span>
+0030 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

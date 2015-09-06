@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/dataset_editing&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>set_new
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -56,9 +57,6 @@
    events = struct('type',{'X','Y','X','X','Y'},'latency',{1000,2300,5000,15000,17000});
    myset = set_new('data',randn(3,100000), 'srate',1000, 'chanlocs',struct('labels',{'A','B','C'}), 'event',events);
 
- See also:
-   eeg_emptyset
-
                                 Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
                                 2010-05-28</pre></div>
 
@@ -66,11 +64,17 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="set_infer_chanlocs.html" class="code" title="function [data,coords] = set_infer_chanlocs(data)">set_infer_chanlocs</a>	Infer the chanlocs subfields (positions and type) from labels.</li></ul>
+
+<li><a href="set_infer_chanlocs.html" class="code" title="function data = set_infer_chanlocs(data,disambiguation_rule)">set_infer_chanlocs</a>	Infer the chanlocs subfields (positions and type) from labels.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -105,96 +109,161 @@ This function is called by:
 0028 <span class="comment">%   events = struct('type',{'X','Y','X','X','Y'},'latency',{1000,2300,5000,15000,17000});</span>
 0029 <span class="comment">%   myset = set_new('data',randn(3,100000), 'srate',1000, 'chanlocs',struct('labels',{'A','B','C'}), 'event',events);</span>
 0030 <span class="comment">%</span>
-0031 <span class="comment">% See also:</span>
-0032 <span class="comment">%   eeg_emptyset</span>
-0033 <span class="comment">%</span>
-0034 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0035 <span class="comment">%                                2010-05-28</span>
+0031 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0032 <span class="comment">%                                2010-05-28</span>
+0033 dp;
+0034 
+0035 <span class="comment">% set_new_version&lt;1.01&gt; -- for the cache</span>
 0036 
-0037 <span class="comment">% set_new_version&lt;1.0&gt; -- for the cache</span>
+0037 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'import'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
 0038 
-0039 <span class="keyword">if</span> ~exp_beginfun(<span class="string">'filter'</span>) <span class="keyword">return</span>; <span class="keyword">end</span>
+0039 declare_properties(<span class="string">'independent_channels'</span>,false,<span class="string">'independent_trials'</span>,false);
 0040 
-0041 declare_properties(<span class="string">'independent_channels'</span>,false,<span class="string">'independent_trials'</span>,false);
-0042 
-0043 <span class="comment">% construct the data set from arguments and defaults</span>
-0044 signal = hlp_varargin2struct(varargin, eeg_emptyset, <span class="string">'setname'</span>,<span class="string">'new set'</span>);
-0045 
-0046 <span class="comment">% rewrite cell array data</span>
-0047 <span class="keyword">if</span> iscell(signal.data)
-0048     data = signal.data;
-0049     signal.data = [];
-0050     <span class="keyword">for</span> c=1:length(data)
-0051         <span class="keyword">if</span> isnumeric(data{c}) &amp;&amp; ~isempty(data{c})
-0052             signal.data = cat(3, signal.data, data{c});
-0053             <span class="keyword">for</span> i=size(signal.data,3)-size(data{c},3)+1:size(signal.data,3)
-0054                 signal.epoch(i).target = c; <span class="keyword">end</span>
-0055         <span class="keyword">end</span>
-0056     <span class="keyword">end</span>    
-0057 <span class="keyword">end</span>
-0058 
-0059 <span class="comment">% bring chanlocs into an appropriate format</span>
-0060 <span class="keyword">try</span>  signal.chanlocs = hlp_microcache(<span class="string">'setnew'</span>,@<a href="set_infer_chanlocs.html" class="code" title="function [data,coords] = set_infer_chanlocs(data)">set_infer_chanlocs</a>,signal.chanlocs); <span class="keyword">catch</span> <span class="keyword">end</span>
-0061 
-0062 <span class="comment">% if necessary, create chanlocs from scratch, according to the data size</span>
-0063 <span class="keyword">if</span> ~isfield(signal,<span class="string">'chanlocs'</span>) || isempty(signal.chanlocs)
-0064     <span class="keyword">if</span> ~isempty(signal.data)
-0065         signal.chanlocs = struct(<span class="string">'labels'</span>,cellfun(@num2str,num2cell(1:size(signal.data,1),1),<span class="string">'UniformOutput'</span>,false),<span class="string">'type'</span>,repmat({<span class="string">'unknown'</span>},1,size(signal.data,1))); 
-0066     <span class="keyword">else</span>
-0067         signal.chanlocs = struct(<span class="string">'labels'</span>,{},<span class="string">'type'</span>,{});
-0068     <span class="keyword">end</span>
-0069 <span class="keyword">end</span>
-0070 
-0071 
-0072 <span class="comment">% derive xmax, nbchan, pnts, trials</span>
-0073 [signal.nbchan,signal.pnts, signal.trials] = size(signal.data);
-0074 signal.xmax = signal.xmin + (signal.pnts-1)/signal.srate;
-0075 
-0076 <span class="comment">% derive additional event &amp; urevent info</span>
-0077 <span class="keyword">if</span> isfield(signal,<span class="string">'event'</span>)
-0078     signal = eeg_checkset(signal,<span class="string">'eventconsistency'</span>); 
-0079     signal = eeg_checkset(signal,<span class="string">'makeur'</span>); 
-0080 <span class="keyword">end</span>
-0081 
-0082 <span class="comment">% add epoch.latency if possible</span>
-0083 <span class="keyword">if</span> ~isfield(signal.epoch,<span class="string">'latency'</span>)
-0084     <span class="keyword">for</span> i=1:length(signal.epoch)
-0085         <span class="keyword">try</span>
-0086         tle = [signal.epoch(i).eventlatency{:}]==0;
-0087         <span class="keyword">if</span> any(tle)
-0088             signal.epoch(i).latency = b.event(b.epoch(i).event(tle)).latency; <span class="keyword">end</span>
-0089         <span class="keyword">catch</span>
-0090         <span class="keyword">end</span>
-0091     <span class="keyword">end</span>
-0092 <span class="keyword">end</span>
-0093 
-0094 <span class="comment">% do minimal consistency checks</span>
-0095 <span class="keyword">if</span> ~isempty(signal.chanlocs) &amp;&amp; ~isempty(signal.data) &amp;&amp; (length(signal.chanlocs) ~= signal.nbchan)
-0096     <span class="keyword">if</span> length(signal.chanlocs) == signal.nbchan+1 
-0097         <span class="keyword">if</span> isfield(signal,<span class="string">'ref'</span>) &amp;&amp; isscalar(signal.ref) &amp;&amp; signal.ref &lt;= signal.nbchan
-0098             signal.chanlocs = signal.chanlocs(setdiff(1:signal.nbchan,signal.ref));
-0099         <span class="keyword">elseif</span> any(strcmpi({signal.chanlocs.labels},<span class="string">'ref'</span>))
-0100             signal.chanlocs = signal.chanlocs(~strcmpi({signal.chanlocs.labels},<span class="string">'ref'</span>));
-0101         <span class="keyword">else</span>
-0102             error(<span class="string">'The number of supplied channel locations does not match the number of channels in the data. Apparently includes 1 special channel...'</span>); 
-0103         <span class="keyword">end</span>
-0104     <span class="keyword">else</span>
-0105         error(<span class="string">'The number of supplied channel locations does not match the number of channels in the data.'</span>); 
-0106     <span class="keyword">end</span>
-0107 <span class="keyword">end</span>
-0108 <span class="keyword">if</span> isfield(signal,<span class="string">'epoch'</span>) &amp;&amp; ~isempty(signal.epoch) &amp;&amp; length(signal.epoch) ~= size(signal.data,3)
-0109     error(<span class="string">'The number of data epochs does not match the number of entries in the epoch field'</span>); <span class="keyword">end</span>
-0110 
-0111 <span class="comment">% ensure that this field is present (to speed processing)</span>
-0112 signal.tracking.timeseries_fields = {};
-0113 
-0114 <span class="keyword">if</span> isfield(signal,<span class="string">'tracking'</span>) &amp;&amp; isfield(signal.tracking,<span class="string">'online_expression'</span>)
-0115     <span class="comment">% if an online expression was explicitly assigned in set_new, use that</span>
-0116     exp_endfun(<span class="string">'set_online'</span>,signal.tracking.online_expression);
-0117 <span class="keyword">else</span>
-0118     <span class="comment">% otherwise, we treat this as raw data</span>
-0119     exp_endfun(<span class="string">'set_online'</span>,struct(<span class="string">'head'</span>,@rawdata,<span class="string">'parts'</span>,{{{signal.chanlocs.labels},unique({signal.chanlocs.type})}}));
-0120 <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0041 <span class="comment">% construct the data set from arguments and defaults</span>
+0042 signal = arg_define(<span class="string">'allow-unlisted-names'</span>,varargin, <span class="keyword">...</span>
+0043     <span class="keyword">...</span><span class="comment"> % data description</span>
+0044     arg({<span class="string">'setname'</span>,<span class="string">'DatasetName'</span>},<span class="string">'new set'</span>,[],<span class="string">'Name of the new dataset.'</span>), <span class="keyword">...</span>
+0045     arg({<span class="string">'filename'</span>,<span class="string">'FileName'</span>},<span class="string">''</span>,[],<span class="string">'Name of the file on disk. This is the file name (excluding the path) under which the set has previously been saved/loaded, if any.'</span>), <span class="keyword">...</span>
+0046     arg({<span class="string">'filepath'</span>,<span class="string">'FilePath'</span>},<span class="string">''</span>,[],<span class="string">'Corresponding file path on disk. This is the path (excluding file name) under which the set has previously been saved/loaded, if any.'</span>), <span class="keyword">...</span>
+0047     arg({<span class="string">'subject'</span>,<span class="string">'SubjectName'</span>},<span class="string">''</span>,[],<span class="string">'Subject name or identifier. This is the name or identifier of the person from whom the data was recorded.'</span>), <span class="keyword">...</span>
+0048     arg({<span class="string">'group'</span>,<span class="string">'GroupName'</span>},<span class="string">''</span>,[],<span class="string">'Group name or identifier. This is the name or identifier of the group to which the subject belongs.'</span>), <span class="keyword">...</span>
+0049     arg({<span class="string">'condition'</span>,<span class="string">'ConditionName'</span>},<span class="string">''</span>,[],<span class="string">'Condition name or identifier. This is the name or identifier of the experimental condition under which the data was recorded.'</span>,<span class="string">'typecheck'</span>,false), <span class="keyword">...</span>
+0050     arg({<span class="string">'session'</span>,<span class="string">'SessionIdentifier'</span>},[],[],<span class="string">'Identifier or number of the experiment session.'</span>,<span class="string">'typecheck'</span>,false), <span class="keyword">...</span>
+0051     arg({<span class="string">'comments'</span>,<span class="string">'DatasetComments'</span>},<span class="string">'created by set_new()'</span>,[],<span class="string">'Comments about the data set.'</span>), <span class="keyword">...</span>
+0052     <span class="keyword">...</span><span class="comment"> % redundant data size fields (auto-deduced)</span>
+0053     arg_nogui({<span class="string">'nbchan'</span>,<span class="string">'ChannelCount'</span>},0,uint32([0 1000000]),<span class="string">'Number of channels in the data. Auto-deduced if omitted.'</span>), <span class="keyword">...</span>
+0054     arg_nogui({<span class="string">'trials'</span>,<span class="string">'TrialCount'</span>},0,uint32([0 1000000]),<span class="string">'Number of trials (epochs) in the data. Auto-deduced if omitted.'</span>), <span class="keyword">...</span>
+0055     arg_nogui({<span class="string">'pnts'</span>,<span class="string">'SampleCount'</span>},0,uint32([0 1000000000]),<span class="string">'Number of samples (time points) in the data. Auto-deduced if omitted.'</span>), <span class="keyword">...</span>
+0056     <span class="keyword">...</span><span class="comment"> % time axis description</span>
+0057     arg({<span class="string">'srate'</span>,<span class="string">'SamplingRate'</span>},0,[0 0.1 100000 10000000],<span class="string">'Sampling rate in Hz.'</span>), <span class="keyword">...</span>
+0058     arg({<span class="string">'xmin'</span>,<span class="string">'FirstTimepoint'</span>},0,[],<span class="string">'First time-point in seconds. This is the time stamp of the first sample.'</span>), <span class="keyword">...</span>
+0059     arg_nogui({<span class="string">'xmax'</span>,<span class="string">'LastTimepoint'</span>},0,[],<span class="string">'Last time-point in seconds. This is the time stamp of the last sample. If given, should be consistent with xmin, srate and the size of the data.'</span>), <span class="keyword">...</span>
+0060     arg_nogui({<span class="string">'times'</span>,<span class="string">'Timepoints'</span>},[],[],<span class="string">'Time-points of the data. A vector of per-sample time points. Can be omitted.'</span>), <span class="keyword">...</span>
+0061     <span class="keyword">...</span><span class="comment"> % signal payload</span>
+0062     arg({<span class="string">'data'</span>,<span class="string">'DataArray'</span>},[],[],<span class="string">'The matrix or tensor of data. Note: in previous versions a cell array was allowed here, too; if you need this functionality, set the typecheck flag of this argument to false.'</span>,<span class="string">'shape'</span>,<span class="string">'tensor'</span>), <span class="keyword">...</span>
+0063     <span class="keyword">...</span><span class="comment"> % component-related fields</span>
+0064     arg_nogui({<span class="string">'icaact'</span>,<span class="string">'ComponentActivationArray'</span>},[],[],<span class="string">'A matrix/tensor of component activations. Typically requires that the other component-related fields are also specified.'</span>,<span class="string">'shape'</span>,<span class="string">'tensor'</span>), <span class="keyword">...</span>
+0065     arg_nogui({<span class="string">'icawinv'</span>,<span class="string">'ComponentInverseWeights'</span>},[],[],<span class="string">'Matrix of component spatial filter inverses. These are the forward projections of the filters. Typically equivalent to inv(.icaweights*.icasphere). In case of an ICA, this is the &quot;sphering matrix&quot;.'</span>), <span class="keyword">...</span>
+0066     arg_nogui({<span class="string">'icasphere'</span>,<span class="string">'ComponentSpheringMatrix'</span>},[],[],<span class="string">'Matrix of component sphering transform. This is a linear transform (left-multiplied) used to sphere (de-correlate) the data prior to application of ica weights.'</span>), <span class="keyword">...</span>
+0067     arg_nogui({<span class="string">'icaweights'</span>,<span class="string">'ComponentWeightMatrix'</span>},[],[],<span class="string">'Matrix of component spatial filters. This is a linear transform (left-multiplied) used to derive component activations from the data after the sphering matrix has been applied. In case of an ICA, this is the &quot;unmixing matrix&quot;.'</span>), <span class="keyword">...</span>
+0068     arg_nogui({<span class="string">'icachansind'</span>,<span class="string">'ComponentChannelIndices'</span>},[],uint32([1 1000000]),<span class="string">'Channel subset to derive components from. These are the indices of the data channels that shall be retained prior to applying the sphering matrix.'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0069     <span class="keyword">...</span><span class="comment"> % channel descriptions</span>
+0070     arg({<span class="string">'chanlocs'</span>,<span class="string">'ChannelLocations'</span>},[],[],<span class="string">'Struct array of channel locations. May also be a cell array of channel labels.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0071     arg_nogui({<span class="string">'urchanlocs'</span>,<span class="string">'OriginalChannelLocations'</span>},[],[],<span class="string">'Struct array of original channel locations. Describes the state of channel locations prior to processing.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0072     arg_sub({<span class="string">'chaninfo'</span>,<span class="string">'ChannelInfo'</span>},{},{ <span class="keyword">...</span>
+0073         arg_deprecated({<span class="string">'plotrad'</span>,<span class="string">'PlottingRadius'</span>},[],[],<span class="string">'Preferred plotting radius for topoplot().'</span>), <span class="keyword">...</span>
+0074         arg_deprecated({<span class="string">'shrink'</span>,<span class="string">'ShrinkFactor'</span>},[],[],<span class="string">'Preferred shrink factor for topoplot().'</span>), <span class="keyword">...</span>
+0075         arg({<span class="string">'nosedir'</span>,<span class="string">'NoseDirection'</span>},<span class="string">'+X'</span>,{<span class="string">'+X'</span>,<span class="string">'+Y'</span>,<span class="string">'+Z'</span>,<span class="string">'-X'</span>,<span class="string">'-Y'</span>,<span class="string">'-Z'</span>},<span class="string">'Direction in which the nose points. For correct orientation of the channel coordinate system.'</span>), <span class="keyword">...</span>
+0076         arg_deprecated({<span class="string">'nodatchans'</span>,<span class="string">'NoDataChans'</span>},[],[],<span class="string">'Legacy option for EEGLAB.'</span>), <span class="keyword">...</span>
+0077         arg_deprecated({<span class="string">'icachansind'</span>,<span class="string">'ComponentChannelIndices'</span>},[],uint32([1 1000000]),<span class="string">'Secondary location for component channel subset. Usage not recommended.'</span>), <span class="keyword">...</span>
+0078         arg({<span class="string">'labelscheme'</span>,<span class="string">'LabelingScheme'</span>},<span class="string">''</span>,[],<span class="string">'Channel labeling scheme. For instance, ''10-20'' to indicate the 10-20 labeling system.'</span>), <span class="keyword">...</span>
+0079     },<span class="string">'Channel coordinate system information.'</span>,<span class="string">'fmt'</span>,<span class="string">'allow-unlisted-names'</span>), <span class="keyword">...</span>
+0080     arg_nogui({<span class="string">'ref'</span>,<span class="string">'Reference'</span>},<span class="string">''</span>,[],<span class="string">'Reference channel. Can be ''common'', ''nasion'', a channel label, etc. Not used by BCILAB.'</span>), <span class="keyword">...</span>
+0081     <span class="keyword">...</span><span class="comment"> % event descriptions</span>
+0082     arg({<span class="string">'event'</span>,<span class="string">'Events'</span>},[],[],<span class="string">'Event structure. This is a struct array with mandatory fields .type (string) and .latency (samples) per event.'</span>,<span class="string">'typecheck'</span>,false,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0083     arg_nogui({<span class="string">'urevent'</span>,<span class="string">'OriginalEvents'</span>},[],[],<span class="string">'Original event structure. Describes the state of events prior to processing.'</span>,<span class="string">'typecheck'</span>,false,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0084     arg_nogui({<span class="string">'eventdescription'</span>,<span class="string">'EventDescription'</span>},{{}},[],<span class="string">'Event description. Legacy EEGLAB option.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0085     <span class="keyword">...</span><span class="comment"> % epoch descriptions</span>
+0086     arg({<span class="string">'epoch'</span>,<span class="string">'Epochs'</span>},[],[],<span class="string">'Epoch structure. This is a struct array with information per epoch.'</span>,<span class="string">'typecheck'</span>,false,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0087     arg_nogui({<span class="string">'epochdescription'</span>,<span class="string">'EpochDescription'</span>},{{}},[],<span class="string">'Epoch description. Legacy EEGLAB option.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0088     <span class="keyword">...</span><span class="comment"> % miscellaneous EEGLAB fields</span>
+0089     arg_nogui({<span class="string">'reject'</span>,<span class="string">'Rejections'</span>},[],[],<span class="string">'Rejection information. Contains information about what data was rejected. Legacy.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0090     arg_nogui({<span class="string">'stats'</span>,<span class="string">'Statistics'</span>},[],[],<span class="string">'Statistics information. Legacy.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0091     arg_nogui({<span class="string">'specdata'</span>,<span class="string">'SpecData'</span>},[],[],<span class="string">'Spectral activation data. Legacy.'</span>), <span class="keyword">...</span>
+0092     arg_nogui({<span class="string">'specicaact'</span>,<span class="string">'SpectralComponentActivations'</span>},[],[],<span class="string">'Spectral component activation data. Legacy.'</span>), <span class="keyword">...</span>
+0093     arg_nogui({<span class="string">'splinefile'</span>,<span class="string">'SplineFile'</span>},<span class="string">''</span>,[],<span class="string">'Cached spline file for plotting. Used by EEGLABs pop_headplot().'</span>), <span class="keyword">...</span>
+0094     arg_nogui({<span class="string">'icasplinefile'</span>,<span class="string">'ComponentSplineFile'</span>},<span class="string">''</span>,[],<span class="string">'Cached spline file for plotting. Used by EEGLABs pop_headplot().'</span>), <span class="keyword">...</span>
+0095     <span class="keyword">...</span><span class="comment"> % dipole fits</span>
+0096     arg({<span class="string">'dipfit'</span>,<span class="string">'DipoleFits'</span>},[],[],<span class="string">'Dipole fits per component.'</span>,<span class="string">'typecheck'</span>,false,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0097     <span class="keyword">...</span><span class="comment"> % provenance tracking</span>
+0098     arg_nogui({<span class="string">'history'</span>,<span class="string">'History'</span>},<span class="string">''</span>,[],<span class="string">'EEGLAB processing history script. Contains script commands that reproduce the data set.'</span>), <span class="keyword">...</span>
+0099     arg_nogui({<span class="string">'saved'</span>,<span class="string">'WasSaved'</span>},<span class="string">'no'</span>,{<span class="string">'no'</span>,<span class="string">'yes'</span>,<span class="string">'justloaded'</span>},<span class="string">'Whether the data has been saved.'</span>), <span class="keyword">...</span>
+0100     <span class="keyword">...</span><span class="comment"> % extension fields</span>
+0101     arg({<span class="string">'etc'</span>,<span class="string">'Miscellaneous'</span>},[],[],<span class="string">'Miscellaneous fields.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>));
+0102 
+0103 <span class="comment">% rewrite cell array data</span>
+0104 <span class="keyword">if</span> iscell(signal.data)
+0105     <span class="keyword">if</span> isempty(signal.data)
+0106         signal.data = [];
+0107     <span class="keyword">else</span>
+0108         sizes = cellfun(<span class="string">'size'</span>,signal.data,1);
+0109         <span class="keyword">if</span> any(sizes(1) ~= sizes)
+0110             error(<span class="string">'For cell-array data, each cell must have the same number of channels.'</span>); <span class="keyword">end</span>
+0111         sizes = cellfun(<span class="string">'size'</span>,signal.data,2);
+0112         <span class="keyword">if</span> any(sizes(1) ~= sizes)
+0113             error(<span class="string">'For cell-array data, each cell must have the same number of time points.'</span>); <span class="keyword">end</span>
+0114         data = signal.data;
+0115         signal.data = [];
+0116         <span class="keyword">for</span> c=1:length(data)
+0117             <span class="keyword">if</span> isnumeric(data{c}) &amp;&amp; ~isempty(data{c})
+0118                 signal.data = cat(3, signal.data, data{c});
+0119                 <span class="keyword">for</span> i=size(signal.data,3)-size(data{c},3)+1:size(signal.data,3)
+0120                     signal.epoch(i).target = c; <span class="keyword">end</span>
+0121             <span class="keyword">end</span>
+0122         <span class="keyword">end</span>
+0123     <span class="keyword">end</span>
+0124 <span class="keyword">end</span>
+0125 
+0126 <span class="comment">% process .chanlocs</span>
+0127 <span class="keyword">if</span> ~isfield(signal,<span class="string">'chanlocs'</span>) || isempty(signal.chanlocs)
+0128     <span class="comment">% create chanlocs from scratch, according to the data size</span>
+0129     <span class="keyword">if</span> ~isempty(signal.data)
+0130         signal.chanlocs = struct(<span class="string">'labels'</span>,cellfun(@num2str,num2cell(1:size(signal.data,1),1),<span class="string">'UniformOutput'</span>,false),<span class="string">'type'</span>,repmat({<span class="string">'unknown'</span>},1,size(signal.data,1))); 
+0131     <span class="keyword">else</span>
+0132         signal.chanlocs = struct(<span class="string">'labels'</span>,{},<span class="string">'type'</span>,{});
+0133     <span class="keyword">end</span>
+0134 <span class="keyword">else</span>
+0135     <span class="comment">% bring chanlocs into an appropriate format</span>
+0136     <span class="keyword">try</span> 
+0137         signal.chanlocs = hlp_microcache(<span class="string">'set_new1'</span>,@<a href="set_infer_chanlocs.html" class="code" title="function data = set_infer_chanlocs(data,disambiguation_rule)">set_infer_chanlocs</a>,signal.chanlocs); 
+0138     <span class="keyword">catch</span> e
+0139         error(<span class="string">'Could not look up channel locations according to the given chanlocs argument with error: %s (chanlocs were: %s)'</span>,e.message,hlp_tostring(signal.chanlocs,10000));
+0140     <span class="keyword">end</span>
+0141 <span class="keyword">end</span>
+0142 
+0143 <span class="comment">% derive .xmax, .nbchan, .pnts, .trials</span>
+0144 [signal.nbchan,signal.pnts, signal.trials, extra_dims] = size(signal.data); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0145 signal.xmax = signal.xmin + (signal.pnts-1)/signal.srate;
+0146 
+0147 <span class="comment">% if epoched and there are events, derive the .epoch field</span>
+0148 <span class="keyword">if</span> signal.trials &gt; 1 &amp;&amp; ~isempty(signal.event) &amp;&amp; isempty(signal.epoch)
+0149     <span class="keyword">try</span>
+0150         signal = eeg_checkset(signal,<span class="string">'eventconsistency'</span>); 
+0151     <span class="keyword">catch</span> e
+0152         disp_once(<span class="string">'set_new(): could not derive .epoch field due to error: %s'</span>,hlp_handleerror(e));
+0153     <span class="keyword">end</span>
+0154 <span class="keyword">end</span>
+0155 
+0156 <span class="comment">% add .epoch.latency if possible</span>
+0157 <span class="keyword">if</span> ~isfield(signal.epoch,<span class="string">'latency'</span>)
+0158     <span class="keyword">for</span> i=1:length(signal.epoch)
+0159         <span class="keyword">try</span>
+0160             tle = [signal.epoch(i).eventlatency{:}]==0;
+0161             <span class="keyword">if</span> any(tle)
+0162                 signal.epoch(i).latency = b.event(b.epoch(i).event(tle)).latency; <span class="keyword">end</span>
+0163         <span class="keyword">catch</span>
+0164         <span class="keyword">end</span>
+0165     <span class="keyword">end</span>
+0166 <span class="keyword">end</span>
+0167 
+0168 <span class="comment">% create .urevent field if applicable</span>
+0169 <span class="keyword">if</span> isempty(signal.urevent) &amp;&amp; ~isempty(signal.event)
+0170     signal.urevent = signal.event;
+0171     [signal.event.urevent] = arraydeal(1:length(signal.event));
+0172 <span class="keyword">end</span>
+0173 
+0174 <span class="comment">% do minimal consistency checks</span>
+0175 <span class="keyword">if</span> ~isempty(signal.chanlocs) &amp;&amp; ~isempty(signal.data) &amp;&amp; (length(signal.chanlocs) ~= signal.nbchan)
+0176     error(<span class="string">'The number of supplied channel locations (%i) does not match the number of channels (%i) in the data.'</span>,length(signal.chanlocs),signal.nbchan);  <span class="keyword">end</span>
+0177 <span class="keyword">if</span> isfield(signal,<span class="string">'epoch'</span>) &amp;&amp; ~isempty(signal.epoch) &amp;&amp; length(signal.epoch) ~= size(signal.data,3)
+0178     error(<span class="string">'The number of data epochs (%i) does not match the number of entries in the epoch field (%i).'</span>,size(signal.data,3),length(signal.epoch)); <span class="keyword">end</span>
+0179 
+0180 <span class="comment">% ensure that .tracking.timeseries_fields is present</span>
+0181 <span class="keyword">if</span> ~isfield(signal,<span class="string">'tracking'</span>) || ~isfield(signal.tracking,<span class="string">'timeseries_fields'</span>)
+0182     signal.tracking.timeseries_fields = {}; <span class="keyword">end</span>
+0183 
+0184 exp_endfun;</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

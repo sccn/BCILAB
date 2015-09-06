@@ -1,0 +1,203 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of hlp_nanocache</title>
+  <meta name="keywords" content="hlp_nanocache">
+  <meta name="description" content="Cache results of function calls.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">helpers</a> &gt; hlp_nanocache.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/helpers&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>hlp_nanocache
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Cache results of function calls.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function varargout = hlp_nanocache(groupname,poolsize,func,varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Cache results of function calls.
+ Results... = hlp_nanocache(Groupname,Poolsize,Function,Arguments...)
+
+ The nanocache is useful when you want to cache the result of a computation for later reuse. This
+ is done by comparing the given inputs with cached copies using isequal(), so you can only have a
+ very small number of distinct inputs unless the inputs differ in their byte size (like data
+ structures), in which case the nanocache is extremely efficient. You can also map them onto
+ different groupnames (e.g., using a hash function), in which case the nanocache is also very
+ efficient.
+
+ In:
+   Groupname : A name that separates different groups of nanocache calls (e.g., name of the calling
+               function, or name of a key string in the Arguments). Can also be the same for every call.
+
+   Poolsize : Maximum number of entries to store per cache pool. Each group has one cache pool for
+              each Function and each length of Arguments (in bytes). The pool size limits how many 
+              arguments of the same length the nanocache can hold for a given Function and Groupname.
+              Recommended number: 10.
+
+   Function : Function handle or name that should be called.
+
+   Arguments... : Arguments to pass to the function.
+
+ Out:
+   Results... : Return values of the function for the given arguments, or cached copy.
+
+ Limitations:
+   You cannot use the nanocache for functions whose output depends on anything other than the
+   Arguments (like global variables, files on disk, random numbers, and so on). However, you can make
+   each of these an extra argument to the function in order to use the nanocache. 
+
+   If a function should give different results even through the arguments have the same value under
+   isequal, for instance when the type differs but the value is the same (like uint32(3) vs.
+   int32(3)), you need to make the type an extra argument to the function.
+
+   If the Arguments contain NaNs or anonymous functions the nanocache is not effective.
+
+ Notes:
+   There is another function that supports more features to overcome most of the limitations of the
+   nanocache (but with extra overhead), called hlp_microcache.
+
+   To clear the nanocache, run the command &quot;clear hlp_nanocache&quot;
+
+ Examples:
+   % if this line is executed for the first time, it is as slow as num2str(20.5)
+   str = hlp_nanocache('conversion',10,@num2str,20.5);
+
+   % if it is executed a second time, it is more than 60% faster than num2str(20.5)
+   str = hlp_nanocache('conversion',10,@num2str,20.5);
+
+                                   Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
+                                   2013-10-16</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function varargout = hlp_nanocache(groupname,poolsize,func,varargin)</a>
+0002 <span class="comment">% Cache results of function calls.</span>
+0003 <span class="comment">% Results... = hlp_nanocache(Groupname,Poolsize,Function,Arguments...)</span>
+0004 <span class="comment">%</span>
+0005 <span class="comment">% The nanocache is useful when you want to cache the result of a computation for later reuse. This</span>
+0006 <span class="comment">% is done by comparing the given inputs with cached copies using isequal(), so you can only have a</span>
+0007 <span class="comment">% very small number of distinct inputs unless the inputs differ in their byte size (like data</span>
+0008 <span class="comment">% structures), in which case the nanocache is extremely efficient. You can also map them onto</span>
+0009 <span class="comment">% different groupnames (e.g., using a hash function), in which case the nanocache is also very</span>
+0010 <span class="comment">% efficient.</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">% In:</span>
+0013 <span class="comment">%   Groupname : A name that separates different groups of nanocache calls (e.g., name of the calling</span>
+0014 <span class="comment">%               function, or name of a key string in the Arguments). Can also be the same for every call.</span>
+0015 <span class="comment">%</span>
+0016 <span class="comment">%   Poolsize : Maximum number of entries to store per cache pool. Each group has one cache pool for</span>
+0017 <span class="comment">%              each Function and each length of Arguments (in bytes). The pool size limits how many</span>
+0018 <span class="comment">%              arguments of the same length the nanocache can hold for a given Function and Groupname.</span>
+0019 <span class="comment">%              Recommended number: 10.</span>
+0020 <span class="comment">%</span>
+0021 <span class="comment">%   Function : Function handle or name that should be called.</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%   Arguments... : Arguments to pass to the function.</span>
+0024 <span class="comment">%</span>
+0025 <span class="comment">% Out:</span>
+0026 <span class="comment">%   Results... : Return values of the function for the given arguments, or cached copy.</span>
+0027 <span class="comment">%</span>
+0028 <span class="comment">% Limitations:</span>
+0029 <span class="comment">%   You cannot use the nanocache for functions whose output depends on anything other than the</span>
+0030 <span class="comment">%   Arguments (like global variables, files on disk, random numbers, and so on). However, you can make</span>
+0031 <span class="comment">%   each of these an extra argument to the function in order to use the nanocache.</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%   If a function should give different results even through the arguments have the same value under</span>
+0034 <span class="comment">%   isequal, for instance when the type differs but the value is the same (like uint32(3) vs.</span>
+0035 <span class="comment">%   int32(3)), you need to make the type an extra argument to the function.</span>
+0036 <span class="comment">%</span>
+0037 <span class="comment">%   If the Arguments contain NaNs or anonymous functions the nanocache is not effective.</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">% Notes:</span>
+0040 <span class="comment">%   There is another function that supports more features to overcome most of the limitations of the</span>
+0041 <span class="comment">%   nanocache (but with extra overhead), called hlp_microcache.</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%   To clear the nanocache, run the command &quot;clear hlp_nanocache&quot;</span>
+0044 <span class="comment">%</span>
+0045 <span class="comment">% Examples:</span>
+0046 <span class="comment">%   % if this line is executed for the first time, it is as slow as num2str(20.5)</span>
+0047 <span class="comment">%   str = hlp_nanocache('conversion',10,@num2str,20.5);</span>
+0048 <span class="comment">%</span>
+0049 <span class="comment">%   % if it is executed a second time, it is more than 60% faster than num2str(20.5)</span>
+0050 <span class="comment">%   str = hlp_nanocache('conversion',10,@num2str,20.5);</span>
+0051 <span class="comment">%</span>
+0052 <span class="comment">%                                   Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0053 <span class="comment">%                                   2013-10-16</span>
+0054 
+0055 <span class="comment">% Copyright (C) Christian Kothe, SCCN, 2013, christian@sccn.ucsd.edu</span>
+0056 <span class="comment">%</span>
+0057 <span class="comment">% This program is free software; you can redistribute it and/or modify it under the terms of the GNU</span>
+0058 <span class="comment">% General Public License as published by the Free Software Foundation; either version 2 of the</span>
+0059 <span class="comment">% License, or (at your option) any later version.</span>
+0060 <span class="comment">%</span>
+0061 <span class="comment">% This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without</span>
+0062 <span class="comment">% even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU</span>
+0063 <span class="comment">% General Public License for more details.</span>
+0064 <span class="comment">%</span>
+0065 <span class="comment">% You should have received a copy of the GNU General Public License along with this program; if not,</span>
+0066 <span class="comment">% write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307</span>
+0067 <span class="comment">% USA</span>
+0068 
+0069     <span class="keyword">persistent</span> cache;
+0070     
+0071     <span class="comment">% get the pool id based on the call signature (combination of nargout and input size)</span>
+0072     varinfo = whos(<span class="string">'varargin'</span>);
+0073     poolid = [char(<span class="string">'b'</span>+nargout) sprintf(<span class="string">'%u'</span>,varinfo.bytes)];
+0074     
+0075     <span class="keyword">try</span>
+0076         <span class="comment">% retrieve the pool of size-equivalent objects</span>
+0077         pool = cache.(groupname).(char(func)).(poolid);
+0078         <span class="comment">% search for the key in the pool</span>
+0079         <span class="keyword">for</span> k=1:length(pool.keys)
+0080             <span class="keyword">if</span> isequal(varargin,pool.keys{k})
+0081                 varargout = pool.values{k};
+0082                 <span class="keyword">return</span>;
+0083             <span class="keyword">end</span>
+0084         <span class="keyword">end</span>
+0085     <span class="keyword">catch</span> <span class="comment">%#ok&lt;CTCH&gt;</span>
+0086         <span class="comment">% create new pool</span>
+0087         pool = struct(<span class="string">'keys'</span>,{{}},<span class="string">'values'</span>,{{}});
+0088     <span class="keyword">end</span>
+0089     
+0090     <span class="comment">% did not find the entry: compute it</span>
+0091     [varargout{1:nargout}] = feval(func,varargin{:});
+0092     
+0093     <span class="comment">% add to pool (max size per pool is limited)</span>
+0094     idx = 1+mod(length(pool.keys),poolsize);
+0095     pool.keys{idx} = varargin;
+0096     pool.values{idx} = varargout;
+0097     cache.(groupname).(char(func)).(poolid) = pool;
+0098 <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

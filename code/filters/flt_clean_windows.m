@@ -160,21 +160,21 @@ for c = C:-1:1
     X = sqrt(sum(X(bsxfun(@plus,offsets,wnd')))/N);
     % robustly fit a distribution to the clean EEG part
     if isempty(flag_quantile)
-        [mu,sig,alpha,beta] = hlp_diskcache('filterdesign',@fit_eeg_distribution,X, ...
+        [mu(c),sig(c),alpha,beta] = hlp_diskcache('filterdesign',@fit_eeg_distribution,X, ...
             fit_params.min_clean_fraction, fit_params.max_dropout_fraction, ...
             fit_params.truncate_quant, fit_params.step_sizes,fit_params.shape_range); %#ok<NASGU,ASGLU>
         if debugdisplay
             clf; 
-            show_fit_quality(X,mu,sig,alpha,beta); 
-            title(sprintf('%i@(%.2f,%.2f,%.2f,%.2f)',c,mu,sig,alpha,beta)); 
+            show_fit_quality(X,mu(c),sig(c)); 
+            title(sprintf('%i@(%.2f,%.2f,%.2f,%.2f)',c,mu(c),sig(c),alpha,beta)); 
             drawnow; 
             waitforbuttonpress;
         end
     else
-        [mu,sig] = deal(0,1);
+        [mu(c),sig(c)] = deal(0,1);
     end
     % calculate z scores relative to that
-    wz(c,:) = (X - mu)/sig;
+    wz(c,:) = (X - mu(c))/sig(c);
 end
 disp('done.');
 

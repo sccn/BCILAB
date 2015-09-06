@@ -47,6 +47,16 @@ function result = par_reschedule_policy(batchid,inflight,waiting,times,msgs)
 
 global tracking;
 
+% set this to true if your cluster is reliable and you want to minimize resources
+no_reschedules = false;
+
+if no_reschedules
+    import java.lang.*;
+    import java.util.*;
+    result = java.util.Vector();
+    return;
+end
+
 try
         
     % here we keep track of our meta-data for each of the batches

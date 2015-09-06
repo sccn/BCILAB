@@ -1,0 +1,563 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of par_filehost</title>
+  <meta name="keywords" content="par_filehost">
+  <meta name="description" content="This function starts a file host on the network.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">parallel</a> &gt; par_filehost.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/parallel&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>par_filehost
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This function starts a file host on the network.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function par_filehost(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> This function starts a file host on the network.
+
+ Notes:
+     The request format accepted by this host on a UDP broadcast port (default 34575) is (without &lt;&gt;'s)
+     &lt;command&gt;\n
+     &lt;argument1&gt;=&lt;value1&gt;
+     &lt;argument2&gt;=&lt;value2&gt;
+     &lt;argument3&gt;=&lt;value3&gt;
+     ...
+ 
+     Supported commands:
+     getfile -- return a file, either from memory cache or disk (if this host is responsible)
+     filname=&lt;name of file to retrieve or expression that can be evaluated&gt;
+     force=&lt;whether to force-load the data even if it would exceed the allotted capacity&gt;
+     return_address=&lt;IP address or hostname to send the result to&gt;
+     return_port=&lt;port number of return endpoint&gt;
+ 
+     evict -- evict file from memory cache if present
+     filename=&lt;name of file to evict from memory cache&gt;
+     anyhost=&lt;evict even if not the responsible host&gt;
+ 
+     terminate -- terminate this file host
+     return_address=&lt;IP address or hostname to send the result to&gt;
+     return_port=&lt;port number of return endpoint&gt;
+ 
+     getrank -- get the rank of this host among all known file server hosts
+     return_address=&lt;IP address or hostname to send the result to&gt;
+     return_port=&lt;port number of return endpoint&gt;
+ 
+     allhosts -- get the list of hosts as a cell array
+     return_address=&lt;IP address or hostname to send the result to&gt;
+     return_port=&lt;port number of return endpoint&gt;
+ 
+     hostname -- get the hostname of this machine
+     return_address=&lt;IP address or hostname to send the result to&gt;
+     return_port=&lt;port number of return endpoint&gt;
+ 
+     max_capacity -- get the allowed cache capacity of this machine in GB
+     return_address=&lt;IP address or hostname to send the result to&gt;
+     return_port=&lt;port number of return endpoint&gt;
+ 
+     clear -- clear cache
+     return_address=&lt;IP address or hostname to send the result to&gt;
+     return_port=&lt;port number of return endpoint&gt;
+
+ See also:
+   <a href="par_fileclient.html" class="code" title="function result = par_fileclient(varargin)">par_fileclient</a>, io_load
+
+                               Christian Kothe, Syntrogi
+                               2015-06-27</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function get_file(varargin)</a></li>
+<li><a href="#_sub2" class="code">function evict_file(varargin)</a></li>
+<li><a href="#_sub3" class="code">function send_reply_udp(varargin)</a></li>
+<li><a href="#_sub4" class="code">function [return_address, return_port] = get_return_endpoint(varargin)</a></li>
+<li><a href="#_sub5" class="code">function [tag,namehash,responsible_host] = db_tag_if_responsible(filename, anyhost)</a></li>
+<li><a href="#_sub6" class="code">function [command,args] = parse_request(content)</a></li>
+</ul>
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function par_filehost(varargin)</a>
+0002 <span class="comment">% This function starts a file host on the network.</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% Notes:</span>
+0005 <span class="comment">%     The request format accepted by this host on a UDP broadcast port (default 34575) is (without &lt;&gt;'s)</span>
+0006 <span class="comment">%     &lt;command&gt;\n</span>
+0007 <span class="comment">%     &lt;argument1&gt;=&lt;value1&gt;</span>
+0008 <span class="comment">%     &lt;argument2&gt;=&lt;value2&gt;</span>
+0009 <span class="comment">%     &lt;argument3&gt;=&lt;value3&gt;</span>
+0010 <span class="comment">%     ...</span>
+0011 <span class="comment">%</span>
+0012 <span class="comment">%     Supported commands:</span>
+0013 <span class="comment">%     getfile -- return a file, either from memory cache or disk (if this host is responsible)</span>
+0014 <span class="comment">%     filname=&lt;name of file to retrieve or expression that can be evaluated&gt;</span>
+0015 <span class="comment">%     force=&lt;whether to force-load the data even if it would exceed the allotted capacity&gt;</span>
+0016 <span class="comment">%     return_address=&lt;IP address or hostname to send the result to&gt;</span>
+0017 <span class="comment">%     return_port=&lt;port number of return endpoint&gt;</span>
+0018 <span class="comment">%</span>
+0019 <span class="comment">%     evict -- evict file from memory cache if present</span>
+0020 <span class="comment">%     filename=&lt;name of file to evict from memory cache&gt;</span>
+0021 <span class="comment">%     anyhost=&lt;evict even if not the responsible host&gt;</span>
+0022 <span class="comment">%</span>
+0023 <span class="comment">%     terminate -- terminate this file host</span>
+0024 <span class="comment">%     return_address=&lt;IP address or hostname to send the result to&gt;</span>
+0025 <span class="comment">%     return_port=&lt;port number of return endpoint&gt;</span>
+0026 <span class="comment">%</span>
+0027 <span class="comment">%     getrank -- get the rank of this host among all known file server hosts</span>
+0028 <span class="comment">%     return_address=&lt;IP address or hostname to send the result to&gt;</span>
+0029 <span class="comment">%     return_port=&lt;port number of return endpoint&gt;</span>
+0030 <span class="comment">%</span>
+0031 <span class="comment">%     allhosts -- get the list of hosts as a cell array</span>
+0032 <span class="comment">%     return_address=&lt;IP address or hostname to send the result to&gt;</span>
+0033 <span class="comment">%     return_port=&lt;port number of return endpoint&gt;</span>
+0034 <span class="comment">%</span>
+0035 <span class="comment">%     hostname -- get the hostname of this machine</span>
+0036 <span class="comment">%     return_address=&lt;IP address or hostname to send the result to&gt;</span>
+0037 <span class="comment">%     return_port=&lt;port number of return endpoint&gt;</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">%     max_capacity -- get the allowed cache capacity of this machine in GB</span>
+0040 <span class="comment">%     return_address=&lt;IP address or hostname to send the result to&gt;</span>
+0041 <span class="comment">%     return_port=&lt;port number of return endpoint&gt;</span>
+0042 <span class="comment">%</span>
+0043 <span class="comment">%     clear -- clear cache</span>
+0044 <span class="comment">%     return_address=&lt;IP address or hostname to send the result to&gt;</span>
+0045 <span class="comment">%     return_port=&lt;port number of return endpoint&gt;</span>
+0046 <span class="comment">%</span>
+0047 <span class="comment">% See also:</span>
+0048 <span class="comment">%   par_fileclient, io_load</span>
+0049 <span class="comment">%</span>
+0050 <span class="comment">%                               Christian Kothe, Syntrogi</span>
+0051 <span class="comment">%                               2015-06-27</span>
+0052 
+0053 
+0054 <span class="comment">% the database (not persistent so we can change the code without erasing it)</span>
+0055 <span class="keyword">global</span> db;      <span class="comment">% struct mapping of cache-tag --&gt; data-blob</span>
+0056 <span class="keyword">global</span> lru;     <span class="comment">% cell array of recently-used cache tags (sorted by increasing age)</span>
+0057 <span class="keyword">if</span> ~iscell(lru)
+0058     lru = {}; <span class="keyword">end</span>
+0059 
+0060 fprintf(<span class="string">'parsing arguments...'</span>);
+0061 settings = arg_define(varargin, <span class="keyword">...</span>
+0062     arg({<span class="string">'all_hosts'</span>,<span class="string">'AllHosts'</span>}, {}, [], <span class="string">'Hostnames where filehosts are running. Used for load-balancing. If this is set to empty, then we are only accepting connections from localhost.'</span>), <span class="keyword">...</span>
+0063     arg({<span class="string">'rank_override'</span>,<span class="string">'RankOverride'</span>}, 0, int32([0 1000]), <span class="string">'Rank of this instance (1-based). Only used if the current hostname is not in the set AllHosts.'</span>), <span class="keyword">...</span>
+0064     arg({<span class="string">'max_capacity'</span>,<span class="string">'MaxCapacity'</span>}, 90, [1 10 256 100000], <span class="string">'Maximum memory capacity. In Gigabytes.'</span>), <span class="keyword">...</span>
+0065     arg({<span class="string">'accept_pattern'</span>,<span class="string">'AcceptPattern'</span>}, <span class="string">'*'</span>, [], <span class="string">'File name pattern that is accepted by this host.'</span>), <span class="keyword">...</span>
+0066     arg({<span class="string">'per_pattern_capacity'</span>,<span class="string">'PerPatternCapacity'</span>}, {}, [], <span class="string">'Per-pattern capacity. This is a cell array of {pattern,capacity,pattern,capacity,...} where pattern are wildcard patterns.'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>), <span class="keyword">...</span>
+0067     arg({<span class="string">'evict_policy'</span>,<span class="string">'EvictPolicy'</span>}, <span class="string">'lru'</span>, {<span class="string">'lru'</span>,<span class="string">'none'</span>}, <span class="string">'Eviction policy. What entries will be evicted from memory if capacity is exceeded. If none, no more files will be cached after capacity has been exceeded.'</span>), <span class="keyword">...</span>
+0068     arg({<span class="string">'request_port'</span>,<span class="string">'RequestPort'</span>}, 34575, uint32([1 65535]), <span class="string">'UDP port on which requests are being received.'</span>), <span class="keyword">...</span>
+0069     arg({<span class="string">'timeout_backconnect'</span>,<span class="string">'TimeoutBackconnect'</span>,},1000,[],<span class="string">'Timeout for back-connection. In miliseconds. If it takes longer than this to connect back to the requester we give up.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0070     arg({<span class="string">'timeout_transmit'</span>,<span class="string">'TimeoutTransmit'</span>,},60000,[],<span class="string">'Timeout for transmission. In miliseconds. If we get a hiccup during back-transmission that is longer than this we give up.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0071     arg({<span class="string">'accept_packet_size'</span>,<span class="string">'AcceptPacketSize'</span>},1400,uint32([1 508 1472 65507]),<span class="string">'Maximum packet size accepted by this host.'</span>,<span class="string">'guru'</span>,true));
+0072 fprintf(<span class="string">'done.\n'</span>);
+0073 
+0074 <span class="comment">% maximum amount of memory used inside the Java VM</span>
+0075 max_java_memory = 2^26; <span class="comment">% 64 MB</span>
+0076 
+0077 fprintf(<span class="string">'Importing java packages...'</span>);
+0078 import java.io.*
+0079 import java.net.*
+0080 import java.lang.*
+0081 fprintf(<span class="string">'done.\n'</span>);
+0082 
+0083 myhost = hlp_hostname;
+0084 fprintf(<span class="string">'This is par_filehost on %s.\n'</span>,myhost);
+0085 
+0086 <span class="comment">% determine which rank we have</span>
+0087 matching = strcmp(settings.all_hosts,myhost);
+0088 <span class="keyword">if</span> any(matching)
+0089     myrank = find(matching);
+0090     fprintf(<span class="string">'Rank of this host is %i/%i (based on AllHosts).\n'</span>,myrank,length(matching));
+0091     fprintf(<span class="string">'Allhosts was: %s\n'</span>,hlp_tostring(settings.all_hosts));
+0092 <span class="keyword">elseif</span> settings.rank_override
+0093     myrank = settings.rank_override;
+0094     fprintf(<span class="string">'Rank of this host is %i (based on RankOverride).\n'</span>,myrank);
+0095 <span class="keyword">elseif</span> isempty(settings.all_hosts)
+0096     myrank = -1; <span class="comment">% -1 encodes that we're operating in local mode</span>
+0097     fprintf(<span class="string">'Neither AllHosts nor RankOverride given: responding only to localhost requests.\n'</span>);
+0098 <span class="keyword">else</span>
+0099     fprintf(<span class="string">'Error: this host is not in AllHosts and no RankOverride was given. Exiting...\n'</span>);
+0100     <span class="keyword">return</span>;
+0101 <span class="keyword">end</span>
+0102 
+0103 <span class="comment">% initialize request socket</span>
+0104 fprintf(<span class="string">'opening request socket...'</span>);
+0105 req_socket = DatagramSocket(settings.request_port,InetAddress.getByName(<span class="string">'0.0.0.0'</span>)); <span class="comment">%req_socket = DatagramSocket(settings.request_port,InetAddress.getByName('255.255.255.255'));</span>
+0106 <span class="keyword">if</span> myrank &gt; 0
+0107     req_socket.setBroadcast(true); <span class="keyword">end</span>
+0108 req_socket.setSoTimeout(500);
+0109 closer = onCleanup(@()req_socket.close());
+0110 fprintf(<span class="string">'done.\n'</span>);
+0111 
+0112 <span class="comment">% get own IP address</span>
+0113 myaddr = char(InetAddress.getLocalHost());
+0114 myaddr = hlp_split(myaddr,<span class="string">'/'</span>);
+0115 myaddr = myaddr{2};
+0116 fprintf(<span class="string">'listening on %s...\n'</span>,myaddr);
+0117 
+0118 <span class="keyword">while</span> true
+0119     <span class="keyword">try</span>
+0120         <span class="comment">% get next request</span>
+0121         fprintf(<span class="string">'\n\nwaiting for next packet...'</span>);
+0122         packet = DatagramPacket(uint8(zeros(1,settings.accept_packet_size)),settings.accept_packet_size);
+0123         <span class="keyword">while</span> true
+0124             <span class="keyword">try</span>
+0125                 req_socket.receive(packet);
+0126                 <span class="keyword">break</span>;
+0127             <span class="keyword">catch</span> e
+0128                 <span class="keyword">if</span> isempty(strfind(e.message,<span class="string">'timed out'</span>))
+0129                     rethrow(e); <span class="keyword">end</span>
+0130             <span class="keyword">end</span>
+0131         <span class="keyword">end</span>
+0132         content = char(packet.getData');
+0133         srcport = packet.getPort();
+0134         srcaddr = char(packet.getAddress());
+0135         srcaddr = srcaddr(2:end);
+0136         <span class="keyword">if</span> myrank &lt; 0 &amp;&amp; ~(strcmp(srcaddr,myaddr) || strcmp(srcaddr,<span class="string">'127.0.0.1'</span>))
+0137             <span class="comment">% not from this host while we're in local mode</span>
+0138             <span class="keyword">continue</span>; 
+0139         <span class="keyword">else</span>
+0140             fprintf(<span class="string">'got packet:\n%s\n\n'</span>,content);
+0141         <span class="keyword">end</span>
+0142         
+0143         <span class="comment">% handle the request</span>
+0144         [command,args] = <a href="#_sub6" class="code" title="subfunction [command,args] = parse_request(content)">parse_request</a>(content);
+0145         fprintf(<span class="string">'handling command %s; %i arguments.\n'</span>,command,length(fieldnames(args)));
+0146         reply = [];
+0147         <span class="keyword">switch</span> command
+0148             <span class="comment">% --- primary commands ---</span>
+0149             <span class="keyword">case</span> <span class="string">'getfile'</span>
+0150                 <a href="#_sub1" class="code" title="subfunction get_file(varargin)">get_file</a>(args);
+0151             <span class="keyword">case</span> <span class="string">'evict'</span>
+0152                 <a href="#_sub2" class="code" title="subfunction evict_file(varargin)">evict_file</a>(args);
+0153                 <span class="comment">% --- control commands ---</span>
+0154             <span class="keyword">case</span> <span class="string">'terminate'</span>
+0155                 fprintf(<span class="string">'  received termination command; exiting...\n'</span>);
+0156                 <a href="#_sub3" class="code" title="subfunction send_reply_udp(varargin)">send_reply_udp</a>(args,<span class="string">'ReplyContent'</span>,[myhost <span class="string">' terminated'</span>]);
+0157                 <span class="keyword">return</span>;
+0158                 <span class="comment">% ---- diagnostics ---</span>
+0159             <span class="keyword">case</span> <span class="string">'getrank'</span>
+0160                 reply = hlp_tostring(myrank);
+0161             <span class="keyword">case</span> <span class="string">'allhosts'</span>
+0162                 reply = hlp_tostring(settings.all_hosts);
+0163             <span class="keyword">case</span> <span class="string">'hostname'</span>
+0164                 reply = hlp_hostname;
+0165             <span class="keyword">case</span> <span class="string">'max_capacity'</span>
+0166                 reply = hlp_tostring(max_capacity);
+0167             <span class="keyword">case</span> <span class="string">'clear'</span>
+0168                 fprintf(<span class="string">'  clearing database...'</span>);
+0169                 db = [];
+0170                 lru = {};
+0171                 fprintf(<span class="string">'done.\n'</span>);
+0172                 reply = [myhost <span class="string">' database cleared'</span>];
+0173             <span class="keyword">otherwise</span>
+0174                 fprintf(<span class="string">'  unrecognized command.\n'</span>);
+0175         <span class="keyword">end</span>
+0176         <span class="comment">% handle misc replies</span>
+0177         <span class="keyword">if</span> ~isempty(reply)
+0178             <a href="#_sub3" class="code" title="subfunction send_reply_udp(varargin)">send_reply_udp</a>(args,<span class="string">'ReplyContent'</span>,reply); <span class="keyword">end</span>
+0179     <span class="keyword">catch</span> e
+0180         fprintf(<span class="string">'error: %s'</span>,hlp_handleerror(e));
+0181         pause(2);
+0182     <span class="keyword">end</span>
+0183 <span class="keyword">end</span>
+0184 
+0185 
+0186     <span class="comment">% === command handlers ===</span>
+0187     
+0188     <a name="_sub1" href="#_subfunctions" class="code">function get_file(varargin)</a>
+0189         import java.net.*
+0190         import java.io.*
+0191         <span class="comment">% retrieve a file either from memory cache or from disk (if necessary)</span>
+0192         opts = hlp_varargin2struct(varargin, <span class="keyword">...</span>
+0193             {<span class="string">'filename'</span>,<span class="string">'FileName'</span>},<span class="string">''</span>, <span class="keyword">...</span>
+0194             {<span class="string">'force'</span>,<span class="string">'Force'</span>},false, <span class="keyword">...</span>
+0195             {<span class="string">'return_address'</span>,<span class="string">'ReturnAddress'</span>},<span class="string">''</span>, <span class="keyword">...</span>
+0196             {<span class="string">'return_port'</span>,<span class="string">'ReturnPort'</span>},<span class="string">''</span>);
+0197         
+0198         <span class="comment">% check if we're responsible, etc.</span>
+0199         [tag,namehash,responsible_host] = <a href="#_sub5" class="code" title="subfunction [tag,namehash,responsible_host] = db_tag_if_responsible(filename, anyhost)">db_tag_if_responsible</a>(opts.filename);
+0200         <span class="keyword">try</span>
+0201             responsible_hostname = settings.all_hosts{responsible_host};
+0202         <span class="keyword">catch</span>
+0203             responsible_hostname = <span class="string">'N/A'</span>;
+0204         <span class="keyword">end</span>
+0205         fprintf(<span class="string">'Handling get_file request for file &quot;%s&quot; (hash: %s), responsible_host=%i (%s)...\n'</span>,opts.filename,namehash,responsible_host,responsible_hostname);
+0206         <span class="keyword">if</span> isempty(tag)
+0207             fprintf(<span class="string">'not responsible; ignoring.\n'</span>);
+0208         <span class="keyword">else</span>
+0209             <span class="comment">% got a request that we need to handle</span>
+0210             result = [];
+0211             
+0212             <span class="comment">% check if the file matches our accept pattern</span>
+0213             pattern = [<span class="string">'^'</span>,strrep(strrep(settings.accept_pattern,<span class="string">'?'</span>,<span class="string">'.'</span>),<span class="string">'*'</span>,<span class="string">'.{0,}'</span>),<span class="string">'$'</span>];
+0214             <span class="keyword">if</span> isempty(regexp(opts.filename,pattern, <span class="string">'once'</span>))
+0215                 fprintf(<span class="string">'file does not match accept pattern; ignoring.\n'</span>);
+0216             <span class="keyword">else</span>
+0217                 <span class="keyword">if</span> isfield(db, tag)
+0218                     <span class="comment">% record in cache: return it</span>
+0219                     fprintf(<span class="string">'found record in cache.\n'</span>);
+0220                     result = db.(tag);
+0221                     lru = [{tag} lru(~strcmp(lru,tag))];
+0222                 <span class="keyword">else</span>
+0223                     <span class="comment">% record not in cache</span>
+0224                     is_expression = any(opts.filename==<span class="string">'('</span>) &amp;&amp; any(opts.filename==<span class="string">')'</span>);
+0225                     <span class="keyword">if</span> ~is_expression &amp;&amp; ~exist(opts.filename,<span class="string">'file'</span>)
+0226                         fprintf(<span class="string">'file does not exist.\n'</span>);
+0227                     <span class="keyword">else</span>
+0228                         <span class="comment">% check if it would fit in our DB, calculate itemsize and optionally result</span>
+0229                         capacity = settings.max_capacity*2^30;
+0230                         <span class="keyword">if</span> is_expression
+0231                             fprintf(<span class="string">'item appears to be a MATLAB expression, evaluating...'</span>);
+0232                             <span class="comment">% this is actually not a file name but an expression that we can</span>
+0233                             <span class="comment">% evaluate</span>
+0234                             <span class="keyword">try</span>
+0235                                 result = eval(opts.filename);
+0236                                 fprintf(<span class="string">'success.\n'</span>);
+0237                             <span class="keyword">catch</span> e
+0238                                 fprintf(<span class="string">'could not evaluate expression: %s'</span>,hlp_handleerror(e));
+0239                                 result = e;
+0240                             <span class="keyword">end</span>
+0241                             <span class="keyword">if</span> all(isfield(result,{<span class="string">'head'</span>,<span class="string">'parts'</span>}))
+0242                                 <span class="keyword">try</span>
+0243                                     fprintf(<span class="string">'result is a BCILAB expression, evaluating...'</span>);
+0244                                     result = exp_eval(result);
+0245                                     fprintf(<span class="string">'success.\n'</span>); 
+0246                                 <span class="keyword">catch</span> e
+0247                                     fprintf(<span class="string">'could not evaluate expression: %s'</span>,hlp_handleerror(e));
+0248                                     result = e;
+0249                                 <span class="keyword">end</span>
+0250                             <span class="keyword">end</span>
+0251                             <span class="keyword">try</span>
+0252                                 t0=tic; fprintf(<span class="string">'serializing data structure into bytes...'</span>);
+0253                                 result = hlp_serialize(result);
+0254                                 fprintf(<span class="string">'success (%.1f seconds).\n'</span>,toc(t0)); 
+0255                             <span class="keyword">catch</span> e
+0256                                 fprintf(<span class="string">'could not serialize data structure: %s'</span>,hlp_handleerror(e));
+0257                                 result = hlp_serialize(e);
+0258                             <span class="keyword">end</span>
+0259                             itemsize = getfield(whos(<span class="string">'result'</span>),<span class="string">'bytes'</span>);
+0260                         <span class="keyword">else</span>
+0261                             <span class="comment">% this is a file, check the size</span>
+0262                             itemsize = getfield(dir(opts.filename),<span class="string">'bytes'</span>);
+0263                         <span class="keyword">end</span>
+0264                         dbsize = getfield(whos(<span class="string">'db'</span>),<span class="string">'bytes'</span>);
+0265                         fprintf(<span class="string">'\ndb parameters: capacity:%.3fGB, itemsize:%.3fGB, dbsize:%.3fGB, records:%f\n'</span>,capacity/2^30,itemsize/2^30,dbsize/2^30,length(lru));
+0266                         <span class="comment">% determine if this fits in our cache...</span>
+0267                         <span class="keyword">if</span> (strcmp(settings.evict_policy,<span class="string">'lru'</span>) &amp;&amp; (itemsize &lt; capacity)) || (strcmp(settings.evict_policy,<span class="string">'none'</span>) &amp;&amp; (dbsize+itemsize &lt; capacity)) || opts.force
+0268                             <span class="keyword">if</span> isempty(result)
+0269                                 <span class="comment">% don't have the result yet</span>
+0270                                 t0=tic; fprintf(<span class="string">'loading file...'</span>);
+0271                                 f = fopen(opts.filename,<span class="string">'r'</span>);
+0272                                 filecloser = onCleanup(@()fclose(f));
+0273                                 result = fread(f,inf,<span class="string">'*uint8'</span>);
+0274                                 fprintf(<span class="string">'%.1f seconds (read bandwidth: %.2fMB/s).\n'</span>,toc(t0),itemsize/2^20/toc(t0));
+0275                             <span class="keyword">else</span>
+0276                                 <span class="comment">% (have the result already, no need to load)</span>
+0277                             <span class="keyword">end</span>
+0278                             <span class="comment">% cache it if applicable</span>
+0279                             <span class="keyword">if</span> strcmp(settings.evict_policy,<span class="string">'none'</span>) &amp;&amp; (dbsize+itemsize &lt; capacity)
+0280                                 fprintf(<span class="string">'committing to db.\n'</span>);
+0281                                 db.(tag) = result;
+0282                                 lru = [{tag} lru(~strcmp(lru,tag))];
+0283                             <span class="keyword">elseif</span> strcmp(settings.evict_policy,<span class="string">'lru'</span>) &amp;&amp; (itemsize &lt; capacity)
+0284                                 <span class="comment">% evict least-recently used records until we're within the capacity limits</span>
+0285                                 fprintf(<span class="string">'committing to db.\n'</span>);
+0286                                 db.(tag) = result;
+0287                                 lru = [{tag} lru(~strcmp(lru,tag))];
+0288                                 <span class="keyword">if</span> itemsize+dbsize &gt; capacity
+0289                                     fprintf(<span class="string">'evicting least-recently used cache records'</span>);
+0290                                     initialsize = getfield(whos(<span class="string">'db'</span>),<span class="string">'bytes'</span>);
+0291                                     <span class="keyword">while</span> ~isempty(fieldnames(db))
+0292                                         fprintf(<span class="string">'.'</span>);
+0293                                         db = rmfield(db,lru(end));
+0294                                         lru(end) = [];
+0295                                         <span class="keyword">if</span> getfield(whos(<span class="string">'db'</span>),<span class="string">'bytes'</span>) &lt; capacity
+0296                                             <span class="keyword">break</span>; <span class="keyword">end</span>
+0297                                     <span class="keyword">end</span>
+0298                                     fprintf(<span class="string">'done. Evicted %.3fGB of data.\n'</span>,(initialsize - getfield(whos(<span class="string">'db'</span>),<span class="string">'bytes'</span>))/2^30);
+0299                                 <span class="keyword">end</span>
+0300                             <span class="keyword">end</span>
+0301                         <span class="keyword">else</span>
+0302                             fprintf(<span class="string">'does not fit in allowed cache capacity; not loading.\n'</span>);
+0303                         <span class="keyword">end</span>
+0304                     <span class="keyword">end</span>
+0305                 <span class="keyword">end</span>
+0306             <span class="keyword">end</span>
+0307             
+0308             <span class="comment">% send off the result</span>
+0309             <span class="keyword">if</span> isa(result,<span class="string">'uint8'</span>)
+0310                 [return_address,return_port] = <a href="#_sub4" class="code" title="subfunction [return_address, return_port] = get_return_endpoint(varargin)">get_return_endpoint</a>(opts);
+0311                 fprintf(<span class="string">'preparing to return result to requestor at %s:%i\n'</span>,char(return_address.toString()),return_port);
+0312                 <span class="comment">% send the data back</span>
+0313                 fprintf(<span class="string">'opening back-connection to transmit data...'</span>);
+0314                 outconn = Socket();                
+0315                 destination = InetSocketAddress(return_address, return_port);
+0316                 outconn.connect(destination, round(settings.timeout_backconnect));
+0317                 sockcloser = onCleanup(@()outconn.close());
+0318                 outconn.setSoTimeout(round(settings.timeout_transmit));
+0319                 outconn.setSoLinger(true,3);
+0320                 fprintf(<span class="string">'connected.\nnow sending (%.0fkb)...'</span>,length(result)/1024);
+0321                 t0 = tic;
+0322                 out = DataOutputStream(outconn.getOutputStream());
+0323                 out.writeDouble(length(result));
+0324                 <span class="comment">% we need to efficiently split the data into chunks no larger than max_java_memory</span>
+0325                 num_blocks = ceil(length(result)/max_java_memory);
+0326                 rest_size = mod(length(result),max_java_memory);
+0327                 sizes = [max_java_memory*ones(1,num_blocks-1) rest_size];
+0328                 blocks = cell(length(sizes),1);
+0329                 [blocks{:}] = chopdeal(result,sizes);
+0330                 <span class="comment">% send the blocks off</span>
+0331                 <span class="keyword">for</span> i=1:length(blocks)
+0332                     out.write(blocks{i},0,sizes(i)); <span class="keyword">end</span>
+0333                 out.flush();                
+0334                 fprintf(<span class="string">'done (%.1f seconds; %.2fMB/s bandwidth)\nnow closing...'</span>,toc(t0),length(result)/2^20/toc(t0));
+0335                 fprintf(<span class="string">'done.\ntransaction complete.\n'</span>);
+0336             <span class="keyword">end</span>
+0337         <span class="keyword">end</span>
+0338     <span class="keyword">end</span>
+0339 
+0340     <a name="_sub2" href="#_subfunctions" class="code">function evict_file(varargin)</a>
+0341         <span class="comment">% evict a file record from cache</span>
+0342         opts = hlp_varargin2struct(varargin, <span class="keyword">...</span>
+0343             {<span class="string">'filename'</span>,<span class="string">'FileName'</span>},<span class="string">''</span>, <span class="keyword">...</span>
+0344             {<span class="string">'anyhost'</span>,<span class="string">'AnyHost'</span>},false);
+0345         [tag,namehash,responsible_host] = <a href="#_sub5" class="code" title="subfunction [tag,namehash,responsible_host] = db_tag_if_responsible(filename, anyhost)">db_tag_if_responsible</a>(opts.filename, opts.anyhost);
+0346         fprintf(<span class="string">'Handling evict request for file &quot;%s&quot; (hash: %s), responsible_host=%i (%s)...'</span>,opts.filename,namehash,responsible_host,settings.all_hosts{responsible_host});
+0347         <span class="keyword">if</span> isfield(db,tag)
+0348             <span class="keyword">try</span>
+0349                 db = rmfield(db,tag);
+0350                 lru(strcmp(lru,tag)) = [];
+0351                 fprintf(<span class="string">'evicted record.\n'</span>);
+0352             <span class="keyword">catch</span> e
+0353                 fprintf(<span class="string">'could not evict record (%s); database may now be inconsistent.\n'</span>, e.message);
+0354             <span class="keyword">end</span>
+0355         <span class="keyword">elseif</span> ~isempty(tag)
+0356             fprintf(<span class="string">'no record in database.\n'</span>);
+0357         <span class="keyword">else</span>
+0358             fprintf(<span class="string">'no record in database or not responsible.\n'</span>);
+0359         <span class="keyword">end</span>
+0360     <span class="keyword">end</span>
+0361 
+0362     <span class="comment">% === helper functions ===</span>
+0363     
+0364     <a name="_sub3" href="#_subfunctions" class="code">function send_reply_udp(varargin)</a>
+0365         import java.net.*
+0366         <span class="comment">% send a reply message over UDP</span>
+0367         opts = hlp_varargin2struct(varargin, <span class="keyword">...</span>
+0368             {<span class="string">'reply_content'</span>,<span class="string">'ReplyContent'</span>},<span class="string">''</span>);
+0369         [return_address,return_port] = <a href="#_sub4" class="code" title="subfunction [return_address, return_port] = get_return_endpoint(varargin)">get_return_endpoint</a>(opts);
+0370         fprintf(<span class="string">'sending reply packet to %s:%i...'</span>,char(return_address.toString()),return_port);
+0371         repl_sock = DatagramSocket();
+0372         repl_packet = DatagramPacket(uint8(opts.reply_content),length(opts.reply_content),return_address,return_port);
+0373         repl_sock.send(repl_packet)
+0374         fprintf(<span class="string">'done.\n'</span>)
+0375     <span class="keyword">end</span>
+0376 
+0377     <a name="_sub4" href="#_subfunctions" class="code">function [return_address, return_port] = get_return_endpoint(varargin)</a>
+0378         import java.net.*
+0379         <span class="comment">% determine the return endpoint based on the global srcaddr/port or override options</span>
+0380         opts = hlp_varargin2struct(varargin, <span class="keyword">...</span>
+0381             {<span class="string">'return_address'</span>,<span class="string">'ReturnAddress'</span>},<span class="string">''</span>, <span class="keyword">...</span>
+0382             {<span class="string">'return_port'</span>,<span class="string">'ReturnPort'</span>},<span class="string">''</span>);
+0383         <span class="comment">% allow overriding the return address / port</span>
+0384         fprintf(<span class="string">'determining return address/port...'</span>);
+0385         <span class="keyword">if</span> isfield(opts,<span class="string">'return_address'</span>) &amp;&amp; ~isempty(opts.return_address)
+0386             return_address = InetAddress.getByName(opts.return_address);
+0387         <span class="keyword">else</span>
+0388             return_address = InetAddress.getByName(srcaddr);
+0389         <span class="keyword">end</span>
+0390         <span class="keyword">if</span> isfield(opts,<span class="string">'return_port'</span>) &amp;&amp; ~isempty(opts.return_port)
+0391             <span class="keyword">if</span> ischar(opts.return_port)
+0392                 return_port = str2num(opts.return_port);
+0393             <span class="keyword">else</span>
+0394                 return_port = opts.return_port;
+0395             <span class="keyword">end</span>
+0396         <span class="keyword">else</span>
+0397             return_port = srcport;
+0398         <span class="keyword">end</span>
+0399         fprintf(<span class="string">'done (%s:%i).\n'</span>, char(return_address), return_port);
+0400     <span class="keyword">end</span>
+0401 
+0402     <a name="_sub5" href="#_subfunctions" class="code">function [tag,namehash,responsible_host] = db_tag_if_responsible(filename, anyhost)</a>
+0403         <span class="comment">% returns a database tag if we're responsible for the given filename or empty otherwise</span>
+0404         <span class="comment">% get a hash of the filename</span>
+0405         <span class="keyword">if</span> nargin &lt; 2
+0406             anyhost = false; <span class="keyword">end</span>
+0407         namehash = hlp_cryptohash(filename);
+0408         <span class="comment">% check if we're responsible for this file</span>
+0409         responsible_host = 1+mod(hex2dec(namehash(1:5))+1,length(settings.all_hosts));
+0410         <span class="keyword">if</span> anyhost || myrank &lt; 0 || responsible_host == myrank
+0411             tag = [<span class="string">'x_'</span> namehash];
+0412         <span class="keyword">else</span>
+0413             tag = [];
+0414         <span class="keyword">end</span>
+0415         
+0416     <span class="keyword">end</span>
+0417 
+0418     <a name="_sub6" href="#_subfunctions" class="code">function [command,args] = parse_request(content)</a>
+0419         <span class="comment">% parses HTTP-style requests (see top of this file for format) into command string and</span>
+0420         <span class="comment">% argument struct</span>
+0421         content(content==0) = [];
+0422         <span class="comment">% parse a network request packet</span>
+0423         lines = hlp_split(content,sprintf(<span class="string">'\n'</span>));
+0424         <span class="comment">% first line is the command</span>
+0425         command = strtrim(lower(lines{1}));
+0426         <span class="comment">% followed by one argument per line</span>
+0427         args = [];
+0428         <span class="keyword">for</span> l=2:length(lines)
+0429             line = strtrim(lines{l});
+0430             <span class="comment">% strip comments (beginning with ;)</span>
+0431             comment = find(line == <span class="string">';'</span>,1);
+0432             <span class="keyword">if</span> ~isempty(comment)
+0433                 line = line(1:comment-1); <span class="keyword">end</span>
+0434             <span class="keyword">if</span> isempty(line)
+0435                 <span class="keyword">continue</span>; <span class="keyword">end</span>
+0436             <span class="comment">% handle assignments</span>
+0437             equals = find(line == <span class="string">'='</span>,1);
+0438             <span class="keyword">if</span> isempty(equals)
+0439                 fprintf(<span class="string">'the line &quot;%s&quot; is not a valid argument declaration; ignoring.\n'</span>,line); <span class="keyword">end</span>
+0440             key = strtrim(line(1:equals-1));
+0441             val = strtrim(line(equals+1:end));
+0442             <span class="keyword">try</span>
+0443                 args.(key) = val;
+0444             <span class="keyword">catch</span>
+0445                 fprintf(<span class="string">'argument &quot;%s&quot; is not a valid field name; ignoring.\n'</span>,key);
+0446             <span class="keyword">end</span>
+0447         <span class="keyword">end</span>
+0448     <span class="keyword">end</span>
+0449 <span class="keyword">end</span>
+0450</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

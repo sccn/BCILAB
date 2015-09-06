@@ -18,13 +18,14 @@
 <td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>flt_movavg
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="box"><strong>Filter a continuous data set by a moving-average filter.</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>function [signal,newstate] = flt_movavg(varargin) </strong></div>
+<div class="box"><strong>function [signal,state] = flt_movavg(varargin) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre class="comment"> Filter a continuous data set by a moving-average filter.
@@ -53,16 +54,21 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
 
 
+
+
+
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal,newstate] = flt_movavg(varargin)</a>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function [signal,state] = flt_movavg(varargin)</a>
 0002 <span class="comment">% Filter a continuous data set by a moving-average filter.</span>
 0003 <span class="comment">% [Signal,State] = flt_fir(Signal, Length, State)</span>
 0004 <span class="comment">%</span>
@@ -94,37 +100,38 @@ This function is called by:
 0030 
 0031 arg_define(varargin, <span class="keyword">...</span><span class="comment"> </span>
 0032     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
-0033     arg({<span class="string">'fltlength'</span>,<span class="string">'Length'</span>}, 4, [], <span class="string">'Length of the filter kernel.'</span>), <span class="keyword">...</span>
+0033     arg({<span class="string">'fltlength'</span>,<span class="string">'Length'</span>}, 4, uint32([1 1000000]), <span class="string">'Length of the filter kernel.'</span>), <span class="keyword">...</span>
 0034     arg_nogui({<span class="string">'state'</span>,<span class="string">'State'</span>}));
 0035 
 0036 <span class="comment">% handle inputs</span>
 0037 b = ones(1,fltlength)/fltlength;
 0038 
-0039 <span class="keyword">for</span> fld = utl_timeseries_fields(signal)
-0040     field = fld{1};
-0041     <span class="keyword">if</span> ~isempty(signal.(field))        
-0042         <span class="comment">% get the data (transposed)</span>
-0043         sig = double(signal.(field))';
-0044         
-0045         <span class="comment">% if necessary prepend the signal with a mirror section of itself, to minimize start-up transients</span>
-0046         <span class="keyword">if</span> ~isfield(state,field) || isempty(state.(field))
-0047             sig = [repmat(2*sig(1,:),length(b),1) - sig((length(b)+1):-1:2,:); sig];
-0048             state.(field) = [];
-0049         <span class="keyword">end</span>
-0050         
-0051         <span class="comment">% apply the filter</span>
-0052         [sig,newstate.(field)] = filter(b,1,sig,state.(field),1);
-0053         
-0054         <span class="comment">% check if we need to cut off a data segment that we previously prepended</span>
-0055         <span class="keyword">if</span> isempty(state.(field))
-0056             sig(1:length(b),:) = []; <span class="keyword">end</span>
-0057         
-0058         <span class="comment">% write the data back</span>
-0059         signal.(field) = sig';
-0060     <span class="keyword">end</span>
-0061 <span class="keyword">end</span>
+0039 <span class="keyword">for</span> f = utl_timeseries_fields(signal) <span class="comment">%#ok&lt;NODEF&gt;</span>
+0040     <span class="keyword">if</span> ~isempty(signal.(f{1}))        
+0041         <span class="comment">% get the data (transposed)</span>
+0042         [X,dims] = spatialize_transpose(double(signal.(f{1})));        
+0043         <span class="comment">% if necessary prepend the signal with a mirror section of itself, to minimize start-up transients</span>
+0044         prepend = ~isfield(state,f{1});
+0045         <span class="keyword">if</span> prepend
+0046             X = [repmat(2*X(1,:),length(b),1) - X(1+mod(((length(b)+1):-1:2)-1,size(X,1)),:); X]; <span class="comment">%#ok&lt;AGROW&gt;</span>
+0047             state.(f{1}) = [];
+0048         <span class="keyword">end</span>
+0049         <span class="comment">% apply the filter</span>
+0050         [X,state.(f{1})] = filter(b,1,X,state.(f{1}),1);
+0051         <span class="comment">% check if we need to cut off a data segment that we previously prepended</span>
+0052         <span class="keyword">if</span> prepend
+0053             X(1:length(b),:) = []; <span class="keyword">end</span>
+0054         <span class="comment">% write the data back</span>
+0055         signal.(f{1}) = unspatialize_transpose(X,dims);        
+0056     <span class="keyword">end</span>
+0057 <span class="keyword">end</span>
+0058 
+0059 <span class="keyword">if</span> ~isfield(signal.etc,<span class="string">'filter_delay'</span>)
+0060     signal.etc.filter_delay = 0; <span class="keyword">end</span>
+0061 signal.etc.filter_delay = signal.etc.filter_delay + fltlength/(2*signal.srate);
 0062 
 0063 exp_endfun;</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

@@ -1,0 +1,185 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmSPoC</title>
+  <meta name="keywords" content="ParadigmSPoC">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmSPoC.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmSPoC
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>	</li>
+<li><a href="ParadigmSPoC.html" class="code" title="">ParadigmSPoC</a>	</li>
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="ParadigmSPoC.html" class="code" title="">ParadigmSPoC</a>	</li>
+</ul>
+<!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li>
+<li><a href="#_sub2" class="code">function defaults = machine_learning_defaults(self)</a></li>
+<li><a href="#_sub3" class="code">function model = feature_adapt(self,varargin)</a></li>
+<li><a href="#_sub4" class="code">function features = feature_extract(self,signal,featuremodel)</a></li>
+<li><a href="#_sub5" class="code">function visualize_model(self,parent,featuremodel,predictivemodel,varargin)</a></li>
+<li><a href="#_sub6" class="code">function layout = dialog_layout_defaults(self)</a></li>
+<li><a href="#_sub7" class="code">function V = cov_shrinkage(self,X,lambda)</a></li>
+</ul>
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmSPoC.html" class="code" title="">ParadigmSPoC</a> &lt; <a href="ParadigmDataflowSimplified.html" class="code" title="">ParadigmDataflowSimplified</a>
+0002     <span class="comment">%</span>
+0003     <span class="comment">% The Source Power Comodulation (SPoC) paradigm [1] is used to predict continuous quantities (for</span>
+0004     <span class="comment">% example, the workload level) from the power (amplitude) of oscillatory source processes in the</span>
+0005     <span class="comment">% brain, in a particular frequency and time range of interest.</span>
+0006     <span class="comment">%</span>
+0007     <span class="comment">% The advantage of SPoC over approaches that operate either on channels or on sources that come</span>
+0008     <span class="comment">% from beamforming or a component-based technique such as ICA is that it learns optimized</span>
+0009     <span class="comment">% spatial filters in a supervised manner, similarly to how the Common Spatial Patterns algorithm</span>
+0010     <span class="comment">% learns spatial filters for the case of binary class labels (in fact, SPoC can be viewed as a</span>
+0011     <span class="comment">% generalization of CSP from binary labels to continuous labels).</span>
+0012     <span class="comment">%</span>
+0013     <span class="comment">% SPoC can be used with any regressor or classifier, although using ridge regression is the most</span>
+0014     <span class="comment">% natural choice.</span>
+0015     <span class="comment">%</span>
+0016     <span class="comment">% Examples:</span>
+0017     <span class="comment">%   After an approach has been defined as in one of the following examples, a predictive model can be obtained</span>
+0018     <span class="comment">%   (given a calibration data set and a specification of target markers) using bci_train:</span>
+0019     <span class="comment">%   [loss,model,stats] = bci_train('Data',io_loadset('calibration_rec.eeg'),'Approach',myapproach','TargetMarkers',{'mymarker1','mymarker2'});</span>
+0020     <span class="comment">%</span>
+0021     <span class="comment">%   % define a basic SPoC approach, using the defaults</span>
+0022     <span class="comment">%   myapproach = 'SPoC';</span>
+0023     <span class="comment">%</span>
+0024     <span class="comment">%   % use a different frequency range (here: approx the alpha band)</span>
+0025     <span class="comment">%   myapproach = {'SPoC' 'SignalProcessing',{'FIRFilter',[6 8 14 16]}};</span>
+0026     <span class="comment">%</span>
+0027     <span class="comment">%   % also use an IIR filter instead of the default FIR</span>
+0028     <span class="comment">%   myapproach = {'SPoC' 'SignalProcessing',{'FIRFilter','off', 'IIRFilter',[5 7 14 17]}};</span>
+0029     <span class="comment">%</span>
+0030     <span class="comment">%   % use a time window relative to the target markers</span>
+0031     <span class="comment">%   myapproach = {'SPoC' 'SignalProcessing',{'EpochExtraction',[-2 2]}};</span>
+0032     <span class="comment">%</span>
+0033     <span class="comment">%   % use sparse least-angle regression (LARS)</span>
+0034     <span class="comment">%   myapproach = {'SPoC' 'Prediction',{'MachineLearning',{'Learner',{'logreg','Variant','lars','Regression',true}}}};</span>
+0035     <span class="comment">%</span>
+0036     <span class="comment">%   % use delay-embedding to learn spatio-spectral filters (4th order)</span>
+0037     <span class="comment">%   myapproach = {'SPoC' 'SignalProcessing',{'DelayEmbed',4,'EpochExtraction',[-4 4]}};</span>
+0038     <span class="comment">%</span>
+0039     <span class="comment">%</span>
+0040     <span class="comment">% References:</span>
+0041     <span class="comment">%   [1] Dähne, S., Meinecke, F. C., Haufe, S., Höhne, J., Tangermann, M., Müller, K. R., &amp; Nikulin, V. V.</span>
+0042     <span class="comment">%       &quot;SPoC: A novel framework for relating the amplitude of neuronal oscillations to behaviorally relevant parameters.&quot;</span>
+0043     <span class="comment">%       NeuroImage 86 (2014), 111-122.</span>
+0044     <span class="comment">%</span>
+0045     <span class="comment">% Name:</span>
+0046     <span class="comment">%   Source Power Comodulation</span>
+0047     <span class="comment">%</span>
+0048     <span class="comment">%                            Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0049     <span class="comment">%                            2013-11-17</span>
+0050     
+0051     methods
+0052       
+0053         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0054             <span class="comment">% define the default pre-processing parameters of this paradigm</span>
+0055             defaults = {<span class="string">'FIRFilter'</span>,{<span class="string">'Frequencies'</span>,[6 8 28 32],<span class="string">'Type'</span>,<span class="string">'minimum-phase'</span>}, <span class="string">'EpochExtraction'</span>,[0.5 3.5], <span class="string">'Resampling'</span>,100};
+0056         <span class="keyword">end</span>
+0057         
+0058         <a name="_sub1" href="#_subfunctions" class="code">function defaults = machine_learning_defaults(self)</a>
+0059             defaults = <span class="string">'ridge'</span>;
+0060         <span class="keyword">end</span>                
+0061                 
+0062         <a name="_sub2" href="#_subfunctions" class="code">function model = feature_adapt(self,varargin)</a>
+0063             <span class="comment">% adapt a feature representation using the SPoC algorithm</span>
+0064             arg_define(varargin, <span class="keyword">...</span>
+0065                 arg_norep(<span class="string">'signal'</span>), <span class="keyword">...</span>
+0066                 arg({<span class="string">'patterns'</span>,<span class="string">'PatternPairs'</span>},3,uint32([1 1 64 1000]),<span class="string">'Number of SPoC patterns (times two).'</span>,<span class="string">'cat'</span>,<span class="string">'Feature Extraction'</span>,<span class="string">'type'</span>,<span class="string">'expression'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>), <span class="keyword">...</span>
+0067                 arg({<span class="string">'cov_lambda'</span>,<span class="string">'CovarianceRegularization'</span>,<span class="string">'lambda'</span>}, 0.001, [0 1], <span class="string">'Covariance regularization. This is a regularization parameter for the covariance estimate.'</span>));
+0068             
+0069             <span class="keyword">if</span> signal.nbchan &lt; patterns
+0070                 error(<span class="string">'SPoC requires at least as many channels as you request output patterns. Please reduce the number of pattern pairs.'</span>); <span class="keyword">end</span>
+0071             
+0072             weighted_cov = zeros(signal.nbchan);
+0073             mean_cov = zeros(signal.nbchan);
+0074             <span class="keyword">for</span> k=signal.trials:-1:1
+0075                 weighted_cov = weighted_cov + self.cov_shrinkage(signal.data(:,:,k)',cov_lambda) * signal.epoch(k).target; 
+0076                 mean_cov = mean_cov + self.cov_shrinkage(signal.data(:,:,k)',cov_lambda);
+0077             <span class="keyword">end</span>
+0078             [V,D] = eig(weighted_cov,mean_cov); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0079             
+0080             model.filters = V(:,[1:patterns end-patterns+1:end]);
+0081             P = inv(V);
+0082             model.patterns = P([1:patterns end-patterns+1:end],:);
+0083             model.chanlocs = signal.chanlocs;
+0084         <span class="keyword">end</span>
+0085         
+0086         <a name="_sub3" href="#_subfunctions" class="code">function features = feature_extract(self,signal,featuremodel)</a>
+0087             <span class="comment">% extract log-variance features according to SPoC</span>
+0088             features = zeros(size(signal.data,3),size(featuremodel.filters,2));
+0089             <span class="keyword">for</span> t=1:size(signal.data,3)
+0090                 features(t,:) = log(var(signal.data(:,:,t)'*featuremodel.filters)); <span class="keyword">end</span>
+0091         <span class="keyword">end</span>               
+0092         
+0093         <a name="_sub4" href="#_subfunctions" class="code">function visualize_model(self,parent,featuremodel,predictivemodel,varargin) </a><span class="comment">%#ok&lt;*INUSD&gt;</span>
+0094             <span class="comment">% number of pairs, and index of pattern per subplot</span>
+0095             np = size(featuremodel.patterns,1)/2; idx = [1:np 2*np:-1:np+1];
+0096             <span class="comment">% for each SPoC pattern...</span>
+0097             <span class="keyword">for</span> p=1:np*2
+0098                 subplot(2,np,p,<span class="string">'Parent'</span>,parent);
+0099                 topoplot(featuremodel.patterns(idx(p),:),featuremodel.chanlocs);
+0100                 title([<span class="string">'SPoC Pattern '</span> num2str(idx(p))]);
+0101             <span class="keyword">end</span>
+0102         <span class="keyword">end</span>
+0103         
+0104         <a name="_sub5" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0105             <span class="comment">% define the default configuration dialog layout</span>
+0106             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>, <span class="string">'SignalProcessing.FIRFilter.Frequencies'</span>, <span class="keyword">...</span>
+0107                 <span class="string">'SignalProcessing.FIRFilter.Type'</span>, <span class="string">'SignalProcessing.EpochExtraction'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0108                 <span class="string">'Prediction.FeatureExtraction.PatternPairs'</span>, <span class="string">''</span>, <span class="string">'Prediction.MachineLearning.Learner'</span>};
+0109         <span class="keyword">end</span>
+0110         
+0111         <a name="_sub6" href="#_subfunctions" class="code">function V = cov_shrinkage(self,X,lambda)</a>
+0112             V = cov(X);
+0113             V = V*(1-lambda) + lambda*eye(length(V))*trace(V)/length(V);
+0114         <span class="keyword">end</span>        
+0115     <span class="keyword">end</span>
+0116 <span class="keyword">end</span>
+0117</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

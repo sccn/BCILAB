@@ -1,0 +1,1 @@
+any(cellfun(@exist,{'cummax'})==3)

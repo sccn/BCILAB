@@ -1,0 +1,238 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of par_fileclient</title>
+  <meta name="keywords" content="par_fileclient">
+  <meta name="description" content="Allows to get files cached in a distributed in-memory filesystem.">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">parallel</a> &gt; par_fileclient.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/parallel&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>par_fileclient
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>Allows to get files cached in a distributed in-memory filesystem.</strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>function result = par_fileclient(varargin) </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"> Allows to get files cached in a distributed in-memory filesystem.
+
+ Note: added ability to request mem-cached results of evaluated MATLAB expressions in addition to
+ files because in some cases it's infeasible to hold all raw data in memory, but can request 
+ and cache pre-stripped data on sender side; need to refactor some things and update docs to 
+ reflect that better, but insufficient time right now</pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+</ul>
+<!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function verbose_send(verbosity,sock,content,broadcast)</a></li>
+</ul>
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function result = par_fileclient(varargin)</a>
+0002 <span class="comment">% Allows to get files cached in a distributed in-memory filesystem.</span>
+0003 <span class="comment">%</span>
+0004 <span class="comment">% Note: added ability to request mem-cached results of evaluated MATLAB expressions in addition to</span>
+0005 <span class="comment">% files because in some cases it's infeasible to hold all raw data in memory, but can request</span>
+0006 <span class="comment">% and cache pre-stripped data on sender side; need to refactor some things and update docs to</span>
+0007 <span class="comment">% reflect that better, but insufficient time right now</span>
+0008 
+0009 args = arg_define(0:2,varargin, <span class="keyword">...</span>
+0010     arg({<span class="string">'filename'</span>,<span class="string">'FileName'</span>,<span class="string">'Filename'</span>},<span class="string">''</span>,[],<span class="string">'Name of the file to operate on.'</span>), <span class="keyword">...</span>
+0011     arg({<span class="string">'operation'</span>,<span class="string">'Operation'</span>}, <span class="string">'getfile'</span>, {<span class="string">'getfile'</span>,<span class="string">'evict'</span>,<span class="string">'list_hosts'</span>,<span class="string">'list_files'</span>,<span class="string">'terminate'</span>,<span class="string">'clear'</span>}, <span class="string">'Operation to perform.'</span>), <span class="keyword">...</span>
+0012     arg({<span class="string">'request_port'</span>,<span class="string">'RequestPort'</span>}, 34575, uint32([1 65535]), <span class="string">'UDP port on which requests are being made.'</span>), <span class="keyword">...</span>
+0013     arg({<span class="string">'receive_buffer'</span>,<span class="string">'ReceiveBuffer'</span>,},64000,[],<span class="string">'Size of the receive buffer.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0014     arg({<span class="string">'timeout_accept'</span>,<span class="string">'TimeoutAccept'</span>,},60*20,[],<span class="string">'Timeout to start file transmission. In seconds. If a client takes longer than this to initiate transmission we give up.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0015     arg({<span class="string">'timeout_receive'</span>,<span class="string">'TimeoutReceive'</span>,},60*2,[],<span class="string">'Timeout to perform file transmission. In seconds. If a client takes longer than this to complete transmission we give up.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0016     arg({<span class="string">'force'</span>,<span class="string">'Force'</span>}, false, [], <span class="string">'Force process even if the file is not in cache.'</span>), <span class="keyword">...</span>
+0017     arg({<span class="string">'local_fallback'</span>,<span class="string">'LocalFallback'</span>}, false, [], <span class="string">'Fall back to local processing if unsuccessful.'</span>), <span class="keyword">...</span>
+0018     arg({<span class="string">'broadcast'</span>,<span class="string">'Broadcast'</span>}, true, [], <span class="string">'Use network broadcast. Only disable if you explictly want to talk only to local file hosts.'</span>), <span class="keyword">...</span>
+0019     arg_nogui({<span class="string">'timeout_accept_granularity'</span>,<span class="string">'TimeoutAcceptGranularity'</span>,},1000,[],<span class="string">'Timeout to start file transmission. In miliseconds. If a client takes longer than this to initiate transmission we give up.'</span>,<span class="string">'guru'</span>,true), <span class="keyword">...</span>
+0020     arg({<span class="string">'verbosity'</span>,<span class="string">'Verbosity'</span>}, 2, [], <span class="string">'Verbosity level.'</span>));
+0021 
+0022 verbosity = args.verbosity;
+0023 
+0024 <span class="comment">% transmission timeout when force is set (i.e., we expect the operation to complete); in ms.</span>
+0025 force_timeout = 15000;
+0026 <span class="comment">% maximum amuont of memory we want to have in the java VM</span>
+0027 max_java_memory = 2^26; <span class="comment">% 64 MB</span>
+0028 
+0029 import java.io.*
+0030 import java.net.*
+0031 import java.lang.*
+0032 
+0033 <span class="comment">% create a request socket</span>
+0034 <span class="keyword">if</span> verbosity &gt; 1
+0035     fprintf(<span class="string">'creating broadcast socket...'</span>); <span class="keyword">end</span>
+0036 sock = DatagramSocket();
+0037 <span class="comment">%closer = onCleanup(@()sock.close());</span>
+0038 <span class="keyword">if</span> verbosity &gt; 1
+0039     fprintf(<span class="string">'done.\n'</span>); <span class="keyword">end</span>
+0040 
+0041 <span class="keyword">switch</span> args.operation
+0042     <span class="keyword">case</span> <span class="string">'getfile'</span> <span class="comment">% get a file from cache</span>
+0043         <span class="comment">% local sanity checks</span>
+0044         <span class="keyword">if</span> isempty(args.filename)
+0045             error(<span class="string">'Filename must be non-empty.'</span>); <span class="keyword">end</span>
+0046         <span class="keyword">if</span> any(args.filename==<span class="string">'('</span>) &amp;&amp; any(args.filename==<span class="string">')'</span>)
+0047             <span class="comment">% this is not actually a file but an expression that shall be evaluated remotely</span>
+0048             itemtype = <span class="string">'expression'</span>;
+0049         <span class="keyword">elseif</span> ~exist(args.filename,<span class="string">'file'</span>)
+0050             <span class="comment">% note: this check assumes that the file system is shared with the cache hosts</span>
+0051             error(<span class="string">'The given file &quot;%s&quot; does not exist.'</span>,args.filename); 
+0052         <span class="keyword">else</span>
+0053             <span class="comment">% this is a regular file</span>
+0054             itemtype = <span class="string">'file'</span>;
+0055         <span class="keyword">end</span>
+0056             
+0057         <span class="comment">% open a TCP server socket to be able to receive the result</span>
+0058         <span class="keyword">if</span> verbosity &gt; 1
+0059             fprintf(<span class="string">'creating TCP server socket...'</span>); <span class="keyword">end</span>
+0060         serv = ServerSocket(0,1);
+0061         serv.setReceiveBufferSize(args.receive_buffer);
+0062         serv.setSoTimeout(quickif(args.force,force_timeout,round(args.timeout_accept_granularity)));
+0063         serv_port = serv.getLocalPort();
+0064         serv_addr = char(serv.getInetAddress().toString());
+0065         closer = onCleanup(@()serv.close());
+0066         <span class="keyword">if</span> verbosity &gt; 1
+0067             fprintf(<span class="string">'done.\nlistening on %s:%i.\n'</span>,serv_addr,serv_port); <span class="keyword">end</span>
+0068         <span class="keyword">if</span> verbosity &gt; 1
+0069             fprintf(<span class="string">'done.\n'</span>); <span class="keyword">end</span>
+0070         <span class="comment">% send the request packet</span>
+0071         <a href="#_sub1" class="code" title="subfunction verbose_send(verbosity,sock,content,broadcast)">verbose_send</a>(verbosity,sock,sprintf(<span class="string">'getfile\nfilename=%s\nforce=%i\nreturn_port=%i'</span>,args.filename,args.force,serv_port),args.broadcast);
+0072         <span class="comment">% wait for the response</span>
+0073         <span class="keyword">try</span>
+0074             <span class="keyword">if</span> verbosity &gt; 1
+0075                 fprintf(<span class="string">'waiting for incoming data...'</span>); <span class="keyword">end</span>
+0076             t0 = tic;
+0077             <span class="keyword">while</span> toc(t0) &lt; args.timeout_accept
+0078                 <span class="comment">% note: this loop is mainly to allow us to interrupt it</span>
+0079                 <span class="keyword">try</span>
+0080                     conn = serv.accept();
+0081                     <span class="keyword">break</span>;
+0082                 <span class="keyword">catch</span> e
+0083                     <span class="comment">% accepted timed out; try again</span>
+0084                 <span class="keyword">end</span>
+0085             <span class="keyword">end</span>
+0086             <span class="keyword">if</span> verbosity &gt; 1
+0087                 fprintf(<span class="string">'got a connection.\nopening input stream...'</span>); <span class="keyword">end</span>
+0088             <span class="comment">% got one</span>
+0089             closer = onCleanup(@()conn.close());
+0090             conn.setSoTimeout(quickif(args.force,force_timeout,round(1000*args.timeout_receive)));
+0091             <span class="comment">% read the data</span>
+0092             in = DataInputStream(conn.getInputStream());
+0093             <span class="keyword">if</span> verbosity &gt; 1
+0094                 fprintf(<span class="string">'done.\nreceiving data'</span>); <span class="keyword">end</span>
+0095             t0 = tic;
+0096             full_length = round(in.readDouble());
+0097             len = full_length;
+0098             cr = ChunkReader(in);
+0099             result = {};
+0100             <span class="keyword">while</span> len &gt; max_java_memory
+0101                 result{end+1} = cr.readFully(max_java_memory);
+0102                 len = len - max_java_memory;
+0103                 <span class="keyword">if</span> verbosity &gt; 1
+0104                     fprintf(<span class="string">'.'</span>); <span class="keyword">end</span>
+0105             <span class="keyword">end</span>
+0106             <span class="keyword">if</span> len &gt; 0
+0107                 result{end+1} = cr.readFully(len); <span class="keyword">end</span>
+0108             result = vertcat(result{:});
+0109             result = typecast(result,<span class="string">'uint8'</span>);
+0110             <span class="keyword">if</span> verbosity &gt; 1
+0111                 fprintf(<span class="string">'done (%.1f seconds; %.2fMB/s bandwidth).\n'</span>,toc(t0),length(result)/2^20/toc(t0)); <span class="keyword">end</span>
+0112         <span class="keyword">catch</span> e
+0113             <span class="comment">% check if we need to display an error message</span>
+0114             <span class="keyword">if</span> verbosity &gt;= -1 &amp;&amp; isempty(strfind(e.message,<span class="string">'timed out'</span>))
+0115                 fprintf(<span class="string">'exception during accept: %s\n'</span>,e.message);
+0116             <span class="keyword">elseif</span> verbosity &gt; 0
+0117                 fprintf(<span class="string">'connection timed out. No data obtained.'</span>);
+0118             <span class="keyword">end</span>
+0119             <span class="keyword">if</span> args.local_fallback
+0120                 <span class="keyword">if</span> verbosity &gt; 0
+0121                     fprintf(<span class="string">'falling back to local file operation...'</span>); <span class="keyword">end</span>
+0122                 t0 = tic;
+0123                 f = fopen(args.filename,<span class="string">'r'</span>);
+0124                 filecloser = onCleanup(@()fclose(f));
+0125                 result = fread(f,inf,<span class="string">'*uint8'</span>);
+0126                 fclose(f);
+0127                 <span class="keyword">if</span> verbosity &gt; 0
+0128                     fprintf(<span class="string">'done (%.1f seconds; %.2fMB/s bandwidth).\n'</span>,toc(t0),length(result)/2^20/toc(t0)); <span class="keyword">end</span>
+0129             <span class="keyword">else</span>
+0130                 error(<span class="string">'No result available (%s)'</span>,e.message);
+0131             <span class="keyword">end</span>
+0132         <span class="keyword">end</span>
+0133         <span class="keyword">if</span> strcmp(itemtype,<span class="string">'expression'</span>)
+0134             <span class="comment">% need to deserialize the expression</span>
+0135             <span class="keyword">try</span>
+0136                 t0 = tic;
+0137                 <span class="keyword">if</span> verbosity &gt; 1
+0138                     fprintf(<span class="string">'deserializing expression...'</span>); <span class="keyword">end</span>
+0139                 bytes = length(result);
+0140                 result = hlp_deserialize(result);
+0141                 <span class="keyword">if</span> verbosity &gt; 1
+0142                     fprintf(<span class="string">'done (%.1f seconds; %.2fMB/s bandwidth).\n'</span>,toc(t0),bytes/2^20/toc(t0)); <span class="keyword">end</span>
+0143             <span class="keyword">catch</span> ex
+0144                 fprintf(<span class="string">'error: %s'</span>, hlp_handleerror(ex));
+0145             <span class="keyword">end</span>
+0146             <span class="comment">% check if we got an error &amp; rethrow it</span>
+0147             <span class="keyword">if</span> all(isfield(result,{<span class="string">'message'</span>,<span class="string">'identifier'</span>,<span class="string">'stack'</span>}))
+0148                 rethrow(result); <span class="keyword">end</span>
+0149         <span class="keyword">end</span>        
+0150     <span class="keyword">case</span> <span class="string">'evict'</span> <span class="comment">% evict a file from cache</span>
+0151         <a href="#_sub1" class="code" title="subfunction verbose_send(verbosity,sock,content,broadcast)">verbose_send</a>(verbosity,sock,sprintf(<span class="string">'evict\nfilename=%s\nforce=%i'</span>,args.filename,args.force),args.broadcast);
+0152     <span class="keyword">case</span> <span class="string">'terminate'</span> <span class="comment">% terminate file hosts</span>
+0153         <a href="#_sub1" class="code" title="subfunction verbose_send(verbosity,sock,content,broadcast)">verbose_send</a>(2,sock,sprintf(<span class="string">'terminate\nforce=%i'</span>,args.force),args.broadcast);
+0154     <span class="keyword">case</span> <span class="string">'clear'</span> <span class="comment">% clear cache DB of all machines</span>
+0155         <a href="#_sub1" class="code" title="subfunction verbose_send(verbosity,sock,content,broadcast)">verbose_send</a>(2,sock,sprintf(<span class="string">'clear\n'</span>),args.broadcast);
+0156     <span class="keyword">otherwise</span>
+0157         error(<span class="string">'Unimplemented operation: %s'</span>,hlp_tostring(args.operation));
+0158 <span class="keyword">end</span>
+0159 
+0160     <span class="comment">% === utility functions ===</span>
+0161     
+0162     <a name="_sub1" href="#_subfunctions" class="code">function verbose_send(verbosity,sock,content,broadcast)</a>
+0163         import java.net.*
+0164         <span class="keyword">if</span> verbosity &gt; 1
+0165             fprintf(<span class="string">'sending request:\n%s\n'</span>,content); <span class="keyword">end</span>
+0166         target = quickif(broadcast,<span class="string">'255.255.255.255'</span>,<span class="string">'127.0.0.1'</span>);
+0167         sock.send(DatagramPacket(uint8(content),length(content),InetAddress.getByName(target),args.request_port));
+0168         <span class="keyword">if</span> verbosity &gt; 1
+0169             fprintf(<span class="string">'\n'</span>); <span class="keyword">end</span>
+0170     <span class="keyword">end</span>
+0171 
+0172 <span class="keyword">end</span>
+0173 
+0174</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

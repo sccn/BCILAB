@@ -41,7 +41,7 @@ function res = set_partition(varargin)
 %                                2010-04-01
 dp;
 
-% set_partition_version<1.0> -- for the cache
+% set_partition_version<1.01> -- for the cache
 
 if ~exp_beginfun('editing', 'memoize',0, 'fingerprint_create','passthrough') return; end
 
@@ -69,7 +69,7 @@ if isempty(idxset) %#ok<NODEF>
             if any(targetmask)
                 % return the number of target events
                 res = nnz(targetmask);
-                return
+                exp_endfun; return;
             end
         end
         % otherwise return the number of samples
@@ -159,7 +159,8 @@ else
                 retain_intervals = reshape(find(diff([false select_mask false])),2,[])';
                 retain_intervals(:,2) = retain_intervals(:,2)-1;
                 res = exp_eval(set_selinterval(signal,retain_intervals,'samples'));
-                return;
+
+                exp_endfun; return;
             end
         end
         

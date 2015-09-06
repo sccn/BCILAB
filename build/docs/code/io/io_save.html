@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/io&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>io_save
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -34,7 +35,9 @@
  especially for long-running batch scripts.
 
  In:
-   Filename    :   Platform-Independent file name.
+   Filename    :   Platform-Independent file name. If no ending is given, .mat will be assumed.
+                   If the ending is .sto, then BCILAB's Storage file format will be used (10-50x as
+                   fast as .mat).
 
    Arguments...:   optional arguments to save; in addition to what is supported by save(), the following options are allowed:
                    -makedirs   : make directories (recursively), if possible
@@ -45,6 +48,9 @@
                    -prunehandles : prune unreferenced variables from anonymous function handles; these are normally not used but saved anyway since cases
                                    can be constructed in which they are actually needed by the function (e.g. using evalin('caller',...))
                                    since these can be extremely large, they can easily cause save() to fail
+                   -serialized : compress the data using hlp_serialize
+                                 (when loading with io_load, the data will be automatically uncompressed,
+                                 not so when using load directly)
 
  Example:
    % save the variables a,b, and c to a .mat file
@@ -69,15 +75,25 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="io_mkdirs.html" class="code" title="function io_mkdirs(filepath,attribs)">io_mkdirs</a>	Create directories recursively and optionally set permissions.</li></ul>
+
+<li><a href="io_mkdirs.html" class="code" title="function io_mkdirs(filepath,attribs)">io_mkdirs</a>	Create directories recursively and optionally set permissions.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="io_saveset.html" class="code" title="function fname = io_saveset(signal,fname,overwrite)">io_saveset</a>	Save a data set to disk.</li>
 </ul>
 <!-- crossreference -->
 
+
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function save_workspace(fname__,saveargs__,workspace__)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function save_workspace(fname__,saveargs__,workspace__)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function io_save(fname, varargin)</a>
@@ -88,150 +104,182 @@ This function is called by:
 0006 <span class="comment">% especially for long-running batch scripts.</span>
 0007 <span class="comment">%</span>
 0008 <span class="comment">% In:</span>
-0009 <span class="comment">%   Filename    :   Platform-Independent file name.</span>
-0010 <span class="comment">%</span>
-0011 <span class="comment">%   Arguments...:   optional arguments to save; in addition to what is supported by save(), the following options are allowed:</span>
-0012 <span class="comment">%                   -makedirs   : make directories (recursively), if possible</span>
-0013 <span class="comment">%                   -retryinput : ask the user whether he/she wants to retry creating the directory or the file, if unsuccessful (using input())</span>
-0014 <span class="comment">%                   -attributes attribs : specify file/directory attributes; these are the second or second and third argument to be passed to</span>
-0015 <span class="comment">%                                         the fileattrib() function, separated by a comma, to set attributes for the current user or specific user groups,</span>
-0016 <span class="comment">%                                         e.g., '+w' or '+w','a'.</span>
-0017 <span class="comment">%                   -prunehandles : prune unreferenced variables from anonymous function handles; these are normally not used but saved anyway since cases</span>
-0018 <span class="comment">%                                   can be constructed in which they are actually needed by the function (e.g. using evalin('caller',...))</span>
-0019 <span class="comment">%                                   since these can be extremely large, they can easily cause save() to fail</span>
-0020 <span class="comment">%</span>
-0021 <span class="comment">% Example:</span>
-0022 <span class="comment">%   % save the variables a,b, and c to a .mat file</span>
-0023 <span class="comment">%   io_save('store:/myoutput.mat', 'a','b','c');</span>
-0024 <span class="comment">%</span>
-0025 <span class="comment">%   % as before, but try to create directories if necessary</span>
-0026 <span class="comment">%   io_save('store:/myoutput.mat', 'a','b','c','-makedirs');</span>
-0027 <span class="comment">%</span>
-0028 <span class="comment">%   % like before, but this time prompt the user to re-try if an error occurs</span>
-0029 <span class="comment">%   io_save('store:/myoutput.mat', 'a','b','c','-makedirs','-retryinput');</span>
-0030 <span class="comment">%</span>
-0031 <span class="comment">%   % like before, but this time make the created file writable for all users</span>
-0032 <span class="comment">%   io_save('store:/myoutput.mat', 'a','b','c','-attributes','''+w'',''a''');</span>
-0033 <span class="comment">%</span>
-0034 <span class="comment">% See also:</span>
-0035 <span class="comment">%   save, io_load</span>
-0036 <span class="comment">%</span>
-0037 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0038 <span class="comment">%                                2010-06-21</span>
-0039 
-0040 
-0041 <span class="comment">% translate the file name</span>
-0042 fname = env_translatepath(fname);
-0043 
-0044 <span class="comment">% parse arguments...</span>
-0045 saveargs = {<span class="string">'-v7.3'</span>}; <span class="comment">% args to save()</span>
-0046 variables = {};       <span class="comment">% names of variables to save (subset of saveargs)</span>
-0047 makedirs = false;     <span class="comment">% whether to create directories</span>
-0048 retryinput = false;   <span class="comment">% whether to ask the user for a retry</span>
-0049 prunehandles = false; <span class="comment">% whether to prune unreferenced workspace variables from function handles in arguments</span>
-0050 fileattriblist = [];  <span class="comment">% the list of attributes for files &amp; directories</span>
-0051 i = 1;
-0052 <span class="keyword">while</span> i &lt;= length(varargin)
-0053     arg = varargin{i};
-0054     <span class="keyword">if</span> ischar(arg) &amp;&amp; ~isempty(arg) &amp;&amp; arg(1) == <span class="string">'-'</span>
-0055         <span class="comment">% we are dealing with an option argument</span>
-0056         <span class="keyword">switch</span>(arg)
-0057             <span class="keyword">case</span> <span class="string">'-makedirs'</span>
-0058                 makedirs = true;
-0059             <span class="keyword">case</span> <span class="string">'-retryinput'</span>
-0060                 retryinput = true;
-0061             <span class="keyword">case</span> <span class="string">'-attributes'</span>
-0062                 fileattriblist = varargin{i+1};
-0063                 i = i+1; <span class="comment">% skip next arg, too</span>
-0064             <span class="keyword">case</span> <span class="string">'-prunehandles'</span>
-0065                 prunehandles = true;
-0066             <span class="keyword">otherwise</span>
-0067                 <span class="comment">% regular argument; append it</span>
-0068                 saveargs{end+1} = arg;
-0069         <span class="keyword">end</span>
-0070     <span class="keyword">else</span>
-0071         <span class="comment">% append the argument</span>
-0072         saveargs{end+1} = arg;
-0073         variables{end+1} = arg;
-0074     <span class="keyword">end</span>
-0075     i = i+1; <span class="comment">% go to next argument</span>
-0076 <span class="keyword">end</span>
-0077 
-0078 <span class="keyword">if</span> prunehandles
-0079     <span class="keyword">if</span> isempty(variables)
-0080         <span class="comment">% no variables listed: obtain all</span>
-0081         varinfos = evalin(<span class="string">'caller'</span>,<span class="string">'whos'</span>);
-0082         variables = {varinfos.name};
-0083     <span class="keyword">end</span>
-0084     <span class="comment">% prune their handles and put them in the wkspace struct</span>
-0085     <span class="keyword">for</span> k=1:length(variables)
-0086         wkspace.(variables{k}) = utl_prune_handles(evalin(<span class="string">'caller'</span>,variables{k})); <span class="keyword">end</span>
-0087 <span class="keyword">end</span>
-0088 
-0089 <span class="comment">% reformat the save-args into a string</span>
-0090 tmp = [saveargs' repmat({<span class="string">' '</span>},length(saveargs),1)]'; 
-0091 saveargs = [tmp{:}];
-0092 
-0093 <span class="comment">% reformat the fileattriblist into a cell array...</span>
-0094 fileattriblist = eval([<span class="string">'{'</span> fileattriblist <span class="string">'}'</span>]);
-0095 
-0096 <span class="keyword">while</span> 1    
-0097     <span class="keyword">if</span> makedirs
-0098         <span class="comment">% first ensure that the directory exists</span>
-0099         <span class="keyword">while</span> 1
-0100             <span class="keyword">try</span>
-0101                 <a href="io_mkdirs.html" class="code" title="function io_mkdirs(filepath,attribs)">io_mkdirs</a>(fname,fileattriblist);
-0102                 <span class="keyword">break</span>;
-0103             <span class="keyword">catch</span>
-0104                 warning(<span class="string">'BCILAB:io_save:cannot_create_directory'</span>,[<span class="string">'Error creating target directory '</span> fname <span class="string">'. Please review your permissions.'</span>]);
-0105                 <span class="keyword">if</span> retryinput
-0106                     <span class="keyword">if</span> strcmp(input(<span class="string">'Would you like to retry? [yes/no]: '</span>,<span class="string">'s'</span>),<span class="string">'no'</span>)
-0107                         disp(<span class="string">'Did not save the data.'</span>);
-0108                         <span class="keyword">break</span>;
-0109                     <span class="keyword">end</span>
-0110                 <span class="keyword">else</span>
-0111                     <span class="keyword">break</span>;
-0112                 <span class="keyword">end</span>
-0113             <span class="keyword">end</span>
-0114         <span class="keyword">end</span>
-0115     <span class="keyword">end</span>
-0116     
-0117     <span class="comment">% now save</span>
-0118     <span class="keyword">try</span>
-0119         <span class="keyword">if</span> exist(<span class="string">'wkspace'</span>,<span class="string">'var'</span>)
-0120             <span class="comment">% we have copied the variables to be saved into the 'wkspace' variable...</span>
-0121             <a href="#_sub1" class="code" title="subfunction save_workspace(fname__,saveargs__,workspace__)">save_workspace</a>(fname,saveargs,wkspace);
-0122         <span class="keyword">else</span>
-0123             <span class="comment">% we directly save in the caller's workspace</span>
-0124             evalin(<span class="string">'caller'</span>,[<span class="string">'save '''</span> fname <span class="string">''' '</span> saveargs <span class="string">';'</span>]);
-0125         <span class="keyword">end</span>
-0126         <span class="keyword">if</span> ~isempty(fileattriblist)
-0127             <span class="comment">% try to set file fileattriblist...</span>
-0128             <span class="keyword">if</span> ~isempty(fileattriblist)
-0129                 warning off MATLAB:FILEATTRIB:SyntaxWarning
-0130                 fileattrib(fname,fileattriblist{:}); 
-0131             <span class="keyword">end</span>            
-0132         <span class="keyword">end</span>
-0133         <span class="keyword">break</span>;
-0134     <span class="keyword">catch</span>
-0135         warning(<span class="string">'BCILAB:io_save:cannot_save_file'</span>,[<span class="string">'Error saving target file '</span> fname <span class="string">'. Please review your permissions.'</span>]);
-0136         <span class="keyword">if</span> retryinput
-0137             <span class="keyword">if</span> strcmp(input(<span class="string">'Would you like to retry? [yes/no]'</span>,<span class="string">'s'</span>),<span class="string">'no'</span>) 
-0138                 disp(<span class="string">'Did not save the data.'</span>);
-0139                 <span class="keyword">break</span>;
-0140             <span class="keyword">end</span>
-0141         <span class="keyword">else</span>
-0142             <span class="keyword">break</span>;
-0143         <span class="keyword">end</span>
-0144     <span class="keyword">end</span>
-0145 <span class="keyword">end</span>
-0146 
-0147 <span class="comment">% save, given a workspace of variables</span>
-0148 <a name="_sub1" href="#_subfunctions" class="code">function save_workspace(fname__,saveargs__,workspace__)</a>
-0149 <span class="keyword">for</span> fn__=fieldnames(workspace__)'
-0150     eval([fn__{1} <span class="string">' = workspace__.(fn__{1});'</span>]); <span class="keyword">end</span>
-0151 clear workspace__ fn__;
-0152 eval([<span class="string">'save '''</span> fname__ <span class="string">''' '</span> saveargs__ <span class="string">';'</span>]);</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0009 <span class="comment">%   Filename    :   Platform-Independent file name. If no ending is given, .mat will be assumed.</span>
+0010 <span class="comment">%                   If the ending is .sto, then BCILAB's Storage file format will be used (10-50x as</span>
+0011 <span class="comment">%                   fast as .mat).</span>
+0012 <span class="comment">%</span>
+0013 <span class="comment">%   Arguments...:   optional arguments to save; in addition to what is supported by save(), the following options are allowed:</span>
+0014 <span class="comment">%                   -makedirs   : make directories (recursively), if possible</span>
+0015 <span class="comment">%                   -retryinput : ask the user whether he/she wants to retry creating the directory or the file, if unsuccessful (using input())</span>
+0016 <span class="comment">%                   -attributes attribs : specify file/directory attributes; these are the second or second and third argument to be passed to</span>
+0017 <span class="comment">%                                         the fileattrib() function, separated by a comma, to set attributes for the current user or specific user groups,</span>
+0018 <span class="comment">%                                         e.g., '+w' or '+w','a'.</span>
+0019 <span class="comment">%                   -prunehandles : prune unreferenced variables from anonymous function handles; these are normally not used but saved anyway since cases</span>
+0020 <span class="comment">%                                   can be constructed in which they are actually needed by the function (e.g. using evalin('caller',...))</span>
+0021 <span class="comment">%                                   since these can be extremely large, they can easily cause save() to fail</span>
+0022 <span class="comment">%                   -serialized : compress the data using hlp_serialize</span>
+0023 <span class="comment">%                                 (when loading with io_load, the data will be automatically uncompressed,</span>
+0024 <span class="comment">%                                 not so when using load directly)</span>
+0025 <span class="comment">%</span>
+0026 <span class="comment">% Example:</span>
+0027 <span class="comment">%   % save the variables a,b, and c to a .mat file</span>
+0028 <span class="comment">%   io_save('store:/myoutput.mat', 'a','b','c');</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%   % as before, but try to create directories if necessary</span>
+0031 <span class="comment">%   io_save('store:/myoutput.mat', 'a','b','c','-makedirs');</span>
+0032 <span class="comment">%</span>
+0033 <span class="comment">%   % like before, but this time prompt the user to re-try if an error occurs</span>
+0034 <span class="comment">%   io_save('store:/myoutput.mat', 'a','b','c','-makedirs','-retryinput');</span>
+0035 <span class="comment">%</span>
+0036 <span class="comment">%   % like before, but this time make the created file writable for all users</span>
+0037 <span class="comment">%   io_save('store:/myoutput.mat', 'a','b','c','-attributes','''+w'',''a''');</span>
+0038 <span class="comment">%</span>
+0039 <span class="comment">% See also:</span>
+0040 <span class="comment">%   save, io_load</span>
+0041 <span class="comment">%</span>
+0042 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0043 <span class="comment">%                                2010-06-21</span>
+0044 
+0045 
+0046 <span class="comment">% translate the file name</span>
+0047 fname = env_translatepath(fname);
+0048 <span class="keyword">if</span> length(fname)&lt;4 || ~any(fname(end-3:end-1)==<span class="string">'.'</span>)
+0049     fname = [fname <span class="string">'.mat'</span>]; <span class="keyword">end</span>
+0050 
+0051 <span class="comment">% parse arguments...</span>
+0052 saveargs = {<span class="string">'-v7.3'</span>}; <span class="comment">% args to save()</span>
+0053 variables = {};       <span class="comment">% names of variables to save (subset of saveargs)</span>
+0054 makedirs = false;     <span class="comment">% whether to create directories</span>
+0055 retryinput = false;   <span class="comment">% whether to ask the user for a retry</span>
+0056 prunehandles = false; <span class="comment">% whether to prune unreferenced workspace variables from function handles in arguments</span>
+0057 serialized = false;   <span class="comment">% whether to write variables as serialized</span>
+0058 nooverwrite = false;  <span class="comment">% whether to disable overwriting existing files</span>
+0059 fileattriblist = [];  <span class="comment">% the list of attributes for files &amp; directories</span>
+0060 i = 1;
+0061 <span class="keyword">while</span> i &lt;= length(varargin)
+0062     arg = varargin{i};
+0063     <span class="keyword">if</span> ischar(arg) &amp;&amp; ~isempty(arg) &amp;&amp; arg(1) == <span class="string">'-'</span>
+0064         <span class="comment">% we are dealing with an option argument</span>
+0065         <span class="keyword">switch</span>(strtrim(arg))
+0066             <span class="keyword">case</span> <span class="string">'-makedirs'</span>
+0067                 makedirs = true;
+0068             <span class="keyword">case</span> <span class="string">'-retryinput'</span>
+0069                 retryinput = true;
+0070             <span class="keyword">case</span> <span class="string">'-attributes'</span>
+0071                 fileattriblist = varargin{i+1};
+0072                 i = i+1; <span class="comment">% skip next arg, too</span>
+0073             <span class="keyword">case</span> <span class="string">'-prunehandles'</span>
+0074                 prunehandles = true;
+0075             <span class="keyword">case</span> {<span class="string">'-serialized'</span>,<span class="string">'-serialize'</span>}
+0076                 serialized = true;
+0077             <span class="keyword">case</span> <span class="string">'-nooverwrite'</span>
+0078                 nooverwrite = true;
+0079             <span class="keyword">otherwise</span>
+0080                 <span class="comment">% regular argument; append it</span>
+0081                 saveargs{end+1} = arg;
+0082         <span class="keyword">end</span>
+0083     <span class="keyword">else</span>
+0084         <span class="comment">% append the argument</span>
+0085         saveargs{end+1} = arg;
+0086         variables{end+1} = arg;
+0087     <span class="keyword">end</span>
+0088     i = i+1; <span class="comment">% go to next argument</span>
+0089 <span class="keyword">end</span>
+0090 
+0091 <span class="comment">% move variables into a local workspace for optional processing</span>
+0092 <span class="keyword">if</span> isempty(variables)
+0093     <span class="comment">% no variables listed: obtain all</span>
+0094     varinfos = evalin(<span class="string">'caller'</span>,<span class="string">'whos'</span>);
+0095     variables = {varinfos.name};
+0096     saveargs = [saveargs variables];
+0097 <span class="keyword">end</span>
+0098 <span class="keyword">for</span> k=1:length(variables)
+0099     wkspace.(variables{k}) = evalin(<span class="string">'caller'</span>,variables{k}); <span class="keyword">end</span>
+0100 
+0101 <span class="comment">% prune their handles</span>
+0102 <span class="keyword">if</span> prunehandles
+0103     <span class="keyword">for</span> k=1:length(variables)
+0104         wkspace.(variables{k}) = utl_prune_handles(wkspace.(variables{k})); <span class="keyword">end</span>
+0105 <span class="keyword">end</span>
+0106 
+0107 <span class="comment">% serialize the variables</span>
+0108 <span class="keyword">if</span> serialized
+0109     <span class="keyword">for</span> k=1:length(variables)
+0110         wkspace.(variables{k}) = hlp_serialize(wkspace.(variables{k})); <span class="keyword">end</span>
+0111     wkspace.is_serialized__ = [<span class="string">'variables were serialized using '</span> hlp_funcversion(@hlp_serialize) <span class="string">'; use hlp_deserialize (see File Exchange) to return them to their original form.'</span>];
+0112     saveargs{end+1} = <span class="string">'is_serialized__'</span>;
+0113 <span class="keyword">end</span>
+0114 
+0115 <span class="comment">% reformat the save-args into a string</span>
+0116 tmp = [saveargs' repmat({<span class="string">' '</span>},length(saveargs),1)]'; 
+0117 saveargs = [tmp{:}];
+0118 
+0119 <span class="comment">% reformat the fileattriblist into a cell array...</span>
+0120 fileattriblist = eval([<span class="string">'{'</span> fileattriblist <span class="string">'}'</span>]);
+0121 
+0122 <span class="keyword">while</span> 1    
+0123     <span class="keyword">if</span> makedirs
+0124         <span class="comment">% first ensure that the directory exists</span>
+0125         <span class="keyword">while</span> 1
+0126             <span class="keyword">try</span>
+0127                 <a href="io_mkdirs.html" class="code" title="function io_mkdirs(filepath,attribs)">io_mkdirs</a>(fname,fileattriblist);
+0128                 <span class="keyword">break</span>;
+0129             <span class="keyword">catch</span>
+0130                 warning(<span class="string">'BCILAB:io_save:cannot_create_directory'</span>,[<span class="string">'Error creating target directory '</span> fname <span class="string">'. Please review your permissions.'</span>]);
+0131                 <span class="keyword">if</span> retryinput
+0132                     <span class="keyword">if</span> strcmp(input(<span class="string">'Would you like to retry? [yes/no]: '</span>,<span class="string">'s'</span>),<span class="string">'no'</span>)
+0133                         disp(<span class="string">'Did not save the data.'</span>);
+0134                         <span class="keyword">break</span>;
+0135                     <span class="keyword">end</span>
+0136                 <span class="keyword">else</span>
+0137                     <span class="keyword">break</span>;
+0138                 <span class="keyword">end</span>
+0139             <span class="keyword">end</span>
+0140         <span class="keyword">end</span>
+0141     <span class="keyword">end</span>
+0142     
+0143     <span class="comment">% we have copied the variables to be saved into the 'wkspace' variable; now save</span>
+0144     <span class="keyword">try</span>
+0145         <span class="keyword">if</span> nooverwrite &amp;&amp; exist(fname,<span class="string">'file'</span>)
+0146             <span class="keyword">return</span>; <span class="keyword">end</span>
+0147         <span class="keyword">if</span> length(fname)&gt;4 &amp;&amp; strcmpi(fname(end-3:end),<span class="string">'.sto'</span>)
+0148             <span class="comment">% save as .sto file (fast)</span>
+0149             bytes = hlp_serialize(wkspace);
+0150             f = fopen(fname,<span class="string">'w'</span>);
+0151             fwrite(f,bytes);
+0152             fclose(f);
+0153         <span class="keyword">else</span>            
+0154             <span class="comment">% save as .mat file (slow)</span>
+0155             <a href="#_sub1" class="code" title="subfunction save_workspace(fname__,saveargs__,workspace__)">save_workspace</a>(fname,saveargs,wkspace);
+0156         <span class="keyword">end</span>
+0157         <span class="keyword">if</span> ~isempty(fileattriblist)
+0158             <span class="comment">% try to set file fileattriblist...</span>
+0159             <span class="keyword">if</span> ~isempty(fileattriblist)
+0160                 warning off MATLAB:FILEATTRIB:SyntaxWarning
+0161                 fileattrib(fname,fileattriblist{:}); 
+0162             <span class="keyword">end</span>            
+0163         <span class="keyword">end</span>
+0164         <span class="keyword">break</span>;
+0165     <span class="keyword">catch</span> e
+0166         warning(<span class="string">'BCILAB:io_save:cannot_save_file'</span>,[<span class="string">'Error saving target file '</span> fname <span class="string">'. Please review your permissions: '</span> e.message]);
+0167         <span class="keyword">if</span> retryinput
+0168             <span class="keyword">if</span> strcmp(input(<span class="string">'Would you like to retry? [yes/no]'</span>,<span class="string">'s'</span>),<span class="string">'no'</span>) 
+0169                 disp(<span class="string">'Did not save the data.'</span>);
+0170                 <span class="keyword">break</span>;
+0171             <span class="keyword">end</span>
+0172         <span class="keyword">else</span>
+0173             <span class="keyword">break</span>;
+0174         <span class="keyword">end</span>
+0175     <span class="keyword">end</span>
+0176 <span class="keyword">end</span>
+0177 
+0178 <span class="comment">% save, given a workspace of variables</span>
+0179 <a name="_sub1" href="#_subfunctions" class="code">function save_workspace(fname__,saveargs__,workspace__)</a>
+0180 <span class="keyword">for</span> fn__=fieldnames(workspace__)'
+0181     eval([fn__{1} <span class="string">' = workspace__.(fn__{1});'</span>]); <span class="keyword">end</span>
+0182 clear workspace__ fn__;
+0183 eval([<span class="string">'save '''</span> fname__ <span class="string">''' '</span> saveargs__ <span class="string">';'</span>]);</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/filters&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>flt_wavelet
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -75,11 +76,16 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
+
+
+
 
 
 
@@ -139,40 +145,43 @@ This function is called by:
 0053 arg_define(varargin,<span class="keyword">...</span>
 0054     arg_norep({<span class="string">'signal'</span>,<span class="string">'Signal'</span>}), <span class="keyword">...</span>
 0055     arg({<span class="string">'wfamily'</span>,<span class="string">'Family'</span>,<span class="string">'family'</span>}, <span class="string">'db10'</span>, {<span class="string">'db2'</span>,<span class="string">'db3'</span>,<span class="string">'db4'</span>,<span class="string">'db5'</span>,<span class="string">'db6'</span>,<span class="string">'db7'</span>,<span class="string">'db8'</span>,<span class="string">'db9'</span>,<span class="string">'db10'</span>,<span class="string">'db11'</span>,<span class="string">'db12'</span>,<span class="string">'db13'</span>,<span class="string">'db14'</span>,<span class="string">'db15'</span>,<span class="string">'db16'</span>,<span class="string">'db17'</span>,<span class="string">'db18'</span>,<span class="string">'db19'</span>,<span class="string">'db20'</span>,<span class="string">'coif2'</span>,<span class="string">'coif3'</span>,<span class="string">'coif4'</span>,<span class="string">'coif5'</span>,<span class="string">'sym2'</span>,<span class="string">'sym3'</span>,<span class="string">'sym4'</span>,<span class="string">'sym5'</span>,<span class="string">'sym6'</span>,<span class="string">'sym7'</span>,<span class="string">'sym8'</span>,<span class="string">'sym9'</span>,<span class="string">'sym10'</span>,<span class="string">'sym11'</span>,<span class="string">'sym12'</span>,<span class="string">'sym13'</span>,<span class="string">'sym14'</span>,<span class="string">'sym15'</span>,<span class="string">'sym16'</span>,<span class="string">'sym17'</span>,<span class="string">'sym18'</span>,<span class="string">'sym19'</span>,<span class="string">'sym20'</span>}, <span class="string">'Wavelet Family. The wavelet family to use; Typical examples are db2 - db20, sym2 - sym45, and coif2 - coif5.'</span>), <span class="keyword">...</span>
-0056     arg({<span class="string">'wlevels'</span>,<span class="string">'NumLevels'</span>,<span class="string">'numlevels'</span>}, 10, [], <span class="string">'Number of decomposition levels. If this is &gt; 1, a multi-level wavelet decomposition will be done.'</span>));
+0056     arg({<span class="string">'wlevels'</span>,<span class="string">'NumLevels'</span>,<span class="string">'numlevels'</span>}, 10, uint32([0 1 20 100]), <span class="string">'Number of decomposition levels. If this is &gt; 1, a multi-level wavelet decomposition will be done.'</span>));
 0057 
 0058 <span class="comment">% generate coefficients if necessary</span>
-0059 <span class="keyword">if</span> ischar(wfamily)
-0060     [lo,hi] = wfilters(wfamily,<span class="string">'d'</span>);
+0059 <span class="keyword">if</span> ischar(wfamily) <span class="comment">%#ok&lt;USENS&gt;</span>
+0060     [lo,hi] = hlp_diskcache(<span class="string">'filterdesign'</span>,@wfilters,wfamily,<span class="string">'d'</span>);
 0061 <span class="keyword">else</span>
 0062     [lo,hi] = deal(wfamily{:});
 0063 <span class="keyword">end</span>
 0064 lf = length(lo);
 0065 
-0066 <span class="comment">% permute dimensions of the signal for parallel processing (into S x T*C)</span>
-0067 X = reshape(permute(signal.data,[2 1 3]),signal.pnts,[]);
-0068 
-0069 C = [];
-0070 <span class="comment">% for each decomposition level...</span>
-0071 <span class="keyword">for</span> i = 1:wlevels
-0072     <span class="comment">% figure out the sub-range to retain</span>
-0073     lx = size(X,1); first = 2; last = lx+lf-1;
-0074     <span class="comment">% pad the signal</span>
-0075     Y = X([lf-1:-1:1, 1:lx, lx:-1:lx-(lf-1)+1],:);
-0076     <span class="comment">% compute approximation coefficients</span>
-0077     Z = conv2(Y,lo(:),<span class="string">'valid'</span>); <span class="comment">% Z = wconv1_p(Y,Lo_D,'valid');</span>
-0078     X = Z(first:2:last,:);
-0079     <span class="comment">% compute &amp; append detail coefficients</span>
-0080     Z = conv2(Y,hi(:),<span class="string">'valid'</span>);  <span class="comment">% Z = wconv1_p(Y,Hi_D,'valid');</span>
-0081     C = [Z(first:2:last,:); C];
-0082 <span class="keyword">end</span>
-0083 C = [X; C];
-0084 
-0085 <span class="comment">% reshape back into the original signal dimension...</span>
-0086 signal.data = permute(reshape(C,[],signal.nbchan,signal.trials),[2 1 3]);
-0087 signal.pnts = size(signal.data,2);
-0088 
-0089 exp_endfun(<span class="string">'append_online'</span>,{<span class="string">'wfamily'</span>,{lo,hi}});</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0066 <span class="keyword">for</span> f = utl_timeseries_fields(signal) <span class="comment">%#ok&lt;NODEF&gt;</span>
+0067     <span class="keyword">if</span> ~isempty(signal.(f{1}))
+0068         <span class="comment">% flip dimensions so we can filter along the first dimension</span>
+0069         [X,dims] = spatialize_transpose(signal.(f{1}));
+0070         C = [];
+0071         <span class="comment">% for each decomposition level...</span>
+0072         <span class="keyword">for</span> i = 1:wlevels
+0073             <span class="comment">% figure out the sub-range to retain</span>
+0074             lx = size(X,1); first = 2; last = lx+lf-1;
+0075             <span class="comment">% pad the signal</span>
+0076             Y = X([lf-1:-1:1, 1:lx, lx:-1:lx-(lf-1)+1],:);
+0077             <span class="comment">% compute approximation coefficients</span>
+0078             Z = conv2(Y,lo(:),<span class="string">'valid'</span>);
+0079             X = Z(first:2:last,:);
+0080             <span class="comment">% compute &amp; append detail coefficients</span>
+0081             Z = conv2(Y,hi(:),<span class="string">'valid'</span>);
+0082             C = [Z(first:2:last,:); C]; <span class="comment">%#ok&lt;AGROW&gt;</span>
+0083         <span class="keyword">end</span>
+0084         C = [X; C]; <span class="comment">%#ok&lt;AGROW&gt;</span>
+0085         <span class="comment">% unflip dimensions and write back the result</span>
+0086         signal.(f{1}) = unspatialize_transpose(C,dims);
+0087     <span class="keyword">end</span>
+0088 <span class="keyword">end</span>
+0089 signal.pnts = size(signal.data,2);
+0090 
+0091 exp_endfun(<span class="string">'append_online'</span>,{<span class="string">'wfamily'</span>,{lo,hi}});</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

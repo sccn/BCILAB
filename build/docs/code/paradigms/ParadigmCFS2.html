@@ -1,0 +1,334 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html>
+<head>
+  <title>Description of ParadigmCFS2</title>
+  <meta name="keywords" content="ParadigmCFS2">
+  <meta name="description" content="">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="generator" content="m2html v1.5 &copy; 2003-2005 Guillaume Flandin">
+  <meta name="robots" content="index, follow">
+  <link type="text/css" rel="stylesheet" href="../../m2html.css">
+</head>
+<body>
+<a name="_top"></a>
+<div><a href="../../index.html">Home</a> &gt;  <a href="#">code</a> &gt; <a href="index.html">paradigms</a> &gt; ParadigmCFS2.m</div>
+
+<!--<table width="100%"><tr><td align="left"><a href="../../index.html"><img alt="<" border="0" src="../../left.png">&nbsp;Master index</a></td>
+<td align="right"><a href="index.html">Index for code/paradigms&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
+
+<h1>ParadigmCFS2
+
+</h1>
+
+<h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong></strong></div>
+
+<h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="box"><strong>This is a script file. </strong></div>
+
+<h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre class="comment"></pre></div>
+
+<!-- crossreference -->
+<h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+This function calls:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="ParadigmBase.html" class="code" title="">ParadigmBase</a>	</li>
+<li><a href="ParadigmCFS2.html" class="code" title="">ParadigmCFS2</a>	</li>
+</ul>
+This function is called by:
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="ParadigmCFS2.html" class="code" title="">ParadigmCFS2</a>	</li>
+</ul>
+<!-- crossreference -->
+
+
+<h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<ul style="list-style-image:url(../../matlabicon.gif)">
+
+<li><a href="#_sub1" class="code">function defaults = preprocessing_defaults(self)</a></li>
+<li><a href="#_sub2" class="code">function defaults = machine_learning_defaults(self)</a></li>
+<li><a href="#_sub3" class="code">function model = calibrate(self,varargin)</a></li>
+<li><a href="#_sub4" class="code">function res = preproc_set(self, procdata, args)</a></li>
+<li><a href="#_sub5" class="code">function predictions = predict(self,bundle,model)</a></li>
+<li><a href="#_sub6" class="code">function newfeatures = feature_extract(self,signal,featuremodel)</a></li>
+<li><a href="#_sub7" class="code">function visualize(self,varargin)</a></li>
+<li><a href="#_sub8" class="code">function layout = dialog_layout_defaults(self)</a></li>
+</ul>
+
+
+
+
+<h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
+<div class="fragment"><pre>0001 classdef <a href="ParadigmCFS2.html" class="code" title="">ParadigmCFS2</a> &lt; <a href="ParadigmBase.html" class="code" title="">ParadigmBase</a>
+0002     <span class="comment">% Common Feature Subspace method.</span>
+0003     <span class="comment">%</span>
+0004     <span class="comment">% This paradigm implements the CFS, which is an experimental method to learn first or second order</span>
+0005     <span class="comment">% feature based BCIs from a group of subjects.</span>
+0006     <span class="comment">%</span>
+0007     <span class="comment">% Name:</span>
+0008     <span class="comment">%   Common Feature Subspace</span>
+0009     <span class="comment">%</span>
+0010     <span class="comment">%                            Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0011     <span class="comment">%                            2015-07-15</span>
+0012     
+0013     methods
+0014         
+0015         <a name="_sub0" href="#_subfunctions" class="code">function defaults = preprocessing_defaults(self)</a>
+0016             defaults = {<span class="string">'EpochExtraction'</span>,[-1.5 1.5],<span class="string">'Resampling'</span>,90};
+0017         <span class="keyword">end</span>
+0018                 
+0019         <a name="_sub1" href="#_subfunctions" class="code">function defaults = machine_learning_defaults(self)</a>
+0020             <span class="comment">% set up the default parameters for machine learning</span>
+0021             defaults = {<span class="string">'proximal'</span> <span class="keyword">...</span>
+0022                 <span class="string">'Regularizers'</span>, { <span class="keyword">...</span>
+0023                     <span class="string">'Term1'</span>, <span class="string">'trace'</span> <span class="keyword">...</span>
+0024                     <span class="string">'Term2'</span>, {<span class="string">'trace'</span> <span class="keyword">...</span>
+0025                         <span class="string">'LinearOperator'</span>, <span class="string">'@(x)reshape(x,a*b,[])'</span>}} <span class="keyword">...</span>
+0026                 <span class="string">'LambdaSearch'</span>, { <span class="keyword">...</span>
+0027                     <span class="string">'ReturnRegpath'</span>, false}};
+0028         <span class="keyword">end</span>
+0029                 
+0030         <a name="_sub2" href="#_subfunctions" class="code">function model = calibrate(self,varargin)</a>
+0031             <span class="comment">% calibrate an MSERP model from a corpus of training sets</span>
+0032             args = arg_define(varargin, <span class="keyword">...</span>
+0033                 arg_norep({<span class="string">'collection'</span>,<span class="string">'Collection'</span>}), <span class="keyword">...</span>
+0034                 arg_norep({<span class="string">'goal_identifier'</span>,<span class="string">'GoalIdentifier'</span>}), <span class="keyword">...</span>
+0035                 arg({<span class="string">'modality'</span>,<span class="string">'Modality'</span>},<span class="string">'ERP'</span>,{<span class="string">'ERP'</span>,<span class="string">'OSC'</span>},<span class="string">'Feature modality. Either ERPs (first-order features) or oscillatory processes (second-order / covariance features).'</span>), <span class="keyword">...</span><span class="comment"> </span>
+0036                 arg({<span class="string">'erp_frequencies'</span>,<span class="string">'ERPFrequencies'</span>},[0.05 0.3 14 16],[],<span class="string">'ERP frequency band. These are 4 band edges describing a trapezoidal gain function.'</span>), <span class="keyword">...</span><span class="comment"> </span>
+0037                 arg({<span class="string">'osc_frequencies'</span>,<span class="string">'OSCFrequencies'</span>},[6 8 28 32],[],<span class="string">'Oscillatory frequency band. These are 4 band edges describing a trapezoidal gain function.'</span>), <span class="keyword">...</span><span class="comment"> </span>
+0038                 arg({<span class="string">'group_tasks_by'</span>,<span class="string">'GroupTasksBy'</span>},<span class="string">'subject'</span>,{<span class="string">'group'</span>,<span class="string">'subject'</span>,<span class="string">'day'</span>,<span class="string">'montage'</span>,<span class="string">'session'</span>,<span class="string">'recording'</span>,<span class="string">'block'</span>},<span class="string">'Group tasks into. This allows to group the training data into tasks solved in a multi-task manner, e.g., such that data of a given subject forms one task. When hyper-parameters need to be optimized, this would usually be done using a basic blockwise cross-validation within each task.'</span>), <span class="keyword">...</span>
+0039                 arg({<span class="string">'spatial_whitening'</span>,<span class="string">'SpatialWhitening'</span>},1,[0 1],<span class="string">'Degree of spatial whitening. This is a regularization parameter that governs to what extent the data of each subject shall be whitened spatially.'</span>), <span class="keyword">...</span>
+0040                 arg({<span class="string">'temporal_whitening'</span>,<span class="string">'TemporalWhitening'</span>},1,[0 1],<span class="string">'Degree of temporal whitening. This is a regularization parameter that governs to what extent the data of each subject shall be whitened temporally.'</span>), <span class="keyword">...</span>
+0041                 arg({<span class="string">'reference_weight'</span>,<span class="string">'ReferenceWeight'</span>},0,[0 Inf],<span class="string">'Weight of the reference set. This is the weight that the reference data (of the goal subject) has, while the data of remaining subjects has 1 minus this weight. If set to 0, the reference set is weighted according to the proportion in the corpus. If this is greater than 1, it is taken as a multiplicative factor on top of its proportion in the corpus (e.g., 3 would weigh as much as 3 other subjects).'</span>), <span class="keyword">...</span>
+0042                 arg({<span class="string">'cov_type'</span>,<span class="string">'CovarianceType'</span>},<span class="string">'full'</span>,{<span class="string">'diag'</span>,<span class="string">'full'</span>,<span class="string">'shrink'</span>},<span class="string">'Covariance estimator. The covariance estimator to use; can be diagonal, full covariance, or shrinkage covariance.'</span>), <span class="keyword">...</span>
+0043                 arg({<span class="string">'apply_to'</span>,<span class="string">'ApplyTo'</span>},<span class="string">'channels'</span>,{<span class="string">'channels'</span>,<span class="string">'sources'</span>,<span class="string">'components'</span>,<span class="string">'full CSD'</span>},<span class="string">'Apply classifier to. Allows to select the type of time series to apply this model to.'</span>), <span class="keyword">...</span>
+0044                 arg({<span class="string">'engine_proc'</span>,<span class="string">'ParallelEngine'</span>,<span class="string">'engine'</span>},<span class="string">'global'</span>,{<span class="string">'global'</span>,<span class="string">'local'</span>,<span class="string">'BLS'</span>,<span class="string">'Reference'</span>,<span class="string">'ParallelComputingToolbox'</span>}, <span class="string">'Parallel engine to use for preproc. This can either be one of the supported parallel engines (BLS for BCILAB Scheduler, Reference for a local reference implementation, and ParallelComputingToolbox for a PCT-based implementation), or local to skip parallelization altogether, or global to select the currently globally selected setting (in the global tracking variable).'</span>), <span class="keyword">...</span>
+0045                 arg_sub({<span class="string">'flt'</span>,<span class="string">'SignalProcessing'</span>}, self.preprocessing_defaults(), @flt_pipeline, <span class="string">'Signal processing stages. These parameters control filter stages that run on the signal level; they can be enabled, disabled and configured for the given paradigm. The prediction operates on the outputs of this stage.'</span>), <span class="keyword">...</span>
+0046                 arg_sub({<span class="string">'ml'</span>,<span class="string">'MachineLearning'</span>},{<span class="string">'Learner'</span>,self.machine_learning_defaults()},@ml_train,<span class="string">'Machine learning stage of the paradigm. Operates on the feature vectors that are produced by the feature-extraction stage.'</span>),<span class="keyword">...</span>
+0047                 arg({<span class="string">'arg_dialogsel'</span>,<span class="string">'ConfigLayout'</span>},self.dialog_layout_defaults(),[],<span class="string">'Parameters displayed in the config dialog. Cell array of parameter names to display (dot-notation allowed); blanks are translated into empty rows in the dialog. Referring to a structure argument lists all parameters of that struture, except if it is a switchable structure - in this case, a pulldown menu with switch options is displayed.'</span>,<span class="string">'type'</span>,<span class="string">'cellstr'</span>,<span class="string">'shape'</span>,<span class="string">'row'</span>));
+0048             
+0049             <span class="comment">% split data into reference data (of goal subject) and remaining data</span>
+0050             [refsets,remaining] = utl_collection_closest(args.collection,args.goal_identifier);
+0051             
+0052             <span class="comment">% recombine and move ref data to the beginning (because this paradigm will later</span>
+0053             <span class="comment">% extract the weights learned for the first task) and turn into struct array for</span>
+0054             <span class="comment">% convenience</span>
+0055             corpus = [refsets{:} remaining{:}];
+0056             
+0057             <span class="comment">% determine group membership</span>
+0058             group_membership = {corpus.(args.group_tasks_by)};
+0059             <span class="keyword">if</span> iscellstr(group_membership)
+0060                 groups = unique(group_membership);
+0061             <span class="keyword">else</span>
+0062                 groups = num2cell(unique([group_membership{:}]));
+0063             <span class="keyword">end</span>
+0064             
+0065             <span class="comment">% for each group...</span>
+0066             [features,targets,transforms,scales,jobs] = deal(cell(1,length(groups)));
+0067             <span class="keyword">for</span> s=1:length(groups)
+0068                 matches = find(cellfun(@(x)isequal(x,groups{s}),group_membership));
+0069                 matchdata = cell(1,length(matches));
+0070 
+0071                 <span class="comment">% collect all matching data sets...</span>
+0072                 <span class="keyword">for</span> p=1:length(matches)
+0073                     matchdata{p} = corpus(matches(p));
+0074                     <span class="keyword">if</span> length(matchdata{p}.streams) &gt; 1
+0075                     disp_once(<span class="string">'Note: ParadigmMKLCSP will use only the first data stream of a recording (no support for multi-modal data).'</span>); <span class="keyword">end</span>
+0076                     matchdata{p} = matchdata{p}.streams{1};
+0077                 <span class="keyword">end</span>
+0078                 <span class="comment">% concatenate them into a single set</span>
+0079                 procdata = set_concat(matchdata{:});
+0080 
+0081                 <span class="comment">% generate a preprocessing job</span>
+0082                 jobs{s} = {self.cached_method(<span class="string">'preproc_set'</span>), procdata, args};
+0083             <span class="keyword">end</span>
+0084             
+0085             <span class="comment">% run the jobs and reconcile results</span>
+0086             results = par_schedule(jobs, <span class="string">'engine'</span>, args.engine_proc);
+0087             <span class="keyword">for</span> s=1:length(groups)
+0088                 [scales{s},features{s},targets{s},transforms{s}] = deal(results{s}.scales, <span class="keyword">...</span>
+0089                     results{s}.features, results{s}.targets, results{s}.transforms);                    
+0090             <span class="keyword">end</span>
+0091             
+0092             <span class="comment">% check for and remove bad data</span>
+0093             remove = [];
+0094             <span class="keyword">for</span> s=1:length(features)
+0095                 <span class="keyword">if</span> size(features{s},3) &lt; 2
+0096                     fprintf(<span class="string">'Encountered bad data at subject %s/%i.\n'</span>,corpus(s).streams{1}.parts{2}.parts{1:2}); 
+0097                     remove(end+1) = s;
+0098                 <span class="keyword">end</span>
+0099             <span class="keyword">end</span>
+0100             <span class="keyword">if</span> ~isempty(remove)
+0101                 fprintf(<span class="string">'Removing bad data...\n'</span>); 
+0102                 scales(remove) = [];
+0103                 features(remove) = [];
+0104                 targets(remove) = [];
+0105                 transforms(remove) = [];
+0106                 <span class="comment">% data_weights(remove) = [];</span>
+0107             <span class="keyword">end</span>
+0108             
+0109             <span class="comment">% train classifier using multi-task learning</span>
+0110             <span class="comment">% args.ml.learner.data_weights = data_weights;</span>
+0111             model.predictivemodel = ml_train(<span class="string">'data'</span>,{features,targets}, args.ml);
+0112             model.predictivemodel.model.w = model.predictivemodel.model.w{1};
+0113             <span class="comment">% store some more model parameters</span>
+0114             model.featuremodel.P = transforms{1};
+0115             model.featuremodel.scale = scales{1};
+0116             model.featuremodel.apply_to = args.apply_to;
+0117             model.featuremodel.modality = args.modality;
+0118             model.times = procdata.xmin + (0:procdata.pnts-1)/procdata.srate;
+0119             model.cov = cov(procdata.data(:,:)');            
+0120             <span class="comment">% set the filter graph based on the last reference data set</span>
+0121             model.tracking.filter_graph = exp_eval(flt_pipeline(<span class="string">'signal'</span>,refsets{end}, args.flt));
+0122             model.chanlocs = procdata.chanlocs;
+0123         <span class="keyword">end</span>
+0124         
+0125         <a name="_sub3" href="#_subfunctions" class="code">function res = preproc_set(self, procdata, args)</a>
+0126             <span class="comment">% Preprocess a given data set according to the args and extract relevant parameters</span>
+0127 
+0128             <span class="comment">% if this is run on a worker, we'll set the cache capacity to zero since no machine</span>
+0129             <span class="comment">% has enough RAM to hold multiple workers' copies of the corpus in memory</span>
+0130             on_worker = hlp_iscaller(<span class="string">'par_worker'</span>);
+0131             <span class="keyword">if</span> on_worker
+0132                 <span class="keyword">global</span> tracking;
+0133                 tracking.cache.capacity = 0; 
+0134             <span class="keyword">end</span>
+0135             
+0136             <span class="comment">% set up modality-specific preprocessing defaults</span>
+0137             <span class="keyword">switch</span> args.modality
+0138                 <span class="keyword">case</span> <span class="string">'ERP'</span>
+0139                     preproc = {<span class="string">'IIRFilter'</span>,{args.erp_frequencies(1:2),<span class="string">'highpass'</span>}, <span class="string">'FIRFilter'</span>,{args.erp_frequencies(3:4),<span class="string">'lowpass'</span>,<span class="string">'minimum-phase'</span>}};
+0140                     normalizers = [-0.25,-0.25];
+0141                 <span class="keyword">case</span> <span class="string">'OSC'</span>
+0142                     preproc = {<span class="string">'FIRFilter'</span>,{[6 8 28 32],<span class="string">'bandpass'</span>,<span class="string">'minimum-phase'</span>}};
+0143                     normalizers = [-0.5,-0.5];
+0144                 <span class="keyword">otherwise</span>
+0145                     error(<span class="string">'Unsupported modality: %s'</span>,hlp_tostring(args.modality));
+0146             <span class="keyword">end</span>
+0147             <span class="comment">% and preprocess the result (with further settings/overrides according to args.flt)</span>
+0148             procdata = flt_pipeline(<span class="string">'Signal'</span>,procdata, preproc{:}, args.flt); <span class="comment">%#ok&lt;*NODEF&gt;</span>
+0149             <span class="keyword">if</span> on_worker
+0150                 <span class="comment">% if we're running on a worker we don't cache the result due to memory</span>
+0151                 <span class="comment">% constraints</span>
+0152                 procdata = exp_eval(procdata);
+0153             <span class="keyword">else</span>
+0154                 procdata = exp_eval_optimized(procdata);
+0155             <span class="keyword">end</span>                    
+0156             <span class="comment">% extract data</span>
+0157             <span class="keyword">switch</span> args.apply_to
+0158                 <span class="keyword">case</span> <span class="string">'channels'</span>
+0159                     X = procdata.data;
+0160                 <span class="keyword">case</span> <span class="string">'components'</span>
+0161                     X = reshape((procdata.icaweights*procdata.icasphere)*procdata.data(procdata.icachansind,:),[],procdata.pnts,procdata.trials);
+0162                 <span class="keyword">case</span> <span class="string">'sources'</span>
+0163                     X = procdata.srcpot;
+0164                 <span class="keyword">case</span> <span class="string">'full CSD'</span>
+0165                     X = procdata.srcpot_all;
+0166             <span class="keyword">end</span>
+0167             X(~isfinite(X(:))) = 0;
+0168             X = num2cell(X,[1 2]);
+0169             <span class="keyword">if</span> strcmp(args.modality,<span class="string">'OSC'</span>)
+0170                 <span class="keyword">for</span> t=1:length(X)
+0171                     X{t} = cov(X{t}'); <span class="keyword">end</span>
+0172             <span class="keyword">end</span>
+0173             <span class="comment">% calc spatial and temporal pre-processing matrices</span>
+0174             <span class="keyword">switch</span> args.cov_type
+0175                 <span class="keyword">case</span> <span class="string">'shrink'</span>
+0176                     P = {hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_shrink,cat(2,X{:})')^args.normalizers(1),hlp_diskcache(<span class="string">'featuremodels'</span>,@cov_shrink,cat(1,X{:}))^args.normalizers(2)}; 
+0177                 <span class="keyword">case</span> <span class="string">'full'</span>
+0178                     P = {cov(cat(2,X{:})')^normalizers(1),cov(cat(1,X{:}))^normalizers(2)}; 
+0179                 <span class="keyword">case</span> <span class="string">'diag'</span>                        
+0180                     P = {diag(var(cat(2,X{:})'))^normalizers(1),diag(var(cat(1,X{:})))^normalizers(2)};
+0181                 <span class="keyword">otherwise</span>
+0182                     error(<span class="string">'Unsupported covariance type requested.'</span>);
+0183             <span class="keyword">end</span>                
+0184             <span class="comment">% apply regularization</span>
+0185             P = {args.spatial_whitening*P{1} + (1-args.spatial_whitening)*eye(length(P{1}))*trace(P{1})/procdata.nbchan, args.temporal_whitening*P{2} + (1-args.temporal_whitening)*eye(length(P{2}))*trace(P{2})/procdata.pnts};
+0186             <span class="comment">% extract pre-processed features</span>
+0187             tmpfeatures = zeros([size(X{1}),length(X)]);
+0188             <span class="keyword">for</span> t=1:length(X)
+0189                 tmpfeatures(:,:,t) = P{1}*X{t}*P{2}; <span class="keyword">end</span>
+0190             <span class="comment">% calculated post-normalizer for the model and apply</span>
+0191             res.scales = 1/sum(sum(sqrt(var(tmpfeatures,[],3)))/(size(tmpfeatures,1)*size(tmpfeatures,2)));
+0192             res.features = tmpfeatures*res.scales;
+0193             <span class="comment">% extract target values</span>
+0194             res.targets = set_gettarget(procdata);
+0195             <span class="comment">% save the transforms</span>
+0196             res.transforms = P;            
+0197         <span class="keyword">end</span>
+0198             
+0199         
+0200         <a name="_sub4" href="#_subfunctions" class="code">function predictions = predict(self,bundle,model)</a>
+0201             <span class="comment">% extract features</span>
+0202             features = self.feature_extract(bundle.streams{1},model.featuremodel);
+0203             <span class="comment">% apply classifier</span>
+0204             predictions = ml_predict(features, model.predictivemodel);
+0205         <span class="keyword">end</span>
+0206         
+0207         <a name="_sub5" href="#_subfunctions" class="code">function newfeatures = feature_extract(self,signal,featuremodel)</a>
+0208             <span class="keyword">switch</span> featuremodel.apply_to
+0209                 <span class="keyword">case</span> <span class="string">'channels'</span>
+0210                     features = signal.data;
+0211                 <span class="keyword">case</span> <span class="string">'sources'</span>
+0212                     features = signal.srcpot;
+0213                 <span class="keyword">case</span> <span class="string">'full CSD'</span>
+0214                     features = signal.srcpot_all;
+0215                 <span class="keyword">case</span> <span class="string">'components'</span>
+0216                     features = reshape((signal.icaweights*signal.icasphere)*signal.data(signal.icachansind,:),[],signal.pnts,signal.trials);
+0217             <span class="keyword">end</span>
+0218              <span class="keyword">if</span> strcmp(featuremodel.modality,<span class="string">'ERP'</span>)
+0219                 <span class="keyword">for</span> t=size(features,3):-1:1
+0220                     newfeatures(:,:,t) = featuremodel.scale*featuremodel.P{1}*features(:,:,t)*featuremodel.P{2}; <span class="keyword">end</span>
+0221             <span class="keyword">else</span>
+0222                 <span class="keyword">for</span> t=size(features,3):-1:1
+0223                     newfeatures(:,:,t) = featuremodel.scale*featuremodel.P{1}*cov(features(:,:,t)')*featuremodel.P{2}; <span class="keyword">end</span>
+0224             <span class="keyword">end</span>
+0225         <span class="keyword">end</span>
+0226                 
+0227         <a name="_sub6" href="#_subfunctions" class="code">function visualize(self,varargin) </a><span class="comment">%#ok&lt;*INUSD&gt;</span>
+0228             <span class="comment">% visualize an mklCSP model</span>
+0229             args = arg_define(varargin, <span class="keyword">...</span>
+0230                 arg_norep({<span class="string">'model'</span>,<span class="string">'Model'</span>},[],[],<span class="string">'BCI Model to visualize.'</span>), <span class="keyword">...</span>
+0231                 arg({<span class="string">'patterns'</span>,<span class="string">'PlotPatterns'</span>},true,[],<span class="string">'Plot patterns instead of filters. Whether to plot spatial patterns (forward projections) rather than spatial filters.'</span>), <span class="keyword">...</span>
+0232                 arg({<span class="string">'paper'</span>,<span class="string">'PaperFigure'</span>},false,[],<span class="string">'Use paper-style font sizes. Whether to generate a plot with font sizes etc. adjusted for paper.'</span>));
+0233 
+0234             f = figure;            
+0235             <span class="comment">% get number of pairs, and index of pattern per subplot</span>
+0236             np = size(args.model.featuremodel.patterns,1)/2; 
+0237             idx = [1:np 2*np:-1:np+1];
+0238             <span class="comment">% for each CSP pattern...</span>
+0239             <span class="keyword">for</span> p=1:np*2
+0240                 subplot(2,np,p,<span class="string">'Parent'</span>,f);
+0241                 <span class="keyword">if</span> args.patterns
+0242                     topoplot(args.model.featuremodel.patterns(idx(p),:),args.model.featuremodel.chanlocs);
+0243                 <span class="keyword">else</span>
+0244                     topoplot(args.model.featuremodel.filters(:,idx(p)),args.model.featuremodel.chanlocs);
+0245                 <span class="keyword">end</span>
+0246                 t = title([<span class="string">'CSP Pattern '</span> num2str(idx(p))]);
+0247                 <span class="keyword">if</span> args.paper
+0248                     set(t,<span class="string">'FontUnits'</span>,<span class="string">'normalized'</span>);
+0249                     set(t,<span class="string">'FontSize'</span>,0.1);                    
+0250                 <span class="keyword">end</span>
+0251             <span class="keyword">end</span>
+0252         <span class="keyword">end</span>
+0253         
+0254         <a name="_sub7" href="#_subfunctions" class="code">function layout = dialog_layout_defaults(self)</a>
+0255             <span class="comment">% define the default configuration dialog layout</span>
+0256             layout = {<span class="string">'SignalProcessing.Resampling.SamplingRate'</span>, <span class="string">'SignalProcessing.FIRFilter.Frequencies'</span>, <span class="keyword">...</span>
+0257                 <span class="string">'SignalProcessing.EpochExtraction'</span>, <span class="string">''</span>, <span class="keyword">...</span>
+0258                 <span class="string">'SpatialWhitening'</span>, <span class="string">'TemporalWhitening'</span>,<span class="string">'ReferenceWeight'</span>,<span class="string">'CovarianceType'</span>};
+0259         <span class="keyword">end</span>
+0260                 
+0261     <span class="keyword">end</span>
+0262 <span class="keyword">end</span>
+0263             
+0264 <span class="comment">% (turn off a few editor warnings because some actual implementations are missing in this file)</span>
+0265 <span class="comment">%#ok&lt;*INUSD,*STOUT,*MANU&gt;</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+</body>
+</html>

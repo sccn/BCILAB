@@ -128,7 +128,8 @@ arg_define([0 3],varargin, ...
     arg_norep('targets'), ...
     arg({'lam','Lambda','lambda'},  1, [0 2^-7 2^15 Inf], 'Regularization parameter for l1/l2. A comprehensive search interval would be 2.^(-6:0.5:10).'), ...
     arg_subswitch({'variant','Variant'},'vb', ...
-        {'vb',{},'vb-iter',{},'vb-ard',{},'l1',{},'l2',{}, ...
+        {'vb',{},'vb-iter',{},'vb-ard',{},'l1',{}, ...
+        'l2',{arg({'lambdasearch','LambdaSearch'},true,[],'Automatic lambda search. If true, this method will internally handle the lambda search; the lambda parameter is then ignored (fast).')}, ...
          'lars',{arg({'nfolds','NumFolds'},5,[0 Inf],'Cross-validation folds. The cross-validation is used to determine the best regularization parameter. If this is smaller than 1, it is taken as a fraction of the number of trials.'),...
                   arg({'foldmargin','FoldMargin'},0,[0 0 10 Inf],'Margin between folds. This is the number of trials omitted between training and test set.'), ...
                   arg({'alpha','ElasticMixing'},1,[0.01 1],'ElasticNet mixing parameter. The default is the lasso penalty.'), ...
@@ -163,7 +164,7 @@ else
 end
 
 % we have to use CVX for logreg, if the appropriate LIBLINEAR version is missing
-need_fallback = fallback || isempty(which('llwtrain'));
+need_fallback = fallback || (isempty(which('llwtrain')) && isempty(which('lltrain')));
 use_cvx = any(strcmp(variant.arg_selection,{'l1','l2'})) && need_fallback;
 
 % identify and remap the classes
@@ -271,24 +272,41 @@ switch variant.arg_selection
         try
             if use_cvx
                 error('fall back'); end
-            if isempty(weights)
-                weights = ones(size(targets)); end
-            % LIBLINEAR-weights 1.6+
-            model = hlp_diskcache('predictivemodels',@llwtrain,double(weights),double(targets),sparse(double(trials)),[...
+            if variant.lambdasearch 
+                if lam ~= 1
+                    warn_once('Note: l2-logreg with LambdaSearch=true is performed; no need to specify/search over a lambda parameter.'); end
+                lam = hlp_diskcache('predictivemodels',@lltrain,double(targets),sparse(double(trials)),[...
+                    '-s 0 -C -B 1' quickif(~need_fallback,' -q ','') ...
+                    quickif(~isempty(epsi),[' -e ' num2str(epsi)],'')]);
+                lam = lam(1);
+            end
+            % LIBLINEAR-2.01
+            model = hlp_diskcache('predictivemodels',@lltrain,double(targets),sparse(double(trials)),[...
                 '-s 0 -c ' num2str(lam) ' -B 1' quickif(~need_fallback,' -q ','') ...
                 quickif(~isempty(epsi),[' -e ' num2str(epsi)],'')]);
         catch
-            if ~isempty(weights)
-                % fallback
-                cvx_begin
-                    variables W(size(trials,2)) b
-                    minimize(sum(weights.*log(1+exp(-targets.*(trials*W+b))))*lam + norm(W,2))
-                cvx_end
-            else
-                cvx_begin
-                    variables W(size(trials,2)) b
-                    minimize(sum(log(1+exp(-targets .* (trials*W+b))))*lam + norm(W,2))
-                cvx_end
+            try
+                if use_cvx
+                    error('fall back'); end
+                if isempty(weights)
+                    weights = ones(size(targets)); end
+                % LIBLINEAR-weights 1.6+
+                model = hlp_diskcache('predictivemodels',@llwtrain,double(weights),double(targets),sparse(double(trials)),[...
+                    '-s 0 -c ' num2str(lam) ' -B 1' quickif(~need_fallback,' -q ','') ...
+                    quickif(~isempty(epsi),[' -e ' num2str(epsi)],'')]);
+            catch                
+                if ~isempty(weights)
+                    % fallback
+                    cvx_begin
+                        variables W(size(trials,2)) b
+                        minimize(sum(weights.*log(1+exp(-targets.*(trials*W+b))))*lam + norm(W,2))
+                    cvx_end
+                else
+                    cvx_begin
+                        variables W(size(trials,2)) b
+                        minimize(sum(log(1+exp(-targets .* (trials*W+b))))*lam + norm(W,2))
+                    cvx_end
+                end
             end
             model = struct('W',W,'b',b);
         end

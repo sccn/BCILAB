@@ -18,6 +18,7 @@
 <td align="right"><a href="index.html">Index for code/environment&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>env_startup
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
@@ -51,6 +52,9 @@
                'temp': temp directory (for misc outputs, e.g., AMICA models and dipole fits) 
                        (default: path/to/bcilab-temp, or path/to/cache/bcilab_temp if a cache
                        directory was specified)
+
+               'private': optional private plugin directory, separate from bcilab/*; can have
+                          the same directory structure as ~/.bcilab/ (default: [])
 
                --- caching settings ---
 
@@ -101,15 +105,23 @@
                                    testing. Please use this facility at your own risk and report
                                    any issues (e.g., starving jobs) that you may encounter.
 
-               'aquire_options' : Cell array of arguments as expected by par_getworkers_ssh 
-                                  (with bcilab-specific defaults for unspecified arguments) 
+               'acquire_method' : name of the method to use to acquire worker processes (default:
+                                  'SSH')
+
+               'aquire_options' : Cell array of arguments as expected by par_getworkers_&lt;Method&gt;
+                                  (with bcilab-specific defaults for unspecified arguments)
                                   (default: {})
+
+               'autokill_workers' : Whether to automatically kill workers when cluster resources
+                                    are released (default: true)
 
                'worker' : whether this toolbox instance is started as a worker process or not; if 
                           false, diary logging and GUI menus and popups are enabled. If given as a 
                           cell array, the cell contents are passed on to the function par_worker,
                           which lets the toolbox act as a commandline-less worker (waiting to 
                           receive jobs over the network) (default: false)
+
+               'workflow' : &quot;workflow&quot; script to auto-launch upon startup (default: '')
 
                --- misc settings ---
 
@@ -123,6 +135,20 @@
 
                'show_guru' : whether to show methods and options marked 'guru' in the GUIs
                              (default: false)
+
+               'fingerprinting' : whether to calculate fingerprints of datasets; this allows to
+                                  manually curate dataset structs &quot;EEGLAB-style&quot; prior to using
+                                  them in offline analysis functions (e.g., bci_train). If
+                                  disabled, all dataset processing must happen in custom filters,
+                                  loaders, or must have been committed into .set files. Disabling
+                                  this can give a speed advantage on extremely large data sets.
+                                  (default: true)
+
+               'disabled_caches' : cell array of disabled disk caches; see hlp_diskcache lines at
+                                   the bottom of this file for available caches (default: {})
+
+               'temp_fileformat' : file format for BCILAB's temporary files (default: 'sto')
+
 
  Examples:
   Note that env_startup is usually not being called directly; instead the bcilab.m function in the
@@ -173,15 +199,29 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="env_handleerror.html" class="code" title="function varargout = env_handleerror(varargin)">env_handleerror</a>	Displays a formatted error message for some error object, including a full stack trace.</li><li><a href="env_load_dependencies.html" class="code" title="function env_load_dependencies(dependency_dir,autocompile)">env_load_dependencies</a>	Execute dependency loaders in the given directory tree.</li><li><a href="env_showmenu.html" class="code" title="function env_showmenu(varargin)">env_showmenu</a>	Links the BCILAB menu into another menu, or creates a new root menu if necessary.</li><li><a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>	Translates platform-independent directories into a system-specific directories.</li></ul>
+
+<li><a href="env_handleerror.html" class="code" title="function varargout = env_handleerror(varargin)">env_handleerror</a>	Displays a formatted error message for some error object, including a full stack trace.</li>
+<li><a href="env_load_dependencies.html" class="code" title="function env_load_dependencies(dependency_dir,autocompile)">env_load_dependencies</a>	Execute dependency loaders in the given directory tree.</li>
+<li><a href="env_showmenu.html" class="code" title="function env_showmenu(varargin)">env_showmenu</a>	Display the main BCILAB menu. Wrapper around gui_showmenu.</li>
+<li><a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>	Translates platform-independent directories into a system-specific directories.</li>
+</ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
+
 <h2><a name="_subfunctions"></a>SUBFUNCTIONS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <ul style="list-style-image:url(../../matlabicon.gif)">
-<li><a href="#_sub1" class="code">function_dir = [base_dir</a></li><li><a href="#_sub2" class="code">function dir = path_normalize(dir)</a></li><li><a href="#_sub3" class="code">function strings = strsplit(string, splitter)</a></li></ul>
+
+<li><a href="#_sub1" class="code">function_dir = [base_dir</a></li>
+<li><a href="#_sub2" class="code">function dir = path_normalize(dir)</a></li>
+<li><a href="#_sub3" class="code">function strings = strsplit(string, splitter)</a></li>
+</ul>
+
+
+
 
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function env_startup(varargin)</a>
@@ -210,496 +250,628 @@ This function is called by:
 0024 <span class="comment">%                       (default: path/to/bcilab-temp, or path/to/cache/bcilab_temp if a cache</span>
 0025 <span class="comment">%                       directory was specified)</span>
 0026 <span class="comment">%</span>
-0027 <span class="comment">%               --- caching settings ---</span>
-0028 <span class="comment">%</span>
-0029 <span class="comment">%               'cache': Path where intermediate data sets are cached. Should be located on a fast</span>
-0030 <span class="comment">%                        (local) drive with sufficient free capacity.</span>
-0031 <span class="comment">%                        * if this is left unspecified or empty, the cache is disabled</span>
-0032 <span class="comment">%                        * if this is a directory, it is used as the default cache location</span>
-0033 <span class="comment">%                        * a fine-grained cache setup can be defined by specifying a cell array of</span>
-0034 <span class="comment">%                          cache locations, where each cache location is a cell array of name-value</span>
-0035 <span class="comment">%                          pairs, with possible names:</span>
-0036 <span class="comment">%                          'dir': directory of the cache location (e.g. '/tmp/bcilab_tmp/'), mandatory</span>
-0037 <span class="comment">%                          'time': only computations taking more than this many seconds may be stored</span>
-0038 <span class="comment">%                                  in this location, but if a computation takes so long that another</span>
-0039 <span class="comment">%                                  cache location with a higher time applies, that other location is</span>
-0040 <span class="comment">%                                  preferred. For example, the /tmp directory may take computations</span>
-0041 <span class="comment">%                                  that take at least a minute, the home directory may take</span>
-0042 <span class="comment">%                                  computations that take at least an hour, the shared /data/results</span>
-0043 <span class="comment">%                                  location of the lab may take computations that take at least 12</span>
-0044 <span class="comment">%                                  hours (default: 30 seconds)</span>
-0045 <span class="comment">%                          'free': minimum amount of space to keep free on the given location, in GiB,</span>
-0046 <span class="comment">%                                   or, if smaller than 1, free is taken as the fraction of total</span>
-0047 <span class="comment">%                                   space to keep free. (default: 80)</span>
-0048 <span class="comment">%                          'tag': arbitrary identifier for the cache location (default: 'location_i',</span>
-0049 <span class="comment">%                                 for the i'th location) must be a valid MATLAB struct field name,</span>
-0050 <span class="comment">%                                 only for display purposes</span>
-0051 <span class="comment">%</span>
-0052 <span class="comment">%               'mem_capacity': capacity of the memory cache (default: 2)</span>
-0053 <span class="comment">%                               if this is smaller than 1, it is taken as a fraction of the total</span>
-0054 <span class="comment">%                               free physical memory at startup time, otherwise it is in GB</span>
-0055 <span class="comment">%</span>
-0056 <span class="comment">%               'data_reuses' : estimated number of reuses of a data set being computed (default: 3)</span>
-0057 <span class="comment">%                               ... depending on disk access speeds, this determines whether it makes</span>
-0058 <span class="comment">%                               sense to cache the data set</span>
-0059 <span class="comment">%</span>
-0060 <span class="comment">%               --- parallel computing settings ---</span>
-0061 <span class="comment">%</span>
-0062 <span class="comment">%               'parallel' : parallelization options; cell array of name-value pairs, with names:</span>
-0063 <span class="comment">%                             'engine': parallelization engine to use, can be 'local',</span>
-0064 <span class="comment">%                                       'ParallelComputingToolbox', or 'BLS' (BCILAB Scheduler)</span>
-0065 <span class="comment">%                                       (default: 'local')</span>
-0066 <span class="comment">%                             'pool': node pool, cell array of 'host:port' strings; necessary for the</span>
-0067 <span class="comment">%                                     BLS scheduler (default: {'localhost:23547','localhost:23548',</span>
-0068 <span class="comment">%                                     ..., 'localhost:23554'})</span>
-0069 <span class="comment">%                             'policy': scheduling policy function; necessary for the BLS scheduler</span>
-0070 <span class="comment">%                                       (default: 'par_reschedule_policy')</span>
-0071 <span class="comment">%</span>
-0072 <span class="comment">%                             note: Parallel processing has so far received only relatively little</span>
-0073 <span class="comment">%                                   testing. Please use this facility at your own risk and report</span>
-0074 <span class="comment">%                                   any issues (e.g., starving jobs) that you may encounter.</span>
-0075 <span class="comment">%</span>
-0076 <span class="comment">%               'aquire_options' : Cell array of arguments as expected by par_getworkers_ssh</span>
-0077 <span class="comment">%                                  (with bcilab-specific defaults for unspecified arguments)</span>
-0078 <span class="comment">%                                  (default: {})</span>
-0079 <span class="comment">%</span>
-0080 <span class="comment">%               'worker' : whether this toolbox instance is started as a worker process or not; if</span>
-0081 <span class="comment">%                          false, diary logging and GUI menus and popups are enabled. If given as a</span>
-0082 <span class="comment">%                          cell array, the cell contents are passed on to the function par_worker,</span>
-0083 <span class="comment">%                          which lets the toolbox act as a commandline-less worker (waiting to</span>
-0084 <span class="comment">%                          receive jobs over the network) (default: false)</span>
+0027 <span class="comment">%               'private': optional private plugin directory, separate from bcilab/*; can have</span>
+0028 <span class="comment">%                          the same directory structure as ~/.bcilab/ (default: [])</span>
+0029 <span class="comment">%</span>
+0030 <span class="comment">%               --- caching settings ---</span>
+0031 <span class="comment">%</span>
+0032 <span class="comment">%               'cache': Path where intermediate data sets are cached. Should be located on a fast</span>
+0033 <span class="comment">%                        (local) drive with sufficient free capacity.</span>
+0034 <span class="comment">%                        * if this is left unspecified or empty, the cache is disabled</span>
+0035 <span class="comment">%                        * if this is a directory, it is used as the default cache location</span>
+0036 <span class="comment">%                        * a fine-grained cache setup can be defined by specifying a cell array of</span>
+0037 <span class="comment">%                          cache locations, where each cache location is a cell array of name-value</span>
+0038 <span class="comment">%                          pairs, with possible names:</span>
+0039 <span class="comment">%                          'dir': directory of the cache location (e.g. '/tmp/bcilab_tmp/'), mandatory</span>
+0040 <span class="comment">%                          'time': only computations taking more than this many seconds may be stored</span>
+0041 <span class="comment">%                                  in this location, but if a computation takes so long that another</span>
+0042 <span class="comment">%                                  cache location with a higher time applies, that other location is</span>
+0043 <span class="comment">%                                  preferred. For example, the /tmp directory may take computations</span>
+0044 <span class="comment">%                                  that take at least a minute, the home directory may take</span>
+0045 <span class="comment">%                                  computations that take at least an hour, the shared /data/results</span>
+0046 <span class="comment">%                                  location of the lab may take computations that take at least 12</span>
+0047 <span class="comment">%                                  hours (default: 30 seconds)</span>
+0048 <span class="comment">%                          'free': minimum amount of space to keep free on the given location, in GiB,</span>
+0049 <span class="comment">%                                   or, if smaller than 1, free is taken as the fraction of total</span>
+0050 <span class="comment">%                                   space to keep free. (default: 80)</span>
+0051 <span class="comment">%                          'tag': arbitrary identifier for the cache location (default: 'location_i',</span>
+0052 <span class="comment">%                                 for the i'th location) must be a valid MATLAB struct field name,</span>
+0053 <span class="comment">%                                 only for display purposes</span>
+0054 <span class="comment">%</span>
+0055 <span class="comment">%               'mem_capacity': capacity of the memory cache (default: 2)</span>
+0056 <span class="comment">%                               if this is smaller than 1, it is taken as a fraction of the total</span>
+0057 <span class="comment">%                               free physical memory at startup time, otherwise it is in GB</span>
+0058 <span class="comment">%</span>
+0059 <span class="comment">%               'data_reuses' : estimated number of reuses of a data set being computed (default: 3)</span>
+0060 <span class="comment">%                               ... depending on disk access speeds, this determines whether it makes</span>
+0061 <span class="comment">%                               sense to cache the data set</span>
+0062 <span class="comment">%</span>
+0063 <span class="comment">%               --- parallel computing settings ---</span>
+0064 <span class="comment">%</span>
+0065 <span class="comment">%               'parallel' : parallelization options; cell array of name-value pairs, with names:</span>
+0066 <span class="comment">%                             'engine': parallelization engine to use, can be 'local',</span>
+0067 <span class="comment">%                                       'ParallelComputingToolbox', or 'BLS' (BCILAB Scheduler)</span>
+0068 <span class="comment">%                                       (default: 'local')</span>
+0069 <span class="comment">%                             'pool': node pool, cell array of 'host:port' strings; necessary for the</span>
+0070 <span class="comment">%                                     BLS scheduler (default: {'localhost:23547','localhost:23548',</span>
+0071 <span class="comment">%                                     ..., 'localhost:23554'})</span>
+0072 <span class="comment">%                             'policy': scheduling policy function; necessary for the BLS scheduler</span>
+0073 <span class="comment">%                                       (default: 'par_reschedule_policy')</span>
+0074 <span class="comment">%</span>
+0075 <span class="comment">%                             note: Parallel processing has so far received only relatively little</span>
+0076 <span class="comment">%                                   testing. Please use this facility at your own risk and report</span>
+0077 <span class="comment">%                                   any issues (e.g., starving jobs) that you may encounter.</span>
+0078 <span class="comment">%</span>
+0079 <span class="comment">%               'acquire_method' : name of the method to use to acquire worker processes (default:</span>
+0080 <span class="comment">%                                  'SSH')</span>
+0081 <span class="comment">%</span>
+0082 <span class="comment">%               'aquire_options' : Cell array of arguments as expected by par_getworkers_&lt;Method&gt;</span>
+0083 <span class="comment">%                                  (with bcilab-specific defaults for unspecified arguments)</span>
+0084 <span class="comment">%                                  (default: {})</span>
 0085 <span class="comment">%</span>
-0086 <span class="comment">%               --- misc settings ---</span>
-0087 <span class="comment">%</span>
-0088 <span class="comment">%               'menu' : create a menu bar (default: true) -- if this is set to 'separate', the BCILAB</span>
-0089 <span class="comment">%                        menu will be detached from the EEGLAB menu, even if run as a plugin.</span>
-0090 <span class="comment">%</span>
-0091 <span class="comment">%               'autocompile' : whether to try to auto-compile mex/java files (default: true)</span>
-0092 <span class="comment">%</span>
-0093 <span class="comment">%               'show_experimental' : whether to show methods and options marked 'experimental' in</span>
-0094 <span class="comment">%                                     the GUIs (default: false)</span>
-0095 <span class="comment">%</span>
-0096 <span class="comment">%               'show_guru' : whether to show methods and options marked 'guru' in the GUIs</span>
-0097 <span class="comment">%                             (default: false)</span>
+0086 <span class="comment">%               'autokill_workers' : Whether to automatically kill workers when cluster resources</span>
+0087 <span class="comment">%                                    are released (default: true)</span>
+0088 <span class="comment">%</span>
+0089 <span class="comment">%               'worker' : whether this toolbox instance is started as a worker process or not; if</span>
+0090 <span class="comment">%                          false, diary logging and GUI menus and popups are enabled. If given as a</span>
+0091 <span class="comment">%                          cell array, the cell contents are passed on to the function par_worker,</span>
+0092 <span class="comment">%                          which lets the toolbox act as a commandline-less worker (waiting to</span>
+0093 <span class="comment">%                          receive jobs over the network) (default: false)</span>
+0094 <span class="comment">%</span>
+0095 <span class="comment">%               'workflow' : &quot;workflow&quot; script to auto-launch upon startup (default: '')</span>
+0096 <span class="comment">%</span>
+0097 <span class="comment">%               --- misc settings ---</span>
 0098 <span class="comment">%</span>
-0099 <span class="comment">% Examples:</span>
-0100 <span class="comment">%  Note that env_startup is usually not being called directly; instead the bcilab.m function in the</span>
-0101 <span class="comment">%  bcilab root directory forwards its arguments (and variables declared in a config script) to this</span>
-0102 <span class="comment">%  function.</span>
+0099 <span class="comment">%               'menu' : create a menu bar (default: true) -- if this is set to 'separate', the BCILAB</span>
+0100 <span class="comment">%                        menu will be detached from the EEGLAB menu, even if run as a plugin.</span>
+0101 <span class="comment">%</span>
+0102 <span class="comment">%               'autocompile' : whether to try to auto-compile mex/java files (default: true)</span>
 0103 <span class="comment">%</span>
-0104 <span class="comment">%  % start BCILAB with a custom data directory, and a custom cache directory</span>
-0105 <span class="comment">%  env_startup('data','C:\Data', 'cache','C:\Data\Temp');</span>
+0104 <span class="comment">%               'show_experimental' : whether to show methods and options marked 'experimental' in</span>
+0105 <span class="comment">%                                     the GUIs (default: false)</span>
 0106 <span class="comment">%</span>
-0107 <span class="comment">%  % as before, but specify multiple data paths that are being fused into a common directory view</span>
-0108 <span class="comment">%  % where possible (in case of ambiguities, the earlier directories take precedence)</span>
-0109 <span class="comment">%  env_startup('data',{'C:\Data','F:\Data2'}, 'cache','C:\Data\Temp');</span>
-0110 <span class="comment">%</span>
-0111 <span class="comment">%  % start BCILAB with a custom data and storage directory, and specify a cache location with some</span>
-0112 <span class="comment">%  % additional meta-data (namely: only cache there if a computation takes at least 60 seconds, and</span>
-0113 <span class="comment">%  % reserve 15GB free space</span>
-0114 <span class="comment">%  env_startup('data','/media/data', 'store','/media/data/results', 'cache',{{'dir','/tmp/tracking','time',60,'free',15}});</span>
-0115 <span class="comment">%</span>
-0116 <span class="comment">%  % as before, but make sure that the free space does not fall below 20% of the disk</span>
-0117 <span class="comment">%  env_startup('data','/media/data', 'store','/media/data/results', 'cache',{{'dir','/tmp/tracking','time',60,'free',0.2}});</span>
-0118 <span class="comment">%</span>
-0119 <span class="comment">%  % start BCILAB and set up a very big in-memory cache for working with large data sets (of 16GB)</span>
-0120 <span class="comment">%  env_startup('mem_capacity',16)</span>
-0121 <span class="comment">%</span>
-0122 <span class="comment">%  % start BCILAB but prevent the main menu from popping up</span>
-0123 <span class="comment">%  env_startup('menu',false)</span>
-0124 <span class="comment">%</span>
-0125 <span class="comment">%  % start BCILAB and specify which parallel computation resources to use; this assumes that the</span>
-0126 <span class="comment">%  % respective hostnames are reachable from this computer, and are running MATLAB sessions which</span>
-0127 <span class="comment">%  % execute a command similar to: cd /your/path/to/bcilab; bcilab('worker',true); par_worker;</span>
-0128 <span class="comment">%  env_startup('parallel',{'engine','BLS', 'pool',{'computer1','computer2','computer3'}}</span>
-0129 <span class="comment">%</span>
-0130 <span class="comment">%</span>
-0131 <span class="comment">%  % start the toolbox as a worker</span>
-0132 <span class="comment">%  env_startup('worker',true)</span>
-0133 <span class="comment">%</span>
-0134 <span class="comment">%  % start the toolbox as worker, and pass some arguments to par_worker (making it listen on port</span>
-0135 <span class="comment">%  % 15456, using a portrange of 0, and using some custom update-checking arguments</span>
-0136 <span class="comment">%  env_startup('worker',{15456,0,'update_check',{'/data/bcilab-0.9-beta2b/build/bcilab','/mnt/remote/bcilab-build/bcilab'}})</span>
-0137 <span class="comment">%</span>
-0138 <span class="comment">% See also:</span>
-0139 <span class="comment">%  env_load_dependencies, env_translatepath</span>
+0107 <span class="comment">%               'show_guru' : whether to show methods and options marked 'guru' in the GUIs</span>
+0108 <span class="comment">%                             (default: false)</span>
+0109 <span class="comment">%</span>
+0110 <span class="comment">%               'fingerprinting' : whether to calculate fingerprints of datasets; this allows to</span>
+0111 <span class="comment">%                                  manually curate dataset structs &quot;EEGLAB-style&quot; prior to using</span>
+0112 <span class="comment">%                                  them in offline analysis functions (e.g., bci_train). If</span>
+0113 <span class="comment">%                                  disabled, all dataset processing must happen in custom filters,</span>
+0114 <span class="comment">%                                  loaders, or must have been committed into .set files. Disabling</span>
+0115 <span class="comment">%                                  this can give a speed advantage on extremely large data sets.</span>
+0116 <span class="comment">%                                  (default: true)</span>
+0117 <span class="comment">%</span>
+0118 <span class="comment">%               'disabled_caches' : cell array of disabled disk caches; see hlp_diskcache lines at</span>
+0119 <span class="comment">%                                   the bottom of this file for available caches (default: {})</span>
+0120 <span class="comment">%</span>
+0121 <span class="comment">%               'temp_fileformat' : file format for BCILAB's temporary files (default: 'sto')</span>
+0122 <span class="comment">%</span>
+0123 <span class="comment">%</span>
+0124 <span class="comment">% Examples:</span>
+0125 <span class="comment">%  Note that env_startup is usually not being called directly; instead the bcilab.m function in the</span>
+0126 <span class="comment">%  bcilab root directory forwards its arguments (and variables declared in a config script) to this</span>
+0127 <span class="comment">%  function.</span>
+0128 <span class="comment">%</span>
+0129 <span class="comment">%  % start BCILAB with a custom data directory, and a custom cache directory</span>
+0130 <span class="comment">%  env_startup('data','C:\Data', 'cache','C:\Data\Temp');</span>
+0131 <span class="comment">%</span>
+0132 <span class="comment">%  % as before, but specify multiple data paths that are being fused into a common directory view</span>
+0133 <span class="comment">%  % where possible (in case of ambiguities, the earlier directories take precedence)</span>
+0134 <span class="comment">%  env_startup('data',{'C:\Data','F:\Data2'}, 'cache','C:\Data\Temp');</span>
+0135 <span class="comment">%</span>
+0136 <span class="comment">%  % start BCILAB with a custom data and storage directory, and specify a cache location with some</span>
+0137 <span class="comment">%  % additional meta-data (namely: only cache there if a computation takes at least 60 seconds, and</span>
+0138 <span class="comment">%  % reserve 15GB free space</span>
+0139 <span class="comment">%  env_startup('data','/media/data', 'store','/media/data/results', 'cache',{{'dir','/tmp/tracking','time',60,'free',15}});</span>
 0140 <span class="comment">%</span>
-0141 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
-0142 <span class="comment">%                                2010-03-28</span>
-0143 
-0144 <span class="comment">% determine the BCILAB core directories</span>
-0145 <span class="keyword">if</span> ~isdeployed
-0146     tmpdir = <a href="#_sub2" class="code" title="subfunction dir = path_normalize(dir)">path_normalize</a>(fileparts(mfilename(<span class="string">'fullpath'</span>)));
-0147     delims = strfind(tmpdir,filesep);
-0148     base_dir = tmpdir(1:delims(end-1));
-0149 <span class="keyword">else</span>
-0150     <span class="comment">% in deployed mode, we walk up until we find the BCILAB base directory</span>
-0151     tmpdir = pwd;
-0152     delims = strfind(tmpdir,filesep);
-0153     disp([<span class="string">'Launching from directory '</span> tmpdir <span class="string">' ...'</span>]);
-0154     <span class="keyword">for</span> k=length(delims):-1:1
-0155         base_dir = tmpdir(1:delims(k));        
-0156         <span class="keyword">if</span> exist([base_dir filesep <span class="string">'code'</span>],<span class="string">'dir'</span>)
-0157             success = true; <span class="comment">%#ok&lt;NASGU&gt;</span>
-0158             <span class="keyword">break</span>; 
-0159         <span class="keyword">end</span>
-0160     <span class="keyword">end</span>
-0161     <span class="keyword">if</span> ~exist(<span class="string">'success'</span>,<span class="string">'var'</span>)
-0162         error(<span class="string">'Could not find the ''code'' directory; make sure that the binary is in a sub-directory of a full BCILAB distribution.'</span>); <span class="keyword">end</span>
-0163 <span class="keyword">end</span>
-0164 
-0165 <a name="_sub1" href="#_subfunctions" class="code">function_dir = [base_dir </a><span class="string">'code'</span>];
-0166 dependency_dir = [base_dir <span class="string">'dependencies'</span>];
-0167 resource_dir = [base_dir <span class="string">'resources'</span>];
-0168 script_dir = [base_dir <span class="string">'userscripts'</span>];
-0169 build_dir = [base_dir <span class="string">'build'</span>];
-0170 
-0171         
-0172 <span class="comment">% add them all to the MATLAB path (except for dependencies, which are loaded separately)</span>
+0141 <span class="comment">%  % as before, but make sure that the free space does not fall below 20% of the disk</span>
+0142 <span class="comment">%  env_startup('data','/media/data', 'store','/media/data/results', 'cache',{{'dir','/tmp/tracking','time',60,'free',0.2}});</span>
+0143 <span class="comment">%</span>
+0144 <span class="comment">%  % start BCILAB and set up a very big in-memory cache for working with large data sets (of 16GB)</span>
+0145 <span class="comment">%  env_startup('mem_capacity',16)</span>
+0146 <span class="comment">%</span>
+0147 <span class="comment">%  % start BCILAB but prevent the main menu from popping up</span>
+0148 <span class="comment">%  env_startup('menu',false)</span>
+0149 <span class="comment">%</span>
+0150 <span class="comment">%  % start BCILAB and specify which parallel computation resources to use; this assumes that the</span>
+0151 <span class="comment">%  % respective hostnames are reachable from this computer, and are running MATLAB sessions which</span>
+0152 <span class="comment">%  % execute a command similar to: cd /your/path/to/bcilab; bcilab('worker',true); par_worker;</span>
+0153 <span class="comment">%  env_startup('parallel',{'engine','BLS', 'pool',{'computer1','computer2','computer3'}}</span>
+0154 <span class="comment">%</span>
+0155 <span class="comment">%</span>
+0156 <span class="comment">%  % start the toolbox as a worker</span>
+0157 <span class="comment">%  env_startup('worker',true)</span>
+0158 <span class="comment">%</span>
+0159 <span class="comment">%  % start the toolbox as worker, and pass some arguments to par_worker (making it listen on port</span>
+0160 <span class="comment">%  % 15456, using a portrange of 0, and using some custom update-checking arguments</span>
+0161 <span class="comment">%  env_startup('worker',{15456,0,'update_check',{'/data/bcilab-0.9-beta2b/build/bcilab','/mnt/remote/bcilab-build/bcilab'}})</span>
+0162 <span class="comment">%</span>
+0163 <span class="comment">% See also:</span>
+0164 <span class="comment">%  env_load_dependencies, env_translatepath</span>
+0165 <span class="comment">%</span>
+0166 <span class="comment">%                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD</span>
+0167 <span class="comment">%                                2010-03-28</span>
+0168 
+0169 <span class="comment">% benchmarking</span>
+0170 t_prelaunch = tic;
+0171 
+0172 <span class="comment">% determine the BCILAB core directories</span>
 0173 <span class="keyword">if</span> ~isdeployed
-0174     
-0175     <span class="comment">% remove existing BCILAB path references</span>
-0176     ea = which(<span class="string">'env_add'</span>);
-0177     <span class="keyword">if</span> ~isempty(ea)
-0178         <span class="comment">% get the bcilab root directory that's currently in the path</span>
-0179         bad_path = ea(1:strfind(ea,<span class="string">'dependencies'</span>)-2);
-0180         <span class="comment">% remove all references</span>
-0181         paths = <a href="#_sub3" class="code" title="subfunction strings = strsplit(string, splitter)">strsplit</a>(path,pathsep);
-0182         retain = cellfun(<span class="string">'isempty'</span>,strfind(paths,bad_path));
-0183         path(sprintf([<span class="string">'%s'</span> pathsep],paths{retain}));
-0184         <span class="keyword">if</span> ~all(retain)
-0185             disp(<span class="string">'  BCILAB sub-directories have been detected in the MATLAB path, removing them.'</span>); <span class="keyword">end</span>
-0186     <span class="keyword">end</span>
-0187 
-0188     <span class="comment">% add core function paths</span>
-0189     addpath(genpath(function_dir));
-0190     <span class="keyword">if</span> exist(build_dir,<span class="string">'dir'</span>)
-0191         addpath(build_dir); <span class="keyword">end</span>
-0192     evalc(<span class="string">'addpath(genpath(script_dir))'</span>);
-0193     evalc(<span class="string">'addpath([base_dir ''userdata''])'</span>);
-0194     
-0195     <span class="comment">% remove existing eeglab path references, if BCILAB is not itself contained as a plugin in this</span>
-0196     <span class="comment">% EEGLAB distribution</span>
-0197     ep = which(<span class="string">'eeglab'</span>);
-0198     <span class="keyword">if</span> ~isempty(ep) &amp;&amp; isempty(strfind(mfilename(<span class="string">'fullpath'</span>),fileparts(which(<span class="string">'eeglab'</span>))))
-0199         paths = <a href="#_sub3" class="code" title="subfunction strings = strsplit(string, splitter)">strsplit</a>(path,pathsep);
-0200         ep = <a href="#_sub3" class="code" title="subfunction strings = strsplit(string, splitter)">strsplit</a>(ep,filesep);
-0201         retain = cellfun(<span class="string">'isempty'</span>,strfind(paths,ep{end-1}));
-0202         path(sprintf([<span class="string">'%s'</span> pathsep],paths{retain}));
-0203         <span class="keyword">if</span> ~all(retain)
-0204             disp(<span class="string">'  The previously loaded EEGLAB path has been replaced.'</span>); <span class="keyword">end</span>
-0205     <span class="keyword">end</span>
-0206 <span class="keyword">end</span>
-0207 
-0208 <span class="keyword">if</span> hlp_matlab_version &lt; 706
-0209     disp(<span class="string">'Note: Your version of MATLAB is not supported by BCILAB any more. You may try BCILAB version 0.9, which supports old MATLAB''s back to version 2006a.'</span>); <span class="keyword">end</span>    
-0210 
-0211 <span class="comment">% get options</span>
-0212 opts = hlp_varargin2struct(varargin,<span class="string">'data'</span>,[],<span class="string">'store'</span>,[],<span class="string">'cache'</span>,[],<span class="string">'temp'</span>,[],<span class="string">'mem_capacity'</span>,2,<span class="string">'data_reuses'</span>,3, <span class="keyword">...</span>
-0213     <span class="string">'parallel'</span>,{<span class="string">'use'</span>,<span class="string">'local'</span>}, <span class="string">'menu'</span>,true, <span class="string">'configscript'</span>,<span class="string">''</span>, <span class="string">'worker'</span>,false, <span class="string">'autocompile'</span>,true, <span class="string">'acquire_options'</span>,{}, <span class="keyword">...</span>
-0214     <span class="string">'show_experimental'</span>,false,<span class="string">'show_guru'</span>,false);
-0215 
-0216 <span class="comment">% load all dependencies, recursively...</span>
-0217 disp(<span class="string">'Loading BCILAB dependencies...'</span>);
-0218 <a href="env_load_dependencies.html" class="code" title="function env_load_dependencies(dependency_dir,autocompile)">env_load_dependencies</a>(dependency_dir,opts.autocompile);
-0219 
-0220 <span class="keyword">if</span> ischar(opts.worker)
-0221     <span class="keyword">try</span>
-0222         disp([<span class="string">'Evaluating worker argument: '</span> opts.worker]);
-0223         opts.worker = eval(opts.worker); 
-0224     <span class="keyword">catch</span>
-0225         disp(<span class="string">'Failed to evaluate worker; setting it to false.'</span>);
-0226         opts.worker = false; 
-0227     <span class="keyword">end</span>
-0228 <span class="keyword">elseif</span> ~isequal(opts.worker,false)
-0229     fprintf(<span class="string">'Worker was given as a %s with value %s\n'</span>,class(opts.worker),hlp_tostring(opts.worker));
-0230 <span class="keyword">end</span>
-0231 
-0232 <span class="keyword">if</span> ischar(opts.parallel)
-0233     <span class="keyword">try</span>
-0234         disp([<span class="string">'Evaluating parallel argument: '</span> opts.parallel]);
-0235         opts.parallel = eval(opts.parallel); 
-0236     <span class="keyword">catch</span>
-0237         disp(<span class="string">'Failed to evaluate worker; setting it to empty.'</span>);
-0238         opts.parallel = {};
-0239     <span class="keyword">end</span>
-0240 <span class="keyword">end</span>
+0174     tmpdir = <a href="#_sub2" class="code" title="subfunction dir = path_normalize(dir)">path_normalize</a>(fileparts(mfilename(<span class="string">'fullpath'</span>)));
+0175     delims = strfind(tmpdir,filesep);
+0176     base_dir = tmpdir(1:delims(end-1));
+0177 <span class="keyword">else</span>
+0178     <span class="comment">% in deployed mode, we walk up until we find the BCILAB base directory</span>
+0179     tmpdir = pwd;
+0180     delims = strfind(tmpdir,filesep);
+0181     disp([<span class="string">'Launching from directory '</span> tmpdir <span class="string">' ...'</span>]);
+0182     <span class="keyword">for</span> k=length(delims):-1:1
+0183         base_dir = tmpdir(1:delims(k));        
+0184         <span class="keyword">if</span> exist([base_dir filesep <span class="string">'code'</span>],<span class="string">'dir'</span>)
+0185             success = true; <span class="comment">%#ok&lt;NASGU&gt;</span>
+0186             <span class="keyword">break</span>; 
+0187         <span class="keyword">end</span>
+0188     <span class="keyword">end</span>
+0189     <span class="keyword">if</span> ~exist(<span class="string">'success'</span>,<span class="string">'var'</span>)
+0190         error(<span class="string">'Could not find the ''code'' directory; make sure that the binary is in a sub-directory of a full BCILAB distribution.'</span>); <span class="keyword">end</span>
+0191 <span class="keyword">end</span>
+0192 
+0193 <a name="_sub1" href="#_subfunctions" class="code">function_dir = [base_dir </a><span class="string">'code'</span>];
+0194 dependency_dir = [base_dir <span class="string">'dependencies'</span>];
+0195 resource_dir = [base_dir <span class="string">'resources'</span>];
+0196 script_dir = [base_dir <span class="string">'userscripts'</span>];
+0197 build_dir = [base_dir <span class="string">'build'</span>];
+0198 
+0199 <span class="comment">% note: if you want other paths to work with utl_whichfile you need to append them to this cell array;</span>
+0200 <span class="comment">% if they are in dependencies, it's best to make it something like [dependency_dir filesep 'mytoolbox-x.y'],</span>
+0201 toolbox_dirs = {function_dir, [dependency_dir filesep <span class="string">'SIFT-private'</span>]};
+0202         
+0203 <span class="comment">% add them all to the MATLAB path (except for dependencies, which are loaded separately)</span>
+0204 <span class="keyword">if</span> ~isdeployed
+0205     
+0206     <span class="comment">% remove existing BCILAB path references</span>
+0207     ea = which(<span class="string">'env_add'</span>);
+0208     <span class="keyword">if</span> ~isempty(ea)
+0209         <span class="comment">% get the bcilab root directory that's currently in the path</span>
+0210         bad_path = ea(1:strfind(ea,<span class="string">'dependencies'</span>)-2);
+0211         <span class="comment">% remove all references</span>
+0212         paths = <a href="#_sub3" class="code" title="subfunction strings = strsplit(string, splitter)">strsplit</a>(path,pathsep);
+0213         retain = cellfun(<span class="string">'isempty'</span>,strfind(paths,bad_path));
+0214         path(sprintf([<span class="string">'%s'</span> pathsep],paths{retain}));
+0215         <span class="keyword">if</span> ~all(retain)
+0216             disp(<span class="string">'BCILAB sub-directories have been detected in the MATLAB path, removing them.'</span>); <span class="keyword">end</span>
+0217     <span class="keyword">end</span>
+0218 
+0219     <span class="comment">% add core function paths</span>
+0220     addpath(genpath(function_dir));
+0221     <span class="keyword">if</span> exist(build_dir,<span class="string">'dir'</span>)
+0222         addpath(build_dir); <span class="keyword">end</span>
+0223     evalc(<span class="string">'addpath(genpath(script_dir))'</span>);
+0224     evalc(<span class="string">'addpath([base_dir ''userdata''])'</span>);
+0225     
+0226     <span class="comment">% remove existing eeglab path references, if BCILAB is not itself contained as a plugin in this</span>
+0227     <span class="comment">% EEGLAB distribution</span>
+0228     ep = which(<span class="string">'eeglab'</span>);
+0229     <span class="keyword">if</span> ~isempty(ep) &amp;&amp; isempty(strfind(mfilename(<span class="string">'fullpath'</span>),fileparts(which(<span class="string">'eeglab'</span>))))
+0230         paths = <a href="#_sub3" class="code" title="subfunction strings = strsplit(string, splitter)">strsplit</a>(path,pathsep);
+0231         ep = <a href="#_sub3" class="code" title="subfunction strings = strsplit(string, splitter)">strsplit</a>(ep,filesep);
+0232         retain = cellfun(<span class="string">'isempty'</span>,strfind(paths,ep{end-1}));
+0233         path(sprintf([<span class="string">'%s'</span> pathsep],paths{retain}));
+0234         <span class="keyword">if</span> ~all(retain)
+0235             disp(<span class="string">'  The previously loaded EEGLAB path has been replaced.'</span>); <span class="keyword">end</span>
+0236     <span class="keyword">end</span>
+0237 <span class="keyword">end</span>
+0238 
+0239 <span class="keyword">if</span> hlp_matlab_version &lt; 706
+0240     disp(<span class="string">'Note: Your version of MATLAB is not supported by BCILAB any more. You may try BCILAB version 0.9, which supports old MATLAB''s back to version 2006a.'</span>); <span class="keyword">end</span>    
 0241 
-0242 <span class="comment">% process data directories</span>
-0243 <span class="keyword">if</span> isempty(opts.data)
-0244     opts.data = {}; <span class="keyword">end</span>
-0245 <span class="keyword">if</span> ~iscell(opts.data)
-0246     opts.data = {opts.data}; <span class="keyword">end</span>
-0247 <span class="keyword">for</span> d = 1:length(opts.data)
-0248     opts.data{d} = <a href="#_sub2" class="code" title="subfunction dir = path_normalize(dir)">path_normalize</a>(opts.data{d}); <span class="keyword">end</span>
-0249 <span class="keyword">if</span> isempty(opts.data) || ~any(cellfun(@exist,opts.data))
-0250     opts.data = {[base_dir <span class="string">'userdata'</span>]}; <span class="keyword">end</span>
-0251 
-0252 <span class="comment">% process store directory</span>
-0253 <span class="keyword">if</span> isempty(opts.store)
-0254     opts.store = opts.data{1}; <span class="keyword">end</span>
-0255 opts.store = <a href="#_sub2" class="code" title="subfunction dir = path_normalize(dir)">path_normalize</a>(opts.store);
-0256 
-0257 <span class="comment">% process cache directories</span>
-0258 <span class="keyword">if</span> isempty(opts.cache)
-0259     opts.cache = {}; <span class="keyword">end</span>
-0260 <span class="keyword">if</span> ischar(opts.cache)
-0261     opts.cache = {{<span class="string">'dir'</span>,opts.cache}}; <span class="keyword">end</span>
-0262 <span class="keyword">if</span> iscell(opts.cache) &amp;&amp; ~isempty(opts.cache) &amp;&amp; ~iscell(opts.cache{1})
-0263     opts.cache = {opts.cache}; <span class="keyword">end</span>
-0264 <span class="keyword">for</span> d=1:length(opts.cache)
-0265     opts.cache{d} = hlp_varargin2struct(opts.cache{d},<span class="string">'dir'</span>,<span class="string">''</span>,<span class="string">'tag'</span>,[<span class="string">'location_'</span> num2str(d)],<span class="string">'time'</span>,30,<span class="string">'free'</span>,80); <span class="keyword">end</span>
-0266 <span class="comment">% remove entries with empty dir</span>
-0267 opts.cache = opts.cache(cellfun(@(e)~isempty(e.dir),opts.cache));
-0268 <span class="keyword">for</span> d=1:length(opts.cache)
-0269     <span class="comment">% make sure that the BCILAB cache is in its own proper sub-directory</span>
-0270     opts.cache{d}.dir = [<a href="#_sub2" class="code" title="subfunction dir = path_normalize(dir)">path_normalize</a>(opts.cache{d}.dir) filesep <span class="string">'bcilab_cache'</span>];
-0271     <span class="comment">% create the directory if necessary</span>
-0272     <span class="keyword">if</span> ~isempty(opts.cache{d}.dir) &amp;&amp; ~exist(opts.cache{d}.dir,<span class="string">'dir'</span>)
-0273         <span class="keyword">try</span>
-0274             io_mkdirs([opts.cache{d}.dir filesep],{<span class="string">'+w'</span>,<span class="string">'a'</span>});
-0275         <span class="keyword">catch</span>
-0276             disp([<span class="string">'cache directory '</span> opts.cache{d}.dir <span class="string">' does not exist and could not be created'</span>]);
-0277         <span class="keyword">end</span>
-0278     <span class="keyword">end</span>
-0279 <span class="keyword">end</span>
-0280 
-0281 <span class="comment">% process temp directory</span>
-0282 <span class="keyword">if</span> isempty(opts.temp)    
-0283     <span class="keyword">if</span> ~isempty(opts.cache)
-0284         opts.temp = [fileparts(opts.cache{1}.dir) filesep <span class="string">'bcilab_temp'</span>]; 
-0285     <span class="keyword">else</span>
-0286         opts.temp = [base_dir(1:end-1) <span class="string">'-temp'</span>];
-0287     <span class="keyword">end</span>
-0288 <span class="keyword">end</span>
-0289 opts.temp = <a href="#_sub2" class="code" title="subfunction dir = path_normalize(dir)">path_normalize</a>(opts.temp);
-0290 <span class="keyword">try</span>
-0291     io_mkdirs([opts.temp filesep],{<span class="string">'+w'</span>,<span class="string">'a'</span>});
-0292 <span class="keyword">catch</span>
-0293     disp([<span class="string">'temp directory '</span> opts.temp <span class="string">' does not exist and could not be created.'</span>]);
-0294 <span class="keyword">end</span>
-0295 
-0296 <span class="comment">% set global variables</span>
-0297 <span class="keyword">global</span> tracking
-0298 tracking.paths = struct(<span class="string">'bcilab_path'</span>,{base_dir(1:end-1)}, <span class="string">'function_path'</span>,{function_dir}, <span class="string">'data_paths'</span>,{opts.data}, <span class="string">'store_path'</span>,{opts.store}, <span class="string">'dependency_path'</span>,{dependency_dir},<span class="string">'resource_path'</span>,{resource_dir},<span class="string">'temp_path'</span>,{opts.temp});
-0299 <span class="keyword">for</span> d=1:length(opts.cache)
-0300     location = rmfield(opts.cache{d},<span class="string">'tag'</span>);
-0301     <span class="comment">% convert GiB to bytes</span>
-0302     <span class="keyword">if</span> location.free &gt;= 1 
-0303         location.free = location.free*1024*1024*1024; <span class="keyword">end</span>    
-0304     <span class="keyword">try</span>
-0305         warning off MATLAB:DELETE:Permission;
-0306         <span class="comment">% probe the cache locations...</span>
-0307         import java.io.*; 
-0308         <span class="comment">% try to add a free space checker (Java File object), which we use to check the quota, etc.</span>
-0309         location.space_checker = File(opts.cache{d}.dir);
-0310         filename = [opts.cache{d}.dir filesep <span class="string">'__probe_cache_ '</span> num2str(round(rand*2^32)) <span class="string">'__.mat'</span>];
-0311         <span class="keyword">if</span> exist(filename,<span class="string">'file'</span>) 
-0312             delete(filename); <span class="keyword">end</span>
-0313         oldvalue = location.space_checker.getFreeSpace;
-0314         testdata = double(rand(1024)); <span class="comment">%#ok&lt;NASGU&gt;</span>
-0315         objinfo = whos(<span class="string">'testdata'</span>);
-0316         <span class="comment">% do a quick read/write test</span>
-0317         t0=tic; save(filename,<span class="string">'testdata'</span>); location.writestats = struct(<span class="string">'size'</span>,{0 objinfo.bytes},<span class="string">'time'</span>,{0 toc(t0)});
-0318         t0=tic; load(filename); location.readstats = struct(<span class="string">'size'</span>,{0 objinfo.bytes},<span class="string">'time'</span>,{0 toc(t0)});
-0319         newvalue = location.space_checker.getFreeSpace;
-0320         <span class="keyword">if</span> exist(filename,<span class="string">'file'</span>) 
-0321             delete(filename); <span class="keyword">end</span>
-0322         <span class="comment">% test if the space checker works, and also get some quick measurements of disk read/write speeds</span>
-0323         <span class="keyword">if</span> newvalue &gt;= oldvalue
-0324             location = rmfield(location,<span class="string">'space_checker'</span>); <span class="keyword">end</span>        
-0325         <span class="comment">% and turn the free space ratio into an absolute value</span>
-0326         <span class="keyword">if</span> location.free &lt; 1
-0327             location.free = location.free*location.space_checker.getTotalSpace; <span class="keyword">end</span>
-0328     <span class="keyword">catch</span> e
-0329         disp([<span class="string">'Could not probe cache file system speed; reason: '</span> e.message]);
-0330     <span class="keyword">end</span>
-0331     tracking.cache.disk_paths.(opts.cache{d}.tag) = location;     
+0242 <span class="comment">% get options</span>
+0243 opts = hlp_varargin2struct(varargin,<span class="string">'data'</span>,[],<span class="string">'store'</span>,[],<span class="string">'cache'</span>,[],<span class="string">'temp'</span>,[],<span class="string">'private'</span>,[],<span class="string">'mem_capacity'</span>,2,<span class="string">'data_reuses'</span>,3, <span class="keyword">...</span>
+0244     <span class="string">'parallel'</span>,{<span class="string">'use'</span>,<span class="string">'local'</span>}, <span class="string">'menu'</span>,true, <span class="string">'configscript'</span>,<span class="string">''</span>, <span class="string">'worker'</span>,false, <span class="string">'autocompile'</span>,true, <span class="string">'acquire_method'</span>,<span class="string">'SSH'</span>, <span class="string">'acquire_options'</span>,{}, <span class="keyword">...</span>
+0245     <span class="string">'autokill_workers'</span>,true,<span class="string">'show_experimental'</span>,false,<span class="string">'show_guru'</span>,false,<span class="string">'fingerprinting'</span>,true,<span class="string">'disabled_caches'</span>,{}, <span class="keyword">...</span>
+0246     <span class="string">'temp_fileformat'</span>,<span class="string">'sto'</span>,<span class="string">'workflow'</span>,<span class="string">''</span>);
+0247 
+0248 <span class="comment">% load all dependencies, recursively...</span>
+0249 disp(<span class="string">'Loading BCILAB dependencies...'</span>);
+0250 <a href="env_load_dependencies.html" class="code" title="function env_load_dependencies(dependency_dir,autocompile)">env_load_dependencies</a>(dependency_dir,opts.autocompile);
+0251 <span class="keyword">if</span> exist(<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'home:/.bcilab/code/dependencies'</span>),<span class="string">'dir'</span>)
+0252     <a href="env_load_dependencies.html" class="code" title="function env_load_dependencies(dependency_dir,autocompile)">env_load_dependencies</a>(<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'home:/.bcilab/code/dependencies'</span>),opts.autocompile); <span class="keyword">end</span>
+0253 <span class="keyword">if</span> ~isempty(opts.private) &amp;&amp; exist(<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>([opts.private <span class="string">'/code/dependencies'</span>]),<span class="string">'dir'</span>)
+0254     <a href="env_load_dependencies.html" class="code" title="function env_load_dependencies(dependency_dir,autocompile)">env_load_dependencies</a>(<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>([opts.private <span class="string">'/code/dependencies'</span>]),opts.autocompile); <span class="keyword">end</span>
+0255 
+0256 <span class="keyword">if</span> ischar(opts.worker)
+0257     <span class="keyword">try</span>
+0258         disp([<span class="string">'Evaluating worker argument: '</span> opts.worker]);
+0259         opts.worker = eval(opts.worker); 
+0260     <span class="keyword">catch</span>
+0261         disp(<span class="string">'Failed to evaluate worker; setting it to false.'</span>);
+0262         opts.worker = false; 
+0263     <span class="keyword">end</span>
+0264 <span class="keyword">elseif</span> ~isequal(opts.worker,false)
+0265     fprintf(<span class="string">'Worker was given as a %s with value %s\n'</span>,class(opts.worker),hlp_tostring(opts.worker));
+0266 <span class="keyword">end</span>
+0267 <span class="keyword">if</span> ~isequal(opts.worker,false) &amp;&amp; ~iscell(opts.worker)
+0268     error(<span class="string">'The given worker argument must be a cell array or false.'</span>); <span class="keyword">end</span>
+0269 
+0270 <span class="keyword">if</span> ischar(opts.parallel)
+0271     <span class="keyword">try</span>
+0272         disp([<span class="string">'Evaluating parallel argument: '</span> opts.parallel]);
+0273         opts.parallel = eval(opts.parallel); 
+0274     <span class="keyword">catch</span>
+0275         disp(<span class="string">'Failed to evaluate worker; setting it to empty.'</span>);
+0276         opts.parallel = {};
+0277     <span class="keyword">end</span>
+0278 <span class="keyword">end</span>
+0279 
+0280 <span class="comment">% process data directories</span>
+0281 <span class="keyword">if</span> isempty(opts.data)
+0282     opts.data = {}; <span class="keyword">end</span>
+0283 <span class="keyword">if</span> ~iscell(opts.data)
+0284     opts.data = {opts.data}; <span class="keyword">end</span>
+0285 <span class="keyword">for</span> d = 1:length(opts.data)
+0286     opts.data{d} = <a href="#_sub2" class="code" title="subfunction dir = path_normalize(dir)">path_normalize</a>(opts.data{d}); <span class="keyword">end</span>
+0287 <span class="keyword">if</span> isempty(opts.data)
+0288     opts.data = {[base_dir <span class="string">'userdata'</span>]}; <span class="keyword">end</span>
+0289 
+0290 <span class="comment">% process store directory</span>
+0291 <span class="keyword">if</span> isempty(opts.store)
+0292     opts.store = opts.data{1}; <span class="keyword">end</span>
+0293 opts.store = <a href="#_sub2" class="code" title="subfunction dir = path_normalize(dir)">path_normalize</a>(opts.store);
+0294 
+0295 <span class="comment">% process cache directories</span>
+0296 <span class="keyword">if</span> isempty(opts.cache)
+0297     opts.cache = {}; <span class="keyword">end</span>
+0298 <span class="keyword">if</span> ischar(opts.cache)
+0299     opts.cache = {{<span class="string">'dir'</span>,opts.cache}}; <span class="keyword">end</span>
+0300 <span class="keyword">if</span> iscell(opts.cache) &amp;&amp; ~isempty(opts.cache) &amp;&amp; ~iscell(opts.cache{1})
+0301     opts.cache = {opts.cache}; <span class="keyword">end</span>
+0302 <span class="keyword">for</span> d=1:length(opts.cache)
+0303     opts.cache{d} = hlp_varargin2struct(opts.cache{d},<span class="string">'dir'</span>,<span class="string">''</span>,<span class="string">'tag'</span>,[<span class="string">'location_'</span> num2str(d)],<span class="string">'time'</span>,30,<span class="string">'free'</span>,80); <span class="keyword">end</span>
+0304 <span class="comment">% remove entries with empty dir</span>
+0305 opts.cache = opts.cache(cellfun(@(e)~isempty(e.dir),opts.cache));
+0306 <span class="keyword">for</span> d=1:length(opts.cache)
+0307     <span class="comment">% make sure that the BCILAB cache is in its own proper sub-directory</span>
+0308     opts.cache{d}.dir = [<a href="#_sub2" class="code" title="subfunction dir = path_normalize(dir)">path_normalize</a>(opts.cache{d}.dir) filesep <span class="string">'bcilab_cache'</span>];
+0309     <span class="comment">% create the directory if necessary</span>
+0310     <span class="keyword">if</span> ~isempty(opts.cache{d}.dir) &amp;&amp; ~exist(opts.cache{d}.dir,<span class="string">'dir'</span>)
+0311         <span class="keyword">try</span>
+0312             io_mkdirs([opts.cache{d}.dir filesep],{<span class="string">'+w'</span>,<span class="string">'a'</span>});
+0313         <span class="keyword">catch</span>
+0314             disp([<span class="string">'cache directory '</span> opts.cache{d}.dir <span class="string">' does not exist and could not be created'</span>]);
+0315         <span class="keyword">end</span>
+0316     <span class="keyword">end</span>
+0317 <span class="keyword">end</span>
+0318 
+0319 <span class="comment">% process temp directory</span>
+0320 <span class="keyword">if</span> isempty(opts.temp)    
+0321     <span class="keyword">if</span> ~isempty(opts.cache)
+0322         opts.temp = [fileparts(opts.cache{1}.dir) filesep <span class="string">'bcilab_temp'</span>]; 
+0323     <span class="keyword">else</span>
+0324         opts.temp = [base_dir(1:end-1) <span class="string">'-temp'</span>];
+0325     <span class="keyword">end</span>
+0326 <span class="keyword">end</span>
+0327 opts.temp = <a href="#_sub2" class="code" title="subfunction dir = path_normalize(dir)">path_normalize</a>(opts.temp);
+0328 <span class="keyword">try</span>
+0329     io_mkdirs([opts.temp filesep],{<span class="string">'+w'</span>,<span class="string">'a'</span>});
+0330 <span class="keyword">catch</span>
+0331     disp([<span class="string">'temp directory '</span> opts.temp <span class="string">' does not exist and could not be created.'</span>]);
 0332 <span class="keyword">end</span>
-0333 <span class="keyword">if</span> opts.mem_capacity &lt; 1
-0334     free_mem = hlp_memavail();
-0335     tracking.cache.capacity = round(opts.mem_capacity * free_mem);
-0336     <span class="keyword">if</span> free_mem &lt; 1024*1024*1024
-0337         sprintf(<span class="string">'Warning: You have less than 1 GB of free memory (reserving %.0f%% = %.0fMB for data caches).\n'</span>,100*opts.mem_capacity,tracking.cache.capacity/(1024*1024));
-0338         sprintf(<span class="string">'         This will severely impact the offline processing speed of BCILAB.\n'</span>);
-0339         sprintf(<span class="string">'         You may force a fixed amount of cache cacpacity by assinging a value greater than 1 (in GB) to the ''mem_capacity'' variable in your bcilab_config.m.'</span>); 
-0340     <span class="keyword">end</span>
-0341 <span class="keyword">else</span>
-0342     tracking.cache.capacity = opts.mem_capacity*1024*1024*1024;
-0343 <span class="keyword">end</span>
-0344 tracking.cache.reuses = opts.data_reuses;
-0345 tracking.cache.data = struct();
-0346 tracking.cache.sizes = struct();
-0347 tracking.cache.times = struct();
-0348 <span class="keyword">if</span> ~isfield(tracking.cache,<span class="string">'disk_paths'</span>)
-0349     tracking.cache.disk_paths = struct(); <span class="keyword">end</span>
-0350 <span class="comment">% initialize stack mechanisms</span>
-0351 tracking.stack.base = struct(<span class="string">'disable_expressions'</span>,false);
-0352 <span class="comment">% set parallelization settings</span>
-0353 tracking.parallel = hlp_varargin2struct(opts.parallel, <span class="keyword">...</span>
-0354     <span class="string">'engine'</span>,<span class="string">'local'</span>, <span class="keyword">...</span>
-0355     <span class="string">'pool'</span>,{<span class="string">'localhost:23547'</span>,<span class="string">'localhost:23548'</span>,<span class="string">'localhost:23549'</span>,<span class="string">'localhost:23550'</span>,<span class="string">'localhost:23551'</span>,<span class="string">'localhost:23552'</span>,<span class="string">'localhost:23553'</span>,<span class="string">'localhost:23554'</span>}, <span class="keyword">...</span>
-0356     <span class="string">'policy'</span>,<span class="string">'par_reschedule_policy'</span>);
-0357 tracking.acquire_options = opts.acquire_options;
-0358 tracking.configscript = opts.configscript;
-0359 <span class="comment">% set GUI settings</span>
-0360 tracking.gui.show_experimental = opts.show_experimental;
-0361 tracking.gui.show_guru = opts.show_guru;
-0362 <span class="keyword">try</span>
-0363     cd(script_dir);
-0364 <span class="keyword">catch</span>
-0365 <span class="keyword">end</span>
-0366 
-0367 <span class="comment">% set up some microcache domain properties</span>
-0368 hlp_microcache(<span class="string">'arg'</span>,<span class="string">'lambda_equality'</span>,<span class="string">'proper'</span>);
-0369 hlp_microcache(<span class="string">'spec'</span>,<span class="string">'group_size'</span>,5);
-0370 hlp_microcache(<span class="string">'findfunction'</span>,<span class="string">'lambda_equality'</span>,<span class="string">'fast'</span>,<span class="string">'group_size'</span>,5);
-0371 hlp_microcache(<span class="string">'verybig'</span>,<span class="string">'max_key_size'</span>,2^30,<span class="string">'max_result_size'</span>,2^30);
-0372 
-0373 <span class="comment">% set up some fine-grained disk-cache locations</span>
-0374 hlp_diskcache(<span class="string">'filterdesign'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'filterdesign'</span>,<span class="string">'exactmatch_cutoff'</span>,0);
-0375 hlp_diskcache(<span class="string">'icaweights'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'icaweights'</span>,<span class="string">'exactmatch_cutoff'</span>,0);
-0376 hlp_diskcache(<span class="string">'dipfits'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'dipfits'</span>,<span class="string">'exactmatch_cutoff'</span>,0);
-0377 hlp_diskcache(<span class="string">'featuremodels'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'featuremodels'</span>,<span class="string">'exactmatch_cutoff'</span>,0);
-0378 hlp_diskcache(<span class="string">'predictivemodels'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'predictivemodels'</span>,<span class="string">'exactmatch_cutoff'</span>,0);
-0379 hlp_diskcache(<span class="string">'statistics'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'statistics'</span>,<span class="string">'exactmatch_cutoff'</span>,0);
-0380 hlp_diskcache(<span class="string">'general'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'general'</span>);
-0381 hlp_diskcache(<span class="string">'finegrained'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'finegrained'</span>);
-0382 hlp_diskcache(<span class="string">'temporary'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'temporary'</span>);
-0383 
-0384 
-0385 <span class="comment">% show toolbox status</span>
-0386 fprintf(<span class="string">'\n'</span>);
-0387 disp([<span class="string">'code is in '</span> <a name="_sub2" href="#_subfunctions" class="code">function_dir]);</a>
-0388 datalocs = [];
-0389 <span class="keyword">for</span> d = opts.data
-0390     datalocs = [datalocs d{1} <span class="string">', '</span>]; <span class="keyword">end</span> <span class="comment">%#ok&lt;AGROW&gt;</span>
-0391 disp([<span class="string">'data is in '</span> datalocs(1:end-2)]);
-0392 disp([<span class="string">'results are in '</span> opts.store]);
-0393 <span class="keyword">if</span> ~isempty(opts.cache)
-0394     fnames = fieldnames(tracking.cache.disk_paths);
-0395     <span class="keyword">for</span> f = 1:length(fnames)
-0396         <span class="keyword">if</span> f == 1
-0397             disp([<span class="string">'cache is in '</span> tracking.cache.disk_paths.(fnames{f}).dir <span class="string">' ('</span> fnames{f} <span class="string">')'</span>]);
-0398         <span class="keyword">else</span>
-0399             disp([<span class="string">'            '</span> tracking.cache.disk_paths.(fnames{f}).dir <span class="string">' ('</span> fnames{f} <span class="string">')'</span>]);
-0400         <span class="keyword">end</span>
-0401     <span class="keyword">end</span>    
-0402 <span class="keyword">else</span>
-0403     disp(<span class="string">'cache is disabled'</span>);
-0404 <span class="keyword">end</span>
-0405 disp([<span class="string">'temp is in '</span> opts.temp]);
-0406 fprintf(<span class="string">'\n'</span>);
-0407 
-0408 
-0409 <span class="comment">% turn off a few nasty warnings</span>
-0410 warning off MATLAB:log:logOfZero
-0411 warning off MATLAB:divideByZero <span class="comment">%#ok&lt;RMWRN&gt;</span>
-0412 warning off MATLAB:RandStream:ReadingInactiveLegacyGeneratorState <span class="comment">% for GMMs....</span>
-0413 
-0414 <span class="keyword">if</span> isequal(opts.worker,false) || isequal(opts.worker,0)
-0415     <span class="comment">% --- regular mode ---</span>
-0416     
-0417     <span class="comment">% set up logfile</span>
-0418     <span class="keyword">if</span> ~exist([hlp_homedir filesep <span class="string">'.bcilab'</span>],<span class="string">'dir'</span>)
-0419         <span class="keyword">if</span> ~mkdir(hlp_homedir,<span class="string">'.bcilab'</span>);
-0420             disp(<span class="string">'Cannot create directory .bcilab in your home folder.'</span>); <span class="keyword">end</span>
-0421     <span class="keyword">end</span>
-0422     tracking.logfile = <a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'home:/.bcilab/logs/bcilab_console.log'</span>);
-0423     <span class="keyword">try</span> 
-0424         <span class="keyword">if</span> ~exist([hlp_homedir filesep <span class="string">'.bcilab'</span> filesep <span class="string">'logs'</span>],<span class="string">'dir'</span>)
-0425             mkdir([hlp_homedir filesep <span class="string">'.bcilab'</span> filesep <span class="string">'logs'</span>]); <span class="keyword">end</span>
-0426         <span class="keyword">if</span> exist(tracking.logfile,<span class="string">'file'</span>)
-0427             warning off MATLAB:DELETE:Permission
-0428             delete(tracking.logfile); 
-0429             warning on MATLAB:DELETE:Permission
-0430         <span class="keyword">end</span>
-0431     <span class="keyword">catch</span>,<span class="keyword">end</span>
-0432     <span class="keyword">try</span> diary(tracking.logfile); <span class="keyword">catch</span>,<span class="keyword">end</span>
-0433 
-0434     <span class="keyword">if</span> ~exist([hlp_homedir filesep <span class="string">'.bcilab'</span> filesep <span class="string">'models'</span>],<span class="string">'dir'</span>)
-0435         mkdir([hlp_homedir filesep <span class="string">'.bcilab'</span> filesep <span class="string">'models'</span>]); <span class="keyword">end</span>
-0436     <span class="keyword">if</span> ~exist([hlp_homedir filesep <span class="string">'.bcilab'</span> filesep <span class="string">'approaches'</span>],<span class="string">'dir'</span>)
-0437         mkdir([hlp_homedir filesep <span class="string">'.bcilab'</span> filesep <span class="string">'approaches'</span>]); <span class="keyword">end</span>
-0438     
-0439     <span class="comment">% create a menu</span>
-0440     <span class="keyword">if</span> ~(isequal(opts.menu,false) || isequal(opts.menu,0))
-0441         <span class="keyword">try</span>
-0442             <a href="env_showmenu.html" class="code" title="function env_showmenu(varargin)">env_showmenu</a>(<span class="string">'forcenew'</span>,strcmp(opts.menu,<span class="string">'separate'</span>));
-0443         <span class="keyword">catch</span> e
-0444             disp(<span class="string">'Could not open the BCILAB menu; traceback: '</span>);
-0445             <a href="env_handleerror.html" class="code" title="function varargout = env_handleerror(varargin)">env_handleerror</a>(e);
-0446         <span class="keyword">end</span>
-0447     <span class="keyword">end</span>
-0448     
-0449     <span class="comment">% display a version reminder</span>
-0450     bpath = hlp_split(<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'bcilab:/'</span>),filesep);
-0451     <span class="keyword">if</span> ~isempty(strfind(bpath{end},<span class="string">'-stable'</span>))
-0452         <span class="keyword">if</span> isdeployed
-0453             disp(<span class="string">' This is the stable version.'</span>);
-0454         <span class="keyword">else</span>
-0455             disp(<span class="string">' This is the stable version - please keep this in mind when editing.'</span>);
-0456         <span class="keyword">end</span>
-0457     <span class="keyword">elseif</span> ~isempty(strfind(bpath{end},<span class="string">'-devel'</span>))
-0458         <span class="keyword">if</span> isdeployed
-0459             disp(<span class="string">' This is the DEVELOPER version.'</span>);
-0460         <span class="keyword">else</span>
-0461             <span class="keyword">try</span>
-0462                 cprintf([0 0.4 1],<span class="string">'This is the DEVELOPER version.\n'</span>);
-0463             <span class="keyword">catch</span>
-0464                 disp(<span class="string">' This is the DEVELOPER version.'</span>);
-0465             <span class="keyword">end</span>
-0466         <span class="keyword">end</span>
-0467     <span class="keyword">end</span>
-0468 
-0469     disp([<span class="string">' Welcome to the BCILAB toolbox on '</span> hlp_hostname <span class="string">'!'</span>])
-0470     fprintf(<span class="string">'\n'</span>);
-0471 
-0472 <span class="keyword">else</span>
-0473     disp(<span class="string">'Now entering worker mode...'</span>);
-0474     
-0475     <span class="comment">% -- worker mode ---</span>
-0476     <span class="keyword">if</span> ~isdeployed
-0477         <span class="comment">% disable standard dialogs in the workers</span>
-0478         addpath(<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'dependencies:/disabled_dialogs'</span>)); <span class="keyword">end</span>
-0479     
-0480     <span class="comment">% close EEGLAB main menu</span>
-0481     mainmenu = findobj(<span class="string">'Tag'</span>,<span class="string">'EEGLAB'</span>);
-0482     <span class="keyword">if</span> ~isempty(mainmenu)
-0483         close(mainmenu); <span class="keyword">end</span>
-0484     drawnow;
-0485     
-0486     <span class="comment">% translate the options</span>
-0487     <span class="keyword">if</span> isequal(opts.worker,true)
-0488         opts.worker = {}; <span class="keyword">end</span>
-0489     <span class="keyword">if</span> ~iscell(opts.worker)
-0490         opts.worker = {opts.worker}; <span class="keyword">end</span>
-0491     <span class="comment">% start!</span>
-0492     par_worker(opts.worker{:});
-0493 <span class="keyword">end</span>
-0494 
-0495 <span class="keyword">try</span>
-0496     <span class="comment">% pretend to invoke the dependency list so that the compiler finds it...</span>
-0497     dependency_list;
-0498 <span class="keyword">catch</span>
-0499 <span class="keyword">end</span>
-0500     
-0501     
-0502 <span class="comment">% normalize a directory path</span>
-0503 <a name="_sub3" href="#_subfunctions" class="code">function dir = path_normalize(dir)</a>
-0504 dir = strrep(strrep(dir,<span class="string">'\'</span>,filesep),<span class="string">'/'</span>,filesep);
-0505 <span class="keyword">if</span> dir(end) == filesep
-0506    dir = dir(1:end-1); <span class="keyword">end</span>
-0507 
-0508 
-0509 <span class="comment">% Split a string according to some delimiter(s). % Not as fast as hlp_split (and doesn't fuse</span>
-0510 <span class="comment">% delimiters), but works without bsxfun.</span>
-0511 <a name="_sub4" href="#_subfunctions" class="code">function strings = strsplit(string, splitter)</a>
-0512 ix = strfind(string, splitter);
-0513 strings = cell(1,numel(ix)+1);
-0514 ix = [0 ix numel(string)+1];
-0515 <span class="keyword">for</span> k = 2 : numel(ix)
-0516     strings{k-1} = string(ix(k-1)+1:ix(k)-1); <span class="keyword">end</span></pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0333 
+0334 <span class="comment">% set global variables</span>
+0335 <span class="keyword">global</span> tracking
+0336 tracking.paths = struct(<span class="string">'bcilab_path'</span>,{base_dir(1:end-1)}, <span class="string">'function_path'</span>,{function_dir}, <span class="string">'data_paths'</span>,{opts.data}, <span class="string">'store_path'</span>,{opts.store}, <span class="string">'dependency_path'</span>,{dependency_dir}, <span class="keyword">...</span>
+0337                         <span class="string">'resource_path'</span>,{resource_dir},<span class="string">'temp_path'</span>,{opts.temp}, <span class="string">'private_path'</span>,{opts.private}, <span class="string">'toolboxes'</span>,{toolbox_dirs});
+0338 <span class="keyword">for</span> d=1:length(opts.cache)
+0339     location = rmfield(opts.cache{d},<span class="string">'tag'</span>);
+0340     <span class="comment">% convert GiB to bytes</span>
+0341     <span class="keyword">if</span> location.free &gt;= 1 
+0342         location.free = location.free*1024*1024*1024; <span class="keyword">end</span>    
+0343     <span class="keyword">try</span>
+0344         warning off MATLAB:DELETE:Permission;
+0345         <span class="comment">% probe the cache locations...</span>
+0346         import java.io.*; 
+0347         <span class="comment">% try to add a free space checker (Java File object), which we use to check the quota, etc.</span>
+0348         location.space_checker = File(opts.cache{d}.dir);
+0349         [pid,pname] = hlp_processid;
+0350         filename = [opts.cache{d}.dir filesep <span class="string">'__probe_cache_ '</span> num2str(pid) <span class="string">'_'</span> pname <span class="string">'__.sto'</span>];
+0351         <span class="keyword">if</span> exist(filename,<span class="string">'file'</span>) 
+0352             delete(filename); <span class="keyword">end</span>
+0353         oldvalue = location.space_checker.getFreeSpace;
+0354         testdata = double(rand(1024)); <span class="comment">%#ok&lt;NASGU&gt;</span>
+0355         objinfo = whos(<span class="string">'testdata'</span>);
+0356         <span class="comment">% do a quick read/write test</span>
+0357         t0=tic; io_save(filename,<span class="string">'testdata'</span>); location.writestats = struct(<span class="string">'size'</span>,{0 objinfo.bytes},<span class="string">'time'</span>,{0 toc(t0)});
+0358         t0=tic; io_load(filename); location.readstats = struct(<span class="string">'size'</span>,{0 objinfo.bytes},<span class="string">'time'</span>,{0 toc(t0)});
+0359         newvalue = location.space_checker.getFreeSpace;
+0360         <span class="keyword">if</span> exist(filename,<span class="string">'file'</span>) 
+0361             delete(filename); <span class="keyword">end</span>
+0362         <span class="comment">% test if the space checker works, and also get some quick measurements of disk read/write speeds</span>
+0363         <span class="keyword">if</span> newvalue &gt;= oldvalue
+0364             location = rmfield(location,<span class="string">'space_checker'</span>); <span class="keyword">end</span>        
+0365         <span class="comment">% and turn the free space ratio into an absolute value</span>
+0366         <span class="keyword">if</span> location.free &lt; 1
+0367             location.free = location.free*location.space_checker.getTotalSpace; <span class="keyword">end</span>
+0368     <span class="keyword">catch</span> e
+0369         disp([<span class="string">'Could not probe cache file system speed; reason: '</span> e.message]);
+0370         location.writestats = struct(<span class="string">'size'</span>,{0 1024},<span class="string">'time'</span>,{0 0.01});
+0371         location.readstats = struct(<span class="string">'size'</span>,{0 1024},<span class="string">'time'</span>,{0 0.01});
+0372         <span class="keyword">if</span> location.free &lt; 1
+0373             location.free = 60*2^20; <span class="keyword">end</span> <span class="comment">% if space check fails, assume that 60GB are free</span>
+0374     <span class="keyword">end</span>
+0375     tracking.cache.disk_paths.(opts.cache{d}.tag) = location;     
+0376 <span class="keyword">end</span>
+0377 <span class="keyword">if</span> opts.mem_capacity &lt; 1
+0378     free_mem = hlp_memfree();
+0379     tracking.cache.capacity = round(opts.mem_capacity * free_mem);
+0380     <span class="keyword">if</span> free_mem &lt; 1024*1024*1024
+0381         sprintf(<span class="string">'Warning: You have less than 1 GB of free memory (reserving %.0f%% = %.0fMB for data caches).\n'</span>,100*opts.mem_capacity,tracking.cache.capacity/(1024*1024));
+0382         sprintf(<span class="string">'         This will severely impact the offline processing speed of BCILAB.\n'</span>);
+0383         sprintf(<span class="string">'         You may force a fixed amount of cache cacpacity by assinging a value greater than 1 (in GB) to the ''mem_capacity'' variable in your bcilab_config.m.'</span>); 
+0384     <span class="keyword">end</span>
+0385 <span class="keyword">else</span>
+0386     tracking.cache.capacity = opts.mem_capacity*1024*1024*1024;
+0387 <span class="keyword">end</span>
+0388 tracking.cache.reuses = opts.data_reuses;
+0389 tracking.cache.data = struct();
+0390 tracking.cache.sizes = struct();
+0391 tracking.cache.times = struct();
+0392 <span class="keyword">if</span> ~isfield(tracking.cache,<span class="string">'disk_paths'</span>)
+0393     tracking.cache.disk_paths = struct(); <span class="keyword">end</span>
+0394 <span class="comment">% initialize stack mechanisms</span>
+0395 tracking.stack.base = struct(<span class="string">'disable_expressions'</span>,false);
+0396 <span class="comment">% set parallelization settings</span>
+0397 tracking.parallel = hlp_varargin2struct(opts.parallel, <span class="keyword">...</span>
+0398     <span class="string">'engine'</span>,<span class="string">'local'</span>, <span class="keyword">...</span>
+0399     <span class="string">'pool'</span>,{<span class="string">'localhost:23547'</span>,<span class="string">'localhost:23548'</span>,<span class="string">'localhost:23549'</span>,<span class="string">'localhost:23550'</span>,<span class="string">'localhost:23551'</span>,<span class="string">'localhost:23552'</span>,<span class="string">'localhost:23553'</span>,<span class="string">'localhost:23554'</span>}, <span class="keyword">...</span>
+0400     <span class="string">'policy'</span>,<span class="string">'par_reschedule_policy'</span>,<span class="keyword">...</span>
+0401     <span class="string">'verbosity'</span>,0);
+0402 tracking.acquire_method = opts.acquire_method;
+0403 tracking.acquire_options = opts.acquire_options;
+0404 tracking.autokill_workers = opts.autokill_workers;
+0405 tracking.configscript = opts.configscript;
+0406 <span class="comment">% set GUI settings</span>
+0407 tracking.gui.show_experimental = opts.show_experimental;
+0408 tracking.gui.show_guru = opts.show_guru;
+0409 tracking.temp_fileformat = opts.temp_fileformat;
+0410 <span class="keyword">try</span>
+0411     cd(script_dir);
+0412 <span class="keyword">catch</span>
+0413 <span class="keyword">end</span>
+0414 
+0415 <span class="comment">% set up some microcache domain properties</span>
+0416 hlp_microcache(<span class="string">'arg'</span>,<span class="string">'lambda_equality'</span>,<span class="string">'proper'</span>);
+0417 hlp_microcache(<span class="string">'spec'</span>,<span class="string">'group_size'</span>,5);
+0418 hlp_microcache(<span class="string">'findfunction'</span>,<span class="string">'lambda_equality'</span>,<span class="string">'fast'</span>,<span class="string">'group_size'</span>,5);
+0419 hlp_microcache(<span class="string">'verybig'</span>,<span class="string">'max_key_size'</span>,2^30,<span class="string">'max_result_size'</span>,2^30);
+0420 
+0421 <span class="comment">% set up some fine-grained disk-cache locations</span>
+0422 <span class="comment">% small designed filter models in signal processing functions (crucial, especially due to toolbox licenses; frequently reused)</span>
+0423 hlp_diskcache(<span class="string">'filterdesign'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'filterdesign'</span>,<span class="string">'exactmatch_cutoff'</span>,0,<span class="string">'bypass'</span>,ismember(<span class="string">'filterdesign'</span>,opts.disabled_caches));
+0424 <span class="comment">% ICA solutions; small and expensive to recompute</span>
+0425 hlp_diskcache(<span class="string">'icaweights'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'icaweights'</span>,<span class="string">'exactmatch_cutoff'</span>,0,<span class="string">'spot_hashing'</span>,true,<span class="string">'bypass'</span>,ismember(<span class="string">'icaweights'</span>,opts.disabled_caches));
+0426 <span class="comment">% dipole fits: small and expensive to recompute</span>
+0427 hlp_diskcache(<span class="string">'dipfits'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'dipfits'</span>,<span class="string">'exactmatch_cutoff'</span>,0,<span class="string">'bypass'</span>,ismember(<span class="string">'dipfits'</span>,opts.disabled_caches));
+0428 <span class="comment">% feature-extraction models: fairly small, but produced in large quantities and fast to recompute</span>
+0429 hlp_diskcache(<span class="string">'featuremodels'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'featuremodels'</span>,<span class="string">'exactmatch_cutoff'</span>,0,<span class="string">'spot_hashing'</span>,true,<span class="string">'bypass'</span>,ismember(<span class="string">'featuremodels'</span>,opts.disabled_caches));
+0430 <span class="comment">% machine learning models: can be large, can be expensive to recompute, but produced in large quantities</span>
+0431 hlp_diskcache(<span class="string">'predictivemodels'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'predictivemodels'</span>,<span class="string">'exactmatch_cutoff'</span>,0,<span class="string">'spot_hashing'</span>,true,<span class="string">'bypass'</span>,ismember(<span class="string">'predictivemodels'</span>,opts.disabled_caches));
+0432 <span class="comment">% fine-grained data: currently rarely used</span>
+0433 hlp_diskcache(<span class="string">'cvfolds'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'cvfolds'</span>,<span class="string">'bypass'</span>,ismember(<span class="string">'cvfolds'</span>,opts.disabled_caches));
+0434 <span class="comment">% miscellaneous statistics; currently rarely used</span>
+0435 hlp_diskcache(<span class="string">'statistics'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'statistics'</span>,<span class="string">'exactmatch_cutoff'</span>,0,<span class="string">'bypass'</span>,ismember(<span class="string">'statistics'</span>,opts.disabled_caches));
+0436 <span class="comment">% montage-related data: small but expensive to recompute (frequently reused)</span>
+0437 hlp_diskcache(<span class="string">'montages'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'montages'</span>,<span class="string">'exactmatch_cutoff'</span>,0,<span class="string">'bypass'</span>,ismember(<span class="string">'montages'</span>,opts.disabled_caches));
+0438 <span class="comment">% more montage-related data: small but expensive to recompute (frequently reused)</span>
+0439 hlp_diskcache(<span class="string">'montage_quality'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'montages'</span>,<span class="string">'exactmatch_cutoff'</span>,0,<span class="string">'spot_hashing'</span>,true,<span class="string">'bypass'</span>,ismember(<span class="string">'montage_quality'</span>,opts.disabled_caches));
+0440 <span class="comment">% intermediate results: produced in huge quantities</span>
+0441 hlp_diskcache(<span class="string">'intermediate'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'intermediate'</span>,<span class="string">'bypass'</span>,ismember(<span class="string">'intermediate'</span>,opts.disabled_caches));
+0442 <span class="comment">% feature representations: used by some expensive methods; moderately expensive to recompute per byte, produced in huge quantities</span>
+0443 hlp_diskcache(<span class="string">'features'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'features'</span>,<span class="string">'exactmatch_cutoff'</span>,0,<span class="string">'spot_hashing'</span>,true,<span class="string">'bypass'</span>,ismember(<span class="string">'features'</span>,opts.disabled_caches));
+0444 <span class="comment">% generic data: currently rarely used</span>
+0445 hlp_diskcache(<span class="string">'general'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'general'</span>,<span class="string">'bypass'</span>,ismember(<span class="string">'general'</span>,opts.disabled_caches));
+0446 <span class="comment">% fine-grained data: currently rarely used</span>
+0447 hlp_diskcache(<span class="string">'finegrained'</span>,<span class="string">'folder'</span>,opts.temp,<span class="string">'subdir'</span>,<span class="string">'finegrained'</span>,<span class="string">'bypass'</span>,ismember(<span class="string">'finegrained'</span>,opts.disabled_caches));
+0448 
+0449 <span class="comment">% set up fingerprinting options</span>
+0450 <span class="keyword">if</span> ~opts.fingerprinting
+0451     exp_eval(exp_set(<span class="string">'fingerprint_create'</span>,false));
+0452     exp_eval(exp_set(<span class="string">'fingerprint_check'</span>,false));
+0453 <span class="keyword">end</span>
+0454 
+0455 
+0456 <span class="comment">% show toolbox status</span>
+0457 fprintf(<span class="string">'\n'</span>);
+0458 <span class="keyword">if</span> ~isempty(opts.disabled_caches)
+0459     fprintf(<span class="string">'The following caches are disabled: %s.\n'</span>,hlp_tostring(opts.disabled_caches)); <span class="keyword">end</span>
+0460 <span class="keyword">if</span> ~opts.fingerprinting
+0461     fprintf(<span class="string">'Caution: data fingerprinting has been disabled. You cannot pass manually edited datasets into offline analysis functions.\n'</span>); <span class="keyword">end</span>
+0462 fprintf(<span class="string">'\n'</span>);
+0463 disp([<span class="string">'code is in '</span> <a name="_sub2" href="#_subfunctions" class="code">function_dir]);</a>
+0464 datalocs = [];
+0465 <span class="keyword">for</span> d = opts.data
+0466     datalocs = [datalocs d{1} <span class="string">', '</span>]; <span class="keyword">end</span> <span class="comment">%#ok&lt;AGROW&gt;</span>
+0467 disp([<span class="string">'data is in '</span> datalocs(1:end-2)]);
+0468 disp([<span class="string">'results are in '</span> opts.store]);
+0469 <span class="keyword">if</span> ~isempty(opts.cache)
+0470     fnames = fieldnames(tracking.cache.disk_paths);
+0471     <span class="keyword">for</span> f = 1:length(fnames)
+0472         <span class="keyword">if</span> f == 1
+0473             disp([<span class="string">'cache is in '</span> tracking.cache.disk_paths.(fnames{f}).dir <span class="string">' ('</span> fnames{f} <span class="string">')'</span>]);
+0474         <span class="keyword">else</span>
+0475             disp([<span class="string">'            '</span> tracking.cache.disk_paths.(fnames{f}).dir <span class="string">' ('</span> fnames{f} <span class="string">')'</span>]);
+0476         <span class="keyword">end</span>
+0477     <span class="keyword">end</span>    
+0478 <span class="keyword">else</span>
+0479     disp(<span class="string">'cache is disabled'</span>);
+0480 <span class="keyword">end</span>
+0481 disp([<span class="string">'temp is in '</span> opts.temp]);
+0482 <span class="keyword">if</span> ~isempty(opts.private)
+0483     disp([<span class="string">'private plugins are in '</span> opts.private]); <span class="keyword">end</span>
+0484 fprintf(<span class="string">'\n'</span>);
+0485 
+0486 
+0487 <span class="comment">% turn off a few warnings</span>
+0488 warning off MATLAB:structOnObject
+0489 warning off MATLAB:log:logOfZero
+0490 warning off MATLAB:divideByZero <span class="comment">%#ok&lt;RMWRN&gt;</span>
+0491 warning off MATLAB:RandStream:ReadingInactiveLegacyGeneratorState <span class="comment">% for GMMs....</span>
+0492 warning off MATLAB:catenate:DimensionMismatch <span class="comment">% for hlp_summarize -- TODO: fix once feature removed</span>
+0493 
+0494 <span class="keyword">if</span> isequal(opts.worker,false) || isequal(opts.worker,0)
+0495     <span class="comment">% --- regular mode ---</span>
+0496     
+0497     <span class="keyword">try</span> 
+0498         <span class="comment">% create directories in the user's .bcilab folder...</span>
+0499         home_basedir = [hlp_homedir filesep <span class="string">'.bcilab'</span> filesep];
+0500         home_codedirs = {[<span class="string">'code'</span> filesep <span class="string">'filters'</span>],[<span class="string">'code'</span> filesep <span class="string">'dataset_editing'</span>], <span class="keyword">...</span>
+0501             [<span class="string">'code'</span> filesep <span class="string">'machine_learning'</span>], [<span class="string">'code'</span> filesep <span class="string">'paradigms'</span>], [<span class="string">'code'</span> filesep <span class="string">'scripts'</span>]};
+0502         home_miscdirs = {<span class="string">'models'</span>,<span class="string">'approaches'</span>,<span class="string">'code'</span>,[<span class="string">'code'</span> filesep <span class="string">'dependencies'</span>],<span class="string">'logs'</span>,[<span class="string">'logs'</span> filesep <span class="string">'workers'</span>]};
+0503         <span class="keyword">for</span> d = [home_codedirs home_miscdirs]
+0504             <span class="keyword">try</span>
+0505                 subdir = [home_basedir d{1}];
+0506                 <span class="keyword">if</span> ~exist(subdir,<span class="string">'dir'</span>)
+0507                     mkdir(subdir); <span class="keyword">end</span>
+0508             <span class="keyword">catch</span> e
+0509                 disp([<span class="string">'Could not create directory: '</span> subdir <span class="string">': '</span> e.message]);
+0510             <span class="keyword">end</span>
+0511         <span class="keyword">end</span>
+0512         <span class="comment">% and add the code directories to the path</span>
+0513         <span class="keyword">for</span> d = home_codedirs
+0514             addpath(genpath([home_basedir d{1}])); <span class="keyword">end</span>
+0515         <span class="comment">% add the env_add.m file to the dependencies folder</span>
+0516         add_file = [home_basedir <span class="string">'code'</span> filesep <span class="string">'dependencies'</span> filesep <span class="string">'env_add.m'</span>];
+0517         <span class="keyword">if</span> ~exist(add_file,<span class="string">'file'</span>)
+0518             <span class="keyword">try</span>                
+0519                 f = fopen(add_file,<span class="string">'w'</span>);
+0520                 fwrite(f,<span class="string">' '</span>);
+0521                 fclose(f);
+0522             <span class="keyword">catch</span> e
+0523                 disp([<span class="string">'Could not create file '</span> add_file <span class="string">': '</span> e.message]);
+0524             <span class="keyword">end</span>
+0525         <span class="keyword">end</span>
+0526     <span class="keyword">catch</span> e
+0527         disp([<span class="string">'Error trying to set up directories in ~/.bcilab: '</span> e.message]);
+0528     <span class="keyword">end</span>
+0529 
+0530     <span class="comment">% set up logfile</span>
+0531     <span class="keyword">if</span> ~exist([hlp_homedir filesep <span class="string">'.bcilab'</span>],<span class="string">'dir'</span>)
+0532         <span class="keyword">if</span> ~mkdir(hlp_homedir,<span class="string">'.bcilab'</span>);
+0533             disp(<span class="string">'Cannot create directory .bcilab in your home folder.'</span>); <span class="keyword">end</span>
+0534     <span class="keyword">end</span>
+0535     tracking.logfile = <a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(sprintf(<span class="string">'home:/.bcilab/logs/bcilab_%s-%s.log'</span>,hlp_hostname,strrep(datestr(now),<span class="string">':'</span>,<span class="string">'.'</span>)));
+0536     <span class="keyword">try</span> 
+0537         <span class="keyword">if</span> exist(tracking.logfile,<span class="string">'file'</span>)
+0538             warning off MATLAB:DELETE:Permission
+0539             delete(tracking.logfile); 
+0540             warning on MATLAB:DELETE:Permission
+0541         <span class="keyword">end</span>
+0542         diary(tracking.logfile); 
+0543     <span class="keyword">catch</span> e
+0544         disp([<span class="string">'Error trying to set up the logfile: '</span> e.message]);
+0545     <span class="keyword">end</span>   
+0546     
+0547     <span class="comment">% add private plugin directories to the path</span>
+0548     <span class="keyword">if</span> ~isempty(opts.private)
+0549         <span class="keyword">try</span>
+0550             private_codedirs = {[<span class="string">'code'</span> filesep <span class="string">'filters'</span>],[<span class="string">'code'</span> filesep <span class="string">'dataset_editing'</span>], <span class="keyword">...</span>
+0551                 [<span class="string">'code'</span> filesep <span class="string">'machine_learning'</span>], [<span class="string">'code'</span> filesep <span class="string">'paradigms'</span>], [<span class="string">'code'</span> filesep <span class="string">'scripts'</span>]};
+0552             <span class="comment">% and add the code directories to the path</span>
+0553             <span class="keyword">for</span> d = private_codedirs
+0554                 tmpdir  = <a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>([opts.private filesep d{1}]);
+0555                 <span class="keyword">if</span> exist(tmpdir,<span class="string">'dir'</span>)
+0556                     addpath(genpath(tmpdir)); <span class="keyword">end</span>
+0557             <span class="keyword">end</span>
+0558         <span class="keyword">catch</span> e
+0559             disp([<span class="string">'Could not add private code directories to path: '</span> e.message]);
+0560         <span class="keyword">end</span>
+0561     <span class="keyword">end</span>
+0562     
+0563     <span class="comment">% create a menu</span>
+0564     <span class="keyword">if</span> ~(isequal(opts.menu,false) || isequal(opts.menu,0))
+0565         <span class="keyword">try</span>
+0566             <a href="env_showmenu.html" class="code" title="function env_showmenu(varargin)">env_showmenu</a>(<span class="string">'forcenew'</span>,strcmp(opts.menu,<span class="string">'separate'</span>));
+0567         <span class="keyword">catch</span> e
+0568             disp(<span class="string">'Could not open the BCILAB menu; traceback: '</span>);
+0569             <a href="env_handleerror.html" class="code" title="function varargout = env_handleerror(varargin)">env_handleerror</a>(e);
+0570         <span class="keyword">end</span>
+0571     <span class="keyword">end</span>
+0572     
+0573     <span class="comment">% display a version reminder</span>
+0574     bpath = hlp_split(<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'bcilab:/'</span>),filesep);
+0575     <span class="keyword">if</span> ~isempty(strfind(bpath{end},<span class="string">'-stable'</span>))
+0576         <span class="keyword">if</span> isdeployed
+0577             disp(<span class="string">' This is the stable version.'</span>);
+0578         <span class="keyword">else</span>
+0579             disp(<span class="string">' This is the stable version - please keep this in mind when editing.'</span>);
+0580         <span class="keyword">end</span>
+0581     <span class="keyword">elseif</span> ~isempty(strfind(bpath{end},<span class="string">'-devel'</span>))
+0582         <span class="keyword">if</span> isdeployed
+0583             disp(<span class="string">' This is the DEVELOPER version.'</span>);
+0584         <span class="keyword">else</span>
+0585             <span class="keyword">try</span>
+0586                 cprintf([0 0.4 1],<span class="string">'This is the DEVELOPER version.\n'</span>);
+0587             <span class="keyword">catch</span>
+0588                 disp(<span class="string">' This is the DEVELOPER version.'</span>);
+0589             <span class="keyword">end</span>
+0590         <span class="keyword">end</span>
+0591     <span class="keyword">end</span>
+0592 
+0593     disp([<span class="string">' Welcome to the BCILAB toolbox on '</span> hlp_hostname <span class="string">'!'</span>])
+0594     fprintf(<span class="string">' Launch time was: %.1f seconds\n'</span>,toc(t_prelaunch));
+0595     fprintf(<span class="string">'\n'</span>);
+0596 
+0597 <span class="keyword">else</span>
+0598     disp(<span class="string">'Now entering worker mode...'</span>);
+0599     fprintf(<span class="string">' Launch time was: %.1f seconds\n'</span>,toc(t_prelaunch));
+0600     fprintf(<span class="string">'\n'</span>);
+0601     
+0602     <span class="comment">% -- worker mode ---</span>
+0603     <span class="comment">% disable standard dialogs in the workers</span>
+0604     <span class="keyword">if</span> ~isdeployed
+0605         addpath(<a href="env_translatepath.html" class="code" title="function filename = env_translatepath(filename)">env_translatepath</a>(<span class="string">'dependencies:/disabled_dialogs'</span>)); <span class="keyword">end</span>
+0606     
+0607     <span class="comment">% close EEGLAB main menu</span>
+0608     mainmenu = findobj(<span class="string">'Tag'</span>,<span class="string">'EEGLAB'</span>);
+0609     <span class="keyword">if</span> ~isempty(mainmenu)
+0610         close(mainmenu); <span class="keyword">end</span>
+0611     drawnow;
+0612     
+0613     <span class="comment">% translate the options</span>
+0614     <span class="keyword">if</span> isequal(opts.worker,true)
+0615         opts.worker = {}; <span class="keyword">end</span>
+0616     <span class="keyword">if</span> ~iscell(opts.worker)
+0617         opts.worker = {opts.worker}; <span class="keyword">end</span>
+0618     <span class="comment">% start!</span>
+0619     par_worker(opts.worker{:});
+0620 <span class="keyword">end</span>
+0621 
+0622 <span class="comment">% optionally launch the given workflow script</span>
+0623 <span class="keyword">if</span> ~isempty(opts.workflow)
+0624     run_script(opts.workflow); <span class="keyword">end</span>
+0625 
+0626 <span class="keyword">try</span>
+0627     <span class="comment">% pretend to invoke the dependency list so that the compiler finds it...</span>
+0628     dependency_list;
+0629 <span class="keyword">catch</span>
+0630 <span class="keyword">end</span>
+0631     
+0632     
+0633 <span class="comment">% normalize a directory path</span>
+0634 <a name="_sub3" href="#_subfunctions" class="code">function dir = path_normalize(dir)</a>
+0635 dir = strrep(strrep(dir,<span class="string">'\'</span>,filesep),<span class="string">'/'</span>,filesep);
+0636 <span class="keyword">if</span> dir(end) == filesep
+0637    dir = dir(1:end-1); <span class="keyword">end</span>
+0638 
+0639 
+0640 <span class="comment">% Split a string according to some delimiter(s). % Not as fast as hlp_split (and doesn't fuse</span>
+0641 <span class="comment">% delimiters), but works without bsxfun.</span>
+0642 <a name="_sub4" href="#_subfunctions" class="code">function strings = strsplit(string, splitter)</a>
+0643 ix = strfind(string, splitter);
+0644 strings = cell(1,numel(ix)+1);
+0645 ix = [0 ix numel(string)+1];
+0646 <span class="keyword">for</span> k = 2 : numel(ix)
+0647     strings{k-1} = string(ix(k-1)+1:ix(k)-1); <span class="keyword">end</span></pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>

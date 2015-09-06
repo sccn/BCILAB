@@ -18,13 +18,14 @@
 <td align="right"><a href="index.html">Index for code/utils&nbsp;<img alt=">" border="0" src="../../right.png"></a></td></tr></table>-->
 
 <h1>utl_update_config
+
 </h1>
 
 <h2><a name="_name"></a>PURPOSE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="box"><strong>Update a set of values in the configuration file and handle permissions errors, etc.</strong></div>
 
 <h2><a name="_synopsis"></a>SYNOPSIS <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="box"><strong>function success = utl_update_config(varargin) </strong></div>
+<div class="box"><strong>function success = utl_update_config(operation,varargin) </strong></div>
 
 <h2><a name="_description"></a>DESCRIPTION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 <div class="fragment"><pre class="comment"> Update a set of values in the configuration file and handle permissions errors, etc.
@@ -57,16 +58,21 @@
 <h2><a name="_cross"></a>CROSS-REFERENCE INFORMATION <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
 This function calls:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 This function is called by:
 <ul style="list-style-image:url(../../matlabicon.gif)">
+
 </ul>
 <!-- crossreference -->
 
 
 
+
+
+
 <h2><a name="_source"></a>SOURCE CODE <a href="#_top"><img alt="^" border="0" src="../../up.png"></a></h2>
-<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function success = utl_update_config(varargin)</a>
+<div class="fragment"><pre>0001 <a name="_sub0" href="#_subfunctions" class="code">function success = utl_update_config(operation,varargin)</a>
 0002 <span class="comment">% Update a set of values in the configuration file and handle permissions errors, etc.</span>
 0003 <span class="comment">% utl_update_config(NVPs...)</span>
 0004 <span class="comment">%</span>
@@ -97,36 +103,49 @@ This function is called by:
 0029 success = false;
 0030 <span class="keyword">try</span>
 0031     <span class="comment">% apply updates</span>
-0032     hlp_config(tracking.configscript,varargin{:});
+0032     hlp_config(tracking.configscript,operation,varargin{:});
 0033 <span class="keyword">catch</span> e
 0034     <span class="keyword">if</span> strcmp(e.identifier,<span class="string">'hlp_config:permissions_error'</span>)
 0035         <span class="comment">% no permission to update config file: ask if a local copy should be created</span>
-0036         resp = questdlg2(<span class="string">'The configuration file that you use is read only. Would you like to create a local copy in your home directory?'</span>,<span class="string">'Permissions'</span>,<span class="string">'Yes'</span>,<span class="string">'No'</span>,<span class="string">'Cancel'</span>,<span class="string">'Yes'</span>);
-0037         <span class="keyword">if</span> strcmp(resp,<span class="string">'Yes'</span>)
-0038             <span class="keyword">try</span> 
-0039                 <span class="comment">% make writable copy</span>
-0040                 new_config = env_translatepath(<span class="string">'home:/.bcilab/bcilab_config.m'</span>);
-0041                 <span class="keyword">if</span> ~exist(fileparts(new_config),<span class="string">'dir'</span>)
-0042                     mkdir(env_translatepath(<span class="string">'home:/'</span>),<span class="string">'.bcilab'</span>); <span class="keyword">end</span>
-0043                 copyfile(tracking.configscript,new_config);                
-0044                 fileattrib(new_config,<span class="string">'+w'</span>);
-0045                 <span class="comment">% make it the current config file</span>
-0046                 tracking.configscript = new_config;
-0047                 <span class="comment">% re-apply changes</span>
-0048                 hlp_config(tracking.configscript,varargin{:});
-0049             <span class="keyword">catch</span>
-0050                 warndlg2([<span class="string">'Cannot create the file &quot;'</span> new_config <span class="string">'&quot;.'</span>],<span class="string">'Notification'</span>);
-0051                 <span class="keyword">return</span>;
-0052             <span class="keyword">end</span>
-0053         <span class="keyword">end</span>
-0054     <span class="keyword">else</span>
-0055         warndlg2(<span class="string">'Your new values cannot be applied due to some error.'</span>,<span class="string">'Notification'</span>);
-0056         env_handleerror(e);
-0057         <span class="keyword">return</span>;
-0058     <span class="keyword">end</span>
-0059 <span class="keyword">end</span>
-0060 
-0061 success = true;</pre></div>
-<hr><address>Generated on Tue 20-Aug-2013 03:44:10 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
+0036         <span class="keyword">try</span>
+0037             resp = questdlg2(<span class="string">'The configuration file that you use is read only. Would you like to create a local copy in your home directory?'</span>,<span class="string">'Permissions'</span>,<span class="string">'Yes'</span>,<span class="string">'No'</span>,<span class="string">'Cancel'</span>,<span class="string">'Yes'</span>);
+0038         <span class="keyword">catch</span>
+0039             resp = questdlg(<span class="string">'The configuration file that you use is read only. Would you like to create a local copy in your home directory?'</span>,<span class="string">'Permissions'</span>,<span class="string">'Yes'</span>,<span class="string">'No'</span>,<span class="string">'Cancel'</span>,<span class="string">'Yes'</span>);
+0040         <span class="keyword">end</span>
+0041         <span class="keyword">if</span> strcmp(resp,<span class="string">'Yes'</span>)
+0042             <span class="keyword">try</span> 
+0043                 <span class="comment">% make writable copy</span>
+0044                 new_config = env_translatepath(<span class="string">'home:/.bcilab/bcilab_config.m'</span>);
+0045                 <span class="keyword">if</span> ~exist(fileparts(new_config),<span class="string">'dir'</span>)
+0046                     mkdir(env_translatepath(<span class="string">'home:/'</span>),<span class="string">'.bcilab'</span>); <span class="keyword">end</span>
+0047                 copyfile(tracking.configscript,new_config);                
+0048                 fileattrib(new_config,<span class="string">'+w'</span>);
+0049                 <span class="comment">% make it the current config file</span>
+0050                 tracking.configscript = new_config;
+0051                 <span class="comment">% re-apply changes</span>
+0052                 hlp_config(tracking.configscript,operation,varargin{:});
+0053             <span class="keyword">catch</span>
+0054                 <span class="keyword">try</span>
+0055                     warndlg2([<span class="string">'Cannot create the file &quot;'</span> new_config <span class="string">'&quot;.'</span>],<span class="string">'Notification'</span>);
+0056                 <span class="keyword">catch</span>
+0057                     warndlg([<span class="string">'Cannot create the file &quot;'</span> new_config <span class="string">'&quot;.'</span>],<span class="string">'Notification'</span>);
+0058                 <span class="keyword">end</span>
+0059                 <span class="keyword">return</span>;
+0060             <span class="keyword">end</span>
+0061         <span class="keyword">end</span>
+0062     <span class="keyword">else</span>
+0063         <span class="keyword">try</span>
+0064             warndlg2(<span class="string">'Your new values cannot be applied due to some error.'</span>,<span class="string">'Notification'</span>);
+0065         <span class="keyword">catch</span>
+0066             warndlg(<span class="string">'Your new values cannot be applied due to some error.'</span>,<span class="string">'Notification'</span>);
+0067         <span class="keyword">end</span>
+0068         env_handleerror(e);
+0069         <span class="keyword">return</span>;
+0070     <span class="keyword">end</span>
+0071 <span class="keyword">end</span>
+0072 
+0073 success = true;</pre></div>
+
+<hr><address>Generated on Wed 19-Aug-2015 18:06:23 by <strong><a href="http://www.artefact.tk/software/matlab/m2html/" title="Matlab Documentation in HTML">m2html</a></strong> &copy; 2005</address>
 </body>
 </html>
