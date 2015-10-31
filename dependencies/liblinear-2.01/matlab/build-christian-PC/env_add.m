@@ -1,0 +1,1 @@
+any(cellfun(@exist,{'lltrain'})==3)
