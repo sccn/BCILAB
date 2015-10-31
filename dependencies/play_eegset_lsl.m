@@ -1,4 +1,4 @@
-function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping,background,update_interval,jitter,consistent_jitter,update_jitter)
+function handle = play_eegset_lsl(varargin)
 % Play back a continuous EEGLAB dataset over LSL.
 % Handle = play_eegset_lsl(Dataset,DataStreamName,EventStreamName,Looping,Background,UpdateInterval,BlockJitter,ConsistentJitter,UpdateJitter)
 %
@@ -29,6 +29,14 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
 %                  seconds of standard deviations; should typically be lower than the update 
 %                  interval (default: 0)
 %
+%   Speedup : Speedup factor relative to real time. (default: 1.0)
+%
+%   NoMarkers : Don't emit markers. If true, no marker stream will be
+%               generated. (default: false)
+%
+%   DisplayMarkers : Display markers as they're being emitted. (default:
+%                    false)
+%
 % Out:
 %   Handle : A handle that can be used to stop background playback, by calling stop(myhandle).
 %
@@ -50,6 +58,13 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
 %   play_eegset_lsl(EEG,'MyDataStream','MyMarkerStream');
 %
 % Changelog:
+%   changes in version 1.2:
+%     - added the speedup parameter
+%     - added the nomarkers parameter
+%     - added the display_markers parameter
+%     - added support for name-value pair arguments
+%     - note: since this version, play_eegset_lsl is not a standalone
+%       function any longer (now depends on BCILAB)
 %   changes in version 1.1:
 %     - fixed the timestamps of the chunks where the stream wraps around the end of the data set
 %     - added the ability to simulate jitter in the time between updates
@@ -57,42 +72,27 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2013-11-23
 %
-%                                version 1.1
+%                                version 1.2
 %
 
-
     % parse and check inputs
-    if ~exist('datastreamname','var') || isempty(datastreamname)
-        datastreamname = 'EEGLAB'; end
-    if ~exist('eventstreamname','var') || isempty(eventstreamname)
-        eventstreamname = 'EEGLAB-Markers'; end
-    if ~exist('looping','var') || isempty(looping)
-        looping = true; end
-    if ~exist('background','var') || isempty(background)
-        background = false; end
-    if ~exist('update_interval','var') || isempty(update_interval)
-        update_interval = 0; end
-    if ~exist('jitter','var') || isempty(jitter)
-        jitter = 0; end
-    if ~exist('consistent_jitter','var') || isempty(consistent_jitter)
-        consistent_jitter = true; end
-    if ~exist('update_jitter','var') || isempty(update_jitter)
-        update_jitter = 0; end
+    args = arg_define([], varargin, ...
+        arg_norep({'dataset','Dataset'},[],[],'Dataset to play back.'), ...
+        arg({'datastreamname','DataStreamName'},'EEGLAB',[],'Name of the data stream. This is the LSL stream name.'), ...
+        arg({'eventstreamname','EventStreamName','MarkerStreamName'},'EEGLAB-Markers',[],'Name of the event stream. This is the LSL stream name.'), ...
+        arg({'looping','Looping'},true,[],'Play back data in a loop.'), ...
+        arg({'background','Background'},false,[],'Run in the background.'), ...
+        arg({'update_interval','UpdateInterval'},0,[],'Interval between updates. In seconds.'), ...
+        arg({'jitter','BlockJitter','block_jitter'},0,[],'Timing jitter per block. Can be used for testing of timing resilients. In seconds of standard deviations. Should typically be lower than the update interval.'), ...
+        arg({'consistent_jitter','ConsistentJitter'},true,[],'Data and marker jitter is consistent. If not then the data blocks are jittered relative to the markers and for correct alignment the jitter needs to be regressed out.'), ...
+        arg({'update_jitter','UpdateJitter'},0,[],'Jitter in update intervals. This affects the times at which the chunks are emitted, while the BlockJitter essentially simulates jitter in the time estimation (which is a separate issue that adds to the total jitter). In seconds of standard deviations; should typically be lower than the update interval.'), ...
+        arg({'speedup','Speedup'},1,[],'Speedup factor. Relative to real time.'), ...
+        arg({'nomarkers','NoMarkers'},false,[],'Don''t emit markers. If true, no markers will be generated.'), ...
+        arg({'display_markers','DisplayMarkers'},false,[],'Display markers. If true, markers will be displayed in the console when emitted.'));
 
-    if ~ischar(datastreamname)
-        error('The given DataStreamName must be a string.'); end
-    if ~ischar(eventstreamname)
-        error('The given EventStreamName must be a string.'); end    
-    if ~isequal(looping,0) && ~isequal(looping,1)
-        error('The given Looping argument must be a boolean.'); end
-    if ~isequal(background,0) && ~isequal(background,1)
-        error('The given Background argument must be a boolean.'); end
-    if ~isnumeric(update_interval) || ~isscalar(update_interval)
-        error('The given UpdateInterval must be a numeric scalar.'); end
-    if ~isnumeric(jitter) || ~isscalar(jitter)
-        error('The given Jitter argument must be a numeric scalar.'); end    
-    if ~isequal(consistent_jitter,0) && ~isequal(consistent_jitter,1)
-        error('The given ConsistentJitter argument must be a boolean.'); end
+    [dataset,datastreamname,eventstreamname,looping,background,...
+        update_interval,jitter,consistent_jitter,update_jitter,speedup,...
+        nomarkers, display_markers] = arg_toworkspace(args);
     if background && ~nargout
         error('To play back in the background you need to specify a return value (otherwise you playback could not be stopped).'); end
     
@@ -129,10 +129,12 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
     disp('Opening data outlet...');
     dataoutlet = lsl_outlet(datainfo);
 
-    disp('Creating marker streaminfo...');
-    markerinfo = lsl_streaminfo(lib,eventstreamname,'Markers',1,0,'cf_string',[matrix_hash(dataset.data) '-markers']);
-    disp('Opening marker outlet...');
-    markeroutlet = lsl_outlet(markerinfo);
+    if ~nomarkers
+        disp('Creating marker streaminfo...');
+        markerinfo = lsl_streaminfo(lib,eventstreamname,'Markers',1,0,'cf_string',[matrix_hash(dataset.data) '-markers']);
+        disp('Opening marker outlet...');
+        markeroutlet = lsl_outlet(markerinfo);
+    end
 
     % make a sparse index map for faster event lookup
     disp('Preparing marker map...');
@@ -144,7 +146,7 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
     end
 
     disp('Now playing back...');
-    start_time = lsl_local_clock(lib); 
+    start_time = speedup*lsl_local_clock(lib); 
     last_time = 0;
     last_pos = 0;
     if background
@@ -164,7 +166,7 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
 
     function need_update = update(varargin)
         % perform an update (send new data over LSL, if any)
-        now = lsl_local_clock(lib);
+        now = speedup*lsl_local_clock(lib);
         pos = round(1+(now-start_time)*dataset.srate);          % we reveal the dataset up to this position to LSL
         need_update = pos > last_pos;
         if need_update
@@ -200,8 +202,13 @@ function handle = play_eegset_lsl(dataset,datastreamname,eventstreamname,looping
                 % the time stamps are deduced analytically from the sample position within the data (i.e., do not depend on wall-clock time)
                 marker_times = start_time + (marker_offsets - 1)/dataset.srate + consistent_jitter*jitter_offset;
                 % send them off
-                for m=1:length(marker_times)
-                    markeroutlet.push_sample(marker_types(marker_indices(m)),marker_times(m)); end
+                if ~nomarkers
+                    for m=1:length(marker_times)
+                        markeroutlet.push_sample(marker_types(marker_indices(m)),marker_times(m)); 
+                        if display_markers
+                            fprintf('  marker at %.1fs: %s\n', marker_times(m), marker_types{marker_indices(m)}); end
+                    end
+                end
             end
             % push data chunk
             data_time = start_time + (range(end) - 1)/dataset.srate + jitter_offset;
@@ -300,4 +307,3 @@ function result = quickif(condition,ontrue,onfalse)
         result = onfalse;
     end
 end
-
