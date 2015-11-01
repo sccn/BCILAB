@@ -81,8 +81,6 @@ function res = utl_collection_partition(varargin)
 %                               (unless the subject, day, montage (if present) are also the same. If
 %                               any such nesting relationship is properly expressed, the TestUnit
 %                               and Per settings will work as expected.
-%               NoCrossvalidation : Whether to disable the cross-validation (like passing 0 to
-%                                   bci_train)
 %
 % Out:
 %   Result : result of the partitioning; depends on the IndexSet
@@ -111,15 +109,9 @@ args = arg_define(0:3, varargin, ...
         arg({'consider','Consider'},'each', {'each','all','last','allexceptfirst'}, 'Consider these items for testing. Allows to test on, for instance, each subject, or the last day of the experiment (using all others for training), or all days except the first (using the prior days for training).'), ...
         arg({'per','Per'},'',[], 'Split into one fold per. If consider is not each, determines the context to which the last/allexceptfirst refers (default: next coarsest granularity in the data according to ScopeOrdering).')...
         arg({'scope_order','ScopeOrdering'},{'group','subject','day','montage','session','recording','block'},[],'Dataset identifiers ordered from coarsest to finest. This both defines what identifiers are known, and their hierarchical ordering.'), ...    
-        arg({'no_crossval','NoCrossvalidation'},false,[],'Whether to disable the cross-validation. Evaluation measures will be NaN.'), ...    
     }, 'Settings for the partitioning.'));
 
 [collection,inds,settings] = deal(args.collection, args.inds, args.settings);
-
-if settings.no_crossval && isempty(inds)
-    res = {{collection, {}, {}}}; 
-    return;
-end
 
 % input validation
 if ~iscell(collection) || ~all(cellfun('isclass',collection,'struct'))

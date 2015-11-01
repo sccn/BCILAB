@@ -79,6 +79,9 @@ opts = arg_define('allow-unlisted-names',varargin, ...
     arg({'keep','RetainScheduler'},false,[], 'Retain scheduler instance. If true, the scheduler instance will be reused on the next call to par_beginschedule. Can be more efficient, but does not allow for nested calls to par_beginschedule.'), ...
     arg({'pushscope','PushScope'},true,[], 'Push variable scope. If true, the current variable scope (established via hlp_scope) will be pushed over the network; necessary for some features to run seamlessly.'));
 
+% max length of java arrays that we construct (technically 2^31-1 minus some slack but playing it safe)
+max_java_array_len = 2^30; 
+
 % look up global settings, if requested
 if strcmp(opts.engine,'global')
     opts.engine = par_globalsetting('engine'); end
@@ -170,12 +173,30 @@ switch opts.engine
         fprintf('Converting tasks for scheduler...');
         bam = ByteArrayMaker();
         for t=1:length(tasks)
-            tasks{t} = bam.makeByteArray(tasks{t}); end
-        tasks = [tasks{:}];
+            % we need to efficiently split the task into chunks no larger than max_java_array_len
+            % (since the data can easily exceed the max java array length)
+            if length(tasks{t}) > max_java_array_len
+                num_blocks = ceil(length(tasks{t})/max_java_array_len);
+                rest_size = mod(length(tasks{t}),max_java_array_len);
+                sizes = [max_java_array_len*ones(1,num_blocks-1) rest_size];
+            else
+                % we split into at least 2 blocks to not get confused with the gnarly 
+                % construction/marshaling of Java objects in MATLAB
+                sizes = [floor(length(tasks{t})/2), length(tasks{t})-floor(length(tasks{t})/2)];
+            end
+            blocks = cell(length(sizes),1);
+            [blocks{:}] = chopdeal(tasks{t},sizes);
+            for b=1:length(blocks)
+                blocks{b} = bam.makeByteArray(blocks{b}); end
+            tasks{t} = [blocks{:}];
+        end
+        tasklist = java.util.ArrayList;
+        for t=1:length(tasks)
+            tasklist.add(tasks{t}); end
         fprintf('done.\n');
         if opts.verbosity>0
             fprintf('Submitting tasks to scheduler...\n'); end
-        sched.sched.submit(tasks);
+        sched.sched.submit(tasklist);
     case 'Reference'
         % evaluate locally, but go through the same evaluation function as the BLS workers
         unencoded_results = cell(1,length(tasks)); % holds unencoded results for debugging

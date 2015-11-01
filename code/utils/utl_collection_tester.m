@@ -30,4 +30,8 @@ if ~isa(predict_func,'function_handle')
 
 for k=1:length(testcollection)
     predictions{k} = predict_func(utl_preprocess_bundle(testcollection{k},model),model); end %#ok<AGROW>
-predictions = utl_aggregate_results(predictions{:});
+if ~isempty(testcollection)
+    predictions = utl_aggregate_results(predictions{:});
+else
+    predictions = [];
+end

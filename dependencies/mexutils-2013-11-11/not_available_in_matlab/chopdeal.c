@@ -7,12 +7,12 @@
 void mexFunction(int nlhs, mxArray *plhs[],
                  int nrhs, const mxArray *prhs[])
 {
-    int datalen,numsizes,k,s,p;
+    long long datalen,numsizes,k,s,p;
     double *indata_d, *outdata_d;
     float *indata_f, *outdata_f;
     char *indata_c, *outdata_c;
     double *sizes;
-    int cursize;
+    long long cursize;
     mxArray *tmp;
     if (nrhs != 2)
         mexErrMsgIdAndTxt("chopdeal:incorrect_input_argument_number","2 input arguments required."); 

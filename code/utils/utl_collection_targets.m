@@ -28,4 +28,9 @@ for k=length(testcollection):-1:1
         targets{k} = set_gettarget(testcollection{k}); 
     end
 end
-targets = utl_aggregate_results(targets{:});
+
+if ~isempty(testcollection)
+    targets = utl_aggregate_results(targets{:});
+else
+    targets = [];
+end

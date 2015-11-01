@@ -19,7 +19,7 @@ function model = utl_complete_model(model,func,bundle)
 %                                    Can also be passed either as an EEGLAB data set (with .tracking
 %                                    field) or as a stream bundle; in this case, the processing that
 %                                    has been applied to those data sets will be used as a template
-%                                    to lay out to set up the filter graph.
+%                                    to lay out the filter graph.
 %
 %                                    If not passed, will be filled in by the Bundle argument.
 %
@@ -90,7 +90,7 @@ if ~isfield(model.tracking,'filter_graph')
         model.tracking.filter_graph{s} = bundle.streams{s}.tracking.online_expression; end
 else
     % a filter graph was passed in; check format
-    if all(isfield(model.tracking.filter_graph,{'data','chanlocs'}))
+    if all(isfield(model.tracking.filter_graph,{'tracking','chanlocs'}))
         % ... as a data set; override the bundle with it
         bundle = struct('streams',{{model.tracking.filter_graph}});        
         % set the filter graph accordingly
@@ -163,7 +163,8 @@ try
                 error('The given model''s .tracking.prediction_channels{k} field is malformed for k=%i; needs to be a chanlocs struct or cell array of channel labels, but was: %s',s,hlp_tostring(model.tracking.prediction_channels{s})); end 
         end
     end
-catch %#ok<CTCH>
+catch e %#ok<CTCH>
+    fprintf('Could not initialize prediction channels: %s\n',hlp_handleerror(e));
 end
 
 if length(model.tracking.filter_graph) ~= length(model.tracking.prediction_channels)

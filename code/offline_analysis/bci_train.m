@@ -435,6 +435,7 @@ function [measure,model,stats] = bci_train(varargin)
 %                      is twice as fast, for more rapid workflow. A standard choice in machine
 %                      learning is 10-fold randomized cross-validation, which you get by setting
 %                      this parameter to 10 (though it is not ideal for time-series data).
+%                      Use the special value 0 or 'off' to disable the outer cross-validation.
 %
 %   OptimizationScheme : Optimization scheme. Cross-validation scheme to use for parameter search
 %                        (this is a nested cross-validation, only performed if there are parameters
@@ -931,7 +932,7 @@ if opts.compute_final_model
 
 % also estimate the model performance, if requested (0-fold cross-validation = cross-validation turned off)
 % this can run in parallel to the model search, if parallel computation is enabled
-if ~isequal(opts.eval_scheme,0)
+if ~isequal(opts.eval_scheme,0) && ~isequal(opts.eval_scheme,'off')
     parallel_args = hlp_struct2varargin(opts,'restrict',{'eval_scheme','opt_scheme','engine_gs','engine_cv','engine_ncv'});
     [measure,stats] = utl_nested_crossval(opts.data, crossval_args{:}, parallel_args{:});
 else

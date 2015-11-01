@@ -75,8 +75,8 @@ public class Scheduler implements Runnable {
     public Scheduler(String[] workers, String custom_policy, String result_acceptor, int receiver_backlog, int receiver_timeout, int reschedule_interval, int verbosity_level, int size_hint) throws IOException {
         loglock = new Object();
         log("allocating data structures...");
-        waiting = new TreeMap<Integer,byte[]>();
-        inflight = new HashMap<Integer,byte[]>(workers.length*3);
+        waiting = new TreeMap<Integer,Object[]>();
+        inflight = new HashMap<Integer,Object[]>(workers.length*3);
         finished = new HashMap<Integer,byte[]>(size_hint);        
         events = new HashMap<Long,String>(size_hint*3);
         pass_out = new ConcurrentLinkedQueue<Integer>();
@@ -126,12 +126,13 @@ public class Scheduler implements Runnable {
         }
     }
     
-    // submit the given tasks (string-formatted) for scheduling
-    public synchronized void submit(Object[] tasks) {
-        log("submit() -- adding " + Integer.toString(tasks.length) + " tasks to waiting list...\n");
-        for (Object t : tasks) {
+    // submit the given array of tasks (each an array of byte arrays but here opaquely represented as an Object) for scheduling
+    // (the Objects are used here to circumvent MATLAB's issues with constructing Java types)
+    public synchronized void submit(ArrayList<Object[]> tasks) {
+        log("submit() -- adding " + Integer.toString(tasks.size()) + " tasks to waiting list...\n");
+        for (Object[] t : tasks) {
             Integer id = global_taskid.incrementAndGet();
-            waiting.put(id,(byte[])t);
+            waiting.put(id,t);
             log("  added id " + id.toString() + ".\n");
         }
         log("submit() completed.\n");
@@ -190,7 +191,7 @@ public class Scheduler implements Runnable {
         DataOutputStream out = new DataOutputStream(conn.getOutputStream());
         log("      done creating input/output streams for socket " + conn.getInetAddress().getHostAddress() + ".\n");
         Integer id = null;
-        byte[] task = null;
+        Object[] task = null;
         // check whether the worker is ready to accept a task
         try {
             log("      checking whether worker at socket " + conn.getInetAddress().getHostAddress() + " is ready...\n");
@@ -221,14 +222,24 @@ public class Scheduler implements Runnable {
             out.writeInt(id);
             out.writeInt(return_address.length());
             out.writeBytes(return_address);
-            out.writeInt(task.length);
-            out.write(task);
+            // send length of all task chunks combined
+            Long totalLength = 0L;
+            for (Object chunk : task) {
+                Integer chunkLength = ((byte[])chunk).length;
+                totalLength = totalLength + chunkLength;
+                log("        task id " + id.toString() + " chunk of length " + chunkLength.toString() + "\n");
+            }
+            log("        task id " + id.toString() + " total length (" + Integer.toString(task.length) + " chunks): " + totalLength.toString() + "\n");
+            out.writeLong(totalLength);
+            // send each task chunk
+            for (Object chunk : task)
+                out.write((byte[])chunk);
             out.flush();
             log("      done sending task id " + id.toString() + " over socket " + conn.getInetAddress().getHostAddress() + ".\n");
             log("      confirming checksum for task id " + id.toString() + " over socket " + conn.getInetAddress().getHostAddress() + "...\n");
             // check response
-            int checksum = in.readInt();
-            if (checksum != id + return_address.length() + task.length)
+            long checksum = in.readLong();
+            if (checksum != id + return_address.length() + totalLength)
                 throw new IOException("Transmission Error.");
             log("      successfully confirmed checksum for task id " + id.toString() + " over socket " + conn.getInetAddress().getHostAddress() + ".\n");
         }
@@ -540,8 +551,8 @@ public class Scheduler implements Runnable {
     private String return_address; 	// the target ("return") address of this scheduler, for the workers ("host:port")
     
     // these three lists are supposed to be only accessed from a synchronized(this) {} block or synchronized Scheduler function
-    private SortedMap<Integer,byte[]> waiting;  // tasks (Id->TaskBytes) that are waiting to be scheduled
-    private Map<Integer,byte[]> inflight; // tasks (Id->TaskBytes) that are (presumably) being worked on
+    private SortedMap<Integer,Object[]> waiting;  // tasks (Id->TaskData) that are waiting to be scheduled (TaskData being an array of byte[]'s, representing a sequence of bytes that makes up the task, separated into chunks to not exceed Java's max array length)
+    private Map<Integer,Object[]> inflight; // tasks (Id->TaskData) that are (presumably) being worked on
     private Map<Integer,byte[]> finished; // the results (Id->TaskBytes) that have arrived so far
 
     private Map<Long,String> events;      // a list of events (TimeMs->Event), for processing by the scheduling policy

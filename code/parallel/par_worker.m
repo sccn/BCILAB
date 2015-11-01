@@ -124,7 +124,7 @@ if ~isnumeric(portrange) || ~isscalar(portrange) || portrange~=round(portrange) 
 % read additional options
 opts = hlp_varargin2struct(varargin, 'backlog',1, 'timeout_accept',3, 'timeout_dialout',10, ...
     'timeout_send',10, 'timeout_recv',5, 'min_keepalive',300, 'receive_buffer',64000, ...
-    'retries_send',2,'retry_wait',2, 'linger_send',3, 'update_check',[],'matlabthreads',4, ...
+    'retries_send',5,'retry_wait',5, 'linger_send',3, 'update_check',[],'matlabthreads',4, ...
     'token','dsfjk45djf','verbosity',1,'max_java_memory',2^26);
 verbosity = opts.verbosity;
 
@@ -232,7 +232,26 @@ while 1
             cr = ChunkReader(in);
             taskid = in.readInt();
             collector = char(cr.readFully(in.readInt())');
-            task = typecast(cr.readFully(in.readInt()),'uint8');
+            tasklen = in.readLong();
+            % read task in chunks
+            if verbosity >= 1
+                fprintf('task length: %.0d, reading',tasklen); end
+            len = tasklen;
+            task = {};
+            while len > opts.max_java_memory
+                task{end+1} = typecast(cr.readFully(opts.max_java_memory),'uint8');
+                len = len - opts.max_java_memory;
+                if verbosity >= 1
+                    fprintf('.'); end
+            end
+            if len > 0
+                task{end+1} = typecast(cr.readFully(len),'uint8'); 
+                if verbosity >= 1
+                    fprintf('.'); end
+            end
+            if verbosity >= 1
+                fprintf('\n'); end
+            task = vertcat(task{:});
             % optionally check for code update
             if isempty(opts.update_check)
                 if verbosity >= 1
@@ -257,7 +276,7 @@ while 1
                 end
             end
             % reply with checksum
-            out.writeInt(taskid+length(collector)+length(task));
+            out.writeLong(taskid+length(collector)+length(task));
             out.flush();
             conn.close();
             
@@ -320,7 +339,12 @@ while 1
                         fprintf('waiting before retry...\n'); end
                     pause(opts.retry_wait);
                     if verbosity >= 0
-                        fprintf('retrying to open back link...\n'); end
+                        if retry < opts.retries_send
+                            fprintf('retrying to open back link...\n'); 
+                        else
+                            fprintf('giving up send retries...\n');                             
+                        end
+                    end
                 end
             end
             

@@ -84,7 +84,7 @@ if ~isempty(varargin)
         if ~isempty(result.event)
             [result.event.latency] = arraydeal([result.event.latency]+replicate(cumsum(sample_count)-sample_count,event_count)); end
         % update misc fields
-        [result.nbchan,result.pnts,result.trials,extra_dims] = size(result.data); %#ok<NASGU>
+        [result.nbchan,result.pnts,result.trials,extra_dims] = size(result.data); %#ok<ASGLU,NASGU>
         result.xmax = result.xmin + (result.pnts-1)/result.srate;
     end
 else
