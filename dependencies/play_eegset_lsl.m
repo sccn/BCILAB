@@ -88,11 +88,12 @@ function handle = play_eegset_lsl(varargin)
         arg({'update_jitter','UpdateJitter'},0,[],'Jitter in update intervals. This affects the times at which the chunks are emitted, while the BlockJitter essentially simulates jitter in the time estimation (which is a separate issue that adds to the total jitter). In seconds of standard deviations; should typically be lower than the update interval.'), ...
         arg({'speedup','Speedup'},1,[],'Speedup factor. Relative to real time.'), ...
         arg({'nomarkers','NoMarkers'},false,[],'Don''t emit markers. If true, no markers will be generated.'), ...
+        arg({'wait_prompt','WaitPrompt'},false,[],'Show a wait prompt. Requires the user to press [Enter] before playback begins. This allows other applications to lock on to the stream before actual data is running.'), ...
         arg({'display_markers','DisplayMarkers'},false,[],'Display markers. If true, markers will be displayed in the console when emitted.'));
 
     [dataset,datastreamname,eventstreamname,looping,background,...
         update_interval,jitter,consistent_jitter,update_jitter,speedup,...
-        nomarkers, display_markers] = arg_toworkspace(args);
+        nomarkers, wait_prompt, display_markers] = arg_toworkspace(args);
     if background && ~nargout
         error('To play back in the background you need to specify a return value (otherwise you playback could not be stopped).'); end
     
@@ -145,6 +146,9 @@ function handle = play_eegset_lsl(varargin)
         marker_map = sparse(1,dataset.pnts);
     end
 
+    if wait_prompt
+        input('Press [Enter] to start playback...');  end
+    
     disp('Now playing back...');
     start_time = speedup*lsl_local_clock(lib); 
     last_time = 0;
