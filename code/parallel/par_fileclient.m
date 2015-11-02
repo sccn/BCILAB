@@ -14,7 +14,7 @@ args = arg_define(0:2,varargin, ...
     arg({'timeout_accept','TimeoutAccept',},60*20,[],'Timeout to start file transmission. In seconds. If a client takes longer than this to initiate transmission we give up.','guru',true), ...
     arg({'timeout_receive','TimeoutReceive',},60*2,[],'Timeout to perform file transmission. In seconds. If a client takes longer than this to complete transmission we give up.','guru',true), ...
     arg({'force','Force'}, false, [], 'Force process even if the file is not in cache.'), ...
-    arg({'local_fallback','LocalFallback'}, false, [], 'Fall back to local processing if unsuccessful.'), ...
+    arg({'local_fallback','LocalFallback'}, true, [], 'Fall back to local processing if unsuccessful.'), ...
     arg({'broadcast','Broadcast'}, true, [], 'Use network broadcast. Only disable if you explictly want to talk only to local file hosts.'), ...
     arg_nogui({'timeout_accept_granularity','TimeoutAcceptGranularity',},1000,[],'Timeout to start file transmission. In miliseconds. If a client takes longer than this to initiate transmission we give up.','guru',true), ...
     arg({'verbosity','Verbosity'}, 2, [], 'Verbosity level.'));
@@ -74,6 +74,7 @@ switch args.operation
             if verbosity > 1
                 fprintf('waiting for incoming data...'); end
             t0 = tic;
+            conn = [];
             while toc(t0) < args.timeout_accept
                 % note: this loop is mainly to allow us to interrupt it
                 try
@@ -83,6 +84,8 @@ switch args.operation
                     % accepted timed out; try again
                 end
             end
+            if isempty(conn)
+                error('Timeout exceeded on client %s',hlp_hostname); end
             if verbosity > 1
                 fprintf('got a connection.\nopening input stream...'); end
             % got one
@@ -127,7 +130,7 @@ switch args.operation
                 if verbosity > 0
                     fprintf('done (%.1f seconds; %.2fMB/s bandwidth).\n',toc(t0),length(result)/2^20/toc(t0)); end
             else
-                error('No result available (%s)',e.message);
+                error('No result available on client %s (%s)',hlp_hostname,e.message);
             end
         end
         if strcmp(itemtype,'expression')

@@ -115,173 +115,177 @@ else
         end
     end
     
-    switch lower(type)
-        % compute distribution measures
-        case 'kld'
-            % kullback-leibler divergence D_KL(targ||pred)
-            if is_discrete(T) && is_discrete(P)
-                measure = mean(kl_divergence_discrete(T,P));
-            elseif is_discrete(P) && is_point(T) && length(unique(T)) <= length(P{3})
-                % convert T into a discrete probability distribution
-                tmp = zeros(max(T),length(T)); tmp(T+max(T).*(0:(length(T)-1))') = 1; 
-                T = {'disc' tmp' P{3}};
-                measure = mean(kl_divergence_discrete(T,P));
-            elseif is_gaussian(T) && is_gaussian(P)
-                measure = mean(kl_divergence_gaussian(T,P));
-            elseif is_1d_distributed(T) && is_1d_distributed(P)
-                % use the cdf method
-                error('not yet implemented');
-            else
-                error('cannot compute the kullback-leibler divergence for the given training & prediction data format.');
-            end
-        case 'nll'
-            % negative log-likelihood
-            if is_point(T) && is_distributed(P)
-                measure = sum(neg_loglike(T,P,max_nll_loss));
-            elseif is_distributed(T) && is_point(P)
-                measure = sum(neg_loglike(P,T,max_nll_loss));
-            else
-                error('cannot compute log-likelihood for the given training and prediction data format.');
-            end
-        case {'mcr','err'}
-            % misclassification rate
-            if is_structured(T) && is_structured(P)
-                measure = mean(cellfun(@isequal,T,P));
-            else
-                % we can enumerate classes & compute a per-class error
-                if isnumeric(T) && isnumeric(P) && isequal(size(T),size(P)) && size(T,2) == 1
-                    classes = unique([T;P]);
-                elseif (is_1d_regression(T) || is_discrete(T)) && (is_1d_regression(P) || is_discrete(P))
-                    if is_discrete(T)
-                        classes = T{3};
-                        T = T{3}(hlp_getresult(2,@max,T{2}')');
-                    end
-                    if is_discrete(P)
-                        classes = P{3};
-                        P = P{3}(hlp_getresult(2,@max,P{2}')');
-                    end
-                else
-                    error('target and/or prediction formats not suited for classification');
-                end
-                try
-                    corrects = T == P;
-                catch
-                    disp('Data unaligned; working around this; this is a severe bug.');
-                    len = max(size(T,1),size(P,1));
-                    T = T(round((1:len)*size(T,1)/len));
-                    P = P(round((1:len)*size(P,1)/len));
-                    corrects = T == P;
-                end
-                    
-                measure = 1-mean(corrects);
-                % also add per-class error
-                stats.classes = classes;
-                stats.per_class = nan(size(classes,1),1);
-                for c=1:length(classes)
-                    if any(T==classes(c))
-                        stats.per_class(c) = 1-mean(corrects(T==c)); end
-                end
-                if length(classes) == 2
-                    stats.TP = sum(T==classes(2) & P==classes(2))/sum(T==classes(2));
-                    stats.TN = sum(T==classes(1) & P==classes(1))/sum(T==classes(1));
-                    stats.FP = sum(T==classes(1) & P==classes(2))/sum(T==classes(1)); % fixed FP/FN rates, reported by Matt Peterson.
-                    stats.FN = sum(T==classes(2) & P==classes(1))/sum(T==classes(2));
-                end
-            end
-            
-        otherwise
-            % compute sample-based measures
-            Tx = expected_value(T);
-            Px = expected_value(P);
-            switch lower(type)
-                case {'mae','l1'}
-                    measure = mean(abs(Px-Tx));
-                case {'smae'}
-                    measure = mean(abs(Px-Tx)) ./ std(Tx);
-                case {'mse','l2'}
-                    measure = mean((Px-Tx).^2);
-                case 'sign'
-                    measure = mean(sign(Px) ~= sign(Tx));
-                case {'smse'}
-                    measure = mean((Px-Tx).^2) ./ var(Tx);
-                case {'max','linf'}
-                    measure = max(abs(Px-Tx));
-                case 'rms'
-                    measure = sqrt(mean((Px-Tx).^2));
-                case 'bias'
-                    measure = mean(Px-Tx);
-                case 'medse'
-                    measure = median((Px-Tx).^2);
-                case 'medae'
-                    measure = median(abs(Px-Tx));
-                case 'smedae'
-                    measure = median(abs(Px-Tx)) ./ (mad(Tx,1)*1.4826);
-                case 'auc'
-                    % derive binary T, continuous P, and the class identities
-                    if is_discrete(P)
-                        classes = P{3};
-                        P = P{2}(:,2);
-                        if is_discrete(T)
-                            T = T{2}(:,2);
-                        elseif ~is_1d_regression(T)
-                            error('AUC cannot be computed for non-class targets');
-                        end
-                    elseif is_discrete(T) && is_1d_regression(P)
-                        classes = T{3};
-                        T = T{2}(:,2);
-                    elseif is_1d_regression(T) && is_1d_regression(P)
-                        classes = unique(T);
-                    end
-                    % compute the AUC
-                    if length(classes) ~= 2
-                        warning('AUC can only be computed for 2-class outcomes. Returning NaN.'); 
-                        measure = NaN;
-                    else
-                        if length(unique(T)) > 2
-                            error('AUC can only be computed for nonprobabilistic targets.'); end
-                        T = T==classes(2);
-                        nT = sum(T);
-                        ranks = tied_ranks(P);
-                        measure = -(sum(ranks(T)) - (nT^2 + nT)/2) / (nT*(length(T)-nT));
-                    end
-                case 'f_measure'
-                    classes = [];
-                    if is_discrete(T)
-                        classes = T{3};
-                        T = T{2}*T{3};
-                    elseif is_discrete(P) 
-                        classes = P{3};
-                        P = P{2}*P{3};
-                    elseif is_point(T)
-                        classes = unique(T);
-                    end
-                    if length(classes) ~= 2
-                        error('computation of the f measure requires 2-class outcomes'); end
-                    T = T==classes(2);
-                    P = P==classes(2);
-                    stats.TP = sum((P==1)&(T==1));
-                    stats.TN = sum((P==0)&(T==0));
-                    stats.FP = sum((P==1)&(T==0));
-                    stats.FN = sum((P==0)&(T==1));
-                    measure = -2*stats.TP/(2*stats.TP+stats.FP+stats.FN);
-                case 'cross_entropy'
-                    if is_discrete(P) && is_1d_regression(T)
-                        % convert T into a discrete distribution
-                        T = {'disc' repmat(T,1,length(P{3})) == repmat(P{3}',size(T,1),1) P{3}};
-                    elseif is_discrete(T) && is_1d_regression(P)
-                        % convert P into a discrete distribution
-                        if length(unique(P)) > length(T{3})
-                            error('P must contain class predictions, not gradual predictions'); end
-                        P = {'disc' repmat(P,1,length(T{3})) == repmat(T{3}',size(P,1),1) T{3}};
-                    elseif ~(is_discrete(T) || is_discrete(P))
-                        error('cross-entropy can currently only be computed for class outcomes.');
-                    end
+    if isempty(T) && isempty(P)
+        measure = NaN;
+    else
+        switch lower(type)
+            % compute distribution measures
+            case 'kld'
+                % kullback-leibler divergence D_KL(targ||pred)
+                if is_discrete(T) && is_discrete(P)
                     measure = mean(kl_divergence_discrete(T,P));
-                case 'cond_entropy'
-                    error('not yet implemented.');
-                otherwise
-                    error('unknown measure specified.');
-            end
+                elseif is_discrete(P) && is_point(T) && length(unique(T)) <= length(P{3})
+                    % convert T into a discrete probability distribution
+                    tmp = zeros(max(T),length(T)); tmp(T+max(T).*(0:(length(T)-1))') = 1; 
+                    T = {'disc' tmp' P{3}};
+                    measure = mean(kl_divergence_discrete(T,P));
+                elseif is_gaussian(T) && is_gaussian(P)
+                    measure = mean(kl_divergence_gaussian(T,P));
+                elseif is_1d_distributed(T) && is_1d_distributed(P)
+                    % use the cdf method
+                    error('not yet implemented');
+                else
+                    error('cannot compute the kullback-leibler divergence for the given training & prediction data format.');
+                end
+            case 'nll'
+                % negative log-likelihood
+                if is_point(T) && is_distributed(P)
+                    measure = sum(neg_loglike(T,P,max_nll_loss));
+                elseif is_distributed(T) && is_point(P)
+                    measure = sum(neg_loglike(P,T,max_nll_loss));
+                else
+                    error('cannot compute log-likelihood for the given training and prediction data format.');
+                end
+            case {'mcr','err'}
+                % misclassification rate
+                if is_structured(T) && is_structured(P)
+                    measure = mean(cellfun(@isequal,T,P));
+                else
+                    % we can enumerate classes & compute a per-class error
+                    if isnumeric(T) && isnumeric(P) && isequal(size(T),size(P)) && size(T,2) == 1
+                        classes = unique([T;P]);
+                    elseif (is_1d_regression(T) || is_discrete(T)) && (is_1d_regression(P) || is_discrete(P))
+                        if is_discrete(T)
+                            classes = T{3};
+                            T = T{3}(hlp_getresult(2,@max,T{2}')');
+                        end
+                        if is_discrete(P)
+                            classes = P{3};
+                            P = P{3}(hlp_getresult(2,@max,P{2}')');
+                        end
+                    else
+                        error('target and/or prediction formats not suited for classification');
+                    end
+                    try
+                        corrects = T == P;
+                    catch
+                        disp('Data unaligned; working around this; this is a severe bug.');
+                        len = max(size(T,1),size(P,1));
+                        T = T(round((1:len)*size(T,1)/len));
+                        P = P(round((1:len)*size(P,1)/len));
+                        corrects = T == P;
+                    end
+
+                    measure = 1-mean(corrects);
+                    % also add per-class error
+                    stats.classes = classes;
+                    stats.per_class = nan(size(classes,1),1);
+                    for c=1:length(classes)
+                        if any(T==classes(c))
+                            stats.per_class(c) = 1-mean(corrects(T==c)); end
+                    end
+                    if length(classes) == 2
+                        stats.TP = sum(T==classes(2) & P==classes(2))/sum(T==classes(2));
+                        stats.TN = sum(T==classes(1) & P==classes(1))/sum(T==classes(1));
+                        stats.FP = sum(T==classes(1) & P==classes(2))/sum(T==classes(1)); % fixed FP/FN rates, reported by Matt Peterson.
+                        stats.FN = sum(T==classes(2) & P==classes(1))/sum(T==classes(2));
+                    end
+                end
+
+            otherwise
+                % compute sample-based measures
+                Tx = expected_value(T);
+                Px = expected_value(P);
+                switch lower(type)
+                    case {'mae','l1'}
+                        measure = mean(abs(Px-Tx));
+                    case {'smae'}
+                        measure = mean(abs(Px-Tx)) ./ std(Tx);
+                    case {'mse','l2'}
+                        measure = mean((Px-Tx).^2);
+                    case 'sign'
+                        measure = mean(sign(Px) ~= sign(Tx));
+                    case {'smse'}
+                        measure = mean((Px-Tx).^2) ./ var(Tx);
+                    case {'max','linf'}
+                        measure = max(abs(Px-Tx));
+                    case 'rms'
+                        measure = sqrt(mean((Px-Tx).^2));
+                    case 'bias'
+                        measure = mean(Px-Tx);
+                    case 'medse'
+                        measure = median((Px-Tx).^2);
+                    case 'medae'
+                        measure = median(abs(Px-Tx));
+                    case 'smedae'
+                        measure = median(abs(Px-Tx)) ./ (mad(Tx,1)*1.4826);
+                    case 'auc'
+                        % derive binary T, continuous P, and the class identities
+                        if is_discrete(P)
+                            classes = P{3};
+                            P = P{2}(:,2);
+                            if is_discrete(T)
+                                T = T{2}(:,2);
+                            elseif ~is_1d_regression(T)
+                                error('AUC cannot be computed for non-class targets');
+                            end
+                        elseif is_discrete(T) && is_1d_regression(P)
+                            classes = T{3};
+                            T = T{2}(:,2);
+                        elseif is_1d_regression(T) && is_1d_regression(P)
+                            classes = unique(T);
+                        end
+                        % compute the AUC
+                        if length(classes) ~= 2
+                            warning('AUC can only be computed for 2-class outcomes. Returning NaN.'); 
+                            measure = NaN;
+                        else
+                            if length(unique(T)) > 2
+                                error('AUC can only be computed for nonprobabilistic targets.'); end
+                            T = T==classes(2);
+                            nT = sum(T);
+                            ranks = tied_ranks(P);
+                            measure = -(sum(ranks(T)) - (nT^2 + nT)/2) / (nT*(length(T)-nT));
+                        end
+                    case 'f_measure'
+                        classes = [];
+                        if is_discrete(T)
+                            classes = T{3};
+                            T = T{2}*T{3};
+                        elseif is_discrete(P) 
+                            classes = P{3};
+                            P = P{2}*P{3};
+                        elseif is_point(T)
+                            classes = unique(T);
+                        end
+                        if length(classes) ~= 2
+                            error('computation of the f measure requires 2-class outcomes'); end
+                        T = T==classes(2);
+                        P = P==classes(2);
+                        stats.TP = sum((P==1)&(T==1));
+                        stats.TN = sum((P==0)&(T==0));
+                        stats.FP = sum((P==1)&(T==0));
+                        stats.FN = sum((P==0)&(T==1));
+                        measure = -2*stats.TP/(2*stats.TP+stats.FP+stats.FN);
+                    case 'cross_entropy'
+                        if is_discrete(P) && is_1d_regression(T)
+                            % convert T into a discrete distribution
+                            T = {'disc' repmat(T,1,length(P{3})) == repmat(P{3}',size(T,1),1) P{3}};
+                        elseif is_discrete(T) && is_1d_regression(P)
+                            % convert P into a discrete distribution
+                            if length(unique(P)) > length(T{3})
+                                error('P must contain class predictions, not gradual predictions'); end
+                            P = {'disc' repmat(P,1,length(T{3})) == repmat(T{3}',size(P,1),1) T{3}};
+                        elseif ~(is_discrete(T) || is_discrete(P))
+                            error('cross-entropy can currently only be computed for class outcomes.');
+                        end
+                        measure = mean(kl_divergence_discrete(T,P));
+                    case 'cond_entropy'
+                        error('not yet implemented.');
+                    otherwise
+                        error('unknown measure specified.');
+                end
+        end
     end
 end
 stats.measure = type;

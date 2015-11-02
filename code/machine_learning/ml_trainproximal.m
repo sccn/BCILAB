@@ -407,32 +407,24 @@ else
         loss_means = repmat({zeros(nFolds,nLambdas)},[nRegweights,nTasks]);
         lambdaSearch.return_regpath = false;
     end
-
-    % find best lambdas & regweight combination
-    [loss_mean,best_lambdas,best_loss] = deal(cell(nRegweights,nTasks));
-    [best_regidx,best_regweights,best_lambda] = deal(cell(1,nTasks));
+    
+    % pick best lambda and regweights across tasks (averaging over folds)
+    losses = zeros(nRegweights,nLambdas,nTasks);
     for t=1:nTasks
         for w=1:nRegweights
-            % average loss over folds
-            loss_mean{w,t} = mean(loss_means{w,t},1);
-            % if there are several minima, choose largest lambda of the smallest cvm
-            best_lambdas{w,t} = max(lambdaSearch.lambdas(loss_mean{w,t} <= min(loss_mean{w,t})));
-            best_loss{w,t} = min(loss_mean{w,t});
-        end
-        % pick regweights and lambda at best loss
-        [dummy,best_regidx{t}] = min([best_loss{:,t}]); %#ok<ASGLU>
-        best_regweights{t} = regweights{best_regidx{t}}(:)';
-        best_lambda{t} = best_lambdas{best_regidx{t},t};
+            losses(w,:,t) = mean(loss_means{w,t}, 1); end        
+        joint_losses = mean(losses,3); % nRegweights x nLambdas
+        % find per-task best lambda/regweights
+        [best_regweight_indices,best_lambda_indices] = find(losses(:,:,t) == min(vec(losses(:,:,t))));
+        [dummy,idx] = max(best_lambda_indices); %#ok<ASGLU>
+        best_regweights{t} = regweights{best_regweight_indices(idx)}(:)';
+        best_lambda{t} = lambdaSearch.lambdas(best_lambda_indices(idx));
     end
-    
-    % select a lambda and regweights combination from all tasks
-    tmp = sort([best_lambda{:}]); joint_best_lambda = tmp(round(end/2));
-    tmp = sort(vertcat(best_regweights{:})); 
-    if isempty(tmp)
-        joint_best_regweights = [];
-    else
-        joint_best_regweights = tmp(round(end/2),:);
-    end
+    % find all optima in the loss surface and then pick the minimum at highest lambda (if multiple)
+    [best_regweight_indices,best_lambda_indices] = find(joint_losses == min(joint_losses(:)));
+    [dummy,idx] = max(best_lambda_indices); %#ok<ASGLU>
+    joint_best_regweights = regweights{best_regweight_indices(idx)}(:)';
+    joint_best_lambda = lambdaSearch.lambdas(best_lambda_indices(idx));
 
     % pick the model at the minimum...
     if lambdaSearch.return_regpath
@@ -440,10 +432,10 @@ else
         res = hlp_diskcache('predictivemodels',@solve_regularization_path,trials,targets,lambdaSearch.lambdas,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,joint_best_regweights,weightshape,data_weights);
         [regpath,history] = deal(res.regpath, res.hist);
         model.regularization_path = regpath;                                  % the model for a given {lambda}{task} at best regweights, for whole data
-        model.regularization_loss = loss_mean(best_regidx,:);                 % the associated loss estimatses for a given {task}(lambda)
+        model.regularization_loss = permute(losses(best_regweight_indices(idx),:,:),[2,3,1]);   % the associated loss estimatses for a given (lambda,task)
         model.ws = regpath{find(lambdaSearch.lambdas == joint_best_lambda,1)};% the best model for a given {task}
     else
-        res = hlp_diskcache('predictivemodels',@solve_regularization_path,trials,targets,lambdaSearch.lambdas(find(lambdaSearch.lambdas==joint_best_lambda,1)),loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,joint_best_regweights,weightshape,data_weights);
+        res = hlp_diskcache('predictivemodels',@solve_regularization_path,trials,targets,joint_best_lambda,loss,includebias,verbosity,solverOptions,lbfgsOptions,regularizers,joint_best_regweights,weightshape,data_weights);
         [tmp,history] = deal(res.regpath, res.hist);
         model.ws = tmp{1};  % optimal model for each {task}
     end
@@ -452,7 +444,6 @@ else
     if length(model.w) == 1
         model.w = model.w{1}; end                   % optimal model for each {task}, or the model if only one task given (without the enclosing cell array)
     
-    model.balance_losses = loss_mean;               % same as loss_means, legacy
     if lambdaSearch.return_reggrid
         model.regularization_grid = model_seq; end  % sequence of models for each {fold,regweight}{lambda}{task}
     if lambdaSearch.history_traces
@@ -460,11 +451,12 @@ else
         model.regularization_history = history;     % structure of regpath history at best lambda/regweights
     end
     model.loss_means = loss_means;                  % overall loss for each {regweight,task}(fold,lambda)
-    model.loss_mean = loss_mean;                    % overall loss for each {regweight,task}(lambda)
+    model.task_losses = losses;                     % average loss for each (reweight,task,lambda)
+    model.joint_losses = joint_losses;              % average loss for each (regweight,lambda)
     model.best_regweights = best_regweights;        % best regweights for each {task}
-    model.best_lambdas = best_lambdas;              % best set of lambdas for each {regidx,task}
     model.best_lambda = best_lambda;                % best lambda for each {task}
-    model.best_loss = best_loss;                    % best loss for each {regweight,task}
+    model.joint_best_regweights = joint_best_regweights; % best regweights from all tasks
+    model.joint_best_lambda = joint_best_lambda;         % best lambda from all tasks
     model.classes = classes;                        % set of class labels in training data
     model.continuous_targets = continuous_targets;  
     model.includebias = includebias;                % whether a bias is included in the model

@@ -315,6 +315,9 @@ if ~isempty(inds)
         results = results(~cellfun('isempty',results)); end
     
     % collect results
+    targets = {};
+    predictions = {};
+    models = {};
     for p=length(results):-1:1
         targets{p} = results{p}{1};
         predictions{p} = results{p}{2};

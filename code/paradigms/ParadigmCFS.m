@@ -98,6 +98,7 @@ classdef ParadigmCFS < ParadigmBase
             end
             if ~isempty(remove)
                 fprintf('Removing bad data...\n'); 
+                results(remove) = [];
                 scales(remove) = [];
                 features(remove) = [];
                 targets(remove) = [];
@@ -114,13 +115,8 @@ classdef ParadigmCFS < ParadigmBase
             model.featuremodel.scale = scales{1};
             model.featuremodel.apply_to = args.apply_to;
             model.featuremodel.modality = args.modality;
-            
-            procdata = exp_eval(procdata);
-            model.times = procdata.xmin + (0:procdata.pnts-1)/procdata.srate;
-            model.cov = cov(procdata.data(:,:)');            
-            % set the filter graph based on the last reference data set
-            model.tracking.filter_graph = exp_eval(flt_pipeline('signal',refsets{end}, args.flt));
-            model.chanlocs = procdata.chanlocs;
+            model.chanlocs = results{1}.chanlocs;
+            model.tracking.filter_graph = results{1}.filter_graph;
         end
         
         function res = preproc_set(self, procdata, args)
@@ -194,7 +190,10 @@ classdef ParadigmCFS < ParadigmBase
             % extract target values
             res.targets = set_gettarget(procdata);
             % save the transforms
-            res.transforms = P;            
+            res.transforms = P;   
+            % save the filter graph and chanlocs
+            res.filter_graph = struct('tracking',{procdata.tracking}, 'chanlocs',{procdata.chanlocs});
+            res.chanlocs = procdata.chanlocs;
         end
             
         
