@@ -338,9 +338,6 @@ else
         history_seq = cell(nFolds,nRegweights); % history_seq(fold,regweight}{lambda}( is a struct of optimization histories for a given fold, regweight and lambda setting, for all concurrent tasks
         jobs = {}; % compute jobs
         for f = 1:nFolds
-            if verbosity
-                disp(['Fitting fold # ' num2str(f) ' of ' num2str(nFolds)]); end
-
             % determine training and test set masks
             % TODO: calc all this per fold and don't recalc below
             testmask{f} = cellfun(@(foldid)foldid==f,foldids,'UniformOutput',false); % testmask{fold}{task}(trial) a bitmask of test-set trials for a given task
@@ -372,6 +369,8 @@ else
         
         % run the jobs
         results = par_schedule(jobs, 'engine',engine_cv, 'scope',parallel_scope);
+
+        % evaluate results
         predictions = repmat(cellfun(@(t)zeros(length(t),nLambdas),targets(:)','UniformOutput',false),nRegweights,1);
         ji = 1;
         for f = 1:nFolds

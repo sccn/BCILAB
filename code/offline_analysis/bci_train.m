@@ -850,9 +850,9 @@ end
 crossval_args = [crossval_handles crossval_misc crossval_trainargs];
 
 % note: the following line is a fancy way of calling [measure,model,stats] = run_computation(opts,crossval_args);
-% what is different is that the variables fingerprint_check and fingerprint_create will be set to 0
-% for the scope of that computation (effectively disabling some unnecessary checks that have already
-% been done at the beginning of bci_train, unless generally disabled, for performance)
+% what is different is that the global variables fingerprint_check and fingerprint_create will be
+% set to 0 for the scope of that computation (effectively disabling some unnecessary checks that
+% have already been done at the beginning of bci_train, unless generally disabled, for performance)
 [measure,model,stats] = hlp_scope({'fingerprint_check',0,'fingerprint_create',0},@run_computation,opts,crossval_args);
 
 % annotate the result with additional info
