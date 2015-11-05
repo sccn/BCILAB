@@ -86,7 +86,7 @@ function signal = flt_clean_windows(varargin)
 %   eeg = flt_clean_windows('Signal',eeg,'KeepMetadata',true);
 %
 % See also:
-%   flt_clean_channels, flt_clean_settings
+%   flt_clean_settings
 % 
 % Notes:
 %   This method has no effect when used online.

@@ -60,8 +60,15 @@ function [signal,state] = flt_repair_bursts(varargin)
 %   UseGPU : Whether to run on the GPU. Makes sense for offline processing if you have a GTX 780 or 
 %            better. Default: false
 %
+%   InitializeOn : Initialize on time range. If a time range is given as [start,end], either in 
+%                  seconds or as fractions of the whole data (if both <= 1), then where applicable 
+%                  the filter will be initialized only on that subset of the whole data. As a 
+%                  result, the filter will not have to be retrained in each cross-validation 
+%                  fold. (default: [])
+%
 %   ReferenceExtraction : Group of sub-parameters to control how clean reference data shall be extracted 
 %                         for calibration of the statistics (these are arguments to flt_clean_windows).
+%                         Can also be set to 'off' to select the entire initialization data.
 %
 %       PowerTolerances: The minimum and maximum standard deviations within which the power of a channel
 %                        must lie (relative to a robust estimate of the clean EEG power distribution in 
@@ -88,6 +95,9 @@ function [signal,state] = flt_repair_bursts(varargin)
 %   as short as the chunk length. The behavior should nevertheless be qualitatively equivalent to
 %   offline processing.
 %
+% See also:
+%   flt_clean_settings
+% 
 % Examples:
 %   % use the defaults
 %   eeg = flt_repair_bursts(eeg);
@@ -108,7 +118,7 @@ function [signal,state] = flt_repair_bursts(varargin)
 
 if ~exp_beginfun('filter') return; end
 
-declare_properties('name','BurstRepair', 'independent_channels',false, 'independent_trials',false);
+declare_properties('name','BurstRepair', 'independent_channels',false, 'independent_trials','initialize_on');
 
 arg_define(varargin, ...
     arg_norep({'signal','Signal'}), ...
@@ -122,7 +132,8 @@ arg_define(varargin, ...
     arg({'use_gpu','UseGPU'}, false, [], 'Whether to run on the GPU. Makes sense for offline processing if you have a card with double-precision performance of a GTX Titan or better.'), ...
     arg({'processing_mode','ProcessingMode'}, 'remove', {'remove','keep','separate'}, 'Processing mode. Determines what to do after artifacts have been identified.'), ...
     arg({'separate_noise','SeparateNoise'}, 0.001, [0, 0.00001, 0.01, 1], 'Noise level for separated artifacts. This is the relative amplitude of random noise mixed into the (low-rank) artifact signal, if ProcessingMode is separate, to keep downstream algorithms from yielding nonfinite numbers.'), ...
-    arg_sub({'ref_extraction','ReferenceExtraction'},{'zthresholds',[-3.5 5.5]}, @flt_clean_windows, 'Reference data extraction. Group of sub-parameters to control how clean reference data shall be extracted for calibration of the statistics.'), ...
+    arg({'initialize_on','InitializeOn'},[],[0 0 600 Inf],'Initialize on time range. If a time range is given as [start,end], either in seconds or as fractions of the whole data (if both <= 1), then where applicable the filter will be initialized only on that subset of the whole data. As a result, it will not have to be retrained in each cross-validation fold.','shape','row'),...
+    arg_subtoggle({'ref_extraction','ReferenceExtraction'},{'zthresholds',[-3.5 5.5]}, @flt_clean_windows, 'Reference data extraction. Group of sub-parameters to control how clean reference data shall be extracted for calibration of the statistics.'), ...
     arg_deprecated({'ref_wndlen','ReferenceWindowLength'},[],[],'Selection granularity for reference data. When clean data is extracted from the recording for calibrating the cutoff thresholds the data is chopped up into windows of this length. This parameters has been deprecated in favor of ReferenceExtraction.WindowLength.'),...
     arg_deprecated({'ref_maxbadchannels','ReferenceMaxBadChannels'}, [], [], 'Maximum bad-channel fraction on reference data. The maximum fraction of bad channels per time window of the data that is used as clean reference EEG on which statistics are based. Instead of a number one may also directly pass in a data set that contains clean reference data (for example a minute of resting EEG). A lower values makes this criterion more aggressive. Reasonable range: 0.05 (very aggressive) to 0.3 (quite lax). This parameters has been deprecated in favor of ReferenceExtraction.MaxBadChannels.'), ...
     arg_deprecated({'ref_tolerances','ReferenceTolerances'},[],[],'Power tolerances on reference data. These are the power tolerances beyond which a channel in the clean reference data is considered "bad", in standard deviations relative to a robust EEG power distribution (lower and upper bound). This parameters has been deprecated in favor of ReferenceExtraction.PowerTolerances.'), ...
@@ -171,9 +182,16 @@ if isempty(state)
             rethrow(e);
         end
     end
-    % extract reference data without gross artifacts
-    disp('Finding a clean section of the data...');
-    ref_section = exp_eval(flt_clean_windows('signal',signal,ref_extraction));
+    if ~isempty(initialize_on)
+        ref_section = exp_eval(set_selinterval(signal,initialize_on,quickif(all(initialize_on<=1),'fraction','seconds')));
+    else
+        ref_section = signal;
+    end 
+    if ref_extraction.arg_selection
+        % extract reference data subset without gross artifacts
+        disp('Finding a clean section of the data...');
+        ref_section = exp_eval(flt_clean_windows('signal',ref_section,ref_extraction));
+    end
     % calibrate on it
     disp('Estimating statistics...');
     state.asr = hlp_diskcache('filterdesign',@asr_calibrate,ref_section.data,ref_section.srate,stddev_cutoff,calib_precision,state.shaping{:}); clear ref_section;

@@ -32,6 +32,7 @@ function [signal,state] = flt_repair_channels(varargin)
 %
 %   ReferenceExtraction : Group of sub-parameters to control how clean reference data shall be extracted 
 %                         for calibration of the statistics (these are arguments to flt_clean_windows).
+%                         Can also be set to 'off' to use the whole initialization data.
 %
 %       PowerTolerances: The minimum and maximum standard deviations within which the power of a channel
 %                        must lie (relative to a robust estimate of the clean EEG power distribution in 
@@ -40,6 +41,12 @@ function [signal,state] = flt_repair_channels(varargin)
 %       MaxBadChannels : The maximum number or fraction of bad channels that a retained window may still
 %                        contain (more than this and it is removed). Reasonable range is 0.05 (very clean
 %                        output) to 0.3 (very lax cleaning of only coarse artifacts). Default: 0.15.
+%
+%   InitializeOn : Initialize on time range. If a time range is given as [start,end], either in 
+%                  seconds or as fractions of the whole data (if both <= 1), then where applicable 
+%                  the filter will be initialized only on that subset of the whole data. As a 
+%                  result, the filter will not have to be retrained in each cross-validation 
+%                  fold. (default: [])
 %
 %   CalibPrecision : Block granularity for calibration. The data covariance will be estimated in
 %                    blocks of this size and then robustly averaged (larger values admit smaller
@@ -71,7 +78,7 @@ function [signal,state] = flt_repair_channels(varargin)
 %   eeg = flt_clean_channels('Signal',eeg,'MinimumCorrelation',0.7, 'WindowLength',1.5);
 %
 % See also:
-%   flt_clean_windows, flt_clean_channels, flt_repair_bursts
+%   flt_clean_settings
 %
 % TODO:
 %   The notch filter is a somewhat lacking solution.
@@ -83,7 +90,7 @@ function [signal,state] = flt_repair_channels(varargin)
 
 if ~exp_beginfun('filter') return; end;
 
-declare_properties('name','ChannelRepair', 'independent_channels',false, 'independent_trials',false);
+declare_properties('name','ChannelRepair', 'independent_channels',false, 'independent_trials','initialize_on');
 
 arg_define(varargin, ...
     arg_norep({'signal','Signal'}), ...
@@ -92,7 +99,8 @@ arg_define(varargin, ...
     arg({'processing_delay','ProcessingDelay'}, 0.05, [0 0 2.5 Inf], 'Signal delay, in seconds. This can be anywhere between 0 and WindowLength/2; if this is too low some sharp-onset artifacts will leave brief "knacks" in the data.'), ...
     arg({'num_samples','NumSamples'}, 20, uint32([1 10 100 10000]), 'Number of RANSAC samples. This is the number of samples to generate in the random sampling consensus process.'), ...
     arg({'subset_size','SubsetSize'}, 0.25, [0 Inf], 'Subset size. This is the size of the channel subsets to use, as number of channels or a fraction of the total number of channels.'), ...
-    arg_sub({'ref_extraction','ReferenceExtraction'},{'zthresholds',[-3.5 5.5]}, @flt_clean_windows, 'Reference data extraction. Group of sub-parameters to control how clean reference data shall be extracted for calibration of the statistics.'), ...
+    arg_subtoggle({'ref_extraction','ReferenceExtraction'},{'zthresholds',[-3.5 5.5]}, @flt_clean_windows, 'Reference data extraction. Group of sub-parameters to control how clean reference data shall be extracted for calibration of the statistics.'), ...
+    arg({'initialize_on','InitializeOn'},[],[0 0 600 Inf],'Initialize on time range. If a time range is given as [start,end], either in seconds or as fractions of the whole data (if both <= 1), then where applicable the filter will be initialized only on that subset of the whole data. As a result, it will not have to be retrained in each cross-validation fold.','shape','row'),...
     arg({'calib_precision','CalibPrecision'}, 10, uint32([1 1 1000 10000]), 'Block granularity for calibration. The data covariance will be estimated in blocks of this size and then robustly averaged (larger values admit smaller memory requirements).','guru',true), ...
     arg({'linenoise_aware','LineNoiseAware'},true,[],'Line-noise aware processing. If enabled, a notch filter will be applied to ensure that line noise does not affect the correlation measure.','guru',true), ...
     arg({'chunk_length','ChunkLength'},50000,uint32([1 1000 100000 1000000000]), 'Maximum chunk length. Process the data in chunks of no larger than this (to avoid memory limitations).','guru',true), ...
@@ -112,9 +120,16 @@ P = round(processing_delay*signal.srate);
 
 % initialize filter state if necessary
 if isempty(state) %#ok<NODEF>
-    % extract a relatively clean section of data
-    disp('Finding a clean section of the data...');
-    ref_section = exp_eval_optimized(flt_clean_windows(ref_extraction,'signal',signal));
+    if ~isempty(initialize_on)
+        ref_section = exp_eval(set_selinterval(signal,initialize_on,quickif(all(initialize_on<=1),'fraction','seconds')));
+    else
+        ref_section = signal;
+    end 
+    if ref_extraction.arg_selection
+        % extract a relatively clean section of data
+        disp('Finding a clean section of the data...');
+        ref_section = exp_eval_optimized(flt_clean_windows(ref_extraction,'signal',signal));
+    end
     % determine the notch filter (if any)
     [state.B,state.A] = deal([]);
     if linenoise_aware

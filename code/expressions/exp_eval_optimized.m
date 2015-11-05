@@ -98,7 +98,14 @@ end
 if num_expressions == length(partition_at) && num_expressions > 0
     % check if the current node has the independent_trials=false property (which prevents reordering)
     props = hlp_microcache('props',@arg_report,'properties',x.head,{hlp_fileinfo(x.head,[],'hash')});
-    if ~props.independent_trials
+    if ischar(props.independent_trials) 
+        % whether the trials are independent depends on the value of a parameter
+        param = arg_extract(x.parts,props.independent_trials);
+        independent_trials = ~(isequal(param,[]) || isequal(param,0));
+    else
+        independent_trials = props.independent_trials;
+    end
+    if ~independent_trials
         return; end
     
     % we can proceed

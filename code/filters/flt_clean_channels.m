@@ -23,6 +23,11 @@ function signal = flt_clean_channels(varargin)
 %                        standard deviations from the channel population mean, it is considered abnormal.
 %                        (default: 4)
 %
+%   InitializeOn : Initialize on time range. If a time range is given as [start,end], either in 
+%                  seconds or as fractions of the whole data (if both <= 1), then where applicable 
+%                  the filter will be initialized only on that subset of the whole data. As a 
+%                  result, the filter will not have to be retrained in each cross-validation 
+%                  fold. (default: [])
 %
 %   The following are "detail" parameters that usually do not have to be tuned. If you can't get
 %   the function to do what you want, you might consider adapting these to your data.
@@ -87,7 +92,7 @@ function signal = flt_clean_channels(varargin)
 %   eeg = flt_clean_channels('signal',eeg,'min_corr',0.7, 'max_broken_time',0.15);
 %
 % See also:
-%   flt_clean_windows, flt_clean_settings
+%   flt_clean_settings
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2014-05-12
@@ -96,7 +101,7 @@ function signal = flt_clean_channels(varargin)
 
 if ~exp_beginfun('filter') return; end;
 
-declare_properties('name','ChannelCleaning', 'independent_channels',false, 'independent_trials',false);
+declare_properties('name','ChannelCleaning', 'independent_channels',false, 'independent_trials','initialize_on');
 
 arg_define(varargin, ...
     arg_norep({'signal','Signal'}), ...
@@ -107,6 +112,7 @@ arg_define(varargin, ...
     arg({'subset_size','SubsetSize'}, 0.15, [0 0.1 0.3 1], 'Subset size. This is the size of the channel subsets to use, as number of channels or a fraction of the total number of channels. Lower numbers (e.g., 0.15) will yield better robustness in the presence of very noisy channels, but that requires a higher number of samples to compensate for the reduction in data.'), ...
     arg({'num_samples','NumSamples'}, 200, uint32([1 50 500 10000]), 'Number of RANSAC samples. This is the number of samples to generate in the random sampling consensus process. The more samples you use the more stable the estimates are going to be.'), ...
     arg({'protect_channels','ProtectChannels'},[],[],'Channels to protect from removal. This protects the channels with the given names from being removed.','type','cellstr','shape','row'), ...
+    arg({'initialize_on','InitializeOn'},[],[0 0 600 Inf],'Initialize on time range. If a time range is given as [start,end], either in seconds or as fractions of the whole data (if both <= 1), then where applicable the filter will be initialized only on that subset of the whole data. As a result, it will not have to be retrained in each cross-validation fold.','shape','row'),...
     arg({'keep_unlocalized_channels','KeepUnlocalizedChannels'},false,[],'Keep unlocalized channels. Whether to keep channels which have no localiztion information and can therefore not be checked based on location information.'), ...
     arg({'use_gpu','UseGPU'}, false, [], 'Whether to run on the GPU. Makes sense for offline processing if you have a GTX Titan or better.'), ...
     arg({'ignore_chanlocs','IgnoreChanlocs'}, false, [], 'Ignore channel locations. If enabled, a fallback algorithm will be used that relies on the MinimumCorrelation and IgnoredQuantile parameters; this method is also used if no channel locations are present.'), ...
@@ -118,32 +124,37 @@ arg_define(varargin, ...
 
 % flag channels
 if ~exist('removed_channel_mask','var')
-    subset_size = round(subset_size*size(signal.data,1)); 
+    if ~isempty(initialize_on)
+        ref_section = exp_eval(set_selinterval(signal,initialize_on,quickif(all(initialize_on<=1),'fraction','seconds')));
+    else
+        ref_section = signal;
+    end 
+    subset_size = round(subset_size*size(ref_section.data,1)); 
 
     if max_broken_time > 0 && max_broken_time < 1  %#ok<*NODEF>
-        max_broken_time = size(signal.data,2)*max_broken_time;
+        max_broken_time = size(ref_section.data,2)*max_broken_time;
     else
-        max_broken_time = signal.srate*max_broken_time;
+        max_broken_time = ref_section.srate*max_broken_time;
     end
     
-    [C,S] = size(signal.data);
+    [C,S] = size(ref_section.data);
     window_len = window_len*signal.srate;
     wnd = 0:window_len-1;
     offsets = round(1:window_len:S-window_len);
     W = length(offsets);
 
-    if linenoise_aware && signal.srate > 100
+    if linenoise_aware && ref_section.srate > 100
         % remove signal content above 50Hz
-        B = design_fir(100,[2*[0 45 50]/signal.srate 1],[1 1 0 0]);
-        for c=signal.nbchan:-1:1
-            X(:,c) = filtfilt_fast(B,1,signal.data(c,:)'); end
+        B = design_fir(100,[2*[0 45 50]/ref_section.srate 1],[1 1 0 0]);
+        for c=ref_section.nbchan:-1:1
+            X(:,c) = filtfilt_fast(B,1,ref_section.data(c,:)'); end
         % determine z-scored level of EM noise-to-signal ratio for each channel
-        noisiness = mad(signal.data'-X,1)./mad(X,1);
+        noisiness = mad(ref_section.data'-X,1)./mad(X,1);
         znoise = (noisiness - median(noisiness)) ./ (mad(noisiness,1)*1.4826);        
         % trim channels based on that
         noise_mask = znoise > noise_threshold;
     else
-        X = signal.data';
+        X = ref_section.data';
         noise_mask = false(C,1);
     end
 
@@ -151,11 +162,11 @@ if ~exist('removed_channel_mask','var')
     if rereferenced
         X = bsxfun(@minus,X,mean(X,2)); end
     
-    if (isfield(signal.chanlocs,'X') && isfield(signal.chanlocs,'Y') && isfield(signal.chanlocs,'Z') && all([length([signal.chanlocs.X]),length([signal.chanlocs.Y]),length([signal.chanlocs.Z])] > length(signal.chanlocs)*0.5)) && ~ignore_chanlocs
+    if (isfield(ref_section.chanlocs,'X') && isfield(ref_section.chanlocs,'Y') && isfield(ref_section.chanlocs,'Z') && all([length([ref_section.chanlocs.X]),length([ref_section.chanlocs.Y]),length([ref_section.chanlocs.Z])] > length(ref_section.chanlocs)*0.5)) && ~ignore_chanlocs
         fprintf('Scanning for bad channels...');
         
         % get the matrix of all channel locations [3xN]
-        [x,y,z] = deal({signal.chanlocs.X},{signal.chanlocs.Y},{signal.chanlocs.Z});
+        [x,y,z] = deal({ref_section.chanlocs.X},{ref_section.chanlocs.Y},{ref_section.chanlocs.Z});
         usable_channels = find(~cellfun('isempty',x) & ~cellfun('isempty',y) & ~cellfun('isempty',z));
         locs = [cell2mat(x(usable_channels));cell2mat(y(usable_channels));cell2mat(z(usable_channels))];
         X = X(:,usable_channels);
@@ -217,7 +228,7 @@ if ~exist('removed_channel_mask','var')
     fprintf(' removing %i channels...\n',nnz(removed_channel_mask));
     % remove the channels in the protect list
     if ~isempty(protect_channels)
-        removed_channel_mask(set_chanid(signal,protect_channels)) = true; end    
+        removed_channel_mask(set_chanid(ref_section,protect_channels)) = true; end    
 end
 
 % annotate the data with what was removed (for visualization)
