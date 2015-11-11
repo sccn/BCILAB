@@ -164,6 +164,9 @@ else
             out.winfunc = in; end
         % set fields according to cell contents...
         if iscell(in)         
+            structidx = find(cellfun(@(x) isstruct(x),in));
+            if ~isempty(structidx)
+                out = in{structidx}; end
             rangeidx = find(cellfun(@(x) isnumeric(x) && length(x)==2,in));
             if ~isempty(rangeidx)
                 out.trange = in{rangeidx}; end        
@@ -178,3 +181,4 @@ else
     % turn into a cell array
     out = {out};
 end
+
