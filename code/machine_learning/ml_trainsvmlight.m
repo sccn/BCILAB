@@ -77,14 +77,13 @@ function model = ml_trainsvmlight(varargin)
 arg_define([0 3],varargin, ...
     arg_norep('trials'), ...
     arg_norep('targets'), ...
-    arg({'cost','Cost'}, search(2.^(-5:2:15)), [0 2^-7 2^15 Inf], 'Regularization parameter. Reasonable range: 2.^(-5:2:15), greater is stronger. By default, it is average(x*x) ^ -1.','cat','Core Parameters'), ...
+    arg({'cost','Cost'}, 2.^(-5:2:15), [0 2^-7 2^15 Inf], 'Regularization parameter. Reasonable range: 2.^(-5:2:15), greater is stronger. By default, it is average(x*x) ^ -1.','cat','Core Parameters'), ...
     arg({'ptype','Type'}, 'classification', {'classification','regression','ranking'}, 'Type of problem to solve.','cat','Core Parameters'), ...
     arg({'kernel','Kernel'}, 'rbf', {'linear','rbf','poly','sigmoid','user'}, 'Kernel type. Linear, or Non-linear kernel types: Radial Basis Functions (general-purpose),  Polynomial (rarely preferred), Sigmoid (usually overly simple), User (user-defined kernel from kernel.h).','cat','Core Parameters'), ...
-    arg({'g','RBFScale','gamma'}, search(2.^(-16:2:4)), [], 'Scaling parameter of the RBF kernel. Should match the size of structures in the data; A reasonable range is 2.^(-16:2:4).','cat','Core Parameters'), ...
+    arg({'g','RBFScale','gamma','Gamma'}, 2.^(-16:2:4), [], 'Scaling parameter of the RBF kernel. Should match the size of structures in the data; A reasonable range is 2.^(-16:2:4).','cat','Core Parameters'), ...
     arg({'d','PolyDegree'}, 3, uint32([1 100]), 'Degree for the polynomial kernel.','cat','Core Parameters'), ...
     arg({'etube','EpsilonTube','tube'}, 0.1, [], 'Epsilon tube width for regression.','cat','Core Parameters'), ...
     arg({'rbalance','CostBalance','balance'}, 1, [], 'Relative cost of per-class errors. The factor by which training errors on positive examples outweight errors on negative examples.','cat','Core Parameters'), ...
-    ...
     arg({'s','SigmoidPolyScale'}, 1, [], 'Scale of sigmoid/polynomial kernel.','cat','Miscellaneous'), ...
     arg({'r','SigmoidPolyBias'}, 1, [], 'Bias of sigmoid/polynomial kernel.','cat','Miscellaneous'), ...
     arg({'u','UserParameter'}, '1', [], 'User-defined kernel parameter.','cat','Miscellaneous','type','char','shape','row'), ...
@@ -92,13 +91,11 @@ arg_define([0 3],varargin, ...
     arg({'scaling','Scaling'}, 'std', {'none','center','std','minmax','whiten'}, 'Pre-scaling of the data. For the regulariation to work best, the features should either be naturally scaled well, or be artificially scaled.','cat','Miscellaneous'), ...
     arg({'clean','CleanUp'}, false, [], 'Remove inconsistent training examples.','cat','Miscellaneous'), ...
     arg({'epsi','Epsilon','eps'}, 0.1, [], 'Tolerated solution accuracy.','cat','Miscellaneous'), ...
+    arg({'nfolds','NumFolds'},5,[0 Inf],'Cross-validation folds. The cross-validation is used to determine the best regularization parameter.'),...
+    arg({'foldmargin','FoldMargin'},5,[0 0 10 Inf],'Margin between folds. This is the number of trials omitted between training and test set.'), ...    
+    arg({'parallel_scope','ParallelScope'},[],[],'Optional parallel scope. If this is a cell array of name-value pairs, cluster resources will be acquired with these options for the duration of bci_train (and released thereafter) Options as in env_acquire_cluster.','type','expression'), ...
     arg({'votingScheme','VotingScheme'},'1vR',{'1v1','1vR'},'Voting scheme. If multi-class classification is used, this determine how binary classifiers are arranged to solve the multi-class problem. 1v1 gets slow for large numbers of classes (as all pairs are tested), but can be more accurate than 1vR.'), ...
     arg({'verbose','Verbose'}, false, [], 'Show diagnostic output.','cat','Miscellaneous'));
-
-if is_search(cost)
-    cost = 1; end
-if is_search(g)
-    g = 0.3; end
 
 % find the class labels
 classes = unique(targets);
@@ -119,13 +116,55 @@ else
     % rewrite sme string args to numbers
     ptype = hlp_rewrite(ptype,'classification','c','regression','r','ranking','p'); %#ok<*NODEF>
     kernel = hlp_rewrite(kernel,'linear',0,'poly',1,'rbf',2,'sigmoid',3,'user',4);
-        
-    % build the arguments
+            
+    if length(cost)*length(g) > 1        
+        % cross-validate to score the reg params
+        foldid = 1+floor((0:length(targets)-1)/length(targets)*nfolds); 
+        % generate parallel cross-validation tasks
+        for f = nfolds:-1:1
+            tasks{f} = {@hlp_wrapresults,@process_fold,f,nfolds,foldid==f,foldmargin,trials,targets,ptype,cost,verbose,etube,rbalance,bias,clean,epsi,kernel,d,g,s,r,u}; end        
+        % run tasks & consolidate results
+        losses = par_schedule(tasks, 'scope', parallel_scope);    
+        losses = [losses{:}];
+        losses = cat(3,losses{:});
+        loss_mean = mean(losses,3);
+        [ci,gi] = find(loss_mean==min(loss_mean(:)));
+        best_cost = cost(ci(1));
+        best_g = g(gi(1));
+    else
+        best_cost = cost;
+        best_g = g;
+        losses = NaN;
+    end
+    
+    % retrain with best arguments
     args = sprintf('-z %s -c %f -v %d -w %f -j %f, -b %d -i %d -e %f -t %d -d %d -g %f -s %f -r %f -u %s', ...
-        ptype,cost,verbose,etube,rbalance,bias,clean,epsi,kernel,d,g,s,r,u);
-
-    % run the command
+        ptype,best_cost,verbose,etube,rbalance,bias,clean,epsi,kernel,d,best_g,s,r,u);
     model = hlp_diskcache('predictivemodels',@svmlearn,trials,targets,args);
+    model.losses = losses;
     model.sc_info = sc_info;
     model.classes = classes;
+end
+
+
+function losses = process_fold(f,nfolds,testmask,foldmargin,trials,targets,ptype,costs,verbose,etube,rbalance,bias,clean,epsi,kernel,d,gs,s,r,u)
+if verbose
+    disp(['Fitting fold # ' num2str(f) ' of ' num2str(nfolds)]); end
+
+% determine training and test set indices
+trainids = ~testmask;
+whichpos = find(testmask);
+for j=1:foldmargin
+    trainids(max(1,whichpos-j)) = false;
+    trainids(min(length(testmask),whichpos+j)) = false;
+end
+
+for c=length(costs):-1:1
+    for g=length(gs):-1:1
+        % train on train set and calc errors on test set
+        args = sprintf('-z %s -c %f -v %d -w %f -j %f, -b %d -i %d -e %f -t %d -d %d -g %f -s %f -r %f -u %s', ...
+            ptype,costs(c),verbose,etube,rbalance,bias,clean,epsi,kernel,d,gs(g),s,r,u);
+        model = hlp_diskcache('predictivemodels',@svmlearn,trials(trainids,:),targets(trainids),args);
+        losses(c,g) = svmclassify(trials(testmask,:), targets(testmask), model);
+    end
 end
