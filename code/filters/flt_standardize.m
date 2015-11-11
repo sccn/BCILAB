@@ -51,17 +51,11 @@ arg_define(varargin, ...
     arg({'multivariate_sphering','Sphere','sphere'}, false, [], 'Perform multivariate sphering. This removes correlations between channels but maintains. Assumes that the data is approximately zero-mean (i.e., first highpass filtered).'), ...
     arg({'stepsize','StepSize'}, 1/3, [0 Inf], 'Step size between updates. The sphering matrix will be updated every this many samples. If this is below 1, it is assumed to be in seconds.','guru',true), ...
     arg({'usegpu','UseGPU'}, false, [], 'Use the GPU for sphering.'), ...
+    arg({'chunk_length','ChunkLength'},50000,uint32([1 1000 100000 1000000000]), 'Maximum chunk length. Process the data in chunks of no larger than this (to avoid memory limitations).','guru',true), ...
     arg({'lambda','CovarianceRegularization'}, 0.001, [0 0.001 0.1 1], 'Covariance regularization. This is a regularization parameter for the covariance estimate used in sperhing.','guru',true), ...
     arg_nogui({'state','State'}));
 
 warning off MATLAB:nearlySingularMatrix
-
-% calc maximum amount of memory to use
-if usegpu
-    dev = gpuDevice(); maxmem = dev.FreeMemory/2^20;
-else
-    maxmem = hlp_memfree/(2^21);
-end
 
 % number of data points for our normalization window
 N = round(window_len*signal.srate); %#ok<*NODEF>
@@ -108,7 +102,7 @@ for fld = utl_timeseries_fields(signal)
         else
             [C,S] = size(signal.(field));
             % split up the total sample range into k chunks that will fit in memory
-            splits = ceil((C*C*S*8*8 + C*C*8*S/stepsize + C*S*8*2 + S*8*5) / (maxmem*1024*1024));
+            splits = ceil(S/chunk_length);
             if splits > 1
                 fprintf('Now sphering data in %i blocks',splits); end            
             for i=1:splits
