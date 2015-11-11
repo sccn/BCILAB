@@ -80,13 +80,15 @@ classdef ParadigmFBCSP_test < ParadigmDataflowSimplified
                         end
                     end
                     covar{k}(~isfinite(covar{k})) = 0;
+                    nTrials(k) = data.trials;
                 end
                 [V,D] = eig(covar{1},covar{1}+covar{2}); %#ok<NASGU>
                 P = inv(V);                                
                 filters = [filters V(:,[1:args.patterns end-args.patterns+1:end])];
                 patterns = [patterns P([1:args.patterns end-args.patterns+1:end],:)'];
             end
-            model = struct('filters',{filters},'patterns',{patterns},'time_args',{time_args},'freq_args',{freq_args},'ftype',{args.filter_type},'chanlocs',{args.signal.chanlocs});
+            model = struct('filters',{filters},'patterns',{patterns},'time_args',{time_args},'freq_args',{freq_args}, ...
+                'ftype',{args.filter_type},'chanlocs',{args.signal.chanlocs},'nTrials',{nTrials});
         end
         
         function features = feature_extract(self,signal,featuremodel)
