@@ -103,8 +103,8 @@ arg_define(varargin, ...
     arg({'initialize_on','InitializeOn'},[],[0 0 600 Inf],'Initialize on time range. If a time range is given as [start,end], either in seconds or as fractions of the whole data (if both <= 1), then where applicable the filter will be initialized only on that subset of the whole data. As a result, it will not have to be retrained in each cross-validation fold.','shape','row'),...
     arg({'calib_precision','CalibPrecision'}, 10, uint32([1 1 1000 10000]), 'Block granularity for calibration. The data covariance will be estimated in blocks of this size and then robustly averaged (larger values admit smaller memory requirements).','guru',true), ...
     arg({'linenoise_aware','LineNoiseAware'},true,[],'Line-noise aware processing. If enabled, a notch filter will be applied to ensure that line noise does not affect the correlation measure.','guru',true), ...
-    arg({'chunk_length','ChunkLength'},50000,uint32([1 1000 100000 1000000000]), 'Maximum chunk length. Process the data in chunks of no larger than this (to avoid memory limitations).','guru',true), ...
     arg({'use_gpu','UseGPU'}, false, [], 'Whether to run on the GPU. Makes sense for offline processing if you have a GTX 780 or better.'), ...
+    arg({'chunk_length','ChunkLength'},50000,uint32([1 1000 100000 1000000000]), 'Maximum chunk length. Process the data in chunks of no larger than this (to avoid memory limitations).','guru',true), ...
     arg_deprecated({'history_fraction','HistoryFraction'}), arg_deprecated({'history_len','HistoryLength'}), arg_deprecated({'prefer_ica','PreferICAoverPCA'},false), ...
     arg_deprecated({'pca_flagquant','PCACleanliness'}),arg_deprecated({'pca_maxchannels','PCAForgiveChannels'}), ...
     arg_nogui({'state','State'}));
@@ -164,8 +164,9 @@ if isempty(state) %#ok<NODEF>
     state.M = sqrtm(real(reshape(geometric_median(U/calib_precision),C,C)));
     
     % calculate randomly sampled reconstruction matrices
+    stream = RandStream('mt19937ar','Seed',435656);
     for k=1:num_samples
-        subset = randsample(1:C,subset_size);
+        subset = randsample(1:C,subset_size,stream);
         keep = false(C,1); keep(subset) = true;
         state.rand_samples{k} = real(state.M*pinv(bsxfun(@times,keep,state.M)))';
     end
@@ -300,11 +301,10 @@ if nargout > 1
     Zf = [-(X(:,end)*N-Y(:,end-N+1)) Y(:,end-N+2:end)]; end
 
 
-
-function Y = randsample(X,num)
+function Y = randsample(X,num,stream)
 Y = [];
 while length(Y)<num
-    pick = round(1 + (length(X)-1).*rand);
+    pick = round(1 + (length(X)-1).*rand(stream));
     Y(end+1) = X(pick);
     X(pick) = [];
 end
