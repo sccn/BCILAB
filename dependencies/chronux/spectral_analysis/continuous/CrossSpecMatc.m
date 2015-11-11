@@ -1,4 +1,4 @@
-function [Sc,Cmat,Ctot,Cvec,Cent,f]=CrossSpecMatc(data,win,params)
+function [Sc,Cmat,Ctot,Cvec,Cent,f,findx]=CrossSpecMatc(data,win,params)
 % Multi-taper cross-spectral matrix - another routine, allows for multiple trials and channels 
 % Does not do confidence intervals. Also this routine always averages over trials - continuous process
 %
