@@ -90,6 +90,7 @@ arg_define([0 3],varargin, ...
     arg({'regularization','Regularizer','Regularization'}, 'auto', {'none','auto','shrinkage','independence'}, 'Type of regularization. Regularizes the robustness / flexibility of covariance estimates. Auto is analytical covariance shrinkage, shrinkage is shrinkage as selected via plambda, and independence is feature independence, also selected via plambda.'), ...
     arg({'weight_bias','WeightedBias'}, false, [], 'Account for class priors in bias. If you do have unequal probabilities for the different classes, this should be enabled.'), ...
     arg({'weight_cov','WeightedCov'}, false, [], 'Account for class priors in covariance. If you do have unequal probabilities for the different classes, it makes sense to enable this.'), ...
+    arg({'robust','Robust'}, false, [], 'Use robust estimation. Uses geometric medians in place of means; can help if some trials are very noisy.'), ...
     arg({'votingScheme','VotingScheme'},'1vR',{'1v1','1vR'},'Voting scheme. If multi-class classification is used, this determine how binary classifiers are arranged to solve the multi-class problem. 1v1 gets slow for large numbers of classes (as all pairs are tested), but can be more accurate than 1vR.'));
 
 % find the class labels
@@ -115,13 +116,29 @@ else
     for c = 1:length(classes)
         X = trials(targets==classes(c),:);
         n{c} = size(X,1);
-        mu{c} = mean(X,1);
+        if robust
+            mu{c} = geometric_median(X);
+        else
+            mu{c} = mean(X,1);
+        end
         if n{c} == 1
             sig{c} = zeros(size(X,2));
         elseif strcmp(regularization,'auto')
-            sig{c} = cov_shrink(X);
+            if robust
+                % for lack of a better solution in this case we estimate lambda using a non-robust
+                % Ledoit-Wolf estimator and then use it in a subsequent robust re-estimation
+                [dummy,lam] = cov_shrink(X); %#ok<ASGLU>
+                sig{c} = cov_blockgeom(X,1);
+                sig{c} = (1-lam)*sig{c} + lam*eye(length(sig{c}))*abs(mean(diag(sig{c})));
+            else
+                sig{c} = cov_shrink(X);
+            end
         else
-            sig{c} = cov(X);
+            if robust
+                sig{c} = cov_blockgeom(X,1);
+            else
+                sig{c} = cov(X);
+            end
             if ~isempty(plambda) && ~strcmp(regularization,'none')
                 % plambda-dependent regularization
                 if strcmp(regularization,'independence')

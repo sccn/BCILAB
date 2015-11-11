@@ -62,8 +62,9 @@ arg_define([0 4],varargin, ...
     arg_norep('targets'), ...
     arg({'lambda','Lambda'}, [], [0 1], 'Within-class covariance regularization parameter. Reasonable range: 0:0.1:1 - greater is stronger. Requires that the regularization mode is set to either "shrinkage" or "independence".'), ...
     arg({'kappav','Kappa','kappa'}, [], [0 1], 'Between-class covariance regularization parameter. Reasonable range: 0:0.1:1 - greater is stronger. Requires that the regularization mode is set to either "shrinkage" or "independence".'), ...
-    arg({'regularization','Regularizer'}, 'auto', {'auto','shrinkage','independence'}, 'Regularization type. Regularizes the robustness / flexibility of covariance estimates. Auto is analytical covariance shrinkage, shrinkage is shrinkage as selected via lambda, and independence is feature independence, also selected via lambda.'), ...
+    arg({'regularization','Regularizer','Regularization'}, 'auto', {'auto','shrinkage','independence'}, 'Regularization type. Regularizes the robustness / flexibility of covariance estimates. Auto is analytical covariance shrinkage, shrinkage is shrinkage as selected via lambda, and independence is feature independence, also selected via lambda.'), ...
     arg({'weight_cov','WeightedCov'}, false, [], 'Account for class priors in covariance. If you do have unequal probabilities for the different classes, it makes sense to enable this.'), ...
+    arg({'robust','Robust'}, false, [], 'Use robust estimation. Uses geometric medians in place of means; can help if some trials are very noisy.'), ...
     arg({'votingScheme','VotingScheme'},'1vR',{'1v1','1vR'},'Voting scheme. If multi-class classification is used, this determine how binary classifiers are arranged to solve the multi-class problem. 1v1 gets slow for large numbers of classes (as all pairs are tested), but can be more accurate than 1vR.'), ...
     arg_deprecated({'weight_bias','WeightedBias'},false));
 
@@ -97,11 +98,27 @@ else
         % get mean and covariance
         X = trials(targets==classes(c),:);
         n{c} = size(X,1);
-        mu{c} = mean(X);
-        if strcmp(regularization,'auto')
-            sig{c} = cov_shrink(X);
+        if robust
+            mu{c} = geometric_median(X);
         else
-            sig{c} = cov(X);
+            mu{c} = mean(X);
+        end
+        if strcmp(regularization,'auto')
+            if robust
+                % for lack of a better solution in this case we estimate lambda using a non-robust
+                % Ledoit-Wolf estimator and then use it in a subsequent robust re-estimation
+                [dummy,lam] = cov_shrink(X); %#ok<ASGLU>
+                sig{c} = cov_blockgeom(X,1);
+                sig{c} = (1-lam)*sig{c} + lam*eye(length(sig{c}))*abs(mean(diag(sig{c})));
+            else
+                sig{c} = cov_shrink(X);
+            end
+        else
+            if robust
+                sig{c} = cov_blockgeom(X,1);
+            else
+                sig{c} = cov(X);
+            end
             if ~isempty(lambda)
                 % lambda-dependent regularization
                 if strcmp(regularization,'independence')
@@ -124,6 +141,6 @@ else
     end
     
     % compute the model
-    model = struct('c',{1/2*(logdet(sig{1})-logdet(sig{2})) + 1/2*((mu{1}/sig{1})*mu{1}' - (mu{2}/sig{2})*mu{2}')}, ...
+    model = struct('c',{1/2*(logdet((sig{1}+sig{1}')/2)-logdet((sig{2}+sig{2}')/2)) + 1/2*((mu{1}/sig{1})*mu{1}' - (mu{2}/sig{2})*mu{2}')}, ...
         'l',{mu{1}/sig{1} - mu{2}/sig{2}}, 'q',{-1/2*(inv(sig{1}) - inv(sig{2}))}, 'sc_info',{sc_info}, 'classes',{classes}, 'featuremask',{retain});
 end
