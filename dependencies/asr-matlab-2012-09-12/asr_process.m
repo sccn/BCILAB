@@ -1,6 +1,6 @@
-function [outdata,outstate] = asr_process(data,srate,state,windowlen,lookahead,stepsize,maxdims,maxmem,usegpu)
+function [outdata,outstate] = asr_process(data,srate,state,windowlen,lookahead,stepsize,maxdims,chunklen,usegpu)
 % Processing function for the Artifact Subspace Reconstruction (ASR) method.
-% [Data,State] = asr_process(Data,SamplingRate,State,WindowLength,LookAhead,StepSize,MaxDimensions,MaxMemory,UseGPU)
+% [Data,State] = asr_process(Data,SamplingRate,State,WindowLength,LookAhead,StepSize,MaxDimensions,ChunkLength,UseGPU)
 %
 % This function is used to clean multi-channel signal using the ASR method. The required inputs are 
 % the data matrix, the sampling rate of the data, and the filter state (as initialized by
@@ -37,11 +37,8 @@ function [outdata,outstate] = asr_process(data,srate,state,windowlen,lookahead,s
 %                   algorithm needs to tolerate extreme artifacts a higher value than the default
 %                   may be used (the maximum fraction is 1.0). Default 0.66
 %
-%   MaxMemory : The maximum amount of memory used by the algorithm when processing a long chunk with
-%               many channels, in MB. The recommended value is at least 256. To run on the GPU, use
-%               the amount of memory available to your GPU here (needs the parallel computing toolbox).
-%               default: min(5000,1/2 * free memory in MB). Using smaller amounts of memory leads to
-%               longer running times.
+%   ChunkLength : The length of the chunks to process, in samples. Larger chunks require more
+%                 memory. Default: 50000
 %
 %   UseGPU : Whether to run on the GPU. This makes sense for offline processing if you have a a card
 %            with enough memory and good double-precision performance (e.g., NVIDIA GTX Titan or
@@ -98,18 +95,8 @@ if nargin < 7 || isempty(maxdims)
     maxdims = 0.66; end
 if nargin < 9 || isempty(usegpu)
     usegpu = false; end
-if nargin < 8 || isempty(maxmem)
-    if usegpu
-        dev = gpuDevice(); 
-        try
-            maxmem = dev.FreeMemory/2^20; 
-        catch
-            maxmem = dev.TotalMemory/2^20; 
-        end
-    else
-        maxmem = hlp_memfree/(2^21);
-    end
-end
+if nargin < 8 || isempty(chunklen)
+    chunklen = 50000; end
 if maxdims < 1
     maxdims = round(size(data,1)*maxdims); end
 if isempty(data)
@@ -127,8 +114,8 @@ if isempty(state.carry)
 data = [state.carry data];
 data(~isfinite(data(:))) = 0;
 
-% split up the total sample range into k chunks that will fit in memory
-splits = ceil((C*C*S*8*8 + C*C*8*S/stepsize + C*S*8*2 + S*8*5) / (maxmem*1024*1024 - C*C*P*8*3));
+% split up the total sample range into k chunks
+splits = ceil(S/chunklen);
 if splits > 1
     fprintf('Now cleaning data in %i blocks',splits); end
 
@@ -238,8 +225,3 @@ X = X(:,2:2:end);
 if nargout > 1
     Zf = [-(X(:,end)*N-Y(:,end-N+1)) Y(:,end-N+2:end)]; end
 
-
-
-function result = hlp_memfree
-% Get the amount of free physical memory, in bytes
-result = java.lang.management.ManagementFactory.getOperatingSystemMXBean().getFreePhysicalMemorySize();
