@@ -114,6 +114,7 @@ else
     trials = trials(:,retain);
     % estimate distribution of each class...
     for c = 1:length(classes)
+        lams{c} = NaN;
         X = trials(targets==classes(c),:);
         n{c} = size(X,1);
         if robust
@@ -127,11 +128,11 @@ else
             if robust
                 % for lack of a better solution in this case we estimate lambda using a non-robust
                 % Ledoit-Wolf estimator and then use it in a subsequent robust re-estimation
-                [dummy,lam] = cov_shrink(X); %#ok<ASGLU>
+                [dummy,lams{c}] = cov_shrink(X); %#ok<ASGLU>
                 sig{c} = cov_blockgeom(X,1);
-                sig{c} = (1-lam)*sig{c} + lam*eye(length(sig{c}))*abs(mean(diag(sig{c})));
+                sig{c} = (1-lams{c})*sig{c} + lams{c}*eye(length(sig{c}))*abs(mean(diag(sig{c})));
             else
-                sig{c} = cov_shrink(X);
+                [sig{c},lams{c}] = cov_shrink(X);
             end
         else
             if robust
@@ -159,5 +160,5 @@ else
     sig_both = (sig{1}*ns{1} + sig{2}*ns{2}) / (ns{1}+ns{2});
     w = (mu{2} - mu{1}) / sig_both;
     w = w / (mu{2}*w' - mu_both*w');
-    model = struct('w',{w}, 'b',{mu_both*w'}, 'classes',{classes},'featuremask',{retain});
+    model = struct('w',{w}, 'b',{mu_both*w'}, 'classes',{classes},'featuremask',{retain},'lams',{lams});
 end
