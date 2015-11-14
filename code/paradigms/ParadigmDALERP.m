@@ -71,6 +71,7 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
                 arg_norep('signal'), ...
                 arg({'normalizers','NormalizationExponents'},[-0.25,-0.25],[],'Normalization exponents [lhs, rhs]. Two-element array of powers for the left-hand-side and right-hand-side normalization matrices that are applied to the data from the region.','guru',true,'cat','Feature Extraction'), ...
                 arg({'shrinkage_cov','ShrinkageCov'},true,[],'Use shrinkage covariance. This is slower but works better in the case of few trials.'), ...
+                arg({'decimate','Decimate'},1,[],'Decimation factor. Keep every k''th sample. Note: Nyquist frequency of decimated signal should be above the upper frequency cutoff of previously applied low/bandpass filters.'), ...
                 arg({'apply_to','ApplyTo'},'channels',{'channels','sources','components','full CSD'},'Apply classifier to. Allows to select the type of time series to apply this model to.','cat','Feature Extraction'));
             
             switch args.apply_to
@@ -87,6 +88,10 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
                         args.signal.icaact = reshape((args.signal.icaweights*args.signal.icasphere)*args.signal.data(args.signal.icachansind,:), [], args.signal.pnts, args.signal.trials); end
                      X = num2cell(args.signal.icaact,[1 2]);
             end
+            if args.decimate > 1
+                for c=1:length(X)
+                    X{c} = X{c}(:,1:args.decimate:end); end
+            end
             model.chanlocs = args.signal.chanlocs;
             if ~isfield(model,'P')
                 if args.shrinkage_cov
@@ -99,7 +104,8 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
             model.apply_to = args.apply_to;
             
             % store some extra info
-            model.cov = cov(args.signal.data(:,:)');            
+            model.cov = cov(args.signal.data(:,:)');      
+            model.decimate = args.decimate;
             global tracking;
             tracking.inspection.dal_model = model;
         end
@@ -117,6 +123,8 @@ classdef ParadigmDALERP < ParadigmDataflowSimplified
                 otherwise
                     error('Unsupported type of time series selected as source data: %s',hlp_tostring(featuremodel.apply_to));
             end
+            if featuremodel.decimate > 1
+                features = features(:,1:featuremodel.decimate:end,:); end
             for t=1:size(features,3)
                 features(:,:,t) = featuremodel.P{1}*features(:,:,t)*featuremodel.P{2}; end
         end
