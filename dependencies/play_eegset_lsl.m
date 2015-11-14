@@ -229,6 +229,8 @@ function hash = matrix_hash(data)
     max_java_memory = 2^26; % 64 MB
     hasher = java.security.MessageDigest.getInstance('MD5');
     data = typecast(full(data(:)),'uint8');
+    if length(data)>1000000
+        data = data(1:1000000); end
     if length(data) <= max_java_memory
         hasher.update(data);
     else
