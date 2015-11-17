@@ -1,1 +1,1 @@
-any(cellfun(@exist,{'find_existing_source_transpose', 'find_existing_source_transpose_min', 'find_sources_complement_grid_fast_int_all_active_c', 'find_sources_complement_grid_fast_int_c', 'vectorize_quad_single'})==3)
+any(cellfun(@exist,{'devectorize_single', 'icd_general', 'ind2subv', 'symmetric_vectorize_single'})==3)
