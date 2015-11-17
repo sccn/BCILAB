@@ -174,6 +174,14 @@ function ok = hlp_trycompile(varargin)
 %   % like before, this time specifying some custom #define's
 %   hlp_trycompile('Directory','/Extern/MySources','Defines',{'DEBUG','MAX=((a)>(b)?(a):(b))'});
 %
+% Debugging broken compiles:
+%   To debug a broken compilation, you can switch on the 'Verbose' flag, which will show the output;
+%   if you are debugging automatic compilation of a BCILAB dependendency, you can add Verbose=true;
+%   to the env_compile.m file and reload the toolbox, or you can manually call hlp_trycompile as in:
+%   hlp_trycompile('Directory',<<path-to-dependency>>,'Style','force','Verbose',true, <<any-settings-from-env_compile.m-as-name-value-pairs>>)
+%   The stream of outputs can be a bit confusing and doesn't show all error messages, so you may
+%   have to also put a breakpoint at the place in the code where it says PUT BREAKPOINT HERE, and
+%   then manually invoke the next doeval() statement that it encounters in the console.
 %
 % Use cases:
 %   1) In addition to a source file mysvd.c (compiling into mysvd.mex*), a stub .m file of the same
@@ -684,7 +692,7 @@ else
                                     fprintf('\n\nTo proceed normally, type "dbcont".\n');
                                     keyboard;
                                 end
-                                if has_largearrays
+                                if has_largearrays   % PUT BREAKPOINT HERE
                                     try
                                         % -largeArrayDims enabled
                                         try
