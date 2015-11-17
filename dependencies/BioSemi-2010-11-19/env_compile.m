@@ -1,1 +1,2 @@
-Libraries = 'dl';
+if ~ispc
+    Libraries = 'dl'; end

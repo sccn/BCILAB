@@ -1,1 +1,1 @@
-% This file is only useful if you're using BCILAB to rebuild the .c files in here.Libraries = 'dl';
+% This file is only useful if you're using BCILAB to rebuild the .c files in here.if ~ispc    Libraries = 'dl'; end
