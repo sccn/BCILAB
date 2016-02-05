@@ -1,2 +1,2 @@
 IncludeDirectories = '../';
-SupportFiles = {'*','../*.cpp','../blas/*.c'};
+SupportFiles = {'*','../*.cpp','../blas/*.c'};
