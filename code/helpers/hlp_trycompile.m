@@ -609,6 +609,7 @@ else
                         
                         % generate MEX options
                         opts = mex_options(o);
+                        o.support = unique(o.support);
                         supp = sprintf(' %s',o.support{:});
                         
                         if isempty(compiler_selected)

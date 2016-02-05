@@ -1,0 +1,1 @@
+any(cellfun(@exist,{'CStrAinBP', 'CStrAinBP'})==3)
