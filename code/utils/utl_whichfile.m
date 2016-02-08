@@ -65,8 +65,13 @@ end
                     populate_records([path filesep info.name]); end
             else
                 % found a file? add it to the table if an .m file
-                if length(info.name) > 2 && strcmp(info.name(end-1:end),'.m')                    
-                    filenames.(info.name(1:end-2)) = [path filesep info.name]; end
+                if length(info.name) > 2 && strcmp(info.name(end-1:end),'.m')
+                    try
+                        filenames.(info.name(1:end-2)) = [path filesep info.name]; 
+                    catch
+                        disp_once('utl_whichfile: found .m file that is not a function name: %s (ignoring)',[path filesep info.name]);
+                    end
+                end
             end
         end
     end
