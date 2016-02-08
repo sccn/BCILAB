@@ -54,13 +54,18 @@ else
 end
 
 % check for all entries whether they refer to a stack frame...
-marker = 'make_func/@(f,a,frame__';
-frames = find(strncmp(entries,marker,23));
-
+if hlp_matlab_version < 806
+    marker = 'make_func/@(f,a,frame__';
+else
+    marker = '@(f,a,frame__';
+end
+frames = find(strncmp(entries,marker,length(marker)));
+    
+    
 % go through all stack frames...
 symbol = char(x);
 for k=frames
-    frameid = entries{k}(24:end-14);
+    frameid = entries{k}(length(marker)+1:end-14);
     % and check if the symbol is present there, then look up
     if isfield(tracking.stack.frames.(frameid),symbol)
         outargs = tracking.stack.frames.(frameid).(symbol);
