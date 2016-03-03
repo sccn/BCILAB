@@ -384,7 +384,7 @@ classdef PropertyGridField < hgsetget
         %    hu.bme.aut.www (not a direct child)
             names = getclassfield(selfarray, 'Name');
             if iscell(filterprefix)
-                prefix = [strjoin('.', filterprefix) '.'];
+                prefix = [strjoin2('.', filterprefix) '.'];
             else
                 prefix = [filterprefix '.'];
             end

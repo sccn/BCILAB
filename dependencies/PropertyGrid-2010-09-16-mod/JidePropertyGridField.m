@@ -242,7 +242,7 @@ classdef JidePropertyGridField < handle
         
         % find the JidePropertyGridField with the given dot-notated name in an array
         function self = FindByName(selfarray, name)        
-            self = selfarray.FindByNameRecurse(strsplit(name, '.'));
+            self = selfarray.FindByNameRecurse(strsplit2(name, '.'));
         end
 
         % deallocate registered editor context guts

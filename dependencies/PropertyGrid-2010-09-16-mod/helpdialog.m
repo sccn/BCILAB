@@ -68,7 +68,7 @@ else
     % help text
     rgb = get(fig, 'Color');
     text = cellfun(@(line) helpdialog_html(line), text, 'UniformOutput', false);
-    html = ['<html>' strjoin(sprintf('\n'), text) '</html>'];
+    html = ['<html>' strjoin2(sprintf('\n'), text) '</html>'];
     jtext = javax.swing.JLabel(html);
     jcolor = java.awt.Color(rgb(1), rgb(2), rgb(3));
     jtext.setBackground(jcolor);

@@ -21,7 +21,7 @@
 % Copyright 2010 Levente Hunyadi
 function value = nestedfetch(obj, name)
     if ~iscell(name)
-        nameparts = strsplit(name, '.');
+        nameparts = strsplit2(name, '.');
     else
         nameparts = name;
     end

@@ -31,8 +31,8 @@
 %   javaStringArray        - Converts a MatLab cell array of strings into a java.lang.String array.
 %
 % String utility functions
-%   strjoin                - Concatenates a cell array of strings.
-%   strsplit               - Splits a string into a cell array of strings.
+%   strjoin2                - Concatenates a cell array of strings.
+%   strsplit2               - Splits a string into a cell array of strings.
 %   var2str                - Textual representation of any MatLab value.
 %   strsetmatch            - Indicator of which elements of a universal set are in a particular set.
 %
