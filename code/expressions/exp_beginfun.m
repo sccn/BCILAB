@@ -277,12 +277,14 @@ function should_evaluate = exp_beginfun(setting, varargin)
 %       
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-04-14
-dp;
 
 % --- obtain & interpret calling context ---
 
 % obtain execution context
 ctx.stack = dbstack('-completenames');
+
+% debug print
+dp(['in ' ctx.stack(2).name]);
 
 % early check of whether the expression system is disabled
 if  ~strcmp(setting,'symbolic') && hlp_resolve('disable_expressions',false,ctx) && ~isequal(varargin,{'delayed_online',true})

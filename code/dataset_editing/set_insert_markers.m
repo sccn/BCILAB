@@ -267,11 +267,11 @@ end
 % sort the events by latency...
 newsignal.event = newsignal.event(hlp_getresult(2,@sort,[newsignal.event.latency]));
 
-% update .urevent field if trivial
-if isempty(newsignal.urevent) || isequal([newsignal.event.urevent],1:length(newsignal.event))
-    newsignal.urevent = newsignal.event;
-    [newsignal.event.urevent] = arraydeal(1:length(newsignal.event));
-end
+% % update .urevent field if trivial
+% if isempty(newsignal.urevent) || isequal([newsignal.event.urevent],1:length(newsignal.event))
+%     newsignal.urevent = newsignal.event;
+%     [newsignal.event.urevent] = arraydeal(1:length(newsignal.event));
+% end
 
 % conclude randomization
 if strcmp(opts.placement,'random') && opts.repeatable && hlp_matlab_version < 707

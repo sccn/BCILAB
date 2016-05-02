@@ -64,7 +64,7 @@ switch name
     case 'hann'
         w = 0.5-0.5*cos(2*pi*p);
     case 'kaiser'
-        if nargin < 3
+        if nargin < 3 || (isempty(param))
             param = 0.5; end
         w = besseli(0,param*sqrt(1-(2*p-1).^2))/besseli(0,param);
     case 'lanczos'

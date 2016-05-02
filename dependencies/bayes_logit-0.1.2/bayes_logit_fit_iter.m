@@ -27,6 +27,7 @@ function [w, V, invV, logdetV] = bayes_logit_fit_iter(X, y)
 % it avoids computing the inverse of possibly close-to-singluar matrices.
 
 % equations from Bishop (2006) PRML Book + errata (!)
+dp; % debug print
 
 [N, D] = size(X);
 

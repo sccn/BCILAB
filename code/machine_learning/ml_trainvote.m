@@ -55,6 +55,7 @@ function model = ml_trainvote(trials, targets, votingscheme, learner, predictor,
 %
 %                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                           2010-06-25
+dp;
 
 % first get the classes for training
 model.classes = unique(targets);

@@ -73,6 +73,7 @@ function model = ml_trainsvmlight(varargin)
 %
 %                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                           2010-04-04
+dp;
 
 arg_define([0 3],varargin, ...
     arg_norep('trials'), ...

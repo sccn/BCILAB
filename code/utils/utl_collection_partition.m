@@ -95,6 +95,18 @@ function res = utl_collection_partition(varargin)
 % See also:
 %   set_partition, bci_train
 %
+% Examples for Settings:
+%   % note: training set for a given fold is usually all data that is not used for testing
+%   {} --> leave-one-dataset out cross-validation
+%   {'TestUnit','subject'} --> leave-one-subject out cross-validation
+%   {'Per','subject', 'Consider','last', 'TestUnit','block'} --> test on last block per subject
+%   {'Per','subject', 'Consider','allexceptfirst', 'TestUnit','block'} --> test on all blocks except first per subject
+%
+% Notes:
+%   When using identifiers such as 'subject', 'block', etc., note that each dataset that is passed into
+%   bci_train must have those identifiers set (e.g., instead of io_loadset('mydata.set') you use
+%   struct('subject',3, 'session',5, 'streams',{{io_loadset('mydata.set'}}) and so on)
+%
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-08-29
 dp;

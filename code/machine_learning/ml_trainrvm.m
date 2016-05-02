@@ -88,6 +88,7 @@ function model = ml_trainrvm(varargin)
 %
 %                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                           2010-04-06
+dp;
 
 opts = arg_define([0 2],varargin, ...
     arg_norep('trials'), ...
