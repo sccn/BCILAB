@@ -48,6 +48,7 @@ function model = ml_trainridge(varargin)
 %
 %                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                           2013-11-17
+dp;
 
 arg_define([0 3],varargin, ...
     arg_norep('trials'), ...

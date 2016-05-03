@@ -138,6 +138,7 @@ function model = ml_trainglm(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2011-07-08
+dp;
 
 % define common parameters of different distributions
 common_parameters = { ...

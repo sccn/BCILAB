@@ -267,12 +267,16 @@ end
 % sort the events by latency...
 newsignal.event = newsignal.event(hlp_getresult(2,@sort,[newsignal.event.latency]));
 
-% update .urevent field if trivial
-if isempty(newsignal.urevent) || isequal([newsignal.event.urevent],1:length(newsignal.event))
-    newsignal.urevent = newsignal.event;
-    [newsignal.event.urevent] = arraydeal(1:length(newsignal.event));
+try
+    % update .urevent field if trivial
+    if isempty(newsignal.urevent) || isequal([newsignal.event.urevent],1:length(newsignal.event))
+        newsignal.urevent = newsignal.event;
+        [newsignal.event.urevent] = arraydeal(1:length(newsignal.event));
+    end
+catch e
+    hlp_handleerror(['Could not update .urevent field, skipping... (' e.message ')']);
 end
-
+    
 % conclude randomization
 if strcmp(opts.placement,'random') && opts.repeatable && hlp_matlab_version < 707
     % restore saved RNG state

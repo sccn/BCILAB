@@ -23,7 +23,8 @@ function model = ml_traincov(varargin)
 %
 %                           Christian Kothe, Syntrogi
 %                           2015-04-21
-        
+dp;
+
 arg_define([0 3],varargin, ...
     arg_norep('trials'), ...
     arg_norep('targets'), ...

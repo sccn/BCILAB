@@ -82,7 +82,8 @@ function model = ml_trainlda(varargin)
 %
 %                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                           2010-04-03
-        
+dp;         
+
 arg_define([0 3],varargin, ...
     arg_norep('trials'), ...
     arg_norep('targets'), ...

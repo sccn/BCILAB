@@ -127,6 +127,7 @@ function model = ml_traindal(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2010-06-25
+dp;
 
 expose_handles(@process_fold,varargin{:});
 
