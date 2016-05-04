@@ -162,4 +162,5 @@ else
     w = (mu{2} - mu{1}) / sig_both;
     w = w / (mu{2}*w' - mu_both*w');
     model = struct('w',{w}, 'b',{mu_both*w'}, 'classes',{classes},'featuremask',{retain},'lams',{lams});
+    1;
 end

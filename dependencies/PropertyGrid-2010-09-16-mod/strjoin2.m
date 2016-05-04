@@ -6,15 +6,15 @@
 % strings:
 %    a cell array of strings to join
 %
-% See also: strsplit, cell2mat
+% See also: strsplit2, cell2mat
 
 % Copyright 2008-2009 Levente Hunyadi
-function string = strjoin(adjoiner, strings)
+function string = strjoin2(adjoiner, strings)
 
 validateattributes(adjoiner, {'char'}, {'vector'});
 validateattributes(strings, {'cell'}, {'vector'});
 assert(iscellstr(strings), ...
-    'strjoin:ArgumentTypeMismatch', ...
+    'strjoin2:ArgumentTypeMismatch', ...
     'The elements to join should be stored in a cell vector of strings (character arrays).');
 if isempty(strings)
     string = '';

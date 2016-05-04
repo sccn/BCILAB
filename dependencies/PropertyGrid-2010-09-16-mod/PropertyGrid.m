@@ -387,9 +387,9 @@ classdef PropertyGrid < UIControl
                     name = PropertyGrid.GetSelectedProperty(obj);
                     self = PropertyGrid.FindPropertyGrid(obj, 'Table');
                     if ~isempty(name) && ~isempty(self.BoundItem)  % help
-                        nameparts = strsplit(name, '.');
+                        nameparts = strsplit2(name, '.');
                         if numel(nameparts) > 1
-                            helpobject = nestedfetch(self.BoundItem, strjoin('.', nameparts(1:end-1)));
+                            helpobject = nestedfetch(self.BoundItem, strjoin2('.', nameparts(1:end-1)));
                         else
                             helpobject = self.BoundItem;
                         end

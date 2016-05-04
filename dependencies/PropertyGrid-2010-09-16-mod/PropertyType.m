@@ -249,7 +249,7 @@ classdef PropertyType
                             end
                         case 'cellstr'
                             if ~isempty(value)
-                                javavalue = java.lang.String(strjoin(sprintf('\n'), value));
+                                javavalue = java.lang.String(strjoin2(sprintf('\n'), value));
                             else
                                 javavalue = java.lang.String();
                             end
@@ -314,7 +314,7 @@ classdef PropertyType
                                 return;
                             end
                         case 'cellstr'
-                            value = strsplit(javavalue);
+                            value = strsplit2(javavalue);
                         case 'logical'
                             if ~isempty(self.Domain)
                                 value = strsetmatch(cell(javavalue), self.Domain);
@@ -449,7 +449,7 @@ classdef PropertyType
             end
             if ~isempty(self.Domain)
                 if iscellstr(self.Domain)
-                    s = [s ' ' strjoin(',', self.Domain)];
+                    s = [s ' ' strjoin2(',', self.Domain)];
                 elseif isnumeric(self.Domain)
                     s = [s ' ' mat2str(self.Domain)];
                 end
