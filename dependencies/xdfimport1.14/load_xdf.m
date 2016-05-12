@@ -515,7 +515,12 @@ if opts.HandleJitterRemoval
 else
     % calculate effective sampling rate
     for k=1:length(temp)
-        temp(k).effective_srate = length(temp(k).time_stamps) / (temp(k).time_stamps(end) - temp(k).time_stamps(1)); end
+        if ~isempty(temp(k).time_stamps)
+            temp(k).effective_srate = length(temp(k).time_stamps) / (temp(k).time_stamps(end) - temp(k).time_stamps(1)); 
+        else
+            temp(k).effective_srate = NaN;
+        end
+    end
 end
 
 % copy the information into the output
