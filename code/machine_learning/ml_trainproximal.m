@@ -133,6 +133,7 @@ function model = ml_trainproximal(varargin)
 %
 %                                Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                                2013-02-04
+dp;
 
 % definition of regularization terms
 regularizer_params = @(name) arg_subswitch({lower(name),name},{'none'},{ ...

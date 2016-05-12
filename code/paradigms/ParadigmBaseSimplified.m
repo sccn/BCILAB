@@ -154,6 +154,7 @@ classdef ParadigmBaseSimplified < ParadigmBase
             %
             % Out:
             %   Model : The returned model struct
+            dp;
             
             % separate the collection argument from the rest
             collection = arg_extract(varargin,{'collection','Collection'},[],{});
@@ -198,6 +199,7 @@ classdef ParadigmBaseSimplified < ParadigmBase
             %
             % Out:
             %   Outputs : the outputs of calibrate_simple()
+            dp;
             
             if length(bundle.streams) > 1
                 error('This paradigm does not support more than one stream in parallel.'); end

@@ -82,7 +82,8 @@ function model = ml_trainlda(varargin)
 %
 %                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                           2010-04-03
-        
+dp;         
+
 arg_define([0 3],varargin, ...
     arg_norep('trials'), ...
     arg_norep('targets'), ...
@@ -161,4 +162,5 @@ else
     w = (mu{2} - mu{1}) / sig_both;
     w = w / (mu{2}*w' - mu_both*w');
     model = struct('w',{w}, 'b',{mu_both*w'}, 'classes',{classes},'featuremask',{retain},'lams',{lams});
+    1;
 end

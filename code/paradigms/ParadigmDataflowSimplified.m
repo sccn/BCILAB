@@ -161,6 +161,7 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             %
             % Notes:
             %   Overridden functions should declare their arguments using arg_define().
+            dp;
             
             arg_define(varargin, ...
                 arg_norep({'signal','Signal'}), ...
@@ -198,6 +199,7 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             %              these may be in any form supported by ml_train (and the default training function
             %              in particular), most frequently [#Trials x #Features]
             %
+            dp;
             
             switch featuremodel.group_into
                 case 'channels'
@@ -252,6 +254,7 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             %
             % Notes:
             %   Overridden functions should declare their arguments using arg_define().
+            dp;
             
             args = arg_define(varargin, ...
                 arg_norep({'features','Features'}), ...
@@ -296,6 +299,7 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             %   Features : conditioned feature representations, as allowed by ml_train
             %
             %   Targets : conditioned target-value representations, as allowed by ml_train
+            dp;
             
             if conditioningmodel.prune_trivial
                 features(:,conditioningmodel.prune_indices) = []; end
@@ -432,6 +436,7 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             %   impractical (for example if you have an unusual mapping between training instances
             %   for machine learning and target values in the data set). This function should
             %   declare its arguments using arg_define().
+            dp(['subclass ' char(class(self))]);
             
             args = arg_define(varargin, ...
                 arg_norep({'signal','Signal'}), ...
@@ -507,6 +512,7 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             %   You may override this function if you have a predictive mapping that is not handled
             %   by any of the machine learning plugins (e.g. if you are using a custom computation
             %   in a custom calibrate_prediction_function()).
+            dp(['subclass ' char(class(self))]);
             
             % predict given the extracted features and the model
             features = self.feature_extract(signal, featuremodel);
@@ -563,6 +569,7 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             % Notes:
             %   If you find that you need to override this function (which should be very rare),
             %   it is a better choice to instead inherit directly from ParadigmBaseSimplified.
+            dp;
             
             args = arg_define(varargin, ...
                 arg_norep({'signal','Signal'}), ...
@@ -615,6 +622,7 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             % Notes:
             %   If you find that you need to override this function (which should be very rare),
             %   it is a better choice to instead inherit directly from ParadigmBaseSimplified.
+            dp;
             
             if ~isfield(model,'voting')
                 % predict given the extracted features and the model

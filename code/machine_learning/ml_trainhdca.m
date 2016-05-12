@@ -44,7 +44,8 @@ function model = ml_trainhdca(varargin)
 %
 %                           Christian Kothe, Swartz Center for Computational Neuroscience, UCSD
 %                           2010-04-03
-        
+dp;   
+
 args = arg_define([0 2],varargin, ...
     arg_norep('trials'), ...
     arg_norep('targets'), ...
