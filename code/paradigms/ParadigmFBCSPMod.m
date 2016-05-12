@@ -70,7 +70,6 @@ classdef ParadigmFBCSPMod < ParadigmDataflowSimplified
                 arg_norep('signal'), ...
                 arg({'patterns','PatternPairs'},3,uint32([1 1 64 10000]),'CSP patterns per band (times two).','cat','Feature Extraction'), ...
                 arg({'freqwnds','FreqWindows'},[0.5 3; 4 7; 8 12; 13 30; 31 42],[0 0.5 200 1000],'Frequency bands of interest. Matrix containing one row for the start and end of each frequency band from which CSP patterns shall be computed. Values in Hz.','cat','Feature Extraction'), ...
-                arg({'timewnds','TimeWindows'},[],[],'Time windows of interest. Matrix containing one row for the start and end of each time window from which CSP patterns shall be computed. Values in seconds. If both this and the freqwnds parameter are non-empty, they should have the same number of rows.','cat','Feature Extraction'), ...
                 arg({'winfunc','WindowFunction'},'rect',{'barthann','bartlett','blackman','blackmanharris','bohman','cheb','flattop','gauss','hamming','hann','kaiser','nuttall','parzen','rect','taylor','triang','tukey'},'Type of window function. Typical choices are rect (rectangular), hann, gauss, blackman and kaiser.'),...
                 arg({'winparam','WindowParameter','param'},[],[],'Parameter of the window function. This is mandatory for cheb, kaiser and tukey and optional for some others.','shape','scalar'),...
                 arg({'nfft','NFFT'}, [], [],'Size of the FFT used in spectrum calculation. Default value is the greater of 256 or the next power of 2 greater than the length of the signal.' ),...
@@ -81,15 +80,10 @@ classdef ParadigmFBCSPMod < ParadigmDataflowSimplified
                 error('Multi-band CSP does intrinsically not support single-channel data (it is a spatial filter).'); end
             if args.signal.nbchan < args.patterns
                 error('Multi-band CSP prefers to work on at least as many channels as you request output patterns. Please reduce the number of pattern pairs.'); end
-            if ~isempty(args.freqwnds) && ~isempty(args.timewnds) && size(args.freqwnds,1) ~= size(args.timewnds,1)
-                error('If both time and frequency windows are specified, both arrays must have the same number of rows (together they define the windows in time and frequency).'); end
-            if isempty(args.timewnds)
-                args.timewnds = zeros(size(args.freqwnds,1),0); end
-            if isempty(args.freqwnds)
-                args.freqwnds = zeros(size(args.timewnds,1),0); end
             
-            [signal, nof, freqwnds, timewnds, winfunc, winparam, nfft, winlen, numoverlap] = deal(args.signal, args.patterns, args.freqwnds,...
-                args.timewnds, args.winfunc, args.winparam, args.nfft, args.winlen, args.numoverlap);
+            
+            [signal, nof, freqwnds, winfunc, winparam, nfft, winlen, numoverlap] = deal(args.signal, args.patterns, args.freqwnds,...
+                 args.winfunc, args.winparam, args.nfft, args.winlen, args.numoverlap);
             
             [C,S,dum] = size(signal.data); 
             Fs = signal.srate;
@@ -108,7 +102,7 @@ classdef ParadigmFBCSPMod < ParadigmDataflowSimplified
             if isempty(nfft)
                 innfft = 2^(nextpow2(signal.pnts));
             else
-                innfft = max(nfft, 2^(nextpow2(signal.pnts)))
+                innfft = max(nfft, 2^(nextpow2(signal.pnts)));
                 if innfft > nfft
                     error(' The chosen length of FFT is too short. '); end
             end
