@@ -73,7 +73,7 @@ classdef ParadigmFBCSPMod < ParadigmDataflowSimplified
                 arg({'winfunc','WindowFunction'},'rect',{'barthann','bartlett','blackman','blackmanharris','bohman','cheb','flattop','gauss','hamming','hann','kaiser','nuttall','parzen','rect','taylor','triang','tukey'},'Type of window function. Typical choices are rect (rectangular), hann, gauss, blackman and kaiser.'),...
                 arg({'winparam','WindowParameter','param'},[],[],'Parameter of the window function. This is mandatory for cheb, kaiser and tukey and optional for some others.','shape','scalar'),...
                 arg({'nfft','NFFT'}, [], [],'Size of the FFT used in spectrum calculation. Default value is the greater of 256 or the next power of 2 greater than the length of the signal.' ),...
-                arg({'winlen','WinLen'},100, [10, 1000], 'Divide the signal into sections of this length for Welch spectrum  calculation.'),...
+                arg({'winlen','WinLen'},[], [10, 1000], 'Divide the signal into sections of this length for Welch spectrum  calculation.'),...
                 arg({'numoverlap','NumOverlap'}, [], [10, 1000], 'Number of overlap samples from section to next for Welch spectrum calculation.'));
             
             if args.signal.nbchan == 1
@@ -88,6 +88,9 @@ classdef ParadigmFBCSPMod < ParadigmDataflowSimplified
             [C,S,dum] = size(signal.data); 
             Fs = signal.srate;
             
+            if isempty(winlen)
+                winlen = floor((0.5 * S)); end % this enures that we have at least 3 windows
+            
             if isempty(numoverlap)
                 numoverlap = floor(0.5*winlen); end
             
@@ -100,9 +103,9 @@ classdef ParadigmFBCSPMod < ParadigmDataflowSimplified
             
             % The innfft is used internally to design and apply CSP filters
             if isempty(nfft)
-                innfft = 2^(nextpow2(signal.pnts));
+                innfft = 2^(nextpow2(winlen));
             else
-                innfft = max(nfft, 2^(nextpow2(signal.pnts)));
+                innfft = max(nfft, 2^(nextpow2(winlen)));
                 if innfft > nfft
                     error(' The chosen length of FFT is too short. '); end
             end
@@ -185,7 +188,7 @@ classdef ParadigmFBCSPMod < ParadigmDataflowSimplified
             
             Xdata2 = bsxfun(@times,Xdata,permute(featuremodel.alphas,[3,1,2]));
             Xdata3 = ifft(Xdata2,nfft,2);
-            Xdata4 = 2*real(Xdata3(:,1:S,:));
+            Xdata4 = 2*real(Xdata3);
             features = log(squeeze(var(Xdata4,0,2)));
             
         end
