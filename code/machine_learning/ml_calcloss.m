@@ -198,7 +198,7 @@ else
                 case 'sign'
                     measure = mean(sign(Px) ~= sign(Tx));
                 case {'smse'}
-                    measure = mean((Px-Tx).^2) ./ var(Tx);
+                    measure = mean((Px-Tx).^2) ./ mean((Tx - mean(Tx)).^2);
                 case {'max','linf'}
                     measure = max(abs(Px-Tx));
                 case 'rms'
