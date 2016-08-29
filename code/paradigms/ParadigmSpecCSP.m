@@ -155,8 +155,8 @@ classdef ParadigmSpecCSP < ParadigmDataflowSimplified
                             for t = 1:size(s{c},1)
                                 s{c}(t,k) = w'*F{c}(:,:,k,t)*w; end
                         end
-                        mu_s{c} = mean(s{c});
-                        var_s{c} = var(s{c});
+                        mu_s{c} = mean(s{c},1);
+                        var_s{c} = var(s{c},0,1);
                     end
                     % 10. update alpha{j} according to Eqs. (4) and (5)
                     for c=1:2
