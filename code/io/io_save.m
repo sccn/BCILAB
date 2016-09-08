@@ -22,6 +22,8 @@ function io_save(fname, varargin)
 %                   -serialized : compress the data using hlp_serialize
 %                                 (when loading with io_load, the data will be automatically uncompressed,
 %                                 not so when using load directly)
+%                   -dataformat format : specify the data format to use for saving; the default is
+%                                        'v7.3', but for interop with some software, 'v7' is needed
 %
 % Example:
 %   % save the variables a,b, and c to a .mat file
@@ -49,13 +51,14 @@ if length(fname)<4 || ~any(fname(end-3:end-1)=='.')
     fname = [fname '.mat']; end
 
 % parse arguments...
-saveargs = {'-v7.3'}; % args to save()
+saveargs = {};        % default args to save()
 variables = {};       % names of variables to save (subset of saveargs)
 makedirs = false;     % whether to create directories
 retryinput = false;   % whether to ask the user for a retry
 prunehandles = false; % whether to prune unreferenced workspace variables from function handles in arguments
 serialized = false;   % whether to write variables as serialized
 nooverwrite = false;  % whether to disable overwriting existing files
+dataformat = 'v7.3';  % data format to use
 fileattriblist = [];  % the list of attributes for files & directories
 i = 1;
 while i <= length(varargin)
@@ -76,17 +79,28 @@ while i <= length(varargin)
                 serialized = true;
             case '-nooverwrite'
                 nooverwrite = true;
+            case '-dataformat'
+                nextarg = varargin{i+1};
+                i = i+1;
+                if ~strcmp(nextarg, 'default')
+                    if nextarg(1) ~= 'v'
+                        disp('WARNING: io_save dataformat is expected to begin with a "v" character.'); end
+                    dataformat = nextarg;
+                end
             otherwise
                 % regular argument; append it
                 saveargs{end+1} = arg;
         end
-    else
+    elseif ~isempty(arg)
         % append the argument
         saveargs{end+1} = arg;
         variables{end+1} = arg;
     end
     i = i+1; % go to next argument
 end
+
+% prepend save format option
+saveargs = [{['-' dataformat]} saveargs];
 
 % move variables into a local workspace for optional processing
 if isempty(variables)

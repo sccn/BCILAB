@@ -1,6 +1,6 @@
-function fname = io_saveset(signal,fname,overwrite)
+function fname = io_saveset(signal,fname,overwrite,legacyfmt)
 % Save a data set to disk.
-% Filename = io_loadset(Signal,Filename,Overwrite)
+% Filename = io_loadset(Signal,Filename,Overwrite,LegacyFormat)
 %
 %
 % In:
@@ -10,6 +10,8 @@ function fname = io_saveset(signal,fname,overwrite)
 %
 %   Overwrite : whether to overwrite the data if it already exists (default: false).
 %
+%   LegacyFormat : use the MATLAB legacy format (v7)
+%
 % Out:
 %   Filename : the file name used to save the data
 %
@@ -18,8 +20,10 @@ function fname = io_saveset(signal,fname,overwrite)
 
 EEG = signal;
 
-if nargin < 3
+if nargin < 3 || isempty(overwrite)
     overwrite = false; end
+if nargin < 4 || isempty(legacyfmt)
+    legacyfmt = false; end
 if ~ischar(fname)
     error('The given file name must be a string.'); end
 if size(fname,1) ~= 1
@@ -30,5 +34,6 @@ if length(fname)<4 || (~strcmp(fname(end-3:end),'.set') && ~strcmp(fname(end-3:e
     fname = [fname '.set']; end
 
 fprintf('Saving set to %s...',fname);
-io_save(fname,'-mat','-makedirs',quickif(~overwrite,'-nooverwrite',''),quickif(strcmp(fname(end-3:end),'.set'),'EEG','signal'));
+io_save(fname, '-mat', '-makedirs', quickif(~overwrite,'-nooverwrite',''),'-dataformat', ...
+    quickif(legacyfmt,'v7','default'), quickif(strcmp(fname(end-3:end),'.set'), 'EEG', 'signal'));
 fprintf('done.\n');
