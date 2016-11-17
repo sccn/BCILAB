@@ -57,7 +57,8 @@ end
 % jclass = java.lang.Class.forName(jclassname);
 % MatLab generates an error. For the Class.forName method to work, MatLab
 % requires class loader to be specified explicitly.
-jclass = java.lang.Class.forName(jclassname, true, java.lang.Thread.currentThread().getContextClassLoader());
+thread = java.lang.Thread.currentThread();
+jclass = java.lang.Class.forName(jclassname, true, thread.getContextClassLoader());
 
 function jclassname = javaarrayclass(mtype, ndims)
 % Returns the type qualifier for a multidimensional Java array.

@@ -490,6 +490,7 @@ warning off MATLAB:log:logOfZero
 warning off MATLAB:divideByZero %#ok<RMWRN>
 warning off MATLAB:RandStream:ReadingInactiveLegacyGeneratorState % for GMMs....
 warning off MATLAB:catenate:DimensionMismatch % for hlp_summarize -- TODO: fix once feature removed
+warning off MATLAB:nargchk:deprecated  % as of recently -- TODO: fix once feature removed
 
 if isequal(opts.worker,false) || isequal(opts.worker,0)
     % --- regular mode ---   
@@ -529,7 +530,7 @@ if isequal(opts.worker,false) || isequal(opts.worker,0)
 
     % set up logfile
     if ~exist([hlp_homedir filesep '.bcilab'],'dir')
-        if ~mkdir(hlp_homedir,'.bcilab');
+        if ~mkdir(hlp_homedir,'.bcilab')
             disp('Cannot create directory .bcilab in your home folder.'); end
     end
     tracking.logfile = env_translatepath(sprintf('home:/.bcilab/logs/bcilab_%s-%s.log',hlp_hostname,strrep(datestr(now),':','.')));

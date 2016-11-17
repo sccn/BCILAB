@@ -34,6 +34,7 @@ if isempty(is_compiled)
     is_compiled = exist('upfirdn2mex','file'); end
 
 % check inputs / outputs
+warning off MATLAB:nargchk:deprecated 
 error(nargchk(4,5,nargin,'struct'));
 error(nargoutchk(0,2,nargout,'struct'));
 v = size(X,2);

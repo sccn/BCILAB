@@ -32,6 +32,7 @@ function dirlist = regexpdir(rootdir, expstr, recursive)
 %==========================================================================
 
 % Check input arguments
+warning off MATLAB:nargchk:deprecated 
 error(nargchk(2, 3, nargin));
 if ~exist('recursive','var'); recursive = true; end
 

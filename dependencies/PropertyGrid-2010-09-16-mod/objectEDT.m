@@ -3,6 +3,7 @@ function result = objectEDT(constructor, varargin)
 
 % Copyright 2010 Levente Hunyadi
 
+warning off MATLAB:nargchk:deprecated  % as of recently -- TODO: fix once feature removed
 error(nargchk(1, 256, nargin));
 validateattributes(constructor, {'char'}, {'nonempty','row'});
 

@@ -56,7 +56,7 @@ if isempty(parent) %#ok<NODEF>
     if isempty(parent)
         % create new root menu, if no parent
         from_left = 100;
-        from_top = 150;
+        from_top = 350;
         width = 500;
         height = 1;
         % determine position on primary monitor
