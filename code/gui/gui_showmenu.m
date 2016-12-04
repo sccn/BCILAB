@@ -55,8 +55,8 @@ if isempty(parent) %#ok<NODEF>
     end
     if isempty(parent)
         % create new root menu, if no parent
-        from_left = 100;
-        from_top = 350;
+        from_left = 70;
+        from_bottom = 600;
         width = 500;
         height = 1;
         % determine position on primary monitor
@@ -64,7 +64,7 @@ if isempty(parent) %#ok<NODEF>
         ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
         gd = ge.getDefaultScreenDevice();
         scrheight = gd.getDisplayMode().getHeight();
-        pos = [from_left, scrheight-from_top, width, height];        
+        pos = [from_left, from_bottom, width, height];        
         % create figure
         release = version; try release = release(find(release=='(')+1:find(release==')')-1); catch end
         figtitle = sprintf('BCILAB %s (%s on %s)',env_version,release,hlp_hostname);
