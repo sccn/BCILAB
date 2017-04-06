@@ -366,6 +366,8 @@ if opts.HandleClockSynchronization
             try
                 clock_times = temp(k).clock_times;
                 clock_values = temp(k).clock_values;
+                if isempty(clock_times)
+                    error('No clock offset values present.'); end
             catch
                 disp(['No clock offsets were available for stream "' streams{k}.info.name '"']);
                 continue;
