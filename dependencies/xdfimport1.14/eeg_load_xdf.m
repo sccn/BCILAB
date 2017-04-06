@@ -12,6 +12,8 @@ function raw = eeg_load_xdf(filename, varargin)
 %                'streamtype' : import only the first stream with the given content type
 %                                (default: 'EEG')
 %
+%                'streamindex' : import the stream with the given 1-based index (default: 0)
+%
 %                'effective_rate' : if true, use the effective sampling rate instead of the nominal
 %                                   sampling rate (as declared by the device) (default: false)
 %
@@ -25,14 +27,18 @@ function raw = eeg_load_xdf(filename, varargin)
 %                           2012-05-07
 
 % parse arguments
-args = hlp_varargin2struct(varargin,'streamname','','streamtype','EEG','effective_rate',false, ...
+args = hlp_varargin2struct(varargin,'streamname','', ...
+    'streamtype','EEG', 'streamindex',0, ...
+    'effective_rate',false, ...
     'exclude_markerstreams',{});
 
 % first load the .xdf file
 streams = load_xdf(filename);
 
 % then pick the first stream that matches the criteria
-if ~isempty(args.streamname)
+if args.streamindex >= 1
+    stream = streams{args.streamindex};
+elseif ~isempty(args.streamname)
     % select by name
     for s=1:length(streams)
         if isfield(streams{s}.info,'name') && strcmp(streams{s}.info.name,args.streamname)
