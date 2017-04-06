@@ -94,6 +94,7 @@ opts = arg_define(0:2,varargin, ...
     arg({'highpass_old','HighpassOldData'},true,[],'Ensure old data is high-pass filtered. This applies if the old data hadn''t been filtered yet; relies on filters storing their actions in the .etc field.'), ...
     arg({'scale_by','ScaleBy'},'allnew',{'allnew','allold','wndnew','wndold'},'Data to use for scaling. Data can be scaled based on only what is in the current window, or based on the entire time series, and based on the new as well as old data.'), ...
     arg({'show_removed_portions','ShowRemovedPortions'},true,[],'Always indicate removed data portions. Applies particularly if only one set is passed in.'), ...
+    arg({'show_relative_time','ShowRelativeTime'},true,[],'Show times relative to the beginning of the data.'), ...
     arg({'show_setname','ShowSetname'},true,[],'Show dataset name in title.'));
 
 % reformat arguments a bit
@@ -166,10 +167,20 @@ have_eventlegend = false;
 % create figure & slider
 hFig = figure('ResizeFcn',@on_window_resized,'KeyPressFcn',@(varargin)on_key(varargin{2}.Key)); hold; axis();
 hAxis = gca;
-hSlider = uicontrol('style','slider','KeyPressFcn',@(varargin)on_key(varargin{2}.Key)); on_resize();
-jSlider = handle(findjobj(hSlider),'CallbackProperties');
-jSlider.AdjustmentValueChangedCallback = @on_update;
-
+hSlider = uicontrol('style','slider','KeyPressFcn',@(varargin)on_key(varargin{2}.Key),'Callback',@on_update); on_resize();
+try
+    % original code
+    jSlider = handle(findjobj(hSlider),'CallbackProperties');
+    jSlider.AdjustmentValueChangedCallback = @on_update;
+catch
+    % newer code after MATLAB changes broke the old way
+    try    % R2013b and older
+       addlistener(hSlider,'ActionEvent',@on_update);
+    catch  % R2014a and newer
+       addlistener(hSlider,'ContinuousValueChange',@on_update);
+    end    
+end
+    
 % do the initial update
 on_update();
 
@@ -226,7 +237,12 @@ on_update();
         end
         
         if ~isempty(wndrange)
-            tit = [tit sprintf('[%.1f - %.1f]',new.xmin + (wndrange(1)-1)/new.srate, new.xmin + (wndrange(end)-1)/new.srate)];        
+            if opts.show_relative_time
+                xmin = 0;
+            else
+                xmin = new.xmin;
+            end
+            tit = [tit sprintf('[%.1f - %.1f]',xmin + (wndrange(1)-1)/new.srate, xmin + (wndrange(end)-1)/new.srate)];        
         end
         
         xrange = xl(1):(xl(2)-xl(1))/(length(wndindices)-1):xl(2);
@@ -296,13 +312,18 @@ on_update();
 
     function on_resize(varargin)
         % adapt/set the slider's size
-        wPos = get(hFig,'Position');
-        if ~isempty(hSlider)
-            try
-                set(hSlider,'Position',[20,20,wPos(3)-40,20]);
-            catch
+        try
+            wPos = get(hFig,'Position');
+            if ~isempty(hSlider)
+                try
+                    set(hSlider,'Position',[20,20,wPos(3)-40,20]);
+                catch
+                end
+                on_update;
             end
-            on_update;
+        catch e
+            % happens at launch in newer MATLABs due to changed event order
+            disp('on_resize failed.');
         end
     end
 
