@@ -126,6 +126,7 @@ arg_define(varargin, ...
     arg({'designrule','DesignRule'}, 'Frequency Sampling', {'Parks-McClellan','Window Method','Frequency Sampling'}, 'Filter design rule. Parks-McClellan minimizes the maximum error, the Window Method minimizes the square error, and Frequency Sampling constructs the filter via the Fourier transform without tuning (the latter requires no sigproc toolbox).'), ...
     arg({'chunk_length','ChunkLength'},50000,uint32([1 1000 100000 1000000000]), 'Maximum chunk length. Process the data in chunks of no larger than this (to avoid memory limitations).','guru',true), ...
     arg({'normalize_amplitude','NormalizeAmplitude'},false,[], 'Normalize amplitude. Normalizes the amplitude such that the maximum gain is as desired. This helps with the occasional erratic filter design result.','guru',true), ...
+    arg({'use_fft','UseFFT'},true,[], 'Use FFT. Disabling this will make the filter much slower for long data, but it will handle data that contains NaNs.','guru',true), ...
     arg_nogui({'state','State'}));
 
 if isempty(state)
@@ -270,7 +271,11 @@ for f = utl_timeseries_fields(signal)
         numsplits = ceil(S/chunk_length);
         for i=0:numsplits-1
             range = 1+floor(i*S/numsplits) : min(S,floor((i+1)*S/numsplits));
-            [X(range,:),state.(f{1})] = filter_fast(b,1,X(range,:),state.(f{1}),1);
+            if use_fft
+                [X(range,:),state.(f{1})] = filter_fast(b,1,X(range,:),state.(f{1}),1);
+            else
+                [X(range,:),state.(f{1})] = filter(b,1,X(range,:),state.(f{1}),1);
+            end
         end
         
         % cut off the data segment that we previously prepended
