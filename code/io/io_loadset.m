@@ -137,7 +137,7 @@ allopts = arg_define([0 1],varargin,...
     arg_norep('blockread',unassigned), arg_norep('triggerfile',unassigned), arg_norep('range_trials',unassigned), arg_norep('range_typeeeg',unassigned), arg_norep('range_response',unassigned), ...
     arg_norep('format',unassigned), arg_norep('trials',unassigned), arg_norep('mergeposition',unassigned), arg_norep('concatruns',unassigned), arg_norep('maxevents',unassigned), ...
     arg_norep('samplerate',unassigned), arg_norep('blockrange',unassigned),arg_norep('ref',unassigned),arg_norep('rmeventchan',unassigned), arg_norep('exclude_markerstreams',unassigned),...
-    arg_norep('streamname',unassigned), arg_norep('streamtype',unassigned), arg_norep('effective_rate',unassigned), ...
+    arg_norep('streamname',unassigned), arg_norep('streamtype',unassigned), arg_norep('effective_rate',unassigned), arg_norep('eventchans',unassigned), arg_norep('delchan',unassigned), ...
     arg_deprecated('nofixups',false,[],'This parameter has been retired.'));
 
 opts = rmfield(allopts,{'filename','types','casttodouble','setname','subject','group','condition','session','comments','markerchannel','subsampled','submontage','only_localized_channels','infer_chanlocs','montage_disambiguation','nofixups'});
@@ -290,8 +290,16 @@ try
         case {'.bdf','.edf'}
             % BioSEMI BDF/EDF
             try
-                args = hlp_struct2varargin(opts,'suppress',{'channels','samplerange','timerange'}, 'rewrite',{'timerange','range'});
-                res = pop_readbdf(filename,args{:});
+                bdfopts = opts;
+                if ~isfield(bdfopts,'blockrange')
+                    bdfopts.blockrange = []; end
+                if ~isfield(bdfopts,'eventchans')
+                    bdfopts.eventchans = []; end
+                if ~isfield(bdfopts,'ref')
+                    bdfopts.ref = []; end
+                if ~isfield(bdfopts,'delchan')
+                    bdfopts.delchan = 'on'; end
+                res = pop_readbdf(filename,bdfopts.blockrange, bdfopts.eventchans, bdfopts.ref, bdfopts.delchan);
                 opts.timerange = [];
             catch
                 % backup variant
