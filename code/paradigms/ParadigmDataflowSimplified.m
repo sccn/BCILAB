@@ -667,7 +667,16 @@ classdef ParadigmDataflowSimplified < ParadigmBaseSimplified
             
             % visualize the model, either using one figure or multiple in case of voting
             if ~isfield(args.model,'voting')
-                p = figure();
+                if iscell(varargin{2})
+                    parent = arg_extract(varargin{2},'Parent',1);
+                    if isa(parent,'matlab.ui.Figure')
+                        p = parent;
+                    else
+                        p = figure();
+                    end
+                else
+                    p = figure();
+                end
                 self.visualize_model(p,args.model.featuremodel,args.model.predictivemodel,args.plotopts{:});
             else
                 numcl = length(args.model.classes);
