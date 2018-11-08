@@ -53,7 +53,12 @@ signal = [];
 if isfield(data,{'head','parts'})
     data = exp_eval(data); end
 if isfield(data,'chanlocs')
-    locs = data.chanlocs;
+    locs = data.chanlocs;    
+    % missing chanlocs: make some up
+    if isempty(fieldnames(locs)) && ~isempty(data.data)        
+        [locs(1:data.nbchan).labels] = celldeal(cellfun(@(x){['Ch' num2str(x)]},num2cell(1:data.nbchan))); 
+        locs = locs(:);
+    end    
     signal = data;
     if ~isfield(data.chaninfo,'labelscheme')
         data.chaninfo.labelscheme = '10-20'; end
@@ -63,7 +68,7 @@ end
 
 % channel labels given as a cell array
 if iscellstr(locs)
-    locs = struct('labels',locs); end;
+    locs = struct('labels',locs); end
 if ischar(locs)
     locs = readlocs(env_translatepath(locs)); end
 if ~isstruct(locs)
