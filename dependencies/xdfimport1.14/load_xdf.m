@@ -326,12 +326,19 @@ while 1
         case 1 % read [FileHeader] chunk
             fileheader = parse_xml_struct(fread(f,len-2,'*char')');
         case 4 % read [ClockOffset] chunk
-            % read [StreamId]
-            id = idmap(fread(f,1,'uint32'));
-            % read [CollectionTime]
-            temp(id).clock_times(end+1) = fread(f,1,'double');
-            % read [OffsetValue]
-            temp(id).clock_values(end+1) = fread(f,1,'double');
+            try
+                % read [StreamId]
+                id = idmap(fread(f,1,'uint32'));
+                % read [CollectionTime]
+                temp(id).clock_times(end+1) = fread(f,1,'double');
+                % read [OffsetValue]
+                temp(id).clock_values(end+1) = fread(f,1,'double');
+            catch e
+                % an error occurred (perhaps a chopped-off file): emit a warning
+                % and scan forward to the next recognized chunk
+                fprintf('  got error "%s" (%s), scanning forward to next boundary chunk.\n',e.identifier,e.message);
+                scan_forward(f);
+            end
         case 5 % read [Boundary] chunk
             fread(f,len-2,'*uint8');
         otherwise
