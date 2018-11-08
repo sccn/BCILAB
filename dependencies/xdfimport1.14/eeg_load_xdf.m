@@ -1,3 +1,4 @@
+
 function raw = eeg_load_xdf(filename, varargin)
 % Import an XDF file from disk
 % EEG = eeg_load_xdf(Filename, Options...)
@@ -20,6 +21,9 @@ function raw = eeg_load_xdf(filename, varargin)
 %                'exclude_markerstreams' : can be a cell array of stream names to exclude from
 %                                          use as marker streams (default: {})
 %
+%                'with_time_sync' : use time synchronization (only needed if data was 
+%                                   collected across multiple computers) (default: true)
+%
 % Out:
 %   EEG : imported EEGLAB data set
 %
@@ -30,10 +34,11 @@ function raw = eeg_load_xdf(filename, varargin)
 args = hlp_varargin2struct(varargin,'streamname','', ...
     'streamtype','EEG', 'streamindex',0, ...
     'effective_rate',false, ...
+    'with_time_sync',true, ...
     'exclude_markerstreams',{});
 
 % first load the .xdf file
-streams = load_xdf(filename);
+streams = load_xdf(filename,'HandleClockSynchronization',args.with_time_sync);
 
 % then pick the first stream that matches the criteria
 if args.streamindex >= 1
@@ -148,6 +153,13 @@ for s=1:length(streams)
         end
     end
 end
+
+% sort events in ascending order
+if ~isempty(event)
+    [~,order] = sort([event.latency]);
+    event = event(order);
+end
+
 raw.event = event;
 
 
