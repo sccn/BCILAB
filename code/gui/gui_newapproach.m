@@ -74,7 +74,7 @@ idx = gui_select_bracketed(hObject);
 % store the current approach in handles
 handles.approach = handles.indexable_approaches{idx};
 % update the description
-set(handles.edit1,'String',handles.approach.description);
+set(handles.edit1,'String',cellstr(handles.approach.description));
 % write back
 guidata(hObject,handles);
 
