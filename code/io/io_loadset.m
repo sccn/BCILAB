@@ -476,7 +476,7 @@ if ~isempty(opts.samplerange)
     res = hlp_scope({'disable_expressions',true},@set_selinterval,res,opts.samplerange,'samples'); end
 if ~isempty(opts.timerange)
     res = hlp_scope({'disable_expressions',true},@set_selinterval,res,opts.timerange,'seconds'); end
-if ~isempty(allopts.subsampled)
+if ~isempty(allopts.subsampled) && allopts.subsampled ~= res.srate
     res = hlp_scope({'disable_expressions',true},@flt_resample,res,allopts.subsampled);
     res.data = res.data(:,1+mod(((0:res.pnts-1) + round(res.etc.filter_delay*res.srate)),res.pnts-1));
 end
