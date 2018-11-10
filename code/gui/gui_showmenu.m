@@ -29,7 +29,7 @@ within_eeglab = length(folders) >= 5 && strcmp(folders{end-3},'plugins') && ~ise
 
 % highlight the menu if already there
 f = findobj('Tag','bcilab_menu');
-if ~isempty(f) && ~forcenew
+if ~isempty(f)
     for k=1:length(f)            
         try        
             close(get(f(k),'Parent')); 
@@ -288,6 +288,8 @@ tw = findobj('tag','bcilab_toolwnd');
 cm = findobj('tag','bcilab_cm_read');
 tpos = get(tw,'Position');
 ppos = get(0,'PointerLocation');
+if iscell(tpos) && length(tpos) > 1
+    error('There is more than one BCILAB menu open. Please close all but one.'); end
 set(cm,'Position',ppos - tpos(1:2), 'Visible', 'on');
 set(cm,'Position',ppos - tpos(1:2), 'Visible', 'on');
 
@@ -298,6 +300,8 @@ tw = findobj('tag','bcilab_toolwnd');
 cm = findobj('tag','bcilab_cm_write');
 tpos = get(tw,'Position');
 ppos = get(0,'PointerLocation');
+if iscell(tpos) && length(tpos) > 1
+    error('There is more than one BCILAB menu open. Please close all but one.'); end
 set(cm,'Position',ppos - tpos(1:2), 'Visible', 'on');
 set(cm,'Position',ppos - tpos(1:2), 'Visible', 'on');
 
