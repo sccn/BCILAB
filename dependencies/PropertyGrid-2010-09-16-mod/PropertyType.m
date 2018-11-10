@@ -317,7 +317,11 @@ classdef PropertyType
                             value = strsplit2(javavalue);
                         case 'logical'
                             if ~isempty(self.Domain)
-                                value = strsetmatch(cell(javavalue), self.Domain);
+                                if isempty(javavalue)
+                                    value = false(size(self.Domain));
+                                else
+                                    value = strsetmatch(cell(javavalue), self.Domain);
+                                end
                             else
                                 value = self.ConvertFromString(javavalue);
                                 stringconversion = true;

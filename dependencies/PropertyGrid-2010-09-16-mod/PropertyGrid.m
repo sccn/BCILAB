@@ -103,8 +103,19 @@ classdef PropertyGrid < UIControl
             set(container, 'Units', 'normalized');            
             % register a callback on the table (for F1,F2)
             set(self.Table, 'KeyPressedCallback', @PropertyGrid.OnKeyPressed);
+            if hlp_matlab_version >= 804 && ismac
+                set(self.Table, 'MouseReleasedCallback', @PropertyGrid.MousePressedCallback); end
         end
 
+        function s = RepaintDirty(self)
+            % try to get the table to repaint itself...
+           set(self.Parent,'position',get(self.Parent,'Position')+1);
+           set(self.Parent,'position',get(self.Parent,'Position')-1);
+           try
+               self.Table.repaint();
+           catch
+           end
+        end
         
         % --- SET PROPERTIES ---
 
@@ -166,8 +177,7 @@ classdef PropertyGrid < UIControl
             
             % annoying hack to "repaint" the PropertyGrid for some OS'
             if isnumeric(self.Parent) && ~mod(self.Parent,1)
-                set(self.Parent,'position',get(self.Parent,'Position')+1);
-                set(self.Parent,'position',get(self.Parent,'Position')-1);
+                self.RepaintDirty();
             end
         end
         
@@ -320,6 +330,56 @@ classdef PropertyGrid < UIControl
             end
         end
         
+        % helper: bring up a custom combo-box / checkbox list editor
+        % this is a workaround for a broken component on macOS since 2014b
+        function EditComboBox(self, name)
+            field = self.Fields.FindByName(name);
+            if isempty(field)
+                return; end
+            pt = field.PropertyData.Type;
+            if isempty(pt.Domain) || ~any(strcmp(pt.PrimitiveType,{'char','logical'}))
+                return; end
+            self.Table.editingStopped(javax.swing.event.ChangeEvent(self.Table));  % commit value to edited cell        
+            fig = figure( ...
+                'DockControls', 'off', ...
+                'MenuBar', 'none', ...
+                'Name', sprintf('Edit option setting "%s"', name), ...
+                'NumberTitle', 'off', ...
+                'Toolbar', 'none');
+            val = field.PropertyData.Value;
+            dom = pt.Domain(:);
+            arr = [dom dom];
+            if strcmp(pt.PrimitiveType,'char')
+                mask = strcmp(val,dom);
+                for k=1:length(dom)
+                    arr{k,2} = mask(k); end
+                column_label = 'Enabled (select only one)';
+            elseif strcmp(pt.PrimitiveType,'logical')   
+                for k=1:length(dom)
+                    arr{k,2} = val(k); end
+                column_label = 'Enabled (multiple selections possible)';
+            else
+                disp('This statement should never be reached.');
+                return;
+            end
+            editor = createTable(fig, {'Option', column_label}, arr, false);
+            uiwait(fig);
+            data = cell(editor.getData);            
+            if strcmp(pt.PrimitiveType,'char')
+                mask = [data{:,2}];
+                if nnz(mask) ~= 1
+                    warning('exactly one option must be selected for parameter %s. Keeping previous setting.', field.PropertyData.DisplayName); 
+                    return;
+                end
+                newval = dom{mask};
+            elseif strcmp(pt.PrimitiveType,'logical')
+                newval = [data{:,2}];
+            end
+            field.Value = newval;
+            self.UpdateField(name);
+            self.RepaintDirty();
+        end
+        
         % helper: bring up the custom matrix editor for a field (in .notation)
         function EditMatrix(self, name)
             field = self.Fields.FindByName(name);
@@ -379,6 +439,21 @@ classdef PropertyGrid < UIControl
             end
         end
         
+        % mouse click handler; used to implement custom editor for combo
+        % boxes on macOS
+        function MousePressedCallback(obj, event)
+            name = PropertyGrid.GetSelectedProperty(obj);
+            if ~isempty(name)  % edit property value
+                self = PropertyGrid.FindPropertyGrid(obj, 'Table');
+                % require that the user clicks into the right-hand-side of
+                % the edit field
+                xpos = event.getX;
+                if xpos < self.Table.getColumnModel().getColumn(0).getWidth()
+                    return; end
+                self.EditComboBox(name);
+            end            
+        end        
+        
         % key press handler; used to implement F1 and F2...
         function OnKeyPressed(obj, event)
             key = char(event.getKeyText(event.getKeyCode()));
@@ -400,6 +475,13 @@ classdef PropertyGrid < UIControl
                     if ~isempty(name)  % edit property value
                         self = PropertyGrid.FindPropertyGrid(obj, 'Table');
                         self.EditMatrix(name);
+                    end
+                case 'F3'
+                    % test of custom editor replacement for comboboxes
+                    name = PropertyGrid.GetSelectedProperty(obj);
+                    if ~isempty(name)  % edit property value
+                        self = PropertyGrid.FindPropertyGrid(obj, 'Table');
+                        self.EditComboBox(name);
                     end
             end
         end

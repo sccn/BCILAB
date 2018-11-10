@@ -71,8 +71,6 @@ classdef JidePropertyGridField < handle
                             matlabtype = 'int64';
                         case 'logical'  % add a logical property
                             matlabtype = 'logical';
-                            % if its there, why not use it! ...
-                            field.setEditorContext(com.jidesoft.grid.BooleanCheckBoxCellEditor.CONTEXT);
                         case {'densecomplexdouble','sparsecomplexdouble','densecomplexsingle','sparsecomplexsingle'}
                             matlabtype = [];
                             % string-typed...
@@ -90,9 +88,15 @@ classdef JidePropertyGridField < handle
                         if ~isempty(data.Type.Domain)
                             % add domain support!!
                             if iscell(data.Type.Domain)  % explicit enumeration of domain elements
-                                self.AddComboBoxEditor(field, javatype, data.Type.Domain);
+                                % TODO: only on mac
+                                if ~(hlp_matlab_version >= 804 && ismac)
+                                    self.AddComboBoxEditor(field, javatype, data.Type.Domain); end
                             elseif isnumeric(data.Type.Domain) && isinteger(data.Type)  % domain expressed as interval
                                 self.AddSpinnerEditor(field, javatype, min(data.Type.Domain), max(data.Type.Domain));
+                            end
+                        else
+                            if strcmp(data.Type.Shape, 'scalar') && strcmp(data.Type.PrimitiveType, 'logical')
+                                self.AddCheckBoxEditor(field, javatype);
                             end
                         end
                     end
@@ -267,18 +271,21 @@ classdef JidePropertyGridField < handle
                         case 'row'
                             field.setType(javaclass('char',1));
                             if ~isempty(data.Type.Domain)
-                                self.AddComboBoxEditor(field, javaclass('char',1), javaStringArray(data.Type.Domain));
+                                if ~(hlp_matlab_version >= 804 && ismac)                                
+                                    self.AddComboBoxEditor(field, javaclass('char',1), javaStringArray(data.Type.Domain)); end
                             end
                         otherwise
                             field.setType(javaclass('char',1));  % edit as string and convert with eval
                     end
                 case 'cellstr'
                     field.setType(javaclass('char',1));
-                    field.setEditorContext(com.jidesoft.grid.MultilineStringCellEditor.CONTEXT);
+                    % TODO only on mac
+                    % field.setEditorContext(com.jidesoft.grid.MultilineStringCellEditor.CONTEXT);
                 case 'logical'
                     if ~isempty(data.Type.Domain)
                         field.setType(javaclass('cellstr',1));  % java.lang.String array
-                        self.AddCheckBoxListEditor(field, data.Type.Domain);
+                        if ~(hlp_matlab_version >= 804 && ismac)                        
+                            self.AddCheckBoxListEditor(field, data.Type.Domain); end
                     else
                         field.setType(javaclass('char',1));  % edit as string and convert with eval
                     end
@@ -388,6 +395,23 @@ classdef JidePropertyGridField < handle
             spinner = javax.swing.SpinnerNumberModel(int32(lower), int32(lower), int32(upper), int32(1));
             editor = com.jidesoft.grid.SpinnerCellEditor(spinner);
             self.ApplyContext(field, javatype, editor, 'spinner');
+        end
+        
+
+        function AddCheckBoxEditor(self, field, javatype)
+        % Registers a new spinner context.
+        % The spinner has a limited range and a fixed step.
+        %
+        % field:
+        %    a com.jidesoft.grid.Property instance
+        % javatype:
+        %    a java.lang.Class instance
+        % lower:
+        %    an integer representing the upper lower of the interval
+        % upper:
+        %    an integer representing the upper bound of the interval
+            editor = com.jidesoft.grid.BooleanCheckBoxCellEditor();
+            self.ApplyContext(field, javatype, editor, 'checkbox');
         end
         
         
