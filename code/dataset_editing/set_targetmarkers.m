@@ -186,7 +186,7 @@ if ~isempty(signal.event)
                     candidates(any(boundmask(bsxfun(@plus,eporange',latencies)))) = []; end
             end
         end
-    else
+    elseif ~onl_isonline
         disp('WARNING: the data set did not contain matching target markers.');
     end
     
