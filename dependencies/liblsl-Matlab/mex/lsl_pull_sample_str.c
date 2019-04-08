@@ -62,7 +62,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
         /* move data over into the results */
         for (k=0;k<numchannels;k++) {
             mxSetCell(plhs[0],k,mxCreateString(buffer[k]));
-            free(buffer[k]);
+            /* free(buffer[k]); -- leak memory so we don't crash... */
         }
         if (nlhs == 2) {
             /* also assign the time stamp */
