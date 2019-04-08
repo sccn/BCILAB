@@ -87,7 +87,7 @@ if ~isempty(predict_at)
         match.parts{argpos} = 'at_targets';
         % insert set_targetmarkers stage
         idx = find(strcmp(match.parts,'signal'))+1;
-        match.parts{idx} = set_targetmarkers('signal',match.parts{idx},'eventmap',predict_at,'epoch_bounds',[0 0],'eventfield','type','prune_nontarget',false,'avoid_boundaries',false,'arg_direct',true);
+        match.parts{idx} = set_targetmarkers('signal',match.parts{idx},'eventmap',predict_at,'epoch_bounds',[0 0],'eventfield','type','prune_nontarget',false,'avoid_boundaries',false,'clear_existing_targets_on_match',false,'arg_direct',true);
         % write back
         predictor.tracking.filter_graph{c} = subsasgn(predictor.tracking.filter_graph{c},pos,match);
     end
