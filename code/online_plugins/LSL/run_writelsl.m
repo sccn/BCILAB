@@ -112,7 +112,7 @@ if isempty(lib)
     lib = lsl_loadlib(env_translatepath('dependencies:/liblsl-Matlab/bin')); end
 
 % describe the stream
-disp('Creating a new streaminfo...');
+disp(['Creating output stream info with stream_id=' uid '...']);
 info = lsl_streaminfo(lib,opts.out_stream,'MentalState',length(opts.channel_names),opts.update_freq,'cf_float32',uid);
 % ... including some meta-data
 desc = info.desc();
@@ -128,7 +128,7 @@ outlet = lsl_outlet(info);
 
 % start background writer job
 onl_write_background( ...
-    'ResultWriter',@(y)send_samples(outlet,y),...
+    'ResultWriter',@(y)send_samples(outlet,opts.verbose,y),...
     'MatlabStream',opts.in_stream, ...
     'Model',opts.pred_model, ...
     'OutputFormat',opts.out_form, ...
@@ -142,7 +142,9 @@ onl_write_background( ...
 disp('Now writing...');
 
 
-function send_samples(outlet,y)
+function send_samples(outlet,verbose,y)
 if ~isempty(y)
-    outlet.push_chunk(y'); end
-
+    if verbose
+        fprintf("sending %s\n",hlp_tostring(y)); end
+    outlet.push_chunk(y'); 
+end
